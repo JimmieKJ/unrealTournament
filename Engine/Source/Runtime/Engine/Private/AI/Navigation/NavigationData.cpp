@@ -115,11 +115,6 @@ ANavigationData::ANavigationData(const FObjectInitializer& ObjectInitializer)
 	ObservedPathsTickInterval = 0.5;
 }
 
-ANavigationData::~ANavigationData()
-{
-	CleanUp();
-}
-
 uint16 ANavigationData::GetNextUniqueID()
 {
 	check(IsInGameThread());
@@ -345,7 +340,7 @@ bool ANavigationData::DoesSupportAgent(const FNavAgentProperties& AgentProps) co
 	return NavDataConfig.IsEquivalent(AgentProps);
 }
 
-void ANavigationData::Destroyed()
+void ANavigationData::BeginDestroy()
 {
 	UWorld* WorldOuter = GetWorld();
 
@@ -354,10 +349,10 @@ void ANavigationData::Destroyed()
 	{
 		WorldOuter->GetNavigationSystem()->UnregisterNavData(this);
 	}
-	
+
 	CleanUp();
 
-	Super::Destroyed();
+	Super::BeginDestroy();
 }
 
 void ANavigationData::CleanUp()

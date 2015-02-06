@@ -225,8 +225,8 @@ void FBrushDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 			.ButtonContent()
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("BrushDetails", "PolygonsMenu", "Polygons").ToString())
-				.ToolTipText(NSLOCTEXT("BrushDetails", "PolygonsMenu_ToolTip", "Polygon options").ToString())
+				.Text(NSLOCTEXT("BrushDetails", "PolygonsMenu", "Polygons"))
+				.ToolTipText(NSLOCTEXT("BrushDetails", "PolygonsMenu_ToolTip", "Polygon options"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 			]
 			.MenuContent()
@@ -244,8 +244,8 @@ void FBrushDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 			.ButtonContent()
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("BrushDetails", "SolidityMenu", "Solidity").ToString())
-				.ToolTipText(NSLOCTEXT("BrushDetails", "SolidityMenu_ToolTip", "Solidity options").ToString())
+				.Text(NSLOCTEXT("BrushDetails", "SolidityMenu", "Solidity"))
+				.ToolTipText(NSLOCTEXT("BrushDetails", "SolidityMenu_ToolTip", "Solidity options"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 			]
 			.MenuContent()
@@ -263,8 +263,8 @@ void FBrushDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 			.ButtonContent()
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("BrushDetails", "OrderMenu", "Order").ToString())
-				.ToolTipText(NSLOCTEXT("BrushDetails", "OrderMenu_ToolTip", "Order options").ToString())
+				.Text(NSLOCTEXT("BrushDetails", "OrderMenu", "Order"))
+				.ToolTipText(NSLOCTEXT("BrushDetails", "OrderMenu_ToolTip", "Order options"))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 			]
 			.MenuContent()
@@ -282,12 +282,12 @@ void FBrushDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 		+SHorizontalBox::Slot()
 		[
 			SNew( SButton )
-			.ToolTipText( LOCTEXT("AlignBrushVerts_Tooltip", "Aligns each vertex of the brush to the grid.").ToString() )
+			.ToolTipText( LOCTEXT("AlignBrushVerts_Tooltip", "Aligns each vertex of the brush to the grid.") )
 			.OnClicked( FOnClicked::CreateStatic( &Local::ExecuteExecCommand, FString( TEXT("ACTOR ALIGN VERTS") ) ) )
 			.HAlign( HAlign_Center )
 			[
 				SNew( STextBlock )
-				.Text( LOCTEXT("AlignBrushVerts", "Align Brush Vertices").ToString() )
+				.Text( LOCTEXT("AlignBrushVerts", "Align Brush Vertices") )
 				.Font( IDetailLayoutBuilder::GetDetailFont() )
 			]
 		]
@@ -298,12 +298,12 @@ void FBrushDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 		BrushHorizontalBox->AddSlot()
 		[
 			SNew( SButton )
-			.ToolTipText( LOCTEXT("CreateStaticMeshActor_Tooltip", "Creates a static mesh from selected brushes and replaces the affected brushes in the scene with the new static mesh").ToString() )
+			.ToolTipText( LOCTEXT("CreateStaticMeshActor_Tooltip", "Creates a static mesh from selected brushes and replaces the affected brushes in the scene with the new static mesh") )
 			.OnClicked( this, &FBrushDetails::OnCreateStaticMesh )
 			.HAlign( HAlign_Center )
 			[
 				SNew( STextBlock )
-				.Text( LOCTEXT("CreateStaticMeshActor", "Create Static Mesh").ToString() )
+				.Text( LOCTEXT("CreateStaticMeshActor", "Create Static Mesh") )
 				.Font( IDetailLayoutBuilder::GetDetailFont() )
 			]
 		];

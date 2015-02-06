@@ -72,7 +72,7 @@ void SModeWidget::Construct(const FArguments& InArgs, const FText& InText, const
 				.AutoWidth()
 				[
 					SNew(STextBlock)
-					.Text(ModeText.ToString())
+					.Text(ModeText)
 					.Font(this, &SModeWidget::GetDesiredTitleFont)
 				]
 

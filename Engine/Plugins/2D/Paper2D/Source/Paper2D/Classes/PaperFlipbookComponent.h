@@ -174,6 +174,7 @@ public:
 
 	// USceneComponent interface
 	virtual bool HasAnySockets() const override;
+	virtual bool DoesSocketExist(FName InSocketName) const override;
 	virtual FTransform GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace = RTS_World) const override;
 	virtual void QuerySupportedSockets(TArray<FComponentSocketDescription>& OutSockets) const override;
 	// End of USceneComponent interface

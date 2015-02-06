@@ -72,7 +72,7 @@ public:
 	 *
 	 * @return The profile display name.
 	 */
-	FString GetProfileDisplayName() const;
+	FText GetProfileDisplayName() const;
 
 private:
 
@@ -131,7 +131,7 @@ TSharedRef< SWidget > SDeviceProfileSelectionRow::GenerateWidgetForColumn( const
 		// Draw a pin to show the state of the profile selection
 		ColumnWidget = SAssignNew( PinProfileButton, SButton )
 			.IsFocusable( false )
-			.ToolTipText(LOCTEXT("PinProfileColumnButtonToolTip", "Pin profile to device profile editor table").ToString())
+			.ToolTipText(LOCTEXT("PinProfileColumnButtonToolTip", "Pin profile to device profile editor table"))
 			.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
 			.ContentPadding( 0 ) 
 			.HAlign( HAlign_Center )
@@ -152,7 +152,7 @@ TSharedRef< SWidget > SDeviceProfileSelectionRow::GenerateWidgetForColumn( const
 	{
 		ColumnWidget = SAssignNew(ViewProfileButton, SButton)
 			.IsFocusable(false)
-			.ToolTipText(LOCTEXT("ViewSingleProfileColumnButtonToolTip", "View this profile in it's own editor").ToString())
+			.ToolTipText(LOCTEXT("ViewSingleProfileColumnButtonToolTip", "View this profile in it's own editor"))
 			.ButtonStyle(FEditorStyle::Get(), "NoBorder")
 			.ContentPadding(0)
 			.HAlign(HAlign_Center)
@@ -199,9 +199,9 @@ const FSlateBrush* SDeviceProfileSelectionRow::GetPinnedImage() const
 }
 
 
-FString SDeviceProfileSelectionRow::GetProfileDisplayName() const
+FText SDeviceProfileSelectionRow::GetProfileDisplayName() const
 {
-	return SelectedDeviceProfile.IsValid() ? SelectedDeviceProfile->GetName() : TEXT("InvalidProfile");
+	return SelectedDeviceProfile.IsValid() ? FText::FromString(SelectedDeviceProfile->GetName()) : LOCTEXT("InvalidProfile", "Invalid Profile");
 }
 
 
@@ -218,7 +218,7 @@ void SDeviceProfileSelectionPanel::Construct( const FArguments& InArgs, TWeakObj
 	OnDeviceProfileViewAlone = InArgs._OnDeviceProfileViewAlone;
 
 	// Hook up our regen function to keep track of device profile manager changes
-	DeviceProfileManager->OnManagerUpdated().AddRaw( this, &SDeviceProfileSelectionPanel::RegenerateProfileList );
+	RegenerateProfileListDelegateHandle = DeviceProfileManager->OnManagerUpdated().AddRaw( this, &SDeviceProfileSelectionPanel::RegenerateProfileList );
 
 	ChildSlot
 	[
@@ -267,7 +267,7 @@ SDeviceProfileSelectionPanel::~SDeviceProfileSelectionPanel()
 	if( DeviceProfileManager.IsValid() )
 	{
 		// Remove the delegate when we are destroyed
-		DeviceProfileManager->OnManagerUpdated().RemoveRaw( this, &SDeviceProfileSelectionPanel::RegenerateProfileList );
+		DeviceProfileManager->OnManagerUpdated().Remove( RegenerateProfileListDelegateHandle );
 	}
 }
 

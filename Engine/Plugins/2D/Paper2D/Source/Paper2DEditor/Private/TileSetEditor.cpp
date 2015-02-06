@@ -47,6 +47,7 @@ public:
 	FTileSetEditorViewportClient(UPaperTileSet* InTileSet)
 		: TileSetBeingEdited(InTileSet)
 		, bHasValidPaintRectangle(false)
+		, TileIndex(INDEX_NONE)
 	{
 	}
 
@@ -54,12 +55,17 @@ public:
 	virtual void Draw(FViewport* Viewport, FCanvas* Canvas) override;
 	// End of FViewportClient interface
 
+	// FEditorViewportClient interface
+	virtual FLinearColor GetBackgroundColor() const override;
+	// End of FEditorViewportClient interface
+
 public:
 	// Tile set
 	TWeakObjectPtr<UPaperTileSet> TileSetBeingEdited;
 
 	bool bHasValidPaintRectangle;
 	FViewportSelectionRectangle ValidPaintRectangle;
+	int32 TileIndex;
 };
 
 void FTileSetEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
@@ -122,6 +128,29 @@ void FTileSetEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		FCanvasBoxItem BoxItem(FVector2D(X, Y), FVector2D(W, H));
 		BoxItem.SetColor(Rect.Color);
 		Canvas->DrawItem(BoxItem);
+
+	}
+
+	if (TileIndex != INDEX_NONE)
+	{
+		const FString TileIndexString = FString::Printf(TEXT("Tile# %d"), TileIndex);
+
+		int32 XL;
+		int32 YL;
+		StringSize(GEngine->GetLargeFont(), XL, YL, *TileIndexString);
+		Canvas->DrawShadowedString(4, Viewport->GetSizeXY().Y - YL - 4, *TileIndexString, GEngine->GetLargeFont(), FLinearColor::White);
+	}
+}
+
+FLinearColor FTileSetEditorViewportClient::GetBackgroundColor() const
+{
+	if (UPaperTileSet* TileSet = TileSetBeingEdited.Get())
+	{
+		return TileSet->BackgroundColor;
+	}
+	else
+	{
+		return FEditorViewportClient::GetBackgroundColor();
 	}
 }
 
@@ -233,6 +262,9 @@ void STileSetSelectorViewport::RefreshSelectionRectangle()
 
 		const bool bHasSelection = (SelectionDimensions.X * SelectionDimensions.Y) > 0;
 		Client->bHasValidPaintRectangle = bHasSelection && (TileSetBeingEdited != nullptr);
+
+		const int32 TileIndex = (bHasSelection && (TileSetBeingEdited != nullptr)) ? (SelectionTopLeft.X + SelectionTopLeft.Y * TileSetBeingEdited->GetTileCountX()) : INDEX_NONE;
+		Client->TileIndex = TileIndex;
 
 		if (bHasSelection)
 		{

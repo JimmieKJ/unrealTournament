@@ -192,7 +192,7 @@ void SBlueprintRevisionMenu::OnSourceControlQueryComplete(const FSourceControlOp
 					}
 
 					FRevisionInfo RevisionInfo = { 
-						Revision->GetRevisionNumber(), 
+						Revision->GetRevision(), 
 						Revision->GetCheckInIdentifier(), 
 						Revision->GetDate() 
 					};

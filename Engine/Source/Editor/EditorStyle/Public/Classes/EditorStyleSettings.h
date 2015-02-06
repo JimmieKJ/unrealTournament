@@ -74,10 +74,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=UserInterface, AdvancedDisplay)
 	uint32 bExpandConfigurationMenus:1;
 
-	/** When enabled, the Editor Preferences and Project Settings menu items in the main menu will be expanded with sub-menus for each settings section. */
-	UPROPERTY(config)
-	uint32 bShowProjectMenus : 1;
-
 	/** The display mode for timestamps in the output log */
 	UPROPERTY(EditAnywhere, config, Category=UserInterface)
 	TEnumAsByte<ELogTimes::Type> LogTimestampMode;
@@ -92,6 +88,8 @@ public:
 	DECLARE_EVENT_OneParam(UEditorStyleSettings, FSettingChangedEvent, FName /*PropertyName*/);
 	FSettingChangedEvent& OnSettingChanged( ) { return SettingChangedEvent; }
 
+	/** @return A subdued version of the users selection color (for use with inactive selection)*/
+	FLinearColor GetSubduedSelectionColor() const;
 protected:
 
 	// UObject overrides

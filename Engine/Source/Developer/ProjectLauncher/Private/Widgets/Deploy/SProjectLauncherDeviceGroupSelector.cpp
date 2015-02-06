@@ -53,16 +53,16 @@ void SProjectLauncherDeviceGroupSelector::Construct(const FArguments& InArgs, co
 	ProfileManager->OnDeviceGroupRemoved().AddSP(this, &SProjectLauncherDeviceGroupSelector::HandleProfileManagerDeviceGroupsChanged);
 }
 
-FString SProjectLauncherDeviceGroupSelector::HandleDeviceGroupComboBoxContent() const
+FText SProjectLauncherDeviceGroupSelector::HandleDeviceGroupComboBoxContent() const
 {
 	ILauncherDeviceGroupPtr SelectedGroup = DeviceGroupComboBox->GetSelectedItem();
 
 	if (SelectedGroup.IsValid())
 	{
-		return SelectedGroup->GetName();
+		return FText::FromString(SelectedGroup->GetName());
 	}
 
-	return LOCTEXT("CreateOrSelectGroupText", "Create or select a device group...").ToString();
+	return LOCTEXT("CreateOrSelectGroupText", "Create or select a device group...");
 }
 
 TSharedRef<SWidget> SProjectLauncherDeviceGroupSelector::HandleDeviceGroupComboBoxGenerateWidget(ILauncherDeviceGroupPtr InItem)
@@ -104,14 +104,14 @@ FReply SProjectLauncherDeviceGroupSelector::HandleDeviceGroupComboBoxRemoveClick
 	return FReply::Handled();
 }
 
-FString SProjectLauncherDeviceGroupSelector::HandleDeviceGroupComboBoxWidgetText(ILauncherDeviceGroupPtr Group) const
+FText SProjectLauncherDeviceGroupSelector::HandleDeviceGroupComboBoxWidgetText(ILauncherDeviceGroupPtr Group) const
 {
 	if (Group.IsValid())
 	{
-		return Group->GetName();
+		return FText::FromString(Group->GetName());
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 void SProjectLauncherDeviceGroupSelector::HandleProfileManagerDeviceGroupsChanged(const ILauncherDeviceGroupRef& /*ChangedProfile*/)

@@ -158,6 +158,17 @@ struct FViewMatrices
 	FVector		PreViewTranslation;
 	/** To support ortho and other modes this is redundant, in world space */
 	FVector		ViewOrigin;
+	/** Scale applied by the projection matrix in X and Y. */
+	FVector2D ProjectionScale;
+	/**
+	 * Scale factor to use when computing the size of a sphere in pixels.
+	 * 
+	 * A common calculation is to determine the size of a sphere in pixels when projected on the screen:
+	 *		ScreenRadius = max(0.5 * ViewSizeX * ProjMatrix[0][0], 0.5 * ViewSizeY * ProjMatrix[1][1]) * SphereRadius / ProjectedSpherePosition.W
+	 * Instead you can now simply use:
+	 *		ScreenRadius = ScreenScale * SphereRadius / ProjectedSpherePosition.W
+	 */
+	float ScreenScale;
 
 	//
 	// World = TranslatedWorld - PreViewTranslation
@@ -470,6 +481,10 @@ public:
 	TBitArray<> SpriteCategoryVisibility;
 	/** Selection color for the editor (used by post processing) */
 	FLinearColor SelectionOutlineColor;
+	/** Selection color for use in the editor with inactive primitives */
+	FLinearColor SubduedSelectionOutlineColor;
+	/** True if any components are selected in isolation (independent of actor selection) */
+	bool bHasSelectedComponents;
 #endif
 
 	/**

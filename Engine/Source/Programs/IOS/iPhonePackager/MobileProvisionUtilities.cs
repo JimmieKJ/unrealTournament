@@ -99,7 +99,7 @@ namespace iPhonePackager
 
 			// check the cache for a provision matching the app id (com.company.Game)
 			// First checking for a contains match and then for a wildcard match
-			for (int Phase = 0; Phase < 2; ++Phase)
+			for (int Phase = 0; Phase < 3; ++Phase)
 			{
 				foreach (KeyValuePair<string, MobileProvision> Pair in ProvisionLibrary)
 				{
@@ -112,14 +112,25 @@ namespace iPhonePackager
 					bool bPassesNameCheck = false;
 					if (Phase == 0)
 					{
-						bPassesNameCheck = TestProvision.ApplicationIdentifier.Contains(CFBundleIdentifier);
+						bPassesNameCheck = TestProvision.ApplicationIdentifier.Substring(TestProvision.ApplicationIdentifierPrefix.Length+1) == CFBundleIdentifier;
 						bNameMatch = bPassesNameCheck;
+					}
+					else if (Phase == 1)
+					{
+						if (TestProvision.ApplicationIdentifier.Contains("*"))
+						{
+							string CompanyName = TestProvision.ApplicationIdentifier.Substring(TestProvision.ApplicationIdentifierPrefix.Length + 1);
+							if (CompanyName != "*")
+							{
+								CompanyName = CompanyName.Substring(0, CompanyName.LastIndexOf("."));
+								bPassesNameCheck = CFBundleIdentifier.StartsWith(CompanyName);
+							}
+						}
 					}
 					else
 					{
-						bPassesNameCheck = TestProvision.ProvisionName.Contains("Wildcard") || TestProvision.ApplicationIdentifier.Contains("*");
+						bPassesNameCheck = TestProvision.ApplicationIdentifier.Contains("*");
 					}
-
 					if (!bPassesNameCheck && bCheckIdentifier)
 					{
 						Program.LogVerbose("  .. Failed phase {0} name check (provision app ID was {1})", Phase, TestProvision.ApplicationIdentifier);

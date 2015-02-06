@@ -747,7 +747,7 @@ void FIndirectLightingCache::InterpolatePoint(
 	else
 	{
 		OutIncidentRadiance = AccumulatedIncidentRadiance;
-		OutDirectionalShadowing = AccumulatedDirectionalShadowing;
+		OutDirectionalShadowing = 1;
 		// Use an unoccluded vector if no valid samples were found for interpolation
 		OutSkyBentNormal = FVector(0, 0, 1);
 	}

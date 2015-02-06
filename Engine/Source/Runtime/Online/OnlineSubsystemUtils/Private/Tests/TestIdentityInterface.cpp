@@ -19,8 +19,8 @@ void FTestIdentityInterface::Test(UWorld* InWorld, const FOnlineAccountCredentia
 	if (OnlineIdentity.IsValid())
 	{
 		// Add delegates for the various async calls
-		OnlineIdentity->AddOnLoginCompleteDelegate(LocalUserIdx, OnLoginCompleteDelegate);
-		OnlineIdentity->AddOnLogoutCompleteDelegate(LocalUserIdx, OnLogoutCompleteDelegate);
+		OnLoginCompleteDelegateHandle  = OnlineIdentity->AddOnLoginCompleteDelegate_Handle (LocalUserIdx, OnLoginCompleteDelegate);
+		OnLogoutCompleteDelegateHandle = OnlineIdentity->AddOnLogoutCompleteDelegate_Handle(LocalUserIdx, OnLogoutCompleteDelegate);
 		
 		// kick off next test
 		StartNextTest();
@@ -58,8 +58,8 @@ void FTestIdentityInterface::FinishTest()
 	if (OnlineIdentity.IsValid())
 	{
 		// Clear delegates for the various async calls
-		OnlineIdentity->ClearOnLoginCompleteDelegate(LocalUserIdx, OnLoginCompleteDelegate);
-		OnlineIdentity->ClearOnLogoutCompleteDelegate(LocalUserIdx, OnLogoutCompleteDelegate);
+		OnlineIdentity->ClearOnLoginCompleteDelegate_Handle (LocalUserIdx, OnLoginCompleteDelegateHandle);
+		OnlineIdentity->ClearOnLogoutCompleteDelegate_Handle(LocalUserIdx, OnLogoutCompleteDelegateHandle);
 	}
 	delete this;
 }

@@ -186,7 +186,7 @@ EVisibility FAnimSequenceDetails::ShouldShowRefFrameIndex() const
 
 TSharedRef<SWidget> FAnimSequenceDetails::MakeRetargetSourceComboWidget( TSharedPtr<FString> InItem )
 {
-	return SNew(STextBlock) .Text( *InItem ) .Font( IDetailLayoutBuilder::GetDetailFont() );
+	return SNew(STextBlock) .Text( FText::FromString(*InItem) ) .Font( IDetailLayoutBuilder::GetDetailFont() );
 }
 
 void FAnimSequenceDetails::DelegateRetargetSourceChanged()
@@ -213,7 +213,7 @@ void FAnimSequenceDetails::RegisterRetargetSourceChanged()
 	if (TargetSkeleton.IsValid() && !OnDelegateRetargetSourceChanged.IsBound())
 	{
 		OnDelegateRetargetSourceChanged = USkeleton::FOnRetargetSourceChanged::CreateSP( this, &FAnimSequenceDetails::DelegateRetargetSourceChanged );
-		TargetSkeleton->RegisterOnRetargetSourceChanged(OnDelegateRetargetSourceChanged);
+		OnDelegateRetargetSourceChangedDelegateHandle = TargetSkeleton->RegisterOnRetargetSourceChanged(OnDelegateRetargetSourceChanged);
 	}
 }
 
@@ -221,7 +221,7 @@ FAnimSequenceDetails::~FAnimSequenceDetails()
 {
 	if (TargetSkeleton.IsValid() && OnDelegateRetargetSourceChanged.IsBound())
 	{
-		TargetSkeleton->UnregisterOnRetargetSourceChanged(OnDelegateRetargetSourceChanged);
+		TargetSkeleton->UnregisterOnRetargetSourceChanged(OnDelegateRetargetSourceChangedDelegateHandle);
 	}
 }
 
@@ -254,20 +254,20 @@ void FAnimSequenceDetails::OnRetargetSourceChanged( TSharedPtr<FString> NewSelec
 	}
 }
 
-FString FAnimSequenceDetails::GetRetargetSourceComboBoxContent() const
+FText FAnimSequenceDetails::GetRetargetSourceComboBoxContent() const
 {
 	FName RetargetSourceName;
 	if (RetargetSourceNameHandler->GetValue(RetargetSourceName) == FPropertyAccess::Result::MultipleValues)
 	{
-		return TEXT("Multiple Values");
+		return LOCTEXT("MultipleValues", "Multiple Values");
 	}
 
-	return (*GetRetargetSourceString(RetargetSourceName).Get());
+	return FText::FromString(*GetRetargetSourceString(RetargetSourceName).Get());
 }
 
-FString FAnimSequenceDetails::GetRetargetSourceComboBoxToolTip() const
+FText FAnimSequenceDetails::GetRetargetSourceComboBoxToolTip() const
 {
-	return TEXT("When retargeting, this pose will be used as a base of animation");
+	return LOCTEXT("RetargetSourceComboToolTip", "When retargeting, this pose will be used as a base of animation");
 }
 
 TSharedPtr<FString> FAnimSequenceDetails::GetRetargetSourceString(FName RetargetSourceName) const
@@ -474,30 +474,30 @@ void SAnimationRefPoseViewport::Tick(const FGeometry& AllottedGeometry, const do
 				LevelViewportClient->Invalidate();
 			}
 
-			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()) ).ToString());
+			Description->SetText( FText::Format( LOCTEXT( "Previewing", "Previewing {0}" ), FText::FromString( Component->GetPreviewText() ) ) );
 		}
-		else if (Component->AnimBlueprintGeneratedClass)
+		else if ( Component->AnimBlueprintGeneratedClass )
 		{
-			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName()) ).ToString());
+			Description->SetText( FText::Format( LOCTEXT( "Previewing", "Previewing {0}" ), FText::FromString( Component->AnimBlueprintGeneratedClass->GetName() ) ) );
 		}
-		else if (AnimRef && AnimRef->GetSkeleton() != TargetSkeleton)
+		else if ( AnimRef && AnimRef->GetSkeleton() != TargetSkeleton )
 		{
-			Description->SetText(FText::Format( LOCTEXT("IncorrectSkeleton", "The preview asset doesn't work for the skeleton '{0}'"), FText::FromString(TargetSkeletonName) ).ToString());
+			Description->SetText( FText::Format( LOCTEXT( "IncorrectSkeleton", "The preview asset doesn't work for the skeleton '{0}'" ), FText::FromString( TargetSkeletonName ) ) );
 		}
-		else if (Component->SkeletalMesh == NULL)
+		else if ( Component->SkeletalMesh == NULL )
 		{
-			Description->SetText(FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ).ToString());
+			Description->SetText( FText::Format( LOCTEXT( "NoMeshFound", "No skeletal mesh found for skeleton '{0}'" ), FText::FromString( TargetSkeletonName ) ) );
 		}
 		else
 		{
-			Description->SetText(FText::Format( LOCTEXT("SelectAnimation", "Select animation that works for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ).ToString());
+			Description->SetText( FText::Format( LOCTEXT( "SelectAnimation", "Select animation that works for skeleton '{0}'" ), FText::FromString( TargetSkeletonName ) ) );
 		}
 
-		Component->GetScene()->GetWorld()->Tick(LEVELTICK_All, InDeltaTime);
+		Component->GetScene()->GetWorld()->Tick( LEVELTICK_All, InDeltaTime );
 	}
 	else
 	{
-		Description->SetText(FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ).ToString());
+		Description->SetText( FText::Format( LOCTEXT( "NoMeshFound", "No skeletal mesh found for skeleton '{0}'" ), FText::FromString( TargetSkeletonName ) ) );
 	}
 }
 

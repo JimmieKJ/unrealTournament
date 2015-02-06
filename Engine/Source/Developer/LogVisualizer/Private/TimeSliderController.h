@@ -18,10 +18,10 @@ struct FVisualLoggerTimeSliderArgs : FTimeSliderArgs
  * A time slider controller for sequencer
  * Draws and manages time data for a Sequencer
  */
-class FSequencerTimeSliderController : public ITimeSliderController
+class FVisualLoggerTimeSliderController : public ITimeSliderController
 {
 public:
-	FSequencerTimeSliderController(const FVisualLoggerTimeSliderArgs& InArgs);
+	FVisualLoggerTimeSliderController(const FVisualLoggerTimeSliderArgs& InArgs);
 
 	/** ITimeSliderController Interface */
 	virtual int32 OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;

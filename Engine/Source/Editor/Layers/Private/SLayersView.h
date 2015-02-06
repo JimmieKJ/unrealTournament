@@ -101,7 +101,7 @@ public:
 					.OnItemScrolledIntoView( this, &SLayersView::OnItemScrolledIntoView)
 
 					// Help text 
-					.ToolTipText(LOCTEXT("HelpText", "Drag actors from scene outliner or right click to add a new layer."))
+					.ToolTipText(LOCTEXT("HelpText", "Drag actors from world outliner or right click to add a new layer."))
 				]
 			];
 

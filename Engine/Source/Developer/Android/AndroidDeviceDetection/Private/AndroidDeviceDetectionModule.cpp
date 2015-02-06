@@ -8,15 +8,19 @@
 
 #define LOCTEXT_NAMESPACE "FAndroidDeviceDetectionModule" 
 
+DEFINE_LOG_CATEGORY_STATIC(AndroidDeviceDetectionLog, Log, All);
 
 class FAndroidDeviceDetectionRunnable : public FRunnable
 {
 public:
-	FAndroidDeviceDetectionRunnable(const FString& InADBPath, TMap<FString,FAndroidDeviceInfo>& InDeviceMap, FCriticalSection* InDeviceMapLock) :
-		ADBPath(InADBPath),
+	FAndroidDeviceDetectionRunnable(TMap<FString,FAndroidDeviceInfo>& InDeviceMap, FCriticalSection* InDeviceMapLock, FCriticalSection* InADBPathCheckLock) :
 		StopTaskCounter(0),
 		DeviceMap(InDeviceMap),
-		DeviceMapLock(InDeviceMapLock)
+		DeviceMapLock(InDeviceMapLock),
+		ADBPathCheckLock(InADBPathCheckLock),
+		HasADBPath(false),
+		ForceCheck(false)
+
 	{
 	}
 
@@ -44,16 +48,35 @@ public:
 		while (StopTaskCounter.GetValue() == 0)
 		{
 			// query every 10 seconds
-			if (LoopCount++ >= 10)
+			if (LoopCount++ >= 10 || ForceCheck)
 			{
-				QueryConnectedDevices();
+				// Make sure we have an ADB path before checking
+				FScopeLock PathLock(ADBPathCheckLock);
+				if (HasADBPath)
+					QueryConnectedDevices();
+
 				LoopCount = 0;
+				ForceCheck = false;
 			}
 
 			FPlatformProcess::Sleep(1.0f);
 		}
 
 		return 0;
+	}
+
+	void UpdateADBPath(FString &InADBPath)
+	{
+		ADBPath = InADBPath;
+		HasADBPath = !ADBPath.IsEmpty();
+		// Force a check next time we go around otherwise it can take over 10sec to find devices
+		ForceCheck = HasADBPath;	
+
+		// If we have no path then clean the existing devices out
+		if (!HasADBPath && DeviceMap.Num() > 0)
+		{
+			DeviceMap.Reset();
+		}
 	}
 
 private:
@@ -241,6 +264,10 @@ private:
 
 	TMap<FString,FAndroidDeviceInfo>& DeviceMap;
 	FCriticalSection* DeviceMapLock;
+
+	FCriticalSection* ADBPathCheckLock;
+	bool HasADBPath;
+	bool ForceCheck;
 };
 
 class FAndroidDeviceDetection : public IAndroidDeviceDetection
@@ -251,81 +278,12 @@ public:
 		DetectionThread(nullptr),
 		DetectionThreadRunnable(nullptr)
 	{
-		// get the SDK binaries folder
-		TCHAR AndroidDirectory[32768] = { 0 };
-		FPlatformMisc::GetEnvironmentVariable(TEXT("ANDROID_HOME"), AndroidDirectory, 32768);
-
-#if PLATFORM_MAC
-		TCHAR AntDirectory[32768] = { 0 };
-		TCHAR NDKDirectory[32768] = { 0 };
-		FPlatformMisc::GetEnvironmentVariable(TEXT("ANT_HOME"), AntDirectory, 32768);
-		FPlatformMisc::GetEnvironmentVariable(TEXT("NDKROOT"), NDKDirectory, 32768);
-
-		if (AndroidDirectory[0] == 0 || AntDirectory[0] == 0 || NDKDirectory[0] == 0)
-		{
-			FArchive* FileReader = IFileManager::Get().CreateFileReader(*FString([@"~/.bash_profile" stringByExpandingTildeInPath]));
-			if (FileReader)
-			{
-				const int64 FileSize = FileReader->TotalSize();
-				ANSICHAR* AnsiContents = (ANSICHAR*)FMemory::Malloc(FileSize);
-				FileReader->Serialize(AnsiContents, FileSize);
-				FileReader->Close();
-				delete FileReader;
-
-				TArray<FString> Lines;
-				FString(ANSI_TO_TCHAR(AnsiContents)).ParseIntoArrayLines(&Lines);
-				FMemory::Free(AnsiContents);
-
-				for (int32 Index = 0; Index < Lines.Num(); Index++)
-				{
-					if (AndroidDirectory[0] == 0 && Lines[Index].StartsWith(TEXT("export ANDROID_HOME=")))
-					{
-						FString Directory;
-						Lines[Index].Split(TEXT("="), NULL, &Directory);
-						Directory = Directory.Replace(TEXT("\""), TEXT(""));
-						FCString::Strcpy(AndroidDirectory, *Directory);
-						setenv("ANDROID_HOME", TCHAR_TO_ANSI(AndroidDirectory), 1);
-					}
-					else if (AntDirectory[0] == 0 && Lines[Index].StartsWith(TEXT("export ANT_HOME=")))
-					{
-						FString Directory;
-						Lines[Index].Split(TEXT("="), NULL, &Directory);
-						Directory = Directory.Replace(TEXT("\""), TEXT(""));
-						setenv("ANT_HOME", TCHAR_TO_ANSI(*Directory), 1);
-					}
-					else if (NDKDirectory[0] == 0 && Lines[Index].StartsWith(TEXT("export NDKROOT=")))
-					{
-						FString Directory;
-						Lines[Index].Split(TEXT("="), NULL, &Directory);
-						Directory = Directory.Replace(TEXT("\""), TEXT(""));
-						setenv("NDKROOT", TCHAR_TO_ANSI(*Directory), 1);
-					}
-				}
-			}
-		}
-#endif
-
-		if (AndroidDirectory[0] == 0)
-		{
-			return;
-		}
-
-#if PLATFORM_WINDOWS
-		FString ADBPath = FString::Printf(TEXT("%s\\platform-tools\\adb.exe"), AndroidDirectory);
-#else
-		FString ADBPath = FString::Printf(TEXT("%s/platform-tools/adb"), AndroidDirectory);
-#endif
-
-		// if it doesn't exist, no SDK installed, so don't bother creating a thread to look for devices
-		if (!FPaths::FileExists(*ADBPath))
-		{
-			ADBPath.Empty();
-			return;
-		}
-
 		// create and fire off our device detection thread
-		DetectionThreadRunnable = new FAndroidDeviceDetectionRunnable(ADBPath, DeviceMap, &DeviceMapLock);
+		DetectionThreadRunnable = new FAndroidDeviceDetectionRunnable(DeviceMap, &DeviceMapLock, &ADBPathCheckLock);
 		DetectionThread = FRunnableThread::Create(DetectionThreadRunnable, TEXT("FAndroidDeviceDetectionRunnable"));
+
+		// get the SDK binaries folder and throw it to the runnable
+		UpdateADBPath();
 	}
 
 	virtual ~FAndroidDeviceDetection()
@@ -347,13 +305,40 @@ public:
 		return &DeviceMapLock;
 	}
 
+	virtual void UpdateADBPath() override
+	{
+		FScopeLock PathUpdateLock(&ADBPathCheckLock);
+		TCHAR AndroidDirectory[32768] = { 0 };
+		FPlatformMisc::GetEnvironmentVariable(TEXT("ANDROID_HOME"), AndroidDirectory, 32768);
+
+		FString ADBPath;
+		
+		if (AndroidDirectory[0] != 0)
+		{
+#if PLATFORM_WINDOWS
+			ADBPath = FString::Printf(TEXT("%s\\platform-tools\\adb.exe"), AndroidDirectory);
+#else
+			ADBPath = FString::Printf(TEXT("%s/platform-tools/adb"), AndroidDirectory);
+#endif
+
+			// if it doesn't exist then just clear the path as we might set it later
+			if (!FPaths::FileExists(*ADBPath))
+			{
+				ADBPath.Empty();
+			}
+		}
+		DetectionThreadRunnable->UpdateADBPath(ADBPath);
+	}
+
 private:
+
 
 	FRunnableThread* DetectionThread;
 	FAndroidDeviceDetectionRunnable* DetectionThreadRunnable;
 
 	TMap<FString,FAndroidDeviceInfo> DeviceMap;
 	FCriticalSection DeviceMapLock;
+	FCriticalSection ADBPathCheckLock;
 };
 
 

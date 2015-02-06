@@ -378,4 +378,9 @@ FFeedbackContext* FDesktopPlatformLinux::GetNativeFeedbackContext()
 	return GWarn;
 }
 
+FString FDesktopPlatformLinux::GetUserTempPath()
+{
+	return FString(FPlatformProcess::UserTempDir());
+}
+
 #undef LOCTEXT_NAMESPACE

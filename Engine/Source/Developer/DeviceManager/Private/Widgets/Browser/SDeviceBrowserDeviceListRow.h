@@ -92,7 +92,7 @@ public:
 				[
 					SNew(STextBlock)
 						.ColorAndOpacity(this, &SDeviceBrowserDeviceListRow::HandleTextColorAndOpacity)
-						.Text(DeviceService->GetDevicePlatformDisplayName())
+						.Text(FText::FromString(DeviceService->GetDevicePlatformDisplayName()))
 				];
 		}
 		else if (ColumnName == TEXT("Share"))
@@ -105,7 +105,7 @@ public:
 						.IsChecked(this, &SDeviceBrowserDeviceListRow::HandleShareCheckBoxIsChecked)
 						.IsEnabled(this, &SDeviceBrowserDeviceListRow::HandleShareCheckBoxIsEnabled)
 						.OnCheckStateChanged(this, &SDeviceBrowserDeviceListRow::HandleShareCheckBoxStateChanged)
-						.ToolTipText(LOCTEXT("ShareCheckBoxToolTip", "Check this box to share this device with other users on the network").ToString())
+						.ToolTipText(LOCTEXT("ShareCheckBoxToolTip", "Check this box to share this device with other users on the network"))
 				];
 		}
 		else if (ColumnName == TEXT("Status"))

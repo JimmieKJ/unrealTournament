@@ -5,7 +5,6 @@
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvQueryTest.generated.h"
 
-struct FEnvQueryInstance;
 class UEnvQueryItemType;
 class UEnvQueryContext;
 #if WITH_EDITOR
@@ -41,7 +40,7 @@ class AIMODULE_API UEnvQueryTest : public UObject
 	UPROPERTY(EditDefaultsOnly, Category=Filter)
 	TEnumAsByte<EEnvTestFilterType::Type> FilterType;
 
-	/** Boolean value that must be matched in order for scoring to occur or filtering test to pass. */
+	/** Desired boolean value of the test for scoring to occur or filtering test to pass. */
 	UPROPERTY(EditDefaultsOnly, Category=Filter)
 	FAIDataProviderBoolValue BoolValue;
 
@@ -136,10 +135,28 @@ public:
 	FVector GetItemLocation(FEnvQueryInstance& QueryInstance, int32 ItemIndex) const;
 
 	/** helper: get location of item */
+	FORCEINLINE FVector GetItemLocation(FEnvQueryInstance& QueryInstance, const FEnvQueryInstance::ItemIterator& Iterator) const
+	{
+		return GetItemLocation(QueryInstance, *Iterator);
+	}
+
+	/** helper: get location of item */
 	FRotator GetItemRotation(FEnvQueryInstance& QueryInstance, int32 ItemIndex) const;
+
+	/** helper: get location of item */
+	FORCEINLINE FRotator GetItemRotation(FEnvQueryInstance& QueryInstance, const FEnvQueryInstance::ItemIterator& Iterator) const
+	{
+		return GetItemRotation(QueryInstance, *Iterator);
+	}
 
 	/** helper: get actor from item */
 	AActor* GetItemActor(FEnvQueryInstance& QueryInstance, int32 ItemIndex) const;
+		
+	/** helper: get actor from item */
+	FORCEINLINE AActor* GetItemActor(FEnvQueryInstance& QueryInstance, const FEnvQueryInstance::ItemIterator& Iterator) const
+	{
+		return GetItemActor(QueryInstance, *Iterator);
+	}
 
 	/** normalize scores in range */
 	void NormalizeItemScores(FEnvQueryInstance& QueryInstance);

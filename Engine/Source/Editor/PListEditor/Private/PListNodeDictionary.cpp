@@ -135,14 +135,12 @@ TSharedRef<SWidget> FPListNodeDictionary::GenerateWidgetForColumn(const FName& C
 
 	else if(ColumnName == "PListValueColumn")
 	{
-		FString StatusText = NSLOCTEXT("PListEditor", "PListEditorKeyValuePairs", "key/value pairs").ToString();
-
 		return
 		SNew(SBorder)
 		.BorderImage_Static(&IPListNode::GetOverlayBrushDelegate, AsShared())
 		[
 			SAssignNew(InfoTextWidget, STextBlock)
-			.Text(FString(TEXT("[")) + FString::Printf(TEXT("%i "), GetNumPairs()) + StatusText + FString(TEXT("]")))
+			.Text(FText::Format(NSLOCTEXT("PListEditor", "NumKeyValuePairsFmt", "[{0} key/value pairs]"), FText::AsNumber(GetNumPairs())))
 		];
 	}
 
@@ -181,10 +179,9 @@ FString FPListNodeDictionary::ToXML(const int32 indent, bool bOutputKey)
 void FPListNodeDictionary::Refresh()
 {
 	// Update the display of the number of key/value pairs
-	FString StatusText = NSLOCTEXT("PListEditor", "PListEditorKeyValuePairs", "key/value pairs").ToString();
 	if(InfoTextWidget.IsValid())
 	{
-		InfoTextWidget->SetText(FString(TEXT("[")) + FString::Printf(TEXT("%i "), GetNumPairs()) + StatusText + FString(TEXT("]")));
+		InfoTextWidget->SetText(FText::Format(NSLOCTEXT("PListEditor", "NumKeyValuePairsFmt", "[{0} key/value pairs]"), FText::AsNumber(GetNumPairs())));
 	}
 
 	// Refresh all children

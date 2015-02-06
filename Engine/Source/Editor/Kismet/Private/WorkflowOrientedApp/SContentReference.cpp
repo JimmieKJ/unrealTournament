@@ -93,7 +93,7 @@ void SContentReference::Construct(const FArguments& InArgs)
 			.Visibility(this, &SContentReference::GetPickButtonVisibility)
 			.OnGetMenuContent( this, &SContentReference::MakeAssetPickerMenu )
 			.HasDownArrow(false)
-			.ToolTipText(LOCTEXT("PickAsset", "Pick an asset from a popup menu").ToString())
+			.ToolTipText(LOCTEXT("PickAsset", "Pick an asset from a popup menu"))
 			.ButtonContent()
 			[
 				SNew(SImage)
@@ -113,7 +113,7 @@ void SContentReference::Construct(const FArguments& InArgs)
 			.OnClicked(this, &SContentReference::OnClickFindButton)
 			.ContentPadding(0)
 			.Visibility(this, &SContentReference::GetFindButtonVisibility)
-			.ToolTipText(LOCTEXT("Find", "Find in content browser").ToString())
+			.ToolTipText(LOCTEXT("Find", "Find in content browser"))
 			[
 				SNew(SImage)
 				.Image( FEditorStyle::GetBrush(InArgs._Style, ".FindInContentBrowser") )
@@ -132,7 +132,7 @@ void SContentReference::Construct(const FArguments& InArgs)
 			.OnClicked(this, &SContentReference::OnClickClearButton)
 			.ContentPadding(1.f)
 			.Visibility( this, &SContentReference::GetClearButtonVisibility)
-			.ToolTipText(LOCTEXT("Clear", "Clear").ToString())
+			.ToolTipText(LOCTEXT("Clear", "Clear"))
 			[
 				SNew(SImage)
 				.Image( FEditorStyle::GetBrush(InArgs._Style, ".Clear") )
@@ -151,7 +151,7 @@ void SContentReference::Construct(const FArguments& InArgs)
 			.OnClicked(InArgs._OnClickedTools)
 			.ContentPadding(1.f)
 			.Visibility(this, &SContentReference::GetToolsButtonVisibility)
-			.ToolTipText(LOCTEXT("Tools", "Tools").ToString())
+			.ToolTipText(LOCTEXT("Tools", "Tools"))
 			[
 				SNew(SImage)
 				.Image( FEditorStyle::GetBrush(InArgs._Style, ".Tools") )
@@ -244,27 +244,27 @@ void SContentReference::OnAssetSelectedFromPicker(const FAssetData& AssetData)
 	OnSetReference.ExecuteIfBound(AssetData.GetAsset());
 }
 
-FString SContentReference::GetAssetShortName() const
+FText SContentReference::GetAssetShortName() const
 {
 	if (UObject* Asset = AssetReference.Get())
 	{
-		return Asset->GetName();
+		return FText::FromString(Asset->GetName());
 	}
 	else
 	{
-		return LOCTEXT("NullReference", "(None)").ToString();
+		return LOCTEXT("NullReference", "(None)");
 	}
 }
 
-FString SContentReference::GetAssetFullName() const
+FText SContentReference::GetAssetFullName() const
 {
 	if (UObject* Asset = AssetReference.Get())
 	{
-		return Asset->GetFullName();
+		return FText::FromString(Asset->GetFullName());
 	}
 	else
 	{
-		return LOCTEXT("NullReferenceTooltip", "(None)").ToString();
+		return LOCTEXT("NullReferenceTooltip", "(None)");
 	}
 }
 

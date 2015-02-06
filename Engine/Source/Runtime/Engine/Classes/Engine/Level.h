@@ -273,13 +273,14 @@ struct ENGINE_API FLevelSimplificationDetails
 
 //
 // The level object.  Contains the level's actor list, BSP information, and brush list.
+// Every Level has a World as its Outer and can be used as the PersistentLevel, however,
+// when a Level has been streamed in the OwningWorld represents the World that it is a part of.
 //
 
 
 /**
- * A Level contains actors, a blueprint representing the level logic, BSP information, and brushes.
- * Every Level has a World as its Outer and can be used as the PersistentLevel, however, 
- * when a Level has been streamed in the OwningWorld represents the World that it is a part of.
+ * A Level is a collection of Actors (lights, volumes, mesh instances etc.).
+ * Multiple Levels can be loaded and unloaded into the World to create a streaming experience.
  * 
  * @see https://docs.unrealengine.com/latest/INT/Engine/Levels
  * @see UActor
@@ -480,8 +481,8 @@ public:
 	ENGINE_API static FSimpleMulticastDelegate LevelDirtiedEvent;
 
 	// Constructor.
-	ENGINE_API ULevel(const FObjectInitializer& ObjectInitializer, const FURL& InURL );
-	ULevel(const FObjectInitializer& ObjectInitializer );
+	ENGINE_API void Initialize(const FURL& InURL);
+	ULevel(const FObjectInitializer& ObjectInitializer);
 	~ULevel();
 
 	// Begin UObject interface.
@@ -665,6 +666,11 @@ public:
 	 * @param	bDontCreate		If true, if no level scripting blueprint is found, none will be created
 	 */
 	ENGINE_API class ULevelScriptBlueprint* GetLevelScriptBlueprint(bool bDontCreate=false);
+
+	/**
+	 *  Returns a list of all blueprints contained within the level
+	 */
+	ENGINE_API TArray<class UBlueprint*> GetLevelBlueprints() const;
 
 	/**
 	 *  Called when the level script blueprint has been successfully changed and compiled.  Handles creating an instance of the blueprint class in LevelScriptActor

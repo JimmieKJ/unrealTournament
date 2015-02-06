@@ -4,25 +4,27 @@
 
 
 /**
- * Lists/Trees only work with pointer types.
+ * Lists/Trees only work with shared pointer types, and UObjbectBase*.
  * Type traits to ensure that the user does not accidentally make a List/Tree of value types.
  */
-template<typename T> struct TIsValidListItem											{ enum { Value = false }; };
+template<typename T, typename Enable = void> struct TIsValidListItem					{ enum { Value = false }; };
 template<typename T> struct TIsValidListItem< TSharedRef<T, ESPMode::NotThreadSafe> >	{ enum { Value = true }; };
 template<typename T> struct TIsValidListItem< TSharedRef<T, ESPMode::ThreadSafe> >		{ enum { Value = true }; };
 template<typename T> struct TIsValidListItem< TSharedPtr<T, ESPMode::NotThreadSafe> >	{ enum { Value = true }; };
 template<typename T> struct TIsValidListItem< TSharedPtr<T, ESPMode::ThreadSafe> >		{ enum { Value = true }; };
-template<typename T> struct TIsValidListItem< T* >										{ enum { Value = true }; };
+template<typename T> struct TIsValidListItem< T*, typename TEnableIf<TPointerIsConvertibleFromTo<T, UObjectBase>::Value>::Type >
+ 																						{ enum { Value = true }; };
 template<typename T> struct TIsValidListItem< TWeakObjectPtr<T> >						{ enum { Value = true }; };
+					 
 
 /**
  * Furthermore, ListViews of TSharedPtr<> work differently from lists of UObject*.
  * ListTypeTraits provide the specialized functionality such as pointer testing, resetting,
  * and optional serialization for UObject garbage collection.
  */
-template <typename T> struct TListTypeTraits
+template <typename T, typename Enable=void> struct TListTypeTraits
 {
-	static_assert(TIsValidListItem<T>::Value, "Item type T must be a pointer or a TSharedPtr.");
+	static_assert(TIsValidListItem<T>::Value, "Item type T must be a UObjectBase pointer, TSharedRef, or TSharedPtr.");
 };
 
 
@@ -202,7 +204,7 @@ public:
  * In addition to testing and setting the pointers to null, Lists of UObjects
  * will serialize the objects they are holding onto.
  */
-template <typename T> struct TListTypeTraits< T* >
+template <typename T> struct TListTypeTraits< T*, typename TEnableIf<TPointerIsConvertibleFromTo<T, UObjectBase>::Value>::Type >
 {
 public:
 	typedef T* NullableType;

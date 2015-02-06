@@ -358,7 +358,7 @@ TSharedRef<SWidget> FRangeStructCustomization<NumericType>::OnGenerateComboWidge
 		.WidthOverride(150.0f)
 		[
 			SNew(STextBlock)
-			.Text(*InComboString)
+			.Text(FText::FromString(*InComboString))
 			.ToolTipText(ToolTip)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 			.IsEnabled(true)

@@ -89,6 +89,9 @@ private:
 	/** Adds Asset Actions sub-menu to a menu builder. */
 	void MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder);
 
+	/** Handler to check to see if "Asset Actions" are allowed */
+	bool CanExecuteAssetActions() const;
+
 	/** Adds asset reference menu options to a menu builder. Returns true if any options were added. */
 	bool AddReferenceMenuOptions(FMenuBuilder& MenuBuilder);
 
@@ -100,6 +103,9 @@ private:
 
 	/** Fills the source control sub-menu */
 	void FillSourceControlSubMenu(FMenuBuilder& MenuBuilder);
+
+	/** Handler to check to see if SCC actions are allowed */
+	bool CanExecuteSourceControlActions() const;
 
 	/** Adds menu options related to working with collections */
 	bool AddCollectionMenuOptions(FMenuBuilder& MenuBuilder);
@@ -317,6 +323,7 @@ private:
 
 	/** Cached CanExecute vars */
 	bool bAtLeastOneNonRedirectorSelected;
+	bool bAtLeastOneClassSelected;
 	bool bCanExecuteSCCMerge;
 	bool bCanExecuteSCCCheckOut;
 	bool bCanExecuteSCCOpenForAdd;

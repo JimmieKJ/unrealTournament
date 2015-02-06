@@ -22,7 +22,7 @@ FNewsFeedCache::FNewsFeedCache( )
 
 FNewsFeedCache::~FNewsFeedCache( )
 {
-	FTicker::GetCoreTicker().RemoveTicker(TickDelegate);
+	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
 	SaveSettings();
 }
 
@@ -60,15 +60,15 @@ bool FNewsFeedCache::LoadFeed(  )
 	Icons.Empty();
 
 //	TitleFile = InTitleFile;
-//	TitleFile->AddOnEnumerateFilesCompleteDelegate(FOnEnumerateFilesCompleteDelegate::CreateRaw(this, &FNewsFeedCache::HandleEnumerateFilesComplete));
-//	TitleFile->AddOnReadFileCompleteDelegate(FOnReadFileCompleteDelegate::CreateRaw(this, &FNewsFeedCache::HandleReadFileComplete));
+//	TitleFile->AddOnEnumerateFilesCompleteDelegate_Handle(FOnEnumerateFilesCompleteDelegate::CreateRaw(this, &FNewsFeedCache::HandleEnumerateFilesComplete));
+//	TitleFile->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateRaw(this, &FNewsFeedCache::HandleReadFileComplete));
 //	TitleFile->ClearFiles();
 //	TitleFile->EnumerateFiles();
 	LoadTitleFile();
 
 	// auto reload after 15 minutes
-	FTicker::GetCoreTicker().RemoveTicker(TickDelegate);
-	FTicker::GetCoreTicker().AddTicker(TickDelegate, 15 * 60.0f);
+	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, 15 * 60.0f);
 
 	return true;
 }
@@ -147,8 +147,8 @@ void FNewsFeedCache::LoadTitleFile( )
 	// fetch news feed
 	if (TitleFile.IsValid())
 	{
-		TitleFile->AddOnEnumerateFilesCompleteDelegate(FOnEnumerateFilesCompleteDelegate::CreateRaw(this, &FNewsFeedCache::HandleEnumerateFilesComplete));
-		TitleFile->AddOnReadFileCompleteDelegate(FOnReadFileCompleteDelegate::CreateRaw(this, &FNewsFeedCache::HandleReadFileComplete));
+		TitleFile->AddOnEnumerateFilesCompleteDelegate_Handle(FOnEnumerateFilesCompleteDelegate::CreateRaw(this, &FNewsFeedCache::HandleEnumerateFilesComplete));
+		TitleFile->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateRaw(this, &FNewsFeedCache::HandleReadFileComplete));
 		TitleFile->ClearFiles();
 		TitleFile->EnumerateFiles();
 	}

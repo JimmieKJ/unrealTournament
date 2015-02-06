@@ -128,7 +128,7 @@ struct FOpenGL3 : public FOpenGLBase
 				Access = GL_MAP_READ_BIT;
 				break;
 			case RLM_WriteOnly:
-				Access = (GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_WRITE_BIT);
+				Access = (GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_WRITE_BIT);
 #if !PLATFORM_MAC // On OS X using the UNSYNCHRONIZED_BIT here is unsafe & out-of-spec. which will lead to corrupt rendering when using MTGL.
 				// Temp workaround for synchrnoization when a UBO is discarded while being referenced
 				Access |= GL_MAP_UNSYNCHRONIZED_BIT;
@@ -136,6 +136,9 @@ struct FOpenGL3 : public FOpenGLBase
 				break;
 			case RLM_WriteOnlyUnsynchronized:
 				Access = (GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+#if PLATFORM_MAC
+				Access |= GL_MAP_INVALIDATE_RANGE_BIT;
+#endif
 				break;
 			case RLM_WriteOnlyPersistent:
 				Access = (GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
@@ -411,43 +414,6 @@ struct FOpenGL3 : public FOpenGLBase
 	static FORCEINLINE void CopyBufferSubData(GLenum ReadTarget, GLenum WriteTarget, GLintptr ReadOffset, GLintptr WriteOffset, GLsizeiptr Size)
 	{
 		glCopyBufferSubData(ReadTarget, WriteTarget, ReadOffset, WriteOffset, Size);
-	}
-	
-	static FORCEINLINE GLuint CreateShader(GLenum Type)
-	{
-#if USE_OPENGL_NAME_CACHE
-		static TMap<GLenum, TArray<GLuint>> ShaderNames;
-		TArray<GLuint>& Shaders = ShaderNames.FindOrAdd(Type);
-		if(!Shaders.Num())
-		{
-			while(Shaders.Num() < OPENGL_NAME_CACHE_SIZE)
-			{
-				GLuint Resource = glCreateShader(Type);
-				Shaders.Add(Resource);
-			}
-		}
-		return Shaders.Pop();
-#else
-		return glCreateShader(Type);
-#endif
-	}
-	
-	static FORCEINLINE GLuint CreateProgram()
-	{
-#if USE_OPENGL_NAME_CACHE
-		static TArray<GLuint> ProgramNames;
-		if(!ProgramNames.Num())
-		{
-			while(ProgramNames.Num() < OPENGL_NAME_CACHE_SIZE)
-			{
-				GLuint Resource = glCreateProgram();
-				ProgramNames.Add(Resource);
-			}
-		}
-		return ProgramNames.Pop();
-#else
-		return glCreateProgram();
-#endif
 	}
 
 	static FORCEINLINE void GenBuffers( GLsizei n, GLuint *buffers)

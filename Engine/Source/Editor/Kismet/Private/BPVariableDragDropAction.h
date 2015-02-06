@@ -51,11 +51,13 @@ public:
 
 	UProperty* GetVariableProperty()
 	{
-		check(VariableSource.IsValid());
-		check(VariableName != NAME_None);
-		UProperty* VariableProperty = FindField<UProperty>(VariableSource.Get(), VariableName);
-		check(VariableProperty != NULL);
-		return VariableProperty;
+		if (VariableSource.IsValid() && VariableName != NAME_None)
+		{
+			UProperty* VariableProperty = FindField<UProperty>(VariableSource.Get(), VariableName);
+			check(VariableProperty != NULL);
+			return VariableProperty;
+		}
+		return nullptr;
 	}
 
 	/** Set if operation is modified by alt */

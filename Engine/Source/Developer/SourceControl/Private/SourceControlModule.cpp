@@ -6,7 +6,6 @@
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "Developer/MessageLog/Public/MessageLogModule.h"
 #include "SSourceControlLogin.h"
-#include "SSourceControlStatus.h"
 
 #if WITH_EDITOR
 	#include "Runtime/Engine/Public/EngineAnalytics.h"
@@ -161,16 +160,6 @@ void FSourceControlModule::ShowLoginDialog(const FSourceControlLoginClosed& InOn
 	}
 #else
 	STUBBED("FSourceControlModule::ShowLoginDialog - no Slate");
-#endif // SOURCE_CONTROL_WITH_SLATE
-}
-
-TSharedPtr<class SWidget> FSourceControlModule::CreateStatusWidget() const
-{
-#if SOURCE_CONTROL_WITH_SLATE
-	return SNew(SSourceControlStatus);
-#else
-	STUBBED("FSourceControlModule::CreateStatusWidget - no Slate");
-	return nullptr;
 #endif // SOURCE_CONTROL_WITH_SLATE
 }
 

@@ -105,15 +105,26 @@ public:
 	void GetCommandInfosFromContext( const FName InBindingContext, TArray< TSharedPtr<FUICommandInfo> >& OutCommandInfos ) const;
 
 	/** Registers a delegate to be called when a user-defined gesture is edited */
-	void RegisterUserDefinedGestureChanged(const FOnUserDefinedGestureChanged::FDelegate& Delegate)
+	FDelegateHandle RegisterUserDefinedGestureChanged(const FOnUserDefinedGestureChanged::FDelegate& Delegate)
 	{
-		OnUserDefinedGestureChanged.Add(Delegate);
+		return OnUserDefinedGestureChanged.Add(Delegate);
 	}
 
 	/** Unregisters a delegate to be called when a user-defined gesture is edited */
+	DELEGATE_DEPRECATED("This UnregisterUserDefinedGestureChanged overload is deprecated - please remove delegates using the FDelegateHandle returned by the RegisterUserDefinedGestureChanged function.")
 	void UnregisterUserDefinedGestureChanged(const FOnUserDefinedGestureChanged::FDelegate& Delegate)
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
 		OnUserDefinedGestureChanged.Remove(Delegate);
+
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	}
+
+	/** Unregisters a delegate to be called when a user-defined gesture is edited */
+	void UnregisterUserDefinedGestureChanged(FDelegateHandle DelegateHandle)
+	{
+		OnUserDefinedGestureChanged.Remove(DelegateHandle);
 	}
 
 private:

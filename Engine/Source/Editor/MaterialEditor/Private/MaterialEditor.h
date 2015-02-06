@@ -459,7 +459,7 @@ private:
 	void SaveEditorSettings();
 
 	/** Gets the text in the code view widget */
-	FString GetCodeViewText() const;
+	FText GetCodeViewText() const;
 
 	/** Copies all the HLSL Code View code to the clipboard */
 	FReply CopyCodeViewTextToClipboard();

@@ -781,6 +781,9 @@ public:
 		bSubobjectClassInitializationAllowed = false;
 	}
 
+	/** Gets ObjectInitializer for the currently constructed object. Can only be used inside of a constructor of UObject-derived class. */
+	static FObjectInitializer& Get();
+
 private:
 
 	friend class UObject; 

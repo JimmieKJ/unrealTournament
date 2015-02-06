@@ -7,6 +7,7 @@ void SExpanderArrow::Construct( const FArguments& InArgs, const TSharedPtr<class
 {
 	OwnerRowPtr = TableRow;
 	IndentAmount = InArgs._IndentAmount;
+	BaseIndentLevel = InArgs._BaseIndentLevel;
 
 	this->ChildSlot
 	.Padding( TAttribute<FMargin>( this, &SExpanderArrow::GetExpanderPadding ) )
@@ -55,9 +56,9 @@ EVisibility SExpanderArrow::GetExpanderVisibility() const
 /** @return the margin corresponding to how far this item is indented */
 FMargin SExpanderArrow::GetExpanderPadding() const
 {
-	const int32 NestingDepth = OwnerRowPtr.Pin()->GetIndentLevel();
+	const int32 NestingDepth = FMath::Max(0, OwnerRowPtr.Pin()->GetIndentLevel() - BaseIndentLevel.Get());
 	const float Indent = IndentAmount.Get(10.f);
-	return FMargin( NestingDepth*Indent, 0,0,0 );
+	return FMargin( NestingDepth * Indent, 0,0,0 );
 }
 
 /** @return the name of an image that should be shown as the expander arrow */

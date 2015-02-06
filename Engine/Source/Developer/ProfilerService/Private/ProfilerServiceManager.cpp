@@ -531,7 +531,7 @@ void FProfilerServiceManager::SetPreviewState( const FMessageAddress& ClientAddr
 				// enable stat capture
 				if (PreviewClients.Num() == 0)
 				{
-					Stats.NewFrameDelegate.AddRaw( this, &FProfilerServiceManager::HandleNewFrame );
+					HandleNewFrameDelegateHandle = Stats.NewFrameDelegate.AddRaw( this, &FProfilerServiceManager::HandleNewFrame );
 					StatsMasterEnableAdd();
 				}
 				PreviewClients.Add(ClientAddress);
@@ -552,7 +552,7 @@ void FProfilerServiceManager::SetPreviewState( const FMessageAddress& ClientAddr
 				if (PreviewClients.Num() == 0)
 				{
 					// disable stat capture
-					Stats.NewFrameDelegate.RemoveRaw( this, &FProfilerServiceManager::HandleNewFrame );
+					Stats.NewFrameDelegate.Remove( HandleNewFrameDelegateHandle );
 					StatsMasterEnableAdd();
 				}
 			}
@@ -592,7 +592,7 @@ bool FProfilerServiceManager::HandlePing( float DeltaTime )
 	if (PreviewClients.Num() == 0)
 	{
 		// disable stat capture
-		FStatsThreadState::GetLocalState().NewFrameDelegate.RemoveRaw(this, &FProfilerServiceManager::HandleNewFrame);
+		FStatsThreadState::GetLocalState().NewFrameDelegate.Remove(HandleNewFrameDelegateHandle);
 		StatsMasterEnableAdd();
 	}
 
@@ -705,7 +705,7 @@ void FProfilerServiceManager::HandleServiceSubscribeMessage( const FProfilerServ
 		// initiate the ping callback
 		if (ClientData.Num() == 1)
 		{
-			FTicker::GetCoreTicker().AddTicker(PingDelegate, 15.0f);
+			PingDelegateHandle = FTicker::GetCoreTicker().AddTicker(PingDelegate, 15.0f);
 		}
 	}
 #endif
@@ -732,7 +732,7 @@ void FProfilerServiceManager::HandleServiceUnsubscribeMessage( const FProfilerSe
 		// stop the ping messages if we have no clients
 		if (ClientData.Num() == 0)
 		{
-			FTicker::GetCoreTicker().RemoveTicker(PingDelegate);
+			FTicker::GetCoreTicker().RemoveTicker(PingDelegateHandle);
 		}
 	}
 }

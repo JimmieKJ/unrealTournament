@@ -33,9 +33,10 @@ class UChildActorComponent : public USceneComponent
 	virtual void OnRegister() override;
 	virtual FComponentInstanceDataBase* GetComponentInstanceData() const override;
 	virtual FName GetComponentInstanceDataType() const override;
-	virtual void ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData) override;
-
 	// End ActorComponent interface.
+
+	/** Apply the component instance data to the child actor component */
+	void ApplyComponentInstanceData(class FChildActorComponentInstanceData* ComponentInstanceData);
 
 	/** Create the child actor */
 	void CreateChildActor();

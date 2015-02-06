@@ -26,6 +26,7 @@
 
 #define LOCTEXT_NAMESPACE "STestSuite"
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 namespace
 {
@@ -862,7 +863,6 @@ public:
 	 *
 	 * @param InArgs   Declartion from which to construct the widget
 	 */
-	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct(const FArguments& InArgs)
 	{
 		this->ChildSlot
@@ -1004,7 +1004,6 @@ public:
 			]
 		];
 	}
-	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 	SSplitterTest()
 		: Col0Row0Vis( new FVisibilityCycler() )
@@ -5506,5 +5505,7 @@ void MakeSplitterTest()
 
 	FSlateApplication::Get().AddWindow( TestWindow );
 }
+
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 #undef LOCTEXT_NAMESPACE

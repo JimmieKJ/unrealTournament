@@ -81,23 +81,30 @@ public:
 	DECLARE_DELEGATE_RetVal_TwoParams( FReply, FOnCategoryDragged, const FString&, const FPointerEvent& );
 	/** Delegate executed when the list of all actions needs to be refreshed */
 	DECLARE_DELEGATE_OneParam( FOnCollectAllActions, FGraphActionListBuilderBase& );
+	/** Delegate executed when the list of all actions needs to be refreshed, should return any sections that should always be visible, even if they don't have children. */
+	DECLARE_DELEGATE_OneParam( FOnCollectStaticSections, TArray<int32>& )
 	/** Delegate executed when a category is being renamed so any post-rename actions can be handled */
 	DECLARE_DELEGATE_ThreeParams( FOnCategoryTextCommitted, const FText&, ETextCommit::Type, TWeakPtr< FGraphActionNode >);
 	/** Delegate executed to check if the selected action is valid for renaming */
 	DECLARE_DELEGATE_RetVal_OneParam( bool, FCanRenameSelectedAction, TWeakPtr< FGraphActionNode > );
 	/** Delegate to get the name of a section if the widget is a section separator. */
 	DECLARE_DELEGATE_RetVal_OneParam( FText, FGetSectionTitle, int32 );
+	/** Delegate to get the tooltip of a section if the widget is a section separator. */
+	DECLARE_DELEGATE_RetVal_OneParam( TSharedPtr<IToolTip>, FGetSectionToolTip, int32 );
+	/** Delegate to get the widget that appears on the section bar in the section separator. */
+	DECLARE_DELEGATE_RetVal_TwoParams( TSharedRef<SWidget>, FGetSectionWidget, TSharedRef<SWidget>, int32 );
 	/** Delegate to get the filter text */
 	DECLARE_DELEGATE_RetVal( FText, FGetFilterText);
 	/** Delegate to check if an action matches a specified name (used for renaming items etc.) */
 	DECLARE_DELEGATE_RetVal_TwoParams( bool, FOnActionMatchesName, FEdGraphSchemaAction*, const FName& );
 
-	SLATE_BEGIN_ARGS( SGraphActionMenu ) 
-		{
-			_AutoExpandActionMenu = false;
-			_ShowFilterTextBox = true;
-			_AlphaSortItems = true;
-		}
+	SLATE_BEGIN_ARGS(SGraphActionMenu)
+		: _AutoExpandActionMenu(false)
+		, _AlphaSortItems(true)
+		, _ShowFilterTextBox(true)
+		, _UseSectionStyling(false)
+		{ }
+
 		SLATE_EVENT( FOnActionSelected, OnActionSelected )
 		SLATE_EVENT( FOnActionDoubleClicked, OnActionDoubleClicked )
 		SLATE_EVENT( FOnActionDragged, OnActionDragged )
@@ -106,14 +113,18 @@ public:
 		SLATE_EVENT( FOnCreateWidgetForAction, OnCreateWidgetForAction )
 		SLATE_EVENT( FOnCreateCustomRowExpander, OnCreateCustomRowExpander )
 		SLATE_EVENT( FOnCollectAllActions, OnCollectAllActions )
+		SLATE_EVENT( FOnCollectStaticSections, OnCollectStaticSections )
 		SLATE_EVENT( FOnCategoryTextCommitted, OnCategoryTextCommitted )
 		SLATE_EVENT( FCanRenameSelectedAction, OnCanRenameSelectedAction )
-		SLATE_EVENT( FGetSectionTitle, OnGetSectionTitle )		
+		SLATE_EVENT( FGetSectionTitle, OnGetSectionTitle )
+		SLATE_EVENT( FGetSectionToolTip, OnGetSectionToolTip )
+		SLATE_EVENT( FGetSectionWidget, OnGetSectionWidget )
 		SLATE_EVENT( FGetFilterText, OnGetFilterText )
 		SLATE_EVENT( FOnActionMatchesName, OnActionMatchesName )
 		SLATE_ARGUMENT( bool, AutoExpandActionMenu )
 		SLATE_ARGUMENT( bool, AlphaSortItems )
 		SLATE_ARGUMENT( bool, ShowFilterTextBox )
+		SLATE_ARGUMENT( bool, UseSectionStyling )
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs, bool bIsReadOnly = true );
@@ -127,6 +138,12 @@ public:
 	 * @param bPreserveExpansion		TRUE if the expansion state of the tree should be preserved
 	 * @param bHandleOnSelectionEvent		TRUE if the item should be selected and any actions that occur with selection will be handled. FALSE and only selection will occur */
 	void RefreshAllActions(bool bPreserveExpansion, bool bHandleOnSelectionEvent = true);
+
+	/** Returns a map of all top level sections and their current expansion state. */
+	void GetSectionExpansion(TMap<int32, bool>& SectionExpansion) const;
+
+	/** Sets the sections to be expanded of all top level sections. */
+	void SetSectionExpansion(const TMap<int32, bool>& SectionExpansion);
 
 protected:
 	/** Tree view for showing actions */
@@ -153,6 +170,8 @@ protected:
 	bool bShowFilterTextBox;
 	/** Don't sort items alphabetically */
 	bool bAlphaSortItems;
+	/** Should the rows and sections be styled like the details panel? */
+	bool bUseSectionStyling;
 
 	/** Delegate to call when action is selected */
 	FOnActionSelected OnActionSelected;
@@ -168,12 +187,18 @@ protected:
 	FOnCreateCustomRowExpander OnCreateCustomRowExpander;
 	/** Delegate to call to collect all actions */
 	FOnCollectAllActions OnCollectAllActions;
+	/** Delegate to call to collect all always visible sections */
+	FOnCollectStaticSections OnCollectStaticSections;
 	/** Delegate to call to handle any post-category rename events */
 	FOnCategoryTextCommitted OnCategoryTextCommitted;
 	/** Delegate to call to check if a selected action is valid for renaming */
 	FCanRenameSelectedAction OnCanRenameSelectedAction;
-	/** Delegate to get the name of a section seperator. */
+	/** Delegate to get the name of a section separator. */
 	FGetSectionTitle OnGetSectionTitle;
+	/** Delegate to get the tooltip of a section separator. */
+	FGetSectionToolTip OnGetSectionToolTip;
+	/** Delegate to get the widgets of a section separator. */
+	FGetSectionWidget OnGetSectionWidget;
 	/** Delegate to get the filter text if supplied from an external source */
 	FGetFilterText OnGetFilterText;
 	/** Delegate to check if an action matches a specified name (used for renaming items etc.) */

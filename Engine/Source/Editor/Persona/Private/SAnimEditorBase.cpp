@@ -216,15 +216,15 @@ void SAnimEditorBase::ClearDetailsView()
 	PersonaPtr.Pin()->SetDetailObject(NULL);
 }
 
-FString SAnimEditorBase::GetEditorObjectName() const
+FText SAnimEditorBase::GetEditorObjectName() const
 {
 	if (GetEditorObject() != NULL)
 	{
-		return GetEditorObject()->GetName();
+		return FText::FromString(GetEditorObject()->GetName());
 	}
 	else
 	{
-		return LOCTEXT("NoEditorObject", "No Editor Object").ToString();
+		return LOCTEXT("NoEditorObject", "No Editor Object");
 	}
 }
 
@@ -272,7 +272,7 @@ void SAnimEditorBase::OnSelectionChanged(const FGraphPanelSelectionSet& Selected
 	if (SelectedItems.Num() == 0)
 	{
 		// Edit the sequence
-		PersonaPtr.Pin()->UpdateSelectionDetails(GetEditorObject(), LOCTEXT("Edit Sequence", "Edit Sequence").ToString());
+		PersonaPtr.Pin()->UpdateSelectionDetails(GetEditorObject(), LOCTEXT("Edit Sequence", "Edit Sequence"));
 	}
 	else
 	{
@@ -306,7 +306,7 @@ void SAnimEditorBase::SetInputViewRange(float InViewMinInput, float InViewMaxInp
 	ViewMinInput = FMath::Max<float>(InViewMinInput, 0.f);
 }
 
-FString SAnimEditorBase::GetCurrentSequenceTime() const
+FText SAnimEditorBase::GetCurrentSequenceTime() const
 {
 	UAnimSingleNodeInstance * PreviewInstance = GetPreviewInstance();
 	float CurTime = 0.f;
@@ -317,11 +317,13 @@ FString SAnimEditorBase::GetCurrentSequenceTime() const
 		CurTime = PreviewInstance->CurrentTime;
 	}
 
-	const FString Fraction = FString::Printf(TEXT("%0.3f / %0.3f"), CurTime, TotalTime);
-	return FText::Format( LOCTEXT("FractionSeconds", "{0} (second(s))"), FText::FromString(Fraction) ).ToString();
+	static const FNumberFormattingOptions FractionNumberFormat = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(3)
+		.SetMaximumFractionalDigits(3);
+	return FText::Format(LOCTEXT("FractionSecondsFmt", "{0} / {1} (second(s))"), FText::AsNumber(CurTime, &FractionNumberFormat), FText::AsNumber(TotalTime, &FractionNumberFormat));
 }
 
-FString SAnimEditorBase::GetCurrentPercentage() const
+FText SAnimEditorBase::GetCurrentPercentage() const
 {
 	UAnimSingleNodeInstance * PreviewInstance = GetPreviewInstance();
 	float Percentage = 0.f;
@@ -330,10 +332,13 @@ FString SAnimEditorBase::GetCurrentPercentage() const
 		Percentage = PreviewInstance->CurrentTime / GetEditorObject()->SequenceLength;
 	}
 
-	return FString::Printf(TEXT("%0.2f %%"), Percentage*100.f);
+	static const FNumberFormattingOptions PercentNumberFormat = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(2)
+		.SetMaximumFractionalDigits(2);
+	return FText::AsPercent(Percentage, &PercentNumberFormat);
 }
 
-FString SAnimEditorBase::GetCurrentFrame() const
+FText SAnimEditorBase::GetCurrentFrame() const
 {
 	UAnimSingleNodeInstance * PreviewInstance = GetPreviewInstance();
 	float Percentage = 0.f;
@@ -344,8 +349,10 @@ FString SAnimEditorBase::GetCurrentFrame() const
 		Percentage = PreviewInstance->CurrentTime/GetEditorObject()->SequenceLength;
 	}
 
-	const FString Fraction = FString::Printf(TEXT("%0.2f / %d"), NumFrames*Percentage, (int32)NumFrames);
-	return FText::Format( LOCTEXT("FractionKeys", "{0} (key(s))"), FText::FromString(Fraction) ).ToString();
+	static const FNumberFormattingOptions FractionNumberFormat = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(2)
+		.SetMaximumFractionalDigits(2);
+	return FText::Format(LOCTEXT("FractionKeysFmt", "{0} / {1} (key(s))"), FText::AsNumber(NumFrames * Percentage, &FractionNumberFormat), FText::AsNumber((int32)NumFrames));
 }
 
 #undef LOCTEXT_NAMESPACE

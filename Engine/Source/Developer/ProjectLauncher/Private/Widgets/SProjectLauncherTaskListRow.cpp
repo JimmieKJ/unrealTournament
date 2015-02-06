@@ -14,7 +14,7 @@ TSharedRef<SWidget> SProjectLauncherTaskListRow::GenerateWidgetForColumn(const F
 	{
 		return SNew(SBox)
 			.Padding(FMargin(4.0, 0.0))
-			.VAlign((VAlign_Center))
+			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
 				.Text(this, &SProjectLauncherTaskListRow::HandleDurationText)
@@ -26,7 +26,7 @@ TSharedRef<SWidget> SProjectLauncherTaskListRow::GenerateWidgetForColumn(const F
 
 			+ SOverlay::Slot()
 			.HAlign(HAlign_Center)
-			.VAlign((VAlign_Center))
+			.VAlign(VAlign_Center)
 			[
 				SNew(SThrobber)
 				.Animate(SThrobber::VerticalAndOpacity)
@@ -36,7 +36,7 @@ TSharedRef<SWidget> SProjectLauncherTaskListRow::GenerateWidgetForColumn(const F
 
 		+ SOverlay::Slot()
 			.HAlign(HAlign_Center)
-			.VAlign((VAlign_Center))
+			.VAlign(VAlign_Center)
 			[
 				SNew(SImage)
 				.ColorAndOpacity(this, &SProjectLauncherTaskListRow::HandleIconColorAndOpacity)
@@ -47,7 +47,7 @@ TSharedRef<SWidget> SProjectLauncherTaskListRow::GenerateWidgetForColumn(const F
 	{
 		return SNew(SBox)
 			.Padding(FMargin(4.0, 0.0))
-			.VAlign((VAlign_Center))
+			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
 				.Text(this, &SProjectLauncherTaskListRow::HandleStatusText)
@@ -61,10 +61,10 @@ TSharedRef<SWidget> SProjectLauncherTaskListRow::GenerateWidgetForColumn(const F
 		{
 			return SNew(SBox)
 				.Padding(FMargin(4.0, 0.0))
-				.VAlign((VAlign_Center))
+				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(TaskPtr->GetDesc())
+					.Text(FText::FromString(TaskPtr->GetDesc()))
 				];
 		}
 	}

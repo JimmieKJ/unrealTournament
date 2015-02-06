@@ -181,6 +181,22 @@ bool UPaperFlipbook::HasAnySockets() const
 	return false;
 }
 
+bool UPaperFlipbook::DoesSocketExist(FName SocketName) const
+{
+	for (const FPaperFlipbookKeyFrame& KeyFrame : KeyFrames)
+	{
+		if (KeyFrame.Sprite != nullptr)
+		{
+			if (KeyFrame.Sprite->FindSocket(SocketName))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 void UPaperFlipbook::QuerySupportedSockets(TArray<FComponentSocketDescription>& OutSockets) const
 {
 	TSet<FName> SocketNames;

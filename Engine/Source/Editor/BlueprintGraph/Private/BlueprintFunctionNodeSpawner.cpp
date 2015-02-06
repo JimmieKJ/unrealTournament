@@ -329,8 +329,16 @@ FBlueprintActionUiSpec UBlueprintFunctionNodeSpawner::GetUiSpec(FBlueprintAction
 
 		if (!TargetClass->IsChildOf(FunctionClass))
 		{
-			MenuSignature.Category = FEditorCategoryUtils::BuildCategoryString( FCommonEditorCategory::Class, 
-				FText::FromString(FunctionClass->GetDisplayNameText().ToString()) );
+			// When there are no bindings set, functions need to be categorized into a category "Class" to help reduce clutter in the tree root
+			if(Bindings.Num() == 0)
+			{
+				MenuSignature.Category = FEditorCategoryUtils::BuildCategoryString( FCommonEditorCategory::Class, 
+					FText::FromString(FunctionClass->GetDisplayNameText().ToString()) );
+			}
+			else
+			{
+				MenuSignature.Category = FText::FromString(FunctionClass->GetDisplayNameText().ToString());
+			}
 		}
 	}
 

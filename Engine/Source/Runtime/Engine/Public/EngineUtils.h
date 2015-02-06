@@ -165,6 +165,8 @@ protected:
 	TArray<AActor*> SpawnedActorArray;
 	/** The class type we are iterating, kept for filtering		*/
 	UClass* DesiredClass;
+	/** Handle to the registered OnActorSpawned delegate		*/
+	FDelegateHandle ActorSpawnedDelegateHandle;
 
 	/**
 	 * Default ctor, inits everything
@@ -183,12 +185,12 @@ protected:
 		GetObjectsOfClass(InClass, ObjectArray, true, ExcludeFlags);
 
 		ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FActorIteratorBase::OnActorSpawned);
-		CurrentWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+		ActorSpawnedDelegateHandle = CurrentWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 	}
 
 	~FActorIteratorBase()
 	{
-		CurrentWorld->RemoveOnActorSpawnedHandler(ActorSpawnedDelegate);
+		CurrentWorld->RemoveOnActorSpawnedHandler(ActorSpawnedDelegateHandle);
 	}
 
 	void OnActorSpawned(AActor* InActor)

@@ -201,10 +201,6 @@ public:
 private:
 	TWeakObjectPtr<UCrowdManager> CrowdManager;
 
-	// required navigation data 
-	UPROPERTY(config)
-	TArray<FStringClassReference> RequiredNavigationDataClassNames;
-
 	/** set to true when navigation processing was blocked due to missing nav bounds */
 	uint32 bNavDataRemovedDueToMissingNavBounds:1;
 
@@ -310,6 +306,11 @@ public:
 protected:
 	/** spawn new crowd manager */
 	virtual void CreateCrowdManager();
+
+	/** Used to properly set navigation class for indicated agent and propagate information to other places
+	 *	(like project settings) that may need this information 
+	 */
+	void SetSupportedAgentsNavigationClass(int32 AgentIndex, TSubclassOf<ANavigationData> NavigationDataClass);
 
 public:
 	//----------------------------------------------------------------------//
@@ -732,9 +733,6 @@ protected:
 	/** self-registering exec command to handle nav sys console commands */
 	static FNavigationSystemExec ExecHandler;
 #endif // !UE_BUILD_SHIPPING
-
-	/** collection of delegates to create all available navigation data types */
-	static TArray<TSubclassOf<ANavigationData> > NavDataClasses;
 	
 	/** whether seamless navigation building is enabled */
 	static bool bNavigationAutoUpdateEnabled;

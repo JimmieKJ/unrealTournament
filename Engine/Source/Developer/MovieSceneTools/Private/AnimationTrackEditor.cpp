@@ -264,7 +264,7 @@ USkeleton* FAnimationTrackEditor::AcquireSkeletonFromObjectGuid(const FGuid& Gui
 
 		if (Actor != NULL)
 		{
-			TArray<USkeletalMeshComponent*> SkeletalMeshComponents;
+			TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
 			Actor->GetComponents(SkeletalMeshComponents);
 
 			for (int32 j = 0; j <SkeletalMeshComponents.Num(); ++j)

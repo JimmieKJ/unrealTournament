@@ -10,8 +10,8 @@ void FTestTimeInterface::Test(UWorld* InWorld)
 	if (OnlineTime.IsValid())
 	{
 		// Create and add delegate for the async call
-		OnQueryServerUtcTimeCompleteDelegate = FOnQueryServerUtcTimeCompleteDelegate::CreateRaw(this, &FTestTimeInterface::OnQueryServerUtcTimeComplete);
-		OnlineTime->AddOnQueryServerUtcTimeCompleteDelegate(OnQueryServerUtcTimeCompleteDelegate);
+		OnQueryServerUtcTimeCompleteDelegate       = FOnQueryServerUtcTimeCompleteDelegate::CreateRaw(this, &FTestTimeInterface::OnQueryServerUtcTimeComplete);
+		OnQueryServerUtcTimeCompleteDelegateHandle = OnlineTime->AddOnQueryServerUtcTimeCompleteDelegate_Handle(OnQueryServerUtcTimeCompleteDelegate);
 		// Kick off the async query for server time
 		OnlineTime->QueryServerUtcTime();
 	}
@@ -26,7 +26,7 @@ void FTestTimeInterface::Test(UWorld* InWorld)
 
 void FTestTimeInterface::OnQueryServerUtcTimeComplete(bool bWasSuccessful, const FString& DateTimeStr, const FString& Error)
 {
-	OnlineTime->ClearOnQueryServerUtcTimeCompleteDelegate(OnQueryServerUtcTimeCompleteDelegate);
+	OnlineTime->ClearOnQueryServerUtcTimeCompleteDelegate_Handle(OnQueryServerUtcTimeCompleteDelegateHandle);
 
 	if (bWasSuccessful)
 	{

@@ -19,8 +19,8 @@ public:
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
 	/** Constructs this widget with InArgs */
-	void Construct(const FArguments& InArgs, TSharedRef<class SVisualLoggerView>, TSharedRef<FSequencerTimeSliderController> TimeSliderController);
-	TSharedRef<SWidget> MakeTimeline(TSharedPtr<class SVisualLoggerView> VisualLoggerView, TSharedPtr<class FSequencerTimeSliderController> TimeSliderController, const FVisualLogDevice::FVisualLogEntryItem& Entry);
+	void Construct(const FArguments& InArgs, TSharedRef<class SVisualLoggerView>, TSharedRef<FVisualLoggerTimeSliderController> TimeSliderController);
+	TSharedRef<SWidget> MakeTimeline(TSharedPtr<class SVisualLoggerView> VisualLoggerView, TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController, const FVisualLogDevice::FVisualLogEntryItem& Entry);
 	TSharedRef<SWidget> GetRightClickMenuContent();
 
 	void OnTimelineSelected(TSharedPtr<class STimelinesBar> Widget);
@@ -59,7 +59,7 @@ public:
 	bool IsNodeSelected(TSharedPtr<class STimeline> Node) const;
 
 protected:
-	TSharedPtr<class FSequencerTimeSliderController> TimeSliderController;
+	TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController;
 	TSharedPtr<class SVisualLoggerView> VisualLoggerView;
 	TArray<TSharedPtr<class STimeline> > TimelineItems;
 	TArray< TSharedPtr<class STimeline> > SelectedNodes;

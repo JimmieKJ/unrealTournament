@@ -465,23 +465,31 @@ struct TLandscapeEditCache
 	// X2/Y2 Coordinates are "inclusive" max values
 	bool GetCachedData(int32 X1, int32 Y1, int32 X2, int32 Y2, TArray<AccessorType>& OutData)
 	{
-		int32 NumSamples = (1 + X2 - X1)*(1 + Y2 - Y1);
+		const int32 XSize = (1 + X2 - X1);
+		const int32 YSize = (1 + Y2 - Y1);
+		const int32 NumSamples = XSize * YSize;
 		OutData.Empty(NumSamples);
 		OutData.AddUninitialized(NumSamples);
 		bool bHasNonZero = false;
 
 		for (int32 Y = Y1; Y <= Y2; Y++)
 		{
+			const int32 YOffset = (Y - Y1) * XSize;
 			for (int32 X = X1; X <= X2; X++)
 			{
+				const int32 XYOffset = YOffset + (X - X1);
 				AccessorType* Ptr = GetValueRef(X, Y);
 				if (Ptr)
 				{
-					OutData[(X-X1) + (Y-Y1)*(1+X2-X1)] = *Ptr;
+					OutData[XYOffset] = *Ptr;
 					if (!IsZeroValue(*Ptr))
 					{
 						bHasNonZero = true;
 					}
+				}
+				else
+				{
+					OutData[XYOffset] = (AccessorType)0;
 				}
 			}
 		}

@@ -96,7 +96,7 @@ public:
 	FString					ConnectionError;
 
 	// Constructor.
-	UPendingNetGame( const FObjectInitializer& ObjectInitializer, const FURL& InURL );
+	void Initialize(const FURL& InURL);
 
 	// Constructor.
 	UPendingNetGame( const FObjectInitializer& ObjectInitializer );

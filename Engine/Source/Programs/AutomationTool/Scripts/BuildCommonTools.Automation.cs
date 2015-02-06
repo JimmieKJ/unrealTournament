@@ -1,6 +1,7 @@
 ﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -68,12 +69,12 @@ public class BuildCommonTools : BuildCommand
 		string ManifestPath = ParseParamValue("manifest");
 		if(ManifestPath != null)
 		{
-			UnrealBuildTool.FileManifest Manifest = new UnrealBuildTool.FileManifest();
+			SortedSet<string> Files = new SortedSet<string>();
 			foreach(string BuildProductFile in Builder.BuildProductFiles)
 			{
-				Manifest.AddFileName(BuildProductFile);
+				Files.Add(BuildProductFile);
 			}
-			UnrealBuildTool.Utils.WriteClass(Manifest, ManifestPath, "");
+			File.WriteAllLines(ManifestPath, Files.ToArray());
 		}
 	}
 
@@ -101,6 +102,8 @@ public class BuildCommonTools : BuildCommand
 			Agenda.AddTarget("UnrealVersionSelector", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Shipping);
 			Agenda.AddTarget("BootstrapPackagedGame", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Shipping);
 			Agenda.AddTarget("BootstrapPackagedGame", UnrealBuildTool.UnrealTargetPlatform.Win32, UnrealBuildTool.UnrealTargetConfiguration.Shipping);
+			Agenda.AddTarget("UnrealCEFSubProcess", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
+			Agenda.AddTarget("UnrealCEFSubProcess", UnrealBuildTool.UnrealTargetPlatform.Win32, UnrealBuildTool.UnrealTargetConfiguration.Development);
 		}
 
 		// Mac binaries
@@ -111,6 +114,7 @@ public class BuildCommonTools : BuildCommand
 			Agenda.AddTarget("UnrealLightmass", UnrealBuildTool.UnrealTargetPlatform.Mac, UnrealBuildTool.UnrealTargetConfiguration.Development, InAddArgs: "-CopyAppBundleBackToDevice");
 			Agenda.AddTarget("ShaderCompileWorker", UnrealBuildTool.UnrealTargetPlatform.Mac, UnrealBuildTool.UnrealTargetConfiguration.Development, InAddArgs: "-CopyAppBundleBackToDevice");
 			Agenda.AddTarget("UE4EditorServices", UnrealBuildTool.UnrealTargetPlatform.Mac, UnrealBuildTool.UnrealTargetConfiguration.Development, InAddArgs: "-CopyAppBundleBackToDevice");
+			Agenda.AddTarget("UnrealCEFSubProcess", UnrealBuildTool.UnrealTargetPlatform.Mac, UnrealBuildTool.UnrealTargetConfiguration.Development, InAddArgs: "-CopyAppBundleBackToDevice");
 		}
 
 		// iOS binaries
@@ -133,6 +137,9 @@ public class BuildCommonTools : BuildCommand
 		if(Platforms.Contains(UnrealBuildTool.UnrealTargetPlatform.PS4))
 		{
 			Agenda.AddTarget("PS4MapFileUtil", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
+
+			Agenda.DotNetProjects.Add(CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, @"Engine/Source/Programs/PS4/PS4DevKitUtil/PS4DevKitUtil.csproj"));
+			ExtraBuildProducts.Add(CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, @"Engine/Binaries/DotNET/PS4/PS4DevKitUtil.exe"));
 		}
 		
 		// Xbox One binaries

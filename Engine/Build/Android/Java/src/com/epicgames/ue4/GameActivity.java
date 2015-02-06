@@ -65,7 +65,6 @@ import com.epicgames.ue4.GooglePlayLicensing;
 
 // TODO: use the resources from the UE4 lib project once we've got the packager up and running
 //import com.epicgames.ue4.R;
-import com.epicgames.ue4.JavaBuildSettings;
 
 //Extending NativeActivity so that this Java class is instantiated
 //from the beginning of the program.  This will allow the user
@@ -95,6 +94,9 @@ public class GameActivity extends NativeActivity
 	AlertDialog virtualKeyboardAlert;
 	EditText virtualKeyboardInputBox;
 
+	// default the PackageDataInsideApk to an invalid value to make sure we don't get it too early
+	private static int PackageDataInsideApkValue = -1;
+	
 	/** AssetManger reference - populated on start up and used when the OBB is packed into the APK */
 	private AssetManager			AssetManagerReference;
 	
@@ -186,12 +188,13 @@ public class GameActivity extends NativeActivity
 
 		_activity = this;
 		
+/*
 		// Turn on and unlock screen.. Assumption is that this
 		// will only really have an effect when for debug launching
 		// as otherwise the screen is already unlocked.
 		this.getWindow().addFlags(
 			WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
-			WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+//			WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
 			WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
 		// On some devices we can also unlock a key-locked screen by disabling the
 		// keylock guard. To be safe we only do this on < Android 3.2. As the API
@@ -202,6 +205,7 @@ public class GameActivity extends NativeActivity
 			android.app.KeyguardManager.KeyguardLock keylock = keyman.newKeyguardLock("Unlock");
 			keylock.disableKeyguard();
 		}
+*/
 
 		// tell Android that we want volume controls to change the media volume, aka music
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -271,12 +275,29 @@ public class GameActivity extends NativeActivity
 			{
 				DepthBufferPreference = bundle.getInt("com.epicgames.ue4.GameActivity.DepthBufferPreference");
 				Log.debug( "Found DepthBufferPreference = " + DepthBufferPreference);
-			} else {
+			}
+			else
+			{
 				Log.debug( "Did not find DepthBufferPreference, using default.");
 			}
-		} catch (NameNotFoundException e) {
+
+			if (bundle.containsKey("com.epicgames.ue4.GameActivity.bPackageDataInsideApk"))
+			{
+				PackageDataInsideApkValue = bundle.getBoolean("com.epicgames.ue4.GameActivity.bPackageDataInsideApk") ? 1 : 0;
+				Log.debug( "Found bPackageDataInsideApk = " + PackageDataInsideApkValue);
+			}
+			else
+			{
+				PackageDataInsideApkValue = 0;
+				Log.debug( "Did not find bPackageDataInsideApk, using default.");
+			}
+		}
+		catch (NameNotFoundException e)
+		{
 			Log.debug( "Failed to load meta-data: NameNotFound: " + e.getMessage());
-		} catch (NullPointerException e) {
+		}
+		catch (NullPointerException e)
+		{
 			Log.debug( "Failed to load meta-data: NullPointer: " + e.getMessage());
 		}
 
@@ -759,7 +780,8 @@ public class GameActivity extends NativeActivity
 
 	public static boolean isOBBInAPK()
 	{
-		return JavaBuildSettings.PackageType.AMAZON == JavaBuildSettings.PACKAGING;
+		Log.debug("Asking if osOBBInAPK? " + (PackageDataInsideApkValue == 1));
+		return PackageDataInsideApkValue == 1;
 	}
 
 	public void AndroidThunkJava_Minimize()
@@ -876,6 +898,7 @@ public class GameActivity extends NativeActivity
 		{
 			super.onActivityResult(requestCode, resultCode, data);
 		}
+		nativeOnActivityResult(this, requestCode, resultCode, data);
 	}
 	
 	public boolean AndroidThunkJava_IapBeginPurchase(String ProductId, boolean bConsumable)
@@ -920,6 +943,8 @@ public class GameActivity extends NativeActivity
 	public native void nativeInitHMDs();
 
 	public native void nativeResumeMainInit();
+
+	public native void nativeOnActivityResult(GameActivity activity, int requestCode, int resultCode, Intent data);
 	
 	static
 	{

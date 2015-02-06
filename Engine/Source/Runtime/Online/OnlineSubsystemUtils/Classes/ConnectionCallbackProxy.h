@@ -40,6 +40,9 @@ private:
 	// Connection callback delegate
 	FOnLoginCompleteDelegate OnLoginCompleteDelegate;
 
+	// OnLoginComplete delegate handle
+	FDelegateHandle OnLoginCompleteDelegateHandle;
+
 	// The world context object in which this call is taking place
 	UObject* WorldContextObject;
 };

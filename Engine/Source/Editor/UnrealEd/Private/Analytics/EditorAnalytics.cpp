@@ -9,6 +9,8 @@
 #include "EditorAnalytics.h"
 #include "GeneralProjectSettings.h"
 
+#define LOCTEXT_NAMESPACE "EditorAnalytics"
+
 void FEditorAnalytics::ReportBuildRequirementsFailure(FString EventName, FString PlatformName, bool bHasCode, int32 Requirements)
 {
 	TArray<FAnalyticsEventAttribute> ParamArray;
@@ -74,7 +76,8 @@ void FEditorAnalytics::ReportEvent(FString EventName, FString PlatformName, bool
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Platform"), PlatformName));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ProjectType"), bHasCode ? TEXT("C++ Code") : TEXT("Content Only")));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ErrorCode"), ErrorCode));
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ErrorName"), TranslateErrorCode(ErrorCode)));
+		const FString ErrorMessage = TranslateErrorCode(ErrorCode);
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ErrorName"), ErrorMessage));
 		ParamArray.Append(ExtraParams);
 
 		FEngineAnalytics::GetProvider().RecordEvent( EventName, ParamArray );
@@ -163,7 +166,15 @@ FString FEditorAnalytics::TranslateErrorCode(int32 ErrorCode)
 		return TEXT("No APK suitable for architecture found");
 	case EAnalyticsErrorCodes::FailedToDeleteStagingDirectory :
 		return TEXT("Failed to delete staging directory.  This could be because something is currently using the staging directory (ps4/xbox/etc)");
+	case EAnalyticsErrorCodes::MissingExecutable:
+		return LOCTEXT("UATErrorMissingExecutable", "Missing UE4Game binary.\nYou may have to build the UE4 project with your IDE. Alternatively, build using UnrealBuildTool with the commandline:\nUE4Game <Platform> <Configuration>").ToString();
 	}
 	return TEXT("Unknown Error");
 }
 
+bool FEditorAnalytics::ShouldElevateMessageThroughDialog(const int32 ErrorCode)
+{
+	return (EAnalyticsErrorCodes::Type)ErrorCode == EAnalyticsErrorCodes::MissingExecutable;
+}
+
+#undef LOCTEXT_NAMESPACE

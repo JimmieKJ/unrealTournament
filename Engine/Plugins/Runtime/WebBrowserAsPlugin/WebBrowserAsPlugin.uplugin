@@ -1,0 +1,21 @@
+{
+    "PluginFileVersion" : 1,
+	
+	"FriendlyName" : "Web Browser",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.7.0",
+	"Description" : "Allows for selective use of the Web Browser module rather than building it into every game",
+	"CategoryPath" : "Programming Runtime.Plugins",
+	
+    "Modules" :
+	[
+		{
+			"Name" : "WebBrowserAsPlugin",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win64", "Win32", "Mac" ]
+		}
+	]
+}

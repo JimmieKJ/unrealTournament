@@ -1091,6 +1091,88 @@ TSharedRef< SWidget > FLevelEditorToolBar::MakeLevelEditorToolBar( const TShared
 	{
 		// Save All Levels
 		ToolbarBuilder.AddToolBarButton( FLevelEditorCommands::Get().Save, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "AssetEditor.SaveAsset") );
+
+		// Source control buttons
+		{
+			enum EQueryState
+			{
+				NotQueried,
+				Querying,
+				Queried,
+			};
+
+			static EQueryState QueryState = EQueryState::NotQueried;
+
+			struct FSourceControlStatus
+			{
+				static void CheckSourceControlStatus()
+				{
+					ISourceControlModule& SourceControlModule = ISourceControlModule::Get();
+					if (SourceControlModule.IsEnabled())
+					{
+						SourceControlModule.GetProvider().Execute(ISourceControlOperation::Create<FConnect>(),
+																  EConcurrency::Asynchronous,
+																  FSourceControlOperationComplete::CreateStatic(&FSourceControlStatus::OnSourceControlOperationComplete));
+						QueryState = EQueryState::Querying;
+					}
+				}
+
+				static void OnSourceControlOperationComplete(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult)
+				{
+					QueryState = EQueryState::Queried;
+				}
+
+				static FText GetSourceControlTooltip()
+				{
+					if (QueryState == EQueryState::Querying)
+					{
+						return LOCTEXT("SourceControlUnknown", "Source control status is unknown");
+					}
+					else
+					{
+						return ISourceControlModule::Get().GetProvider().GetStatusText();
+					}
+				}
+
+				static FSlateIcon GetSourceControlIcon()
+				{
+					if (QueryState == EQueryState::Querying)
+					{
+						return FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.SourceControl.Unknown");
+					}
+					else
+					{
+						ISourceControlModule& SourceControlModule = ISourceControlModule::Get();
+						if (SourceControlModule.IsEnabled())
+						{
+							if (!SourceControlModule.GetProvider().IsAvailable())
+							{
+								return FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.SourceControl.Error");
+							}
+							else
+							{
+								return FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.SourceControl.On");
+							}
+						}
+						else
+						{
+							return FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.SourceControl.Off");
+						}
+					}
+				}
+			};
+
+			FSourceControlStatus::CheckSourceControlStatus();
+
+			ToolbarBuilder.AddComboButton(
+				FUIAction(),
+				FOnGetContent::CreateStatic(&FLevelEditorToolBar::GenerateSourceControlMenu, InCommandList),
+				LOCTEXT("SourceControl_Label", "Source Control"),
+				TAttribute<FText>::Create(&FSourceControlStatus::GetSourceControlTooltip),
+				TAttribute<FSlateIcon>::Create(&FSourceControlStatus::GetSourceControlIcon),
+				false
+				);
+		}
 	}
 	ToolbarBuilder.EndSection();
 
@@ -1168,18 +1250,6 @@ TSharedRef< SWidget > FLevelEditorToolBar::MakeLevelEditorToolBar( const TShared
 				FLevelEditorCommands::Get().RecompileGameCode->GetDescription(),
 				FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Recompile")
 				);
-
-			ToolbarBuilder.AddComboButton(
-				FUIAction(
-					FExecuteAction(),
-					FCanExecuteAction(),
-					FIsActionChecked(),
-					FIsActionButtonVisible::CreateStatic(FLevelEditorActionCallbacks::CanShowSourceCodeActions)),
-				FOnGetContent::CreateStatic( &FLevelEditorToolBar::GenerateCompileMenuContent, InCommandList ),
-				LOCTEXT( "CompileCombo_Label", "Compile Options" ),
-				LOCTEXT( "CompileMenuCombo_ToolTip", "Recompile options" ),
-				FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Recompile"),
-				true);
 		}
 	}
 	ToolbarBuilder.EndSection();
@@ -1190,6 +1260,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::MakeLevelEditorToolBar( const TShared
 		FPlayWorldCommands::BuildToolbar(ToolbarBuilder, true);
 	}
 	ToolbarBuilder.EndSection();
+
 
 	// Create the tool bar!
 	return
@@ -1693,13 +1764,14 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateQuickSettingsMenu( TSharedRef
 	return MenuBuilder.MakeWidget();
 }
 
-TSharedRef< SWidget > FLevelEditorToolBar::GenerateCompileMenuContent( TSharedRef<FUICommandList> InCommandList )
+
+TSharedRef< SWidget > FLevelEditorToolBar::GenerateSourceControlMenu(TSharedRef<FUICommandList> InCommandList)
 {
-#define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
+#define LOCTEXT_NAMESPACE "LevelToolBarSourceControlMenu"
 
 	// Get all menu extenders for this context menu from the level editor module
-	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>( TEXT("LevelEditor") );
-	TArray<FLevelEditorModule::FLevelEditorMenuExtender> MenuExtenderDelegates = LevelEditorModule.GetAllLevelEditorToolbarCompileMenuExtenders();
+	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+	TArray<FLevelEditorModule::FLevelEditorMenuExtender> MenuExtenderDelegates = LevelEditorModule.GetAllLevelEditorToolbarSourceControlMenuExtenders();
 
 	TArray<TSharedPtr<FExtender>> Extenders;
 	for (int32 i = 0; i < MenuExtenderDelegates.Num(); ++i)
@@ -1712,15 +1784,24 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateCompileMenuContent( TSharedRe
 	TSharedPtr<FExtender> MenuExtender = FExtender::Combine(Extenders);
 
 	const bool bShouldCloseWindowAfterMenuSelection = true;
-	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, InCommandList, MenuExtender );
+	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, InCommandList, MenuExtender);
 
-	if (LevelEditorModule.CanBeRecompiled())
+	MenuBuilder.BeginSection("SourceControlActions", LOCTEXT("SourceControlMenuHeadingActions", "Actions"));
+
+	ISourceControlModule& SourceControlModule = ISourceControlModule::Get();
+	if (ISourceControlModule::Get().IsEnabled() && ISourceControlModule::Get().GetProvider().IsAvailable())
 	{
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().RecompileLevelEditor );
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().ReloadLevelEditor );
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().ChangeSourceControlSettings);
+	}
+	else
+	{
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().ConnectToSourceControl);
 	}
 
-	MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().RecompileGameCode );
+	MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().CheckOutModifiedFiles);
+	MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().SubmitToSourceControl);
+
+	MenuBuilder.EndSection();
 
 #undef LOCTEXT_NAMESPACE
 
@@ -1774,7 +1855,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateOpenBlueprintMenuContent( TSh
 
 
 		/** Generates 'open blueprint' sub-menu */
-		static void MakeOpenClassBPMenu(FMenuBuilder& InMenuBuilder)
+		static void MakeOpenBPClassMenu(FMenuBuilder& InMenuBuilder)
 		{
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 
@@ -1847,17 +1928,17 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateOpenBlueprintMenuContent( TSh
 	}
 	MenuBuilder.EndSection();
 
-	MenuBuilder.BeginSection(NAME_None, LOCTEXT("ClassBlueprints", "Class Blueprints"));
+	MenuBuilder.BeginSection(NAME_None, LOCTEXT("Blueprints Class", "Blueprints Class"));
 	{
-		// New Class Blueprint...
-		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().CreateClassBlueprint, NAME_None, LOCTEXT("NewClassBlueprint", "New Class Blueprint..."));
+		// New Blueprint Class...
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().CreateBlueprintClass, NAME_None, LOCTEXT("NewBlueprintClass", "New Blueprint Class..."));
 
-		// Open Class Blueprint...
+		// Open Blueprint Class...
 		FSlateIcon OpenBPIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.OpenClassBlueprint");
 		MenuBuilder.AddSubMenu(
-			LOCTEXT("OpenClassBlueprintSubMenu", "Open Class Blueprint..."),
-			LOCTEXT("OpenClassBlueprintSubMenu_ToolTip", "Open an existing Class Blueprint in this project"),
-			FNewMenuDelegate::CreateStatic(&FBlueprintMenus::MakeOpenClassBPMenu), 
+			LOCTEXT("OpenBlueprintClassSubMenu", "Open Blueprint Class..."),
+			LOCTEXT("OpenBlueprintClassSubMenu_ToolTip", "Open an existing Blueprint Class in this project"),
+			FNewMenuDelegate::CreateStatic(&FBlueprintMenus::MakeOpenBPClassMenu), 
 			false, 
 			OpenBPIcon );
 	}

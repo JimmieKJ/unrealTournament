@@ -18,6 +18,9 @@
 	FOnLoginCompleteDelegate OnLoginCompleteDelegate;
 	/** Delegate to use for logging out a user */
 	FOnLogoutCompleteDelegate OnLogoutCompleteDelegate;
+	/** Handles to the above delegates */
+	FDelegateHandle OnLoginCompleteDelegateHandle;
+	FDelegateHandle OnLogoutCompleteDelegateHandle;
 	/** true if authentication test should be run */
 	bool bRunLoginTest;
 	/** true if logout test should be run */

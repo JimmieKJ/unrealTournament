@@ -2,6 +2,7 @@
 
 #include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintActionDatabase.h"
+#include "ComponentTypeRegistry.h"
 #include "EdGraphSchema_K2.h"       // for CanUserKismetCallFunction()
 #include "EditorCategoryUtils.h"
 #include "KismetEditorUtilities.h"	// for IsClassABlueprintSkeleton(), IsClassABlueprintInterface(), GetBoundsForSelectedNodes(), etc.
@@ -341,16 +342,6 @@ namespace BlueprintActionDatabaseImpl
 	static void AddClassCastActions(UClass* const Class, FActionList& ActionListOut);
 
 	/**
-	 * Evolved from K2ActionMenuBuilder's GetAddComponentClasses(). If the
-	 * specified class is a component type (and can be spawned), then a 
-	 * UK2Node_AddComponent spawner is created and added to ActionListOut.
-	 *
-	 * @param  ComponentClass	The class who you want a spawner for (the component class).
-	 * @param  ActionListOut	The list you want populated with the new spawner.
-	 */
-	static void AddComponentClassActions(TSubclassOf<UActorComponent> const ComponentClass, FActionList& ActionListOut);
-
-	/**
 	 * Adds custom actions to operate on the provided skeleton. Used primarily
 	 * to find AnimNotify event vocabulary
 	 *
@@ -543,11 +534,6 @@ static void BlueprintActionDatabaseImpl::GetClassMemberActions(UClass* const Cla
 	}
 
 	AddClassCastActions(Class, ActionListOut);
-
-	if (Class->IsChildOf<UActorComponent>())
-	{
-		AddComponentClassActions(Class, ActionListOut);
-	}
 }
 
 //------------------------------------------------------------------------------
@@ -684,18 +670,6 @@ static void BlueprintActionDatabaseImpl::AddClassCastActions(UClass* Class, FAct
 		UBlueprintNodeSpawner* CastClassNodeSpawner = UBlueprintNodeSpawner::Create<UK2Node_ClassDynamicCast>();
 		CastClassNodeSpawner->CustomizeNodeDelegate = CastObjNodeSpawner->CustomizeNodeDelegate;
 		ActionListOut.Add(CastClassNodeSpawner);
-	}
-}
-
-//------------------------------------------------------------------------------
-static void BlueprintActionDatabaseImpl::AddComponentClassActions(TSubclassOf<UActorComponent> const ComponentClass, FActionList& ActionListOut)
-{
-	if ((ComponentClass != nullptr) && !ComponentClass->HasAnyClassFlags(CLASS_Abstract) && ComponentClass->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
-	{
-		if (UBlueprintComponentNodeSpawner* NodeSpawner = UBlueprintComponentNodeSpawner::Create(ComponentClass))
-		{
-			ActionListOut.Add(NodeSpawner);
-		}
 	}
 }
 
@@ -906,7 +880,11 @@ static void BlueprintActionDatabaseImpl::OnWorldDestroyed(UWorld* DestroyedWorld
 static bool BlueprintActionDatabaseImpl::IsObjectValidForDatabase(UObject const* Object)
 {
 	bool bReturn = false;
-	if(Object->IsAsset())
+	if( Object == nullptr )
+	{
+		bReturn = false;
+	}
+	else if(Object->IsAsset())
 	{
 		bReturn = true;
 	}
@@ -1040,6 +1018,10 @@ void FBlueprintActionDatabase::RefreshAll()
 		FActionList& ClassActionList = ActionRegistry.FindOrAdd(*SkeletonIt);
 		BlueprintActionDatabaseImpl::AddSkeletonActions(**SkeletonIt, ClassActionList);
 	}
+
+	// this handles creating entries for components that were loaded before the database was alive:
+	FComponentTypeRegistry::Get().SubscribeToComponentList(ComponentTypes).AddRaw(this, &FBlueprintActionDatabase::RefreshComponentActions);
+	RefreshComponentActions();
 }
 
 //------------------------------------------------------------------------------
@@ -1140,6 +1122,13 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 
 	bool const bHadExistingEntry = ActionRegistry.Contains(AssetObject);
 	FActionList& AssetActionList = ActionRegistry.FindOrAdd(AssetObject);
+	for (UBlueprintNodeSpawner* Action : AssetActionList)
+	{
+		// because some asserts expect everything to be cleaned up in a 
+		// single GC pass, we need to ensure that any previously cached node templates
+		// are cleaned up here before we add any new node spawners.
+		Action->ClearCachedTemplateNode();
+	}
 	AssetActionList.Empty();
 
 	if(const USkeleton* Skeleton = Cast<USkeleton>(AssetObject))
@@ -1165,7 +1154,8 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 		// blueprint
 		if (!bHadExistingEntry)
 		{
-			BlueprintAsset->OnChanged().AddStatic(&BlueprintActionDatabaseImpl::OnBlueprintChanged);
+			BlueprintAsset->OnChanged().AddRaw(this, &FBlueprintActionDatabase::OnBlueprintChanged);
+			BlueprintAsset->OnCompiled().AddRaw(this, &FBlueprintActionDatabase::OnBlueprintChanged);
 		}
 	}
 
@@ -1202,6 +1192,21 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 }
 
 //------------------------------------------------------------------------------
+void FBlueprintActionDatabase::RefreshComponentActions()
+{
+	check(ComponentTypes);
+	FActionList& ClassActionList = ActionRegistry.FindOrAdd(UBlueprintComponentNodeSpawner::StaticClass());
+	ClassActionList.Empty(ComponentTypes->Num());
+	for (const auto& ComponentType : *ComponentTypes)
+	{
+		if (UBlueprintComponentNodeSpawner* NodeSpawner = UBlueprintComponentNodeSpawner::Create(ComponentType))
+		{
+			ClassActionList.Add(NodeSpawner);
+		}
+	}
+}
+
+//------------------------------------------------------------------------------
 void FBlueprintActionDatabase::ClearAssetActions(UObject* const AssetObject)
 {
 	FActionList* ActionList = ActionRegistry.Find(AssetObject);
@@ -1221,7 +1226,8 @@ void FBlueprintActionDatabase::ClearAssetActions(UObject* const AssetObject)
 
 	if (UBlueprint* BlueprintAsset = Cast<UBlueprint>(AssetObject))
 	{
-		BlueprintAsset->OnChanged().RemoveStatic(&BlueprintActionDatabaseImpl::OnBlueprintChanged);
+		BlueprintAsset->OnChanged().RemoveAll(this);
+		BlueprintAsset->OnCompiled().RemoveAll(this);
 	}
 
 	if (bHasEntry && (ActionList->Num() > 0) && !BlueprintActionDatabaseImpl::bIsInitializing)
@@ -1292,6 +1298,11 @@ void FBlueprintActionDatabase::RegisterAllNodeActions(FBlueprintActionDatabaseRe
 		TGuardValue< TSubclassOf<UEdGraphNode> > ScopedNodeClass(Registrar.GeneratingClass, NodeClass);
 		BlueprintActionDatabaseImpl::GetNodeSpecificActions(NodeClass, Registrar);
 	}
+}
+
+void FBlueprintActionDatabase::OnBlueprintChanged(UBlueprint* InBlueprint)
+{
+	BlueprintActionDatabaseImpl::OnBlueprintChanged(InBlueprint);
 }
 
 #undef LOCTEXT_NAMESPACE

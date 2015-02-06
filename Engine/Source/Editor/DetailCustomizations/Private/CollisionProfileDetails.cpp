@@ -29,6 +29,8 @@ DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnValidateProfile, const FCollisionResp
 // SChannelEditDialog 
 //=====================================================================================
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 class SChannelEditDialog : public SCompoundWidget
 {
 public:
@@ -288,7 +290,7 @@ FText SChannelEditDialog::GetName() const
 TSharedRef<SWidget> SChannelEditDialog::HandleResponseComboBoxGenerateWidget(TSharedPtr<FString> StringItem)
 {
 	return SNew(STextBlock)
-		.Text(*StringItem)
+		.Text(FText::FromString(*StringItem))
 		.Font(IDetailLayoutBuilder::GetDetailFont());
 }
 
@@ -727,7 +729,7 @@ FText SProfileEditDialog::GetDescription() const
 TSharedRef<SWidget> SProfileEditDialog::HandleCollisionEnabledComboBoxGenerateWidget(TSharedPtr<FString> StringItem)
 {
 	return SNew(STextBlock)
-		.Text(*StringItem)
+		.Text(FText::FromString(*StringItem))
 		.Font(IDetailLayoutBuilder::GetDetailFont());
 }
 
@@ -763,7 +765,7 @@ FText SProfileEditDialog::HandleCollisionEnabledComboBoxContentText() const
 TSharedRef<SWidget> SProfileEditDialog::HandleObjectTypeComboBoxGenerateWidget(TSharedPtr<FString> StringItem)
 {
 	return SNew(STextBlock)
-		.Text(*StringItem)
+		.Text(FText::FromString(*StringItem))
 		.Font(IDetailLayoutBuilder::GetDetailFont());
 }
 
@@ -1033,7 +1035,7 @@ void SProfileEditDialog::AddCollisionChannel(TArray<FCollisionChannelInfo>	Valid
 				+SHorizontalBox::Slot()
 				[
 					SNew( STextBlock )
-					.Text(DisplayName)
+					.Text(FText::FromString(DisplayName))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 					.ToolTipText(LOCTEXT("SProfileEditDialog_CR_ToolTip", "When trace by channel, this information will be used for filtering."))
 				]
@@ -1138,19 +1140,19 @@ void SChannelListItem::Construct(const FArguments& InArgs, const TSharedRef<STab
 	SMultiColumnTableRow< TSharedPtr<FChannelListItem> >::Construct(FSuperRowType::FArguments(), InOwnerTableView);
 }
 
-FString SChannelListItem::GetDefaultResponse() const
+FText SChannelListItem::GetDefaultResponse() const
 {
 	switch (ChannelSetup->DefaultResponse)
 	{
 	case ECR_Ignore:
-		return TEXT("Ignore");
+		return LOCTEXT("ECR_Ignore", "Ignore");
 	case ECR_Overlap:
-		return TEXT("Overlap");
+		return LOCTEXT("ECR_Overlap", "Overlap");
 	case ECR_Block:
-		return TEXT("Block");
+		return LOCTEXT("ECR_Block", "Block");
 	}
 
-	return TEXT("ERROR");
+	return LOCTEXT("ECR_Error", "ERROR");
 }
 
 TSharedRef<SWidget> SChannelListItem::GenerateWidgetForColumn(const FName& ColumnName)
@@ -1215,24 +1217,24 @@ int32 UCollisionProfile::ReturnContainerIndexFromChannelName(FName& DisplayName)
 
 	return NameIndex;
 }
-FString SProfileListItem::GetObjectType() const
+FText SProfileListItem::GetObjectType() const
 {
-	return ProfileTemplate->ObjectTypeName.ToString();
+	return FText::FromName(ProfileTemplate->ObjectTypeName);
 }
 
-FString SProfileListItem::GetCollsionEnabled() const
+FText SProfileListItem::GetCollsionEnabled() const
 {
 	switch(ProfileTemplate->CollisionEnabled)
 	{
 	case ECollisionEnabled::NoCollision:
-		return TEXT("No Collision");
+		return LOCTEXT("ECollisionEnabled_NoCollision", "No Collision");
 	case ECollisionEnabled::QueryOnly:
-		return TEXT("No Physics Collision");
+		return LOCTEXT("ECollisionEnabled_QueryOnly", "No Physics Collision");
 	case ECollisionEnabled::QueryAndPhysics:
-		return TEXT("Collision Enabled");
+		return LOCTEXT("ECollisionEnabled_QueryAndPhysics", "Collision Enabled");
 	}
 
-	return TEXT("ERROR");
+	return LOCTEXT("ECollisionEnabled_Error", "ERROR");
 }
 
 TSharedRef<SWidget> SProfileListItem::GenerateWidgetForColumn(const FName& ColumnName)
@@ -1302,7 +1304,7 @@ TSharedRef<SWidget> SProfileListItem::GenerateWidgetForColumn(const FName& Colum
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(ProfileTemplate->HelpMessage)
+				.Text(FText::FromString(ProfileTemplate->HelpMessage))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 			];
 	}
@@ -2199,3 +2201,5 @@ void FCollisionProfileDetails::FCollsiionProfileData::Save(UCollisionProfile * P
 
 #undef LOCTEXT_NAMESPACE
 #undef RowWidth_Customization
+
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION

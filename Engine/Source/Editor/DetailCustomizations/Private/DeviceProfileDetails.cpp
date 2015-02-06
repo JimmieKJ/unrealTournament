@@ -548,7 +548,7 @@ TSharedRef<SWidget> FDeviceProfileParentPropertyDetails::HandleDeviceProfilePare
 	.Padding(DeviceProfilePropertyConstants::CVarSelectionMenuPadding)
 	[
 		SNew(STextBlock)
-		.Text(*InItem)
+		.Text(FText::FromString(*InItem))
 	];
 }
 

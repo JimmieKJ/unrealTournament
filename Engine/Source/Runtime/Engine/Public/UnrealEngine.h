@@ -252,6 +252,8 @@ private:
 	float TimesToReport;
 	/** Name of operation performed that is being tracked. */
 	FString OperationPerformed;
+	/** Handle to the registered OnPreGarbageCollect delegate */
+	FDelegateHandle OnPreGarbageCollectDelegateHandle;
 };
 
 /** Scoped helper structure for capturing tick time. */

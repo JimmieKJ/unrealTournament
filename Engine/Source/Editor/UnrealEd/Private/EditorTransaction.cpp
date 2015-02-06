@@ -342,15 +342,9 @@ UTransactor::UTransactor(const FObjectInitializer& ObjectInitializer)
 {
 }
 
-UTransBuffer::UTransBuffer(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+void UTransBuffer::Initialize(SIZE_T InMaxMemory)
 {
-}
-
-UTransBuffer::UTransBuffer( const FObjectInitializer& ObjectInitializer, SIZE_T InMaxMemory )
-:	UTransactor(ObjectInitializer)
-,	MaxMemory( InMaxMemory )
-{
+	MaxMemory = InMaxMemory;
 	// Reset.
 	Reset( NSLOCTEXT("UnrealEd", "Startup", "Startup") );
 	CheckState();

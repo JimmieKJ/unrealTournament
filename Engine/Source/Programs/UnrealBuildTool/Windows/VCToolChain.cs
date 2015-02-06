@@ -124,7 +124,7 @@ namespace UnrealBuildTool
 
 			// When targeting Windows XP with Visual Studio 2012+, we need to tell the compiler to use the older Windows SDK that works
 			// with Windows XP (http://blogs.msdn.com/b/vcblog/archive/2012/10/08/10357555.aspx)
-			if( WindowsPlatform.SupportWindowsXP )
+			if (WindowsPlatform.IsWindowsXPSupported())
 			{
 				Arguments.Append(" /D_USING_V110_SDK71_");
 			}
@@ -503,7 +503,7 @@ namespace UnrealBuildTool
 
 					// When targeting Windows XP in Visual Studio 2012+, we need to tell the linker we are going to support execution
 					// on that older platform.  The compiler defaults to version 6.0+.  We'll modify the SUBSYSTEM parameter here.
-					if( WindowsPlatform.SupportWindowsXP )
+					if (WindowsPlatform.IsWindowsXPSupported())
 					{
 						Arguments.Append(LinkEnvironment.Config.Target.Platform == CPPTargetPlatform.Win64 ? ",5.02" : ",5.01");
 					}
@@ -667,7 +667,7 @@ namespace UnrealBuildTool
 
 					// When targeting Windows XP in Visual Studio 2012+, we need to tell the linker we are going to support execution
 					// on that older platform.  The compiler defaults to version 6.0+.  We'll modify the SUBSYSTEM parameter here.
-					if( WindowsPlatform.SupportWindowsXP )
+					if (WindowsPlatform.IsWindowsXPSupported())
 					{
 						Arguments.Append(LinkEnvironment.Config.Target.Platform == CPPTargetPlatform.Win64 ? ",5.02" : ",5.01");
 					}
@@ -1069,7 +1069,7 @@ namespace UnrealBuildTool
 
 				// When targeting Windows XP with Visual Studio 2012+, we need to tell the compiler to use the older Windows SDK that works
 				// with Windows XP (http://blogs.msdn.com/b/vcblog/archive/2012/10/08/10357555.aspx)
-				if (WindowsPlatform.SupportWindowsXP)
+				if (WindowsPlatform.IsWindowsXPSupported())
 				{
 					CompileAction.CommandArguments += " /D_USING_V110_SDK71_";
 				}
@@ -1283,6 +1283,15 @@ namespace UnrealBuildTool
 						ProducedItems.Add(PDBFile);
 					}
 
+					// Write a stripped PDB file for Rocket
+					if(UnrealBuildTool.BuildingRocket())
+					{
+						string StrippedPDBFilePath = Path.Combine(LinkEnvironment.Config.OutputDirectory, Path.GetFileNameWithoutExtension(OutputFile.AbsolutePath) + "-Stripped.pdb");
+						FileItem StrippedPDBFile = FileItem.GetItemByPath(StrippedPDBFilePath);
+						Arguments.AppendFormat(" /PDBSTRIPPED:\"{0}\"", StrippedPDBFilePath);
+						ProducedItems.Add(StrippedPDBFile);
+					}
+
 					// Write the MAP file to the output directory.			
 #if false					
 					if (true)
@@ -1408,7 +1417,7 @@ namespace UnrealBuildTool
 			return IncludePaths;
 		}
 
-        public override void AddFilesToManifest(ref FileManifest Manifest, UEBuildBinary Binary)
+        public override void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary)
         {
             // ok, this is pretty awful, we want the import libraries that go with the editor, only on the PC
             if (UnrealBuildTool.BuildingRocket() &&
@@ -1417,7 +1426,7 @@ namespace UnrealBuildTool
                 Binary.Config.Type == UEBuildBinaryType.DynamicLinkLibrary)
             {
                 // ok, this is pretty awful, we want the import libraries that go with the editor, only on the PC
-                Manifest.AddBinaryNames(Path.Combine(Binary.Config.IntermediateDirectory, Path.GetFileNameWithoutExtension(Binary.Config.OutputFilePath) + ".lib"), "");
+                Manifest.AddBuildProduct(Path.Combine(Binary.Config.IntermediateDirectory, Path.GetFileNameWithoutExtension(Binary.Config.OutputFilePath) + ".lib"), "");
             }
         }
 

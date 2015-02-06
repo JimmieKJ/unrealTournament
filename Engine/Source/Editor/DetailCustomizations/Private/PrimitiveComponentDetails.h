@@ -12,6 +12,8 @@ public:
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) override;
 
 private:
+	void AddMaterialCategory( IDetailLayoutBuilder& DetailBuilder);
+
 	ECheckBoxState IsMobilityActive(TSharedRef<IPropertyHandle> MobilityHandle, EComponentMobility::Type InMobility) const;
 
 	void OnMobilityChanged(ECheckBoxState InCheckedState, TSharedRef<IPropertyHandle> MobilityHandle, EComponentMobility::Type InMobility);
@@ -35,6 +37,7 @@ private:
 	/** Objects being customized so we can update the 'Simulate Physics' state if physics geometry is added/removed */
 	TArray< TWeakObjectPtr<UObject> > ObjectsCustomized;
 	TSharedPtr<IPropertyHandle> LockedAxisProperty;
+	TSharedPtr<class FComponentMaterialCategory> MaterialCategory;
 	EVisibility IsCustomLockedAxisSelected() const;
 	EVisibility IsLockAxisEnabled() const;
 

@@ -760,9 +760,9 @@ namespace AutomationTool
 		/// <param name="LogName">Name of the logfile ( if null, executable name is used )</param>
 		/// <param name="Input">Optional Input for the program (will be provided as stdin)</param>
 		/// <param name="Options">Defines the options how to run. See ERunOptions.</param>
-		public static void RunAndLog(CommandEnvironment Env, string App, string CommandLine, string LogName = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default)
+		public static void RunAndLog(CommandEnvironment Env, string App, string CommandLine, string LogName = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> EnvVars = null)
 		{
-            RunAndLog(App, CommandLine, GetRunAndLogLogName(Env, App, LogName), MaxSuccessCode, Input, Options);
+            RunAndLog(App, CommandLine, GetRunAndLogLogName(Env, App, LogName), MaxSuccessCode, Input, Options, EnvVars);
 		}
         /// <summary>
         /// Runs external program and writes the output to a logfile.
@@ -772,9 +772,9 @@ namespace AutomationTool
         /// <param name="Logfile">Full path to the logfile, where the application output should be written to.</param>
 		/// <param name="Input">Optional Input for the program (will be provided as stdin)</param>
 		/// <param name="Options">Defines the options how to run. See ERunOptions.</param>
-        public static string RunAndLog(string App, string CommandLine, string Logfile = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default)
+        public static string RunAndLog(string App, string CommandLine, string Logfile = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> EnvVars = null)
         {
-            ProcessResult Result = Run(App, CommandLine, Input, Options);
+            ProcessResult Result = Run(App, CommandLine, Input, Options, EnvVars);
             if (Result.Output.Length > 0 && Logfile != null)
             {
                 WriteToFile(Logfile, Result.Output);
@@ -809,9 +809,9 @@ namespace AutomationTool
         /// <param name="CommandLine">Commandline to pass on to the executable</param>
         /// <param name="Logfile">Full path to the logfile, where the application output should be written to.</param>
         /// <returns>Whether the program executed successfully or not.</returns>
-        public static string RunAndLog(string App, string CommandLine, out int SuccessCode, string Logfile = null)
+        public static string RunAndLog(string App, string CommandLine, out int SuccessCode, string Logfile = null, Dictionary<string, string> EnvVars = null)
         {
-            ProcessResult Result = Run(App, CommandLine);
+            ProcessResult Result = Run(App, CommandLine, Env: EnvVars);
             SuccessCode = Result.ExitCode;
             if (Result.Output.Length > 0 && Logfile != null)
             {
@@ -832,9 +832,9 @@ namespace AutomationTool
         /// <param name="CommandLine">Commandline to pass on to the executable</param>
         /// <param name="LogName">Name of the logfile ( if null, executable name is used )</param>
         /// <returns>Whether the program executed successfully or not.</returns>
-        public static string RunAndLog(CommandEnvironment Env, string App, string CommandLine, out int SuccessCode, string LogName = null)
+        public static string RunAndLog(CommandEnvironment Env, string App, string CommandLine, out int SuccessCode, string LogName = null, Dictionary<string, string> EnvVars = null)
         {
-            return RunAndLog(App, CommandLine, out SuccessCode, GetRunAndLogLogName(Env, App, LogName));
+            return RunAndLog(App, CommandLine, out SuccessCode, GetRunAndLogLogName(Env, App, LogName), EnvVars);
         }
 
 		/// <summary>

@@ -36,9 +36,6 @@ public:
 	/** Construct this widget */
 	void Construct( const FArguments& InArgs )
 	{
-		// Ensure this gets ticked at least once
-		LastTickTime = 0;
-
 		OnCancelClickedDelegate = InArgs._OnCancelClickedDelegate;
 		ScopeStack = InArgs._ScopeStack;
 
@@ -300,10 +297,6 @@ private:
 
 	/** Array mapping progress bar index -> scope stack index. Updated every tick. */
 	TArray<int32> DynamicProgressIndices;
-
-public:
-	/** Publicly accessible tick time to throttle slate ticking */
-	static double LastTickTime;
 };
 
 /** Static integer definitions required on some builds where the linker needs access to these */
@@ -312,21 +305,14 @@ const int32 SSlowTaskWidget::FixedWidth;
 const int32 SSlowTaskWidget::FixedPaddingH;;
 const int32 SSlowTaskWidget::MainBarHeight;
 const int32 SSlowTaskWidget::SecondaryBarHeight;
-double SSlowTaskWidget::LastTickTime = 0;
 
 static void TickSlate()
 {
-	static double MinFrameTime = 0.05;		// Only update at 20fps so as not to slow down the actual task
-	if (FPlatformTime::Seconds() - SSlowTaskWidget::LastTickTime > MinFrameTime)
-	{
-		SSlowTaskWidget::LastTickTime = FPlatformTime::Seconds();
+	// Tick Slate application
+	FSlateApplication::Get().Tick();
 
-		// Tick Slate application
-		FSlateApplication::Get().Tick();
-
-		// Sync the game thread and the render thread. This is needed if many StatusUpdate are called
-		FSlateApplication::Get().GetRenderer()->Sync();
-	}
+	// Sync the game thread and the render thread. This is needed if many StatusUpdate are called
+	FSlateApplication::Get().GetRenderer()->Sync();
 }
 
 FFeedbackContextEditor::FFeedbackContextEditor()

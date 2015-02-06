@@ -40,11 +40,11 @@ void UK2Node_AddComponent::AllocatePinsForExposedVariables()
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 	const UActorComponent* TemplateComponent = GetTemplateFromNode();
-	const UClass* ComponentClass = TemplateComponent ? TemplateComponent->GetClass() : NULL;
+	const UClass* ComponentClass = TemplateComponent ? TemplateComponent->GetClass() : nullptr;
 
-	if(ComponentClass)
+	if (ComponentClass != nullptr)
 	{
-		const UObject* ClassDefaultObject = ComponentClass ? ComponentClass->ClassDefaultObject : NULL;
+		const UObject* ClassDefaultObject = ComponentClass ? ComponentClass->ClassDefaultObject : nullptr;
 
 		for (TFieldIterator<UProperty> PropertyIt(ComponentClass, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
 		{
@@ -58,13 +58,13 @@ void UK2Node_AddComponent::AllocatePinsForExposedVariables()
 				FEdGraphPinType PinType;
 				K2Schema->ConvertPropertyToPinType(Property, /*out*/ PinType);	
 				const bool bIsUnique = (NULL == FindPin(Property->GetName()));
-				if(K2Schema->FindSetVariableByNameFunction(PinType) && bIsUnique)
+				if (K2Schema->FindSetVariableByNameFunction(PinType) && bIsUnique)
 				{
 					UEdGraphPin* Pin = CreatePin(EGPD_Input, TEXT(""), TEXT(""), NULL, false, false, Property->GetName());
 					Pin->PinType = PinType;
 					bHasExposedVariable = true;
 
-					if (ClassDefaultObject && K2Schema->PinDefaultValueIsEditable(*Pin))
+					if ((ClassDefaultObject != nullptr) && K2Schema->PinDefaultValueIsEditable(*Pin))
 					{
 						FString DefaultValueAsString;
 						const bool bDefaultValueSet = FBlueprintEditorUtils::PropertyValueToString(Property, reinterpret_cast<const uint8*>(ClassDefaultObject), DefaultValueAsString);
@@ -78,6 +78,15 @@ void UK2Node_AddComponent::AllocatePinsForExposedVariables()
 			}
 		}
 	}
+
+	// Hide transform and attachment pins if it is not a scene component
+	const bool bHideTransformPins = (ComponentClass != nullptr) ? !ComponentClass->IsChildOf(USceneComponent::StaticClass()) : false;
+
+	UEdGraphPin* ManualAttachmentPin = GetManualAttachmentPin();
+	ManualAttachmentPin->bHidden = bHideTransformPins;
+
+	UEdGraphPin* TransformPin = GetRelativeTransformPin();
+	TransformPin->bHidden = bHideTransformPins;
 }
 
 const UClass* UK2Node_AddComponent::GetSpawnedType() const
@@ -239,8 +248,7 @@ void UK2Node_AddComponent::PostPasteNode()
 		{
 			ensure(NULL != Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
 			// Create a new template object and update the template pin to point to it
-			UActorComponent* NewTemplate = ConstructObject<UActorComponent>(ComponentClass, Blueprint->GeneratedClass);
-			NewTemplate->SetFlags(RF_ArchetypeObject);
+			UActorComponent* NewTemplate = ConstructObject<UActorComponent>(ComponentClass, Blueprint->GeneratedClass, NAME_None, RF_ArchetypeObject|RF_Public);
 			Blueprint->ComponentTemplates.Add(NewTemplate);
 
 			TemplateNamePin->DefaultValue = NewTemplate->GetName();
@@ -321,7 +329,7 @@ FText UK2Node_AddComponent::GetNodeTitle(ENodeTitleType::Type TitleType) const
 			else
 			{
 				FFormatNamedArguments Args;
-				Args.Add(TEXT("ClassName"), FText::FromString(SourceTemplate->GetClass()->GetName()));
+				Args.Add(TEXT("ClassName"), SourceTemplate->GetClass()->GetDisplayNameText());
 				CachedNodeTitle = FText::Format(LOCTEXT("AddClass", "Add {ClassName}"), Args);
 			}
 		}

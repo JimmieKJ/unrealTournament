@@ -33,7 +33,7 @@ private:
 	EVisibility GetNameVisibility() const;
 
 	/** Getter for the ToolTipText attribute of the editable text inside this widget */
-	FString GetNameTooltipText() const;
+	FText GetNameTooltipText() const;
 
 	/** Getter for the HintText attribute of the editable text inside this widget */
 	FText GetNameHintText() const;

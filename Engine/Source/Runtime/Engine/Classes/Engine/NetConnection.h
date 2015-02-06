@@ -217,8 +217,6 @@ public:
 	int32			InPacketId;				// Full incoming packet index.
 	int32			OutPacketId;			// Most recently sent packet.
 	int32 			OutAckPacketId;			// Most recently acked outgoing packet.
-	int32			PartialPacketId;		// Sequencing number for partial packets
-	int32			LastPartialPacketId;	// Most recently received unrealiable partial packet id
 
 	uint32			PingAckDataCache[MAX_PACKETID/PING_ACK_PACKET_INTERVAL];	// Caches packet data on the server, for verifying pings
 	float			LastPingAck;												// The time of the most recent PingAck on the client

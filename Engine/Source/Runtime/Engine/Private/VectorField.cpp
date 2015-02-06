@@ -326,6 +326,15 @@ void UVectorFieldStatic::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 }
 #endif // WITH_EDITOR
 
+#if WITH_EDITORONLY_DATA
+void UVectorFieldStatic::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+#endif
+
 class FVectorFieldCollectorResources : public FOneFrameResource
 {
 public:

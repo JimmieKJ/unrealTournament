@@ -80,4 +80,9 @@ EReimportResult::Type UReimportPaperJsonImporterFactory::Reimport(UObject* Obj)
 	return Result;
 }
 
+int32 UReimportPaperJsonImporterFactory::GetPriority() const
+{
+	return ImportPriority;
+}
+
 #undef LOCTEXT_NAMESPACE

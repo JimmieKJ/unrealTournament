@@ -104,10 +104,10 @@ private:
 	TSharedRef<SWidget> MakeWidgetFromString( TSharedPtr<FString> InItem );
 	
 	/** Slider label. */
-	FString GetButtonLabel() const;
+	FText GetButtonLabel() const;
 
 	/** Handles display text in preview depth combo box */
-	FString HandlePreviewDepthComboBoxContent() const;
+	FText HandlePreviewDepthComboBoxContent() const;
 
 	/** A general callback for the combo boxes in the Destructible Mesh Editor to force a viewport refresh when a selection changes. */
 	void ComboBoxSelectionChanged( TSharedPtr<FString> NewSelection );

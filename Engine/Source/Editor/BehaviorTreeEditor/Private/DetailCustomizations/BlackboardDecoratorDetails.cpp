@@ -183,7 +183,7 @@ TSharedRef<SWidget> FBlackboardDecoratorDetails::OnGetEnumValueContent() const
 	return MenuBuilder.MakeWidget();
 }
 
-FString FBlackboardDecoratorDetails::GetCurrentEnumValueDesc() const
+FText FBlackboardDecoratorDetails::GetCurrentEnumValueDesc() const
 {
 	if (CachedCustomObjectType && EnumPropValues.Num() > 0)
 	{
@@ -193,11 +193,11 @@ FString FBlackboardDecoratorDetails::GetCurrentEnumValueDesc() const
 		if (Result == FPropertyAccess::Success)
 		{
 			int32 ClampedIdx = FMath::Clamp(CurrentIntValue, 0, EnumPropValues.Num());
-			return EnumPropValues[ClampedIdx];
+			return FText::FromString(EnumPropValues[ClampedIdx]);
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 void FBlackboardDecoratorDetails::OnEnumValueComboChange(int32 Index)

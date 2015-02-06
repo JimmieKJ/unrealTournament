@@ -71,7 +71,7 @@ private:
 			Ready,
 			CheckingReport,
 			CheckingReportDetail,
-			SendingFiles,
+			CompressAndSendData,
 			WaitingToPostReportComplete,
 			PostingReportComplete,
 			Finished,
@@ -80,7 +80,7 @@ private:
 			UploadError,
 			Cancelled,
 
-			FirstCompletedState = Finished
+			FirstCompletedState = Finished,
 		};
 	};
 
@@ -104,9 +104,9 @@ private:
 	bool SendCheckReportRequest();
 
 	/**
-	 * If there are more files, upload the next, else send an upload complete message
+	 * Compresses all crash report files and sends one compressed file.
 	 */
-	void UploadNextFile();
+	void CompressAndSendData();
 
 	/**
 	 * Convert the report name to single byte non-zero-terminated HTTP post data
@@ -182,9 +182,6 @@ private:
 
 	/** State to pause at until confirmation has been received to continue */
 	EUploadState::Type PauseState;
-
-	/** Flag to record if a diagnostics report text file has been sent */
-	bool bDiagnosticsFileSent;
 
 	/** Full paths of files still to be uploaded */
 	TArray<FString> PendingFiles;

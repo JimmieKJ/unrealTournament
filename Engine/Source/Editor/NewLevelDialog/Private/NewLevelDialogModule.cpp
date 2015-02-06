@@ -167,27 +167,26 @@ private:
 	TSharedRef<SWidget> GetWidgetForTemplate(TSharedPtr<FTemplateListItem> Template)
 	{
 		TSharedPtr<SWidget> Image;
-		FString Text;
+		FText Text = FText::GetEmpty();
 		if (Template->bIsNewLevelItem)
 		{
 			// New level item
 			Image = SNew(SImage).Image(FEditorStyle::GetBrush(TEXT("NewLevelDialog.Blank")));
-			Text = LOCTEXT("NewLevelItemLabel", "Empty Level").ToString();
+			Text = LOCTEXT("NewLevelItemLabel", "Empty Level");
 		}
 		else if (Template->TemplateMapInfo.ThumbnailTexture)
 		{
 			// Level with thumbnail
 			Image = SNew(STexture2DView, Template->TemplateMapInfo.ThumbnailTexture);
-			Text = Template->TemplateMapInfo.ThumbnailTexture->GetName();
+			Text = FText::FromString(Template->TemplateMapInfo.ThumbnailTexture->GetName().Replace(TEXT("_"), TEXT(" ")));
 		}
 		else
 		{
 			// Level with no thumbnail
 			Image = SNew(SImage).Image(FEditorStyle::GetBrush(TEXT("NewLevelDialog.Default")));
-			Text = FPackageName::GetShortName(Template->TemplateMapInfo.Map);
+			Text = FText::FromString(FPackageName::GetShortName(Template->TemplateMapInfo.Map).Replace(TEXT("_"), TEXT(" ")));
 		}
 
-		Text.ReplaceInline(TEXT("_"), TEXT(" "));
 		Image->SetCursor(EMouseCursor::Hand);
 
 		return SNew(SBox)

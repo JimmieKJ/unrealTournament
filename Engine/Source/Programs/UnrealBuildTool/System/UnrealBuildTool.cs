@@ -443,7 +443,7 @@ namespace UnrealBuildTool
             return false;
         }
 
-        public static void RegisterAllUBTClasses()
+        public static void RegisterAllUBTClasses(bool bSkipBuildPlatforms = false)
         {
             // Find and register all tool chains and build platforms that are present
             Assembly UBTAssembly = Assembly.GetExecutingAssembly();
@@ -453,16 +453,19 @@ namespace UnrealBuildTool
 
                 List<System.Type> ProjectGeneratorList = new List<System.Type>();
                 var AllTypes = UBTAssembly.GetTypes();
-                // register all build platforms first, since they implement SDK-switching logic that can set environment variables
-                foreach (var CheckType in AllTypes)
+                if (!bSkipBuildPlatforms)
                 {
-                    if (CheckType.IsClass && !CheckType.IsAbstract)
+                    // register all build platforms first, since they implement SDK-switching logic that can set environment variables
+                    foreach (var CheckType in AllTypes)
                     {
-                        if (Utils.ImplementsInterface<IUEBuildPlatform>(CheckType))
+                        if (CheckType.IsClass && !CheckType.IsAbstract)
                         {
-                            Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
-                            var TempInst = (UEBuildPlatform)(UBTAssembly.CreateInstance(CheckType.FullName, true));
-                            TempInst.RegisterBuildPlatform();
+                            if (Utils.ImplementsInterface<IUEBuildPlatform>(CheckType))
+                            {
+                                Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
+                                var TempInst = (UEBuildPlatform)(UBTAssembly.CreateInstance(CheckType.FullName, true));
+                                TempInst.RegisterBuildPlatform();
+                            }
                         }
                     }
                 }
@@ -857,10 +860,6 @@ namespace UnrealBuildTool
                         {
                             //ConfigName = Arg;
                         }
-                        else if (LowercaseArg == "-obbinapk")
-                        {
-                            UEBuildConfiguration.bOBBinAPK = true;
-                        }
                         else if (LowercaseArg == "-modulewithsuffix")
                         {
                             bSpecificModulesOnly = true;
@@ -1233,7 +1232,7 @@ namespace UnrealBuildTool
             // Print some performance info
             Log.TraceVerbose("Execution time: {0}", (DateTime.UtcNow - StartTime - MutexWaitTime).TotalSeconds);
 
-            return (int) Result;
+            return (int)Result; 
         }
 
 
@@ -1366,12 +1365,11 @@ namespace UnrealBuildTool
                     ResetConfiguration = UnrealTargetConfiguration.Development;
                 }
             }
-            var BuildPlatform = UEBuildPlatform.GetBuildPlatform(ResetPlatform);
+			var BuildPlatform = UEBuildPlatform.GetBuildPlatform(ResetPlatform);
+			BuildPlatform.ResetBuildConfiguration(ResetPlatform, ResetConfiguration);
 
             // now that we have the platform, we can set the intermediate path to include the platform/architecture name
             BuildConfiguration.PlatformIntermediateFolder = Path.Combine(BuildConfiguration.BaseIntermediateFolder, ResetPlatform.ToString(), BuildPlatform.GetActiveArchitecture());
-
-            BuildPlatform.ResetBuildConfiguration(ResetPlatform, ResetConfiguration);
 
             string ExecutorName = "Unknown";
             ECompilationResult BuildResult = ECompilationResult.Succeeded;
@@ -1866,6 +1864,12 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		private static bool ShouldDoHotReload(UEBuildTarget Target)
 		{
+			if (UnrealBuildTool.CommandLineContains("-NoHotReloadFromIDE"))
+			{
+				// Hot reload disabled through command line, possibly running from UAT
+				return false;
+			}
+
 			bool bIsRunning = false;
 			if (!ProjectFileGenerator.bGenerateProjectFiles && !UEBuildConfiguration.bGenerateManifest && Target.TargetType == TargetRules.TargetType.Editor)
 			{

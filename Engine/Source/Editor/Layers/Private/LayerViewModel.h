@@ -146,7 +146,7 @@ public:
 	 *	@param	StatsIndex		The array index of the FLayerActorStats
 	 *	@return					The total actors as a FString			
 	 */
-	FString GetActorStatTotal( int32 StatsIndex  ) const;
+	FText GetActorStatTotal( int32 StatsIndex ) const;
 
 	/**	
 	 *	Selected the Actors assigned to the Layer that are of a certain type

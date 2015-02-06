@@ -486,7 +486,7 @@ public:
 			.Padding(2)
 			[
 				SNew( STextBlock )
-				.Text( Entry )
+				.Text( FText::FromString(Entry) )
 			];
 	}
 

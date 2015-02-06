@@ -63,7 +63,7 @@ void FBuildPatchServicesModule::StartupModule()
 	FRollingHashConst::Init();
 
 	// Add our ticker
-	FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateRaw( this, &FBuildPatchServicesModule::Tick ) );
+	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateRaw( this, &FBuildPatchServicesModule::Tick ) );
 
 	// Register core PreExit
 	FCoreDelegates::OnPreExit.AddRaw(this, &FBuildPatchServicesModule::PreExit);
@@ -79,7 +79,7 @@ void FBuildPatchServicesModule::ShutdownModule()
 	checkf(BuildPatchInstallers.Num() == 0, TEXT("BuildPatchServicesModule: FATAL ERROR: Core PreExit not called, or installer created during shutdown!"));
 
 	// Remove our ticker
-	FTicker::GetCoreTicker().RemoveTicker( FTickerDelegate::CreateRaw( this, &FBuildPatchServicesModule::Tick ) );
+	FTicker::GetCoreTicker().RemoveTicker( TickDelegateHandle );
 
 	FBuildPatchHTTP::OnShutdown();
 }

@@ -305,28 +305,27 @@ public:
 		return FText::FromString(Txt);
 	}
 
-	FString GetRenderModuleText() const
+	FText GetRenderModuleText() const
 	{
 		if (Emitter->GetProperties()->RenderModuleType == RMT_None)
 		{
-			return FString("None");
+			return NSLOCTEXT("NiagaraEffectEditor", "None", "None");
 		}
 
-		return *RenderModuleList[Emitter->GetProperties()->RenderModuleType-1];
+		return FText::FromString(*RenderModuleList[Emitter->GetProperties()->RenderModuleType-1]);
 	}
 
 	TSharedRef<SWidget>GenerateRenderModuleComboWidget(TSharedPtr<FString> WidgetString )
 	{
-		FString Txt = *WidgetString;
-		return SNew(STextBlock).Text(Txt);
+		return SNew(STextBlock)
+			.Text(FText::FromString(*WidgetString));
 	}
 
-
-	FString GetStatsText() const
+	FText GetStatsText() const
 	{
 		TCHAR Txt[128];
 		FCString::Snprintf(Txt, 128, TEXT("%i Particles  |  %.2f ms  |  %.1f MB"), Emitter->GetNumParticles(), Emitter->GetTotalCPUTime(), Emitter->GetTotalBytesUsed()/(1024.0*1024.0));
-		return FString(Txt);
+		return FText::FromString(Txt);
 	}
 
 	void Construct(const FArguments& InArgs);

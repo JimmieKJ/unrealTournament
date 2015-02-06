@@ -40,6 +40,11 @@ bool FDefaultSourceCodeAccessor::OpenSourceFiles(const TArray<FString>& Absolute
 	return false;
 }
 
+bool FDefaultSourceCodeAccessor::AddSourceFiles(const TArray<FString>& AbsoluteSourcePaths, const TArray<FString>& AvailableModules)
+{
+	return false;
+}
+
 bool FDefaultSourceCodeAccessor::SaveAllOpenDocuments() const
 {
 	return false;

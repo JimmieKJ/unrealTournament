@@ -176,3 +176,11 @@ void UBTDecorator::UpdateFlowAbortMode()
 	}
 #endif
 }
+
+//----------------------------------------------------------------------//
+// DEPRECATED
+//----------------------------------------------------------------------//
+bool UBTDecorator::CalculateRawConditionValue(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
+{
+	return OwnerComp ? CalculateRawConditionValue(*OwnerComp, NodeMemory) : false;
+}

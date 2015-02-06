@@ -30,6 +30,10 @@
 	/** Delegate called when a leaderboard has been successfully read */
 	FOnLeaderboardReadCompleteDelegate LeaderboardReadCompleteDelegate;
 
+	/** Handles to the above delegates */ 
+	FDelegateHandle LeaderboardFlushDelegateHandle;
+	FDelegateHandle LeaderboardReadCompleteDelegateHandle;
+
 	/** Current phase of testing */
 	int32 TestPhase;
 	/** Last phase of testing triggered */

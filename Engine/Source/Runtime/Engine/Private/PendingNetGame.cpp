@@ -10,13 +10,12 @@
 #include "Net/DataChannel.h"
 #include "GeneralProjectSettings.h"
 
-UPendingNetGame::UPendingNetGame( const FObjectInitializer& ObjectInitializer, const FURL& InURL )
-	: Super(ObjectInitializer)
-	, NetDriver(NULL)
-	, URL(InURL)
-	, bSuccessfullyConnected(false)
-	, bSentJoinRequest(false)
+void UPendingNetGame::Initialize(const FURL& InURL)
 {
+	NetDriver = NULL;
+	URL = InURL;
+	bSuccessfullyConnected = false;
+	bSentJoinRequest = false;
 }
 
 UPendingNetGame::UPendingNetGame(const FObjectInitializer& ObjectInitializer)

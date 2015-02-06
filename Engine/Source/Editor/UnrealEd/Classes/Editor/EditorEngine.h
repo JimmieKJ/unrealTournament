@@ -198,6 +198,77 @@ private:
 	TSet<FString> ActorLabels;
 };
 
+/** 
+ * Represents an actor or a component for use in editor functionality such as snapping which can operate on either type
+ */
+struct FActorOrComponent
+{
+	AActor* Actor;
+	USceneComponent* Component;
+
+	FActorOrComponent()
+		: Actor( nullptr )
+		, Component( nullptr )
+	{}
+
+	FActorOrComponent( AActor* InActor )
+		: Actor( InActor )
+		, Component( nullptr )
+	{}
+
+	FActorOrComponent( USceneComponent* InComponent )
+		: Actor( nullptr )
+		, Component( InComponent )
+	{}
+
+	UWorld* GetWorld() const
+	{
+		return Actor ? Actor->GetWorld() : Component->GetWorld();
+	}
+
+	bool operator==( const FActorOrComponent& Other ) const
+	{
+		return Actor == Other.Actor && Component == Other.Component;
+	}
+
+	const FBoxSphereBounds& GetBounds() const
+	{
+		return Actor ? Actor->GetRootComponent()->Bounds : Component->Bounds;
+	}
+
+	FVector GetWorldLocation() const
+	{
+		return Actor ? Actor->GetActorLocation() : Component->GetComponentLocation();
+	}
+
+	void SetWorldLocation( const FVector& NewLocation )
+	{
+		if( Actor )
+		{
+			Actor->SetActorLocation( NewLocation );
+		}
+		else
+		{
+			Component->SetWorldLocation( NewLocation );
+		}
+	}
+
+	void SetWorldRotation( const FRotator& NewRotation )
+	{
+		if(Actor)
+		{
+			Actor->SetActorRotation(NewRotation);
+		}
+		else
+		{
+			Component->SetWorldRotation(NewRotation);
+		}
+	}
+
+	/** @return true if this is a valid actor or component but not both */
+	bool IsValid() const { return (Actor != nullptr) ^ (Component != nullptr);}
+};
+
 /**
  * Engine that drives the Editor.
  * Separate from UGameEngine because it may have much different functionality than desired for an instance of a game itself.
@@ -287,10 +358,6 @@ class UNREALED_API UEditorEngine : public UEngine
 
 	UPROPERTY(EditAnywhere, config, Category=Advanced)
 	uint32 GodMode:1;
-
-	/** The location to autosave to. */
-	UPROPERTY(EditAnywhere, config, Category=Advanced)
-	FString AutoSaveDir;
 
 	UPROPERTY(EditAnywhere, config, Category=Advanced)
 	uint32 InvertwidgetZAxis:1;
@@ -585,7 +652,7 @@ public:
 	DECLARE_EVENT_OneParam( UEditorEngine, FOnBeginTransformObject, UObject& );
 	FOnBeginTransformObject& OnBeginObjectMovement() { return OnBeginObjectTransformEvent; }
 
-	/** Editor-only event triggered before after actor or component has moved, rotated or scaled by an editor system */
+	/** Editor-only event triggered after actor or component has moved, rotated or scaled by an editor system */
 	DECLARE_EVENT_OneParam( UEditorEngine, FOnEndTransformObject, UObject& );
 	FOnEndTransformObject& OnEndObjectMovement() { return OnEndObjectTransformEvent; }
 
@@ -595,19 +662,19 @@ public:
 	DECLARE_EVENT_OneParam( UEditorEngine, FGetActorRecordingState, bool& /* bIsRecordingActive */ );
 	FGetActorRecordingState& GetActorRecordingState() { return GetActorRecordingStateEvent; }
 
-	/** 
-	 * Called before an actor or component is about to be translated, rotated, or scaled by the editor 
-	 * 
-	 * @param Object	The actor or component that will be moved
-	 */
-	void BroadcastBeginObjectMovement( UObject& Object ) const { OnBeginObjectTransformEvent.Broadcast( Object ); }
+	/**
+	* Called before an actor or component is about to be translated, rotated, or scaled by the editor
+	*
+	* @param Object	The actor or component that will be moved
+	*/
+	void BroadcastBeginObjectMovement(UObject& Object) const { OnBeginObjectTransformEvent.Broadcast(Object); }
 
 	/**
-	 * Called when an actor or component has been translated, rotated, or scaled by the editor
-	 *
-	 * @param Object	The actor or component that moved
-	 */
-	void BroadcastEndObjectMovement( UObject& Object ) const { OnEndObjectTransformEvent.Broadcast( Object ); }
+	* Called when an actor or component has been translated, rotated, or scaled by the editor
+	*
+	* @param Object	The actor or component that moved
+	*/
+	void BroadcastEndObjectMovement(UObject& Object) const { OnEndObjectTransformEvent.Broadcast(Object); }
 
 	/**	Broadcasts that an object has been reimported. THIS SHOULD NOT BE PUBLIC */
 	void BroadcastObjectReimported(UObject* InObject);
@@ -638,7 +705,6 @@ public:
 	bool	HandleMapCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
 	bool	HandleSelectCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
 	bool	HandleDeleteCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
-	bool	HandlePrefabCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleLightmassDebugCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleLightmassStatsCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleSwarmDistributionCommand( const TCHAR* Str, FOutputDevice& Ar );
@@ -836,24 +902,6 @@ public:
 	 */
 	AActor* SelectNamedActor(const TCHAR *TargetActorName);
 
-	/**
-	 * Moves all viewport cameras to the target actor.
-	 * @param	Actor					Target actor.
-	 * @param	bActiveViewportOnly		If true, move/reorient only the active viewport.
-	 */
-	void MoveViewportCamerasToActor(AActor& Actor,  bool bActiveViewportOnly);
-
-	/** 
-	 * Snaps an actor in a direction.  Optionally will align with the trace normal.
-	 * @param InActor			Actor to move to the floor.
-	 * @param InAlign			sWhether or not to rotate the actor to align with the trace normal.
-	 * @param InUseLineTrace	Whether or not to only trace with a line through the world.
-	 * @param InUseBounds		Whether or not to base the line trace off of the bounds.
-	 * @param InUsePivot		Whether or not to use the pivot position.
-	 * @param InDestination		The destination actor we want to move this actor to, NULL assumes we just want to go towards the floor
-	 * @return					Whether or not the actor was moved.
-	 */
-	bool SnapActorTo( AActor* InActor, const bool InAlign, const bool InUseLineTrace, const bool InUseBounds, const bool InUsePivot, const AActor* InDestination = NULL );
 
 	/**
 	 * Moves an actor in front of a camera specified by the camera's origin and direction.
@@ -867,11 +915,39 @@ public:
 	void MoveActorInFrontOfCamera( AActor& InActor, const FVector& InCameraOrigin, const FVector& InCameraDirection );
 
 	/**
+	 * Moves all viewport cameras to the target actor.
+	 * @param	Actor					Target actor.
+	 * @param	bActiveViewportOnly		If true, move/reorient only the active viewport.
+	 */
+	void MoveViewportCamerasToActor(AActor& Actor,  bool bActiveViewportOnly);
+
+	/**
 	* Moves all viewport cameras to focus on the provided array of actors.
 	* @param	Actors					Target actors.
+
 	* @param	bActiveViewportOnly		If true, move/reorient only the active viewport.
 	*/
 	void MoveViewportCamerasToActor(const TArray<AActor*> &Actors, bool bActiveViewportOnly);
+
+	/**
+	* Moves all viewport cameras to focus on the provided array of actors.
+	* @param	Actors					Target actors.
+	* @param	Components				Target components (used of actors array is empty)
+	* @param	bActiveViewportOnly		If true, move/reorient only the active viewport.
+	*/
+	void MoveViewportCamerasToActor(const TArray<AActor*> &Actors, const TArray<UPrimitiveComponent*>& Components, bool bActiveViewportOnly);
+
+	/** 
+	 * Snaps an actor in a direction.  Optionally will align with the trace normal.
+	 * @param InActor			Actor to move to the floor.
+	 * @param InAlign			sWhether or not to rotate the actor to align with the trace normal.
+	 * @param InUseLineTrace	Whether or not to only trace with a line through the world.
+	 * @param InUseBounds		Whether or not to base the line trace off of the bounds.
+	 * @param InUsePivot		Whether or not to use the pivot position.
+	 * @param InDestination		The destination actor we want to move this actor to, NULL assumes we just want to go towards the floor
+	 * @return					Whether or not the actor was moved.
+	 */
+	bool SnapObjectTo( FActorOrComponent Object, const bool InAlign, const bool InUseLineTrace, const bool InUseBounds, const bool InUsePivot, FActorOrComponent InDestination = FActorOrComponent() );
 
 	/**
 	 * Snaps the view of the camera to that of the provided actor.
@@ -1061,13 +1137,20 @@ public:
 	AActor* UseActorFactory( UActorFactory* Factory, const FAssetData& AssetData, const FTransform* ActorLocation, EObjectFlags ObjectFlags = RF_Transactional );
 
 	/**
-	 * Replaces the selected Actors with the same number of a different kind of Actor
-	 * if a Factory is specified, it is used to spawn the requested Actors, otherwise NewActorClass is used (one or the other must be specified)
+	 * Replaces the selected Actors with the same number of a different kind of Actor using the specified factory to spawn the new Actors
 	 * note that only Location, Rotation, Drawscale, Drawscale3D, Tag, and Group are copied from the old Actors
 	 * 
 	 * @param Factory - the Factory to use to create Actors
 	 */
-	void ReplaceSelectedActors(UActorFactory* Factory, const FAssetData& AssetData, UClass* NewActorClass);
+	void ReplaceSelectedActors(UActorFactory* Factory, const FAssetData& AssetData);
+
+	/**
+	 * Replaces specified Actors with the same number of a different kind of Actor using the specified factory to spawn the new Actors
+	 * note that only Location, Rotation, Drawscale, Drawscale3D, Tag, and Group are copied from the old Actors
+	 * 
+	 * @param Factory - the Factory to use to create Actors
+	 */
+	void ReplaceActors(UActorFactory* Factory, const FAssetData& AssetData, const TArray<AActor*> ActorsToReplace);
 
 	/**
 	 * Converts passed in brushes into a single static mesh actor. 
@@ -1181,15 +1264,6 @@ public:
 	 */
 	virtual bool ShouldAbortActorDeletion() const { return false; }
 
-	/** Create a prefab from the selected actors, and replace those actors with an instance of that prefab. */
-	virtual void edactPrefabSelected() {};
-
-	/** Add the selected prefab at the clicked location. */
-	virtual void edactAddPrefab() {};
-
-	/** Select all Actors that make up the selected PrefabInstance. */
-	virtual void edactSelectPrefabActors() {};
-
 	/**
 	*
 	* Rebuild the level's Bsp from the level's CSG brushes.
@@ -1246,6 +1320,7 @@ public:
 	virtual void SelectActor(AActor* Actor, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden=false) {}
 	virtual bool CanSelectActor(AActor* Actor, bool bInSelected, bool bSelectEvenIfHidden=false, bool bWarnIfLevelLocked=false) const { return true; }
 	virtual void SelectGroup(class AGroupActor* InGroupActor, bool bForceSelection=false, bool bInSelected=true, bool bNotify=true) {}
+	virtual void SelectComponent(class UActorComponent* Component, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden = false) {}
 
 	/**
 	 * Replaces the components in ActorsToReplace with an primitive component in Replacement
@@ -1463,7 +1538,12 @@ public:
 	/**
 	 * Can the editor do cook by the book in the editor process space
 	 */
-	virtual bool CanCookByTheBookInEditor() const { return false; }
+	virtual bool CanCookByTheBookInEditor(const FString& PlatformName ) const { return false; }
+
+	/**
+	 * Can the editor act as a cook on the fly server
+	 */
+	virtual bool CanCookOnTheFlyInEditor(const FString& PlatformName) const { return false; }
 
 	/**
 	 * Start cook by the book in the editor process space
@@ -1663,6 +1743,22 @@ public:
 	 */
 	class FSelectionIterator GetSelectedActorIterator() const;
 
+	/**
+	* Returns an FSelectionIterator that iterates over the set of selected components.
+	*/
+	class FSelectionIterator GetSelectedComponentIterator() const;
+
+	class FSelectedEditableComponentIterator GetSelectedEditableComponentIterator() const;
+
+	/**
+	* Returns the number of currently selected components.
+	*/
+	int32 GetSelectedComponentCount() const;
+
+	/**
+	* @return the set of selected components.
+	*/
+	class USelection* GetSelectedComponents() const;
 
 	/**
 	 * @return the set of selected non-actor objects.
@@ -2467,6 +2563,8 @@ public:
 	 void FlagModifyAllSelectedSurfacesInLevels( UWorld* InWorld );
 	 
 private:
+	/** Checks for UWorld garbage collection leaks and reports any that are found */
+	void CheckForWorldGCLeaks( UWorld* NewWorld, UPackage* WorldPackage );
 
 	/**
 	 * This destroys the given world.
@@ -2547,6 +2645,9 @@ private:
 	/** Callback for finished undo transactions. */
 	void HandleTransactorUndo( FUndoSessionContext SessionContext, bool Succeeded );
 
+	/** UEngine interface */
+	virtual bool AreEditorAnalyticsEnabled() const override;
+	virtual void CreateStartupAnalyticsAttributes( TArray<FAnalyticsEventAttribute>& StartSessionAttributes ) const override;
 private:
 
 	/** Delegate broadcast just before a blueprint is compiled */
@@ -2589,6 +2690,9 @@ private:
 	/** List of actors that were selected before Undo/redo */
 	TArray<AActor*> OldSelectedActors;
 
+	/** List of components that were selected before Undo/redo */
+	TArray<UActorComponent*> OldSelectedComponents;
+
 	/** The notification item to use for undo/redo */
 	TSharedPtr<class SNotificationItem> UndoRedoNotificationItem;
 
@@ -2612,6 +2716,8 @@ private:
 	/** The platform to run on (as selected in dreop down) */
 	FString PlayUsingLauncherDeviceId;
 	FString PlayUsingLauncherDeviceName;
+	bool bPlayUsingLauncherHasCode;
+	bool bPlayUsingLauncherHasCompiler;
 
 	/** List of files we are deferring adding to source control */
 	TArray<FString> DeferredFilesToAddToSourceControl;
@@ -2677,10 +2783,17 @@ private:
 	/** Gets the init values for worlds opened via Map_Load in the editor */
 	UWorld::InitializationValues GetEditorWorldInitializationValues() const;
 
+	FDelegateHandle OnLoginPIECompleteDelegateHandle;
+
+	TMap<FName, FDelegateHandle> OnLoginPIECompleteDelegateHandlesForPIEInstances;
+
 public:
 	// Launcher Worker
 	TSharedPtr<class ILauncherWorker> LauncherWorker;
 	
 	/** Function to run the Play On command for automation testing. */
 	void AutomationPlayUsingLauncher(const FString& InLauncherDeviceId);	
+
+private:
+	FTimerHandle CleanupPIEOnlineSessionsTimerHandle;
 };

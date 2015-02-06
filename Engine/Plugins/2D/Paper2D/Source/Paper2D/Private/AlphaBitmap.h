@@ -322,6 +322,35 @@ struct FAlphaBitmap
 		}
 	}
 
+	// Checks the image to determine if it is suitable for opaque, masked or translucent rendering
+	void AnalyzeImage(int32 StartX, int32 StartY, int32 Width, int32 Height, bool& bOutHasZeros, bool& bOutHasIntermediateValues)
+	{
+		bOutHasZeros = false;
+		bOutHasIntermediateValues = false;
+
+		const int32 X0 = StartX;
+		const int32 Y0 = StartY;
+		const int32 X1 = StartX + Width;
+		const int32 Y1 = StartY + Height;
+		for (int Y = Y0; Y < Y1; ++Y)
+		{
+			for (int X = X0; X < X1; ++X)
+			{
+				const uint8 Value = GetPixel(X, Y);
+
+				if ((Value > 0) && (Value < 255))
+				{
+					bOutHasIntermediateValues = true;
+				}
+
+				if (Value == 0)
+				{
+					bOutHasZeros = true;
+				}
+			}
+		}
+	}
+
 public:
 	TArray<uint8> RawData;
 	int32 Width;

@@ -52,7 +52,7 @@ public:
 						[
 							SNew(STextBlock)
 								.Font(FEditorStyle::GetFontStyle("BoldFont"))
-								.Text(LogMessage->InstanceName)
+								.Text(FText::FromString(LogMessage->InstanceName))
 						]
 				];
 		}
@@ -65,11 +65,15 @@ public:
 					SNew(STextBlock)
 						.ColorAndOpacity(HandleGetTextColor())
 						.HighlightText(HighlightText)
-						.Text(LogMessage->Text.Replace(TEXT("\n"), TEXT(" | ")).Replace(TEXT("\r"), TEXT("")))
+						.Text(FText::FromString(LogMessage->Text.Replace(TEXT("\n"), TEXT(" | ")).Replace(TEXT("\r"), TEXT(""))))
 				];
 		}
 		else if (ColumnName == "TimeSeconds")
 		{
+			static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+				.SetMinimumFractionalDigits(3)
+				.SetMaximumFractionalDigits(3);
+
 			return SNew(SBox)
 				.HAlign(HAlign_Right)
 				.VAlign(VAlign_Center)
@@ -77,7 +81,7 @@ public:
 				[
 					SNew(STextBlock)
 						.ColorAndOpacity(HandleGetTextColor())
-						.Text(FString::Printf(TEXT("%.3f"), LogMessage->TimeSeconds))
+						.Text(FText::AsNumber(LogMessage->TimeSeconds, &FormatOptions))
 				];
 		}
 		else if (ColumnName == "Verbosity")

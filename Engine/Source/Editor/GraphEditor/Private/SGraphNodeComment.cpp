@@ -114,7 +114,7 @@ void SGraphNodeComment::UpdateGraphNode()
 		TagName = FString::Printf(TEXT("GraphNode,%s,%s"), *LastOuter->GetFullName(), *GraphNode->NodeGuid.ToString());
 	}
 
-	TSharedPtr<SWidget> ErrorText = SetupErrorReporting();
+	SetupErrorReporting();
 
 	// Setup a meta tag for this node
 	FGraphNodeMetaData TagMeta(TEXT("Graphnode"));
@@ -166,7 +166,7 @@ void SGraphNodeComment::UpdateGraphNode()
 				.AutoHeight()
 				.Padding(1.0f)
 				[
-					ErrorText->AsShared()
+					ErrorReporting->AsWidget()
 				]
 				+SVerticalBox::Slot()
 				.AutoHeight()

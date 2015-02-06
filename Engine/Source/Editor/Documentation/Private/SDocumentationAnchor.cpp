@@ -59,6 +59,6 @@ const FSlateBrush* SDocumentationAnchor::GetButtonImage() const
 
 FReply SDocumentationAnchor::OnClicked() const
 {
-	IDocumentation::Get()->Open( Link.Get() );
+	IDocumentation::Get()->Open(Link.Get(), FDocumentationSourceInfo(TEXT("doc_anchors")));
 	return FReply::Handled();
 }

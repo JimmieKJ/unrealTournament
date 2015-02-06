@@ -7,6 +7,7 @@
 #include "UnrealEd.h"
 #include "ISourceControlModule.h"
 #include "Engine/UserDefinedEnum.h"
+#include "AutoSaveUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFixupRedirectsCommandlet, Log, All);
 
@@ -140,7 +141,7 @@ int32 UFixupRedirectsCommandlet::Main( const FString& Params )
 			const FString& Filename = PackageList[PackageIndex];
 
 			// already loaded code, skip them, and skip autosave packages
-			if (Filename.Left(GEditor->AutoSaveDir.Len()) == GEditor->AutoSaveDir)
+			if (Filename.StartsWith(AutoSaveUtils::GetAutoSaveDir(), ESearchCase::IgnoreCase))
 			{
 				continue;
 			}

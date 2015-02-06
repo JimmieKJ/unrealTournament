@@ -42,7 +42,10 @@ FLevelEditorModule::FLevelEditorModule()
 
 TSharedRef<SDockTab> FLevelEditorModule::SpawnLevelEditor( const FSpawnTabArgs& InArgs )
 {
-	TSharedRef<SDockTab> LevelEditorTab = SNew(SDockTab) .TabRole(ETabRole::MajorTab) .ContentPadding( FMargin(0,2,0,0) );
+	TSharedRef<SDockTab> LevelEditorTab = SNew(SDockTab)
+		.TabRole(ETabRole::MajorTab)
+		.ContentPadding( FMargin(0) );
+
 	SetLevelEditorInstanceTab(LevelEditorTab);
 	TSharedPtr< SWindow > OwnerWindow = InArgs.GetOwnerWindow();
 	
@@ -95,6 +98,7 @@ TSharedRef<SDockTab> FLevelEditorModule::SpawnLevelEditor( const FSpawnTabArgs& 
 				SNew( SHorizontalBox )
 
 				+SHorizontalBox::Slot()
+				.Padding(0.0f, 0.0f, 14.0f, 0.0f)
 				.AutoWidth()
 				[
 					SNew(SBox)
@@ -103,7 +107,7 @@ TSharedRef<SDockTab> FLevelEditorModule::SpawnLevelEditor( const FSpawnTabArgs& 
 						SNew( STextBlock )
 						.Text( RightContentText )
 						.Font( FSlateFontInfo( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 14 ) )
-						.ColorAndOpacity( FLinearColor( 1.0f, 1.0f, 1.0f, 0.3f ) )
+						.ColorAndOpacity( FLinearColor( 1.0f, 1.0f, 1.0f, 0.4f ) )
 					]
 				]
 // Put the level editor stats/notification widgets on the main window title bar since we don't have a menu bar on OS X
@@ -153,10 +157,6 @@ void FLevelEditorModule::StartupModule()
 	ModeBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 
 	NotificationBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
-
-	// Figure out if we recompile the level editor.
-	FString SourcePath = FPaths::Combine(*FPaths::EngineDir(), TEXT("Source/Editor/LevelEditor/Private"));
-	bCanBeRecompiled = IFileManager::Get().DirectoryExists(*SourcePath) && !GEngineVersion.IsPromotedBuild();
 
 	// Note this must come before any tab spawning because that can create the SLevelEditor and attempt to map commands
 	FLevelEditorCommands::Register();
@@ -360,6 +360,11 @@ void FLevelEditorModule::BroadcastMapChanged( UWorld* World, EMapChangeType::Typ
 	MapChangedEvent.Broadcast( World, MapChangeType );
 }
 
+void FLevelEditorModule::BroadcastComponentsEdited()
+{
+	ComponentsEditedEvent.Broadcast();
+}
+
 const FLevelEditorCommands& FLevelEditorModule::GetLevelEditorCommands() const
 {
 	return FLevelEditorCommands::Get();
@@ -553,21 +558,29 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	ActionList.MapAction( Commands.Build,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::Build_Execute ) );
 
+	ActionList.MapAction(
+		Commands.ConnectToSourceControl,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ConnectToSourceControl_Clicked)
+		);
 
-	if (CanBeRecompiled())
-	{
-		ActionList.MapAction( Commands.RecompileLevelEditor,
-			FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::RecompileLevelEditor_Clicked ),
-			FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::Recompile_CanExecute )
-			);
+	ActionList.MapAction(
+		Commands.ChangeSourceControlSettings,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ConnectToSourceControl_Clicked)
+		);
 
-		ActionList.MapAction( Commands.ReloadLevelEditor,
-			FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ReloadLevelEditor_Clicked ),
-			FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::Reload_CanExecute )
-			);
-	}
+	ActionList.MapAction(
+		Commands.CheckOutModifiedFiles,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::CheckOutModifiedFiles_Clicked),
+		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::CheckOutModifiedFiles_CanExecute)
+		);
 
-	ActionList.MapAction( Commands.RecompileGameCode,
+	ActionList.MapAction(
+		Commands.SubmitToSourceControl,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SubmitToSourceControl_Clicked),
+		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SubmitToSourceControl_CanExecute)
+		);
+
+	ActionList.MapAction(Commands.RecompileGameCode,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::RecompileGameCode_Clicked ),
 		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::Recompile_CanExecute )
 		);
@@ -689,7 +702,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	bool bUsePivot = false;
 	ActionList.MapAction(
 		Commands.SnapToFloor,
-		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapActorToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
 		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ActorSelected_CanExecute)
 		);
 
@@ -699,7 +712,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	bUsePivot = false;
 	ActionList.MapAction(
 		Commands.AlignToFloor,
-		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapActorToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
 		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ActorSelected_CanExecute)
 		);
 
@@ -709,7 +722,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	bUsePivot = true;
 	ActionList.MapAction(
 		Commands.SnapPivotToFloor,
-		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapActorToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
 		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ActorSelected_CanExecute)
 		);
 
@@ -719,7 +732,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	bUsePivot = true;
 	ActionList.MapAction(
 		Commands.AlignPivotToFloor,
-		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapActorToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
 		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ActorSelected_CanExecute)
 		);
 
@@ -729,7 +742,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	bUsePivot = false;
 	ActionList.MapAction(
 		Commands.SnapBottomCenterBoundsToFloor,
-		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapActorToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
 		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ActorSelected_CanExecute)
 		);
 
@@ -739,7 +752,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	bUsePivot = false;
 	ActionList.MapAction(
 		Commands.AlignBottomCenterBoundsToFloor,
-		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapActorToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapToFloor_Clicked, bAlign, bUseLineTrace, bUseBounds, bUsePivot),
 		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ActorSelected_CanExecute)
 		);
 
@@ -958,6 +971,12 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	ActionList.MapAction(
 		Commands.SelectAllActorsOfSameClassWithArchetype,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::OnSelectAllActorsOfClass, (bool)true )
+		);
+
+	ActionList.MapAction(
+		Commands.SelectComponentOwnerActor,
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::OnSelectComponentOwnerActor ),
+		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CanSelectComponentOwnerActor )
 		);
 
 	ActionList.MapAction(

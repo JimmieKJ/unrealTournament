@@ -1291,22 +1291,15 @@ void FDeferredShadingSceneRenderer::CreatePerObjectProjectedShadow(
 	{
 		const FViewInfo& View = Views[ViewIndex];
 
-		// Stereo renders at half horizontal resolution, but compute shadow resolution based on full resolution.
-		const bool bStereo = View.StereoPass != eSSP_FULL;
-		const float ScreenXScale = bStereo ? 2.0f : 1.0f;
-
 		// Determine the size of the subject's bounding sphere in this view.
 		const FVector4 ScreenPosition = View.WorldToScreen(OriginalBounds.Origin);
-		const float ScreenRadius = FMath::Max(
-			ScreenXScale * View.ViewRect.Size().X / 2.0f * View.ShadowViewMatrices.ProjMatrix.M[0][0],
-			View.ViewRect.Size().Y / 2.0f * View.ShadowViewMatrices.ProjMatrix.M[1][1]
-			) *
+		const float ScreenRadius = View.ShadowViewMatrices.ScreenScale *
 			OriginalBounds.SphereRadius /
 			FMath::Max(ScreenPosition.W,1.0f);
 
 		const float ScreenPercent = FMath::Max(
-			1.0f / 2.0f * View.ShadowViewMatrices.ProjMatrix.M[0][0],
-			1.0f / 2.0f * View.ShadowViewMatrices.ProjMatrix.M[1][1]
+			1.0f / 2.0f * View.ShadowViewMatrices.ProjectionScale.X,
+			1.0f / 2.0f * View.ShadowViewMatrices.ProjectionScale.Y
 			) *
 			OriginalBounds.SphereRadius /
 			FMath::Max(ScreenPosition.W,1.0f);
@@ -1560,16 +1553,9 @@ void FDeferredShadingSceneRenderer::CreateWholeSceneProjectedShadow(FLightSceneI
 		{
 			const FViewInfo& View = Views[ViewIndex];
 
-			// Stereo renders at half horizontal resolution, but compute shadow resolution based on full resolution.
-			const bool bStereo = View.StereoPass != eSSP_FULL;
-			const float ScreenXScale = bStereo ? 2.0f : 1.0f;
-
 			// Determine the size of the light's bounding sphere in this view.
 			const FVector4 ScreenPosition = View.WorldToScreen(LightSceneInfo->Proxy->GetOrigin());
-			const float ScreenRadius = FMath::Max(
-				ScreenXScale * View.ViewRect.Width() / 2.0f * View.ShadowViewMatrices.ProjMatrix.M[0][0],
-				View.ViewRect.Height() / 2.0f * View.ShadowViewMatrices.ProjMatrix.M[1][1]
-				) *
+			const float ScreenRadius = View.ShadowViewMatrices.ScreenScale *
 				LightSceneInfo->Proxy->GetRadius() /
 				FMath::Max(ScreenPosition.W,1.0f);
 

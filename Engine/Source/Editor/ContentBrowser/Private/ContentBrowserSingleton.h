@@ -4,6 +4,7 @@
 #pragma once
 
 class SContentBrowser;
+class FNativeClassHierarchy;
 
 #define MAX_CONTENT_BROWSERS 4
 
@@ -40,6 +41,8 @@ public:
 
 	/** Notifies the singleton that a browser was closed */
 	void ContentBrowserClosed(const TSharedRef<SContentBrowser>& ClosedBrowser);
+
+	TSharedRef<FNativeClassHierarchy> GetNativeClassHierarchy();
 
 private:
 
@@ -82,6 +85,8 @@ private:
 	TMap<FName, TWeakPtr<FTabManager>> BrowserToLastKnownTabManagerMap;
 
 	TWeakPtr<SContentBrowser> PrimaryContentBrowser;
+
+	TSharedPtr<FNativeClassHierarchy> NativeClassHierarchy;
 
 	/** An incrementing int32 which is used when making unique settings strings */
 	int32 SettingsStringID;

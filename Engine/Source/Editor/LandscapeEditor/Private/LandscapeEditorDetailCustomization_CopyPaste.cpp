@@ -141,7 +141,7 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 		[
 			SNew(STextBlock)
 			.Font(DetailBuilder.GetDetailFont())
-			.Text(FString().AppendChar(0xD7)) // Multiply sign
+			.Text(FText::FromString(FString().AppendChar(0xD7))) // Multiply sign
 		]
 		+ SHorizontalBox::Slot()
 		.FillWidth(1)
@@ -355,6 +355,10 @@ FReply FLandscapeEditorDetailCustomization_CopyPaste::OnGizmoImportButtonClicked
 			}
 
 			Gizmo->Import(LandscapeEdMode->UISettings->GizmoImportSize.X, LandscapeEdMode->UISettings->GizmoImportSize.Y, (uint16*)Data.GetData(), LayerInfos, LayerDataPtrs.Num() ? LayerDataPtrs.GetData() : NULL);
+
+			// Make sure gizmo actor is selected
+			GEditor->SelectNone(false, true);
+			GEditor->SelectActor(Gizmo, true, false, true);
 		}
 	}
 

@@ -470,6 +470,23 @@ int32 UBTCompositeNode::GetMatchingChildIndex(int32 ActiveInstanceIdx, FBTNodeIn
 	return (ActiveInstanceIdx > NodeIdx.InstanceIndex) ? UnlimitedRange : OutsideRange;
 }
 
+uint16 UBTCompositeNode::GetBranchExecutionIndex(uint16 NodeInBranchIdx) const
+{
+	uint16 PrevBranchStartIdx = GetExecutionIndex();
+	for (int32 ChildIndex = 0; ChildIndex < Children.Num(); ChildIndex++)
+	{
+		const uint16 BranchStartIdx = GetChildExecutionIndex(ChildIndex, EBTChildIndex::FirstNode);
+		if (BranchStartIdx > NodeInBranchIdx)
+		{
+			break;
+		}
+
+		PrevBranchStartIdx = BranchStartIdx;
+	}
+
+	return PrevBranchStartIdx;
+}
+
 int32 UBTCompositeNode::GetNextChild(FBehaviorTreeSearchData& SearchData, int32 LastChildIdx, EBTNodeResult::Type LastResult) const
 {
 	FBTCompositeMemory* NodeMemory = GetNodeMemory<FBTCompositeMemory>(SearchData);

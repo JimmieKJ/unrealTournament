@@ -151,7 +151,7 @@ protected:
 
 private:
 	TActorPerceptionContainer PerceptualData;
-	
+		
 protected:	
 	struct FStimulusToProcess
 	{
@@ -169,6 +169,9 @@ protected:
 	
 	/** max age of stimulus to consider it "active" (e.g. target is visible) */
 	TArray<float> MaxActiveAge;
+
+private:
+	uint32 bCleanedUp : 1;
 
 public:
 
@@ -265,5 +268,6 @@ private:
 	friend UAIPerceptionSystem;
 
 	void StoreListenerId(FPerceptionListenerID InListenerId) { PerceptionListenerId = InListenerId; }
+	void SetMaxStimulusAge(int32 ConfigIndex, float MaxAge);
 };
 

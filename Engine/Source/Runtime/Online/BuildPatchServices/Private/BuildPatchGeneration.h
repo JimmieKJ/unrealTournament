@@ -681,6 +681,17 @@ private:
 
 };
 
+/**
+ * Simple data structure to hold values parsed from the File Attribute List
+ */
+struct FFileAttributes
+{
+	bool bReadOnly;
+	bool bCompressed;
+	bool bUnixExecutable;
+	FFileAttributes();
+};
+
 #endif //WITH_BUILDPATCHGENERATION
 
 #endif // __BuildPatchGeneration_h__

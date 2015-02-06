@@ -33,7 +33,7 @@ void UFindSessionsCallbackProxy::Activate()
 		auto Sessions = Helper.OnlineSub->GetSessionInterface();
 		if (Sessions.IsValid())
 		{
-			Sessions->AddOnFindSessionsCompleteDelegate(Delegate);
+			DelegateHandle = Sessions->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
 			
 			SearchObject = MakeShareable(new FOnlineSessionSearch);
 			SearchObject->MaxSearchResults = MaxResults;
@@ -66,7 +66,7 @@ void UFindSessionsCallbackProxy::OnCompleted(bool bSuccess)
 		auto Sessions = Helper.OnlineSub->GetSessionInterface();
 		if (Sessions.IsValid())
 		{
-			Sessions->ClearOnFindSessionsCompleteDelegate(Delegate);
+			Sessions->ClearOnFindSessionsCompleteDelegate_Handle(DelegateHandle);
 		}
 	}
 

@@ -241,12 +241,17 @@ namespace FEQSHelpers
 	const ARecastNavMesh* FindNavMeshForQuery(FEnvQueryInstance& QueryInstance)
 	{
 		const UNavigationSystem* NavSys = QueryInstance.World->GetNavigationSystem();
+		
+		if (NavSys == nullptr)
+		{
+			return nullptr;
+		}
 
 		// try to match navigation agent for querier
 		INavAgentInterface* NavAgent = QueryInstance.Owner.IsValid() ? Cast<INavAgentInterface>(QueryInstance.Owner.Get()) : NULL;
 		if (NavAgent)
 		{
-			const FNavAgentProperties& NavAgentProps = NavAgent ? NavAgent->GetNavAgentProperties() : FNavAgentProperties::DefaultProperties;
+			const FNavAgentProperties& NavAgentProps = NavAgent ? NavAgent->GetNavAgentPropertiesRef() : FNavAgentProperties::DefaultProperties;
 			return Cast<const ARecastNavMesh>(NavSys->GetNavDataForProps(NavAgentProps));
 		}
 

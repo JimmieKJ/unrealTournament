@@ -2,6 +2,10 @@
 
 #include "CoreUObjectPrivate.h"
 #include "UObject/TlsObjectInitializers.h"
+#include "AssertionMacros.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogTlsObjectInitializers, Log, All);
+DEFINE_LOG_CATEGORY(LogTlsObjectInitializers);
 
 TArray<FObjectInitializer*>* FTlsObjectInitializers::GetTlsObjectInitializers()
 {
@@ -21,7 +25,7 @@ TArray<FObjectInitializer*>* FTlsObjectInitializers::GetTlsObjectInitializers()
 FObjectInitializer* FTlsObjectInitializers::Top()
 {
 	auto ObjectInitializers = GetTlsObjectInitializers();
-	return ObjectInitializers->Last();
+	return ObjectInitializers->Num() ? ObjectInitializers->Last() : nullptr;
 }
 
 void FTlsObjectInitializers::Pop()
@@ -34,4 +38,11 @@ void FTlsObjectInitializers::Push(FObjectInitializer* Initializer)
 {
 	auto ObjectInitializers = GetTlsObjectInitializers();
 	ObjectInitializers->Push(Initializer);
+}
+
+FObjectInitializer& FTlsObjectInitializers::TopChecked()
+{
+	auto* ObjectInitializerPtr = Top();
+	UE_CLOG(!ObjectInitializerPtr, LogTlsObjectInitializers, Fatal, TEXT("Tried to get the current ObjectInitializer, but none is set. Please use NewObject or NewNamedObject to construct new UObject-derived classes."));
+	return *ObjectInitializerPtr;
 }

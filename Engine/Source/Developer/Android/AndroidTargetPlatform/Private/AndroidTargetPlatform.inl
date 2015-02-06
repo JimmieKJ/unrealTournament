@@ -21,14 +21,14 @@ inline FAndroidTargetPlatform<TPlatformProperties>::FAndroidTargetPlatform( ) :
 	#endif
 
 	TickDelegate = FTickerDelegate::CreateRaw(this, &FAndroidTargetPlatform::HandleTicker);
-	FTicker::GetCoreTicker().AddTicker(TickDelegate, 4.0f);
+	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, 4.0f);
 }
 
 
 template<class TPlatformProperties>
 inline FAndroidTargetPlatform<TPlatformProperties>::~FAndroidTargetPlatform()
 { 
-	 FTicker::GetCoreTicker().RemoveTicker(TickDelegate);
+	 FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
 }
 
 
@@ -89,57 +89,8 @@ inline bool FAndroidTargetPlatform<TPlatformProperties>::IsRunningPlatform( ) co
 template<class TPlatformProperties>
 inline bool FAndroidTargetPlatform<TPlatformProperties>::IsSdkInstalled(bool bProjectHasCode, FString& OutDocumentationPath) const
 {
+
 	OutDocumentationPath = FString("Shared/Tutorials/SettingUpAndroidTutorial");
-
-	TCHAR ANDROID_HOME[MAX_PATH];
-	TCHAR JAVA_HOME[MAX_PATH];
-	TCHAR ANT_HOME[MAX_PATH];
-	TCHAR NDKROOT[MAX_PATH];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("ANDROID_HOME"), ANDROID_HOME, MAX_PATH);
-	FPlatformMisc::GetEnvironmentVariable(TEXT("JAVA_HOME"), JAVA_HOME, MAX_PATH);
-	FPlatformMisc::GetEnvironmentVariable(TEXT("ANT_HOME"), ANT_HOME, MAX_PATH);
-	FPlatformMisc::GetEnvironmentVariable(TEXT("NDKROOT"), NDKROOT, MAX_PATH);
-
-	// make sure ANDROID_HOME points to the right thing
-	if (ANDROID_HOME[0] == 0 ||
-#if PLATFORM_WINDOWS
-		IFileManager::Get().FileSize(*(FString(ANDROID_HOME) / TEXT("platform-tools/adb.exe"))) < 0)
-#else
-		IFileManager::Get().FileSize(*(FString(ANDROID_HOME) / TEXT("platform-tools/adb"))) < 0)
-#endif
-	{
-		return false;
-	}
-
-#if PLATFORM_WINDOWS
-	// make sure that JAVA_HOME points to the right thing
-	if (JAVA_HOME[0] == 0 ||
-		IFileManager::Get().FileSize(*(FString(JAVA_HOME) / TEXT("bin/javac.exe"))) < 0)
-	{
-		return false;
-	}
-#endif
-
-	// now look for ANT_HOME, or the ADT workaround of looking for a plugin
-	if (ANT_HOME[0] == 0)
-	{
-		// look for plugins in eclipse (this is enough to assume we have an ant plugin)
-		if (!IFileManager::Get().DirectoryExists(*(FString(ANDROID_HOME) / TEXT("../eclipse/plugins"))))
-		{
-			return false;
-		}
-	}
-
-	// we need NDKROOT if the game has code
-	if (bProjectHasCode)
-	{
-		if (NDKROOT[0] == 0 ||
-			IFileManager::Get().FileSize(*(FString(NDKROOT) / TEXT("ndk-build.cmd"))) < 0)
-		{
-			return false;
-		}
-	}
-
 	return true;
 }
 
@@ -188,7 +139,7 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 	// and supported by the device, the first supported format listed will be used. 
 	// eg, ETC1/uncompressed should always be last
 
-	bool bNoCompression = InTexture->CompressionNone								// Code wants the texture uncompressed.
+	bool bNoCompression = InTexture->CompressionNone				// Code wants the texture uncompressed.
 		|| (InTexture->LODGroup == TEXTUREGROUP_ColorLookupTable)	// Textures in certain LOD groups should remain uncompressed.
 		|| (InTexture->LODGroup == TEXTUREGROUP_Bokeh)
 		|| (InTexture->CompressionSettings == TC_EditorIcon)
@@ -206,7 +157,8 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 	{
 		OutFormats.Add(AndroidTexFormat::NameBGRA8);
 	}
-	else if (InTexture->CompressionSettings == TC_HDR)
+	else if (InTexture->CompressionSettings == TC_HDR
+		|| InTexture->CompressionSettings == TC_HDR_Compressed)
 	{
 		OutFormats.Add(AndroidTexFormat::NameRGBA16F);
 	}
@@ -238,7 +190,8 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 	{
 		OutFormats.Add(AndroidTexFormat::NameG8);
 	}
-	else if (InTexture->bForcePVRTC4)
+	else if (InTexture->bForcePVRTC4
+		|| InTexture->CompressionSettings == TC_BC7)
 	{
 		AddTextureFormatIfSupports(AndroidTexFormat::NamePVRTC4, OutFormats);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats);

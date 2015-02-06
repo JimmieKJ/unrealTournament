@@ -158,7 +158,14 @@ void UUserWidget::PostInitProperties()
 
 UWorld* UUserWidget::GetWorld() const
 {
-	// Use the Player Context's world.
+	if ( HasAllFlags(RF_ClassDefaultObject) )
+	{
+		// If we are a CDO, we must return nullptr instead of calling Outer->GetWorld() to fool UObject::ImplementsGetWorld.
+		return nullptr;
+	}
+
+	// Use the Player Context's world, if a specific player context is given, otherwise fall back to
+	// following the outer chain.
 	if ( PlayerContext.IsValid() )
 	{
 		if ( UWorld* World = PlayerContext.GetWorld() )
@@ -167,18 +174,19 @@ UWorld* UUserWidget::GetWorld() const
 		}
 	}
 
-	// If the current player context doesn't have a world or isn't valid, return the game instance's world.
-	if ( UGameInstance* GameInstance = Cast<UGameInstance>(GetOuter()) )
+	// Could be a GameInstance, could be World, could also be a WidgetTree, so we're just going to follow
+	// the outer chain to find the world we're in.
+	UObject* Outer = GetOuter();
+
+	while ( Outer )
 	{
-		if ( UWorld* World = GameInstance->GetWorld() )
+		UWorld* World = Outer->GetWorld();
+		if ( World )
 		{
 			return World;
 		}
-	}
 
-	if ( UWorld* World = Cast<UWorld>(GetOuter()) )
-	{
-		return World;
+		Outer = Outer->GetOuter();
 	}
 
 	return nullptr;
@@ -608,7 +616,7 @@ UWidget* UUserWidget::GetRootWidget() const
 	return nullptr;
 }
 
-void UUserWidget::AddToViewport()
+void UUserWidget::AddToViewport(int32 ZOrder)
 {
 	if ( !FullScreenWidget.IsValid() )
 	{
@@ -623,7 +631,7 @@ void UUserWidget::AddToViewport()
 		{
 			if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
 			{
-				ViewportClient->AddViewportWidgetContent(RootWidget, 10);
+				ViewportClient->AddViewportWidgetContent(RootWidget, 10 + ZOrder);
 			}
 		}
 	}
@@ -680,6 +688,14 @@ ULocalPlayer* UUserWidget::GetOwningLocalPlayer() const
 {
 	APlayerController* PC = PlayerContext.IsValid() ? PlayerContext.GetPlayerController() : nullptr;
 	return PC ? Cast<ULocalPlayer>(PC->Player) : nullptr;
+}
+
+void UUserWidget::SetOwningLocalPlayer(ULocalPlayer* LocalPlayer)
+{
+	if ( LocalPlayer )
+	{
+		PlayerContext = FLocalPlayerContext(LocalPlayer);
+	}
 }
 
 APlayerController* UUserWidget::GetOwningPlayer() const

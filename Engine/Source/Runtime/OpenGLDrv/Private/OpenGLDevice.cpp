@@ -7,7 +7,6 @@
 #include "OpenGLDrvPrivate.h"
 
 #include "HardwareInfo.h"
-#include "ShaderCache.h"
 
 extern GLint GMaxOpenGLColorSamples;
 extern GLint GMaxOpenGLDepthSamples;
@@ -1021,7 +1020,20 @@ static void CheckTextureCubeLodSupport()
 			// we are done
 			return;
 		}
-		
+
+		FOpenGL::bRequiresDontEmitPrecisionForTextureSamplers = true;
+		FOpenGL::bRequiresTextureCubeLodEXTToTextureCubeLodDefine = true;
+
+		// try both hacks
+		PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(Code).GetReference());
+
+		if (VerifyCompiledShader(PixelShader->Resource, TestFragmentProgram, false))
+		{
+			UE_LOG(LogRHI, Warning, TEXT("Enabling shader compiler hack to redefine textureCubeLodEXT to textureCubeLod and remove precision modifiers"));
+			// we are done
+			return;
+		}
+
 		UE_LOG(LogRHI, Warning, TEXT("Unable to find a test shader that compiles try running anyway"));
 	}
 #endif
@@ -1031,10 +1043,6 @@ void FOpenGLDynamicRHI::Init()
 {
 	check(!GIsRHIInitialized);
 	VERIFY_GL_SCOPE();
-
-#if PLATFORM_DESKTOP
-	FShaderCache::InitShaderCache();
-#endif
 
 	InitializeStateResources();
 
@@ -1110,10 +1118,6 @@ void FOpenGLDynamicRHI::Cleanup()
 {
 	if(GIsRHIInitialized)
 	{
-#if PLATFORM_DESKTOP
-		FShaderCache::ShutdownShaderCache();
-#endif
-
 		// Reset the RHI initialized flag.
 		GIsRHIInitialized = false;
 

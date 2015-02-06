@@ -14,6 +14,25 @@ struct ENGINE_API FAbstractNavigationPath : public FNavigationPath
 	static const FNavPathType Type;
 };
 
+class ENGINE_API FAbstractQueryFilter : public INavigationQueryFilterInterface
+{
+public:
+	virtual void Reset() override {}
+	virtual void SetAreaCost(uint8 AreaType, float Cost) override {}
+	virtual void SetFixedAreaEnteringCost(uint8 AreaType, float Cost) override {}
+	virtual void SetExcludedArea(uint8 AreaType) override {}
+	virtual void SetAllAreaCosts(const float* CostArray, const int32 Count) override {}
+	virtual void GetAllAreaCosts(float* CostArray, float* FixedCostArray, const int32 Count) const override {}
+	virtual void SetBacktrackingEnabled(const bool bBacktracking) override {}
+	virtual bool IsBacktrackingEnabled() const override { return false; }
+	virtual bool IsEqual(const INavigationQueryFilterInterface* Other) const override { return true; }
+	virtual void SetIncludeFlags(uint16 Flags) override {}
+	virtual uint16 GetIncludeFlags() const override { return 0; }
+	virtual void SetExcludeFlags(uint16 Flags) override {}
+	virtual uint16 GetExcludeFlags() const override { return 0; }
+	virtual INavigationQueryFilterInterface* CreateCopy() const override;
+};
+
 UCLASS()
 class AAbstractNavData : public ANavigationData
 {

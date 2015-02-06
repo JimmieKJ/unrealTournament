@@ -147,3 +147,8 @@ EReimportResult::Type UReimportScriptFactory::Reimport(UObject* Obj)
 
 	return EReimportResult::Succeeded;
 }
+
+int32 UReimportScriptFactory::GetPriority() const
+{
+	return ImportPriority;
+}

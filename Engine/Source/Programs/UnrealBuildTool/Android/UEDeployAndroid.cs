@@ -59,17 +59,19 @@ namespace UnrealBuildTool.Android
 		{
 			if (CachedSDKLevel == null)
 			{
-				// default to looking on disk for latest API level
-				string Target = AndroidPlatform.AndroidSdkApiTarget;
+				// ask the .ini system for what version to use
+				ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.Android, "Engine", UnrealBuildTool.GetUProjectPath());
+				string SDKLevel;
+				Ini.GetString("/Script/AndroidPlatformEditor.AndroidSDKSettings", "SDKAPILevel", out SDKLevel);
 
 				// if we want to use whatever version the ndk uses, then use that
-				if (Target == "matchndk")
+				if (SDKLevel == "matchndk")
 				{
-					Target = AndroidToolChain.GetNdkApiLevel();
+					SDKLevel = AndroidToolChain.GetNdkApiLevel();
 				}
 
 				// run a command and capture output
-				if (Target == "latest")
+				if (SDKLevel == "latest")
 				{
 					// we expect there to be one, so use the first one
 					string AndroidCommandPath = Environment.ExpandEnvironmentVariables("%ANDROID_HOME%/tools/android" + (Utils.IsRunningOnMono ? "" : ".bat"));
@@ -87,19 +89,39 @@ namespace UnrealBuildTool.Android
 
 					if (PossibleApiLevels != null && PossibleApiLevels.Count > 0)
 					{
-						Target = AndroidToolChain.GetLargestApiLevel(PossibleApiLevels.ToArray());
+						SDKLevel = AndroidToolChain.GetLargestApiLevel(PossibleApiLevels.ToArray());
 					}
 					else
 					{
-						throw new BuildException("Can't make an APK an API installed (see \"android.bat list targets\")");
+						throw new BuildException("Can't make an APK without an API installed (see \"android.bat list targets\")");
 					}
 				}
 
-				Console.WriteLine("Building Java with SDK API '{0}'", Target);
-				CachedSDKLevel = Target;
+				Console.WriteLine("Building Java with SDK API level '{0}'", SDKLevel);
+				CachedSDKLevel = SDKLevel;
 			}
 
 			return CachedSDKLevel;
+		}
+
+		public static bool PackageDataInsideApk(bool bDisallowPackagingDataInApk, ConfigCacheIni Ini=null)
+		{
+			if (bDisallowPackagingDataInApk)
+			{
+				return false;
+			}
+
+			// make a new one if one wasn't passed in
+			if (Ini == null)
+			{
+				Ini = new ConfigCacheIni(UnrealTargetPlatform.Android, "Engine", UnrealBuildTool.GetUProjectPath());
+			}
+
+			// we check this a lot, so make it easy 
+			bool bPackageDataInsideApk;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageDataInsideApk", out bPackageDataInsideApk);
+
+			return bPackageDataInsideApk;
 		}
 
 		private static string GetAntPath()
@@ -249,43 +271,6 @@ namespace UnrealBuildTool.Android
         public string GetUE4BuildFilePath(String EngineDirectory)
         {
             return Path.GetFullPath(Path.Combine(EngineDirectory, "Build/Android/Java"));
-        }
-
-        public string GetUE4JavaFilePath(String EngineDirectory)
-        {
-            return Path.GetFullPath(Path.Combine(GetUE4BuildFilePath(EngineDirectory), "src/com/epicgames/ue4"));
-        }
-
-        public string GetUE4JavaBuildSettingsFileName(String EngineDirectory)
-        {
-            return Path.Combine(GetUE4JavaFilePath(EngineDirectory), "JavaBuildSettings.java");
-        }
-
-        public void WriteJavaBuildSettingsFile(string FileName, bool OBBinAPK)
-        {
-             // (!UEBuildConfiguration.bOBBinAPK ? "PackageType.AMAZON" : /*bPackageForGoogle ? "PackageType.GOOGLE" :*/ "PackageType.DEVELOPMENT") + ";\n");
-            string Setting = OBBinAPK ? "AMAZON" : "DEVELOPMENT";
-            if (!File.Exists(FileName) || ShouldWriteJavaBuildSettingsFile(FileName, Setting))
-            {
-				Log.TraceInformation("\n===={0}====WRITING JAVABUILDSETTINGS.JAVA========================================================", DateTime.Now.ToString());
-				StringBuilder BuildSettings = new StringBuilder("package com.epicgames.ue4;\npublic class JavaBuildSettings\n{\n");
-                BuildSettings.Append("\tpublic enum PackageType {AMAZON, GOOGLE, DEVELOPMENT};\n");
-                BuildSettings.Append("\tpublic static final PackageType PACKAGING = PackageType." + Setting + ";\n");
-                BuildSettings.Append("}\n");
-                File.WriteAllText(FileName, BuildSettings.ToString());
-            }
-        }
-
-        public bool ShouldWriteJavaBuildSettingsFile(string FileName, string setting)
-        {
-            var fileContent = File.ReadAllLines(FileName);
-            if (fileContent.Length < 5)
-                return true;
-            var packageLine = fileContent[4]; // We know this to be true... because we write it below...
-            int location = packageLine.IndexOf("PACKAGING") + 12 + 12; // + ("PACKAGING = ") + ("PackageType.")
-            if (location == -1)
-                return true;
-            return String.Compare(setting, packageLine.Substring(location, Math.Min(packageLine.Length - location - 1, setting.Length))) != 0;
         }
 
 		private static string GetNDKArch(string UE4Arch)
@@ -458,18 +443,46 @@ namespace UnrealBuildTool.Android
 		}
 
 
-		private string GetAllBuildSettings(string BuildPath, bool bForDistribution, bool bMakeSeparateApks, bool bOBBinApk)
+		private string GetAllBuildSettings(string BuildPath, bool bForDistribution, bool bMakeSeparateApks, bool bPackageDataInsideApk)
 		{
 			// make the settings string - this will be char by char compared against last time
 			StringBuilder CurrentSettings = new StringBuilder();
-			CurrentSettings.AppendFormat("NDKROOT={0}{1}", Environment.GetEnvironmentVariable("NDKROOT"), Environment.NewLine);
-			CurrentSettings.AppendFormat("ANDROID_HOME={0}{1}", Environment.GetEnvironmentVariable("ANDROID_HOME"), Environment.NewLine);
-			CurrentSettings.AppendFormat("ANT_HOME={0}{1}", Environment.GetEnvironmentVariable("ANT_HOME"), Environment.NewLine);
-			CurrentSettings.AppendFormat("JAVA_HOME={0}{1}", Environment.GetEnvironmentVariable("JAVA_HOME"), Environment.NewLine);
-			CurrentSettings.AppendFormat("SDKVersion={0}{1}", GetSdkApiLevel(), Environment.NewLine);
-			CurrentSettings.AppendFormat("bForDistribution={0}{1}", bForDistribution, Environment.NewLine);
-			CurrentSettings.AppendFormat("bMakeSeparateApks={0}{1}", bMakeSeparateApks, Environment.NewLine);
-			CurrentSettings.AppendFormat("bOBBinApk={0}{1}", bOBBinApk, Environment.NewLine);
+			CurrentSettings.AppendLine(string.Format("NDKROOT={0}", Environment.GetEnvironmentVariable("NDKROOT")));
+			CurrentSettings.AppendLine(string.Format("ANDROID_HOME={0}", Environment.GetEnvironmentVariable("ANDROID_HOME")));
+			CurrentSettings.AppendLine(string.Format("ANT_HOME={0}", Environment.GetEnvironmentVariable("ANT_HOME")));
+			CurrentSettings.AppendLine(string.Format("JAVA_HOME={0}", Environment.GetEnvironmentVariable("JAVA_HOME")));
+			CurrentSettings.AppendLine(string.Format("SDKVersion={0}", GetSdkApiLevel()));
+			CurrentSettings.AppendLine(string.Format("bForDistribution={0}", bForDistribution));
+			CurrentSettings.AppendLine(string.Format("bMakeSeparateApks={0}", bMakeSeparateApks));
+			CurrentSettings.AppendLine(string.Format("bPackageDataInsideApk={0}", bPackageDataInsideApk));
+
+			// all AndroidRuntimeSettings ini settings in here
+			ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.Android, "Engine", UnrealBuildTool.GetUProjectPath());
+			ConfigCacheIni.IniSection Section = Ini.FindSection("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings");
+			if (Section != null)
+			{
+				foreach (string Key in Section.Keys)
+				{
+					List<string> Values = Section[Key];
+					foreach (string Value in Values)
+					{
+						CurrentSettings.AppendLine(string.Format("{0}={1}", Key, Value));
+					}
+				}
+			}
+
+			Section = Ini.FindSection("/Script/AndroidPlatformEditor.AndroidSDKSettings");
+			if (Section != null)
+			{
+				foreach (string Key in Section.Keys)
+				{
+					List<string> Values = Section[Key];
+					foreach (string Value in Values)
+					{
+						CurrentSettings.AppendLine(string.Format("{0}={1}", Key, Value));
+					}
+				}
+			}
 
 			string[] Arches = AndroidToolChain.GetAllArchitectures();
 			foreach (string Arch in Arches)
@@ -486,7 +499,8 @@ namespace UnrealBuildTool.Android
 			return CurrentSettings.ToString();
 		}
 
-		private bool CheckDependencies(string ProjectName, string ProjectDirectory, string UE4BuildFilesPath, string GameBuildFilesPath, string EngineDirectory, string JavaSettingsFile, string CookFlavor, string OutputPath, string UE4BuildPath, bool bMakeSeparateApks)
+		private bool CheckDependencies(string ProjectName, string ProjectDirectory, string UE4BuildFilesPath, string GameBuildFilesPath, string EngineDirectory, 
+			string CookFlavor, string OutputPath, string UE4BuildPath, bool bMakeSeparateApks, bool bPackageDataInsideApk)
 		{
 			string[] Arches = AndroidToolChain.GetAllArchitectures();
 			string[] GPUArchitectures = AndroidToolChain.GetAllGPUArchitectures();
@@ -517,16 +531,8 @@ namespace UnrealBuildTool.Android
 						InputFiles.AddRange(Directory.EnumerateFiles(GameBuildFilesPath, "*.*", SearchOption.AllDirectories));
 					}
 
-					// rebuild if .ini files change
-					// @todo android: programmatically determine if any .ini setting changed?
-					InputFiles.Add(Path.Combine(EngineDirectory, "Config\\BaseEngine.ini"));
-					InputFiles.Add(Path.Combine(ProjectDirectory, "Config\\DefaultEngine.ini"));
-
-					// make sure changed java settings will rebuild apk
-					InputFiles.Add(JavaSettingsFile);
-
-					// rebuild if .pak files exist for OBB in APK case
-					if (UEBuildConfiguration.bOBBinAPK)
+					// rebuild if .pak files exist for  in APK case
+					if (bPackageDataInsideApk)
 					{
 						string PAKFileLocation = ProjectDirectory + "/Saved/StagedBuilds/Android" + CookFlavor + "/" + ProjectName + "/Content/Paks";
 						if (Directory.Exists(PAKFileLocation))
@@ -565,7 +571,185 @@ namespace UnrealBuildTool.Android
 			return bAllInputsCurrent;
 		}
 
-		private void MakeApk(string ProjectName, string ProjectDirectory, string OutputPath, string EngineDirectory, bool bForDistribution, string CookFlavor, bool bMakeSeparateApks, bool bIncrementalPackage)
+		private int ConvertDepthBufferIniValue(string IniValue)
+		{
+			switch (IniValue.ToLower())
+			{
+				case "bits16":
+					return 16;
+				case "bits24":
+					return 24;
+				case "bits32":
+					return 32;
+				default:
+					return 0;
+			}
+		}
+
+		private string ConvertOrientationIniValue(string IniValue)
+		{
+			switch (IniValue.ToLower())
+			{
+				case "portrait":
+					return "portrait";
+				case "reverseportrait":
+					return "reversePortrait";
+				case "sensorportrait":
+					return "sensorPortrait";
+				case "landscape":
+					return "landscape";
+				case "reversepandscape":
+					return "reverseLandscape";
+				case "sensorpandscape":
+					return "sensorLandscape";
+				case "sensor":
+					return "sensor";
+				case "fullsensor":
+					return "fullSensor";
+				default:
+					return "landscape";
+			}
+		}
+
+		private string GenerateManifest(string ProjectName, bool bIsForDistribution, bool bPackageDataInsideApk)
+		{
+			// ini file to get settings from
+			ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.Android, "Engine", UnrealBuildTool.GetUProjectPath());
+			string PackageName;
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "PackageName", out PackageName);
+			bool bEnableGooglePlaySupport;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bEnableGooglePlaySupport", out bEnableGooglePlaySupport);
+			string DepthBufferPreference;
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "DepthBufferPreference", out DepthBufferPreference);
+			int MinSDKVersion;
+			Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "MinSDKVersion", out MinSDKVersion);
+			int StoreVersion;
+			Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "StoreVersion", out StoreVersion);
+			string VersionDisplayName;
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "VersionDisplayName", out VersionDisplayName);
+			string Orientation;
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "Orientation", out Orientation);
+			string ExtraActivitySettings;
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "ExtraActivitySettings", out ExtraActivitySettings);
+			string ExtraApplicationSettings;
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "ExtraApplicationSettings", out ExtraApplicationSettings);
+			List<string> ExtraPermissions;
+			Ini.GetArray("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "ExtraPermissions", out ExtraPermissions);
+			bool bPackageForGearVR;
+			Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bPackageForGearVR", out bPackageForGearVR);
+
+			// replace some variables
+			PackageName = PackageName.Replace("[PROJECT]", ProjectName);
+
+			StringBuilder Text = new StringBuilder();
+			Text.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+			Text.AppendLine("<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"");
+			Text.AppendLine(string.Format("          package=\"{0}\"", PackageName));
+			Text.AppendLine(string.Format("          android:versionCode=\"{0}\"", StoreVersion));
+			Text.AppendLine(string.Format("          android:versionName=\"{0}\">", VersionDisplayName));
+			Text.AppendLine("");
+
+			Text.AppendLine("\t<!-- Application Definition -->");
+			Text.AppendLine("\t<application android:label=\"@string/app_name\"");
+			Text.AppendLine("\t             android:icon=\"@drawable/icon\"");
+			Text.AppendLine("\t             android:hasCode=\"true\">");
+			Text.AppendLine("\t\t<activity android:name=\"com.epicgames.ue4.GameActivity\"");
+			Text.AppendLine("\t\t          android:label=\"@string/app_name\"");
+			if (!bPackageForGearVR)
+			{
+				// normal application settings
+				Text.AppendLine("\t\t          android:theme=\"@android:style/Theme.NoTitleBar.Fullscreen\"");
+				Text.AppendLine("\t\t          android:configChanges=\"orientation|keyboardHidden\"");
+			}
+			else
+			{
+				// GearVR
+				Text.AppendLine("\t\t          android:theme=\"@android:style/Theme.Black.NoTitleBar.Fullscreen\"");
+				Text.AppendLine("\t\t          android:configChanges=\"screenSize|orientation|keyboardHidden|keyboard\"");
+				if (bIsForDistribution)
+				{
+					Text.AppendLine("\t\t          android:excludeFromRecents=\"true\"");
+				}
+			}
+			Text.AppendLine("\t\t          android:launchMode=\"singleTask\"");
+			Text.AppendLine(string.Format("\t\t          android:screenOrientation=\"{0}\"", ConvertOrientationIniValue(Orientation)));
+			Text.AppendLine(string.Format("\t\t          android:debuggable=\"{0}\">", bIsForDistribution ? "false" : "true"));
+			Text.AppendLine("\t\t\t<meta-data android:name=\"android.app.lib_name\" android:value=\"UE4\"/>");
+			Text.AppendLine("\t\t\t<intent-filter>");
+			Text.AppendLine("\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />");
+			Text.AppendLine(string.Format("\t\t\t\t<category android:name=\"android.intent.category.{0}\" />", (bPackageForGearVR && bIsForDistribution) ? "INFO" : "LAUNCHER"));
+			Text.AppendLine("\t\t\t</intent-filter>");
+			if (!string.IsNullOrEmpty(ExtraActivitySettings))
+			{
+				ExtraActivitySettings = ExtraActivitySettings.Replace("\\n", "\n");
+				foreach (string Line in ExtraActivitySettings.Split("\r\n".ToCharArray()))
+				{
+					Text.AppendLine("\t\t\t" + Line);
+				}
+			}
+			Text.AppendLine("\t\t</activity>");
+			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.DepthBufferPreference\" android:value=\"{0}\"/>", ConvertDepthBufferIniValue(DepthBufferPreference)));
+			Text.AppendLine(string.Format("\t\t<meta-data android:name=\"com.epicgames.ue4.GameActivity.bPackageDataInsideApk\" android:value=\"{0}\"/>", bPackageDataInsideApk ? "true" : "false"));
+			Text.AppendLine("\t\t<meta-data android:name=\"com.google.android.gms.games.APP_ID\"");
+			Text.AppendLine("\t\t           android:value=\"@string/app_id\" />");
+			Text.AppendLine("\t\t<meta-data android:name=\"com.google.android.gms.version\"");
+			Text.AppendLine("\t\t           android:value=\"@integer/google_play_services_version\" />");
+			Text.AppendLine("\t\t<activity android:name=\"com.google.android.gms.ads.AdActivity\"");
+			Text.AppendLine("\t\t          android:configChanges=\"keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize\"/>");
+			if (bPackageForGearVR)
+			{
+				Text.AppendLine("\t\t<meta-data android:name=\"com.samsung.android.vr.application.mode\"");
+				Text.AppendLine("\t\t           android:value=\"vr_only\" />");
+				Text.AppendLine("\t\t<activity android:name=\"com.oculusvr.vrlib.PlatformActivity\"");
+				Text.AppendLine("\t\t          android:theme=\"@android:style/Theme.Black.NoTitleBar.Fullscreen\"");
+				Text.AppendLine("\t\t          android:launchMode=\"singleTask\"");
+				Text.AppendLine("\t\t          android:screenOrientation=\"landscape\"");
+				Text.AppendLine("\t\t          android:configChanges=\"screenSize|orientation|keyboardHidden|keyboard\"/>");
+			}
+			if (!string.IsNullOrEmpty(ExtraApplicationSettings))
+			{
+				ExtraApplicationSettings = ExtraApplicationSettings.Replace("\\n", "\n");
+				foreach (string Line in ExtraApplicationSettings.Split("\r\n".ToCharArray()))
+				{
+					Text.AppendLine("\t\t" + Line);
+				}
+			}
+			Text.AppendLine("\t</application>");
+
+			Text.AppendLine("");
+			Text.AppendLine("\t<!-- Requirements -->");
+			// need just the number part of the sdk
+			Text.AppendLine(string.Format("\t<uses-sdk android:minSdkVersion=\"{0}\"/>", MinSDKVersion));
+			Text.AppendLine("\t<uses-feature android:glEsVersion=\"0x00020000\" android:required=\"true\" />");
+			Text.AppendLine("\t<uses-permission android:name=\"android.permission.INTERNET\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"com.android.vending.CHECK_LICENSE\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>");
+			Text.AppendLine("\t<uses-permission android:name=\"com.android.vending.BILLING\"/>");
+//			Text.AppendLine("\t<uses-permission android:name=\"android.permission.DISABLE_KEYGUARD\"/>");
+			if (bPackageForGearVR)
+			{
+				Text.AppendLine("\t<uses-permission android:name=\"android.permission.CAMERA\"/>");
+				Text.AppendLine("\t<uses-feature android:name=\"android.hardware.camera\"/>");
+				Text.AppendLine("\t<uses-feature android:name=\"android.hardware.usb.host\"/>");
+			}
+			if (ExtraPermissions != null)
+			{
+				foreach (string Permission in ExtraPermissions)
+				{
+					Text.AppendLine(string.Format("\t<uses-permission android:name=\"{0}\"/>", Permission));
+				}
+			}
+			Text.AppendLine("</manifest>");
+			return Text.ToString();
+		}
+
+		private void MakeApk(string ProjectName, string ProjectDirectory, string OutputPath, string EngineDirectory, bool bForDistribution, string CookFlavor, bool bMakeSeparateApks, bool bIncrementalPackage, bool bDisallowPackagingDataInApk)
 		{
 			Log.TraceInformation("\n===={0}====PREPARING TO MAKE APK=================================================================", DateTime.Now.ToString());
 
@@ -582,27 +766,39 @@ namespace UnrealBuildTool.Android
 			string[] GPUArchitectures = AndroidToolChain.GetAllGPUArchitectures();
 //			int NumArches = Arches.Length * GPUArchitectures.Length;
 
-
-            // See if we need to create a 'default' Java Build settings file if one doesn't exist (if it does exist we have to assume it has been setup correctly)
-            string UE4JavaBuildSettingsFileName = GetUE4JavaBuildSettingsFileName(EngineDirectory);
-            WriteJavaBuildSettingsFile(UE4JavaBuildSettingsFileName, UEBuildConfiguration.bOBBinAPK);
+			// cache if we want data in the Apk
+			bool bPackageDataInsideApk = PackageDataInsideApk(bDisallowPackagingDataInApk);
 
 			// check to see if any "meta information" is newer than last time we build
-			string CurrentBuildSettings = GetAllBuildSettings(UE4BuildPath, bForDistribution, bMakeSeparateApks, UEBuildConfiguration.bOBBinAPK);
+			string CurrentBuildSettings = GetAllBuildSettings(UE4BuildPath, bForDistribution, bMakeSeparateApks, bPackageDataInsideApk);
 			string BuildSettingsCacheFile = Path.Combine(UE4BuildPath, "UEBuildSettings.txt");
 
 			// do we match previous build settings?
 			bool bBuildSettingsMatch = false;
-			if (File.Exists(BuildSettingsCacheFile))
+
+			string ManifestFile = Path.Combine(UE4BuildPath, "AndroidManifest.xml");
+			string NewManifest = GenerateManifest(ProjectName, bForDistribution, bDisallowPackagingDataInApk);
+			string OldManifest = File.Exists(ManifestFile) ? File.ReadAllText(ManifestFile) : "";
+			if (NewManifest == OldManifest) 
 			{
-				string PreviousBuildSettings = File.ReadAllText(BuildSettingsCacheFile);
-				if (PreviousBuildSettings == CurrentBuildSettings)
+				bBuildSettingsMatch = true;
+			}
+			else
+			{
+				Log.TraceInformation("AndroidManifest.xml that was generated is different than last build, forcing repackage.");
+			}
+
+			// if the manifest matches, look at other settings stored in a file
+			if (bBuildSettingsMatch)
+			{
+				if (File.Exists(BuildSettingsCacheFile))
 				{
-					bBuildSettingsMatch = true;
-				}
-				else
-				{
-					Log.TraceInformation("Previous .apk file(s) were made with different build settings, forcing repackage.");
+					string PreviousBuildSettings = File.ReadAllText(BuildSettingsCacheFile);
+					if (PreviousBuildSettings != CurrentBuildSettings)
+					{
+						bBuildSettingsMatch = false;
+						Log.TraceInformation("Previous .apk file(s) were made with different build settings, forcing repackage.");
+					}
 				}
 			}
 
@@ -611,7 +807,7 @@ namespace UnrealBuildTool.Android
 			{
 				// check if so's are up to date against various inputs
 				bool bAllInputsCurrent = CheckDependencies(ProjectName, ProjectDirectory, UE4BuildFilesPath, GameBuildFilesPath, 
-					EngineDirectory, UE4JavaBuildSettingsFileName, CookFlavor, OutputPath, UE4BuildPath, bMakeSeparateApks);
+					EngineDirectory, CookFlavor, OutputPath, UE4BuildPath, bMakeSeparateApks, bPackageDataInsideApk);
 
 				if (bAllInputsCurrent)
 				{
@@ -641,9 +837,9 @@ namespace UnrealBuildTool.Android
 				DeleteDirectory(UE4BuildPath, "dexedLibs");
 			}
 
-			// If we are packaging for Amazon then we need to copy the OBB file to the correct location
-			Log.TraceInformation("UEBuildConfiguration.bOBBinAPK = {0}", UEBuildConfiguration.bOBBinAPK);
-			if (UEBuildConfiguration.bOBBinAPK)
+			// If we are packaging for Amazon then we need to copy the  file to the correct location
+			Log.TraceInformation("bPackageDataInsideApk = {0}", bPackageDataInsideApk);
+			if (bPackageDataInsideApk)
 			{
 				string ObbFileLocation = ProjectDirectory + "/Saved/StagedBuilds/Android" + CookFlavor + ".obb";
 				Console.WriteLine("Obb location {0}", ObbFileLocation);
@@ -675,6 +871,9 @@ namespace UnrealBuildTool.Android
 			CopyFileDirectory(GameBuildFilesPath, UE4BuildPath, Replacements);
 			CopyFileDirectory(GameBuildFilesPath + "/NotForLicensees", UE4BuildPath, Replacements);
 			CopyFileDirectory(GameBuildFilesPath + "/NoRedist", UE4BuildPath, Replacements);
+
+			// in case the game had an AndroidManifest.xml file, we overwrite it now with the generated one
+			File.WriteAllText(ManifestFile, NewManifest);
 
 			// update metadata files (like project.properties, build.xml) if we are missing a build.xml or if we just overwrote project.properties with a bad version in it (from game/engine dir)
 			UpdateProjectProperties(UE4BuildPath, ProjectName);
@@ -814,60 +1013,24 @@ namespace UnrealBuildTool.Android
 
 		private void PrepareToSignApk(string BuildPath)
 		{
-			string ConfigFilePath = Path.Combine(BuildPath, "SigningConfig.xml");
-			if (!File.Exists(ConfigFilePath))
+			// ini file to get settings from
+			ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.Android, "Engine", UnrealBuildTool.GetUProjectPath());
+			string KeyAlias, KeyStore, KeyStorePassword, KeyPassword;
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "KeyAlias", out KeyAlias);
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "KeyStore", out KeyStore);
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "KeyStorePassword", out KeyStorePassword);
+			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "KeyPassword", out KeyPassword);
+
+			if (string.IsNullOrEmpty(KeyAlias) || string.IsNullOrEmpty(KeyStore) || string.IsNullOrEmpty(KeyStorePassword))
 			{
-				throw new BuildException("Unable to sign for Shipping without signing config file: '{0}", ConfigFilePath);
+				throw new BuildException("DistributionSigning settings are not all set. Check the DistributionSettings section in the Andriod tab of Project Settings");
 			}
-
-			// open an Xml parser for the config file
-			string ConfigFile = File.ReadAllText(ConfigFilePath);
-			XmlReader Xml = XmlReader.Create(new StringReader(ConfigFile));
-
-			string Alias = "UESigningKey";
-			string KeystorePassword = "";
-			string KeyPassword = "_sameaskeystore_";
-			string Keystore = "UE.keystore";
-
-			Xml.ReadToFollowing("ue-signing-config");
-			bool bFinishedSection = false;
-			while (Xml.Read() && !bFinishedSection)
-			{
-				switch (Xml.NodeType)
-				{
-					case XmlNodeType.Element:
-						if (Xml.Name == "keyalias")
-						{
-							Alias = Xml.ReadElementContentAsString();
-						}
-						else if (Xml.Name == "keystorepassword")
-						{
-							KeystorePassword = Xml.ReadElementContentAsString();
-						}
-						else if (Xml.Name == "keypassword")
-						{
-							KeyPassword = Xml.ReadElementContentAsString();
-						}
-						else if (Xml.Name == "keystore")
-						{
-							Keystore = Xml.ReadElementContentAsString();
-						}
-						break;
-					case XmlNodeType.EndElement:
-						if (Xml.Name == "ue-signing-config")
-						{
-							bFinishedSection = true;
-						}
-						break;
-				}
-			}
-
 
 			string[] AntPropertiesLines = new string[4];
-			AntPropertiesLines[0] = "key.store=" + Keystore;
-			AntPropertiesLines[1] = "key.alias=" + Alias;
-			AntPropertiesLines[2] = "key.store.password=" + KeystorePassword;
-			AntPropertiesLines[3] = "key.alias.password=" + ((KeyPassword == "_sameaskeystore_") ? KeystorePassword : KeyPassword);
+			AntPropertiesLines[0] = "key.store=" + KeyStore;
+			AntPropertiesLines[1] = "key.alias=" + KeyAlias;
+			AntPropertiesLines[2] = "key.store.password=" + KeyStorePassword;
+			AntPropertiesLines[3] = "key.alias.password=" + ((string.IsNullOrEmpty(KeyPassword) || KeyPassword == "_sameaskeystore_") ? KeyStorePassword : KeyPassword);
 
 			// now write out the properties
 			File.WriteAllLines(Path.Combine(BuildPath, "ant.properties"), AntPropertiesLines);
@@ -879,7 +1042,8 @@ namespace UnrealBuildTool.Android
 			string BaseSoName = AndroidToolChain.RemoveArchName(InTarget.OutputPaths[0]);
 
 			// make an apk at the end of compiling, so that we can run without packaging (debugger, cook on the fly, etc)
-			MakeApk(InTarget.AppName, InTarget.ProjectDirectory, BaseSoName, BuildConfiguration.RelativeEnginePath, bForDistribution: false, CookFlavor: "", bMakeSeparateApks:ShouldMakeSeparateApks(), bIncrementalPackage:true);
+			MakeApk(InTarget.AppName, InTarget.ProjectDirectory, BaseSoName, BuildConfiguration.RelativeEnginePath, bForDistribution: false, CookFlavor: "", 
+				bMakeSeparateApks:ShouldMakeSeparateApks(), bIncrementalPackage:true, bDisallowPackagingDataInApk:false);
 
 			// if we made any non-standard .apk files, the generated debugger settings may be wrong
 			if (ShouldMakeSeparateApks() && (InTarget.OutputPaths.Length > 1 || !InTarget.OutputPaths[0].Contains("-armv7-es2")))
@@ -907,9 +1071,12 @@ namespace UnrealBuildTool.Android
 // 			return bSeparateApks;
 		}
 
-		public override bool PrepForUATPackageOrDeploy(string ProjectName, string ProjectDirectory, string ExecutablePath, string EngineDirectory, bool bForDistribution, string CookFlavor)
+		public override bool PrepForUATPackageOrDeploy(string ProjectName, string ProjectDirectory, string ExecutablePath, string EngineDirectory, bool bForDistribution, string CookFlavor, bool bIsDataDeploy)
 		{
-			MakeApk(ProjectName, ProjectDirectory, ExecutablePath, EngineDirectory, bForDistribution, CookFlavor, ShouldMakeSeparateApks(), bIncrementalPackage:false);
+			// note that we cannot allow the data packaged into the APK if we are doing something like Launch On that will not make an obb
+			// file and instead pushes files directly via deploy
+			MakeApk(ProjectName, ProjectDirectory, ExecutablePath, EngineDirectory, bForDistribution:bForDistribution, CookFlavor:CookFlavor, 
+				bMakeSeparateApks:ShouldMakeSeparateApks(), bIncrementalPackage:false, bDisallowPackagingDataInApk:bIsDataDeploy);
 			return true;
 		}
 

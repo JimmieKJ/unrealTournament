@@ -40,7 +40,7 @@ TSharedRef<SWidget> SPhysicalSurfaceListItem::GenerateWidgetForColumn(const FNam
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(FString::Printf(TEXT("%s"), *GetTypeString()))
+				.Text(FText::FromString(GetTypeString()))
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 			];
 	}

@@ -8,10 +8,92 @@
 class UNREALED_API FComponentEditorUtils
 {
 public:
-
+	
 	static class USceneComponent* GetSceneComponent(class UObject* Object, class UObject* SubObject = NULL);
 
 	static void GetArchetypeInstances(class UObject* Object, TArray<class UObject*>& ArchetypeInstances);
+
+	/** Test whether or not the given string is a valid variable name string for the given component instance */
+	static bool IsValidVariableNameString(const UActorComponent* InComponent, const FString& InString);
+
+	/** 
+	 * Test whether or not the given string is already the name string of a component on the the actor
+	 * Optionally excludes an existing component from the check (ex. a component currently being renamed)
+	 * @return True if the InString is an available name for a component of ComponentOwner
+	 */
+	static bool IsComponentNameAvailable(const FString& InString, AActor* ComponentOwner, const UActorComponent* ComponentToIgnore = nullptr);
+		
+	/** Generate a valid variable name string for the given component instance */
+	static FString GenerateValidVariableName(TSubclassOf<UActorComponent> InComponentClass, AActor* ComponentOwner);
+
+	/** Generate a valid variable name string for the given component instance based on the name of the asset referenced by the component */
+	static FString GenerateValidVariableNameFromAsset(UObject* Asset, AActor* ComponentOwner);
+
+	/**
+	 * Copies the selected components to the clipboard
+	 * @param ComponentsToCopy The list of components to copy
+	 */
+	static void CopyComponents(const TArray<UActorComponent*>& ComponentsToCopy);
+
+	/**
+	 * Determines whether the current contents of the clipboard contain paste-able component information
+	 * @param RootComponent The root component of the actor being pasted on
+	 * @param bOverrideCanAttach Optional override declaring that components can be attached and a check is not needed
+	 * @return Whether components can be pasted
+	 */
+	static bool CanPasteComponents(USceneComponent* RootComponent, bool bOverrideCanAttach = false);
+
+	/**
+	 * Attempts to paste components from the clipboard as siblings of the target component
+	 * @param OutPastedComponents List of all the components that were pasted
+	 * @param TargetActor The actor to attach the pasted components to
+	 * @param TargetComponent The component the paste is targeting (will attempt to paste components as siblings). If null, will attach pasted components to the root.
+	 */
+	static void PasteComponents(TArray<UActorComponent*>& OutPastedComponents, AActor* TargetActor, USceneComponent* TargetComponent = nullptr);
+
+	/**
+	 * Gets the copied components from the clipboard without attempting to paste/apply them in any way
+	 * @param OutParentMap Contains the child->parent name relationships of the copied components
+	 * @param OutNewObjectMap Contains the name->instance object mapping of the copied components
+	 */
+	static void GetComponentsFromClipboard(TMap<FName, FName>& OutParentMap, TMap<FName, UActorComponent*>& OutNewObjectMap, bool bGetComponentsAsArchetypes);
+
+	/**
+	 * Deletes the indicated components and identifies the component that should be selected following the operation.
+	 * Note: Does not take care of the actual selection of a new component. It only identifies which component should be selected.
+	 * 
+	 * @param ComponentsToDelete The list of components to delete
+	 * @param OutComponentToSelect The component that should be selected after the deletion
+	 * @return The number of components that were actually deleted
+	 */
+	static int32 DeleteComponents(const TArray<UActorComponent*>& ComponentsToDelete, UActorComponent*& OutComponentToSelect);
+
+	/** 
+	 * Duplicates a component instance and takes care of attachment and registration.
+	 * @param TemplateComponent The component to duplicate
+	 * @return The created clone of the provided TemplateComponent. nullptr if the duplication failed.
+	 */
+	static UActorComponent* DuplicateComponent(UActorComponent* TemplateComponent);
+
+	/**
+	 * Ensures that the selection override delegate is properly bound for the supplied component
+	* This includes any attached editor-only primitive components (such as billboard visualizers)
+	 * 
+	 * @param SceneComponent The component to set the selection override for
+	 * @param bBind Whether the override should be bound
+	*/
+	static void BindComponentSelectionOverride(USceneComponent* SceneComponent, bool bBind);
+
+	/**
+	 * Attempts to apply a material to a component at the specified slot.
+	 *
+	 * @param SceneComponent The component to which we should attempt to apply the material
+	 * @param MaterialToApply The material to apply to the component
+	 * @param OptionalMaterialSlot The material slot on the component to which the material should be applied. -1 to apply to all slots on the component.
+	 *
+	 * @return	True if the material was successfully applied to the component.
+	 */
+	static bool AttemptApplyMaterialToComponent( USceneComponent* SceneComponent, UMaterialInterface* MaterialToApply, int32 OptionalMaterialSlot = -1 );
 
 	struct FTransformData
 	{
@@ -26,8 +108,14 @@ public:
 		FVector Scale;
 	};
 
+	/** Potentially transforms the delta to be applied to a component into the appropriate space */
+	static void AdjustComponentDelta(USceneComponent* Component, FVector& Drag, FRotator& Rotation);
+
 	// Given a template, propagates a default transform change to all instances of the template
 	static void PropagateTransformPropertyChange(class USceneComponent* InSceneComponentTemplate, const FTransformData& OldDefaultTransform, const FTransformData& NewDefaultTransform, TSet<class USceneComponent*>& UpdatedComponents);
+
+	static void PropagateTransformPropertyChangeAmongOverridenTemplates(class USceneComponent* InSceneComponentTemplate, const FTransformData& OldDefaultTransform, const FTransformData& NewDefaultTransform, TSet<class USceneComponent*>& UpdatedComponents);
+
 
 	// Given an instance of a template and a property, propagates a default value change to the instance (only if applicable)
 	template<typename T>
@@ -54,7 +142,7 @@ public:
 		{
 			// Ensure that this instance will be included in any undo/redo operations, and record it into the transaction buffer.
 			// Note: We don't do this for components that originate from script, because they will be re-instanced from the template after an undo, so there is no need to record them.
-			if(!InSceneComponent->bCreatedByConstructionScript)
+			if (!InSceneComponent->IsCreatedByConstructionScript())
 			{
 				InSceneComponent->SetFlags(RF_Transactional);
 				InSceneComponent->Modify();
@@ -77,4 +165,11 @@ public:
 			UpdatedComponents.Add(InSceneComponent);
 		}
 	}
+
+	// Try to find the correct variable name for a given native component template or instance (which can have a mismatch)
+	static FName FindVariableNameGivenComponentInstance(UActorComponent* ComponentInstance);
+private:
+	static void PropagateTransformInner(class USceneComponent* InstancedSceneComponent, const FTransformData& OldDefaultTransform, const FTransformData& NewDefaultTransform, TSet<class USceneComponent*>& UpdatedComponents);
+	
+	static USceneComponent* FindClosestParentInList(UActorComponent* ChildComponent, const TArray<UActorComponent*>& ComponentList);
 };

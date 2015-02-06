@@ -42,12 +42,12 @@ struct IVisualLoggerInterface
 	virtual class AActor* GetVisualLoggerHelperActor() = 0;
 
 	const FVisualLoggerEvents& GetVisualLoggerEvents() { return VisualLoggerEvents; }
-	class FSequencerTimeSliderController* GetTimeSliderController() { return TimeSliderController.Get(); }
-	void SetTimeSliderController(TSharedPtr<class FSequencerTimeSliderController> InTimeSliderController) { TimeSliderController = InTimeSliderController; }
+	class FVisualLoggerTimeSliderController* GetTimeSliderController() { return TimeSliderController.Get(); }
+	void SetTimeSliderController(TSharedPtr<class FVisualLoggerTimeSliderController> InTimeSliderController) { TimeSliderController = InTimeSliderController; }
 
 protected:
 	FVisualLoggerEvents VisualLoggerEvents;
-	TSharedPtr<class FSequencerTimeSliderController> TimeSliderController;
+	TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController;
 };
 
 

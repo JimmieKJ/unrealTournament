@@ -24,15 +24,12 @@ namespace ETransformDirection
 }
 
 
-namespace ETransformAction
+enum class ETransformAction
 {
-	enum Type
-	{
-		None,
-		Primary,
-		Secondary
-	};
-}
+	None,
+	Primary,
+	Secondary
+};
 
 class STransformHandle : public SCompoundWidget
 {
@@ -53,7 +50,10 @@ public:
 protected:
 	EVisibility GetHandleVisibility() const;
 
-	ETransformAction::Type ComputeActionAtLocation(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) const;
+	bool CanResize(UPanelSlot* Slot, const FVector2D& Direction) const;
+	void Resize(UCanvasPanelSlot* Slot, const FVector2D& Direction, const FVector2D& Amount);
+
+	ETransformAction ComputeActionAtLocation(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) const;
 
 protected:
 	FVector2D ComputeDragDirection(ETransformDirection::Type InTransformDirection) const;
@@ -62,8 +62,11 @@ protected:
 protected:
 	IUMGDesigner* Designer;
 	ETransformDirection::Type TransformDirection;
-	ETransformAction::Type Action;
+	ETransformAction Action;
 
 	FVector2D DragDirection;
 	FVector2D DragOrigin;
+
+	FVector2D MouseDownPosition;
+	FMargin StartingOffsets;
 };

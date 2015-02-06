@@ -56,7 +56,7 @@ public:
 				.Padding(FMargin(6.0, 2.0))
 				[
 					SNew(STextBlock)
-						.Text(*CultureName)			
+						.Text(FText::FromString(*CultureName))
 				];
 		}
 

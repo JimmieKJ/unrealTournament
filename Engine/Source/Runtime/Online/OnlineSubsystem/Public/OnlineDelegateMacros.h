@@ -6,14 +6,25 @@
 public: \
 	F##DelegateName DelegateName##Delegates; \
 public: \
+	DELEGATE_DEPRECATED("The Add" #DelegateName "Delegate function is deprecated - please use the Add" #DelegateName "Delegate_Handle function instead which returns a handle.") \
 	virtual void Add##DelegateName##Delegate(const F##DelegateName##Delegate& Delegate) \
 	{ \
 		DelegateName##Delegates.Add(Delegate); \
 	} \
+	DELEGATE_DEPRECATED("The Clear" #DelegateName "Delegate function is deprecated - please use the Add" #DelegateName "Delegate_Handle function and pass its return value to Clear" #DelegateName "Delegate_Handle instead.") \
 	virtual void Clear##DelegateName##Delegate(const F##DelegateName##Delegate& Delegate) \
 	{ \
-		DelegateName##Delegates.Remove(Delegate); \
-    }
+		DelegateName##Delegates.DEPRECATED_Remove(Delegate); \
+	} \
+	virtual FDelegateHandle Add##DelegateName##Delegate_Handle(const F##DelegateName##Delegate& Delegate) \
+	{ \
+		DelegateName##Delegates.Add(Delegate); \
+		return Delegate.GetHandle(); \
+	} \
+	virtual void Clear##DelegateName##Delegate_Handle(FDelegateHandle Handle) \
+	{ \
+		DelegateName##Delegates.Remove(Handle); \
+	}
 
 #define DEFINE_ONLINE_DELEGATE(DelegateName) \
 	DEFINE_ONLINE_DELEGATE_BASE(DelegateName) \
@@ -76,6 +87,7 @@ public: \
 public: \
 	F##DelegateName DelegateName##Delegates[MaxPlayers]; \
 public: \
+	DELEGATE_DEPRECATED("The Add" #DelegateName "Delegate function is deprecated - please use the Add" #DelegateName "Delegate_Handle function instead which returns a handle.") \
 	virtual void Add##DelegateName##Delegate(int32 LocalUserNum, const F##DelegateName##Delegate& Delegate) \
 	{ \
 		if (LocalUserNum >= 0 && LocalUserNum < MaxPlayers) \
@@ -83,11 +95,30 @@ public: \
 			DelegateName##Delegates[LocalUserNum].Add(Delegate); \
 		} \
 	} \
+	DELEGATE_DEPRECATED("The Clear" #DelegateName "Delegate function is deprecated - please use the Clear" #DelegateName "Delegate_Handle and use its return value to pass to Clear" #DelegateName "Delegate_Handle instead.") \
 	virtual void Clear##DelegateName##Delegate(int32 LocalUserNum, const F##DelegateName##Delegate& Delegate) \
 	{ \
 		if (LocalUserNum >= 0 && LocalUserNum < MaxPlayers) \
 		{ \
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS \
 			DelegateName##Delegates[LocalUserNum].Remove(Delegate); \
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS \
+		} \
+	} \
+	virtual FDelegateHandle Add##DelegateName##Delegate_Handle(int32 LocalUserNum, const F##DelegateName##Delegate& Delegate) \
+	{ \
+		FDelegateHandle Result; \
+		if (LocalUserNum >= 0 && LocalUserNum < MaxPlayers) \
+		{ \
+			Result = DelegateName##Delegates[LocalUserNum].Add(Delegate); \
+		} \
+		return Result; \
+	} \
+	virtual void Clear##DelegateName##Delegate_Handle(int32 LocalUserNum, FDelegateHandle Handle) \
+	{ \
+		if (LocalUserNum >= 0 && LocalUserNum < MaxPlayers) \
+		{ \
+			DelegateName##Delegates[LocalUserNum].Remove(Handle); \
 		} \
 	}
 

@@ -156,6 +156,7 @@ private:
 	static TSharedRef<SDockTab> SpawnDeviceSetupWindow(const FSpawnTabArgs& Args);
 
 	FWorkflowApplicationModeExtender BlueprintEditorExtenderDelegate;
+	FDelegateHandle                  BlueprintEditorExtenderDelegateHandle;
 	TSharedPtr<FLiveEditorNodeInjector> NodeInjector;
 	TSharedPtr<FLiveEditorPinFactory> PinFactory;
 	FLiveEditorObjectCreateListener *ObjectCreationListener;
@@ -194,7 +195,9 @@ DECLARE_DELEGATE_RetVal_OneParam(bool, FOnBeginBlueprintContextMenuCreated, FGra
 void FLiveEditor::InstallHooks()
 {
 	BlueprintEditorExtenderDelegate = FWorkflowApplicationModeExtender::CreateStatic(&FBlueprintEditorExtenderForLiveEditor::OnModeCreated);
-	FWorkflowCentricApplication::GetModeExtenderList().Add(BlueprintEditorExtenderDelegate);
+	auto& ExtenderList = FWorkflowCentricApplication::GetModeExtenderList();
+	ExtenderList.Add(BlueprintEditorExtenderDelegate);
+	BlueprintEditorExtenderDelegateHandle = ExtenderList.Last().GetHandle();
 
 	NodeInjector = MakeShareable(new FLiveEditorNodeInjector());
 	NodeInjector->InstallHooks();
@@ -216,7 +219,7 @@ void FLiveEditor::InstallHooks()
 
 void FLiveEditor::RemoveHooks()
 {
-	FWorkflowCentricApplication::GetModeExtenderList().Remove(BlueprintEditorExtenderDelegate);
+	FWorkflowCentricApplication::GetModeExtenderList().RemoveAll([=](const FWorkflowApplicationModeExtender& Extender){ return BlueprintEditorExtenderDelegateHandle == Extender.GetHandle(); });
 
 	FEdGraphUtilities::UnregisterVisualPinFactory(PinFactory);
 

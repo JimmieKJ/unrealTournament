@@ -78,12 +78,13 @@ public:
 		return false;
 	}
 
-	virtual void SetOnObjectArrayChanged(FOnObjectArrayChanged OnObjectArrayChangedDelegate) override{}
+	virtual void SetOnObjectArrayChanged(FOnObjectArrayChanged OnObjectArrayChangedDelegate) override {}
 	virtual void RegisterInstancedCustomPropertyLayout(UClass* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate) override {}
 	virtual void UnregisterInstancedCustomPropertyLayout(UClass* Class) override {}
-	virtual void SetObjects(const TArray<UObject*>& InObjects, bool bForceRefresh = false) override{}
-	virtual void SetObjects(const TArray< TWeakObjectPtr< UObject > >& InObjects, bool bForceRefresh = false) override{}
+	virtual void SetObjects(const TArray<UObject*>& InObjects, bool bForceRefresh = false, bool bOverrideLock = false) override {}
+	virtual void SetObjects(const TArray< TWeakObjectPtr< UObject > >& InObjects, bool bForceRefresh = false, bool bOverrideLock = false) override {}
 	virtual void SetObject(UObject* InObject, bool bForceRefresh = false) override{}
+	virtual void RemoveInvalidObjects() override {}
 
 	virtual TSharedPtr<class FComplexPropertyNode> GetRootNode() override;
 protected:

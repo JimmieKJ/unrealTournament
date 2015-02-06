@@ -36,6 +36,8 @@ class ENGINE_API UCurveLinearColor : public UCurveBase
 	virtual FLinearColor GetLinearColorValue(float InTime) const override;
 
 	bool HasAnyAlphaKeys() const override { return FloatCurves[3].GetNumKeys() > 0; }
+
+	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override;
 	// End FCurveOwnerInterface
 
 	/** Determine if Curve is the same */

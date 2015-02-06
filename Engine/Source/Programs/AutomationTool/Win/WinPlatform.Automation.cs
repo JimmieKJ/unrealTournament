@@ -88,9 +88,9 @@ public abstract class BaseWinPlatform : Platform
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
-        // This should use platform dir, but I don't think UAT can handle Win32 not existing at all
-        SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3/Win64"), "*", true, null, null, true);
-        StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UnrealCEFSubProcess.", false, null, null, true);
+		// CEF3 files
+		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3", SC.PlatformDir), "*", true, null, null, true);
+		StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UnrealCEFSubProcess.", false, null, null, true);
 
         if (Params.StageNonMonolithic)
         {
@@ -98,21 +98,7 @@ public abstract class BaseWinPlatform : Platform
 
             if (SC.DedicatedServer)
             {
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*-Test.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*-Shipping.");
-                }
-
+                StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server.");
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-*.");
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Plugins"), "UE4Server-*.", true);
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir), "UE4Server-*.");
@@ -120,21 +106,7 @@ public abstract class BaseWinPlatform : Platform
             }
             else
             {
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*-Test.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*-Shipping.");
-                }
-
+                StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4.");
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4-*.");
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Plugins"), "UE4-*.", true);
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir), "UE4-*.");
@@ -152,12 +124,18 @@ public abstract class BaseWinPlatform : Platform
             {
 				if (Exe.StartsWith(CombinePaths(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir)))
 				{
+					string BaseExeFileName = Path.GetFileName(Exe);
+					if (!String.IsNullOrEmpty(Params.OverrideMinimumOS) && (Params.OverrideMinimumOS == "WinXP"))
+					{
+						BaseExeFileName = Path.GetFileNameWithoutExtension(Exe) + "_xp" + Path.GetExtension(Exe);
+					}
+
 					// remap the project root.
-					string SourceFile = CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir, Path.GetFileName(Exe));
+					string SourceFile = CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir, BaseExeFileName);
 					StageExecutable("exe", SC, Path.GetDirectoryName(SourceFile), Path.GetFileNameWithoutExtension(SourceFile) + ".", true, null, CommandUtils.CombinePaths(SC.RelativeProjectRootForStage, "Binaries", SC.PlatformDir), false, WorkingFileType);
 					if(Exe == Exes[0] && !Params.NoBootstrapExe)
 					{
-						StageBootstrapExecutable(SC, SourceFile, CombinePaths(SC.RelativeProjectRootForStage, "Binaries", SC.PlatformDir, Path.GetFileName(Exe)), "");
+						StageBootstrapExecutable(SC, SourceFile, CombinePaths(SC.RelativeProjectRootForStage, "Binaries", SC.PlatformDir, BaseExeFileName), "");
 					}
 				}
 				else if (Exe.StartsWith(CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir)))
@@ -171,6 +149,15 @@ public abstract class BaseWinPlatform : Platform
 
 					// keep it in the engine directory.
 					string SourceFile = CombinePaths(SC.LocalRoot, "Engine", "Binaries", SC.PlatformDir, ExeFileName);
+
+					// ensure the ue4game binary exists, if applicable
+					if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(SourceFile))
+					{
+						Log("Failed to find game executable " + SourceFile);
+						AutomationTool.ErrorReporter.Error("Stage Failed.", (int)AutomationTool.ErrorCodes.Error_MissingExecutable);
+						throw new AutomationException("Could not find exe {0}. You may need to build the UE4 project with your target configuration and platform.", SourceFile);
+					}
+
 					StageExecutable("exe", SC, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), Path.GetFileNameWithoutExtension(SourceFile) + ".", true, null, null, false, WorkingFileType);
 					if(Exe == Exes[0] && !Params.NoBootstrapExe)
 					{

@@ -660,9 +660,12 @@ const FSlateBrush* SCollisionAnalyzer::GetRecordButtonBrush() const
 	}
 }
 
-FString SCollisionAnalyzer::GetStatusText() const
+FText SCollisionAnalyzer::GetStatusText() const
 {
-	return FString::Printf(TEXT("Total: %d queries over %d frames. Shown: %d queries"), Analyzer->Queries.Num(), Analyzer->GetNumFramesOfRecording(), TotalNumQueries);
+	return FText::Format(
+		LOCTEXT("CollisionAnalyzerStatusTextFmt", "Total: {0} queries over {1} frames. Shown: {2} queries"), 
+		FText::AsNumber(Analyzer->Queries.Num()), FText::AsNumber(Analyzer->GetNumFramesOfRecording()), FText::AsNumber(TotalNumQueries)
+		);
 }
 
 ECheckBoxState SCollisionAnalyzer::GetDrawRecentState() const

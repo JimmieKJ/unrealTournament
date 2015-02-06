@@ -86,6 +86,9 @@ public:
 	/** @return true is it's possible to create a blueprint from the specified class */
 	static bool CanCreateBlueprintOfClass(const UClass* Class);
 
+	/** Take a list of components that belong to a single Actor and add them to a blueprint as SCSNodes */
+	static void AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components);
+
 	/** 
 	 * Take an Actor and generate a blueprint based on it. Uses the Actors type as the parent class. 
 	 * @param Path					The path to use when creating the package for the new blueprint
@@ -93,7 +96,17 @@ public:
 	 * @param bReplaceActor			If true, replace the actor in the scene with one based on the created blueprint
 	 * @return The blueprint created from the actor
 	 */
-	static UBlueprint* CreateBlueprintFromActor(const FString& Path, UObject* Actor, bool bReplaceActor );
+	static UBlueprint* CreateBlueprintFromActor(const FString& Path, AActor* Actor, bool bReplaceActor );
+
+	/** 
+	 * Take an Actor and generate a blueprint based on it. Uses the Actors type as the parent class. 
+	 * @param BlueprintName			The name to use for the Blueprint
+	 * @param Outer					The outer object to create the blueprint within
+	 * @param Actor					The actor to use as the template for the blueprint
+	 * @param bReplaceActor			If true, replace the actor in the scene with one based on the created blueprint
+	 * @return The blueprint created from the actor
+	 */
+	static UBlueprint* CreateBlueprintFromActor(const FName BlueprintName, UObject* Outer, AActor* Actor, bool bReplaceActor );
 
 	/** 
 	 * Take a list of Actors and generate a blueprint  by harvesting the components they have. Uses AActor as parent class type as the parent class. 

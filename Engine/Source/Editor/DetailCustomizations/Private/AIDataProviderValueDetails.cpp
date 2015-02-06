@@ -117,17 +117,17 @@ void FAIDataProviderValueDetails::OnDataFieldNameChange(int32 Index)
 	DataFieldProperty->SetValue(NameValue);
 }
 
-FString FAIDataProviderValueDetails::GetDataFieldDesc() const
+FText FAIDataProviderValueDetails::GetDataFieldDesc() const
 {
 	FName NameValue;
 	DataFieldProperty->GetValue(NameValue);
 
-	return NameValue.ToString();
+	return FText::FromString(NameValue.ToString());
 }
 
-FString FAIDataProviderValueDetails::GetValueDesc() const
+FText FAIDataProviderValueDetails::GetValueDesc() const
 {
-	return DataPtr ? DataPtr->ToString() : TEXT("empty");
+	return DataPtr ? FText::FromString(DataPtr->ToString()) : LOCTEXT("EmptyValue", "empty");
 }
 
 EVisibility FAIDataProviderValueDetails::GetDataFieldVisibility() const

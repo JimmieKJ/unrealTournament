@@ -71,9 +71,9 @@ void SGraphPinLiveEditVar::GenerateComboBoxIndexes( TArray< TSharedPtr<int32> >&
 	AActor *AsActor = Cast<AActor>(InClass->ClassDefaultObject);
 	if ( AsActor != NULL )
 	{
-		TArray<UActorComponent*> ActorComponents;
+		TInlineComponentArray<UActorComponent*> ActorComponents;
 		AsActor->GetComponents(ActorComponents);
-		for ( TArray<UActorComponent*>::TIterator ComponentIt(ActorComponents); ComponentIt; ++ComponentIt )
+		for ( auto ComponentIt = ActorComponents.CreateIterator(); ComponentIt; ++ComponentIt )
 		{
 			UActorComponent *Component = *ComponentIt;
 			check( Component != NULL );

@@ -42,11 +42,11 @@ namespace UnrealBuildTool
 		void RegisterBuildPlatform();
 
 		/**
-		 * Attempt to set up AutoSDK for this paltform
+		 * Attempt to set up AutoSDK for this platform
 		 */
 		void ManageAndValidateSDK();
 
-		/**
+        /**
 		 * Retrieve the CPPTargetPlatform for the given UnrealTargetPlatform
 		 *
 		 * @param InUnrealTargetPlatform The UnrealTargetPlatform being build

@@ -26,11 +26,12 @@ void SPropertyComboBox::Construct( const FArguments& InArgs )
 		}
 	}
 
+	auto VisibleTextAttr = InArgs._VisibleText;
 	SComboBox< TSharedPtr<FString> >::Construct(SComboBox< TSharedPtr<FString> >::FArguments()
 		.Content()
 		[
 			SNew( STextBlock )
-			.Text( InArgs._VisibleText )
+			.Text_Lambda( [=] { return (VisibleTextAttr.IsSet()) ? FText::FromString(VisibleTextAttr.Get()) : FText::GetEmpty(); } )
 			.Font( Font )
 		]
 		.OptionsSource(&ComboItemList)
@@ -93,6 +94,7 @@ void SPropertyComboBox::OnSelectionChangedInternal( TSharedPtr<FString> InSelect
 	if( bEnabled )
 	{
 		OnSelectionChanged.ExecuteIfBound( InSelectedItem, SelectInfo );
+		SetSelectedItem(*InSelectedItem);
 	}
 }
 
@@ -119,7 +121,7 @@ TSharedRef<SWidget> SPropertyComboBox::OnGenerateComboWidget( TSharedPtr<FString
 
 	return
 		SNew( STextBlock )
-		.Text( *InComboString )
+		.Text( FText::FromString(*InComboString) )
 		.Font( Font )
 		.ToolTipText(ToolTip)
 		.IsEnabled(bEnabled);

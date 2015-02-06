@@ -97,14 +97,14 @@ void SProjectLauncherBuildPage::Construct( const FArguments& InArgs, const FProj
                 [
                     SNew(SVerticalBox)
 
-                    + SVerticalBox::Slot()
+/*                    + SVerticalBox::Slot()
                     .AutoHeight()
                     [
                         SNew(SButton)
                         .Text(LOCTEXT("GenDSYMText", "Generate DSYM"))
                         .IsEnabled( this, &SProjectLauncherBuildPage::HandleGenDSYMButtonEnabled )
                         .OnClicked( this, &SProjectLauncherBuildPage::HandleGenDSYMClicked )
-                    ]
+                    ]*/
 					+ SVerticalBox::Slot()
 					.AutoHeight()
 					[
@@ -276,16 +276,16 @@ void SProjectLauncherBuildPage::HandleBuildConfigurationSelectorConfigurationSel
 }
 
 
-FString SProjectLauncherBuildPage::HandleBuildConfigurationSelectorText() const
+FText SProjectLauncherBuildPage::HandleBuildConfigurationSelectorText() const
 {
 	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
 
 	if (SelectedProfile.IsValid())
 	{
-		return EBuildConfigurations::ToString(SelectedProfile->GetBuildConfiguration());
+		return FText::FromString(EBuildConfigurations::ToString(SelectedProfile->GetBuildConfiguration()));
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 

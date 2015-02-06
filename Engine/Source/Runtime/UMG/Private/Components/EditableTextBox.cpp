@@ -112,14 +112,16 @@ void UEditableTextBox::ClearError()
 	}
 }
 
-void UEditableTextBox::HandleOnTextChanged(const FText& Text)
+void UEditableTextBox::HandleOnTextChanged(const FText& InText)
 {
-	OnTextChanged.Broadcast(Text);
+	Text = InText;
+	OnTextChanged.Broadcast(InText);
 }
 
-void UEditableTextBox::HandleOnTextCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+void UEditableTextBox::HandleOnTextCommitted(const FText& InText, ETextCommit::Type CommitMethod)
 {
-	OnTextCommitted.Broadcast(Text, CommitMethod);
+	Text = InText;
+	OnTextCommitted.Broadcast(InText, CommitMethod);
 }
 
 void UEditableTextBox::PostLoad()

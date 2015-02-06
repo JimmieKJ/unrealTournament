@@ -16,5 +16,5 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", NoClear, config)
 	TSubclassOf<UAISense_Damage> Implementation;
 
-	virtual TSubclassOf<UAISense> GetSenseImplementation() const { return Implementation; }
+	virtual TSubclassOf<UAISense> GetSenseImplementation() const;
 };

@@ -75,7 +75,7 @@ private:
 	 */
 	UFUNCTION(client, reliable)
 	virtual void ClientOnConnected();
-	
+
 	friend class AOnlineBeaconHost;
 	friend class AOnlineBeaconHostObject;
 };

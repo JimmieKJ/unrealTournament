@@ -162,12 +162,24 @@ public:
 	/**
 	 * Register a delegate to be called when source control state(s) change
 	 */
+	DELEGATE_DEPRECATED("This function is deprecated - please replace any usage with RegisterSourceControlStateChanged_Handle.")
 	virtual void RegisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) = 0;
 
 	/**
 	 * Unregister a delegate to be called when source control state(s) change
 	 */
+	DELEGATE_DEPRECATED("This function is deprecated - please replace any usage with UnregisterSourceControlStateChanged_Handle, passing the result of RegisterSourceControlStateChanged_Handle.")
 	virtual void UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) = 0;
+
+	/**
+	 * Register a delegate to be called when source control state(s) change
+	 */
+	virtual FDelegateHandle RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) = 0;
+
+	/**
+	 * Unregister a delegate to be called when source control state(s) change
+	 */
+	virtual void UnregisterSourceControlStateChanged_Handle( FDelegateHandle Handle ) = 0;
 
 	/**
 	 * Attempt to execute an operation on the passed-in files (if any are required).
@@ -254,6 +266,11 @@ public:
 	 * Whether the provider uses local read-only state to signal whether a file is editable.
 	 */
 	virtual bool UsesLocalReadOnlyState() const = 0;
+
+	/**
+	 * Whether the provider uses changelists to identify commits/revisions
+	 */
+	virtual bool UsesChangelists() const = 0;
 
 	/**
 	 * Called every update.

@@ -109,6 +109,9 @@ public:
 	/** Returns the pending deleted assets. */
 	const TArray< TSharedPtr< FPendingDelete > >* GetPendingDeletedAssets() const { return &PendingDeletes; };
 
+	/** Returns a map of currently discovered source content files, and the number of times they are referenced by non-deleted assets */
+	const TMap< FString, int32 >& GetPendingDeletedSourceFileCounts() const { return SourceFileToAssetCount; };
+
 	/** Returns the current state of the deletion process */
 	EState GetState() const { return State; }
 
@@ -123,6 +126,9 @@ public:
 
 	/** Returns true if the package is one of the pending deleted assets. */
 	bool IsAssetInPendingDeletes( const FName& PackageName ) const;
+
+	/** Deletes any source content files referenced by the assets */
+	void DeleteSourceContentFiles();
 
 	/** Returns true if it is valid to delete the current objects with no problems. */
 	bool CanDelete() const;
@@ -156,7 +162,10 @@ public:
 
 	/** Is any of the pending deleted assets being referenced in the undo stack. */
 	bool IsAnythingReferencedInMemoryByUndo() const { return bIsAnythingReferencedInMemoryByUndo; }
-	
+
+	/** Check whether we have any source files residing under monitored, mounted paths to delete */
+	bool HasAnySourceContentFilesToDelete() const;
+
 	/** Goes to the next actor in the loaded level if it is available */
 	bool GoToNextReferenceInLevel() const;
 
@@ -179,6 +188,9 @@ private:
 	/** Computes the value that should be used for CanReplaceReferences */
 	bool ComputeCanReplaceReferences();
 
+	/** Discover source file references for the specified object */
+	void DiscoverSourceFileReferences(FPendingDelete& PendingDelete);
+
 private:
 
 	/** Holds an event delegate that is executed when the state changes */
@@ -186,6 +198,9 @@ private:
 
 	/** The assets being deleted */
 	TArray< TSharedPtr< FPendingDelete > > PendingDeletes;
+
+	/** A running count of source content filename -> number of assets referencing. For files that are no longer referenced, the count will be 0. */
+	TMap<FString, int32> SourceFileToAssetCount;
 
 	/** On disk references to the currently to be deleted objects */
 	TSet< FName > OnDiskReferences;

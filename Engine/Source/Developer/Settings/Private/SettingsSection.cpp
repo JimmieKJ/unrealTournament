@@ -52,7 +52,7 @@ bool FSettingsSection::CanImport() const
 
 bool FSettingsSection::CanResetDefaults() const
 {
-	return (ResetDefaultsDelegate.IsBound() || (SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config) && !SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig)));
+	return (ResetDefaultsDelegate.IsBound() || (SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config) && !SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig | CLASS_GlobalUserConfig)));
 }
 
 
@@ -64,7 +64,7 @@ bool FSettingsSection::CanSave() const
 
 bool FSettingsSection::CanSaveDefaults() const
 {
-	return (SaveDefaultsDelegate.IsBound() || (SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config) && !SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig)));
+	return (SaveDefaultsDelegate.IsBound() || (SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config) && !SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig | CLASS_GlobalUserConfig)));
 }
 
 
@@ -140,6 +140,7 @@ bool FSettingsSection::HasDefaultSettingsObject()
 		return false;
 	}
 
+	// @todo userconfig: Should we add GlobalUserConfig here?
 	return SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig);
 }
 
@@ -169,7 +170,7 @@ bool FSettingsSection::ResetDefaults()
 		return ResetDefaultsDelegate.Execute();
 	}
 
-	if (SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config) && !SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig))
+	if (SettingsObject.IsValid() && SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config) && !SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig | CLASS_GlobalUserConfig))
 	{
 		FString ConfigName = SettingsObject->GetClass()->GetConfigName();
 
@@ -204,6 +205,10 @@ bool FSettingsSection::Save()
 		if (SettingsObject->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig))
 		{
 			SettingsObject->UpdateDefaultConfigFile();
+		}
+		else if (SettingsObject->GetClass()->HasAnyClassFlags(CLASS_GlobalUserConfig))
+		{
+			SettingsObject->UpdateGlobalUserConfigFile();
 		}
 		else
 		{

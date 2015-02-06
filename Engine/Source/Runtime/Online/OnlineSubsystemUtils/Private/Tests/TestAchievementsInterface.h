@@ -31,6 +31,9 @@
 	/** Leaderboard read object */
 	FOnlineAchievementsWritePtr WriteObject;
 
+	/** OnAchievementUnlocked delegate handle */
+	FDelegateHandle OnAchievementUnlockedDelegateHandle;
+
 	/** Hidden on purpose */
 	FTestAchievementsInterface()
 		: SubsystemName()

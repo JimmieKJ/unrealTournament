@@ -61,14 +61,14 @@ void FTestMessageInterface::Test(UWorld* InWorld, const TArray<FString>& InRecip
 	{
 		// Add our delegate for the async call
 		OnEnumerateMessagesCompleteDelegate = FOnEnumerateMessagesCompleteDelegate::CreateRaw(this, &FTestMessageInterface::OnEnumerateMessagesComplete);
-		OnReadMessageCompleteDelegate = FOnReadMessageCompleteDelegate::CreateRaw(this, &FTestMessageInterface::OnReadMessageComplete);
-		OnSendMessageCompleteDelegate = FOnSendMessageCompleteDelegate::CreateRaw(this, &FTestMessageInterface::OnSendMessageComplete);
-		OnDeleteMessageCompleteDelegate = FOnDeleteMessageCompleteDelegate::CreateRaw(this, &FTestMessageInterface::OnDeleteMessageComplete);
+		OnReadMessageCompleteDelegate       = FOnReadMessageCompleteDelegate      ::CreateRaw(this, &FTestMessageInterface::OnReadMessageComplete);
+		OnSendMessageCompleteDelegate       = FOnSendMessageCompleteDelegate      ::CreateRaw(this, &FTestMessageInterface::OnSendMessageComplete);
+		OnDeleteMessageCompleteDelegate     = FOnDeleteMessageCompleteDelegate    ::CreateRaw(this, &FTestMessageInterface::OnDeleteMessageComplete);
 
-		OnlineSub->GetMessageInterface()->AddOnEnumerateMessagesCompleteDelegate(0, OnEnumerateMessagesCompleteDelegate);
-		OnlineSub->GetMessageInterface()->AddOnReadMessageCompleteDelegate(0, OnReadMessageCompleteDelegate);
-		OnlineSub->GetMessageInterface()->AddOnSendMessageCompleteDelegate(0, OnSendMessageCompleteDelegate);
-		OnlineSub->GetMessageInterface()->AddOnDeleteMessageCompleteDelegate(0, OnDeleteMessageCompleteDelegate);
+		OnEnumerateMessagesCompleteDelegateHandle = OnlineSub->GetMessageInterface()->AddOnEnumerateMessagesCompleteDelegate_Handle(0, OnEnumerateMessagesCompleteDelegate);
+		OnReadMessageCompleteDelegateHandle       = OnlineSub->GetMessageInterface()->AddOnReadMessageCompleteDelegate_Handle      (0, OnReadMessageCompleteDelegate);
+		OnSendMessageCompleteDelegateHandle       = OnlineSub->GetMessageInterface()->AddOnSendMessageCompleteDelegate_Handle      (0, OnSendMessageCompleteDelegate);
+		OnDeleteMessageCompleteDelegateHandle     = OnlineSub->GetMessageInterface()->AddOnDeleteMessageCompleteDelegate_Handle    (0, OnDeleteMessageCompleteDelegate);
 
 		// list of users to send messages to
 		for (int32 Idx=0; Idx < InRecipients.Num(); Idx++)
@@ -146,10 +146,10 @@ void FTestMessageInterface::FinishTest()
 		OnlineSub->GetMessageInterface().IsValid())
 	{
 		// Clear delegates for the various async calls
-		OnlineSub->GetMessageInterface()->ClearOnEnumerateMessagesCompleteDelegate(0, OnEnumerateMessagesCompleteDelegate);
-		OnlineSub->GetMessageInterface()->ClearOnReadMessageCompleteDelegate(0, OnReadMessageCompleteDelegate);
-		OnlineSub->GetMessageInterface()->ClearOnSendMessageCompleteDelegate(0, OnSendMessageCompleteDelegate);
-		OnlineSub->GetMessageInterface()->ClearOnDeleteMessageCompleteDelegate(0, OnDeleteMessageCompleteDelegate);
+		OnlineSub->GetMessageInterface()->ClearOnEnumerateMessagesCompleteDelegate_Handle(0, OnEnumerateMessagesCompleteDelegateHandle);
+		OnlineSub->GetMessageInterface()->ClearOnReadMessageCompleteDelegate_Handle      (0, OnReadMessageCompleteDelegateHandle);
+		OnlineSub->GetMessageInterface()->ClearOnSendMessageCompleteDelegate_Handle      (0, OnSendMessageCompleteDelegateHandle);
+		OnlineSub->GetMessageInterface()->ClearOnDeleteMessageCompleteDelegate_Handle    (0, OnDeleteMessageCompleteDelegateHandle);
 	}
 	delete this;
 }

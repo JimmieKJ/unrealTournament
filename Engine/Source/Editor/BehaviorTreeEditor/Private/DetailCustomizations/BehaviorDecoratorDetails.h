@@ -26,7 +26,7 @@ private:
 
 	void OnAbortModeChange(int32 Index);
 	TSharedRef<SWidget> OnGetAbortModeContent() const;
-	FString GetCurrentAbortModeDesc() const;
+	FText GetCurrentAbortModeDesc() const;
 
 	TSharedPtr<IPropertyHandle> ModeProperty;
 

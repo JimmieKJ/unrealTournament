@@ -621,6 +621,114 @@ FString RemoveClassPrefix(const TCHAR* ClassName)
 	return NameWithoutPrefix;
 }
 
+/**
+ * Helper class for updating VTables of hot reloaded classes.
+ */
+class FUClassVTableHelper
+{
+public:
+	/**
+	 * Adds UClasses VTable address if it's not cached yet.
+	 *
+	 * @param Class A UClass for which to add the VTable address.
+	 */
+	void TouchUClassVTable(UClass* Class)
+	{
+		auto* Found = VTableMap.Find(Class);
+
+		if (Found != nullptr)
+		{
+			return;
+		}
+
+		VTableMap.Add(Class, GetUClassVTable(Class));
+	}
+
+	/**
+	 * Changes old VTable address to the new one after hot reload.
+	 *
+	 * @param OldClass Old class.
+	 * @param NewClass New class.
+	 */
+	void UpdateVTables(UClass* OldClass, UClass* NewClass)
+	{
+		UE_LOG(LogClass, Verbose, TEXT("Attempting to change VTable for class %s."), *OldClass->GetName());
+
+		// We could do this later, but might as well get it before we start corrupting the object
+		void* OldVTable = VTableMap[OldClass];
+		void* NewVTable = GetUClassVTable(NewClass);
+
+		if (NewVTable != OldVTable)
+		{
+			int32 Count = 0;
+			for (FRawObjectIterator It; It; ++It)
+			{
+				UObject* Target = *It;
+				if (OldVTable == *(void**)Target)
+				{
+					*(void**)Target = NewVTable;
+					Count++;
+				}
+			}
+			UE_LOG(LogClass, Verbose, TEXT("Updated the vtable for %d live objects. %016llx -> %016llx"), Count, PTRINT(OldVTable), PTRINT(NewVTable));
+
+			VTableMap[OldClass] = NewVTable;
+			VTableMap.Add(NewClass, NewVTable);
+		}
+		else
+		{
+			UE_LOG(LogClass, Error, TEXT("VTable for class %s did not change?"), *NewClass->GetName());
+		}
+	}
+
+	/**
+	 * Gets the singleton.
+	 */
+	static FUClassVTableHelper& Get()
+	{
+		static FUClassVTableHelper Helper;
+		return Helper;
+	}
+
+private:
+	/**
+	 * Forbid public construction.
+	 */
+	FUClassVTableHelper() {}
+
+	/**
+	 * Gets UClasses VTable address.
+	 *
+	 * Note that this function creates an object of UClass type.
+	 *
+	 * @param Class A UClass for which to get VTable address.
+	 *
+	 * @returns VTable address.
+	 */
+	static void* GetUClassVTable(UClass* Class)
+	{
+		auto* ClassWithin = Class->ClassWithin;
+		Class->ClassWithin = UPackage::StaticClass(); // We are just avoiding error checks with this... we don't care about this temp object other than to get the vtable.
+		UObject* TempObjectForVTable = StaticConstructObject(Class, GetTransientPackage(), NAME_None, RF_NeedLoad | RF_ClassDefaultObject);
+
+		if (!TempObjectForVTable->IsRooted())
+		{
+			TempObjectForVTable->MarkPendingKill();
+		}
+		else
+		{
+			UE_LOG(LogClass, Warning, TEXT("Hot Reload: Was not expecting temporary object '%s' for class '%s' to become rooted during construction. This object cannot be marked pending kill."), *TempObjectForVTable->GetFName().ToString(), *Class->GetName());
+		}
+
+		Class->ClassWithin = ClassWithin;
+
+		return *(void**)TempObjectForVTable;
+	}
+
+	// A map of classes VTables.
+	TMap<UClass*, void*> VTableMap;
+};
+
 void UClassCompiledInDefer(FFieldCompiledInInfo* ClassInfo, const TCHAR* Name, SIZE_T ClassSize, uint32 Crc)
 {
 	const FName CPPClassName(Name);
@@ -639,6 +747,9 @@ void UClassCompiledInDefer(FFieldCompiledInInfo* ClassInfo, const TCHAR* Name, S
 
 		if (ClassInfo->bHasChanged)
 		{
+			// Check in cache and create if doesn't exist UCLASSes VTable address.
+			FUClassVTableHelper::Get().TouchUClassVTable(ExistingClass);
+
 			// Rename the old class and move it to transient package
 			ExistingClass->ClearFlags(RF_RootSet | RF_Standalone | RF_Public);
 			ExistingClass->GetDefaultObject()->ClearFlags(RF_RootSet | RF_Standalone | RF_Public);
@@ -698,21 +809,38 @@ void UClassRegisterAllCompiledInClasses()
 /** Re-instance all existing classes that have changed during hot-reload */
 void UClassReplaceHotReloadClasses()
 {
-	if (FCoreUObjectDelegates::ReplaceHotReloadClassDelegate.IsBound())
+	struct FClassTuple
 	{
-		for (auto Class : GetHotReloadClasses())
+		UClass* OldClass;
+		UClass* NewClass;
+
+		FClassTuple(UClass* OldClass, UClass* NewClass)
+			: OldClass(OldClass), NewClass(NewClass) { }
+	};
+	TArray<FClassTuple> VTablesToUpdate;
+
+	for (auto Class : GetHotReloadClasses())
+	{
+		check(Class->OldClass);
+
+		UClass* RegisteredClass = nullptr;
+		if (Class->bHasChanged)
 		{
-			check(Class->OldClass);
+			RegisteredClass = Class->Register();
+			VTablesToUpdate.Add(FClassTuple(Class->OldClass, RegisteredClass));
+		}
 
-			UClass* RegisteredClass = nullptr;
-			if (Class->bHasChanged)
-			{
-				RegisteredClass = Class->Register();
-			}
-
+		if (FCoreUObjectDelegates::ReplaceHotReloadClassDelegate.IsBound())
+		{
 			FCoreUObjectDelegates::ReplaceHotReloadClassDelegate.Execute(Class->OldClass, RegisteredClass);
 		}
 	}
+
+	for (auto Tuple : VTablesToUpdate)
+	{
+		FUClassVTableHelper::Get().UpdateVTables(Tuple.OldClass, Tuple.NewClass);
+	}
+
 	GetHotReloadClasses().Empty();
 }
 #endif

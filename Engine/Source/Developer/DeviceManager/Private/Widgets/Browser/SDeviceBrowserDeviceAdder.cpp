@@ -290,11 +290,11 @@ void SDeviceBrowserDeviceAdder::HandleDeviceNameTextBoxTextChanged (const FStrin
 }
 
 
-FString SDeviceBrowserDeviceAdder::HandlePlatformComboBoxContentText( ) const
+FText SDeviceBrowserDeviceAdder::HandlePlatformComboBoxContentText( ) const
 {
 	TSharedPtr<FString> SelectedPlatform = PlatformComboBox->GetSelectedItem();
 
-	return SelectedPlatform.IsValid() ? *SelectedPlatform : FString(TEXT("Select a Platform"));
+	return SelectedPlatform.IsValid() ? FText::FromString(*SelectedPlatform) : LOCTEXT("SelectAPlatform", "Select a Platform");
 }
 
 
@@ -323,7 +323,7 @@ TSharedRef<SWidget> SDeviceBrowserDeviceAdder::HandlePlatformComboBoxGenerateWid
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-					.Text(*Item)
+					.Text(FText::FromString(*Item))
 			];
 }
 

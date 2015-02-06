@@ -11,6 +11,7 @@
 #include "BlueprintActionFilter.h"	// for FBlueprintActionContext
 #include "K2Node_VariableGet.h"
 #include "K2Node_VariableSet.h"
+#include "Engine/BlueprintGeneratedClass.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintVariableNodeSpawner"
 
@@ -74,6 +75,10 @@ UBlueprintVariableNodeSpawner* UBlueprintVariableNodeSpawner::Create(TSubclassOf
 			UClass* OwnerClass = Property->GetOwnerClass();
 
 			// We need to use a generated class instead of a skeleton class for IsChildOf, so if the OwnerClass has a Blueprint, grab the GeneratedClass
+			if(!UBlueprintGeneratedClass::CompileSkeletonClassesInheritSkeletonClasses() && OwnerClass)
+			{
+				OwnerClass = OwnerClass->GetAuthoritativeClass();
+			}
 			bool const bIsSelfContext = Blueprint->SkeletonGeneratedClass->GetAuthoritativeClass() == OwnerClass || Blueprint->SkeletonGeneratedClass->IsChildOf(OwnerClass);
 
 			UK2Node_Variable* VarNode = CastChecked<UK2Node_Variable>(NewNode);
@@ -181,8 +186,10 @@ FBlueprintActionUiSpec UBlueprintVariableNodeSpawner::GetUiSpec(FBlueprintAction
 			}
 		}
 
-		UClass const* VariableClass = WrappedVariable->GetOwnerClass()->GetAuthoritativeClass();
-		if (!TargetClass->IsChildOf(VariableClass))
+		auto OwnerClass = WrappedVariable->GetOwnerClass();
+		const bool bIsOwneClassValid = OwnerClass && (!Cast<const UBlueprintGeneratedClass>(OwnerClass) || OwnerClass->ClassGeneratedBy); //todo: more general validation
+		UClass const* VariableClass = bIsOwneClassValid ? OwnerClass->GetAuthoritativeClass() : NULL;
+		if (VariableClass && !TargetClass->IsChildOf(VariableClass))
 		{
 			MenuSignature.Category = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Class,
 				FText::FromString(VariableClass->GetDisplayNameText().ToString()));

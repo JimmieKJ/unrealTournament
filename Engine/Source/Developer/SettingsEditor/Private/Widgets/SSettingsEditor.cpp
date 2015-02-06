@@ -40,7 +40,6 @@ void SSettingsEditor::Construct( const FArguments& InArgs, const ISettingsEditor
 		DetailsViewArgs.bAllowSearch = true;
 		DetailsViewArgs.bHideSelectionTip = true;
 		DetailsViewArgs.bLockable = false;
-		DetailsViewArgs.bObjectsUseNameArea = false;
 		DetailsViewArgs.bSearchInitialKeyFocus = true;
 		DetailsViewArgs.bUpdatesFromSelection = false;
 		DetailsViewArgs.NotifyHook = this;
@@ -454,7 +453,7 @@ void SSettingsEditor::RecordPreferenceChangedAnalytics( ISettingsSectionPtr Sele
 {
 	UProperty* ChangedProperty = PropertyChangedEvent.MemberProperty;
 	// submit analytics data
-	if(FEngineAnalytics::IsAvailable() && ChangedProperty != nullptr)
+	if(FEngineAnalytics::IsAvailable() && ChangedProperty != nullptr && ChangedProperty->GetOwnerClass() != nullptr)
 	{
 		TArray<FAnalyticsEventAttribute> EventAttributes;
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("PropertySection"), SelectedSection->GetDisplayName().ToString()));
@@ -794,16 +793,17 @@ FText SSettingsEditor::HandleSettingsBoxDescriptionText() const
 }
 
 
-FString SSettingsEditor::HandleSettingsBoxTitleText() const
+FText SSettingsEditor::HandleSettingsBoxTitleText() const
 {
 	ISettingsSectionPtr SelectedSection = Model->GetSelectedSection();
 
 	if (SelectedSection.IsValid())
 	{
-		return SelectedSection->GetCategory().Pin()->GetDisplayName().ToString() + TEXT(" - ") + SelectedSection->GetDisplayName().ToString();
+		static const FText TitleFmt = FText::FromString(TEXT("{0} - {1}"));
+		return FText::Format(TitleFmt, SelectedSection->GetCategory().Pin()->GetDisplayName(), SelectedSection->GetDisplayName());
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 

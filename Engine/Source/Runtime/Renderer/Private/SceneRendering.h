@@ -594,6 +594,15 @@ public:
 
 	bool DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) const;
 
+	/**
+	* Whether or not to composite editor objects onto the scene as a post processing step
+	*
+	* @param View The view to test against
+	*
+	* @return true if compositing is needed
+	*/
+	static bool ShouldCompositeEditorPrimitives(const FViewInfo& View);
+
 protected:
 
 	// Shared functionality between all scene renderers
@@ -722,7 +731,7 @@ protected:
 	void RenderShadowDepthMaps(FRHICommandListImmediate& RHICmdList);
 
 	/** Perform upscaling when post process is not used. */
-	void SimpleUpscale(FRHICommandListImmediate& RHICmdList, FViewInfo &View);
+	void BasicPostProcess(FRHICommandListImmediate& RHICmdList, FViewInfo &View, bool bDoUpscale, bool bDoEditorPrimitives);
 
 	/**
 	  * Used by RenderShadowDepthMaps to render shadowmap for the given light.

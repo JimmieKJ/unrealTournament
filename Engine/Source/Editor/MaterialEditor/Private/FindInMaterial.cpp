@@ -47,17 +47,17 @@ FReply FFindInMaterialResult::OnClick(TWeakPtr<class FMaterialEditor> MaterialEd
 	return FReply::Handled();
 }
 
-FString FFindInMaterialResult::GetCategory() const
+FText FFindInMaterialResult::GetCategory() const
 {
 	if (Class == UEdGraphPin::StaticClass())
 	{
-		return LOCTEXT("PinCategory", "Pin").ToString();
+		return LOCTEXT("PinCategory", "Pin");
 	}
 	else
 	{
-		return LOCTEXT("NodeCategory", "Node").ToString();
+		return LOCTEXT("NodeCategory", "Node");
 	}
-	return FString();
+	return FText::GetEmpty();
 }
 
 TSharedRef<SWidget> FFindInMaterialResult::CreateIcon() const
@@ -314,12 +314,12 @@ void SFindInMaterial::MatchTokens(const TArray<FString> &Tokens)
 			UEdGraphPin* Pin = *PinIt;
 			if (Pin && Pin->PinFriendlyName.CompareTo(FText::FromString(TEXT(" "))) != 0)
 			{
-				FString PinName = Pin->GetSchema()->GetPinDisplayName(Pin);
+				FText PinName = Pin->GetSchema()->GetPinDisplayName(Pin);
 				FString PinSearchString = Pin->PinName + Pin->PinFriendlyName.ToString() + Pin->DefaultValue + Pin->PinType.PinCategory + Pin->PinType.PinSubCategory + (Pin->PinType.PinSubCategoryObject.IsValid() ? Pin->PinType.PinSubCategoryObject.Get()->GetFullName() : TEXT(""));
 				PinSearchString = PinSearchString.Replace(TEXT(" "), TEXT(""));
 				if (StringMatchesSearchTokens(Tokens, PinSearchString))
 				{
-					FSearchResult PinResult(new FFindInMaterialResult(PinName, NodeResult, Pin));
+					FSearchResult PinResult(new FFindInMaterialResult(PinName.ToString(), NodeResult, Pin));
 					NodeResult->Children.Add(PinResult);
 				}
 			}
@@ -347,8 +347,8 @@ TSharedRef<ITableRow> SFindInMaterial::OnGenerateRow(FSearchResult InItem, const
 				.ForegroundColor(FEditorStyle::GetColor("PropertyWindow.CategoryForeground"))
 				[
 					SNew(STextBlock)
-					.Text(InItem->Value)
-					.ToolTipText(LOCTEXT("BlueprintCatSearchToolTip", "Blueprint").ToString())
+					.Text(FText::FromString(InItem->Value))
+					.ToolTipText(LOCTEXT("BlueprintCatSearchToolTip", "Blueprint"))
 				]
 			];
 	}
@@ -370,9 +370,9 @@ TSharedRef<ITableRow> SFindInMaterial::OnGenerateRow(FSearchResult InItem, const
 					.Padding(2, 0)
 					[
 						SNew(STextBlock)
-						.Text(InItem->Value)
+						.Text(FText::FromString(InItem->Value))
 						.HighlightText(HighlightText)
-						.ToolTipText(FString::Printf(*LOCTEXT("BlueprintResultSearchToolTip", "%s : %s").ToString(), *InItem->GetCategory(), *InItem->Value))
+						.ToolTipText(FText::Format(LOCTEXT("BlueprintResultSearchToolTipFmt", "{0} : {1}"), InItem->GetCategory(), FText::FromString(InItem->Value)))
 					]
 				+ SHorizontalBox::Slot()
 					.FillWidth(1)
@@ -381,7 +381,7 @@ TSharedRef<ITableRow> SFindInMaterial::OnGenerateRow(FSearchResult InItem, const
 					.Padding(2, 0)
 					[
 						SNew(STextBlock)
-						.Text(InItem->GetValueText())
+						.Text(FText::FromString(InItem->GetValueText()))
 						.HighlightText(HighlightText)
 					]
 				+ SHorizontalBox::Slot()
@@ -391,7 +391,7 @@ TSharedRef<ITableRow> SFindInMaterial::OnGenerateRow(FSearchResult InItem, const
 					.Padding(2, 0)
 					[
 						SNew(STextBlock)
-						.Text(CommentText.IsEmpty() ? FString() : FString::Printf(TEXT("Node Comment:[%s]"), *CommentText))
+						.Text(CommentText.IsEmpty() ? FText::GetEmpty() : FText::Format(LOCTEXT("NodeCommentFmt", "Node Comment:[{0}]"), FText::FromString(CommentText)))
 						.ColorAndOpacity(FLinearColor::Yellow)
 						.HighlightText(HighlightText)
 					]

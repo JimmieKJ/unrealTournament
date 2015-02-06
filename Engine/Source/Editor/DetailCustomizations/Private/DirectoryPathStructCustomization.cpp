@@ -41,7 +41,7 @@ void FDirectoryPathStructCustomization::CustomizeHeader( TSharedRef<IPropertyHan
 			[
 				SAssignNew(BrowseButton, SButton)
 				.ButtonStyle( FEditorStyle::Get(), "HoverHintOnly" )
-				.ToolTipText( LOCTEXT( "FolderButtonToolTipText", "Choose a directory from this computer").ToString() )
+				.ToolTipText( LOCTEXT( "FolderButtonToolTipText", "Choose a directory from this computer") )
 				.OnClicked( FOnClicked::CreateSP(this, &FDirectoryPathStructCustomization::OnPickDirectory, PathProperty.ToSharedRef(), bRelativeToGameContentDir, bUseRelativePath) )
 				.ContentPadding( 2.0f )
 				.ForegroundColor( FSlateColor::UseForeground() )

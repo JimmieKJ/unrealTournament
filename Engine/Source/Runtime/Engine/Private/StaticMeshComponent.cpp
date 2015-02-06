@@ -23,19 +23,20 @@
 
 #define LOCTEXT_NAMESPACE "StaticMeshComponent"
 
-class FStaticMeshComponentInstanceData : public FComponentInstanceDataBase
+class FStaticMeshComponentInstanceData : public FSceneComponentInstanceData
 {
 public:
 	FStaticMeshComponentInstanceData(const UStaticMeshComponent* SourceComponent)
-		: FComponentInstanceDataBase(SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
 		, StaticMesh(SourceComponent->StaticMesh)
 		, bHasCachedStaticLighting(false)
 	{
 	}
 
-	virtual bool MatchesComponent(const UActorComponent* Component) const override
+	virtual void ApplyToComponent(UActorComponent* Component) override
 	{
-		return (CastChecked<UStaticMeshComponent>(Component)->StaticMesh == StaticMesh && FComponentInstanceDataBase::MatchesComponent(Component));
+		FSceneComponentInstanceData::ApplyToComponent(Component);
+		CastChecked<UStaticMeshComponent>(Component)->ApplyComponentInstanceData(this);
 	}
 
 	/** Add vertex color data for a specified LOD before RerunConstructionScripts is called */
@@ -732,8 +733,7 @@ bool UStaticMeshComponent::RequiresOverrideVertexColorsFixup( TArray<int32>& Out
 void UStaticMeshComponent::RemoveInstanceVertexColorsFromLOD( int32 LODToRemoveColorsFrom )
 {
 #if WITH_EDITORONLY_DATA
-	if (( LODToRemoveColorsFrom < StaticMesh->GetNumLODs() ) &&
-		( LODToRemoveColorsFrom < LODData.Num() ))
+	if (StaticMesh && LODToRemoveColorsFrom < StaticMesh->GetNumLODs() && LODToRemoveColorsFrom < LODData.Num())
 	{
 		FStaticMeshComponentLODInfo& CurrentLODInfo = LODData[LODToRemoveColorsFrom];
 
@@ -1510,10 +1510,10 @@ void UStaticMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMate
 	}
 }
 
-int32 UStaticMeshComponent::GetSerializedComponentIndex() const
+int32 UStaticMeshComponent::GetBlueprintCreatedComponentIndex() const
 {
 	int32 ComponentIndex = 0;
-	for(const auto& Component : GetOwner()->SerializedComponents)
+	for(const auto& Component : GetOwner()->BlueprintCreatedComponents)
 	{
 		if(Component == this)
 		{
@@ -1534,22 +1534,22 @@ FName UStaticMeshComponent::GetComponentInstanceDataType() const
 
 FComponentInstanceDataBase* UStaticMeshComponent::GetComponentInstanceData() const
 {
-	FStaticMeshComponentInstanceData* InstanceData = nullptr;
+	FStaticMeshComponentInstanceData* StaticMeshInstanceData = nullptr;
 
 	// Don't back up static lighting if there isn't any
 	if(bHasCachedStaticLighting)
 	{
-		InstanceData = new FStaticMeshComponentInstanceData(this);
+		StaticMeshInstanceData = new FStaticMeshComponentInstanceData(this);
 
 		// Fill in info
-		InstanceData->bHasCachedStaticLighting = true;
-		InstanceData->CachedStaticLighting.Transform = ComponentToWorld;
-		InstanceData->CachedStaticLighting.IrrelevantLights = IrrelevantLights;
-		InstanceData->CachedStaticLighting.LODDataLightMap.Empty(LODData.Num());
+		StaticMeshInstanceData->bHasCachedStaticLighting = true;
+		StaticMeshInstanceData->CachedStaticLighting.Transform = ComponentToWorld;
+		StaticMeshInstanceData->CachedStaticLighting.IrrelevantLights = IrrelevantLights;
+		StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap.Empty(LODData.Num());
 		for (const FStaticMeshComponentLODInfo& LODDataEntry : LODData)
 		{
-			InstanceData->CachedStaticLighting.LODDataLightMap.Add(LODDataEntry.LightMap);
-			InstanceData->CachedStaticLighting.LODDataShadowMap.Add(LODDataEntry.ShadowMap);
+			StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap.Add(LODDataEntry.LightMap);
+			StaticMeshInstanceData->CachedStaticLighting.LODDataShadowMap.Add(LODDataEntry.ShadowMap);
 		}
 	}
 
@@ -1561,28 +1561,32 @@ FComponentInstanceDataBase* UStaticMeshComponent::GetComponentInstanceData() con
 
 		if ( LODInfo.OverrideVertexColors && LODInfo.OverrideVertexColors->GetNumVertices() > 0 && LODInfo.PaintedVertices.Num() > 0 )
 		{
-			if (!InstanceData)
+			if (!StaticMeshInstanceData)
 			{
-				InstanceData = new FStaticMeshComponentInstanceData(this);
+				StaticMeshInstanceData = new FStaticMeshComponentInstanceData(this);
 			}
 
-			InstanceData->AddVertexColorData(LODInfo, LODIndex);
+			StaticMeshInstanceData->AddVertexColorData(LODInfo, LODIndex);
 		}
 	}
 
-	return InstanceData;
+	return (StaticMeshInstanceData ? StaticMeshInstanceData : Super::GetComponentInstanceData());
 }
 
-void UStaticMeshComponent::ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData)
+void UStaticMeshComponent::ApplyComponentInstanceData(FStaticMeshComponentInstanceData* StaticMeshInstanceData)
 {
-	check(ComponentInstanceData);
+	check(StaticMeshInstanceData);
 
 	// Note: ApplyComponentInstanceData is called while the component is registered so the rendering thread is already using this component
 	// That means all component state that is modified here must be mirrored on the scene proxy, which will be recreated to receive the changes later due to MarkRenderStateDirty.
-	FStaticMeshComponentInstanceData* StaticMeshInstanceData  = static_cast<FStaticMeshComponentInstanceData*>(ComponentInstanceData);
+
+	if (StaticMesh != StaticMeshInstanceData->StaticMesh)
+	{
+		return;
+	}
 
 	// See if data matches current state
-	if(	StaticMeshInstanceData->bHasCachedStaticLighting && StaticMeshInstanceData->CachedStaticLighting.Transform.Equals(ComponentToWorld) )
+	if(	StaticMeshInstanceData->bHasCachedStaticLighting && StaticMeshInstanceData->CachedStaticLighting.Transform.Equals(ComponentToWorld, 1.e-3f) )
 	{
 		const int32 NumLODLightMaps = StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap.Num();
 		SetLODDataCount(NumLODLightMaps, NumLODLightMaps);

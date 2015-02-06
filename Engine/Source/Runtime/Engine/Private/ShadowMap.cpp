@@ -285,7 +285,7 @@ bool FShadowMapPendingTexture::AddElement(FShadowMapAllocationGroup& AllocationG
 void FShadowMapPendingTexture::StartEncoding(UWorld* InWorld)
 {
 	// Create the shadow-map texture.
-	UShadowMapTexture2D* Texture = new(Outer) UShadowMapTexture2D(FObjectInitializer());
+	auto Texture = NewObject<UShadowMapTexture2D>(Outer);
 	Texture->Filter			= GUseBilinearLightmaps ? TF_Default : TF_Nearest;
 	// Signed distance field textures get stored in linear space, since they need more precision near .5.
 	Texture->SRGB			= false;

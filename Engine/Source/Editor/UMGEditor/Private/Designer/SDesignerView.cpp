@@ -516,6 +516,7 @@ SDesignerView::~SDesignerView()
 	if ( Blueprint )
 	{
 		Blueprint->OnChanged().RemoveAll(this);
+		Blueprint->OnCompiled().RemoveAll(this);
 	}
 
 	if ( BlueprintEditor.IsValid() )
@@ -1356,6 +1357,21 @@ void SDesignerView::Tick(const FGeometry& AllottedGeometry, const double InCurre
 	FArrangedWidget WindowWidgetGeometry(PreviewHitTestRoot.ToSharedRef(), AllottedGeometry);
 	PopulateWidgetGeometryCache(WindowWidgetGeometry);
 
+	TArray< TFunction<void()> >& QueuedActions = BlueprintEditor.Pin()->GetQueuedDesignerActions();
+	for ( TFunction<void()>& Action : QueuedActions )
+	{
+		Action();
+	}
+
+	if ( QueuedActions.Num() > 0 )
+	{
+		QueuedActions.Reset();
+
+		CachedWidgetGeometry.Reset();
+		FArrangedWidget WindowWidgetGeometry(PreviewHitTestRoot.ToSharedRef(), AllottedGeometry);
+		PopulateWidgetGeometryCache(WindowWidgetGeometry);
+	}
+
 	// Tick all designer extensions in case they need to update widgets
 	for ( const TSharedRef<FDesignerExtension>& Ext : DesignerExtensions )
 	{
@@ -1568,23 +1584,27 @@ UWidget* SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, con
 			FVector2D LocalPosition = WidgetUnderCursorGeometry.AbsoluteToLocal(DragDropEvent.GetScreenSpacePosition());
 			if ( UPanelSlot* Slot = Parent->AddChild(Widget) )
 			{
-				// HACK UMG - This seems like a bad idea to call TakeWidget
-				TSharedPtr<SWidget> SlateWidget = Widget->TakeWidget();
-				SlateWidget->SlatePrepass();
-				const FVector2D& WidgetDesiredSize = SlateWidget->GetDesiredSize();
-
-				static const FVector2D MinimumDefaultSize(100, 40);
-				FVector2D LocalSize = FVector2D(FMath::Max(WidgetDesiredSize.X, MinimumDefaultSize.X), FMath::Max(WidgetDesiredSize.Y, MinimumDefaultSize.Y));
-
-				const UWidgetDesignerSettings* DesignerSettings = GetDefault<UWidgetDesignerSettings>();
-				if ( DesignerSettings->GridSnapEnabled )
+				// Special logic for canvas panel slots.
+				if ( UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Slot) )
 				{
-					LocalPosition.X = ( (int32)LocalPosition.X ) - (( (int32)LocalPosition.X ) % DesignerSettings->GridSnapSize);
-					LocalPosition.Y = ( (int32)LocalPosition.Y ) - (( (int32)LocalPosition.Y ) % DesignerSettings->GridSnapSize);
-				}
+					// HACK UMG - This seems like a bad idea to call TakeWidget
+					TSharedPtr<SWidget> SlateWidget = Widget->TakeWidget();
+					SlateWidget->SlatePrepass();
+					const FVector2D& WidgetDesiredSize = SlateWidget->GetDesiredSize();
 
-				Slot->SetDesiredPosition(LocalPosition);
-				Slot->SetDesiredSize(LocalSize);
+					static const FVector2D MinimumDefaultSize(100, 40);
+					FVector2D LocalSize = FVector2D(FMath::Max(WidgetDesiredSize.X, MinimumDefaultSize.X), FMath::Max(WidgetDesiredSize.Y, MinimumDefaultSize.Y));
+
+					const UWidgetDesignerSettings* DesignerSettings = GetDefault<UWidgetDesignerSettings>();
+					if ( DesignerSettings->GridSnapEnabled )
+					{
+						LocalPosition.X = ( (int32)LocalPosition.X ) - ( ( (int32)LocalPosition.X ) % DesignerSettings->GridSnapSize );
+						LocalPosition.Y = ( (int32)LocalPosition.Y ) - ( ( (int32)LocalPosition.Y ) % DesignerSettings->GridSnapSize );
+					}
+
+					CanvasSlot->SetPosition(LocalPosition);
+					CanvasSlot->SetSize(LocalSize);
+				}
 
 				DropPreviewParent = Parent;
 
@@ -1736,7 +1756,7 @@ UWidget* SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, con
 							FWidgetBlueprintEditorUtils::ImportPropertiesFromText(Slot, SelectedDragDropOp->ExportedSlotProperties);
 
 							CanvasSlot->SaveBaseLayout();
-							Slot->SetDesiredPosition(NewPosition);
+							CanvasSlot->SetDesiredPosition(NewPosition);
 							CanvasSlot->RebaseLayout();
 
 							FWidgetBlueprintEditorUtils::ExportPropertiesToText(Slot, SelectedDragDropOp->ExportedSlotProperties);
@@ -1749,7 +1769,6 @@ UWidget* SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, con
 					else
 					{
 						FWidgetBlueprintEditorUtils::ImportPropertiesFromText(Slot, SelectedDragDropOp->ExportedSlotProperties);
-						Slot->SetDesiredPosition(NewPosition);
 					}
 
 					DropPreviewParent = NewParent;

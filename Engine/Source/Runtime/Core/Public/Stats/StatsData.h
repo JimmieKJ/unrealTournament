@@ -858,6 +858,11 @@ public:
 	void NewData(FStatNameAndInfo NameAndInfo)
 	{
 		NameAndInfos.Add(NameAndInfo);
+		const FName GroupName = NameAndInfo.GetGroupName();
+		if (!GroupName.IsNone() && GroupName != NAME_Groups)
+		{
+			StatGroupNames.Add(GroupName);
+		}
 	}
 
 	void SendData()
@@ -879,6 +884,9 @@ public:
 	/** Delegate we fire every time new stat groups have been registered */
 	DECLARE_DELEGATE_OneParam(FOnNewStatGroupRegistered, const TArray<FStatNameAndInfo>&);
 	FOnNewStatGroupRegistered NewStatGroupDelegate;
+
+	/** A set of all the stat group names which have been registered */
+	TSet<FName> StatGroupNames;
 
 private:
 	FStatGroupGameThreadNotifier(){}

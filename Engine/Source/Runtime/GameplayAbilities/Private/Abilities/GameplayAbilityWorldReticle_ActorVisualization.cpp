@@ -34,7 +34,7 @@ void AGameplayAbilityWorldReticle_ActorVisualization::InitializeReticleVisualiza
 	if (VisualizationActor)
 	{
 		//Get components
-		TArray<UMeshComponent*> MeshComps;
+		TInlineComponentArray<UMeshComponent*> MeshComps;
 		USceneComponent* MyRoot = GetRootComponent();
 		VisualizationActor->GetComponents(MeshComps);
 		check(MyRoot);
@@ -67,10 +67,6 @@ void AGameplayAbilityWorldReticle_ActorVisualization::InitializeReticleVisualiza
 
 void AGameplayAbilityWorldReticle_ActorVisualization::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	TArray<UActorComponent*> CompArray;
-	GetComponents(CompArray);
-	CompArray.Num();
-
 	Super::EndPlay(EndPlayReason);
 }
 

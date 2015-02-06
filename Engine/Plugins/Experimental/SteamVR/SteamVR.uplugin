@@ -10,6 +10,7 @@
 	"Description" : "[EARLY ACCESS PREVIEW] Support for the SteamVR API",
 	"Category" : "Head Mounted Displays.Devices",
 	"EnabledByDefault" : false,
+	"IsBetaVersion" : true,
 
 	"Modules" :
 	[

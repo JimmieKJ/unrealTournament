@@ -28,5 +28,8 @@ public:
 	// Import data for this 
 	UPROPERTY(VisibleAnywhere, Instanced, Category=ImportSettings)
 	class UAssetImportData* AssetImportData;
+
+	/** Override to ensure we write out the asset import data */
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
 #endif
 };

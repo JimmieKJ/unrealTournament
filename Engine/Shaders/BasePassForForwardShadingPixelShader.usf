@@ -56,6 +56,43 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 }
 #endif
 
+#if EDITOR_PRIMITIVE_MATERIAL
+bool bEnableEditorPrimitiveDepthTest;
+// depth in the red channel in DeviceZ
+Texture2D		FilteredSceneDepthTexture;
+SamplerState	FilteredSceneDepthTextureSampler;
+#endif
+
+
+#if EDITOR_PRIMITIVE_MATERIAL && (ES2_EMULATION)
+// @return 0:translucent..1:opaque
+float ClipForEditorPrimitives(FMaterialPixelParameters MaterialParameters)
+{
+	float Ret = 1;
+
+	// Depth test manually if compositing editor primitives since the depth buffer is different (MSAA only)
+	BRANCH
+		if (bEnableEditorPrimitiveDepthTest)
+		{
+			bool bIsPerspective = (View.ViewToClip._m33 < 1.0f);
+
+			// dejitter the sample position and make a filtered lookup - for planes this allows to reconstruct a much less jittery depth comparison function, it however doesn't fix silhuetes
+			float DeviceZ = Texture2DSampleLevel(FilteredSceneDepthTexture, FilteredSceneDepthTextureSampler, (MaterialParameters.SVPosition.xy - View.TemporalAAParams.zw) * View.ViewSizeAndSceneTexelSize.zw, 0).r;
+
+			float PixelDeviceZ = MaterialParameters.SVPosition.z;
+
+			// Soft Bias with DeviceZ for best quality
+			const float DeviceDepthFade = 0.00005f;
+
+			// 0.5f is to bias around the actual value, 1 or 0 are another option
+			Ret = saturate(0.5f - (DeviceZ - PixelDeviceZ) / DeviceDepthFade);
+		}
+
+	// Note: multiple returns cause strange HLSL compiler error for CV_Coverage in later code
+	return Ret;
+}
+#endif
+
 half4 IndirectLightingSHCoefficients[3]; 
 half DirectionalLightShadowing;
 
@@ -239,6 +276,10 @@ void Main(
 #endif
 #endif
 
+#if !MATERIAL_SHADINGMODEL_UNLIT && ES2_EMULATION
+	Color = lerp(Color, DiffuseColor + SpecularColor, View.UnlitViewmodeMask);
+#endif
+
 	#if MATERIALBLENDING_TRANSLUCENT
 		OutColor = half4(Color * VertexFog.a + VertexFog.rgb, Opacity);
 	#elif MATERIALBLENDING_ADDITIVE
@@ -276,5 +317,16 @@ void Main(
 			// To enable editor runtime change without recompile, PC always eats the HdrMosaic() cost.
 			OutColor.rgb = View.HdrMosaic ? HdrMosaic(OutColor.rgb, SvPosition.xy) : OutColor.rgb;
 		#endif
+	#endif
+
+	// Editor primitive depth testing
+	#if EDITOR_PRIMITIVE_MATERIAL && (ES2_EMULATION)
+		#if MATERIALBLENDING_MASKED
+			// some material might have a opacity value
+			OutColor.a = GetMaterialMaskInputRaw(MaterialParameters);
+		#endif
+		// we output premultiplied alpha to we have to darken all 4 channels
+		OutColor *= ClipForEditorPrimitives(MaterialParameters);
+		clip(OutColor.a - GetMaterialOpacityMaskClipValue());
 	#endif
 }

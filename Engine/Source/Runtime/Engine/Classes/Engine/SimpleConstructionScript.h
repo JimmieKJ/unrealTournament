@@ -16,6 +16,8 @@ class USimpleConstructionScript : public UObject
 	virtual void PostLoad() override;
 	// End UObject Interface
 
+	void PreloadChain();
+
 	/** Ensures that all root node parent references are still valid and clears the reference if not */
 	ENGINE_API void FixupRootNodeParentReferences();
 
@@ -59,11 +61,13 @@ class USimpleConstructionScript : public UObject
 	ENGINE_API USCS_Node* FindParentNode(USCS_Node* InNode) const;
 
 	/** Find the SCS_Node node by name and return it if found */
-	ENGINE_API USCS_Node* FindSCSNode(FName InName);
+	ENGINE_API USCS_Node* FindSCSNode(const FName InName) const;
 
-protected:
+	/** Find the SCS_Node node by name and return it if found */
+	ENGINE_API USCS_Node* FindSCSNodeByGuid(const FGuid Guid) const;
+
 	/** Checks the root node set for scene components and ensures that it is valid (e.g. after a removal) */
-	void ValidateSceneRootNodes();
+	ENGINE_API void ValidateSceneRootNodes();
 
 private:
 	/** Root nodes of the construction script */
@@ -119,9 +123,6 @@ public:
 	{
 		return EditorActorInstancePtr.Get();
 	}
-
-	/** The name to use for the default scene root variable */
-	ENGINE_API static const FName DefaultSceneRootVariableName;
 
 private:
 	/** Actor instance used to host components in the SCS editor */

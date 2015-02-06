@@ -42,6 +42,6 @@ protected:
 
 	FReply ToggleMode();
 	void OnModeChanged();
-	FString GetComboText() const;
-	FString GetComboTooltip() const;
+	FText GetComboText() const;
+	FText GetComboTooltip() const;
 };

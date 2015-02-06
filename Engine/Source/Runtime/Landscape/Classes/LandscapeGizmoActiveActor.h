@@ -36,7 +36,7 @@ struct FGizmoSelectData
 
 		FGizmoSelectData()
 		#if WITH_EDITORONLY_DATA
-		: Ratio(0.f), HeightData(0.f), WeightDataMap()
+		: Ratio(0.0f), HeightData(0.0f), WeightDataMap()
 		#endif
 		{
 		}

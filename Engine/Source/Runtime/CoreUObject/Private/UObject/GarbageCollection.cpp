@@ -7,6 +7,7 @@
 #include "CoreUObjectPrivate.h"
 #include "TaskGraphInterfaces.h"
 #include "IConsoleManager.h"
+#include "LinkerPlaceholderClass.h"
 
 /*-----------------------------------------------------------------------------
    Garbage collection.
@@ -1214,7 +1215,8 @@ void UObject::AddReferencedObjects(UObject* This, FReferenceCollector& Collector
 
 		// Serialize object properties which are defined in the class.
 		// Note: This check is intentionally excluding UClass objects but including subclasses like UBlueprintGeneratedClass
-		if (Class != UClass::StaticClass())
+		// @TODO: is it right to also exclude ULinkerPlaceholderClass here (it was causing a crash in here).
+		if (Class != UClass::StaticClass() && Class != ULinkerPlaceholderClass::StaticClass())
 		{
 			// Script properties
 			FSimpleObjectReferenceCollectorArchive ObjectReferenceCollector( This, Collector );

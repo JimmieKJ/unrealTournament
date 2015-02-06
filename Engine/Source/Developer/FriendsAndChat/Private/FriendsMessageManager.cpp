@@ -191,27 +191,27 @@ private:
 			IOnlineChatPtr ChatInterface = OnlineSub->GetChatInterface();
 			if (ChatInterface.IsValid())
 			{
-				OnChatRoomJoinPublicDelegate = FOnChatRoomJoinPublicDelegate::CreateSP( this, &FFriendsMessageManagerImpl::OnChatRoomJoinPublic);
-				OnChatRoomExitDelegate = FOnChatRoomExitDelegate::CreateSP( this, &FFriendsMessageManagerImpl::OnChatRoomExit);
-				OnChatRoomMemberJoinDelegate = FOnChatRoomMemberJoinDelegate::CreateSP( this, &FFriendsMessageManagerImpl::OnChatRoomMemberJoin);
-				OnChatRoomMemberExitDelegate = FOnChatRoomMemberExitDelegate::CreateSP( this, &FFriendsMessageManagerImpl::OnChatRoomMemberExit);
-				OnChatRoomMemberUpdateDelegate = FOnChatRoomMemberUpdateDelegate::CreateSP( this, &FFriendsMessageManagerImpl::OnChatRoomMemberUpdate);
-				OnChatRoomMessageReceivedDelegate = FOnChatRoomMessageReceivedDelegate::CreateSP( this, &FFriendsMessageManagerImpl::OnChatRoomMessageReceived);
-				OnChatPrivateMessageReceivedDelegate = FOnChatPrivateMessageReceivedDelegate::CreateSP( this, &FFriendsMessageManagerImpl::OnChatPrivateMessageReceived);
+				OnChatRoomJoinPublicDelegate         = FOnChatRoomJoinPublicDelegate        ::CreateSP(this, &FFriendsMessageManagerImpl::OnChatRoomJoinPublic);
+				OnChatRoomExitDelegate               = FOnChatRoomExitDelegate              ::CreateSP(this, &FFriendsMessageManagerImpl::OnChatRoomExit);
+				OnChatRoomMemberJoinDelegate         = FOnChatRoomMemberJoinDelegate        ::CreateSP(this, &FFriendsMessageManagerImpl::OnChatRoomMemberJoin);
+				OnChatRoomMemberExitDelegate         = FOnChatRoomMemberExitDelegate        ::CreateSP(this, &FFriendsMessageManagerImpl::OnChatRoomMemberExit);
+				OnChatRoomMemberUpdateDelegate       = FOnChatRoomMemberUpdateDelegate      ::CreateSP(this, &FFriendsMessageManagerImpl::OnChatRoomMemberUpdate);
+				OnChatRoomMessageReceivedDelegate    = FOnChatRoomMessageReceivedDelegate   ::CreateSP(this, &FFriendsMessageManagerImpl::OnChatRoomMessageReceived);
+				OnChatPrivateMessageReceivedDelegate = FOnChatPrivateMessageReceivedDelegate::CreateSP(this, &FFriendsMessageManagerImpl::OnChatPrivateMessageReceived);
 
-				ChatInterface->AddOnChatRoomJoinPublicDelegate(OnChatRoomJoinPublicDelegate);
-				ChatInterface->AddOnChatRoomExitDelegate(OnChatRoomExitDelegate);
-				ChatInterface->AddOnChatRoomMemberJoinDelegate(OnChatRoomMemberJoinDelegate);
-				ChatInterface->AddOnChatRoomMemberExitDelegate(OnChatRoomMemberExitDelegate);
-				ChatInterface->AddOnChatRoomMemberUpdateDelegate(OnChatRoomMemberUpdateDelegate);
-				ChatInterface->AddOnChatRoomMessageReceivedDelegate(OnChatRoomMessageReceivedDelegate);
-				ChatInterface->AddOnChatPrivateMessageReceivedDelegate(OnChatPrivateMessageReceivedDelegate);
+				OnChatRoomJoinPublicDelegateHandle         = ChatInterface->AddOnChatRoomJoinPublicDelegate_Handle        (OnChatRoomJoinPublicDelegate);
+				OnChatRoomExitDelegateHandle               = ChatInterface->AddOnChatRoomExitDelegate_Handle              (OnChatRoomExitDelegate);
+				OnChatRoomMemberJoinDelegateHandle         = ChatInterface->AddOnChatRoomMemberJoinDelegate_Handle        (OnChatRoomMemberJoinDelegate);
+				OnChatRoomMemberExitDelegateHandle         = ChatInterface->AddOnChatRoomMemberExitDelegate_Handle        (OnChatRoomMemberExitDelegate);
+				OnChatRoomMemberUpdateDelegateHandle       = ChatInterface->AddOnChatRoomMemberUpdateDelegate_Handle      (OnChatRoomMemberUpdateDelegate);
+				OnChatRoomMessageReceivedDelegateHandle    = ChatInterface->AddOnChatRoomMessageReceivedDelegate_Handle   (OnChatRoomMessageReceivedDelegate);
+				OnChatPrivateMessageReceivedDelegateHandle = ChatInterface->AddOnChatPrivateMessageReceivedDelegate_Handle(OnChatPrivateMessageReceivedDelegate);
 			}
 			IOnlinePresencePtr PresenceInterface = OnlineSub->GetPresenceInterface();
 			if (PresenceInterface.IsValid())
 			{
 				OnPresenceReceivedDelegate = FOnPresenceReceivedDelegate::CreateSP(this, &FFriendsMessageManagerImpl::OnPresenceReceived);
-				PresenceInterface->AddOnPresenceReceivedDelegate(OnPresenceReceivedDelegate);
+				OnPresenceReceivedDelegateHandle = PresenceInterface->AddOnPresenceReceivedDelegate_Handle(OnPresenceReceivedDelegate);
 			}
 		}
 	}
@@ -223,18 +223,18 @@ private:
 			IOnlineChatPtr ChatInterface = OnlineSub->GetChatInterface();
 			if( ChatInterface.IsValid())
 			{
-				ChatInterface->ClearOnChatRoomJoinPublicDelegate(OnChatRoomJoinPublicDelegate);
-				ChatInterface->ClearOnChatRoomExitDelegate(OnChatRoomExitDelegate);
-				ChatInterface->ClearOnChatRoomMemberJoinDelegate(OnChatRoomMemberJoinDelegate);
-				ChatInterface->ClearOnChatRoomMemberExitDelegate(OnChatRoomMemberExitDelegate);
-				ChatInterface->ClearOnChatRoomMemberUpdateDelegate(OnChatRoomMemberUpdateDelegate);
-				ChatInterface->ClearOnChatRoomMessageReceivedDelegate(OnChatRoomMessageReceivedDelegate);
-				ChatInterface->ClearOnChatPrivateMessageReceivedDelegate(OnChatPrivateMessageReceivedDelegate);
+				ChatInterface->ClearOnChatRoomJoinPublicDelegate_Handle        (OnChatRoomJoinPublicDelegateHandle);
+				ChatInterface->ClearOnChatRoomExitDelegate_Handle              (OnChatRoomExitDelegateHandle);
+				ChatInterface->ClearOnChatRoomMemberJoinDelegate_Handle        (OnChatRoomMemberJoinDelegateHandle);
+				ChatInterface->ClearOnChatRoomMemberExitDelegate_Handle        (OnChatRoomMemberExitDelegateHandle);
+				ChatInterface->ClearOnChatRoomMemberUpdateDelegate_Handle      (OnChatRoomMemberUpdateDelegateHandle);
+				ChatInterface->ClearOnChatRoomMessageReceivedDelegate_Handle   (OnChatRoomMessageReceivedDelegateHandle);
+				ChatInterface->ClearOnChatPrivateMessageReceivedDelegate_Handle(OnChatPrivateMessageReceivedDelegateHandle);
 			}
 			IOnlinePresencePtr PresenceInterface = OnlineSub->GetPresenceInterface();
 			if (PresenceInterface.IsValid())
 			{
-				PresenceInterface->ClearOnPresenceReceivedDelegate(OnPresenceReceivedDelegate);
+				PresenceInterface->ClearOnPresenceReceivedDelegate_Handle(OnPresenceReceivedDelegateHandle);
 			}
 		}
 		OnlineSub = nullptr;
@@ -449,6 +449,16 @@ private:
 	FOnChatRoomMessageReceivedDelegate OnChatRoomMessageReceivedDelegate;
 	FOnChatPrivateMessageReceivedDelegate OnChatPrivateMessageReceivedDelegate;
 	FOnPresenceReceivedDelegate OnPresenceReceivedDelegate;
+
+	// Handles to the above registered delegates
+	FDelegateHandle OnChatRoomJoinPublicDelegateHandle;
+	FDelegateHandle OnChatRoomExitDelegateHandle;
+	FDelegateHandle OnChatRoomMemberJoinDelegateHandle;
+	FDelegateHandle OnChatRoomMemberExitDelegateHandle;
+	FDelegateHandle OnChatRoomMemberUpdateDelegateHandle;
+	FDelegateHandle OnChatRoomMessageReceivedDelegateHandle;
+	FDelegateHandle OnChatPrivateMessageReceivedDelegateHandle;
+	FDelegateHandle OnPresenceReceivedDelegateHandle;
 
 	// Outgoing events
 	FOnChatMessageReceivedEvent MessageReceivedEvent;

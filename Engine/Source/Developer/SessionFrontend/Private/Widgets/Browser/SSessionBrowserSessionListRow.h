@@ -69,7 +69,7 @@ public:
 						.HAlign(HAlign_Left)
 						[
 							SNew(STextBlock)
-								.Text(SessionInfo->GetSessionOwner())
+								.Text(FText::FromString(SessionInfo->GetSessionOwner()))
 						]
 
 					+ SHorizontalBox::Slot()
@@ -92,14 +92,14 @@ public:
 protected:
 
 	/** Callback for getting the name of the session. */
-	FString HandleGetSessionName() const
+	FText HandleGetSessionName() const
 	{
 		const FString& SessionName = SessionInfo->GetSessionName();
 
 		// return name of a launched session
 		if (!SessionInfo->IsStandalone() || !SessionName.IsEmpty())
 		{
-			return SessionName;
+			return FText::FromString(SessionName);
 		}
 
 		// generate name for a standalone session
@@ -112,18 +112,18 @@ protected:
 
 			if ((Instances.Num() == 1) && (FirstInstance->GetInstanceId() == FApp::GetInstanceId()))
 			{
-				return LOCTEXT("ThisApplicationSessionText", "This Application").ToString();
+				return LOCTEXT("ThisApplicationSessionText", "This Application");
 			}
 
 			if (FirstInstance->GetDeviceName() == FPlatformProcess::ComputerName())
 			{
-				return LOCTEXT("UnnamedLocalSessionText", "Unnamed Session (Local)").ToString();
+				return LOCTEXT("UnnamedLocalSessionText", "Unnamed Session (Local)");
 			}
 
-			return LOCTEXT("UnnamedRemoteSessionText", "Unnamed Session (Remote)").ToString();
+			return LOCTEXT("UnnamedRemoteSessionText", "Unnamed Session (Remote)");
 		}
 
-		return LOCTEXT("UnnamedSessionText", "Unnamed Session").ToString();
+		return LOCTEXT("UnnamedSessionText", "Unnamed Session");
 	}
 
 private:

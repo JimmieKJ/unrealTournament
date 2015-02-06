@@ -29,7 +29,11 @@ namespace UnrealBuildTool
 				string dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
 				if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
 				{
-					return SDKStatus.Invalid;
+					dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
+					if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
+					{
+						return SDKStatus.Invalid;
+					}
 				}
 			}
 			return SDKStatus.Valid;

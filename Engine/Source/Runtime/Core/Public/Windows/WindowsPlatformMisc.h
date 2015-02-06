@@ -51,6 +51,16 @@ struct CORE_API FWindowsPlatformMisc
 	}
 #endif
 
+
+	/** Break into debugger. Returning false allows this function to be used in conditionals. */
+	FORCEINLINE static bool DebugBreakReturningFalse()
+	{
+#if !UE_BUILD_SHIPPING
+		DebugBreak();
+#endif
+		return false;
+	}
+
 	static void PumpMessages(bool bFromMainLoop);
 	static uint32 GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings );
 	static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
@@ -213,6 +223,12 @@ struct CORE_API FWindowsPlatformMisc
 	 * Returns whether the platform is running on battery power or not.
 	 */
 	static bool IsRunningOnBattery();
+
+	/**
+	 * Gets a globally unique ID the represents a particular operating system install.
+	 */
+	static FString GetOperatingSystemId();
+
 };
 
 

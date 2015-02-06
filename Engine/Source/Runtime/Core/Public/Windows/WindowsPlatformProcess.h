@@ -86,6 +86,7 @@ public:
 	static void SetThreadAffinityMask( uint64 AffinityMask );
 	static const TCHAR* BaseDir();
 	static const TCHAR* UserDir();
+	static const TCHAR* UserTempDir();
 	static const TCHAR* UserSettingsDir();
 	static const TCHAR* ApplicationSettingsDir();
 	static const TCHAR* ComputerName();

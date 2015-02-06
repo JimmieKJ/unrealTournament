@@ -5,6 +5,7 @@
 #include "BehaviorTree/BTDecorator.h"
 #include "BehaviorTree/BTService.h"
 #include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
 
 //////////////////////////////////////////////////////////////////////////
 // BehaviorTreeGraph
@@ -626,6 +627,146 @@ namespace BTGraphHelpers
 		}
 	}
 
+	UEdGraphPin* FindGraphNodePin(UEdGraphNode* Node, EEdGraphPinDirection Dir)
+	{
+		UEdGraphPin* Pin = nullptr;
+		for (int32 Idx = 0; Idx < Node->Pins.Num(); Idx++)
+		{
+			if (Node->Pins[Idx]->Direction == Dir)
+			{
+				Pin = Node->Pins[Idx];
+				break;
+			}
+		}
+
+		return Pin;
+	}
+
+	void SpawnMissingDecoratorNodes(UBehaviorTreeGraphNode* GraphNode, const TArray<UBTDecorator*>& Decorators, const TArray<FBTDecoratorLogic>& DecoratorOps, UBehaviorTreeGraph* Graph)
+	{
+		if (DecoratorOps.Num() == 0)
+		{
+			for (int32 SubIdx = 0; SubIdx < Decorators.Num(); SubIdx++)
+			{
+				UBehaviorTreeGraphNode* DecoratorNode = NewObject<UBehaviorTreeGraphNode_Decorator>(Graph);
+				GraphNode->AddSubNode(DecoratorNode, Graph);
+				DecoratorNode->NodeInstance = Decorators[SubIdx];
+			}
+		}
+		else
+		{
+			int32 Idx = 0;
+			while (Idx < DecoratorOps.Num())
+			{
+				if (DecoratorOps[Idx].Operation == EBTDecoratorLogic::Test)
+				{
+					UBehaviorTreeGraphNode* DecoratorNode = NewObject<UBehaviorTreeGraphNode_Decorator>(Graph);
+					GraphNode->AddSubNode(DecoratorNode, Graph);
+					DecoratorNode->NodeInstance = Decorators[DecoratorOps[Idx].Number];
+
+					Idx++;
+				}
+				else
+				{
+					UBehaviorTreeGraphNode_CompositeDecorator* CompositeNode = NewObject<UBehaviorTreeGraphNode_CompositeDecorator>(Graph);
+					GraphNode->AddSubNode(CompositeNode, Graph);
+					
+					const int32 NextIdx = CompositeNode->SpawnMissingNodes(Decorators, DecoratorOps, Idx);
+					CompositeNode->BuildDescription();
+
+					Idx = NextIdx;
+				}
+			}
+		}
+	}
+
+	UBehaviorTreeGraphNode* SpawnMissingGraphNodesWorker(UBTNode* Node, UBehaviorTreeGraphNode* ParentGraphNode, int32 ChildIdx, int32 ParentDecoratorCount, UBehaviorTreeGraph* Graph)
+	{
+		if (Node == nullptr)
+		{
+			return nullptr;
+		}
+
+		UBehaviorTreeGraphNode* GraphNode = nullptr;
+
+		UBTCompositeNode* CompositeNode = Cast<UBTCompositeNode>(Node);
+		if (Node->IsA(UBTComposite_SimpleParallel::StaticClass()))
+		{
+			FGraphNodeCreator<UBehaviorTreeGraphNode_SimpleParallel> NodeBuilder(*Graph);
+			GraphNode = NodeBuilder.CreateNode();
+			NodeBuilder.Finalize();
+		}
+		else if (CompositeNode)
+		{
+			FGraphNodeCreator<UBehaviorTreeGraphNode_Composite> NodeBuilder(*Graph);
+			GraphNode = NodeBuilder.CreateNode();
+			NodeBuilder.Finalize();
+		}
+		else if (Node->IsA(UBTTask_RunBehavior::StaticClass()))
+		{
+			FGraphNodeCreator<UBehaviorTreeGraphNode_SubtreeTask> NodeBuilder(*Graph);
+			GraphNode = NodeBuilder.CreateNode();
+			NodeBuilder.Finalize();
+		}
+		else
+		{
+			FGraphNodeCreator<UBehaviorTreeGraphNode_Task> NodeBuilder(*Graph);
+			GraphNode = NodeBuilder.CreateNode();
+			NodeBuilder.Finalize();
+		}
+
+		if (GraphNode)
+		{
+			const int32 ParentSubNodes = ParentGraphNode->Services.Num() + ParentGraphNode->Decorators.Num();
+			GraphNode->NodePosX = ParentGraphNode->NodePosX + ChildIdx * 400.0f;
+			GraphNode->NodePosY = ParentGraphNode->NodePosY + (ParentDecoratorCount + ParentSubNodes + 1) * 75.0f;
+			GraphNode->NodeInstance = Node;
+		}
+
+		if (CompositeNode)
+		{
+			for (int32 SubIdx = 0; SubIdx < CompositeNode->Services.Num(); SubIdx++)
+			{
+				UBehaviorTreeGraphNode* ServiceNode = NewObject<UBehaviorTreeGraphNode_Service>(Graph);
+				ServiceNode->NodeInstance = CompositeNode->Services[SubIdx];
+				GraphNode->AddSubNode(ServiceNode, Graph);
+			}
+
+			UEdGraphPin* OutputPin = FindGraphNodePin(GraphNode, EGPD_Output);
+
+			for (int32 Idx = 0; Idx < CompositeNode->Children.Num(); Idx++)
+			{
+				UBTNode* ChildNode = CompositeNode->GetChildNode(Idx);
+				UBehaviorTreeGraphNode* ChildGraphNode = SpawnMissingGraphNodesWorker(ChildNode, GraphNode,
+					Idx, ParentDecoratorCount + CompositeNode->Children[Idx].Decorators.Num(), Graph);
+
+				SpawnMissingDecoratorNodes(ChildGraphNode,
+					CompositeNode->Children[Idx].Decorators,
+					CompositeNode->Children[Idx].DecoratorOps,
+					Graph);
+
+				UEdGraphPin* ChildInputPin = FindGraphNodePin(ChildGraphNode, EGPD_Input);
+
+				OutputPin->MakeLinkTo(ChildInputPin);
+			}
+		}
+
+		return GraphNode;
+	}
+
+	UBehaviorTreeGraphNode* SpawnMissingGraphNodes(UBehaviorTree* Asset, UBehaviorTreeGraphNode* ParentGraphNode, UBehaviorTreeGraph* Graph)
+	{
+		if (ParentGraphNode == nullptr || Asset == nullptr)
+		{
+			return nullptr;
+		}
+
+		UBehaviorTreeGraphNode* GraphNode = SpawnMissingGraphNodesWorker(Asset->RootNode, ParentGraphNode, 0, Asset->RootDecorators.Num(), Graph);
+		SpawnMissingDecoratorNodes(GraphNode, Asset->RootDecorators, Asset->RootDecoratorOps, Graph);
+
+		return GraphNode;
+	}
+
 } // namespace BTGraphHelpers
 
 void UBehaviorTreeGraph::CreateBTFromGraph(UBehaviorTreeGraphNode* RootEdNode)
@@ -738,6 +879,32 @@ void UBehaviorTreeGraph::RemoveOrphanedNodes()
 		{
 			Node->SetFlags(RF_Transient);
 			Node->Rename(NULL, GetTransientPackage(), REN_DontCreateRedirectors | REN_NonTransactional | REN_ForceNoResetLoaders);
+		}
+	}
+}
+
+void UBehaviorTreeGraph::SpawnMissingNodes()
+{
+	UBehaviorTree* BTAsset = Cast<UBehaviorTree>(GetOuter());
+	if (BTAsset)
+	{
+		UBehaviorTreeGraphNode* RootNode = nullptr;
+		for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+		{
+			RootNode = Cast<UBehaviorTreeGraphNode_Root>(Nodes[Idx]);
+			if (RootNode)
+			{
+				break;
+			}
+		}
+
+		UBehaviorTreeGraphNode* SpawnedRootNode = BTGraphHelpers::SpawnMissingGraphNodes(BTAsset, RootNode, this);
+		if (RootNode && SpawnedRootNode)
+		{
+			UEdGraphPin* RootOutPin = BTGraphHelpers::FindGraphNodePin(RootNode, EGPD_Output);
+			UEdGraphPin* SpawnedInPin = BTGraphHelpers::FindGraphNodePin(SpawnedRootNode, EGPD_Input);
+
+			RootOutPin->MakeLinkTo(SpawnedInPin);
 		}
 	}
 }
@@ -881,4 +1048,95 @@ void UBehaviorTreeGraph::UnlockUpdates()
 	bLockUpdates = false;
 
 	UpdateAsset(EDebuggerFlags::SkipDebuggerFlags);
+}
+
+namespace BTAutoArrangeHelpers
+{
+	struct FNodeBoundsInfo
+	{
+		FVector2D SubGraphBBox;
+		TArray<FNodeBoundsInfo> Children;
+	};
+
+	void AutoArrangeNodes(UBehaviorTreeGraphNode* ParentNode, FNodeBoundsInfo& BBoxTree, float PosX, float PosY)
+	{
+		int32 BBoxIndex = 0;
+
+		UEdGraphPin* Pin = BTGraphHelpers::FindGraphNodePin(ParentNode, EGPD_Output);
+		if (Pin)
+		{
+			SGraphNode::FNodeSet NodeFilter;
+			for (int32 Idx = 0; Idx < Pin->LinkedTo.Num(); Idx++)
+			{
+				UBehaviorTreeGraphNode* GraphNode = Cast<UBehaviorTreeGraphNode>(Pin->LinkedTo[Idx]->GetOwningNode());
+				if (GraphNode && BBoxTree.Children.Num() > 0)
+				{
+					AutoArrangeNodes(GraphNode, BBoxTree.Children[BBoxIndex], PosX, PosY + GraphNode->NodeWidget.Pin()->GetDesiredSize().Y * 2.5f);
+					GraphNode->NodeWidget.Pin()->MoveTo(FVector2D(BBoxTree.Children[BBoxIndex].SubGraphBBox.X / 2 - GraphNode->NodeWidget.Pin()->GetDesiredSize().X / 2 + PosX, PosY), NodeFilter);
+					PosX += BBoxTree.Children[BBoxIndex].SubGraphBBox.X + 20;
+				}
+
+				BBoxIndex++;
+			}
+		}
+	}
+
+	void GetNodeSizeInfo(UBehaviorTreeGraphNode* ParentNode, FNodeBoundsInfo& BBoxTree)
+	{
+		BBoxTree.SubGraphBBox = ParentNode->NodeWidget.Pin()->GetDesiredSize();
+		float LevelWidth = 0;
+		float LevelHeight = 0;
+
+		UEdGraphPin* Pin = BTGraphHelpers::FindGraphNodePin(ParentNode, EGPD_Output);
+		if (Pin)
+		{
+			Pin->LinkedTo.Sort(FCompareNodeXLocation());
+			for (int32 Idx = 0; Idx < Pin->LinkedTo.Num(); Idx++)
+			{
+				UBehaviorTreeGraphNode* GraphNode = Cast<UBehaviorTreeGraphNode>(Pin->LinkedTo[Idx]->GetOwningNode());
+				if (GraphNode)
+				{
+					const int32 ChildIdx = BBoxTree.Children.Add(FNodeBoundsInfo());
+					FNodeBoundsInfo& ChildBounds = BBoxTree.Children[ChildIdx];
+
+					GetNodeSizeInfo(GraphNode, ChildBounds);
+
+					LevelWidth += ChildBounds.SubGraphBBox.X + 20;
+					if (ChildBounds.SubGraphBBox.Y > LevelHeight)
+					{
+						LevelHeight = ChildBounds.SubGraphBBox.Y;
+					}
+				}
+			}
+
+			if (LevelWidth > BBoxTree.SubGraphBBox.X)
+			{
+				BBoxTree.SubGraphBBox.X = LevelWidth;
+			}
+
+			BBoxTree.SubGraphBBox.Y += LevelHeight;
+		}
+	}
+}
+
+void UBehaviorTreeGraph::AutoArrange()
+{
+	UBehaviorTreeGraphNode* RootNode = nullptr;
+	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+	{
+		RootNode = Cast<UBehaviorTreeGraphNode_Root>(Nodes[Idx]);
+		if (RootNode)
+		{
+			break;
+		}
+	}
+
+	BTAutoArrangeHelpers::FNodeBoundsInfo BBoxTree;
+	BTAutoArrangeHelpers::GetNodeSizeInfo(RootNode, BBoxTree);
+	BTAutoArrangeHelpers::AutoArrangeNodes(RootNode, BBoxTree, 0, RootNode->NodeWidget.Pin()->GetDesiredSize().Y * 2.5f);
+
+	RootNode->NodePosX = BBoxTree.SubGraphBBox.X / 2 - RootNode->NodeWidget.Pin()->GetDesiredSize().X / 2;
+	RootNode->NodePosY = 0;
+
+	RootNode->NodeWidget.Pin()->GetOwnerPanel()->ZoomToFit(/*bOnlySelection=*/ false);
 }

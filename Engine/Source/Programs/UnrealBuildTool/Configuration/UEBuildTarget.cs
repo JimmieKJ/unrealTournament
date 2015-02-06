@@ -95,30 +95,29 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// A container for a binary files (dll, exe) with its associated debug info.
 	/// </summary>
-	public class FileManifest
+	public class BuildManifest
 	{
-		public readonly List<string> FileManifestItems = new List<string>();
+		public readonly List<string> BuildProducts = new List<string>();
 
-		public FileManifest()
+		public BuildManifest()
 		{
 		}
 
-		public void AddFileName( string FilePath )
+		public void AddBuildProduct(string FileName)
 		{
-			FileManifestItems.Add( Path.GetFullPath( FilePath ) );
-		}
-
-		public void AddBinaryNames(string OutputFilePath, string DebugInfoExtension)
-		{
-			// Only add unique files to the manifest. Multiple games have many shared binaries.
-			if( !FileManifestItems.Any( x => Path.GetFullPath( OutputFilePath ) == x ) )
+			string FullFileName = Path.GetFullPath(FileName);
+			if (!BuildProducts.Contains(FullFileName))
 			{
-				string FullPath = Path.GetFullPath(OutputFilePath);
-				FileManifestItems.Add( FullPath );
-				if (!string.IsNullOrEmpty(DebugInfoExtension))
-				{
-					FileManifestItems.Add(Path.ChangeExtension(FullPath, DebugInfoExtension));
-				}
+				BuildProducts.Add(FullFileName);
+			}
+		}
+
+		public void AddBuildProduct(string FileName, string DebugInfoExtension)
+		{
+			AddBuildProduct(FileName);
+			if(!String.IsNullOrEmpty(DebugInfoExtension))
+			{
+				AddBuildProduct(Path.ChangeExtension(FileName, DebugInfoExtension));
 			}
 		}
 	}
@@ -230,10 +229,6 @@ namespace UnrealBuildTool
 				if (ParsedPlatform != UnrealTargetPlatform.Unknown)
 				{
 					Platform = ParsedPlatform;
-				}
-				else if (Arguments[ArgumentIndex].ToLowerInvariant().StartsWith("-overridetargetappname="))
-				{
-					AdditionalDefinitions.Add(Arguments[ArgumentIndex]);
 				}
 				else
 				{
@@ -763,17 +758,7 @@ namespace UnrealBuildTool
 			List<OnlyModule> InOnlyModules,
 			bool bInEditorRecompile)
 		{
-			string CmdlineAppName = null;
-			const string OverrideTargetAppNameSwitch = "-overridetargetappname=";
-			if ((CmdlineAppName = InAdditionalDefinitions.Find(x => x.StartsWith(OverrideTargetAppNameSwitch))) != null)
-			{
-				AppName = CmdlineAppName.Substring(OverrideTargetAppNameSwitch.Length);
-			}
-			else
-			{
-				AppName = InAppName;
-			}
-
+			AppName = InAppName;
 			GameName = InGameName;
 			Platform = InPlatform;
 			Configuration = InConfiguration;
@@ -832,7 +817,7 @@ namespace UnrealBuildTool
 			TargetTypeOrNull = (Rules != null) ? Rules.Type : (TargetRules.TargetType?)null;
 
 			// Construct the output path based on configuration, platform, game if not specified.
-            OutputPaths = MakeBinaryPaths("", AppName, UEBuildBinaryType.Executable, TargetType, null, InAppName, Configuration == UnrealTargetConfiguration.Shipping ? Rules.ForceNameAsForDevelopment() : false, Rules.ExeBinariesSubFolder);
+            OutputPaths = MakeBinaryPaths("", AppName, UEBuildBinaryType.Executable, TargetType, null, AppName, Configuration == UnrealTargetConfiguration.Shipping ? Rules.ForceNameAsForDevelopment() : false, Rules.ExeBinariesSubFolder);
 			for (int Index = 0; Index < OutputPaths.Length; Index++)
 			{
 				OutputPaths[Index] = Path.GetFullPath(OutputPaths[Index]);
@@ -992,31 +977,19 @@ namespace UnrealBuildTool
 		/// <param name="Binaries">Target binaries</param>
 		/// <param name="Platform">Tareet platform</param>
 		/// <param name="Manifest">Manifest</param>
-		protected void CleanTarget(List<UEBuildBinary> Binaries, CPPTargetPlatform Platform, FileManifest Manifest)
+		protected void CleanTarget(List<UEBuildBinary> Binaries, CPPTargetPlatform Platform, BuildManifest Manifest)
 		{
 			{
-				var TargetFilename = RulesCompiler.GetTargetFilename(GameName);
 				var LocalTargetName = (TargetType == TargetRules.TargetType.Program) ? AppName : GameName;
-
 				Log.TraceVerbose("Cleaning target {0} - AppName {1}", LocalTargetName, AppName);
-				Log.TraceVerbose("\tTargetFilename {0}", TargetFilename);
 
-				var TargetFolder = "";
-				if (String.IsNullOrEmpty(TargetFilename) == false)
-				{
-					var TargetInfo = new FileInfo(TargetFilename);
-					TargetFolder = TargetInfo.Directory.FullName;
-					var SourceIdx = TargetFolder.LastIndexOf("\\Source");
-					if (SourceIdx != -1)
-					{
-						TargetFolder = TargetFolder.Substring(0, SourceIdx + 1);
-					}
-				}
+				var TargetFilename = RulesCompiler.GetTargetFilename(GameName);
+				Log.TraceVerbose("\tTargetFilename {0}", TargetFilename);
 
 				// Collect all files to delete.
 				var AdditionalFileExtensions = new string[] { ".lib", ".exp", ".dll.response" };
-				var AllFilesToDelete = new List<string>(Manifest.FileManifestItems);
-				foreach (var FileManifestItem in Manifest.FileManifestItems)
+				var AllFilesToDelete = new List<string>(Manifest.BuildProducts);
+				foreach (var FileManifestItem in Manifest.BuildProducts)
 				{
 					var FileExt = Path.GetExtension(FileManifestItem);
 					if (FileExt == ".dll" || FileExt == ".exe")
@@ -1088,6 +1061,7 @@ namespace UnrealBuildTool
 					}
 				}
 
+
 				//
 				{
 					var AppEnginePath = Path.Combine(PlatformEngineBuildDataFolder, LocalTargetName, Configuration.ToString());
@@ -1098,6 +1072,13 @@ namespace UnrealBuildTool
 				}
 
 				// Clean the intermediate directory
+				if( !String.IsNullOrEmpty( ProjectIntermediateDirectory ) )
+				{
+					if (Directory.Exists(ProjectIntermediateDirectory))
+					{
+						CleanDirectory(ProjectIntermediateDirectory);
+					}
+				}
 				if (!UnrealBuildTool.RunningRocket())
 				{
 					// This is always under Rocket installation folder
@@ -1302,11 +1283,11 @@ namespace UnrealBuildTool
 				ManifestPath = "../Intermediate/Build/Manifest.xml";
 			}
 
-			FileManifest Manifest = new FileManifest();
+			BuildManifest Manifest = new BuildManifest();
 			if (UEBuildConfiguration.bMergeManifests)
 			{
 				// Load in existing manifest (if any)
-				Manifest = Utils.ReadClass<FileManifest>(ManifestPath);
+				Manifest = Utils.ReadClass<BuildManifest>(ManifestPath);
 			}
 
 			UnrealTargetPlatform TargetPlatform = CPPTargetPlatformToUnrealTargetPlatform( Platform );
@@ -1333,7 +1314,17 @@ namespace UnrealBuildTool
 				// Create and add the binary and associated debug info
 				foreach (string OutputFilePath in Binary.Config.OutputFilePaths)
 				{
-					Manifest.AddBinaryNames(OutputFilePath, DebugInfoExtension);
+					Manifest.AddBuildProduct(OutputFilePath, DebugInfoExtension);
+				}
+
+				// Add all the stripped debug symbols
+				if(UnrealBuildTool.BuildingRocket() && (Platform == CPPTargetPlatform.Win32 || Platform == CPPTargetPlatform.Win64))
+				{
+					foreach(string OutputFilePath in Binary.Config.OutputFilePaths)
+					{
+						string StrippedPath = Path.Combine(Path.GetDirectoryName(OutputFilePath), Path.GetFileNameWithoutExtension(OutputFilePath) + "-Stripped" + DebugInfoExtension);
+						Manifest.AddBuildProduct(StrippedPath);
+					}
 				}
 
 				if (Binary.Config.Type == UEBuildBinaryType.Executable &&
@@ -1342,17 +1333,17 @@ namespace UnrealBuildTool
 				{
 					foreach (string OutputFilePath in Binary.Config.OutputFilePaths)
 					{
-						Manifest.AddBinaryNames(UEBuildBinary.GetAdditionalConsoleAppPath(OutputFilePath), DebugInfoExtension);
+						Manifest.AddBuildProduct(UEBuildBinary.GetAdditionalConsoleAppPath(OutputFilePath), DebugInfoExtension);
 					}
 				}
 
-                ToolChain.AddFilesToManifest(ref Manifest,Binary);
+                ToolChain.AddFilesToManifest(Manifest, Binary);
 			}
 			{
 				string DebugInfoExtension = BuildPlatform.GetDebugInfoExtension(UEBuildBinaryType.StaticLibrary);
 				foreach (var RedistLib in SpecialRocketLibFilesThatAreBuildProducts)
 				{
-					Manifest.AddBinaryNames(RedistLib, DebugInfoExtension);
+					Manifest.AddBuildProduct(RedistLib, DebugInfoExtension);
 				}
 			}
 
@@ -1363,7 +1354,7 @@ namespace UnrealBuildTool
 			}
 			if (UEBuildConfiguration.bGenerateManifest)
 			{
-				Utils.WriteClass<FileManifest>(Manifest, ManifestPath, "");
+				Utils.WriteClass<BuildManifest>(Manifest, ManifestPath, "");
 			}
 		}
 
@@ -2374,6 +2365,7 @@ namespace UnrealBuildTool
 			{
 				Prefix = "lib";
 			}
+
 			if (LocalConfig == UnrealTargetConfiguration.Development || bForceNameAsForDevelopment)
 			{
 				OutBinaryPath = Path.Combine(BaseDirectory, String.Format("{3}{0}{1}{2}", BinaryName, BinarySuffix, BinaryExtension, Prefix));

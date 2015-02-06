@@ -145,4 +145,7 @@ private:
 
 	/** The specification of the culture we are using to display surveys */
 	ECultureSpecification CurrentCulture;
+
+private:
+	FTimerHandle DisplayNotificationTimerHandle;
 };

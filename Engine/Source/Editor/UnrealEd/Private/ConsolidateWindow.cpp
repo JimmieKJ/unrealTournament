@@ -442,7 +442,7 @@ TSharedRef<ITableRow> SConsolidateToolWidget::OnGenerateRowForList( TSharedPtr<F
 			.OnCheckStateChanged( ListItemPtr.ToSharedRef(), &FListItem::OnAssetSelected )
 			[
 				SNew (STextBlock)
-				.Text( ListItemPtr->GetObjectName() )
+				.Text( FText::FromString(ListItemPtr->GetObjectName()) )
 			]
 		];
 }

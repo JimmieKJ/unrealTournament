@@ -31,7 +31,7 @@ protected:
 	void OnParamBoolValueChanged(ECheckBoxState BoolValue) const;
 	EVisibility GetParamBoolValueVisibility() const;
 
-	FString GetHeaderDesc() const;
+	FText GetHeaderDesc() const;
 	void OnTypeChanged();
 	void InitCachedTypes();
 

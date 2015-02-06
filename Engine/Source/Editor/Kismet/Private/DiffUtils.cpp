@@ -8,6 +8,7 @@
 #include "Engine/SimpleConstructionScript.h"
 #include "IAssetTypeActions.h"
 #include "ObjectEditorUtils.h"
+#include "ISourceControlModule.h"
 
 static const UProperty* Resolve( const UStruct* Class, FName PropertyName )
 {
@@ -539,12 +540,24 @@ FText DiffViewUtils::SCSDiffMessage(const FSCSDiffEntry& Difference, FText Objec
 
 FText DiffViewUtils::GetPanelLabel(const UBlueprint* Blueprint, const FRevisionInfo& Revision, FText Label )
 {
-	if( Revision.Revision >= 0 )
+	if( !Revision.Revision.IsEmpty() )
 	{
-		FText RevisionData = FText::Format(NSLOCTEXT("DiffViewUtils", "RevisionData", "Revision {0} - CL {1} - {2}")
-			, FText::AsNumber(Revision.Revision)
-			, FText::AsNumber(Revision.Changelist)
-			, FText::FromString(Revision.Date.ToString(TEXT("%m/%d/%Y"))));
+		FText RevisionData;
+		
+		if(ISourceControlModule::Get().GetProvider().UsesChangelists())
+		{
+			RevisionData = FText::Format(NSLOCTEXT("DiffViewUtils", "RevisionData", "Revision {0} - CL {1} - {2}")
+				, FText::FromString(Revision.Revision)
+				, FText::AsNumber(Revision.Changelist)
+				, FText::FromString(Revision.Date.ToString(TEXT("%m/%d/%Y"))));
+		}
+		else
+		{
+			RevisionData = FText::Format(NSLOCTEXT("DiffViewUtils", "RevisionDataNoChangelist", "Revision {0} - {1}")
+				, FText::FromString(Revision.Revision)
+				, FText::FromString(Revision.Date.ToString(TEXT("%m/%d/%Y"))));		
+		}
+
 		return FText::Format( NSLOCTEXT("DiffViewUtils", "RevisionLabel", "{0}\n{1}\n{2}")
 			, Label
 			, FText::FromString( Blueprint->GetName() )

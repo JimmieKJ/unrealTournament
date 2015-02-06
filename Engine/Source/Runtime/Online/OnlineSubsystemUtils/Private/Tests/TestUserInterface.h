@@ -23,6 +23,8 @@ private:
 	IOnlineSubsystem* OnlineSub;
 	/** Delegate to use for querying user info list */
 	FOnQueryUserInfoCompleteDelegate OnQueryUserInfoCompleteDelegate;
+	/** OnQueryUserInfoComplete delegate handle */
+	FDelegateHandle OnQueryUserInfoCompleteDelegateHandle;
 
 	/** List of User ids to query */
 	TArray< TSharedRef<FUniqueNetId> > QueryUserIds;

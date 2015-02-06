@@ -507,22 +507,11 @@ void FPropertyEditorModule::UpdatePropertyViews( const TArray<UObject*>& NewObje
 			{
 				if( !DetailViewPin->IsLocked() )
 				{
-					DetailViewPin->SetObjects( NewObjectList, true );
+					DetailViewPin->SetObjects(NewObjectList, true);
 				}
 				else
 				{
-					if( ValidObjects.Num() == 0 )
-					{
-						// Populate the valid objects list only once
-						UWorld* IteratorWorld = GWorld;
-						for( FActorIterator It(IteratorWorld); It; ++It )
-						{
-							ValidObjects.Add( *It );
-						}
-					}
-
-					// If the property window is locked make sure all the actors still exist
-					DetailViewPin->RemoveInvalidActors( ValidObjects );
+					DetailViewPin->RemoveInvalidObjects();
 				}
 			}
 		}

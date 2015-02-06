@@ -220,7 +220,7 @@ void SProfilerToolbar::AddSessionInstanceItem( TSharedRef<SHorizontalBox>& Sessi
 		.ButtonContent()
 		[
 			SNew(STextBlock)
-			.Text( ProfilerSessionName )
+			.Text( FText::FromString(ProfilerSessionName) )
 			.ShadowOffset( FVector2D(1.0f,1.0f) )
 			.ShadowColorAndOpacity( FColorList::SkyBlue )
 		]

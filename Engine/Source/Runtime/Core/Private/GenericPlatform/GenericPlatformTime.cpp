@@ -171,20 +171,22 @@ struct FCPUTimeDump
 			FParse::Value(*Args[0], TEXT("delay="), Delay);
 		}
 
-		FTicker::GetCoreTicker().RemoveTicker( GetCPUTimeDelegate );
-		FTicker::GetCoreTicker().RemoveTicker( CPUTimeDumpDelegate );
+		FTicker::GetCoreTicker().RemoveTicker( GetCPUTimeDelegateHandle );
+		FTicker::GetCoreTicker().RemoveTicker( CPUTimeDumpDelegateHandle );
+		GetCPUTimeDelegateHandle   = FDelegateHandle();
+		CPUTimeDumpDelegateHandle  = FDelegateHandle();
 
 		if( Delay == 0 )
 		{
 			UE_LOG(LogGenericPlatformTime, Log, TEXT("Disabling printing the CPU usage"));
-		}	
+		}
 		else
 		{
 			Delay = FMath::Clamp( Delay, 10, 300 );
 			UE_LOG(LogGenericPlatformTime, Log, TEXT("Delay set to %i second(s), started printing the CPU usage"), Delay);
 
-			FTicker::GetCoreTicker().AddTicker( GetCPUTimeDelegate );
-			FTicker::GetCoreTicker().AddTicker( CPUTimeDumpDelegate, Delay );
+			GetCPUTimeDelegateHandle   = FTicker::GetCoreTicker().AddTicker( GetCPUTimeDelegate );
+			CPUTimeDumpDelegateHandle  = FTicker::GetCoreTicker().AddTicker( CPUTimeDumpDelegate, Delay );
 		}
 	}
 
@@ -221,6 +223,12 @@ protected:
 
 	/** Ticker delegate for printing the average CPU usage, called every nth frame. */
 	FTickerDelegate CPUTimeDumpDelegate;
+
+	/** Handle for the added GetCPUTimeDelegate delegate. */
+	FDelegateHandle GetCPUTimeDelegateHandle;
+
+	/** Handle for the added CPUTimeDumpDelegate delegate. */
+	FDelegateHandle CPUTimeDumpDelegateHandle;
 };
 
 static FAutoConsoleCommand CPUTimeDumpCommand

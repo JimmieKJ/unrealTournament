@@ -5,32 +5,32 @@
 #define LOCTEXT_NAMESPACE "SCAQueryDetails"
 
 /** Util to give written explanation for why we missed something */
-FString GetReasonForMiss(const UPrimitiveComponent* MissedComp, const FCAQuery* Query)
+FText GetReasonForMiss(const UPrimitiveComponent* MissedComp, const FCAQuery* Query)
 {
 	if(MissedComp != NULL && Query != NULL)
 	{
 		if(MissedComp->GetOwner() && !MissedComp->GetOwner()->GetActorEnableCollision())
 		{
-			return FString::Printf(TEXT("Owning Actor '%s' has all collision disabled (SetActorEnableCollision)"), *MissedComp->GetOwner()->GetName());
+			return FText::Format(LOCTEXT("MissReasonActorCollisionDisabledFmt", "Owning Actor '{0}' has all collision disabled (SetActorEnableCollision)"), FText::FromString(MissedComp->GetOwner()->GetName()));
 		}
 
 		if(!MissedComp->IsCollisionEnabled())
 		{
-			return FString::Printf(TEXT("Component '%s' has CollisionEnabled == NoCollision"), *MissedComp->GetName());
+			return FText::Format(LOCTEXT("MissReasonComponentCollisionDisabledFmt", "Component '{0}' has CollisionEnabled == NoCollision"), FText::FromString(MissedComp->GetName()));
 		}
 
 		if(MissedComp->GetCollisionResponseToChannel(Query->Channel) == ECR_Ignore)
 		{
-			return FString::Printf(TEXT("Component '%s' ignores this channel."), *MissedComp->GetName());
+			return FText::Format(LOCTEXT("MissReasonComponentIgnoresChannelFmt", "Component '{0}' ignores this channel."), FText::FromString(MissedComp->GetName()));
 		}
 
 		if(Query->ResponseParams.CollisionResponse.GetResponse(MissedComp->GetCollisionObjectType()) == ECR_Ignore)
 		{
-			return FString::Printf(TEXT("Query ignores Component '%s' movement channel."), *MissedComp->GetName());
+			return FText::Format(LOCTEXT("MissReasonQueryIgnoresComponentFmt", "Query ignores Component '{0}' movement channel."), FText::FromString(MissedComp->GetName()));
 		}
 	}
 
-	return TEXT("Unknown");
+	return LOCTEXT("MissReasonUnknown", "Unknown");
 }
 
 /** Implements a row widget for result list. */
@@ -57,11 +57,11 @@ public:
 	{
 		// Get info to apply to all columns (color and tooltip)
 		FSlateColor ResultColor = FSlateColor::UseForeground();
-		FString TooltipString;
+		FText TooltipText = FText::GetEmpty();
 		if(Info->bMiss)
 		{
 			ResultColor = FLinearColor(0.4f,0.4f,0.65f);
-			TooltipString = LOCTEXT("MissPrefix", "Miss: ").ToString() + GetReasonForMiss(Info->Result.Component.Get(), OwnerDetailsPtr.Pin()->GetCurrentQuery());
+			TooltipText = FText::Format(LOCTEXT("MissToolTipFmt", "Miss: {0}"), GetReasonForMiss(Info->Result.Component.Get(), OwnerDetailsPtr.Pin()->GetCurrentQuery()));
 		}
 		else if(Info->Result.bBlockingHit && Info->Result.bStartPenetrating)
 		{
@@ -72,51 +72,55 @@ public:
 		// Generate widget for column
 		if (ColumnName == TEXT("Time"))
 		{
+			static const FNumberFormattingOptions TimeNumberFormat = FNumberFormattingOptions()
+				.SetMinimumFractionalDigits(3)
+				.SetMaximumFractionalDigits(3);
+
 			return	SNew(STextBlock)
 					.ColorAndOpacity( ResultColor )
-					.ToolTipText( TooltipString )
-					.Text( FString::Printf(TEXT("%.3f"), Info->Result.Time) );
+					.ToolTipText( TooltipText )
+					.Text( FText::AsNumber(Info->Result.Time, &TimeNumberFormat) );
 		}
 		else if (ColumnName == TEXT("Type"))
 		{
-			FString TypeString;
+			FText TypeText = FText::GetEmpty();
 			if(Info->bMiss)
 			{
-				TypeString = TEXT("Miss");
+				TypeText = LOCTEXT("MissLabel", "Miss");
 			}
 			else if(Info->Result.bBlockingHit)
 			{
-				TypeString = TEXT("Block");
+				TypeText = LOCTEXT("BlockLabel", "Block");
 			}
 			else
 			{
-				TypeString = TEXT("Touch");
+				TypeText = LOCTEXT("TouchLabel", "Touch");
 			}
 
 			return	SNew(STextBlock)
 					.ColorAndOpacity( ResultColor )
-					.ToolTipText( TooltipString )
-					.Text( TypeString );
+					.ToolTipText( TooltipText )
+					.Text( TypeText );
 		}
 		else if (ColumnName == TEXT("Component"))
 		{
-			FString LongName = TEXT("Invalid");
+			FText LongName = LOCTEXT("InvalidLabel", "Invalid");
 			if(Info->Result.Component.IsValid())
 			{
-				LongName = Info->Result.Component.Get()->GetReadableName();
+				LongName = FText::FromString(Info->Result.Component.Get()->GetReadableName());
 			}
 
 			return	SNew(STextBlock)
 					.ColorAndOpacity( ResultColor )
-					.ToolTipText( TooltipString )
+					.ToolTipText( TooltipText )
 					.Text( LongName );
 		}
 		else if (ColumnName == TEXT("Normal"))
 		{
 			return	SNew(STextBlock)
 					.ColorAndOpacity( ResultColor )
-					.ToolTipText( TooltipString )
-					.Text( FString::Printf(TEXT("%s"), *Info->Result.Normal.ToString()) );
+					.ToolTipText( TooltipText )
+					.Text( FText::FromString(Info->Result.Normal.ToString()) );
 		}
 
 		return SNullWidget::NullWidget;

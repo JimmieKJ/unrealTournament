@@ -235,6 +235,7 @@ public:
 	FString ViewFlagName;
 	float TextWithoutShadowDistance;
 	FDebugDrawDelegate DebugTextDrawingDelegate;
+	FDelegateHandle DebugTextDrawingDelegateHandle;
 	EDrawType DrawType;
 };
 

@@ -126,15 +126,15 @@ void FEnvTraceDataCustomization::CacheTraceModes(TSharedRef<class IPropertyHandl
 	TraceModes.Reset();
 	if (bCanDisable)
 	{
-		TraceModes.Add(FStringIntPair(TraceModeEnum->GetEnumText(EEnvQueryTrace::None).ToString(), EEnvQueryTrace::None));
+		TraceModes.Add(FTextIntPair(TraceModeEnum->GetEnumText(EEnvQueryTrace::None), EEnvQueryTrace::None));
 	}
 	if (bCanNavMesh)
 	{
-		TraceModes.Add(FStringIntPair(TraceModeEnum->GetEnumText(EEnvQueryTrace::Navigation).ToString(), EEnvQueryTrace::Navigation));
+		TraceModes.Add(FTextIntPair(TraceModeEnum->GetEnumText(EEnvQueryTrace::Navigation), EEnvQueryTrace::Navigation));
 	}
 	if (bCanGeometry)
 	{
-		TraceModes.Add(FStringIntPair(TraceModeEnum->GetEnumText(EEnvQueryTrace::Geometry).ToString(), EEnvQueryTrace::Geometry));
+		TraceModes.Add(FTextIntPair(TraceModeEnum->GetEnumText(EEnvQueryTrace::Geometry), EEnvQueryTrace::Geometry));
 	}
 
 	ActiveMode = EEnvQueryTrace::None;
@@ -154,41 +154,41 @@ TSharedRef<SWidget> FEnvTraceDataCustomization::OnGetTraceModeContent()
 	for (int32 i = 0; i < TraceModes.Num(); i++)
 	{
 		FUIAction ItemAction( FExecuteAction::CreateSP( this, &FEnvTraceDataCustomization::OnTraceModeChanged, TraceModes[i].Int ) );
-		MenuBuilder.AddMenuEntry( FText::FromString( TraceModes[i].Str ), TAttribute<FText>(), FSlateIcon(), ItemAction);
+		MenuBuilder.AddMenuEntry( TraceModes[i].Text, TAttribute<FText>(), FSlateIcon(), ItemAction);
 	}
 
 	return MenuBuilder.MakeWidget();
 }
 
-FString FEnvTraceDataCustomization::GetCurrentTraceModeDesc() const
+FText FEnvTraceDataCustomization::GetCurrentTraceModeDesc() const
 {
 	for (int32 i = 0; i < TraceModes.Num(); i++)
 	{
 		if (TraceModes[i].Int == ActiveMode)
 		{
-			return TraceModes[i].Str;
+			return TraceModes[i].Text;
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
-FString FEnvTraceDataCustomization::GetShortDescription() const
+FText FEnvTraceDataCustomization::GetShortDescription() const
 {
-	FString Desc;
+	FText Desc = FText::GetEmpty();
 
 	switch (ActiveMode)
 	{
 	case EEnvQueryTrace::Geometry:
-		Desc = LOCTEXT("TraceGeom","geometry trace").ToString();
+		Desc = LOCTEXT("TraceGeom","geometry trace");
 		break;
 
 	case EEnvQueryTrace::Navigation:
-		Desc = LOCTEXT("TraceNav","navmesh trace").ToString();
+		Desc = LOCTEXT("TraceNav","navmesh trace");
 		break;
 
 	case EEnvQueryTrace::None:
-		Desc = LOCTEXT("TraceNone","trace disabled").ToString();
+		Desc = LOCTEXT("TraceNone","trace disabled");
 		break;
 
 	default: break;

@@ -119,7 +119,7 @@ FDetailedTickStats::FDetailedTickStats( int32 InNumObjectsToReport, float InTime
 FDetailedTickStats::~FDetailedTickStats()
 {
 	// remove callback as we are dead
-	FCoreUObjectDelegates::PreGarbageCollect.RemoveRaw(this, &FDetailedTickStats::OnPreGarbageCollect);
+	FCoreUObjectDelegates::PreGarbageCollect.Remove(OnPreGarbageCollectDelegateHandle);
 }
 
 /**
@@ -179,7 +179,7 @@ void FDetailedTickStats::EndObject( UObject* Object, float DeltaTime, bool bForS
 		{
 			GCCallBackRegistered = true;
 			// register callback so that we can avoid finding the wrong stats for new objects reusing memory that used to be associated with a different object
-			FCoreUObjectDelegates::PreGarbageCollect.AddRaw(this, &FDetailedTickStats::OnPreGarbageCollect);
+			OnPreGarbageCollectDelegateHandle = FCoreUObjectDelegates::PreGarbageCollect.AddRaw(this, &FDetailedTickStats::OnPreGarbageCollect);
 		}
 
 		FTickStats NewTickStats;
@@ -550,7 +550,7 @@ void UWorld::ProcessLevelStreamingVolumes(FVector* OverrideViewLocation)
 			else
 			{
 				FRotator ViewRotation(0,0,0);
-				PlayerActor->GetActorEyesViewPoint( ViewLocation, ViewRotation );
+				PlayerActor->GetPlayerViewPoint( ViewLocation, ViewRotation );
 			}
 
 			TMap<AVolume*,bool> VolumeMap;

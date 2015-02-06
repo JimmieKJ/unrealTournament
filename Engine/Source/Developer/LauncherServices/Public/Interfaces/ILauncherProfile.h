@@ -20,7 +20,10 @@ namespace ELauncherProfileCookModes
 		OnTheFly,
 
 		/** Cook by the book in the editor process space */
-		ByTheBookInEditor
+		ByTheBookInEditor,
+
+		/** Cook on the fly in the editor process space */
+		OnTheFlyInEditor,
 	};
 }
 

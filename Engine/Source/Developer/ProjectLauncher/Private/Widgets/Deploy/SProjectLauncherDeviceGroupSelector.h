@@ -81,7 +81,7 @@ private:
 	FReply HandleDeviceGroupComboBoxAddClicked( );
 
 	// Callback for getting the device group combo box content.
-	FString HandleDeviceGroupComboBoxContent() const;
+	FText HandleDeviceGroupComboBoxContent() const;
 
 	// Callback for generating a row for the device group combo box.
 	TSharedRef<SWidget> HandleDeviceGroupComboBoxGenerateWidget( ILauncherDeviceGroupPtr InItem );
@@ -102,7 +102,7 @@ private:
 	void HandleDeviceGroupComboBoxSelectionRenamed( const FText& CommittedText, ETextCommit::Type );
 
 	// Callback for getting the text of a device group combo box widget.
-	FString HandleDeviceGroupComboBoxWidgetText( ILauncherDeviceGroupPtr Group ) const;
+	FText HandleDeviceGroupComboBoxWidgetText( ILauncherDeviceGroupPtr Group ) const;
 
 	// Callback for changing the list of groups in the profile manager.
 	void HandleProfileManagerDeviceGroupsChanged( const ILauncherDeviceGroupRef& /*ChangedProfile*/ );

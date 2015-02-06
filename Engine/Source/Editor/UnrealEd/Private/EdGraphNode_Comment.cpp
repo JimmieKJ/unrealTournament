@@ -91,9 +91,9 @@ FText UEdGraphNode_Comment::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	return FText::FromString(NodeComment);
 }
 
-FString UEdGraphNode_Comment::GetPinNameOverride(const UEdGraphPin& Pin) const
+FText UEdGraphNode_Comment::GetPinNameOverride(const UEdGraphPin& Pin) const
 {
-	return GetNodeTitle(ENodeTitleType::ListView).ToString();
+	return GetNodeTitle(ENodeTitleType::ListView);
 }
 
 FLinearColor UEdGraphNode_Comment::GetNodeCommentColor() const

@@ -74,7 +74,7 @@ public:
 protected:
 	TWeakPtr<FBlueprintEditor> MyBlueprintEditor;
 
-	// Set of spawnable tabs in blueprint defaults mode
+	// Set of spawnable tabs in Class Defaults mode
 	FWorkflowAllowedTabSet BlueprintDefaultsTabFactories;
 };
 
@@ -105,6 +105,8 @@ public:
 	FBlueprintInterfaceApplicationMode(TSharedPtr<class FBlueprintEditor> InBlueprintEditor);
 
 	virtual void RegisterTabFactories(TSharedPtr<FTabManager> InTabManager) override;
+	virtual void PreDeactivateMode() override;
+	virtual void PostActivateMode() override;
 public:
 
 protected:
@@ -120,6 +122,8 @@ public:
 	FBlueprintMacroApplicationMode(TSharedPtr<class FBlueprintEditor> InBlueprintEditor);
 
 	virtual void RegisterTabFactories(TSharedPtr<FTabManager> InTabManager) override;
+	virtual void PreDeactivateMode() override;
+	virtual void PostActivateMode() override;
 public:
 
 protected:
@@ -127,4 +131,27 @@ protected:
 
 	// Set of spawnable tabs in this mode
 	FWorkflowAllowedTabSet BlueprintMacroTabFactories;
+};
+
+class KISMET_API FBlueprintEditorUnifiedMode : public FApplicationMode
+{
+public:
+	FBlueprintEditorUnifiedMode(TSharedPtr<class FBlueprintEditor> InBlueprintEditor, FName InModeName, FText(*GetLocalizedMode)( const FName ), const bool bRegisterViewport = true);
+
+	virtual void RegisterTabFactories(TSharedPtr<FTabManager> InTabManager) override;
+	virtual void PreDeactivateMode() override;
+	virtual void PostActivateMode() override;
+public:
+
+protected:
+	TWeakPtr<FBlueprintEditor> MyBlueprintEditor;
+
+	// Set of spawnable tabs in blueprint editing mode
+	FWorkflowAllowedTabSet BlueprintEditorTabFactories;
+
+	// Set of spawnable tabs useful in derived classes, even without a blueprint
+	FWorkflowAllowedTabSet CoreTabFactories;
+
+	// Set of spawnable tabs only usable in blueprint editing mode (not useful in Persona, etc...)
+	FWorkflowAllowedTabSet BlueprintEditorOnlyTabFactories;
 };

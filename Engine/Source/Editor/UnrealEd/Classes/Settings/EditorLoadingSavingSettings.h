@@ -27,17 +27,30 @@ public:
 
 public:
 
+	/**Automatically reimports textures when a change to source content is detected */
+	UPROPERTY(EditAnywhere, config, Category=AutoReimport, meta=(DisplayName="Monitor Content Directories", ToolTip="When enabled, changes to made to source content files inside the content directories will automatically be reflected in the content browser."))
+	bool bMonitorContentDirectories;
+
 	/** Directories being monitored for Auto Reimport */
-	UPROPERTY(EditAnywhere, config, Category=AutoReimport, meta=(DisplayName="Auto Reimport Directories"))
+	UPROPERTY(EditAnywhere, config, AdvancedDisplay,Category=AutoReimport, meta=(DisplayName="Directories to Monitor", ToolTip="Lists every directory to monitor for content changes. Can be virtual package paths (eg /Game/ or /MyPlugin/), or absolute paths on disk."))
 	TArray<FString> AutoReimportDirectories;
 
-	/**Automatically reimports textures when a change to source content is detected */
-	UPROPERTY(EditAnywhere, config, Category=AutoReimport, meta=(DisplayName="Auto Reimport Textures"))
-	bool bAutoReimportTextures;
+	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=AutoReimport, meta=(DisplayName="Auto Create Assets", ToolTip="When enabled, newly added source content files will be automatically imported into new assets."))
+	bool bAutoCreateAssets;
+	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=AutoReimport, meta=(DisplayName="Auto Delete Assets", ToolTip="When enabled, deleting a source content file will automatically prompt the deletion of any related assets."))
+	bool bAutoDeleteAssets;
 
-	/**Automatically reimports CSV files when a change to source content is detected */
-	UPROPERTY(EditAnywhere, config, Category=AutoReimport, meta=(DisplayName="Auto Reimport CSVData"))
-	bool bAutoReimportCSV;
+	/** Internal setting to control whether we should ask the user whether we should automatically delete source files when their assets are deleted */
+	UPROPERTY(config)
+	bool bDeleteSourceFilesWithAssets;
+
+private:
+
+	/** Deprecated properties - we automatically monitor all source file types that are supported by in memory factories now */
+	UPROPERTY(config)
+	bool bAutoReimportTextures_DEPRECATED;
+	UPROPERTY(config)
+	bool bAutoReimportCSV_DEPRECATED;
 
 public:
 

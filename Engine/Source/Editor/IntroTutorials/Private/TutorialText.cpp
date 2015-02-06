@@ -90,7 +90,7 @@ static void OnDocLinkClicked(const FSlateHyperlinkRun::FMetadata& Metadata)
 			FEngineAnalytics::GetProvider().RecordEvent( TEXT("Rocket.Tutorials.DocLinkClicked"), EventAttributes );
 		}
 
-		IDocumentation::Get()->Open(*Url);
+		IDocumentation::Get()->Open(*Url, FDocumentationSourceInfo(TEXT("tutorials")));
 	}
 }
 

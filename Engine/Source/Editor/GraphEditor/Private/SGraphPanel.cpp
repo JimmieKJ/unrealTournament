@@ -8,6 +8,10 @@
 #include "Editor/UnrealEd/Public/DragAndDrop/AssetDragDropOp.h"
 #include "Editor/UnrealEd/Public/DragAndDrop/LevelDragDropOp.h"
 
+#include "GraphEditorActions.h"
+#include "UICommandInfo.h"
+#include "InputGesture.h"
+
 #include "ConnectionDrawingPolicy.h"
 #include "BlueprintConnectionDrawingPolicy.h"
 #include "AnimGraphConnectionDrawingPolicy.h"
@@ -93,14 +97,14 @@ void SGraphPanel::Construct( const SGraphPanel::FArguments& InArgs )
 
 	// Register for notifications
 	MyRegisteredGraphChangedDelegate = FOnGraphChanged::FDelegate::CreateSP(this, &SGraphPanel::OnGraphChanged);
-	this->GraphObj->AddOnGraphChangedHandler(MyRegisteredGraphChangedDelegate);
+	MyRegisteredGraphChangedDelegateHandle = this->GraphObj->AddOnGraphChangedHandler(MyRegisteredGraphChangedDelegate);
 	
 	ShowGraphStateOverlay = InArgs._ShowGraphStateOverlay;
 }
 
 SGraphPanel::~SGraphPanel()
 {
-	this->GraphObj->RemoveOnGraphChangedHandler(MyRegisteredGraphChangedDelegate);
+	this->GraphObj->RemoveOnGraphChangedHandler(MyRegisteredGraphChangedDelegateHandle);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -552,12 +556,12 @@ FReply SGraphPanel::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InK
 			UpdateSelectedNodesPositions(FVector2D(-GetSnapGridSize(),0.0f));
 			return FReply::Handled();
 		}
-		if ( InKeyEvent.GetKey() ==  EKeys::Subtract )
+		if(InKeyEvent.GetKey() == FGraphEditorCommands::Get().ZoomOut->GetActiveGesture()->Key)
 		{
 			ChangeZoomLevel(-1, CachedAllottedGeometryScaledSize / 2.f, InKeyEvent.IsControlDown());
 			return FReply::Handled();
 		}
-		if ( InKeyEvent.GetKey() ==  EKeys::Add )
+		if(InKeyEvent.GetKey() == FGraphEditorCommands::Get().ZoomIn->GetActiveGesture()->Key)
 		{
 			ChangeZoomLevel(+1, CachedAllottedGeometryScaledSize / 2.f, InKeyEvent.IsControlDown());
 			return FReply::Handled();
@@ -903,12 +907,7 @@ TSharedPtr<SWidget> SGraphPanel::SummonContextMenu(const FVector2D& WhereToSummo
 
 		FActionMenuContent FocusedContent = OnGetContextMenuFor.Execute(SpawnInfo);
 
-		TSharedRef<SWidget> MenuContent =
-			SNew( SBorder )
-			.BorderImage( FEditorStyle::GetBrush("Menu.Background") )
-			[
-				FocusedContent.Content
-			];
+		TSharedRef<SWidget> MenuContent = FocusedContent.Content;
 		
 		FSlateApplication::Get().PushMenu(
 			AsShared(),

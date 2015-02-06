@@ -26,7 +26,7 @@ protected:
 	float GetSequencePositionRatio() const;
 	void SetSequencePositionRatio(float NewRatio);
 
-	FString GetPositionTooltip() const;
+	FText GetPositionTooltip() const;
 
 	bool GetSequencePositionInfo(float& Out_Position, float& Out_Length, int32& FrameCount) const;
 };

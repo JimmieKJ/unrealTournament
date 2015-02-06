@@ -22,13 +22,15 @@ class FAnimCurveBaseInterface : public FCurveOwnerInterface
 {
 public:
 	TWeakObjectPtr<UAnimSequenceBase>	BaseSequence;
+	USkeleton::AnimCurveUID CurveUID;
 	FAnimCurveBase*	CurveData;
 
 public:
-	FAnimCurveBaseInterface(UAnimSequenceBase * BaseSeq, FAnimCurveBase*	InData)
+	FAnimCurveBaseInterface( UAnimSequenceBase * BaseSeq, USkeleton::AnimCurveUID InCurveUID)
 		: BaseSequence(BaseSeq)
-		, CurveData(InData)
+		, CurveUID(InCurveUID)
 	{
+		CurveData = BaseSequence.Get()->RawCurveData.GetCurveData( CurveUID );
 		// they should be valid
 		check (BaseSequence.IsValid());
 		check (CurveData);
@@ -102,6 +104,15 @@ public:
 
 	virtual void OnCurveChanged() override
 	{
+	}
+
+	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override
+	{
+		// Get the curve with the ID directly from the sequence and compare it since undo/redo can cause previously
+		// used curves to become invalid.
+		FAnimCurveBase* CurrentCurveData = BaseSequence.Get()->RawCurveData.GetCurveData( CurveUID );
+		return CurrentCurveData != nullptr &&
+			CurveInfo.CurveToEdit == &((FFloatCurve*)CurrentCurveData)->FloatCurve;
 	}
 };
 //////////////////////////////////////////////////////////////////////////
@@ -197,7 +208,7 @@ void SCurveEdTrack::Construct(const FArguments& InArgs)
 	FAnimCurveBase * Curve = Sequence->RawCurveData.GetCurveData(InArgs._CurveUid);
 	check (Curve);
 
-	CurveInterface = new FAnimCurveBaseInterface(Sequence, Curve);
+	CurveInterface = new FAnimCurveBaseInterface(Sequence, InArgs._CurveUid);
 	int32 NumberOfKeys = Sequence->GetNumberOfFrames();
 	//////////////////////////////
 	

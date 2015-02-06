@@ -187,6 +187,11 @@ int32 FSubversionSourceControlRevision::GetRevisionNumber() const
 	return RevisionNumber;
 }
 
+const FString& FSubversionSourceControlRevision::GetRevision() const
+{
+	return Revision;
+}
+
 const FString& FSubversionSourceControlRevision::GetDescription() const
 {
 	return Description;

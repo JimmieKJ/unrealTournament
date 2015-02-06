@@ -1210,6 +1210,7 @@ int UEditorEngine::bspBrushCSG
 	else
 	{
 		// Add and subtract.
+		TMap<int32, int32> SurfaceIndexRemap;
 		for( i=0; i<TempModel->Polys->Element.Num(); i++ )
 		{
          	FPoly EdPoly = TempModel->Polys->Element[i];
@@ -1218,13 +1219,16 @@ int UEditorEngine::bspBrushCSG
          	// be split, and set iLink so that BspAddNode will know to add its information
          	// if a node is added based on this poly.
          	EdPoly.PolyFlags &= ~(PF_EdCut);
-          	if( EdPoly.iLink == i )
+			const int32* SurfaceIndexPtr = SurfaceIndexRemap.Find(EdPoly.iLink);
+			if (SurfaceIndexPtr == nullptr)
 			{
-				EdPoly.iLink = TempModel->Polys->Element[i].iLink = Model->Surfs.Num();
+				const int32 NewSurfaceIndex = Model->Surfs.Num();
+				SurfaceIndexRemap.Add(EdPoly.iLink, NewSurfaceIndex);
+				EdPoly.iLink = TempModel->Polys->Element[i].iLink = NewSurfaceIndex;
 			}
 			else
 			{
-				EdPoly.iLink = TempModel->Polys->Element[EdPoly.iLink].iLink;
+				EdPoly.iLink = TempModel->Polys->Element[i].iLink = *SurfaceIndexPtr;
 			}
 
 			// Filter brush through the world.

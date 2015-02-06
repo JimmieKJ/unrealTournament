@@ -33,6 +33,8 @@ class UBehaviorTreeDecoratorGraphNode_Logic : public UBehaviorTreeDecoratorGraph
 	bool CanRemovePins() const;
 	bool CanAddPins() const;
 
-	void AddInputPin();
+	UEdGraphPin* AddInputPin();
 	void RemoveInputPin(class UEdGraphPin* Pin);
+
+	EDecoratorLogicMode::Type GetLogicMode(EBTDecoratorLogic::Type Op) const;
 };

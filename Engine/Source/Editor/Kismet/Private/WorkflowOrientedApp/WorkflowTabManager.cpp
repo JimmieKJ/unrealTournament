@@ -371,12 +371,12 @@ void FDocumentTracker::RegisterDocumentFactory(TSharedPtr<class FDocumentTabFact
 FDocumentTracker::FDocumentTracker()
 {
 	// Make sure we know when tabs become active
-	FGlobalTabmanager::Get()->OnActiveTabChanged_Subscribe( FOnActiveTabChanged::FDelegate::CreateRaw( this, &FDocumentTracker::OnActiveTabChanged ) );
+	OnActiveTabChangedDelegateHandle = FGlobalTabmanager::Get()->OnActiveTabChanged_Subscribe( FOnActiveTabChanged::FDelegate::CreateRaw( this, &FDocumentTracker::OnActiveTabChanged ) );
 }
 
 FDocumentTracker::~FDocumentTracker()
 {
-	FGlobalTabmanager::Get()->OnActiveTabChanged_Unsubscribe( FOnActiveTabChanged::FDelegate::CreateRaw( this, &FDocumentTracker::OnActiveTabChanged ) );
+	FGlobalTabmanager::Get()->OnActiveTabChanged_Unsubscribe( OnActiveTabChangedDelegateHandle );
 }
 
 // Called by the global active tab changed callback; dispatches to individually registered callbacks

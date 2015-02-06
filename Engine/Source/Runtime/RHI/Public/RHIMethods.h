@@ -2046,11 +2046,11 @@ DEFINE_RHIMETHOD_0(
 	);
 
 // Operations to suspend title rendering and yield control to the system
-DEFINE_RHIMETHOD_GLOBAL_0(
+DEFINE_RHIMETHOD_GLOBALTHREADSAFE_0(
 	void,SuspendRendering,
 	,
 	);
-DEFINE_RHIMETHOD_GLOBAL_0(
+DEFINE_RHIMETHOD_GLOBALTHREADSAFE_0(
 	void,ResumeRendering,
 	,
 	);

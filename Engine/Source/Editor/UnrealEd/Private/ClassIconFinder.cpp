@@ -109,7 +109,7 @@ FName FClassIconFinder::FindIconNameForActor( const TWeakObjectPtr<AActor>& InAc
 
 const FSlateBrush* FClassIconFinder::FindIconForClass(const UClass* InClass, const FName& InDefaultName )
 {
-	return FClassIconFinder::LookupBrush( FindIconNameImpl( InClass, InDefaultName ) );
+	return FClassIconFinder::LookupBrush( FindIconNameForClass( InClass, InDefaultName ) );
 }
 
 FName FClassIconFinder::FindIconNameForClass(const UClass* InClass, const FName& InDefaultName )
@@ -119,7 +119,7 @@ FName FClassIconFinder::FindIconNameForClass(const UClass* InClass, const FName&
 
 const FSlateBrush* FClassIconFinder::FindThumbnailForClass(const UClass* InClass, const FName& InDefaultName )
 {
-	return FClassIconFinder::LookupBrush( FindIconNameImpl( InClass, InDefaultName, TEXT("ClassThumbnail") ) );
+	return FClassIconFinder::LookupBrush( FindThumbnailNameForClass( InClass, InDefaultName ) );
 }
 
 FName FClassIconFinder::FindThumbnailNameForClass(const UClass* InClass, const FName& InDefaultName )
@@ -136,7 +136,7 @@ FName FClassIconFinder::FindIconNameImpl(const UClass* InClass, const FName& InD
 	{
 		// walk up class hierarchy until we find an icon
 		const UClass* CurrentClass = InClass;
-		while( Brush == NULL && CurrentClass && (CurrentClass != AActor::StaticClass()) )
+		while( Brush == NULL && CurrentClass )
 		{
 			BrushName = *FString::Printf( TEXT( "%s.%s" ), StyleRoot, *CurrentClass->GetName() );
 			Brush = FClassIconFinder::LookupBrush( BrushName );

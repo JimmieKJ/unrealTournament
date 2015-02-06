@@ -6,6 +6,7 @@
 #if WITH_EDITOR
 #include "Kismet2/CompilerResultsLog.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/ComponentEditorUtils.h"
 #include "Kismet2/Kismet2NameValidators.h"
 #endif
 #include "Engine/SimpleConstructionScript.h"
@@ -13,24 +14,23 @@
 //////////////////////////////////////////////////////////////////////////
 // USimpleConstructionScript
 
-#if WITH_EDITOR
-const FName USimpleConstructionScript::DefaultSceneRootVariableName = FName(TEXT("DefaultSceneRoot"));
-#endif
-
 namespace
 {
 	// Helper method to register instanced components post-construction
 	void RegisterInstancedComponent(UActorComponent* InstancedComponent)
 	{
-		InstancedComponent->RegisterComponent();
-
-		// If this is a scene component, recursively register any child components as well
-		USceneComponent* InstancedSceneComponent = Cast<USceneComponent>(InstancedComponent);
-		if(InstancedSceneComponent != nullptr)
+		if (!InstancedComponent->IsRegistered())
 		{
-			for(auto InstancedChildComponent : InstancedSceneComponent->AttachChildren)
+			InstancedComponent->RegisterComponent();
+
+			// If this is a scene component, recursively register any child components as well
+			USceneComponent* InstancedSceneComponent = Cast<USceneComponent>(InstancedComponent);
+			if(InstancedSceneComponent != nullptr)
 			{
-				RegisterInstancedComponent(InstancedChildComponent);
+				for(auto InstancedChildComponent : InstancedSceneComponent->AttachChildren)
+				{
+					RegisterInstancedComponent(InstancedChildComponent);
+				}
 			}
 		}
 	}
@@ -135,6 +135,16 @@ void USimpleConstructionScript::Serialize(FArchive& Ar)
 	}
 }
 
+void USimpleConstructionScript::PreloadChain()
+{
+	GetLinker()->Preload(this);
+
+	for (USCS_Node* Node : RootNodes)
+	{
+		Node->PreloadChain();
+	}
+}
+
 void USimpleConstructionScript::PostLoad()
 {
 	Super::PostLoad();
@@ -173,6 +183,7 @@ void USimpleConstructionScript::PostLoad()
 			Node->CategoryName = TEXT("Default");
 		}
 	}
+
 #endif // WITH_EDITOR
 	// Fix up native/inherited parent attachments, in case anything has changed
 	FixupRootNodeParentReferences();
@@ -251,7 +262,7 @@ void USimpleConstructionScript::FixupRootNodeParentReferences()
 				if(CDO != NULL)
 				{
 					// Look for the parent component in the CDO's components array
-					TArray<UActorComponent*> Components;
+					TInlineComponentArray<UActorComponent*> Components;
 					CDO->GetComponents(Components);
 
 					for (auto CompIter = Components.CreateConstIterator(); CompIter && !bWasFound; ++CompIter)
@@ -313,15 +324,22 @@ void USimpleConstructionScript::ExecuteScriptOnActor(AActor* Actor, const FTrans
 {
 	if(RootNodes.Num() > 0)
 	{
-		TArray<UActorComponent*> InstancedComponents;
+		TInlineComponentArray<UActorComponent*> InstancedComponents;
 		for(auto NodeIt = RootNodes.CreateIterator(); NodeIt; ++NodeIt)
 		{
 			USCS_Node* RootNode = *NodeIt;
 			if(RootNode != nullptr)
 			{
 				// Get all native scene components
-				TArray<USceneComponent*> Components;
+				TInlineComponentArray<USceneComponent*> Components;
 				Actor->GetComponents(Components);
+				for (int32 Index = Components.Num()-1; Index >= 0; --Index)
+				{
+					if (Components[Index]->CreationMethod == EComponentCreationMethod::Instance)
+					{
+						Components.RemoveAt(Index);
+					}
+				}
 
 				// Get the native root component; if it's not set, the first native scene component will be used as root. This matches what's done in the SCS editor.
 				USceneComponent* RootComponent = Actor->GetRootComponent();
@@ -383,7 +401,7 @@ void USimpleConstructionScript::ExecuteScriptOnActor(AActor* Actor, const FTrans
 	{
 		USceneComponent* SceneComp = NewObject<USceneComponent>(Actor);
 		SceneComp->SetFlags(RF_Transactional);
-		SceneComp->bCreatedByConstructionScript = true;
+		SceneComp->CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
 		SceneComp->SetWorldTransform(RootTransform);
 		Actor->SetRootComponent(SceneComp);
 		SceneComp->RegisterComponent();
@@ -582,7 +600,7 @@ USCS_Node* USimpleConstructionScript::FindParentNode(USCS_Node* InNode) const
 	return NULL;
 }
 
-USCS_Node* USimpleConstructionScript::FindSCSNode(FName InName)
+USCS_Node* USimpleConstructionScript::FindSCSNode(const FName InName) const
 {
 	TArray<USCS_Node*> AllNodes = GetAllNodes();
 	USCS_Node* ReturnSCSNode = nullptr;
@@ -590,6 +608,22 @@ USCS_Node* USimpleConstructionScript::FindSCSNode(FName InName)
 	for( USCS_Node* SCSNode : AllNodes )
 	{
 		if (SCSNode->GetVariableName() == InName)
+		{
+			ReturnSCSNode = SCSNode;
+			break;
+		}
+	}
+	return ReturnSCSNode;
+}
+
+USCS_Node* USimpleConstructionScript::FindSCSNodeByGuid(const FGuid Guid) const
+{
+	TArray<USCS_Node*> AllNodes = GetAllNodes();
+	USCS_Node* ReturnSCSNode = nullptr;
+
+	for (USCS_Node* SCSNode : AllNodes)
+	{
+		if (SCSNode->VariableGuid == Guid)
 		{
 			ReturnSCSNode = SCSNode;
 			break;
@@ -610,7 +644,8 @@ void USimpleConstructionScript::ValidateSceneRootNodes()
 			&& FBlueprintEditorUtils::IsActorBased(Blueprint)
 			&& Blueprint->BlueprintType != BPTYPE_MacroLibrary)
 		{
-			DefaultSceneRootNode = CreateNode(USceneComponent::StaticClass(), DefaultSceneRootVariableName);
+			DefaultSceneRootNode = CreateNode(USceneComponent::StaticClass(), USceneComponent::GetDefaultSceneRootVariableName());
+			CastChecked<USceneComponent>(DefaultSceneRootNode->ComponentTemplate)->bVisualizeComponent = true;
 		}
 	}
 
@@ -639,7 +674,7 @@ void USimpleConstructionScript::ValidateSceneRootNodes()
 			bHasSceneComponentRootNodes = CDO->GetRootComponent() != nullptr;
 			if(!bHasSceneComponentRootNodes)
 			{
-				TArray<USceneComponent*> SceneComponents;
+				TInlineComponentArray<USceneComponent*> SceneComponents;
 				CDO->GetComponents(SceneComponents);
 				bHasSceneComponentRootNodes = SceneComponents.Num() > 0;
 			}
@@ -718,8 +753,16 @@ USCS_Node* USimpleConstructionScript::CreateNode(UClass* NewComponentClass, FNam
 	check(NewComponentClass->IsChildOf(UActorComponent::StaticClass()));
 
 	ensure(NULL != Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
-	UActorComponent* NewComponentTemplate = ConstructObject<UActorComponent>(NewComponentClass, Blueprint->GeneratedClass);
-	NewComponentTemplate->SetFlags(RF_ArchetypeObject|RF_Transactional);
+
+	FName NewComponentName(NAME_None);
+	if (NewComponentClass->ClassGeneratedBy != nullptr)
+	{
+		const FString NewClassName = FBlueprintEditorUtils::GetClassNameWithoutSuffix(NewComponentClass);
+		NewComponentName = MakeUniqueObjectName(Blueprint->GeneratedClass, NewComponentClass, FName(*NewClassName));
+	}
+
+	UActorComponent* NewComponentTemplate = ConstructObject<UActorComponent>(NewComponentClass, Blueprint->GeneratedClass, NewComponentName);
+	NewComponentTemplate->SetFlags(RF_ArchetypeObject|RF_Transactional|RF_Public);
 
 	return CreateNode(NewComponentTemplate, NewComponentVariableName);
 }
@@ -738,11 +781,20 @@ USCS_Node* USimpleConstructionScript::CreateNode(UActorComponent* NewComponentTe
 		TArray<FName> CurrentNames;
 		NewNode->GenerateListOfExistingNames( CurrentNames );
 
+		if (NewComponentVariableName.ToString().EndsWith(TEXT("_C")))
+		{
+			const FString NameAsString = NewComponentVariableName.ToString();
+			const int32 NewStrLen = NameAsString.Len() - 2;
+			NewComponentVariableName = FName(*NameAsString.Left(NewStrLen));
+		}
+
 		// Now create a name for the new component.
 		NewNode->VariableName = NewNode->GenerateNewComponentName( CurrentNames, NewComponentVariableName );
 
 		// Note: This should match up with UEdGraphSchema_K2::VR_DefaultCategory
 		NewNode->CategoryName = TEXT("Default");
+
+		NewNode->VariableGuid = FGuid::NewGuid();
 
 		return NewNode;
 	}
@@ -778,7 +830,7 @@ void USimpleConstructionScript::ValidateNodeVariableNames(FCompilerResultsLog& M
 			// Replace missing or invalid component variable names
 			if( Node->VariableName == NAME_None
 				|| Node->bVariableNameAutoGenerated_DEPRECATED
-				|| !Node->IsValidVariableNameString(Node->VariableName.ToString()) )
+				|| !FComponentEditorUtils::IsValidVariableNameString(Node->ComponentTemplate, Node->VariableName.ToString()) )
 			{
 				FName OldName = Node->VariableName;
 

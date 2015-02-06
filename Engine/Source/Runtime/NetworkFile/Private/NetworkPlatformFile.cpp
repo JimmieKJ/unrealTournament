@@ -254,7 +254,7 @@ void FNetworkPlatformFile::InitializeAfterSetActive()
 				ConvertServerFilenameToClientFilename(ServerFile);
 
 				// Set it in the visitor file times list
-				// If there is any pathing difference (casing, or relative path, or whatever) between the server's filelist and the results
+				// If there is any pathing difference (relative path, or whatever) between the server's filelist and the results
 				// of platform directory iteration then this will Add a new entry rather than override the existing one.  This causes local file deletes
 				// and longer loads as we will never see the benefits of local device caching.
 				Visitor.FileTimes.Add(ServerFile, FDateTime::MinValue());

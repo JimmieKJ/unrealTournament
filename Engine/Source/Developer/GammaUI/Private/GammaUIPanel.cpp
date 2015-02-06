@@ -16,7 +16,7 @@ void SGammaUIPanel::Construct(const SGammaUIPanel::FArguments& InArgs)
 			.Padding( 0.0f, 4.0f, 0.0f, 4.0f )
 		[
 			SNew( STextBlock )
-				.Text( NSLOCTEXT( "GammaUI", "GammaUILabel", "Gamma" ).ToString() )
+				.Text( NSLOCTEXT( "GammaUI", "GammaUILabel", "Gamma" ) )
 		]
 
 		+ SVerticalBox::Slot()

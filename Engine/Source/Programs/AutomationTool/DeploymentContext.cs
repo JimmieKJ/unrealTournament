@@ -160,6 +160,20 @@ public class DeploymentContext //: ProjectParams
 	/// </summary>
 	public string ArchiveDirectory;
 
+	/// <summary>
+	/// Filename for the manifest of file changes for iterative deployment.
+	/// </summary>
+	static public readonly string UFSDeployDeltaFileName			= "Manifest_DeltaUFSFiles.txt";	
+	static public readonly string NonUFSDeployDeltaFileName			= "Manifest_DeltaNonUFSFiles.txt";
+
+	/// <summary>
+	/// Filename for the manifest of files currently deployed on a device.
+	/// </summary>
+	static public readonly string UFSDeployedManifestFileName		= "Manifest_UFSFiles.txt";
+	static public readonly string NonUFSDeployedManifestFileName	= "Manifest_NonUFSFiles.txt";
+
+	
+
 
 	/// <summary>
 	/// The client connects to dedicated server to get data
@@ -303,7 +317,7 @@ public class DeploymentContext //: ProjectParams
 		ProjectArgForCommandLines = ProjectArgForCommandLines.Replace("\\", "/");
 	}
 
-    public int StageFiles(StagedFileType FileType, string InPath, string Wildcard = "*", bool bRecursive = true, string[] ExcludeWildcard = null, string NewPath = null, bool bAllowNone = false, bool bRemap = true, string NewName = null, bool bAllowNotForLicenseesFiles = true, bool bStripFilesForOtherPlatforms = true)
+	public int StageFiles(StagedFileType FileType, string InPath, string Wildcard = "*", bool bRecursive = true, string[] ExcludeWildcard = null, string NewPath = null, bool bAllowNone = false, bool bRemap = true, string NewName = null)
 	{
 		int FilesAdded = 0;
 		// make sure any ..'s are removed
@@ -321,7 +335,7 @@ public class DeploymentContext //: ProjectParams
 					var Remove = CommandUtils.FindFiles(Excl, bRecursive, InPath);
 					foreach (var File in Remove)
 					{
-                        Exclude.Add(CommandUtils.CombinePaths(File));
+						Exclude.Add(CommandUtils.CombinePaths(File));
 					}
 				}
 			}
@@ -332,43 +346,34 @@ public class DeploymentContext //: ProjectParams
 				{
 					continue;
 				}
-                
-                if (!bAllowNotForLicenseesFiles && (FileToCopy.Contains("NotForLicensees") || FileToCopy.Contains("NoRedist")))
-                {
-                    continue;
-                }
-
-                if (bStripFilesForOtherPlatforms)
-                {
-                    bool OtherPlatform = false;
-                    foreach (UnrealTargetPlatform Plat in Enum.GetValues(typeof(UnrealTargetPlatform)))
-                    {
-                        if (Plat != StageTargetPlatform.PlatformType && Plat != UnrealTargetPlatform.Unknown)
+				bool OtherPlatform = false;
+				foreach (UnrealTargetPlatform Plat in Enum.GetValues(typeof(UnrealTargetPlatform)))
+				{
+					if (Plat != StageTargetPlatform.PlatformType && Plat != UnrealTargetPlatform.Unknown)
+					{
+                        var Search = FileToCopy;
+                        if (Search.StartsWith(LocalRoot, StringComparison.InvariantCultureIgnoreCase))
                         {
-                            var Search = FileToCopy;
-                            if (Search.StartsWith(LocalRoot, StringComparison.InvariantCultureIgnoreCase))
+                            if (LocalRoot.EndsWith("\\") || LocalRoot.EndsWith("/"))
                             {
-                                if (LocalRoot.EndsWith("\\") || LocalRoot.EndsWith("/"))
-                                {
-                                    Search = Search.Substring(LocalRoot.Length - 1);
-                                }
-                                else
-                                {
-                                    Search = Search.Substring(LocalRoot.Length);
-                                }
+                                Search = Search.Substring(LocalRoot.Length - 1);
                             }
-                            if (Search.IndexOf(CommandUtils.CombinePaths("/" + Plat.ToString() + "/"), 0, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                            else
                             {
-                                OtherPlatform = true;
-                                break;
+                                Search = Search.Substring(LocalRoot.Length);
                             }
                         }
-                    }
-                    if (OtherPlatform)
-                    {
-                        continue;
-                    }
-                }
+                        if (Search.IndexOf(CommandUtils.CombinePaths("/" + Plat.ToString() + "/"), 0, StringComparison.InvariantCultureIgnoreCase) >= 0)
+						{
+							OtherPlatform = true;
+							break;
+						}
+					}
+				}
+				if (OtherPlatform)
+				{
+					continue;
+				}
 
 				string Dest;
 				if (!FileToCopy.StartsWith(InPath))
@@ -543,5 +548,15 @@ public class DeploymentContext //: ProjectParams
 		}
 
 		return FilesAdded;
+	}
+
+	public String GetUFSDeploymentDeltaPath()
+	{
+		return Path.Combine(StageDirectory, UFSDeployDeltaFileName);
+	}
+
+	public String GetNonUFSDeploymentDeltaPath()
+	{
+		return Path.Combine(StageDirectory, NonUFSDeployDeltaFileName);
 	}
 }

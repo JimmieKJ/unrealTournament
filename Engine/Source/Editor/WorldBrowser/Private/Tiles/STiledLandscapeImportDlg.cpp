@@ -318,7 +318,7 @@ TSharedRef<ITableRow> STiledLandcapeImportDlg::OnGenerateWidgetForLayerDataListV
 					.HAlign(HAlign_Left)
 					.FillWidth(1)
 					[
-						SNew(STextBlock).Text(InLayerData->Name.ToString())
+						SNew(STextBlock).Text(FText::FromName(InLayerData->Name))
 					]
 
 					// Blend option

@@ -59,6 +59,11 @@ TArray<FRichCurveEditInfo> UCurveFloat::GetCurves()
 	return Curves;
 }
 
+bool UCurveFloat::IsValidCurve( FRichCurveEditInfo CurveInfo )
+{
+	return CurveInfo.CurveToEdit == &FloatCurve;
+}
+
 bool UCurveFloat::operator==( const UCurveFloat& Curve ) const
 {
 	return bIsEventCurve == Curve.bIsEventCurve && FloatCurve == Curve.FloatCurve;

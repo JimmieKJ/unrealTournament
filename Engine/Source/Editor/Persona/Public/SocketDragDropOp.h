@@ -36,10 +36,9 @@ public:
 	}
 
 	/** Passed into STextBlock so Slate can grab the current text for display */
-	FString GetHoverText() const
+	FText GetHoverText() const
 	{
-		FString HoverText = FString::Printf(TEXT("Socket %s"), *SocketInfo.Socket->SocketName.ToString() );
-		return HoverText;
+		return FText::Format(NSLOCTEXT("SocketDragDrop", "SocketNameFmt", "Socket {0}"), FText::FromName(SocketInfo.Socket->SocketName));
 	}
 
 	/** Passed into SImage so Slate can grab the current icon for display */

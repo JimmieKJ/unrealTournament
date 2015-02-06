@@ -118,7 +118,7 @@ void FEpicSurvey::Initialize()
 			{
 				NotificationDelegate.BindRaw( this, &FEpicSurvey::DisplayNotification );
 
-				GEditor->GetTimerManager()->SetTimer( NotificationDelegate, SurveyNotificationDelayTime, false );
+				GEditor->GetTimerManager()->SetTimer( DisplayNotificationTimerHandle, NotificationDelegate, SurveyNotificationDelayTime, false );
 			}
 		}
 
@@ -210,8 +210,8 @@ void FEpicSurvey::InitializeTitleCloud()
 
 	if (TitleCloud.IsValid())
 	{
-		TitleCloud->AddOnEnumerateFilesCompleteDelegate(FOnEnumerateFilesCompleteDelegate::CreateSP(this, &FEpicSurvey::OnEnumerateFilesComplete));
-		TitleCloud->AddOnReadFileCompleteDelegate(FOnReadFileCompleteDelegate::CreateSP(this, &FEpicSurvey::OnReadFileComplete));
+		TitleCloud->AddOnEnumerateFilesCompleteDelegate_Handle(FOnEnumerateFilesCompleteDelegate::CreateSP(this, &FEpicSurvey::OnEnumerateFilesComplete));
+		TitleCloud->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateSP(this, &FEpicSurvey::OnReadFileComplete));
 		LoadSurveys();
 	}
 }
@@ -450,14 +450,18 @@ void FEpicSurvey::CancelSurveyNotification()
 
 void FEpicSurvey::StartPulseSurveyIcon()
 {
-	GEditor->GetTimerManager()->SetTimer( EndPulseSurveyIconDelegate, SurveyPulseDuration, false );
+	FTimerHandle DummyHandle;
+	GEditor->GetTimerManager()->SetTimer( DummyHandle, EndPulseSurveyIconDelegate, SurveyPulseDuration, false );
+
 	bSurveyIconPulsing = true;
 }
 
 void FEpicSurvey::EndPulseSurveyIcon()
 {
 	bSurveyIconPulsing = false;
-	GEditor->GetTimerManager()->SetTimer( StartPulseSurveyIconDelegate, SurveyPulseTimeInterval, false );
+
+	FTimerHandle DummyHandle;
+	GEditor->GetTimerManager()->SetTimer( DummyHandle, StartPulseSurveyIconDelegate, SurveyPulseTimeInterval, false );
 }
 
 bool FEpicSurvey::PromptSurvey( const FGuid& SurveyIdentifier )

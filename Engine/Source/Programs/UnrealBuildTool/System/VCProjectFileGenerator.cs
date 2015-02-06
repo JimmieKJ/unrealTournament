@@ -799,7 +799,7 @@ namespace UnrealBuildTool
 							ExplorerState.OpenProjects.Add(new Tuple<string, string[]>(ProjectName, new string[]{ }));
 						}
 					}
-					if((!bGeneratingGameProjectFiles && !bGeneratingRocketProjectFiles) || bAlwaysIncludeEngineModules)
+					if( IncludeEnginePrograms )
 					{
 						ExplorerState.OpenProjects.Add(new Tuple<string, string[]>("Automation", new string[0]));
 					}

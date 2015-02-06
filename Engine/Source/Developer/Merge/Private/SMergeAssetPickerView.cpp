@@ -133,7 +133,7 @@ TSharedRef<SWidget> SMergeAssetPickerPanel::MakeAssetPicker()
 		.ButtonStyle(FEditorStyle::Get(), "NoBorder")
 		.OnClicked(FOnClicked::CreateSP(this, &SMergeAssetPickerPanel::OnBrowseToPickedAsset))
 		.ContentPadding(0)
-		.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Browse", "Show the selected asset in the content browser.").ToString())
+		.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Browse", "Show the selected asset in the content browser."))
 	[
 		SNew(SImage)
 			.Image(FEditorStyle::GetBrush(TEXT("PropertyWindow.Button_Browse")))
@@ -169,7 +169,7 @@ TSharedRef<SWidget> SMergeAssetPickerPanel::MakeAssetPicker()
 			.ButtonStyle(FEditorStyle::Get(), "NoBorder")
 			.OnClicked(FOnClicked::CreateSP(this, &SMergeAssetPickerPanel::OnUseSelectedAssetClick))
 			.ContentPadding(1.f)
-			.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Use", "Use content browser selection.").ToString())
+			.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Use", "Use content browser selection."))
 		[
 			SNew(SImage)
 				.Image(FEditorStyle::GetBrush(TEXT("PropertyWindow.Button_Use")))
@@ -313,9 +313,9 @@ FText SMergeAssetPickerPanel::GetRevisionTextValue() const
 	{
 		RevisionText = LOCTEXT("PickRevision", "Pick a Revision...");
 	}
-	else if (SelectedRevision.Revision > -1)
+	else if (!SelectedRevision.Revision.IsEmpty())
 	{
-		RevisionText = FText::Format(LOCTEXT("RevisionNum", "Revision {0}"), FText::AsNumber(SelectedRevision.Revision));
+		RevisionText = FText::Format(LOCTEXT("RevisionNum", "Revision {0}"), FText::FromString(SelectedRevision.Revision));
 	}
 	else if (!IsTempAssetSelected())
 	{

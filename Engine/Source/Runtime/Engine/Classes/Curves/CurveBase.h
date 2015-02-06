@@ -432,6 +432,9 @@ public:
 
 	/** @return True if the curve has any alpha keys */
 	virtual bool HasAnyAlphaKeys() const { return false; }
+
+	/** Validates that a previously retrieved curve is still valid for editing. */
+	virtual bool IsValidCurve(FRichCurveEditInfo CurveInfo) = 0;
 };
 
 
@@ -479,6 +482,8 @@ public:
 	virtual void ModifyOwner() override;
 	virtual void MakeTransactional() override;
 	virtual void OnCurveChanged() override;
+
+	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) { return false; };
 	// End FCurveOwnerInterface
 
 	// Begin UCurveBase interface
@@ -494,6 +499,12 @@ public:
 
 	// End UCurveBase interface
 
+	// Begin UObject interface
+#if WITH_EDITORONLY_DATA
+	/** Override to ensure we write out the asset import data */
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
+#endif
+	// End UObject interface
 };
 
 //////////////////////////////////////////////////////////////////////////

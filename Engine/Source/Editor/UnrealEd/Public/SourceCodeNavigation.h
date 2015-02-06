@@ -5,9 +5,11 @@
 #define __SourceCodeNavigation_h__
 
 #pragma once
+#include "IHttpRequest.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSelectionDetails, Log, All);
 
+DECLARE_DELEGATE_OneParam(FOnIDEInstallerDownloadComplete, bool /*bWasSuccessful*/);
 
 /**
  * Singleton holding database of module names and disallowed header names in the engine and current project.
@@ -18,17 +20,27 @@ public:
 	/** Constructs database */
 	FSourceFileDatabase();
 
+	/** Destructs database */
+	~FSourceFileDatabase();
+
 	/** Return array of module names used by the engine and current project, including those in plugins */
 	const TArray<FString>& GetModuleNames() const { return ModuleNames; }
 
 	/** Return set of public header names used by engine modules, which are disallowed as project header names */
 	const TSet<FString>& GetDisallowedHeaderNames() const { return DisallowedHeaderNames; }
 
+	/** Update the list of known modules and disallowed header names if they've become stale */
+	void UpdateIfNeeded();
+
 private:
 
 	/** Return array of filenames matching the given wildcard, recursing into subdirectories if no results are yielded from the base directory */
 	void FindRootFilesRecursive(TArray<FString> &FileNames, const FString &BaseDirectory, const FString &Wildcard);
 
+	/** Called when a new .Build.cs file is added to the current project */
+	void OnNewModuleAdded(FName InModuleName);
+
+	bool bIsDirty;
 	TArray<FString> ModuleNames;
 	TSet<FString> DisallowedHeaderNames;
 };
@@ -145,6 +157,12 @@ public:
 	/** Returns the url to the location where the suggested IDE can be downloaded */
 	UNREALED_API static FString GetSuggestedSourceCodeIDEDownloadURL();
 
+	/** Returns whether the suggested source code IDE for the current platform can be installed directly (vs. requiring that the user download it manually) */
+	UNREALED_API static bool GetCanDirectlyInstallSourceCodeIDE();
+
+	/** Downloads and installs the suggested IDE (currently only works for Windows) */
+	UNREALED_API static void DownloadAndInstallSuggestedIDE(FOnIDEInstallerDownloadComplete OnDownloadComplete);
+
 	/** Returns true if the compiler for the current platform is available for use */
 	UNREALED_API static bool IsCompilerAvailable();
 
@@ -160,6 +178,9 @@ public:
 	/** Opens a multiple source files */
 	UNREALED_API static bool OpenSourceFiles(const TArray<FString>& AbsoluteSourcePaths);
 
+	/** Add multiple source files to the current solution/project/workspace */
+	UNREALED_API static bool AddSourceFiles(const TArray<FString>& AbsoluteSourcePaths);
+
 	UNREALED_API static bool OpenModuleSolution();
 
 	/** Attempt to locate fully qualified class module name */
@@ -170,6 +191,12 @@ public:
 
 	/** Call this to access the multi-cast delegate that you can register a callback with */
 	UNREALED_API static FOnCompilerNotFound& AccessOnCompilerNotFound();
+
+	/** Delegate that's triggered when a new module (.Build.cs file) has been added */
+	DECLARE_MULTICAST_DELEGATE_OneParam( FOnNewModuleAdded, FName );
+
+	/** Call this to access the multi-cast delegate that you can register a callback with */
+	UNREALED_API static FOnNewModuleAdded& AccessOnNewModuleAdded();
 };
 
 

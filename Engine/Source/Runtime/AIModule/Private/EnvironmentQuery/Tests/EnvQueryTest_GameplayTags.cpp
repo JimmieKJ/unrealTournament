@@ -58,7 +58,7 @@ void UEnvQueryTest_GameplayTags::RunTest(FEnvQueryInstance& QueryInstance) const
 	// loop through all items
 	for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
 	{
-		AActor* ItemActor = GetItemActor(QueryInstance, It);
+		AActor* ItemActor = GetItemActor(QueryInstance, *It);
 		IGameplayTagAssetInterface* GameplayTagAssetInterface = Cast<IGameplayTagAssetInterface>(ItemActor);
 		if (GameplayTagAssetInterface != NULL)
 		{

@@ -35,7 +35,7 @@ public:
 	FName GetFName() const;
 
 	/**	@return	The Layer's display name as a FString */
-	FString GetName() const;
+	FText GetName() const;
 
 	/**	@return Whether the Layer is visible */
 	bool IsVisible() const;

@@ -53,8 +53,11 @@ FEditorModeTools::FEditorModeTools()
 	USelection::SelectionChangedEvent.AddRaw(this, &FEditorModeTools::OnEditorSelectionChanged);
 	USelection::SelectObjectEvent.AddRaw(this, &FEditorModeTools::OnEditorSelectionChanged);
 
-	// Register our callback for undo/redo
-	GEditor->RegisterForUndo(this);
+	if( GEditor )
+	{
+		// Register our callback for undo/redo
+		GEditor->RegisterForUndo(this);
+	}
 }
 
 FEditorModeTools::~FEditorModeTools()
@@ -124,6 +127,11 @@ class USelection* FEditorModeTools::GetSelectedActors() const
 class USelection* FEditorModeTools::GetSelectedObjects() const
 {
 	return GEditor->GetSelectedObjects();
+}
+
+UWorld* FEditorModeTools::GetWorld() const
+{
+	return GEditor->GetEditorWorldContext().World();
 }
 
 void FEditorModeTools::OnEditorSelectionChanged(UObject* NewSelection)

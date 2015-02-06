@@ -30,7 +30,6 @@ public:
 
 	/** Returns true if the viewport is visible */
 	bool IsVisible() const;
-	EVisibility GetWidgetVisibility() const;
 
 	/** Accessors */
 	TSharedPtr<FSceneViewport> GetViewport() const;

@@ -77,7 +77,7 @@ public:
 	bool bShowDisplayNames;
 
 	/** the title string of the class viewer if required. */
-	FString ViewerTitleString;
+	FText ViewerTitleString;
 
 	/** The property this class viewer be working on. */
 	TSharedPtr<class IPropertyHandle> PropertyHandle;

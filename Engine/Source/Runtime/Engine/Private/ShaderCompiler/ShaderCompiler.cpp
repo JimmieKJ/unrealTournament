@@ -1854,6 +1854,8 @@ void FShaderCompilingManager::FinishCompilation(const TCHAR* MaterialName, const
 	FScopedSlowTask SlowTask(0, StatusUpdate, GIsEditor && !IsRunningCommandlet());
 
 	TMap<int32, FShaderMapFinalizeResults> CompiledShaderMaps;
+	CompiledShaderMaps.Append( PendingFinalizeShaderMaps );
+	PendingFinalizeShaderMaps.Empty();
 	BlockOnShaderMapCompletion(ShaderMapIdsToFinishCompiling, CompiledShaderMaps);
 
 	bool bRetry = false;
@@ -1877,6 +1879,9 @@ void FShaderCompilingManager::FinishAllCompilation()
 	const double StartTime = FPlatformTime::Seconds();
 
 	TMap<int32, FShaderMapFinalizeResults> CompiledShaderMaps;
+	CompiledShaderMaps.Append( PendingFinalizeShaderMaps );
+	PendingFinalizeShaderMaps.Empty();
+	
 	BlockOnAllShaderMapCompletion(CompiledShaderMaps);
 
 	bool bRetry = false;

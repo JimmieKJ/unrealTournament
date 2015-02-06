@@ -438,7 +438,7 @@ private:
 	 *
 	 *	@return	The tooltip representing the Level's lock state
 	 */
-	FString GetLockToolTipForLevel() const
+	FText GetLockToolTipForLevel() const
 	{
 		//Non-Persistent
 
@@ -446,14 +446,14 @@ private:
 		{
 			if(ViewModel->IsReadOnly())
 			{
-				return LOCTEXT("ReadOnly_LockButtonToolTip", "Read-Only levels are locked!").ToString();
+				return LOCTEXT("ReadOnly_LockButtonToolTip", "Read-Only levels are locked!");
 			}
 		}
 
-		return LOCTEXT("LockButtonToolTip", "Toggle Level Lock").ToString();
+		return LOCTEXT("LockButtonToolTip", "Toggle Level Lock");
 	}
 
-	FString GetSCCStateTooltip() const
+	FText GetSCCStateTooltip() const
 	{
 		ULevel* Level = ViewModel->GetLevel().Get();
 		if (Level != NULL)
@@ -461,11 +461,11 @@ private:
 			FSourceControlStatePtr SourceControlState = ISourceControlModule::Get().GetProvider().GetState(Level->GetOutermost(), EStateCacheUsage::Use);
 			if(SourceControlState.IsValid())
 			{
-				return SourceControlState->GetDisplayTooltip().ToString();
+				return SourceControlState->GetDisplayTooltip();
 			}
 		}
 
-		return FString();
+		return FText::GetEmpty();
 	}
 
 	const FSlateBrush* GetSCCStateImage() const

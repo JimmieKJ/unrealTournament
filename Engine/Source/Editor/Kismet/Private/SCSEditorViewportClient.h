@@ -16,7 +16,7 @@ public:
 	 * @param InBlueprintEditorPtr A weak reference to the Blueprint Editor context.
 	 * @param InPreviewScene The preview scene to use.
 	 */
-	FSCSEditorViewportClient(TWeakPtr<class FBlueprintEditor>& InBlueprintEditorPtr, FPreviewScene& InPreviewScene);
+	FSCSEditorViewportClient(TWeakPtr<class FBlueprintEditor>& InBlueprintEditorPtr, FPreviewScene* InPreviewScene);
 
 	/**
 	 * Destructor.
@@ -49,12 +49,12 @@ public:
 	void InvalidatePreview(bool bResetCamera = true);
 
 	/**
-     * Resets the camera position
+	 * Resets the camera position
 	 */
 	void ResetCamera();
 
 	/**
-     * Determines whether or not realtime preview is enabled.
+	 * Determines whether or not realtime preview is enabled.
 	 * 
 	 * @return true if realtime preview is enabled, false otherwise.
 	 */
@@ -64,16 +64,9 @@ public:
 	}
 
 	/**
-     * Toggles realtime preview on/off.
+	 * Toggles realtime preview on/off.
 	 */
 	void ToggleRealtimePreview();
-
-	/**
-     * Determines whether or not the preview scene is valid.
-	 * 
-	 * @return true if the preview scene is valid, false otherwise.
-	 */
-	bool IsPreviewSceneValid() const;
 
 	/**
 	 * Focuses the viewport on the selected components
@@ -127,19 +120,6 @@ protected:
 	void EndTransaction();
 
 	/**
-	 * Creates/updates the preview actor for the given blueprint.
-	 *
-	 * @param InBlueprint			The Blueprint to create or update the preview for.
-	 * @param bInForceFullUpdate	Force a full update to respawn actors.
-	 */
-	void UpdatePreviewActorForBlueprint(UBlueprint* InBlueprint, bool bInForceFullUpdate = false);
-
-	/**
-	 * Destroy the Blueprint preview.
-	 */
-	void DestroyPreview();
-
-	/**
 	 * Updates preview bounds and floor positioning
 	 */
 	void RefreshPreviewBounds();
@@ -154,8 +134,8 @@ private:
 	/** The Blueprint associated with the current preview */
 	UBlueprint* PreviewBlueprint;
 
-	/** The preview actor representing the current preview */
-	mutable TWeakObjectPtr<AActor> PreviewActorPtr;
+	/** The preview actor from last tick so we can tell if it changed. */
+	TWeakObjectPtr<AActor> LastPreviewActor;
 
 	/** The full bounds of the preview scene (encompasses all visible components) */
 	FBoxSphereBounds PreviewActorBounds;

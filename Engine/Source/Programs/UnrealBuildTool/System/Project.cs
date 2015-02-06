@@ -250,20 +250,22 @@ namespace UnrealBuildTool
 		/// Splits the definition text into macro name and value (if any).
 		/// </summary>
 		/// <param name="Definition">Definition text</param>
+		/// <param name="Key">Out: The definition name</param>
+		/// <param name="Value">Out: The definition value or null if it has none</param>
 		/// <returns>Pair representing macro name and value.</returns>
-		private KeyValuePair<string, string> SplitDefinitionAndValue(string Definition)
+		private void SplitDefinitionAndValue(string Definition, out String Key, out String Value)
 		{
 			int EqualsIndex = Definition.IndexOf('=');
-			KeyValuePair<string, string> DefineAndValue;
 			if (EqualsIndex >= 0)
 			{
-				DefineAndValue = new KeyValuePair<string, string>(Definition.Substring(0, EqualsIndex), Definition.Substring(EqualsIndex + 1));
+				Key = Definition.Substring(0, EqualsIndex);
+				Value = Definition.Substring(EqualsIndex + 1);
 			}
 			else
 			{
-				DefineAndValue = new KeyValuePair<string, string>(Definition, "");
+				Key = Definition;
+				Value = "";
 			}
-			return DefineAndValue;
 		}
 
 		/// <summary>
@@ -272,31 +274,35 @@ namespace UnrealBuildTool
 		/// <param name="NewPreprocessorDefinitions">List of preprocessor definitons to add</param>
 		public void AddIntelliSensePreprocessorDefinitions( List<string> NewPreprocessorDefinitions ) 
 		{
-			foreach( var CurDef in NewPreprocessorDefinitions )
-			{
-				if( KnownIntelliSensePreprocessorDefinitions.Add( CurDef ) )
+			if( ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null || 
+				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this )
+			{ 
+				foreach( var CurDef in NewPreprocessorDefinitions )
 				{
-					// Make sure that it doesn't exist already
-					var AlreadyExists = false;
-					var CurDefAndValue = SplitDefinitionAndValue(CurDef);
-					for (int DefineIndex = 0; DefineIndex < IntelliSensePreprocessorDefinitions.Count; ++DefineIndex)
+					// Don't add definitions and value combinations that have already been added for this project
+					if( KnownIntelliSensePreprocessorDefinitions.Add( CurDef ) )
 					{
-						var ExistingDefAndValue = SplitDefinitionAndValue(IntelliSensePreprocessorDefinitions[DefineIndex]);
-						if (ExistingDefAndValue.Key == CurDefAndValue.Key)
-						{
-							// Favor defines that set their value to 1 and replace the old one if it was set to "0"
-							if (CurDefAndValue.Value == "1" && ExistingDefAndValue.Value == "0")
-							{
-								IntelliSensePreprocessorDefinitions[DefineIndex] = CurDef;
-							}
-							AlreadyExists = true;
-							break;
-						}
-					}
+						// Go ahead and check to see if the definition already exists, but the value is different
+						var AlreadyExists = false;
 
-					if( !AlreadyExists )
-					{
-						IntelliSensePreprocessorDefinitions.Add( CurDef );
+						string Def, Value;
+						SplitDefinitionAndValue(CurDef, out Def, out Value);
+						for (int DefineIndex = 0; DefineIndex < IntelliSensePreprocessorDefinitions.Count; ++DefineIndex)
+						{
+							string ExistingDef, ExistingValue;
+							SplitDefinitionAndValue(IntelliSensePreprocessorDefinitions[DefineIndex], out ExistingDef, out ExistingValue);
+							if (ExistingDef == Def)
+							{
+								// Already exists, but the value is changing.  We don't bother clobbering values for existing defines for this project.
+								AlreadyExists = true;
+								break;
+							}
+						}
+
+						if( !AlreadyExists )
+						{
+							IntelliSensePreprocessorDefinitions.Add( CurDef );
+						}
 					}
 				}
 			}
@@ -309,43 +315,47 @@ namespace UnrealBuildTool
 		/// <param name="NewIncludePaths">List of include paths to add</param>
 		public void AddInteliiSenseIncludePaths(HashSet<string> NewIncludePaths, bool bAddingSystemIncludes) 
 		{
-			foreach( var CurPath in NewIncludePaths )
-			{
-				if( bAddingSystemIncludes ? KnownIntelliSenseSystemIncludeSearchPaths.Add( CurPath ) : KnownIntelliSenseIncludeSearchPaths.Add( CurPath ) )
+			if( ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null || 
+				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this )
+			{ 
+				foreach( var CurPath in NewIncludePaths )
 				{
-					string PathRelativeToProjectFile;
-
-					// If the include string is an environment variable (e.g. $(DXSDK_DIR)), then we never want to
-					// give it a relative path
-					if( CurPath.StartsWith( "$(" ) )
+					if( bAddingSystemIncludes ? KnownIntelliSenseSystemIncludeSearchPaths.Add( CurPath ) : KnownIntelliSenseIncludeSearchPaths.Add( CurPath ) )
 					{
-						PathRelativeToProjectFile = CurPath;
-					}
-					else
-					{
-						// Incoming include paths are relative to the solution directory, but we need these paths to be
-						// relative to the project file's directory
-						PathRelativeToProjectFile = NormalizeProjectPath( CurPath );
-					}
+						string PathRelativeToProjectFile;
 
-					// Trim any trailing slash
-					PathRelativeToProjectFile = PathRelativeToProjectFile.TrimEnd('/', '\\');
-
-					// Make sure that it doesn't exist already
-					var AlreadyExists = false;
-					List<string> SearchPaths = bAddingSystemIncludes ? IntelliSenseSystemIncludeSearchPaths : IntelliSenseIncludeSearchPaths;
-					foreach( var ExistingPath in SearchPaths )
-					{
-						if( PathRelativeToProjectFile == ExistingPath )
+						// If the include string is an environment variable (e.g. $(DXSDK_DIR)), then we never want to
+						// give it a relative path
+						if( CurPath.StartsWith( "$(" ) )
 						{
-							AlreadyExists = true;
-							break;
+							PathRelativeToProjectFile = CurPath;
 						}
-					}
+						else
+						{
+							// Incoming include paths are relative to the solution directory, but we need these paths to be
+							// relative to the project file's directory
+							PathRelativeToProjectFile = NormalizeProjectPath( CurPath );
+						}
 
-					if( !AlreadyExists )
-					{
-						SearchPaths.Add( PathRelativeToProjectFile );
+						// Trim any trailing slash
+						PathRelativeToProjectFile = PathRelativeToProjectFile.TrimEnd('/', '\\');
+
+						// Make sure that it doesn't exist already
+						var AlreadyExists = false;
+						List<string> SearchPaths = bAddingSystemIncludes ? IntelliSenseSystemIncludeSearchPaths : IntelliSenseIncludeSearchPaths;
+						foreach( var ExistingPath in SearchPaths )
+						{
+							if( PathRelativeToProjectFile == ExistingPath )
+							{
+								AlreadyExists = true;
+								break;
+							}
+						}
+
+						if( !AlreadyExists )
+						{
+							SearchPaths.Add( PathRelativeToProjectFile );
+						}
 					}
 				}
 			}

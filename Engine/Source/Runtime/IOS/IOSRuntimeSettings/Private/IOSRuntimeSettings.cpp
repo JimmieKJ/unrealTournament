@@ -24,6 +24,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bShipForArm64 = true;
 	bShipForArmV7S = false;
 	bUseRSync = false;
+	AdditionalPlistData = TEXT("");
 }
 
 #if WITH_EDITOR

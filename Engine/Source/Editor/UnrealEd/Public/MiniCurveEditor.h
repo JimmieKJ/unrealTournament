@@ -24,6 +24,8 @@ public:
 	virtual void FocusWindow(UObject* ObjectToFocusOn) override;
 	virtual bool CloseWindow() override;
 	virtual bool IsPrimaryEditor() const override { return true; };
+	virtual void InvokeTab(const struct FTabId& TabId) override {}
+
 private:
 
 	float ViewMinInput;

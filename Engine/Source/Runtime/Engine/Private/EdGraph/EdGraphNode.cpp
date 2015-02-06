@@ -315,7 +315,7 @@ UObject* UEdGraphNode::GetJumpTargetForDoubleClick() const
 	return NULL;
 }
 
-FString UEdGraphNode::GetPinDisplayName(const UEdGraphPin* Pin) const
+FText UEdGraphNode::GetPinDisplayName(const UEdGraphPin* Pin) const
 {
 	return GetSchema()->GetPinDisplayName(Pin);
 }
@@ -346,6 +346,12 @@ void UEdGraphNode::AddSearchMetaDataInfo(TArray<struct FSearchTagDataPair>& OutT
 	OutTaggedMetaData.Add(FSearchTagDataPair(FFindInBlueprintSearchTags::FiB_Comment, FText::FromString(NodeComment)));
 }
 
+void UEdGraphNode::OnUpdateCommentText( const FString& NewComment )
+{
+	const FScopedTransaction Transaction( LOCTEXT( "CommentCommitted", "Comment Changed" ) );
+	Modify();
+	NodeComment	= NewComment;
+}
 
 #endif	//#if WITH_EDITOR
 

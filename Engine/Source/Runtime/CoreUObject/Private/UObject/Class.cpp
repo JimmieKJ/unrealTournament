@@ -251,12 +251,32 @@ FText UField::GetDisplayNameText() const
  *
  * @return The tooltip for this object.
  */
-FText UField::GetToolTipText() const
+FText UField::GetToolTipText(bool bShortTooltip) const
 {
+	bool bFoundShortTooltip = false;
+	static const FName NAME_Tooltip(TEXT("Tooltip"));
+	static const FName NAME_ShortTooltip(TEXT("ShortTooltip"));
 	FText LocalizedToolTip;
-	FString NativeToolTip = GetMetaData( TEXT("Tooltip") );
+	FString NativeToolTip;
+	
+	if (bShortTooltip)
+	{
+		NativeToolTip = GetMetaData(NAME_ShortTooltip);
+		if (NativeToolTip.IsEmpty())
+		{
+			NativeToolTip = GetMetaData(NAME_Tooltip);
+		}
+		else
+		{
+			bFoundShortTooltip = true;
+		}
+	}
+	else
+	{
+		NativeToolTip = GetMetaData(NAME_Tooltip);
+	}
 
-	static const FString Namespace = TEXT("UObjectToolTips");
+	const FString Namespace = bFoundShortTooltip ? TEXT("UObjectShortTooltips") : TEXT("UObjectToolTips");
 	const FString Key = GetFullGroupName(true) + TEXT(".") + GetName();
 	if ( !(FText::FindText( Namespace, Key, /*OUT*/LocalizedToolTip )) || *FTextInspector::GetSourceString(LocalizedToolTip) != NativeToolTip)
 	{
@@ -812,6 +832,11 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			Ar << Tag;
 			if( Tag.Name == NAME_None )
 			{
+				break;
+			}
+			if (!Tag.Name.IsValid())
+			{
+				UE_LOG(LogClass, Warning, TEXT("Invalid tag name: struct '%s', archive '%s'"), *GetName(), *Ar.GetArchiveName());
 				break;
 			}
 
@@ -2801,6 +2826,25 @@ FString UClass::GetDesc()
 	return GetName();
 }
 
+void UClass::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	Super::GetAssetRegistryTags(OutTags);
+
+#if WITH_EDITOR
+	static const FName ParentClassFName = "ParentClass";
+	const UClass* const ParentClass = GetSuperClass();
+	OutTags.Add( FAssetRegistryTag(ParentClassFName, ((ParentClass) ? ParentClass->GetFName() : NAME_None).ToString(), FAssetRegistryTag::TT_Alphabetical) );
+
+	static const FName ModuleNameFName = "ModuleName";
+	const UPackage* const ClassPackage = GetOuterUPackage();
+	OutTags.Add( FAssetRegistryTag(ModuleNameFName, ((ClassPackage) ? FPackageName::GetShortFName(ClassPackage->GetFName()) : NAME_None).ToString(), FAssetRegistryTag::TT_Alphabetical) );
+
+	static const FName ModuleRelativePathFName = "ModuleRelativePath";
+	const FString& ClassModuleRelativeIncludePath = GetMetaData(ModuleRelativePathFName);
+	OutTags.Add( FAssetRegistryTag(ModuleRelativePathFName, ClassModuleRelativeIncludePath, FAssetRegistryTag::TT_Alphabetical) );
+#endif
+}
+
 void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 {
 	check(!bRelinkExistingProperties || !(ClassFlags & CLASS_Intrinsic));
@@ -3024,19 +3068,41 @@ void UClass::Serialize( FArchive& Ar )
 	{
 		check((Ar.GetPortFlags() & PPF_Duplicate) || (GetStructureSize() >= sizeof(UObject)));
 		check(!GetSuperClass() || !GetSuperClass()->HasAnyFlags(RF_NeedLoad));
+		
+		// record the current CDO, as it stands, so we can compare against it 
+		// after we've serialized in the new CDO (to detect if, as a side-effect
+		// of the serialization, a different CDO was generated)
 		UObject* const OldCDO = ClassDefaultObject;
-		UObject* TempClassDefaultObject = NULL;
-		Ar << TempClassDefaultObject;
-		// we need to avoid a case, when while class regeneration a different CDO is set, and now we set it to an stale one (ttp#343166)
+
+		// serialize in the CDO, but first store it here (in a temporary var) so
+		// we can check to see if it should be the authoritative CDO (a newer 
+		// CDO could be generated as a side-effect of this serialization)
+		//
+		// @TODO: for USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING, do we need to 
+		//        defer this serialization (should we just save off the tagged
+		//        serialization data for later use)?
+		UObject* PerspectiveNewCDO = NULL;
+		Ar << PerspectiveNewCDO;
+
+		// Blueprint class regeneration could cause the class's CDO to be set.
+		// The CDO (<<) serialization call (above) probably will invoke class 
+		// regeneration, and as a side-effect the CDO could already be set by 
+		// the time it returns. So we only want to set the CDO here (to what was 
+		// serialized in) if it hasn't already changed (else, the serialized
+		// version could be stale). See: TTP #343166
 		if (ClassDefaultObject == OldCDO)
 		{
-			ClassDefaultObject = TempClassDefaultObject;
+			ClassDefaultObject = PerspectiveNewCDO;
 		}
-		else if (TempClassDefaultObject != ClassDefaultObject)
+		// if we reach this point, then the CDO was regenerated as a side-effect
+		// of the serialization... let's log if the regenerated CDO (what's 
+		// already been set) is not the same as what was returned from the 
+		// serialization (could mean the CDO was regenerated multiple times?)
+		else if (PerspectiveNewCDO != ClassDefaultObject)
 		{
 			UE_LOG(LogClass, Log, TEXT("CDO was changed while class serialization.\n\tOld: '%s'\n\tSerialized: '%s'\n\tActual: '%s'")
 				, OldCDO ? *OldCDO->GetFullName() : TEXT("NULL")
-				, TempClassDefaultObject ? *TempClassDefaultObject->GetFullName() : TEXT("NULL")
+				, PerspectiveNewCDO ? *PerspectiveNewCDO->GetFullName() : TEXT("NULL")
 				, ClassDefaultObject ? *ClassDefaultObject->GetFullName() : TEXT("NULL"));
 		}
 		ClassUnique = 0;
@@ -3331,10 +3397,6 @@ bool UClass::HotReloadPrivateStaticClass(
 		UClass::GetDefaultPropertiesFeedbackContext().Logf(ELogVerbosity::Warning, TEXT("Property size mismatch. Will not update class %s (was %d, new %d)."), *GetName(), PropertiesSize, InSize);
 		return false;
 	}
-	//We could do this later, but might as well get it before we start corrupting the object
-	UObject* CDO = GetDefaultObject();
-	void* OldVTable = *(void**)CDO;
-
 
 	//@todo safe? ClassFlags = InClassFlags | CLASS_Native;
 	//@todo safe? ClassCastFlags = InClassCastFlags;
@@ -3355,51 +3417,23 @@ bool UClass::HotReloadPrivateStaticClass(
 	ClassWithin = TClass_WithinClass_StaticClass;
 	*/
 
-	UE_LOG(LogClass, Verbose, TEXT("Attempting to change VTable for class %s."),*GetName());
-	ClassWithin = UPackage::StaticClass();  // We are just avoiding error checks with this...we don't care about this temp object other than to get the vtable.
-	UObject* TempObjectForVTable = StaticConstructObject(this, GetTransientPackage(), NAME_None, RF_NeedLoad | RF_ClassDefaultObject);
-
-	if( !TempObjectForVTable->IsRooted() )
+	int32 CountClass = 0;
+	for (FRawObjectIterator It; It; ++It)
 	{
-		TempObjectForVTable->MarkPendingKill();
-	}
-	else
-	{
-		UE_LOG(LogClass, Warning, TEXT("Hot Reload:  Was not expecting temporary object '%s' for class '%s' to become rooted during construction.  This object cannot be marked pending kill." ), *TempObjectForVTable->GetFName().ToString(), *this->GetName() );
-	}
-
-	ClassWithin = TClass_WithinClass_StaticClass;
-
-	void* NewVTable = *(void**)TempObjectForVTable;
-	if (NewVTable != OldVTable)
-	{
-		int32 Count = 0;
-		int32 CountClass = 0;
-		for ( FRawObjectIterator It; It; ++It )
+		UObject* Target = *It;
+		if (dynamic_cast<UClass*>(Target))
 		{
-			UObject* Target = *It;
-			if (OldVTable == *(void**)Target)
+			UClass *Class = CastChecked<UClass>(Target);
+			if (Class->ClassConstructor == OldClassConstructor)
 			{
-				*(void**)Target = NewVTable;
-				Count++;
-			}
-			else if (dynamic_cast<UClass*>(Target))
-			{
-				UClass *Class = CastChecked<UClass>(Target);
-				if (Class->ClassConstructor == OldClassConstructor)
-				{
-					Class->ClassConstructor = ClassConstructor;
-					Class->ClassAddReferencedObjects = ClassAddReferencedObjects;
-					CountClass++;
-				}
+				Class->ClassConstructor = ClassConstructor;
+				Class->ClassAddReferencedObjects = ClassAddReferencedObjects;
+				CountClass++;
 			}
 		}
-		UE_LOG(LogClass, Verbose, TEXT("Updated the vtable for %d live objects and %d blueprint classes.  %016llx -> %016llx"), Count, CountClass, PTRINT(OldVTable), PTRINT(NewVTable));
 	}
-	else
-	{
-		UE_LOG(LogClass, Error, TEXT("VTable for class %s did not change?"),*GetName());
-	}
+	UE_LOG(LogClass, Verbose, TEXT("Updated the internal methods %d blueprint classes."), CountClass);
+
 	return true;
 }
 

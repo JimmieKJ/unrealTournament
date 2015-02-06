@@ -33,9 +33,9 @@ FText FDebugLineItem::GetDisplayName() const
 	return FText::GetEmpty();
 }
 
-FString FDebugLineItem::GetDescription() const
+FText FDebugLineItem::GetDescription() const
 {
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 TSharedRef<SWidget> FDebugLineItem::GenerateNameWidget()
@@ -136,9 +136,9 @@ protected:
 		return new FMessageLineItem(Message);
 	}
 
-	virtual FString GetDescription() const override
+	virtual FText GetDescription() const override
 	{
-		return Message;
+		return FText::FromString(Message);
 	}
 };
 
@@ -172,25 +172,25 @@ protected:
 	}
 protected:
 	virtual TSharedRef<SWidget> GenerateNameWidget() override;
-	virtual FString GetDescription() const override;
+	virtual FText GetDescription() const override;
 	virtual FText GetDisplayName() const override;
 	void OnNavigateToLatentNode();
 
 	class UEdGraphNode* FindAssociatedNode() const;
 };
 
-FString FLatentActionLineItem::GetDescription() const
+FText FLatentActionLineItem::GetDescription() const
 {
 	if (UObject* ParentObject = ParentObjectRef.Get())
 	{
 		if (UWorld* World = GEngine->GetWorldFromContextObject(ParentObject))
 		{
 			FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
-			return LatentActionManager.GetDescription(ParentObject, UUID);
+			return FText::FromString(LatentActionManager.GetDescription(ParentObject, UUID));
 		}
 	}
 
-	return LOCTEXT("NullObject", "Object has been destroyed").ToString();
+	return LOCTEXT("NullObject", "Object has been destroyed");
 }
 
 TSharedRef<SWidget> FLatentActionLineItem::GenerateNameWidget()
@@ -294,7 +294,7 @@ public:
 		}
 	}
 protected:
-	virtual FString GetDescription() const override;
+	virtual FText GetDescription() const override;
 	virtual FText GetDisplayName() const override;
 	virtual TSharedRef<SWidget> GenerateNameWidget() override;
 
@@ -323,7 +323,7 @@ FText FWatchLineItem::GetDisplayName() const
 	}
 }
 
-FString FWatchLineItem::GetDescription() const
+FText FWatchLineItem::GetDescription() const
 {
 	if (UEdGraphPin* PinToWatch = Cast<UEdGraphPin>(ObjectRef.Get()))
 	{
@@ -342,16 +342,16 @@ FString FWatchLineItem::GetDescription() const
 				FString Description;
 				Property->ExportText_InContainer(/*ArrayElement=*/0, /*inout*/ Description, SelectedDataInPIE, SelectedDataInPIE, /*Parent=*/ NULL, PPF_PropertyWindow|PPF_BlueprintDebugView);
 
-				return Description;
+				return FText::FromString(Description);
 			}
 			else
 			{
-				return LOCTEXT("NothingToWatch", "Nothing to watch.").ToString();
+				return LOCTEXT("NothingToWatch", "Nothing to watch.");
 			}
 		}
 	}
 
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 TSharedRef<SWidget> FWatchLineItem::GenerateNameWidget()
@@ -503,7 +503,7 @@ protected:
 	void OnNavigateToBreakpointLocation();
 
 	const FSlateBrush* GetStatusImage() const;
-	FString GetStatusTooltip() const;
+	FText GetStatusTooltip() const;
 };
 
 FText FBreakpointLineItem::GetLocationDescription() const
@@ -549,22 +549,22 @@ const FSlateBrush* FBreakpointLineItem::GetStatusImage() const
 	return FEditorStyle::GetDefaultBrush();
 }
 
-FString FBreakpointLineItem::GetStatusTooltip() const
+FText FBreakpointLineItem::GetStatusTooltip() const
 {
 	if (UBreakpoint* MyBreakpoint = BreakpointRef.Get())
 	{
 		if (!FKismetDebugUtilities::IsBreakpointValid(MyBreakpoint))
 		{
-			return LOCTEXT("Breakpoint_NoHit", "This breakpoint will not be hit because its node generated no code").ToString();
+			return LOCTEXT("Breakpoint_NoHit", "This breakpoint will not be hit because its node generated no code");
 		}
 		else
 		{
-			return MyBreakpoint->IsEnabledByUser() ? LOCTEXT("ActiveBreakpoint", "Active breakpoint").ToString() : LOCTEXT("InactiveBreakpoint", "Inactive breakpoint").ToString();
+			return MyBreakpoint->IsEnabledByUser() ? LOCTEXT("ActiveBreakpoint", "Active breakpoint") : LOCTEXT("InactiveBreakpoint", "Inactive breakpoint");
 		}
 	}
 	else
 	{
-		return LOCTEXT("NoBreakpoint", "No Breakpoint").ToString();
+		return LOCTEXT("NoBreakpoint", "No Breakpoint");
 	}
 }
 
@@ -836,15 +836,18 @@ protected:
 			];
 	}
 
-	FString GetVisitTime() const
+	FText GetVisitTime() const
 	{
 		const TSimpleRingBuffer<FKismetTraceSample>& TraceStack = FKismetDebugUtilities::GetTraceStack();
 		if (StackIndex < TraceStack.Num())
 		{
-			return FString::Printf(TEXT(" @ %.2f s"), TraceStack(StackIndex).ObservationTime - GStartTime);
+			static const FNumberFormattingOptions TimeFormatOptions = FNumberFormattingOptions()
+				.SetMinimumFractionalDigits(2)
+				.SetMaximumFractionalDigits(2);
+			return FText::Format(LOCTEXT("VisitTimeFmt", " @ {0} s"), FText::AsNumber(TraceStack(StackIndex).ObservationTime - GStartTime, &TimeFormatOptions));
 		}
 
-		return TEXT("");
+		return FText::GetEmpty();
 	}
 
 	FText GetContextObjectName() const
@@ -1011,19 +1014,19 @@ TSharedPtr<SWidget> SKismetDebuggingView::OnMakeContextMenu()
 	return MenuBuilder.MakeWidget();
 }
 
-FString SKismetDebuggingView::GetTopText() const
+FText SKismetDebuggingView::GetTopText() const
 {
 	if (GEditor->PlayWorld != NULL)
 	{
-		return LOCTEXT("ShowDebugForActors", "Showing debug info for selected actors").ToString();
+		return LOCTEXT("ShowDebugForActors", "Showing debug info for selected actors");
 	}
 	else if (BlueprintToWatchPtr.Get() != NULL)
 	{
-		return LOCTEXT("ShowDebugForBlueprint", "Showing debug info for this blueprint").ToString();
+		return LOCTEXT("ShowDebugForBlueprint", "Showing debug info for this blueprint");
 	}
 	else
 	{
-		return LOCTEXT("Idle", "Idle").ToString();
+		return LOCTEXT("Idle", "Idle");
 	}
 }
 

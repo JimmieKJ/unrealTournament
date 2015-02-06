@@ -261,7 +261,7 @@ private:
 		{
 			Verbosity = ELogVerbosity::Warning;
 		}
-		TSharedPtr<FProjectLauncherMessage> Message = MakeShareable(new FProjectLauncherMessage(InMessage, Verbosity));
+		TSharedPtr<FProjectLauncherMessage> Message = MakeShareable(new FProjectLauncherMessage(FText::FromString(InMessage), Verbosity));
 		PendingMessages.Add(Message);
 	}
 
@@ -488,9 +488,8 @@ private:
 
 			for( int32 Index = 0; Index < SelectedItems.Num(); ++Index )
 			{
-				SelectedText += FString::Printf(TEXT("%s"),
-					*SelectedItems[Index]->Message
-					) + LINE_TERMINATOR;
+				SelectedText += SelectedItems[Index]->Message.ToString();
+				SelectedText += LINE_TERMINATOR;
 			}
 
 			FPlatformMisc::ClipboardCopy( *SelectedText );
@@ -537,8 +536,7 @@ private:
 					{
 						for( int32 Index = 0; Index < MessageList.Num(); ++Index )
 						{
-							FString LogEntry = FString::Printf(TEXT("%s"),
-								*MessageList[Index]->Message) + LINE_TERMINATOR;
+							FString LogEntry = MessageList[Index]->Message.ToString() + LINE_TERMINATOR;
 
 							LogFile->Serialize(TCHAR_TO_ANSI(*LogEntry), LogEntry.Len());
 						}

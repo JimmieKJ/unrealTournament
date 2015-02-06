@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
+#include "EditorClassUtils.h"
 
 #define LOCTEXT_NAMESPACE "WorldFactory"
 
@@ -28,6 +29,21 @@ UObject* UWorldFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName
 	NewWorld->ThumbnailInfo = ConstructObject<UWorldThumbnailInfo>(UWorldThumbnailInfo::StaticClass(), NewWorld);
 
 	return NewWorld;
+}
+
+FText UWorldFactory::GetToolTip() const
+{
+	return ULevel::StaticClass()->GetToolTipText();
+}
+
+FString UWorldFactory::GetToolTipDocumentationPage() const
+{
+	return FEditorClassUtils::GetDocumentationPage(ULevel::StaticClass());
+}
+
+FString UWorldFactory::GetToolTipDocumentationExcerpt() const
+{
+	return FEditorClassUtils::GetDocumentationExcerpt(ULevel::StaticClass());
 }
 
 #undef LOCTEXT_NAMESPACE

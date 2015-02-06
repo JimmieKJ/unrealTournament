@@ -117,6 +117,9 @@ public:
 
 private:
 
+	/** Sort the root items into the correct order */
+	void SortRootItems();
+
 	/** Gets the content for a context menu */
 	TSharedPtr<SWidget> MakePathViewContextMenu();
 
@@ -199,16 +202,16 @@ private:
 	void GetDroppedObjects(const TArray<FAssetData>& AssetList, TArray<UObject*>& OutDroppedObjects);
 
 	/** Handler for the user selecting to copy assets to the specified folder */
-	void ExecuteTreeDropCopy(TArray<FAssetData> AssetList, TSharedPtr<FTreeItem> TreeItem);
+	void ExecuteTreeDropCopy(TArray<FAssetData> AssetList, FString DestinationPath);
 
 	/** Handler for the user selecting to move assets to the specified folder */
-	void ExecuteTreeDropMove(TArray<FAssetData> AssetList, TSharedPtr<FTreeItem> TreeItem);
+	void ExecuteTreeDropMove(TArray<FAssetData> AssetList, FString DestinationPath);
 
 	/** Handler for the user selecting to copy folders to the specified folder */
-	void ExecuteTreeDropCopyFolder(TArray<FString> PathNames, TSharedPtr<FTreeItem> TreeItem);
+	void ExecuteTreeDropCopyFolder(TArray<FString> PathNames, FString DestinationPath);
 
 	/** Handler for the user selecting to move folders to the specified folder */
-	void ExecuteTreeDropMoveFolder(TArray<FString> PathNames, TSharedPtr<FTreeItem> TreeItem);
+	void ExecuteTreeDropMoveFolder(TArray<FString> PathNames, FString DestinationPath);
 
 	/** Handles updating the content browser when an asset path is added to the asset registry */
 	void OnAssetRegistryPathAdded(const FString& Path);
@@ -221,6 +224,9 @@ private:
 
 	/** Called from an engine core event when a new content path has been added or removed, so that we can refresh our root set of paths */
 	void OnContentPathMountedOrDismounted( const FString& AssetPath, const FString& FileSystemPath );
+
+	/** Called when the class hierarchy is updated due to the available modules changing */
+	void OnClassHierarchyUpdated();
 
 	/** Delegate called when an editor setting is changed */
 	void HandleSettingChanged(FName PropertyName);
@@ -273,12 +279,6 @@ private:
 
 	/** The paths that were last reported by OnPathExpanded event. Used in preserving expansion when filtering folders */
 	TSet< FString > LastExpandedPaths;
-
-	/** The name of the root tree item for placeable classes */
-	FString ClassesRootName;
-
-	/** The name of the root tree item for game content */
-	FString GameRootName;
 
 	/** If not empty, this is the path of the folders to sync once they are available while assets are still being discovered */
 	TArray<FString> PendingInitialPaths;

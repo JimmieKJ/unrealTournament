@@ -39,4 +39,6 @@ private:
 
 	/** An array of the available content sources. */
 	TArray<TSharedRef<IContentSource>> ContentSources;
+
+	FDelegateHandle DirectoryChangedDelegateHandle;
 };

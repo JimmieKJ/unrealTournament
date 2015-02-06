@@ -859,7 +859,7 @@ void ULandscapeMeshCollisionComponent::ApplyWorldOffset(const FVector& InOffset,
 	}
 }
 
-void ULandscapeMeshCollisionComponent::DestroyComponent()
+void ULandscapeMeshCollisionComponent::DestroyComponent(bool bPromoteChildren/*= false*/)
 {
 	ALandscapeProxy* Proxy = GetLandscapeProxy();
 	if (Proxy)
@@ -867,7 +867,7 @@ void ULandscapeMeshCollisionComponent::DestroyComponent()
 		Proxy->CollisionComponents.Remove(this);
 	}
 
-	Super::DestroyComponent();
+	Super::DestroyComponent(bPromoteChildren);
 }
 
 #if WITH_EDITOR
@@ -959,7 +959,7 @@ void ULandscapeHeightfieldCollisionComponent::UpdateHeightfieldRegion(int32 Comp
 }
 #endif// WITH_EDITOR
 
-void ULandscapeHeightfieldCollisionComponent::DestroyComponent()
+void ULandscapeHeightfieldCollisionComponent::DestroyComponent(bool bPromoteChildren/*= false*/)
 {
 	ALandscapeProxy* Proxy = GetLandscapeProxy();
 	if (Proxy)
@@ -967,7 +967,7 @@ void ULandscapeHeightfieldCollisionComponent::DestroyComponent()
 		Proxy->CollisionComponents.Remove(this);
 	}
 
-	Super::DestroyComponent();
+	Super::DestroyComponent(bPromoteChildren);
 }
 
 FBoxSphereBounds ULandscapeHeightfieldCollisionComponent::CalcBounds(const FTransform& LocalToWorld) const

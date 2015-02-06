@@ -127,6 +127,9 @@ public:
 	// Returns true if the flipbook has any sockets
 	bool HasAnySockets() const;
 
+	// Returns true if the flipbook has a specific named socket
+	bool DoesSocketExist(FName SocketName) const;
+
 	// Returns a list of all of the sockets
 	void QuerySupportedSockets(TArray<FComponentSocketDescription>& OutSockets) const;
 

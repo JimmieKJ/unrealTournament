@@ -17,11 +17,15 @@ public class CEF3 : ModuleRules
 		{
 			CEFPlatform = "windows64";
 		}
-        else if (Target.Platform == UnrealTargetPlatform.Mac)
-        {
+		else if (Target.Platform == UnrealTargetPlatform.Win32)
+		{
+			CEFPlatform = "windows32";
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
 			CEFVersion = "3.1750.1805";
-            CEFPlatform = "macosx64";
-        }
+			CEFPlatform = "macosx64";
+		}
 
 		if (CEFPlatform.Length > 0 && UEBuildConfiguration.bCompileCEF3)
 		{
@@ -33,7 +37,7 @@ public class CEF3 : ModuleRules
 
 			string LibraryPath = PlatformPath + "/Release";
 
-			if (Target.Platform == UnrealTargetPlatform.Win64)
+			if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
 			{
 				PublicLibraryPaths.Add(LibraryPath);
 

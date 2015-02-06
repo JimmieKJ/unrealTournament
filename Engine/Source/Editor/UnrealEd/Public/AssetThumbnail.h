@@ -17,6 +17,33 @@ namespace EThumbnailLabel
 	};
 };
 
+/** A struct containing details about how the asset thumbnail should behave */
+struct FAssetThumbnailConfig
+{
+	FAssetThumbnailConfig()
+		: bAllowFadeIn( false )
+		, bForceGenericThumbnail( false )
+		, bAllowHintText( true )
+		, bAllowAssetSpecificThumbnailOverlay( false )
+		, ClassThumbnailBrushOverride( NAME_None )
+		, ThumbnailLabel( EThumbnailLabel::ClassName )
+		, HighlightedText( FText::GetEmpty() )
+		, HintColorAndOpacity( FLinearColor( 0.0f, 0.0f, 0.0f, 0.0f ) )
+		, AssetTypeColorOverride()
+	{
+	}
+
+	bool bAllowFadeIn;
+	bool bForceGenericThumbnail;
+	bool bAllowHintText;
+	bool bAllowAssetSpecificThumbnailOverlay;
+	FName ClassThumbnailBrushOverride;
+	EThumbnailLabel::Type ThumbnailLabel;
+	TAttribute< FText > HighlightedText;
+	TAttribute< FLinearColor > HintColorAndOpacity;
+	TOptional< FLinearColor > AssetTypeColorOverride;
+};
+
 /**
  * Interface for rendering a thumbnail in a slate viewport                   
  */
@@ -75,15 +102,7 @@ public:
 	/**
 	 * @return A slate widget representing this thumbnail
 	 */
-	UNREALED_API TSharedRef<SWidget> MakeThumbnailWidget(
-		bool bAllowFadeIn = false,
-		bool bForceGenericThumbnail = false,
-		EThumbnailLabel::Type ThumbnailLabel = EThumbnailLabel::ClassName,
-		const TAttribute< FText >& HighlightedText = TAttribute< FText >( FText::GetEmpty() ),
-		const TAttribute< FLinearColor >& HintColorAndOpacity = FLinearColor( 0.0f, 0.0f, 0.0f, 0.0f ),
-		bool AllowHintText = true,
-		FName ClassThumbnailBrushOverride = NAME_None,
-		bool ShowBackground = true);
+	UNREALED_API TSharedRef<SWidget> MakeThumbnailWidget( const FAssetThumbnailConfig& InConfig = FAssetThumbnailConfig() );
 
 	/** Re-renders this thumbnail */
 	UNREALED_API void RefreshThumbnail();

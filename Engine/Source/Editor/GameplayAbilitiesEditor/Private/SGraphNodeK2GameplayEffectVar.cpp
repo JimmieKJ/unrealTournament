@@ -38,7 +38,7 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 	UGameplayEffect* GameplayEffect = GameplayEffectNode ? GameplayEffectNode->GameplayEffect : NULL;
 
 	FText DurationText = GameplayEffect ? GameplayEffect->DurationMagnitude.GetValueForEditorDisplay() : FText::GetEmpty();
-	FString PeriodString = FString::Printf(TEXT("%d s"), (GameplayEffect) ? GameplayEffect->Period.Value : 0.f);
+	FText PeriodText = FText::Format(LOCTEXT("PeriodTimeInSeconds", "{0} s"), FText::AsNumber((GameplayEffect) ? GameplayEffect->Period.Value : 0.f));
 
 	RightNodeBox->AddSlot()
 		[
@@ -47,7 +47,7 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 			.HAlign(HAlign_Left)
 			[
 				SNew(STextBlock)
-				.Text(FString("Duration:"))
+				.Text(LOCTEXT("DurationLabel", "Duration:"))
 			]
 			+ SHorizontalBox::Slot()
 			.HAlign(HAlign_Right)
@@ -64,13 +64,13 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 			.HAlign(HAlign_Left)
 			[
 				SNew(STextBlock)
-				.Text(FString("Period:"))
+				.Text(LOCTEXT("PeriodLabel", "Period:"))
 			]
 			+ SHorizontalBox::Slot()
 				.HAlign(HAlign_Right)
 				[
 					SNew(STextBlock)
-					.Text(PeriodString)
+					.Text(PeriodText)
 				]
 		];
 
@@ -82,8 +82,8 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 
 	if (GameplayEffect && (GameplayEffect->ChanceToApplyToTarget.Value < 1.f || GameplayEffect->ChanceToExecuteOnGameplayEffect.Value < 1.f))
 	{
-		FString ApplyToTargetString = FString::Printf(TEXT("%d"), GameplayEffect->ChanceToApplyToTarget.Value);
-		FString ExecuteOnGEString = FString::Printf(TEXT("%d"), GameplayEffect->ChanceToExecuteOnGameplayEffect.Value);
+		FText ApplyToTargetText = FText::AsNumber(GameplayEffect->ChanceToApplyToTarget.Value);
+		FText ExecuteOnGEText = FText::AsNumber(GameplayEffect->ChanceToExecuteOnGameplayEffect.Value);
 
 		RightNodeBox->AddSlot()
 			[
@@ -92,13 +92,13 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 				.HAlign(HAlign_Left)
 				[
 					SNew(STextBlock)
-					.Text(FString("Chance to Apply to Target:"))
+					.Text(LOCTEXT("ChanceToApplyToTargetLabel", "Chance to Apply to Target:"))
 				]
 				+ SHorizontalBox::Slot()
 					.HAlign(HAlign_Right)
 					[
 						SNew(STextBlock)
-						.Text(ApplyToTargetString)
+						.Text(ApplyToTargetText)
 					]
 			];
 
@@ -109,13 +109,13 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 				.HAlign(HAlign_Left)
 				[
 					SNew(STextBlock)
-					.Text(FString("Chance to Execute on GE:"))
+					.Text(LOCTEXT("ChanceToExecuteOnGE", "Chance to Execute on GE:"))
 				]
 				+ SHorizontalBox::Slot()
 					.HAlign(HAlign_Right)
 					[
 						SNew(STextBlock)
-						.Text(ExecuteOnGEString)
+						.Text(ExecuteOnGEText)
 					]
 			];
 
@@ -140,7 +140,7 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 			.HAlign(HAlign_Left)
 			[
 				SNew(STextBlock)
-				.Text(GameplayEffect->Modifiers[Idx].Attribute.GetName())
+				.Text(FText::FromString(GameplayEffect->Modifiers[Idx].Attribute.GetName()))
 			];
 
 		FString ModOpString;
@@ -159,7 +159,7 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 			ModOpString = "Other";
 			break;
 		}
-		FString ModString = FString::Printf(TEXT("%s: %f"), *ModOpString, GameplayEffect->Modifiers[Idx].Magnitude.Value);
+		FText ModString = FText::Format(LOCTEXT("ModOpAndValue", "{0}: {1}"), FText::FromString(ModOpString), FText::AsNumber(GameplayEffect->Modifiers[Idx].Magnitude.Value));
 
 		RightNodeBox->AddSlot()
 			.VAlign(VAlign_Center)

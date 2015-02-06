@@ -88,7 +88,7 @@ protected:
 	 *
 	 * @return Zoom label text
 	 */
-	FString GetZoomLabel() const;
+	FText GetZoomLabel() const;
 
 	/**
 	 * Callback used to get the current zoom slider value.

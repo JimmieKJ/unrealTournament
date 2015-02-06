@@ -391,9 +391,9 @@ protected:
 	/* Notifies the user of failures */
 	void NotifyUser( FNotificationInfo& Info );
 
-	FString GetBlendSpaceDisplayName() const
+	FText GetBlendSpaceDisplayName() const
 	{
-		return BlendSpace->GetName();
+		return FText::FromString(BlendSpace->GetName());
 	}
 
 	/** Pointer back to the Persona that owns us */

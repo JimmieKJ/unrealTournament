@@ -258,8 +258,7 @@ void FStaticMeshStaticLightingTextureMapping::Apply(FQuantizedLightmapData* Quan
 		}
 
 		// Build the list of statically irrelevant lights.
-		// TODO: This should be stored per LOD.
-		StaticMeshComponent->IrrelevantLights.Empty();
+		// IrrelevantLights was cleared in InvalidateLightingCacheDetailed
 
 		for(int32 LightIndex = 0;LightIndex < Mesh->RelevantLights.Num();LightIndex++)
 		{

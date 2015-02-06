@@ -185,9 +185,10 @@ void SSocketManager::Construct(const FArguments& InArgs)
 	FDetailsViewArgs Args;
 	Args.bHideSelectionTip = true;
 	Args.bLockable = false;
-	Args.bAllowSearch = true;
+	Args.bAllowSearch = false;
+	Args.bShowOptions = false;
 	Args.NotifyHook = this;
-	Args.bObjectsUseNameArea = true;
+	Args.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	SocketDetailsView = PropertyModule.CreateDetailView(Args);
@@ -629,7 +630,7 @@ FReply SSocketManager::DeleteSelectedSocket_Execute()
 	return FReply::Handled();
 }
 
-FString SSocketManager::GetSocketHeaderText() const
+FText SSocketManager::GetSocketHeaderText() const
 {
 	UStaticMesh* CurrentStaticMesh = nullptr;
 	TSharedPtr<IStaticMeshEditor> StaticMeshEditorPinned = StaticMeshEditorPtr.Pin();
@@ -637,7 +638,7 @@ FString SSocketManager::GetSocketHeaderText() const
 	{
 		CurrentStaticMesh = StaticMeshEditorPinned->GetStaticMesh();
 	}
-	return FString::Printf(*LOCTEXT("SocketHeader_Total", "Sockets (%d Total)").ToString(), (CurrentStaticMesh != nullptr) ? CurrentStaticMesh->Sockets.Num() : 0);
+	return FText::Format(LOCTEXT("SocketHeader_TotalFmt", "Sockets ({0} Total)"), FText::AsNumber((CurrentStaticMesh != nullptr) ? CurrentStaticMesh->Sockets.Num() : 0));
 }
 
 void SSocketManager::SocketName_TextChanged(const FText& InText)

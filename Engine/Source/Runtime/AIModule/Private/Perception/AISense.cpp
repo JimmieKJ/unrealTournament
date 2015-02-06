@@ -92,12 +92,23 @@ FString UAISense::GetDebugLegend() const
 {
 	return FString::Printf(TEXT("{%s} %s,"), *DebugDrawColor.ToString(), *GetName());
 }
+#endif // !UE_BUILD_SHIPPING
 
+//----------------------------------------------------------------------//
+// 
+//----------------------------------------------------------------------//
+UAISenseConfig::UAISenseConfig(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer), bStartsEnabled(true)
+{
+}
+
+#if !UE_BUILD_SHIPPING
 void UAISenseConfig::DrawDebugInfo(UCanvas& Canvas, UAIPerceptionComponent& PerceptionComponent) const
 {
 
 }
 #endif // !UE_BUILD_SHIPPING
+
 //----------------------------------------------------------------------//
 // 
 //----------------------------------------------------------------------//
@@ -105,6 +116,7 @@ TSubclassOf<UAISense> UAISenseConfig_Sight::GetSenseImplementation() const
 { 
 	return *Implementation; 
 }
+
 #if !UE_BUILD_SHIPPING
 void UAISenseConfig_Sight::DrawDebugInfo(UCanvas& Canvas, UAIPerceptionComponent& PerceptionComponent) const
 {
@@ -125,9 +137,16 @@ void UAISenseConfig_Sight::DrawDebugInfo(UCanvas& Canvas, UAIPerceptionComponent
 	}
 }
 #endif // !UE_BUILD_SHIPPING
+
 //----------------------------------------------------------------------//
 // UAISenseConfig_Hearing
 //----------------------------------------------------------------------//
+
+UAISenseConfig_Hearing::UAISenseConfig_Hearing(const FObjectInitializer& ObjectInitializer) 
+	: Super(ObjectInitializer), HearingRange(3000.f)
+{
+}
+
 TSubclassOf<UAISense> UAISenseConfig_Hearing::GetSenseImplementation() const 
 { 
 	return *Implementation; 

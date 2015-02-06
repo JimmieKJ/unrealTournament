@@ -487,6 +487,15 @@ namespace ObjectTools
 	UNREALED_API bool IsAssetValidForPlacing(UWorld* InWorld, const FString& ObjectPath);
 
 	/**
+	 * Determines if the class is placeable in a world.
+	 *
+	 * @param InClass	Class to test.
+	 * 
+	 * @return true if the class can be placed in the world.
+	 */
+	UNREALED_API bool IsClassValidForPlacing(const UClass* InClass);
+
+	/**
 	 * Determines if a given class is a redirector.
 	 *
 	 * @param Class	The class

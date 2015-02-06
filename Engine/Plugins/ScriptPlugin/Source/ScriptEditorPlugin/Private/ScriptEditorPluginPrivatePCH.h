@@ -10,7 +10,7 @@
 #include "ScriptFactory.h"
 #include "ReimportScriptFactory.h"
 #include "AssetTypeActions_Base.h"
-#include "ScriptComponent.h"
+#include "ScriptPluginComponent.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
 #include "Kismet2/KismetEditorUtilities.h"

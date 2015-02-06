@@ -146,7 +146,8 @@ bool FKismetDragDropAction::ActionWillShowExistingNode() const
 	if (ActionNode.IsValid() && (HoveredGraph != NULL))
 	{
 		bWillFocusOnExistingNode = (ActionNode->GetTypeId() == FEdGraphSchemaAction_K2TargetNode::StaticGetTypeId()) ||
-		                           (ActionNode->GetTypeId() == FEdGraphSchemaAction_K2Event::StaticGetTypeId());
+			(ActionNode->GetTypeId() == FEdGraphSchemaAction_K2Event::StaticGetTypeId()) ||
+			(ActionNode->GetTypeId() == FEdGraphSchemaAction_K2InputAction::StaticGetTypeId());
 
 		if (!bWillFocusOnExistingNode && (ActionNode->GetTypeId() == FEdGraphSchemaAction_K2AddEvent::StaticGetTypeId()))
 		{

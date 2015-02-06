@@ -66,7 +66,7 @@ private:
 	/**
 	 * Gets the active display value as a string
 	 */
-	FString GetDisplayValueAsString() const;
+	FText GetDisplayValueAsString() const;
 
 private:
 	/** The property editor we were constructed for, or null if we're editing using the construction arguments */

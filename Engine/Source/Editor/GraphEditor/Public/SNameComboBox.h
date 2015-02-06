@@ -73,9 +73,9 @@ private:
 	void OnSelectionChanged(TSharedPtr<FName> Selection, ESelectInfo::Type SelectInfo);
 
 	/** Helper method to get the text for a given item in the combo box */
-	FString GetSelectedNameLabel() const;
+	FText GetSelectedNameLabel() const;
 
-	FString GetItemNameLabel(TSharedPtr<FName> StringItem) const;
+	FText GetItemNameLabel(TSharedPtr<FName> StringItem) const;
 
 private:
 

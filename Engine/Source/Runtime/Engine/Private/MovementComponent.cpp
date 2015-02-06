@@ -5,6 +5,7 @@
 #include "GameFramework/MovementComponent.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "Components/SceneComponent.h"
+#include "Components/PrimitiveComponent.h"
 #include "MessageLog.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 
@@ -38,7 +39,7 @@ UMovementComponent::UMovementComponent(const FObjectInitializer& ObjectInitializ
 }
 
 
-void UMovementComponent::SetUpdatedComponent(UPrimitiveComponent* NewUpdatedComponent)
+void UMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
 {
 	if (UpdatedComponent && UpdatedComponent != NewUpdatedComponent)
 	{
@@ -55,7 +56,9 @@ void UMovementComponent::SetUpdatedComponent(UPrimitiveComponent* NewUpdatedComp
 
 	// Don't assign pending kill components, but allow those to null out previous UpdatedComponent.
 	UpdatedComponent = IsValid(NewUpdatedComponent) ? NewUpdatedComponent : NULL;
+	UpdatedPrimitive = Cast<UPrimitiveComponent>(UpdatedComponent);
 
+	// Assign delegates
 	if (IsValid(UpdatedComponent))
 	{
 		UpdatedComponent->bShouldUpdatePhysicsVolume = true;
@@ -85,25 +88,18 @@ void UMovementComponent::InitializeComponent()
 	TGuardValue<bool> InInitializeComponentGuard(bInInitializeComponent, true);
 	Super::InitializeComponent();
 
-	UPrimitiveComponent* NewUpdatedComponent = NULL;
+	USceneComponent* NewUpdatedComponent = NULL;
 	if (UpdatedComponent != NULL)
 	{
 		NewUpdatedComponent = UpdatedComponent;
 	}
 	else if (bAutoRegisterUpdatedComponent)
 	{
-		// Auto-register owner's root primitive component if found.
+		// Auto-register owner's root component if found.
 		AActor* MyActor = GetOwner();
 		if (MyActor)
 		{
-			NewUpdatedComponent = Cast<UPrimitiveComponent>(MyActor->GetRootComponent());
-			if (!NewUpdatedComponent)
-			{
-				FMessageLog("PIE").Warning(FText::Format(LOCTEXT("NoRootPrimitiveWarning", "Movement component {0} must update a PrimitiveComponent, but owning actor '{1}' does not have a root PrimitiveComponent. Auto registration failed."),
-					FText::FromString(GetName()),
-					FText::FromString(MyActor->GetName())
-					));
-			}
+			NewUpdatedComponent = MyActor->GetRootComponent();
 		}
 	}
 
@@ -114,6 +110,8 @@ void UMovementComponent::InitializeComponent()
 void UMovementComponent::OnRegister()
 {
 	TGuardValue<bool> InOnRegisterGuard(bInOnRegister, true);
+
+	UpdatedPrimitive = Cast<UPrimitiveComponent>(UpdatedComponent);
 	Super::OnRegister();
 
 	if (PlaneConstraintAxisSetting != EPlaneConstraintAxisSetting::Custom)
@@ -175,6 +173,8 @@ void UMovementComponent::PostLoad()
 		// Make sure to use the most up-to-date project setting in case it has changed.
 		PlaneConstraintNormal = GetPlaneConstraintNormalFromAxisSetting(PlaneConstraintAxisSetting);
 	}
+
+	UpdatedPrimitive = Cast<UPrimitiveComponent>(UpdatedComponent);
 }
 
 
@@ -250,7 +250,7 @@ bool UMovementComponent::ShouldSkipUpdate(float DeltaTime) const
 
 		const float RenderTimeThreshold = 0.41f;
 		UWorld* TheWorld = GetWorld();
-		if (TheWorld->TimeSince(UpdatedComponent->LastRenderTime) <= RenderTimeThreshold)
+		if (UpdatedPrimitive && TheWorld->TimeSince(UpdatedPrimitive->LastRenderTime) <= RenderTimeThreshold)
 		{
 			return false; // Rendered, don't skip it.
 		}
@@ -298,9 +298,9 @@ void UMovementComponent::UpdateComponentVelocity()
 
 void UMovementComponent::InitCollisionParams(FCollisionQueryParams &OutParams, FCollisionResponseParams& OutResponseParam) const
 {
-	if (UpdatedComponent)
+	if (UpdatedPrimitive)
 	{
-		UpdatedComponent->InitSweepCollisionParams(OutParams, OutResponseParam);
+		UpdatedPrimitive->InitSweepCollisionParams(OutParams, OutResponseParam);
 	}
 }
 
@@ -494,8 +494,9 @@ FVector UMovementComponent::GetPenetrationAdjustment(const FHitResult& Hit) cons
 
 bool UMovementComponent::ResolvePenetration(const FVector& ProposedAdjustment, const FHitResult& Hit, const FRotator& NewRotation)
 {
+	// SceneComponent can't be in penetration, so this function really only applies to PrimitiveComponent.
 	const FVector Adjustment = ConstrainDirectionToPlane(ProposedAdjustment);
-	if (!Adjustment.IsZero() && UpdatedComponent)
+	if (!Adjustment.IsZero() && UpdatedPrimitive)
 	{
 		// See if we can fit at the adjusted location without overlapping anything.
 		AActor* ActorOwner = UpdatedComponent->GetOwner();
@@ -507,7 +508,7 @@ bool UMovementComponent::ResolvePenetration(const FVector& ProposedAdjustment, c
 		// We really want to make sure that precision differences or differences between the overlap test and sweep tests don't put us into another overlap,
 		// so make the overlap test a bit more restrictive.
 		const float OverlapInflation = 0.10f;
-		bool bEncroached = OverlapTest(Hit.TraceStart + Adjustment, NewRotation.Quaternion(), UpdatedComponent->GetCollisionObjectType(), UpdatedComponent->GetCollisionShape(OverlapInflation), ActorOwner);
+		bool bEncroached = OverlapTest(Hit.TraceStart + Adjustment, NewRotation.Quaternion(), UpdatedPrimitive->GetCollisionObjectType(), UpdatedPrimitive->GetCollisionShape(OverlapInflation), ActorOwner);
 		if (!bEncroached)
 		{
 			// Move without sweeping.

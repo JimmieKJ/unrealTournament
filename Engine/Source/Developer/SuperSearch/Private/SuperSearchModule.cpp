@@ -18,9 +18,9 @@ void FSuperSearchModule::ShutdownModule()
 {
 }
 
-TSharedRef< SWidget > FSuperSearchModule::MakeSearchBox( TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox ) const
+TSharedRef< SWidget > FSuperSearchModule::MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const TOptional<const FSearchBoxStyle*> InStyle) const
 {
-	TSharedRef< SSuperSearchBox > NewSearchBox = SNew( SSuperSearchBox );
+	TSharedRef< SSuperSearchBox > NewSearchBox = SNew(SSuperSearchBox).Style(InStyle);
 	OutExposedEditableTextBox = NewSearchBox->GetEditableTextBox();
 	return NewSearchBox;
 }

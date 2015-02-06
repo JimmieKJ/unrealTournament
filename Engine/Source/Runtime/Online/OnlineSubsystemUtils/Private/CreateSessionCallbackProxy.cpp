@@ -34,7 +34,7 @@ void UCreateSessionCallbackProxy::Activate()
 		auto Sessions = Helper.OnlineSub->GetSessionInterface();
 		if (Sessions.IsValid())
 		{
-			Sessions->AddOnCreateSessionCompleteDelegate(CreateCompleteDelegate);
+			CreateCompleteDelegateHandle = Sessions->AddOnCreateSessionCompleteDelegate_Handle(CreateCompleteDelegate);
 
 			FOnlineSessionSettings Settings;
 			Settings.NumPublicConnections = NumPublicConnections;
@@ -69,11 +69,11 @@ void UCreateSessionCallbackProxy::OnCreateCompleted(FName SessionName, bool bWas
 		auto Sessions = Helper.OnlineSub->GetSessionInterface();
 		if (Sessions.IsValid())
 		{
-			Sessions->ClearOnCreateSessionCompleteDelegate(CreateCompleteDelegate);
+			Sessions->ClearOnCreateSessionCompleteDelegate_Handle(CreateCompleteDelegateHandle);
 			
 			if (bWasSuccessful)
 			{
-				Sessions->AddOnStartSessionCompleteDelegate(StartCompleteDelegate);
+				StartCompleteDelegateHandle = Sessions->AddOnStartSessionCompleteDelegate_Handle(StartCompleteDelegate);
 				Sessions->StartSession(GameSessionName);
 
 				// OnStartCompleted will get called, nothing more to do now
@@ -98,7 +98,7 @@ void UCreateSessionCallbackProxy::OnStartCompleted(FName SessionName, bool bWasS
 		auto Sessions = Helper.OnlineSub->GetSessionInterface();
 		if (Sessions.IsValid())
 		{
-			Sessions->ClearOnStartSessionCompleteDelegate(StartCompleteDelegate);
+			Sessions->ClearOnStartSessionCompleteDelegate_Handle(StartCompleteDelegateHandle);
 		}
 	}
 

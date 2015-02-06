@@ -113,6 +113,8 @@ protected:
 	UNetConnection* BeaconConnection;
 	/** State of beacon */
 	EBeaconState::Type BeaconState;
+	/** Handle to the registered HandleNetworkFailure delegate */
+	FDelegateHandle HandleNetworkFailureDelegateHandle;
 
 	/** Common initialization for all beacon types */
 	bool InitBase();

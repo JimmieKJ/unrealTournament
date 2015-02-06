@@ -16,8 +16,11 @@ Texture2D PostprocessInput1MS;
 Texture2D<uint2> EditorPrimitivesStencil;
 #endif
 
-// RGB:selection color, A:SelectionHighlightIntensity
+// RGB: selection color, A:SelectionHighlightIntensity
 float4 OutlineColor;
+// RGB:subdued selection color (for inactive selection), A:unused
+float4 SubduedOutlineColor;
+
 float BSPSelectionIntensity;
 
 // r. value of r.Editor.OpaqueGizmo .g:r.Editor.MovingPattern ba: unused
@@ -159,17 +162,26 @@ float4 PerSample(int2 PixelPos, int SampleID, float3 DeviceZPlane, float2 Device
 	// the contants express the two opacity values we see when the primitive is hidden
 	float LowContrastPatternMask = lerp(0.2, 1.0f, PatternMask);
 	
+	float3  SelectionColor;
+	FLATTEN if(VisibleBorderMinMax.x >= 128 )
+	{
+		SelectionColor = SubduedOutlineColor.rgb;
+	}
+	else
+	{
+		SelectionColor = OutlineColor.rgb;
+	}
 	FLATTEN if(bBorder)
 	{
 		FLATTEN if(bVisibleBorder)
 		{
 			// unoccluded border
-			Ret = float4(OutlineColor.rgb, 1);
+			Ret = float4(SelectionColor, 1);
 		}
 		else
 		{
 			// occluded border
-			Ret = lerp(float4(0, 0, 0, 0), float4(OutlineColor.rgb, 1), LowContrastPatternMask);
+			Ret = lerp(float4(0, 0, 0, 0), float4(SelectionColor, 1), LowContrastPatternMask);
 		}
 	}
 
@@ -180,9 +192,9 @@ float4 PerSample(int2 PixelPos, int SampleID, float3 DeviceZPlane, float2 Device
 		float VisibleMask = lerp(PatternMask, 1.0f, PixelInfo[0].fVisible);
 
 		// occluded parts are more tranparent
-//		Ret = lerp(Ret, float4(OutlineColor.rgb, 1), OutlineColor.a * VisibleMask);
+//		Ret = lerp(Ret, float4(SelectionColor.rgb, 1), OutlineColor.a * VisibleMask);
 		// darken occluded parts
-		Ret = lerp(Ret, float4(OutlineColor.rgb * VisibleMask, 1), OutlineColor.a );
+		Ret = lerp(Ret, float4(SelectionColor * VisibleMask, 1), OutlineColor.a );
 	}
 
 	// highlight inner part of the object
@@ -190,7 +202,7 @@ float4 PerSample(int2 PixelPos, int SampleID, float3 DeviceZPlane, float2 Device
 	{
 		float VisibleMask = lerp(PatternMask, 1.0f, PixelInfo[0].fVisible);
 		float InnerHighlightAmount = PixelInfo[0].ObjectId == 1 ? BSPSelectionIntensity : OutlineColor.a;
-		Ret = lerp(Ret, float4(OutlineColor.rgb, 1), VisibleMask * InnerHighlightAmount);
+		Ret = lerp(Ret, float4(SelectionColor, 1), VisibleMask * InnerHighlightAmount);
 	}
 
 	return Ret;

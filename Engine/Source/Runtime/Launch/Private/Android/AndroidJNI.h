@@ -7,6 +7,8 @@
 
 extern JavaVM* GJavaVM;
 
+DECLARE_MULTICAST_DELEGATE_SixParams(FOnActivityResult, JNIEnv *, jobject, jobject, jint, jint, jobject);
+
 // Define all the Java classes/methods that the game will need to access to
 class FJavaWrapper
 {
@@ -57,4 +59,7 @@ public:
 	static void CallVoidMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
 	static jobject CallObjectMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
 	static bool CallBooleanMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
+
+	// Delegate that can be registered to that is called when an activity is finished
+	static FOnActivityResult OnActivityResultDelegate;
 };

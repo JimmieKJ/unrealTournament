@@ -19,7 +19,7 @@ void FTestEntitlementsInterface::Test(UWorld* InWorld)
 		if (EntitlementsOSS.IsValid())
 		{
 			// Add delegates for the various async calls
-			EntitlementsOSS->AddOnQueryEntitlementsCompleteDelegate(OnQueryEntitlementsCompleteDelegate);
+			OnQueryEntitlementsCompleteDelegateHandle = EntitlementsOSS->AddOnQueryEntitlementsCompleteDelegate_Handle(OnQueryEntitlementsCompleteDelegate);
 
 			// kick off next test
 			StartNextTest();
@@ -61,7 +61,7 @@ void FTestEntitlementsInterface::FinishTest()
 	if (EntitlementsOSS.IsValid())
 	{
 		// Clear delegates for the entitlements async calls
-		EntitlementsOSS->ClearOnQueryEntitlementsCompleteDelegate(OnQueryEntitlementsCompleteDelegate);
+		EntitlementsOSS->ClearOnQueryEntitlementsCompleteDelegate_Handle(OnQueryEntitlementsCompleteDelegateHandle);
 	}
 
 	delete this;

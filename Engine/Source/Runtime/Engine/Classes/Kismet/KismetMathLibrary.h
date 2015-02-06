@@ -1357,7 +1357,7 @@ class UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static float FInterpTo(float Current, float Target, float DeltaTime, float InterpSpeed);
 
 	/**
-	 * Tries to reach Target based on distance from Current position, giving a nice smooth feeling when tracking a position.
+	 * Tries to reach Target at a constant rate.
 	 *
 	 * @param		Current			Actual position
 	 * @param		Target			Target position
@@ -1402,14 +1402,38 @@ class UKismetMathLibrary : public UBlueprintFunctionLibrary
 	 * @param		InterpSpeed		Interpolation speed
 	 * @return		New interpolated position
 	 */
+	UFUNCTION(BlueprintPure, Category="Math|Interpolation", meta=(Keywords="position"))
+	static FVector2D Vector2DInterpTo(FVector2D Current, FVector2D Target, float DeltaTime, float InterpSpeed);
+	
+	/**
+	 * Tries to reach Target at a constant rate.
+	 *
+	 * @param		Current			Actual position
+	 * @param		Target			Target position
+	 * @param		DeltaTime		Time since last tick
+	 * @param		InterpSpeed		Interpolation speed
+	 * @return		New interpolated position
+	 */
+	UFUNCTION(BlueprintPure, Category="Math|Interpolation", meta=(Keywords="position"))
+	static FVector2D Vector2DInterpTo_Constant(FVector2D Current, FVector2D Target, float DeltaTime, float InterpSpeed);
+	
+	/**
+	 * Tries to reach Target based on distance from Current position, giving a nice smooth feeling when tracking a position.
+	 *
+	 * @param		Current			Actual rotation
+	 * @param		Target			Target rotation
+	 * @param		DeltaTime		Time since last tick
+	 * @param		InterpSpeed		Interpolation speed
+	 * @return		New interpolated position
+	 */
 	UFUNCTION(BlueprintPure, Category="Math|Interpolation", meta=(Keywords="rotation rotate"))
 	static FRotator RInterpTo(FRotator Current, FRotator Target, float DeltaTime, float InterpSpeed);
 
 	/**
-	 * Tries to reach Target based on distance from Current position, giving a nice smooth feeling when tracking a position.
+	 * Tries to reach Target at a constant rate.
 	 *
-	 * @param		Current			Actual position
-	 * @param		Target			Target position
+	 * @param		Current			Actual rotation
+	 * @param		Target			Target rotation
 	 * @param		DeltaTime		Time since last tick
 	 * @param		InterpSpeed		Interpolation speed
 	 * @return		New interpolated position

@@ -244,6 +244,11 @@ void SetupDriveHelper(const UWheeledVehicleMovementComponent4W* VehicleData, con
 
 void UWheeledVehicleMovementComponent4W::SetupVehicle()
 {
+	if (!UpdatedPrimitive)
+	{
+		return;
+	}
+
 	if (WheelSetups.Num() != 4)
 	{
 		PVehicle = NULL;
@@ -278,7 +283,7 @@ void UWheeledVehicleMovementComponent4W::SetupVehicle()
 	PxVehicleDrive4W* PVehicleDrive4W = PxVehicleDrive4W::allocate(4);
 	check(PVehicleDrive4W);
 
-	PVehicleDrive4W->setup( GPhysXSDK, UpdatedComponent->GetBodyInstance()->GetPxRigidDynamic(), *PWheelsSimData, DriveData, 0);
+	PVehicleDrive4W->setup( GPhysXSDK, UpdatedPrimitive->GetBodyInstance()->GetPxRigidDynamic(), *PWheelsSimData, DriveData, 0);
 	PVehicleDrive4W->setToRestState();
 
 	// cleanup

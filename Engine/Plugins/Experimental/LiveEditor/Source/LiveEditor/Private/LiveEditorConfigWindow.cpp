@@ -229,7 +229,7 @@ public:
 				.Padding(2.0f)
 				[
 					SNew( STextBlock )
-					.Text( DeviceData.DeviceName )
+					.Text( FText::FromString(DeviceData.DeviceName) )
 					.ColorAndOpacity( FLinearColor::White )
 				]
 				+SVerticalBox::Slot()

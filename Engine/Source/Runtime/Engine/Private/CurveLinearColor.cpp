@@ -84,3 +84,10 @@ bool UCurveLinearColor::operator==( const UCurveLinearColor& Curve ) const
 	return (FloatCurves[0] == Curve.FloatCurves[0]) && (FloatCurves[1] == Curve.FloatCurves[1]) && (FloatCurves[2] == Curve.FloatCurves[2]) && (FloatCurves[3] == Curve.FloatCurves[3]) ;
 }
 
+bool UCurveLinearColor::IsValidCurve( FRichCurveEditInfo CurveInfo )
+{
+	return CurveInfo.CurveToEdit == &FloatCurves[0] ||
+		CurveInfo.CurveToEdit == &FloatCurves[1] ||
+		CurveInfo.CurveToEdit == &FloatCurves[2];
+}
+

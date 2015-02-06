@@ -207,6 +207,7 @@ bool UInternationalizationConditioningCommandlet::FLocalizationFilePair::HasFore
 
 UInternationalizationConditioningCommandlet::UInternationalizationConditioningCommandlet(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, LegacyLocalizationCacheIni(EConfigCacheType::Temporary)
 {
 }
 

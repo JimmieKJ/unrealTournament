@@ -18,6 +18,12 @@ public:
 	/** Gets the description of this content source. */
 	FText GetDescription();
 
+	/** Gets the asset types used in this content source. */
+	FText GetAssetTypes();
+
+	/** Gets the class types used in this content source. */
+	FString GetClassTypes();
+
 	/** Gets the view model for the category for this content source. */
 	FCategoryViewModel GetCategory();
 
@@ -57,6 +63,10 @@ private:
 	/** The FLocalizedText representing the description of the content source, in the language which was active
 		the last time it was requested, or the default language if a translation was not available. */
 	FLocalizedText DescriptionText;
+
+	/** The FLocalizedText representing the asset types used by the content source, in the language which was active
+		the last time it was requested, or the default language if a translation was not available. */
+	FLocalizedText AssetTypeText;
 
 	/** Keeps track of a unique increasing id which is appended to each brush name.  This avoids an issue
 		where two brushes are created with the same name, and then both brushes texture data gets deleted

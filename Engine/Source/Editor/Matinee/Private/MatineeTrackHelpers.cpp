@@ -218,7 +218,7 @@ bool UMatineeTrackAnimControlHelper::PreCreateKeyframe( UInterpTrack *Track, flo
 
 	USkeletalMeshComponent * SkelMeshComp = NULL;
 
-	TArray<USkeletalMeshComponent*> SkeletalMeshComponents;
+	TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
 	Actor->GetComponents(SkeletalMeshComponents);
 
 	for (int32 I=0; I<SkeletalMeshComponents.Num(); ++I)

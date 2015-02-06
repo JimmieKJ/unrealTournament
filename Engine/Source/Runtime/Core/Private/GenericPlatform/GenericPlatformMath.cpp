@@ -11,6 +11,11 @@ void FGenericPlatformMath::SRandInit( int32 Seed )
 	GSRandSeed = Seed; 
 }
 
+int32 FGenericPlatformMath::GetRandSeed()
+{
+	return GSRandSeed;
+}
+
 float FGenericPlatformMath::SRand() 
 { 
 	GSRandSeed = (GSRandSeed * 196314165) + 907633515;

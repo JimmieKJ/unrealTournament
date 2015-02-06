@@ -1247,7 +1247,7 @@ namespace AutomationTool
 		/// <param name="Dest">The full path to the destination file</param>
 		/// <param name="bAllowDifferingTimestamps">If true, will always skip a file if the destination exists, even if timestamp differs; defaults to false</param>
 		/// <returns>True if the operation was successful, false otherwise.</returns>
-		public static void CopyFileIncremental(string Source, string Dest, bool bAllowDifferingTimestamps = false)
+		public static void CopyFileIncremental(string Source, string Dest, bool bAllowDifferingTimestamps = false, bool bFilterSpecialLinesFromIniFiles = false)
 		{
 			Source = ConvertSeparators(PathSeparator.Default, Source);
 			Dest = ConvertSeparators(PathSeparator.Default, Dest);
@@ -1277,7 +1277,7 @@ namespace AutomationTool
 			{
 				throw new AutomationException("Failed to delete {0} for copy", Dest);
 			}
-			if (!InternalUtils.SafeCopyFile(Source, Dest))
+			if (!InternalUtils.SafeCopyFile(Source, Dest, bFilterSpecialLinesFromIniFiles:bFilterSpecialLinesFromIniFiles))
 			{
 				throw new AutomationException("Failed to copy {0} to {1}", Source, Dest);
 			}
@@ -1391,31 +1391,13 @@ namespace AutomationTool
 		}
 
 		/// <summary>
-		/// A container for a binary files (dll, exe) with its associated debug info.
-		/// </summary>
-		public class FileManifest
-		{
-			/// <summary>
-			/// Items
-			/// </summary>
-			public readonly List<string> FileManifestItems = new List<string>();
-
-			/// <summary>
-			/// Constructor
-			/// </summary>
-			public FileManifest()
-			{
-			}
-		}
-
-		/// <summary>
 		/// Reads a file manifest and returns it
 		/// </summary>
 		/// <param name="ManifestName">ManifestName</param>
 		/// <returns></returns>
-		public static FileManifest ReadManifest(string ManifestName)
+		public static UnrealBuildTool.BuildManifest ReadManifest(string ManifestName)
 		{
-			return XmlHandler.ReadXml<FileManifest>(ManifestName);
+			return XmlHandler.ReadXml<UnrealBuildTool.BuildManifest>(ManifestName);
 		}
 
 		private static void CloneDirectoryRecursiveWorker(string SourcePathBase, string TargetPathBase, List<string> ClonedFiles)

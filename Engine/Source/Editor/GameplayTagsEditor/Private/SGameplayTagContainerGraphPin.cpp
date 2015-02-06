@@ -127,7 +127,7 @@ TSharedRef<ITableRow> SGameplayTagContainerGraphPin::OnGenerateRow(TSharedPtr<FS
 {
 	return SNew( STableRow< TSharedPtr<FString> >, OwnerTable )
 		[
-			SNew(STextBlock) .Text( *Item.Get() )
+			SNew(STextBlock) .Text( FText::FromString(*Item.Get()) )
 		];
 }
 

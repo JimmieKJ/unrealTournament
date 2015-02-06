@@ -8,7 +8,7 @@
 #include "PaperTileSet.generated.h"
 
 UCLASS()
-class PAPER2D_API UPaperTileSet : public UDataAsset //@TODO: Just to make it easy to spawn for now
+class PAPER2D_API UPaperTileSet : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -35,6 +35,13 @@ class PAPER2D_API UPaperTileSet : public UDataAsset //@TODO: Just to make it eas
 	// The drawing offset for tiles from this set (in pixels)
 	UPROPERTY(Category=TileSet, EditAnywhere, meta=(UIMin=0, ClampMin=0))
 	FIntPoint DrawingOffset;
+
+#if WITH_EDITORONLY_DATA
+	/** The background color displayed in the tile set viewer */
+	UPROPERTY(Category=TileSet, EditAnywhere)
+	FLinearColor BackgroundColor;
+#endif
+
 
 	// UObject interface
 #if WITH_EDITOR

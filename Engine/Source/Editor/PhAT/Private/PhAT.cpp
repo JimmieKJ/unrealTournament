@@ -1435,7 +1435,7 @@ TSharedRef<ITableRow> FPhAT::OnGenerateRowForTree(FTreeElemPtr Item, const TShar
 	[
 		SNew(STextBlock)
 		.Font((*Item).bBold? FEditorStyle::GetFontStyle("BoldFont"): FEditorStyle::GetFontStyle("NormalFont"))
-		.Text((*Item).Name.ToString())
+		.Text(FText::FromName((*Item).Name))
 	];
 }
 
@@ -3063,9 +3063,8 @@ TSharedRef<SWidget> FPhAT::BuildHierarchyFilterMenu()
 	return MenuBuilder.MakeWidget();
 }
 
-FString FPhAT::GetHierarchyFilter() const
+FText FPhAT::GetHierarchyFilter() const
 {
-
 	FText FilterMenuText;
 
 	switch (HierarchyFilterMode)
@@ -3082,7 +3081,7 @@ FString FPhAT::GetHierarchyFilter() const
 		break;
 	}
 
-	return FilterMenuText.ToString();
+	return FilterMenuText;
 
 }
 

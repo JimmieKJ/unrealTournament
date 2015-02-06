@@ -105,9 +105,12 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 		}
 
 		TSharedRef<SWidget> KeyFrameButton = CreateKeyframeButton( *Customization, InOwnerTreeNode );
+		TAttribute<bool> IsPropertyEditingEnabled = InOwnerTreeNode->IsPropertyEditingEnabled();
 
 		if( bHasMultipleColumns )
 		{
+			NameWidget->SetEnabled(IsPropertyEditingEnabled);
+			KeyFrameButton->SetEnabled(IsPropertyEditingEnabled);
 			Widget = 
 				SNew( SSplitter )
 				.Style( FEditorStyle::Get(), "DetailsView.Splitter" )
@@ -125,6 +128,7 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 					.AutoWidth()
 					[
 						SNew( SExpanderArrow, SharedThis(this) )
+						.BaseIndentLevel(1)
 					]
 					+ SHorizontalBox::Slot()
 					.HAlign( Row.NameWidget.HorizontalAlignment )
@@ -147,7 +151,7 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 				.OnSlotResized( ColumnSizeData.OnWidthChanged )
 				[
 					SNew( SHorizontalBox )
-
+					.IsEnabled(IsPropertyEditingEnabled)
 					+ SHorizontalBox::Slot()
 					.Padding( DetailWidgetConstants::RightRowPadding )
 					.HAlign( Row.ValueWidget.HorizontalAlignment )
@@ -159,6 +163,8 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 		}
 		else
 		{
+			Row.WholeRowWidget.Widget->SetEnabled(IsPropertyEditingEnabled);
+			KeyFrameButton->SetEnabled(IsPropertyEditingEnabled);
 			Widget =
 				SNew( SHorizontalBox )
 				+ SHorizontalBox::Slot()
@@ -168,6 +174,7 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 				.AutoWidth()
 				[
 					SNew( SExpanderArrow, SharedThis(this) )
+					.BaseIndentLevel(1)
 				]
 				+ SHorizontalBox::Slot()
 				.HAlign( Row.WholeRowWidget.HorizontalAlignment )
@@ -191,7 +198,7 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 	[	
 		SNew( SBorder )
 		.BorderImage( this, &SDetailSingleItemRow::GetBorderImage )
-		.Padding( 0.0f )
+		.Padding( FMargin( 0.0f, 0.0f, SDetailTableRowBase::ScrollbarPaddingSize, 0.0f ) )
 		[
 			Widget
 		]
@@ -325,8 +332,8 @@ TSharedRef<SWidget> SDetailSingleItemRow::CreateExtensionWidget(TSharedRef<SWidg
 					[
 						ValueWidget
 					]
-
-				+ SHorizontalBox::Slot()
+					
+					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					[
 						ExtensionHandler->GenerateExtensionWidget(ObjectClass, Handle)

@@ -134,7 +134,7 @@ void UK2Node_EaseFunction::SetPinToolTip(UEdGraphPin& MutatablePin, const FText&
 	if (K2Schema != nullptr)
 	{
 		MutatablePin.PinToolTip += TEXT(" ");
-		MutatablePin.PinToolTip += K2Schema->GetPinDisplayName(&MutatablePin);
+		MutatablePin.PinToolTip += K2Schema->GetPinDisplayName(&MutatablePin).ToString();
 	}
 
 	MutatablePin.PinToolTip += FString(TEXT("\n")) + PinDescription.ToString();

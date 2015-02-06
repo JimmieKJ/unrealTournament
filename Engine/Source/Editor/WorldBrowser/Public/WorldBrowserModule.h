@@ -46,12 +46,12 @@ public:
 	 */
 	DECLARE_EVENT_OneParam(FWorldBrowserModule, FOnBrowseWorld, UWorld*);
 	FOnBrowseWorld OnBrowseWorld;
-		
+				
 private:
 	void OnWorldCreated(UWorld* InWorld);
 	void OnWorldDestroyed(UWorld* InWorld);
 	void OnWorldCompositionChanged(UWorld* InWorld);
-		
+				
 private:
 	TWeakPtr<class FLevelCollectionModel>	WorldModel;
 };

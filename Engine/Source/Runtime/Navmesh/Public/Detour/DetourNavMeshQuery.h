@@ -63,6 +63,7 @@ struct dtQueryFilterData
 	float m_areaFixedCost[DT_MAX_AREAS];///< Fixed cost for entering an area type (Used by default implementation.)
 #endif // WITH_FIXED_AREA_ENTERING_COST
 	float heuristicScale;				///< Search heuristic scale.
+	float lowestAreaCost;
 
 	unsigned short m_includeFlags;		///< Flags for polygons that can be visited. (Used by default implementation.)
 	unsigned short m_excludeFlags;		///< Flags for polygons that should not be visted. (Used by default implementation.)
@@ -187,7 +188,7 @@ public:
 	/// Sets the traversal cost of the area.
 	///  @param[in]		i		The id of the area.
 	///  @param[in]		cost	The new cost of traversing the area.
-	inline void setAreaCost(const int i, const float cost) { data.m_areaCost[i] = cost; }
+	inline void setAreaCost(const int i, const float cost) { data.m_areaCost[i] = cost; data.lowestAreaCost = dtMin(data.lowestAreaCost, cost); }
 
 //@UE4 BEGIN
 	inline const float* getAllAreaCosts() const { return data.m_areaCost; }
@@ -205,6 +206,8 @@ public:
 
 	inline const float* getAllFixedAreaCosts() const { return data.m_areaFixedCost; }
 #endif // WITH_FIXED_AREA_ENTERING_COST
+
+	inline float getModifiedHeuristicScale() const { return data.heuristicScale * ((data.lowestAreaCost > 0) ? data.lowestAreaCost : 1.0f); }
 
 	/// Retrieves euclidean distance heuristic scale
 	///  @returns heuristic scale

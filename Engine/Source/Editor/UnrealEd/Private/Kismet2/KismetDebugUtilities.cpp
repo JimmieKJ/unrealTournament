@@ -272,13 +272,70 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 				{
 					GEditor->RequestEndPlayMap();
 					FSlateApplication::Get().LeaveDebuggingMode();
-					
 					// Launch a message box notifying the user why they have been booted
 					{
+						// Callback to display a pop-up showing the Callstack, the user can highlight and copy this if needed
+						auto DisplayCallStackLambda = [](const FText CallStack)
+						{
+							TSharedPtr<SMultiLineEditableText> TextBlock;
+							TSharedRef<SWidget> DisplayWidget = 
+								SNew(SBox)
+									.MaxDesiredHeight(512)
+									.MaxDesiredWidth(512)
+									.Content()
+									[
+										SNew(SBorder)
+											.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+											[
+												SNew(SScrollBox)
+												+SScrollBox::Slot()
+												[
+													SAssignNew(TextBlock, SMultiLineEditableText)
+														.AutoWrapText(true)
+														.IsReadOnly(true)
+														.Text(CallStack)
+												]
+											]
+									];
+
+							FSlateApplication::Get().PushMenu(
+								FSlateApplication::Get().GetActiveTopLevelWindow().ToSharedRef(),
+								DisplayWidget,
+								FSlateApplication::Get().GetCursorPos(),
+								FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
+								);	
+
+							FSlateApplication::Get().SetKeyboardFocus(TextBlock);
+						};
+
+						TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Error);
+
+						// Display a UObject link to the Blueprint that is the source of the failure
+						Message->AddToken(FTextToken::Create(LOCTEXT( "InfiniteLoopWarning_Blueprint", "Infinite Loop detected in ")));
 						FString BlueprintName;
 						BlueprintObj->GetName(BlueprintName);
+						Message->AddToken(FUObjectToken::Create(BlueprintObj, FText::FromString(BlueprintName)));
 
-						FMessageDialog::Open( EAppMsgType::Ok, FText::Format(LOCTEXT("InfiniteLoopWarning", "Infinite Loop detected in blueprint: {0}"), FText::FromString(BlueprintName)));
+						// Display a UObject link to the UFunction that is crashing. Will open the Blueprint if able and focus on the function's graph
+						Message->AddToken(FTextToken::Create(LOCTEXT( "InfiniteLoopWarning_Function", ", asserted during ")));
+						const int32 BreakpointOffset = StackFrame.Code - StackFrame.Node->Script.GetData() - 1; //@TODO: Might want to make this a parameter of Info
+						UEdGraphNode* SourceNode = FindSourceNodeForCodeLocation(ActiveObject, StackFrame.Node, BreakpointOffset, /*bAllowImpreciseHit=*/ true);
+
+						// If a source node is found, that's the token we want to link, otherwise settle with the UFunction
+						if(SourceNode)
+						{
+							Message->AddToken(FUObjectToken::Create(SourceNode, SourceNode->GetNodeTitle(ENodeTitleType::ListView)));
+						}
+						else
+						{
+							Message->AddToken(FUObjectToken::Create(StackFrame.Node, StackFrame.Node->GetDisplayNameText()));
+						}
+
+						// Add an action token to display a pop-up that will display the complete script callstack
+						Message->AddToken(FTextToken::Create(LOCTEXT( "InfiniteLoopWarning_CallStack", " with the following ")));
+						const FText CallStackAsText = FText::FromString(StackFrame.GetStackTrace());
+						Message->AddToken(FActionToken::Create(LOCTEXT( "InfiniteLoopWarning_CallStackLink", "Call Stack" ), LOCTEXT( "InfiniteLoopWarning_CallStackDesc", "Displays the underlying callstack, tracing what function calls led to the assert occuring." ), FOnActionTokenExecuted::CreateStatic(DisplayCallStackLambda, CallStackAsText)));
+						FMessageLog("PIE").AddMessage(Message);
 					}
 				}
 			}
@@ -796,11 +853,31 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 {
 	if (UProperty* Property = FKismetDebugUtilities::FindClassPropertyForPin(Blueprint, WatchPin))
 	{
-		if (ActiveObject != NULL)
+		if (!Property->IsValidLowLevel())
 		{
 			//@TODO: Temporary checks to attempt to determine intermittent unreproducable crashes in this function
-			check(ActiveObject->IsValidLowLevel());
-			check(Property->IsValidLowLevel());
+			static bool bErrorOnce = true;
+			if (bErrorOnce)
+			{
+				ensureMsg(false, TEXT("Error: Invalid (but non-null) property associated with pin; cannot get variable value"));
+				bErrorOnce = false;
+			}
+			return EWTR_NoProperty;
+		}
+
+		if (ActiveObject != nullptr)
+		{
+			if (!ActiveObject->IsValidLowLevel())
+			{
+				//@TODO: Temporary checks to attempt to determine intermittent unreproducable crashes in this function
+				static bool bErrorOnce = true;
+				if (bErrorOnce)
+				{
+					ensureMsgf(false, TEXT("Error: Invalid (but non-null) active object being debugged; cannot get variable value for property %s"), *Property->GetPathName());
+					bErrorOnce = false;
+				}
+				return EWTR_NoDebugObject;
+			}
 
 			void* PropertyBase = NULL;
 
@@ -816,13 +893,13 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 
 			// Try at member scope if it wasn't part of a current function scope
 			UClass* PropertyClass = Cast<UClass>(Property->GetOuter());
-			if ((PropertyBase == NULL) && (PropertyClass != NULL) && ActiveObject->GetClass()->IsChildOf(PropertyClass))
+			if ((PropertyBase == nullptr) && (PropertyClass != nullptr) && ActiveObject->GetClass()->IsChildOf(PropertyClass))
 			{
 				PropertyBase = ActiveObject;
 			}
 
 			// Now either print out the variable value, or that it was out-of-scope
-			if (PropertyBase != NULL)
+			if (PropertyBase != nullptr)
 			{
 				Property->ExportText_InContainer(/*ArrayElement=*/ 0, /*inout*/ OutWatchText, PropertyBase, PropertyBase, /*Parent=*/ ActiveObject, PPF_PropertyWindow|PPF_BlueprintDebugView);
 				return EWTR_Valid;
@@ -847,7 +924,7 @@ FText FKismetDebugUtilities::GetAndClearLastExceptionMessage()
 {
 	const FString Result = LastExceptionMessage;
 	LastExceptionMessage.Empty();
-	return  FText::FromString( Result );
+	return FText::FromString(Result);
 }
 
 #undef LOCTEXT_NAMESPACE

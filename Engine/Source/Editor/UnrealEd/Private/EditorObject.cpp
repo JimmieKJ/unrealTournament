@@ -7,6 +7,7 @@
 #include "UnrealEd.h"
 #include "Factories.h"
 #include "BSPOps.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #include "Foliage/InstancedFoliageActor.h"
 #include "Foliage/FoliageType.h"
@@ -230,7 +231,7 @@ static const TCHAR* ImportProperties(
 					ExistingBrush->Rename();
 
 				// Create model.
-				UModelFactory* ModelFactory = new UModelFactory(FObjectInitializer());
+				UModelFactory* ModelFactory = NewObject<UModelFactory>();
 				ModelFactory->FactoryCreateText( UModel::StaticClass(), SubobjectRoot, FName(BrushName, FNAME_Add, true), RF_NoFlags, NULL, TEXT("t3d"), SourceText, SourceText+FCString::Strlen(SourceText), Warn );
 				ImportedBrush = 1;
 			}
@@ -375,21 +376,26 @@ static const TCHAR* ImportProperties(
 				UObject* Archetype = NULL;
 				UObject* ComponentTemplate = NULL;
 
-				// if an archetype was specified in the Begin Object block, use that as the template for the ConstructObject call.
-				FString ArchetypeName;
-				if (FParse::Value(Str, TEXT("Archetype="), ArchetypeName))
+				// Since we are changing the class we can't use the Archetype,
+				// however that is fine since we will have been editing the CDO anyways
+				if (!FBlueprintEditorUtils::IsAnonymousBlueprintClass(SubobjectOuter->GetClass()))
 				{
-					// if given a name, break it up along the ' so separate the class from the name
-					FString ObjectClass;
-					FString ObjectPath;
-					if ( FPackageName::ParseExportTextPath(ArchetypeName, &ObjectClass, &ObjectPath) )
+					// if an archetype was specified in the Begin Object block, use that as the template for the ConstructObject call.
+					FString ArchetypeName;
+					if (FParse::Value(Str, TEXT("Archetype="), ArchetypeName))
 					{
-						// find the class
-						UClass* ArchetypeClass = (UClass*)StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ObjectClass);
-						if (ArchetypeClass)
+						// if given a name, break it up along the ' so separate the class from the name
+						FString ObjectClass;
+						FString ObjectPath;
+						if ( FPackageName::ParseExportTextPath(ArchetypeName, &ObjectClass, &ObjectPath) )
 						{
-							// if we had the class, find the archetype
-							Archetype = StaticFindObject(ArchetypeClass, ANY_PACKAGE, *ObjectPath);
+							// find the class
+							UClass* ArchetypeClass = (UClass*)StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ObjectClass);
+							if (ArchetypeClass)
+							{
+								// if we had the class, find the archetype
+								Archetype = StaticFindObject(ArchetypeClass, ANY_PACKAGE, *ObjectPath);
+							}
 						}
 					}
 				}
@@ -485,7 +491,7 @@ static const TCHAR* ImportProperties(
 					if (NewFlags & RF_Transactional)
 					{
 						UActorComponent* Component = Cast<UActorComponent>(ComponentTemplate);
-						if (Component && Component->bCreatedByConstructionScript)
+						if (Component && Component->IsCreatedByConstructionScript())
 						{
 							NewFlags &= ~RF_Transactional;
 						}

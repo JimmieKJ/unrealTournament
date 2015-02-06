@@ -494,7 +494,10 @@ void FMatinee::InitMatinee(const EToolkitMode::Type Mode, const TSharedPtr< clas
 	GEditor->ResetTransaction( NSLOCTEXT("UnrealEd", "OpenMatinee", "Open UnrealMatinee") );
 
 	NormalTransactor = GEditor->Trans;
-	InterpEdTrans = new UMatineeTransBuffer( FObjectInitializer(), 8*1024*1024 );
+	InterpEdTrans = NewObject<UMatineeTransBuffer>();
+	InterpEdTrans->Initialize(8 * 1024 * 1024);
+	InterpEdTrans->OnUndo().AddRaw(this, &FMatinee::OnPostUndoRedo);
+	InterpEdTrans->OnRedo().AddRaw(this, &FMatinee::OnPostUndoRedo);
 	GEditor->Trans = InterpEdTrans;
 
 	// Save viewports' data before it gets overridden by UpdateLevelViewport
@@ -956,7 +959,7 @@ void FMatinee::InitMatinee(const EToolkitMode::Type Mode, const TSharedPtr< clas
 	bIsInitialized = true;
 
 	// register for any actor move change
-	GEngine->OnActorMoved().AddRaw(this, &FMatinee::OnActorMoved);
+	OnActorMovedDelegateHandle = GEngine->OnActorMoved().AddRaw(this, &FMatinee::OnActorMoved);
 
 	// register for any objects replaced
 	GEditor->OnObjectsReplaced().AddSP(this, &FMatinee::OnObjectsReplaced);
@@ -1474,6 +1477,11 @@ void FMatinee::StartRecordingMovie()
 	GUnrealEd->PlayMap(NULL, NULL, 0, -1, false, true);
 }
 
+void FMatinee::OnPostUndoRedo(FUndoSessionContext SessionContext, bool Succeeded)
+{
+	InvalidateTrackWindowViewports();
+}
+
 //Key Command Helpers
 void FMatinee::OnMarkInSection()
 {
@@ -1965,7 +1973,7 @@ void FMatinee::OnClose()
 	}
 
 	// Unregister call back events
-	GEngine->OnActorMoved().RemoveRaw(this, &FMatinee::OnActorMoved);
+	GEngine->OnActorMoved().Remove(OnActorMovedDelegateHandle);
 	GEditor->OnObjectsReplaced().RemoveAll(this);
 
 	// Restore the perspective viewport audio settings when matinee closes.

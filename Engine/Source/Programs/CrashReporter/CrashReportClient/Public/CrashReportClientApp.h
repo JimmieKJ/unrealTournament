@@ -2,8 +2,6 @@
 
 #pragma once
 
-//#define DO_LOCAL_TESTING 1
-
 #define CRASH_REPORT_UNATTENDED_ONLY			PLATFORM_LINUX
 
 // Pre-compiled header includes

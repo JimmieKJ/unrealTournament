@@ -50,7 +50,10 @@ private:
 
 	/** Delegate used to notify this interface that permissions are updated, and that we can now post a status update */
 	FOnRequestNewPublishPermissionsCompleteDelegate RequestPermissionsToPostToFeedDelegate;
-	
+
+	/** Per-player handles for the above delegate */
+	TMap<int32, FDelegateHandle> RequestPermissionsToPostToFeedDelegateHandles;
+
 
 	/**
 	 * Use the OSS to request permissions so we can read the news feed.
@@ -71,6 +74,10 @@ private:
 	FOnRequestNewReadPermissionsCompleteDelegate RequestPermissionsToReadFeedDelegate;
 
 
+	/** Per-player handles for the above delegate */
+	TMap<int32, FDelegateHandle> RequestPermissionsToReadFeedDelegateHandles;
+
+
 private:
 
 	/**
@@ -81,6 +88,10 @@ private:
 
 	/** Delegate which is reported whether a successful post was made to a users news feed */
 	FOnSharePostCompleteDelegate OnPostSharedDelegate;
+
+
+	/** Per-player handles for the above delegate */
+	TMap<int32, FDelegateHandle> OnPostSharedDelegateHandles;
 
 
 	/**
@@ -102,7 +113,11 @@ private:
 
 	/** Delegate which is reported whether reading the news feed was successful or not for the given user */
 	FOnReadNewsFeedCompleteDelegate OnNewsFeedReadDelegate;
-	
+
+
+	/** Per-player handles for the above delegate */
+	TMap<int32, FDelegateHandle> OnNewsFeedReadDelegateHandles;
+
 
 	/**
 	 *	Fn bound to the FOnReadNewsFeedCompleteDelegate

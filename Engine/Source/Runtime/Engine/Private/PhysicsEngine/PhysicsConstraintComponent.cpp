@@ -13,6 +13,9 @@ UPhysicsConstraintComponent::UPhysicsConstraintComponent(const FObjectInitialize
 	: Super(ObjectInitializer)
 {
 	bWantsInitializeComponent = true;
+#if WITH_EDITORONLY_DATA
+	bVisualizeComponent = true;
+#endif
 }
 
 
@@ -230,28 +233,19 @@ void UPhysicsConstraintComponent::InitializeComponent()
 	InitComponentConstraint();
 }
 
+#if WITH_EDITOR
 void UPhysicsConstraintComponent::OnRegister()
 {
 	Super::OnRegister();
 
-#if WITH_EDITOR
-	if (SpriteComponent == NULL && GetOwner() && !GetWorld()->IsGameWorld() )
+	if (SpriteComponent)
 	{
-		SpriteComponent = ConstructObject<UBillboardComponent>(UBillboardComponent::StaticClass(), GetOwner(), NAME_None, RF_Transactional | RF_TextExportTransient);
-
 		UpdateSpriteTexture();
-		SpriteComponent->AttachTo(this);
-		SpriteComponent->AlwaysLoadOnClient = false;
-		SpriteComponent->AlwaysLoadOnServer = false;
 		SpriteComponent->SpriteInfo.Category = TEXT("Physics");
 		SpriteComponent->SpriteInfo.DisplayName = NSLOCTEXT( "SpriteCategory", "Physics", "Physics" );
-		SpriteComponent->bCreatedByConstructionScript = bCreatedByConstructionScript;
-		SpriteComponent->bIsScreenSizeScaled = true;
-
-		SpriteComponent->RegisterComponent();
 	}
-#endif
 }
+#endif
 
 void UPhysicsConstraintComponent::OnUnregister()
 {

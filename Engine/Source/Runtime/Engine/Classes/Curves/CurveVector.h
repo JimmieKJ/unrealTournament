@@ -23,5 +23,7 @@ class UCurveVector : public UCurveBase
 
 	/** Determine if Curve is the same */
 	ENGINE_API bool operator == (const UCurveVector& Curve) const;
+
+	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override;
 };
 

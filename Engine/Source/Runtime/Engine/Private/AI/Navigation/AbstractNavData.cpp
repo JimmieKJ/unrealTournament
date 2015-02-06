@@ -10,6 +10,11 @@ FAbstractNavigationPath::FAbstractNavigationPath()
 	PathType = FAbstractNavigationPath::Type;
 }
 
+INavigationQueryFilterInterface* FAbstractQueryFilter::CreateCopy() const
+{
+	return new FAbstractQueryFilter();
+}
+
 AAbstractNavData::AAbstractNavData(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
@@ -21,6 +26,8 @@ AAbstractNavData::AAbstractNavData(const FObjectInitializer& ObjectInitializer) 
 		TestHierarchicalPathImplementation = TestPathAbstract;
 
 		RaycastImplementation = RaycastAbstract;
+
+		DefaultQueryFilter->SetFilterType<FAbstractQueryFilter>();
 	}
 }
 
@@ -33,7 +40,7 @@ FPathFindingResult AAbstractNavData::FindPathAbstract(const FNavAgentProperties&
 	}
 
 	FPathFindingResult Result;
-	Result.Path = Query.PathInstanceToFill.IsValid() ? Query.PathInstanceToFill : Self->CreatePathInstance<FNavigationPath>(Query.Owner.Get());
+	Result.Path = Query.PathInstanceToFill.IsValid() ? Query.PathInstanceToFill : Self->CreatePathInstance<FAbstractNavigationPath>(Query.Owner.Get());
 
 	Result.Path->GetPathPoints().Add(FNavPathPoint(Query.StartLocation));
 	Result.Path->GetPathPoints().Add(FNavPathPoint(Query.EndLocation));

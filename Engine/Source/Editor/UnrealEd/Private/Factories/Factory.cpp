@@ -14,6 +14,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogFactory, Log, All);
 ----------------------------------------------------------------------------*/
 FString UFactory::CurrentFilename(TEXT(""));
 
+// This needs to be greater than 0 to allow factories to have both higher and lower priority than the default
+const int32 UFactory::DefaultImportPriority = 100;
 
 int32 UFactory::OverwriteYesOrNoToAllState = -1;
 
@@ -22,7 +24,7 @@ bool UFactory::bAllowOneTimeWarningMessages = true;
 UFactory::UFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
+	ImportPriority = DefaultImportPriority;
 }
 
 void UFactory::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
@@ -217,18 +219,19 @@ UObject* UFactory::StaticImportObject
 			if( It->IsChildOf( UFactory::StaticClass() ) )
 			{
 				UFactory* Default = It->GetDefaultObject<UFactory>();
-				if( Class->IsChildOf( Default->SupportedClass ) && Default->AutoPriority >= 0 )
+				if (Class->IsChildOf(Default->SupportedClass) && Default->ImportPriority >= 0)
 				{
 					Factories.Add( ConstructObject<UFactory>( *It ) );
 				}
 			}
 		}
 
-		struct FCompareUFactoryAutoPriority
+		struct FCompareUFactoryImportPriority
 		{
-			FORCEINLINE bool operator()(const UFactory& A, const UFactory& B) const { return A.AutoPriority < B.AutoPriority; }
+			// Use > operator because we want higher priorities earlier in the list
+			FORCEINLINE bool operator()(const UFactory& A, const UFactory& B) const { return A.ImportPriority > B.ImportPriority; }
 		};
-		Factories.Sort( FCompareUFactoryAutoPriority() );
+		Factories.Sort( FCompareUFactoryImportPriority() );
 	}
 
 	bool bLoadedFile = false;

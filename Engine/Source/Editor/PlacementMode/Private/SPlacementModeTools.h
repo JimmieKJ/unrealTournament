@@ -15,13 +15,19 @@ public:
 
 	SLATE_BEGIN_ARGS(SPlacementAssetEntry)
 		: _LabelOverride()
+		, _AlwaysUseGenericThumbnail(false)
 	{}
 	
 	/** Highlight this text in the text block */
 	SLATE_ATTRIBUTE(FText, HighlightText)
 
 	SLATE_ARGUMENT(FText, LabelOverride)
-	
+
+	SLATE_ARGUMENT(FName, ClassThumbnailBrushOverride)
+
+	SLATE_ARGUMENT(bool, AlwaysUseGenericThumbnail)
+
+	SLATE_ARGUMENT(TOptional<FLinearColor>, AssetTypeColorOverride)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, UActorFactory* InFactory, const FAssetData& InAsset);

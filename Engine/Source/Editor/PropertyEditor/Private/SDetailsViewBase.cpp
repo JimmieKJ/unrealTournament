@@ -198,7 +198,7 @@ const FSlateBrush* SDetailsViewBase::OnGetFilterButtonImageResource() const
 
 void SDetailsViewBase::EnqueueDeferredAction(FSimpleDelegate& DeferredAction)
 {
-	DeferredActions.AddUnique(DeferredAction);
+	DeferredActions.Add(DeferredAction);
 }
 
 /**
@@ -435,6 +435,16 @@ void SDetailsViewBase::OnFilterTextChanged(const FText& InFilterText)
 
 	FilterView(InFilterString);
 
+}
+
+TSharedPtr<SWidget> SDetailsViewBase::GetNameAreaWidget()
+{
+	return DetailsViewArgs.bCustomNameAreaLocation ? NameArea : nullptr;
+}
+
+TSharedPtr<SWidget> SDetailsViewBase::GetFilterAreaWidget()
+{
+	return DetailsViewArgs.bCustomFilterAreaLocation ? FilterRow : nullptr;
 }
 
 /** 

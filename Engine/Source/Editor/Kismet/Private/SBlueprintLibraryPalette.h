@@ -52,7 +52,7 @@ private:
 	 * 
 	 * @return A string representing the selected class filter.
 	 */
-	FString GetFilterClassName() const;
+	FText GetFilterClassName() const;
 
 	/**
 	 * Clears the current class filter (if one is set), and refreshes the 

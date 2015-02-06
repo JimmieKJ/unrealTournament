@@ -117,7 +117,7 @@ UObject* FDuplicateDataWriter::AddDuplicate(UObject* SourceObject,UObject* DupOb
 UObject* FDuplicateDataWriter::GetDuplicatedObject(UObject* Object, bool bCreateIfMissing)
 {
 	UObject* Result = NULL;
-	if( Object != NULL )
+	if (IsValid(Object))
 	{
 		// Check for an existing duplicate of the object.
 		FDuplicatedObject DupObjectInfo = DuplicatedObjectAnnotation.GetAnnotation( Object );

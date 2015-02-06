@@ -72,8 +72,8 @@ public:
 	virtual bool IsCurrentlyCompiling() const override { return ModuleCompileProcessHandle.IsValid(); }
 	virtual void RequestStopCompilation() override { bRequestCancelCompilation = true; }
 	virtual void AddHotReloadFunctionRemap(Native NewFunctionPointer, Native OldFunctionPointer) override;	
-	virtual void RebindPackages(TArray< UPackage* > Packages, TArray< FName > DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar) override;
-	virtual ECompilationResult::Type DoHotReloadFromEditor() override;
+	virtual ECompilationResult::Type RebindPackages(TArray< UPackage* > Packages, TArray< FName > DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar) override;
+	virtual ECompilationResult::Type DoHotReloadFromEditor(const bool bWaitForCompletion) override;
 	virtual FHotReloadEvent& OnHotReload() override { return HotReloadEvent; }	
 	virtual FModuleCompilerStartedEvent& OnModuleCompilerStarted() override { return ModuleCompilerStartedEvent; }
 	virtual FModuleCompilerFinishedEvent& OnModuleCompilerFinished() override { return ModuleCompilerFinishedEvent; }
@@ -278,8 +278,14 @@ private:
 	/** FTicker delegate (hot-reload from IDE) */
 	FTickerDelegate TickerDelegate;
 
+	/** Handle to the registered TickerDelegate */
+	FDelegateHandle TickerDelegateHandle;
+
 	/** Callback when game binaries folder changes */
 	IDirectoryWatcher::FDirectoryChanged BinariesFolderChangedDelegate;
+
+	/** Handle to the registered delegate above */
+	FDelegateHandle BinariesFolderChangedDelegateHandle;
 
 	/** True if currently hot-reloading from editor (suppresses hot-reload from IDE) */
 	bool bIsHotReloadingFromEditor;
@@ -371,14 +377,14 @@ void FHotReloadModule::StartupModule()
 
 	// Register hot-reload from IDE ticker
 	TickerDelegate = FTickerDelegate::CreateRaw(this, &FHotReloadModule::Tick);
-	FTicker::GetCoreTicker().AddTicker(TickerDelegate);
+	TickerDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickerDelegate);
 
 	FModuleManager::Get().OnModulesChanged().AddRaw(this, &FHotReloadModule::ModulesChangedCallback);
 }
 
 void FHotReloadModule::ShutdownModule()
 {
-	FTicker::GetCoreTicker().RemoveTicker(TickerDelegate);
+	FTicker::GetCoreTicker().RemoveTicker(TickerDelegateHandle);
 	ShutdownHotReloadWatcher();
 }
 
@@ -470,10 +476,10 @@ bool FHotReloadModule::RecompileModule(const FName InModuleName, const bool bRel
 	Args.Add( TEXT("CodeModuleName"), FText::FromName( InModuleName ) );
 	const FText StatusUpdate = FText::Format( NSLOCTEXT("ModuleManager", "Recompile_SlowTaskName", "Compiling {CodeModuleName}..."), Args );
 
-	FScopedSlowTask SlowTask(1, StatusUpdate);
+	FScopedSlowTask SlowTask(2, StatusUpdate);
 	SlowTask.MakeDialog();
 
-	ModuleCompilerStartedEvent.Broadcast();
+	ModuleCompilerStartedEvent.Broadcast(false); // we never perform an async compile
 
 	// Update our set of known modules, in case we don't already know about this module
 	FModuleManager::Get().AddModule( InModuleName );
@@ -482,6 +488,8 @@ bool FHotReloadModule::RecompileModule(const FName InModuleName, const bool bRel
 	// the module without actually having to unload it first.
 	const bool bWasModuleLoaded = FModuleManager::Get().IsModuleLoaded( InModuleName );
 	const bool bUseRollingModuleNames = bWasModuleLoaded;
+
+	SlowTask.EnterProgressFrame();
 
 	bool bWasSuccessful = true;
 	if( bUseRollingModuleNames )
@@ -504,6 +512,8 @@ bool FHotReloadModule::RecompileModule(const FName InModuleName, const bool bRel
 		bWasSuccessful = RecompileModuleDLLs(ModulesToRecompile, Ar, bFailIfGeneratedCodeChanges, bForceCodeProject);		
 	}
 
+	SlowTask.EnterProgressFrame();
+	
 	if( bWasSuccessful )
 	{
 		// Shutdown the module if it's already running
@@ -572,14 +582,11 @@ void FHotReloadModule::AddHotReloadFunctionRemap(Native NewFunctionPointer, Nati
 	HotReloadFunctionRemap.Add(OldFunctionPointer, NewFunctionPointer);
 }
 
-ECompilationResult::Type FHotReloadModule::DoHotReloadFromEditor()
+ECompilationResult::Type FHotReloadModule::DoHotReloadFromEditor(const bool bWaitForCompletion)
 {
 	// Get all game modules we want to compile
 	TArray<FString> GameModuleNames;
 	GetGameModules(GameModuleNames);
-	
-	// Don't wait -- we want compiling to happen asynchronously
-	const bool bWaitForCompletion = false;
 
 	TArray<UPackage*> PackagesToRebind;
 	TArray<FName> DependentModules;
@@ -733,7 +740,7 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 	return Result;
 }
 
-void FHotReloadModule::RebindPackages(TArray<UPackage*> InPackages, TArray<FName> DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar)
+ECompilationResult::Type FHotReloadModule::RebindPackages(TArray<UPackage*> InPackages, TArray<FName> DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar)
 {
 	ECompilationResult::Type Result = ECompilationResult::Unknown;
 	double Duration = 0.0;
@@ -742,6 +749,8 @@ void FHotReloadModule::RebindPackages(TArray<UPackage*> InPackages, TArray<FName
 		Result = RebindPackagesInternal(InPackages, DependentModules, bWaitForCompletion, Ar);
 	}
 	RecordAnalyticsEvent(TEXT("Rebind"), Result, Duration, InPackages.Num(), DependentModules.Num());
+
+	return Result;
 }
 
 ECompilationResult::Type FHotReloadModule::RebindPackagesInternal(TArray<UPackage*> InPackages, TArray<FName> DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar)
@@ -922,7 +931,7 @@ void FHotReloadModule::InitHotReloadWatcher()
 		if (FPaths::DirectoryExists(BinariesPath))
 		{
 			BinariesFolderChangedDelegate = IDirectoryWatcher::FDirectoryChanged::CreateRaw(this, &FHotReloadModule::OnHotReloadBinariesChanged);
-			bDirectoryWatcherInitialized = DirectoryWatcher->RegisterDirectoryChangedCallback(BinariesPath, BinariesFolderChangedDelegate);
+			bDirectoryWatcherInitialized = DirectoryWatcher->RegisterDirectoryChangedCallback_Handle(BinariesPath, BinariesFolderChangedDelegate, BinariesFolderChangedDelegateHandle);
 		}
 	}
 }
@@ -936,7 +945,7 @@ void FHotReloadModule::ShutdownHotReloadWatcher()
 		if (DirectoryWatcher)
 		{
 			FString BinariesPath = FPaths::ConvertRelativePathToFull(FPaths::GameDir() / TEXT("Binaries") / FPlatformProcess::GetBinariesSubdirectory());
-			DirectoryWatcher->UnregisterDirectoryChangedCallback(BinariesPath, BinariesFolderChangedDelegate);
+			DirectoryWatcher->UnregisterDirectoryChangedCallback_Handle(BinariesPath, BinariesFolderChangedDelegateHandle);
 		}
 	}
 }
@@ -1042,7 +1051,7 @@ bool FHotReloadModule::RecompileModulesAsync( const TArray< FName > ModuleNames,
 	// NOTE: This method of recompiling always using a rolling file name scheme, since we never want to unload before
 	// we start recompiling, and we need the output DLL to be unlocked before we invoke the compiler
 
-	ModuleCompilerStartedEvent.Broadcast();
+	ModuleCompilerStartedEvent.Broadcast(!bWaitForCompletion); // we perform an async compile providing we're not waiting for completion
 
 	TArray< FModuleToRecompile > ModulesToRecompile;
 
@@ -1362,6 +1371,8 @@ void FHotReloadModule::CheckForFinishedModuleDLLCompile(const bool bWaitForCompl
 
 					break;
 				}
+
+				SlowTask.EnterProgressFrame(0.0f);
 
 				// Give up a small timeslice if we haven't finished recompiling yet
 				FPlatformProcess::Sleep( 0.01f );

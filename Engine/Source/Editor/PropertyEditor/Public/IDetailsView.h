@@ -9,22 +9,31 @@
  */
 struct FDetailsViewArgs
 {
+	enum ENameAreaSettings
+	{
+		/** The name area should never be displayed */
+		HideNameArea,
+		/** All object types use name area */
+		ObjectsUseNameArea,
+		/** Only Actors use name area */
+		ActorsUseNameArea,
+		/** Components and actors use the name area. Components will display their actor owner as the name */
+		ComponentsAndActorsUseNameArea,
+	};
 	/** Identifier for this details view; NAME_None if this view is anonymous */
 	FName ViewIdentifier;
 	/** Notify hook to call when properties are changed */
 	FNotifyHook* NotifyHook;
+	/** Settings for displaying the name area */
+	ENameAreaSettings NameAreaSettings;
 	/** True if the viewed objects updates from editor selection */
 	uint32 bUpdatesFromSelection : 1;
 	/** True if this property view can be locked */
 	uint32 bLockable : 1;
 	/** True if we allow searching */
 	uint32 bAllowSearch : 1;
-	/** True if object selection wants to use the name area */
-	uint32 bObjectsUseNameArea : 1;
 	/** True if you want to not show the tip when no objects are selected (should only be used if viewing actors properties or bObjectsUseNameArea is true ) */
 	uint32 bHideSelectionTip : 1;
-	/** True if you want to hide the object/objects selected info area */
-	uint32 bHideActorNameArea : 1;
 	/** True if you want the search box to have initial keyboard focus */
 	uint32 bSearchInitialKeyFocus : 1;
 	/** Allow options to be changed */
@@ -35,29 +44,33 @@ struct FDetailsViewArgs
 	uint32 bShowActorLabel : 1;
 	/** Bind this delegate to hide differing properties */
 	uint32 bShowDifferingPropertiesOption : 1;
-
+	/** If true the name area will be created but will not be displayed so it can be placed in a custom location.  */
+	uint32 bCustomNameAreaLocation : 1;
+	/** If true the filter area will be created but will not be displayed so it can be placed in a custom location.  */
+	uint32 bCustomFilterAreaLocation : 1;
 	/** Default constructor */
 	FDetailsViewArgs( const bool InUpdateFromSelection = false
 					, const bool InLockable = false
 					, const bool InAllowSearch = true
-					, const bool InObjectsUseNameArea = false
+					, const ENameAreaSettings InNameAreaSettings = ActorsUseNameArea
 					, const bool InHideSelectionTip = false
 					, FNotifyHook* InNotifyHook = NULL
 					, const bool InSearchInitialKeyFocus = false
 					, FName InViewIdentifier = NAME_None )
 		: ViewIdentifier( InViewIdentifier )
-		, NotifyHook( InNotifyHook ) 
+		, NotifyHook( InNotifyHook )
+		, NameAreaSettings( InNameAreaSettings )
 		, bUpdatesFromSelection( InUpdateFromSelection )
 		, bLockable(InLockable)
 		, bAllowSearch( InAllowSearch )
-		, bObjectsUseNameArea( InObjectsUseNameArea )
 		, bHideSelectionTip( InHideSelectionTip )
-		, bHideActorNameArea( false )
 		, bSearchInitialKeyFocus( InSearchInitialKeyFocus )
 		, bShowOptions( true )
 		, bShowModifiedPropertiesOption(true)
 		, bShowActorLabel(true)
 		, bShowDifferingPropertiesOption(false)
+		, bCustomNameAreaLocation(false)
+		, bCustomFilterAreaLocation(false)
 	{
 	}
 };
@@ -110,9 +123,10 @@ public:
 	 *
 	 * @param InObjects		The list of objects to observe
 	 * @param bForceRefresh	If true, doesn't check if new objects are being set
+	 * @param bOverrideLock	If true, will set the objects even if the details view is locked
 	 */
-	virtual void SetObjects( const TArray<UObject*>& InObjects, bool bForceRefresh = false ) = 0;
-	virtual void SetObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects, bool bForceRefresh = false ) = 0;
+	virtual void SetObjects( const TArray<UObject*>& InObjects, bool bForceRefresh = false, bool bOverrideLock = false ) = 0;
+	virtual void SetObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects, bool bForceRefresh = false, bool bOverrideLock = false ) = 0;
 
 	/**
 	 * Sets a single objects that details view is viewing
@@ -121,6 +135,9 @@ public:
 	 * @param bForceRefresh	If true, doesn't check if new objects are being set
 	 */
 	virtual void SetObject( UObject* InObject, bool bForceRefresh = false ) = 0;
+
+	/** Removes all invalid objects being observed by this details panel */
+	virtual void RemoveInvalidObjects() = 0;
 
 	/**
 	 * Returns true if the details view is locked and cant have its observed objects changed 
@@ -200,4 +217,10 @@ public:
 	 * Sets the set of properties that are considered differing, used when filtering out identical properties
 	 */
 	virtual void UpdatePropertiesWhitelist(const TSet<FPropertyPath> InWhitelistedProperties) = 0;
+
+	/** Returns the name area widget used to display object naming functionality so it can be placed in a custom location.  Note FDetailsViewArgs.bCustomNameAreaLocation must be true */
+	virtual TSharedPtr<SWidget> GetNameAreaWidget() = 0;
+
+	/** Returns the search area widget used to display search and view options so it can be placed in a custom location.  Note FDetailsViewArgs.bCustomFilterAreaLocation must be true */
+	virtual TSharedPtr<SWidget> GetFilterAreaWidget() = 0;
 };

@@ -30,7 +30,7 @@ void FNavLinkStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> S
 	.MaxDesiredWidth(400.0f)
 	[
 		SNew(STextBlock)
-		.Text(Desc)
+		.Text(FText::FromString(Desc))
 		.Font(StructCustomizationUtils.GetRegularFont())
 	];
 }

@@ -231,7 +231,7 @@ public:
 	virtual FIntPoint GetAtlasPageSize() const = 0;
 
 	/** Get the page resource for the given index (verify with GetNumAtlasPages) */ 
-	virtual FSlateShaderResource* GetAtlasPageResource(const int32 InIndex) const = 0;
+	virtual class FSlateShaderResource* GetAtlasPageResource(const int32 InIndex) const = 0;
 
 	/** Do the atlas page resources only contain alpha information? This affects how the atlas visualizer will sample them */
 	virtual bool IsAtlasPageResourceAlphaOnly() const = 0;

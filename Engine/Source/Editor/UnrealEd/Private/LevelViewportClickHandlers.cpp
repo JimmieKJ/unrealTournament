@@ -215,7 +215,10 @@ namespace ClickHandlers
 					const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "ClickingOnActors", "Clicking on Actors") );
 					GEditor->GetSelectedActors()->Modify();
 
-					if( Click.IsControlDown() )
+					// Ctrl- or shift- clicking an actor is the same as regular clicking when components are selected
+					const bool bComponentSelected = GEditor->GetSelectedComponentCount() > 0;
+
+					if( Click.IsControlDown() && !bComponentSelected )
 					{
 						const bool bSelect = !Actor->IsSelected();
 						if( bSelect )
@@ -224,7 +227,7 @@ namespace ClickHandlers
 						}
 						GEditor->SelectActor( Actor, bSelect, true, true );
 					}
-					else if( Click.IsShiftDown() )
+					else if( Click.IsShiftDown() && !bComponentSelected )
 					{
 						if( !Actor->IsSelected() )
 						{
@@ -262,6 +265,111 @@ namespace ClickHandlers
 		}
 
 		return false;
+	}
+
+	bool ClickComponent(FLevelEditorViewportClient* ViewportClient, HActor* ActorHitProxy, const FViewportClick& Click)
+	{
+		//@todo hotkeys for component placement?
+		
+		bool bComponentClicked = false;
+
+		USceneComponent* Component = nullptr;
+
+		// Find the component in the actor that matches the PrimComponent on the hit proxy
+		TInlineComponentArray<USceneComponent*> SceneComponents;
+		ActorHitProxy->Actor->GetComponents(SceneComponents);
+		for (auto CompIt = SceneComponents.CreateConstIterator(); CompIt; ++CompIt)
+		{
+			auto SceneComp = *CompIt;
+			if (SceneComp == ActorHitProxy->PrimComponent)
+			{
+				Component = SceneComp;
+				break;
+			}
+		}
+
+		//If the component selected is editor-only, we want to select the non-editor-only component it's attached to
+		while (Component != nullptr && Component->IsEditorOnly())
+		{
+			Component = Component->AttachParent;
+		}
+		
+		if (!ensure(Component != nullptr))
+		{
+			return false;
+		}
+
+		// Pivot snapping
+		if (Click.GetKey() == EKeys::MiddleMouseButton && Click.IsAltDown())
+		{
+			GEditor->SetPivot(GEditor->ClickLocation, true, false);
+
+			return true;
+		}
+		// Selection + context menu
+		else if (Click.GetKey() == EKeys::RightMouseButton && !Click.IsControlDown() && !ViewportClient->Viewport->KeyState(EKeys::LeftMouseButton))
+		{
+			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "ClickingOnComponentContextMenu", "Clicking on Component (context menu)"));
+			UE_LOG(LogEditorViewport, Log, TEXT("Clicking on Component (context menu): %s (%s)"), *Component->GetClass()->GetName(), *Component->GetName());
+
+			auto const EditorComponentSelection = GEditor->GetSelectedComponents();
+			EditorComponentSelection->Modify();
+
+			// If the component the user clicked on was already selected, then we won't bother clearing the selection
+			bool bNeedViewportRefresh = false;
+			if (!EditorComponentSelection->IsSelected(Component))
+			{
+				EditorComponentSelection->DeselectAll();
+				bNeedViewportRefresh = true;
+			}
+
+			GEditor->SelectComponent(Component, true, true);
+			
+			if (bNeedViewportRefresh)
+			{
+				// Redraw the viewport so the user can see which object was right clicked on
+				ViewportClient->Viewport->Draw();
+				FlushRenderingCommands();
+			}
+
+			PrivateSummonContextMenu(ViewportClient);
+			bComponentClicked = true;
+		}
+		// Selection only
+		else if (Click.GetKey() == EKeys::LeftMouseButton)
+		{
+			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "ClickingOnComponents", "Clicking on Components"));
+			GEditor->GetSelectedComponents()->Modify();
+
+			if (Click.IsControlDown())
+			{
+				const bool bSelect = !Component->IsSelected();
+				if (bSelect)
+				{
+					UE_LOG(LogEditorViewport, Log, TEXT("Clicking on Component (CTRL LMB): %s (%s)"), *Component->GetClass()->GetName(), *Component->GetName());
+				}
+				GEditor->SelectComponent(Component, bSelect, true, true);
+				bComponentClicked = true;
+			}
+			else if (Click.IsShiftDown())
+			{
+				if (!Component->IsSelected())
+				{
+					UE_LOG(LogEditorViewport, Log, TEXT("Clicking on Component (SHIFT LMB): %s (%s)"), *Component->GetClass()->GetName(), *Component->GetName());
+					GEditor->SelectComponent(Component, true, true, true);
+				}
+				bComponentClicked = true;
+			}
+			else
+			{
+				GEditor->GetSelectedComponents()->DeselectAll();
+				UE_LOG(LogEditorViewport, Log, TEXT("Clicking on Component (LMB): %s (%s)"), *Component->GetClass()->GetName(), *Component->GetName());
+				GEditor->SelectComponent(Component, true, true, true);
+				bComponentClicked = true;
+			}
+		}
+		
+		return bComponentClicked;
 	}
 
 	void ClickBrushVertex(FLevelEditorViewportClient* ViewportClient,ABrush* InBrush,FVector* InVertex,const FViewportClick& Click)
@@ -808,38 +916,40 @@ namespace ClickHandlers
 		}
 		else
 		{	
+			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectBrushSurface", "Select Brush Surface") );
 			bool bDeselectAlreadyHandled = false;
-			if( GetDefault<ULevelEditorViewportSettings>()->bClickBSPSelectsBrush )
+			
+			// We are going to handle the notification ourselves
+			const bool bNotify = false;
+			if(GetDefault<ULevelEditorViewportSettings>()->bClickBSPSelectsBrush)
 			{
 				// Add to the actor selection set the brush actor that belongs to this BSP surface.
 				// Check Surf.Actor, as it can be NULL after deleting brushes and before rebuilding BSP.
-				if( Surf.Actor )
+				if(Surf.Actor)
 				{
-					const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectBrushFromSurface", "Select Brush from Surface") );
-					if( !Click.IsControlDown() )
+					if(!Click.IsControlDown())
 					{
-						GEditor->SelectNone( false, true );
+						GEditor->SelectNone(false, true);
 						bDeselectAlreadyHandled = true;
 					}
 					// If the builder brush is selected, first deselect it.
 					USelection* SelectedActors = GEditor->GetSelectedActors();
-					for ( FSelectionIterator It( *SelectedActors ) ; It ; ++It )
+					for(FSelectionIterator It(*SelectedActors); It; ++It)
 					{
-						ABrush* Brush = Cast<ABrush>( *It );
-						if ( Brush && FActorEditorUtils::IsABuilderBrush( Brush ) )
+						ABrush* Brush = Cast<ABrush>(*It);
+						if(Brush && FActorEditorUtils::IsABuilderBrush(Brush))
 						{
-							GEditor->SelectActor( Brush, false, false );
+							GEditor->SelectActor(Brush, false, bNotify);
 							break;
 						}
 					}
 
-					GEditor->SelectActor( Surf.Actor, true, true );
+					GEditor->SelectActor(Surf.Actor, true, bNotify);
 				}
 			}
+
 			// Select or deselect surfaces.
 			{
-				const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SelectSurfaces", "Select Surfaces") );
-
 				if( !Click.IsControlDown() && !bDeselectAlreadyHandled)
 				{
 					GEditor->SelectNone( false, true );
@@ -850,9 +960,12 @@ namespace ClickHandlers
 				// If there are no surfaces selected now, deselect the actor
 				if (!Model->HasSelectedSurfaces())
 				{
-					GEditor->SelectActor(Surf.Actor, false, true);
+					GEditor->SelectActor(Surf.Actor, false, bNotify);
 				}
 			}
+
+
+
 			GEditor->NoteSelectionChange();
 		}
 	}

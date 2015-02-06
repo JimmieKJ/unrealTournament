@@ -133,7 +133,7 @@ You can left click and drag most items from the Content Browser into the level:
 
 * ParticleSystems can be dragged into the level to add effects.
 
-* Most Class Blueprints can be dragged into a level to add instances of that Blueprint type.
+* Most Blueprint Classes can be dragged into a level to add instances of that Blueprint type.
 
 
 [Would you like to know more?](DOCLINK:Engine/Content/Browser)

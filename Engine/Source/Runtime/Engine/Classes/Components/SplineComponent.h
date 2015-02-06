@@ -24,7 +24,7 @@ namespace ESplinePointType
  *	A spline component is a spline shape which can be used for other purposes (e.g. animating objects). It does not contain rendering capabilities itself (outside the editor) 
  *	@see https://docs.unrealengine.com/latest/INT/Resources/ContentExamples/Blueprint_Splines
  */
-UCLASS(ClassGroup=Shapes, meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=Utility, meta=(BlueprintSpawnableComponent))
 class ENGINE_API USplineComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -75,8 +75,9 @@ public:
 	// Begin UActorComponent interface.
 	virtual FComponentInstanceDataBase* GetComponentInstanceData() const override;
 	virtual FName GetComponentInstanceDataType() const override;
-	virtual void ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData) override;
 	// End UActorComponent interface.
+
+	void ApplyComponentInstanceData(class FSplineInstanceData* ComponentInstanceData);
 
 	/** Update the spline tangents and SplineReparamTable */
 	void UpdateSpline();

@@ -103,7 +103,7 @@ public:
 				.Padding(10)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SourceControl.Revert", "SelectFiles", "Select the files that should be reverted below").ToString())
+					.Text(NSLOCTEXT("SourceControl.Revert", "SelectFiles", "Select the files that should be reverted below"))
 				]
 				+SVerticalBox::Slot()
 				.AutoHeight()
@@ -118,7 +118,7 @@ public:
 						.IsEnabled(this, &SSourceControlRevertWidget::OnGetItemsEnabled)
 						[
 							SNew(STextBlock)
-							.Text(NSLOCTEXT("SourceControl.Revert", "ListHeader", "File Name").ToString())
+							.Text(NSLOCTEXT("SourceControl.Revert", "ListHeader", "File Name"))
 						]
 					]
 				]
@@ -152,7 +152,7 @@ public:
 						.OnCheckStateChanged(this, &SSourceControlRevertWidget::RevertUnchangedToggled)
 						[
 							SNew(STextBlock)
-							.Text(NSLOCTEXT("SourceControl.Revert", "RevertUnchanged", "Revert Unchanged Only").ToString())
+							.Text(NSLOCTEXT("SourceControl.Revert", "RevertUnchanged", "Revert Unchanged Only"))
 						]
 					]
 					+SHorizontalBox::Slot()
@@ -236,7 +236,7 @@ private:
 					.IsChecked(ListItemPtr.ToSharedRef(), &FRevertCheckBoxListViewItem::OnIsChecked)
 					[
 						SNew(STextBlock)
-						.Text(ListItemPtr->Text)
+						.Text(FText::FromString(ListItemPtr->Text))
 					]
 				]
 				+SHorizontalBox::Slot()

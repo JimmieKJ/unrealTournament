@@ -122,6 +122,9 @@ public:
 	/** Goes to the documentation for the selected actor's class. */
 	TSharedPtr< FUICommandInfo > GoToDocsForActor;
 
+	/** Customize the script behavior of an instance. */
+	TSharedPtr< FUICommandInfo > AddScriptBehavior;
+
 	/** Paste actor at click location*/
 	TSharedPtr< FUICommandInfo > PasteHere;
 
@@ -322,6 +325,9 @@ public:
 	/** Selects all actors of the same class and archetype as the current selection */
 	TSharedPtr< FUICommandInfo > SelectAllActorsOfSameClassWithArchetype;
 
+	/** Selects the actor that owns the currently selected component(s) */
+	TSharedPtr< FUICommandInfo > SelectComponentOwnerActor;
+
 	/** Selects all lights relevant to the current selection */
 	TSharedPtr< FUICommandInfo > SelectRelevantLights;
 
@@ -506,7 +512,7 @@ public:
 	 */
 	TSharedPtr< FUICommandInfo > OpenLevelBlueprint;
 	TSharedPtr< FUICommandInfo > CheckOutProjectSettingsConfig;
-	TSharedPtr< FUICommandInfo > CreateClassBlueprint;
+	TSharedPtr< FUICommandInfo > CreateBlueprintClass;
 
 	/** Editor mode commands */
 	TArray< TSharedPtr< FUICommandInfo > > EditorModeCommands;
@@ -549,6 +555,14 @@ public:
 	//TSharedPtr< FUICommandInfo > MeshPaintMode;
 	//TSharedPtr< FUICommandInfo > LandscapeMode;
 	//TSharedPtr< FUICommandInfo > FoliageMode;
+
+	/**
+	 * Source Control Commands
+	 */
+	TSharedPtr< FUICommandInfo > ConnectToSourceControl;
+	TSharedPtr< FUICommandInfo > ChangeSourceControlSettings;
+	TSharedPtr< FUICommandInfo > CheckOutModifiedFiles;
+	TSharedPtr< FUICommandInfo > SubmitToSourceControl;
 
 	/**
 	 * Misc Commands
@@ -748,11 +762,25 @@ public:
 	/**
 	 * Called when the recompile buttons are clicked.
 	 */
-	static void RecompileLevelEditor_Clicked();
-	static void ReloadLevelEditor_Clicked();
 	static void RecompileGameCode_Clicked();
 	static bool Recompile_CanExecute();
-	static bool Reload_CanExecute();
+
+	/**
+	 * Called when requesting connection to source control
+	 */
+	static void ConnectToSourceControl_Clicked();
+
+	/**
+	 * Called when Check Out Modified Files is clicked
+	 */
+	static void CheckOutModifiedFiles_Clicked();
+	static bool CheckOutModifiedFiles_CanExecute();
+
+	/**
+	 * Called when Submit to Source Control is clicked
+	 */
+	static void SubmitToSourceControl_Clicked();
+	static bool SubmitToSourceControl_CanExecute();
 
 	/**
 	 * Called when the FindInContentBrowser command is executed
@@ -866,6 +894,12 @@ public:
 	 * @param bArchetype	true to also check that the archetype is the same
 	 */
 	static void OnSelectAllActorsOfClass( bool bArchetype );
+
+	/** Called when selecting the actor that owns the currently selected component(s) */
+	static void OnSelectComponentOwnerActor();
+
+	/** Called to see if any components are selected */
+	static bool CanSelectComponentOwnerActor();
 
 	/**
 	 * Called to select all lights
@@ -1041,8 +1075,8 @@ public:
 	/** Returns TRUE if the user can edit the game mode Blueprint, this requires the DefaultEngine config file to be writable */
 	static bool CanSelectGameModeBlueprint();
 
-	/** Helps the user create a class Blueprint */
-	static void CreateClassBlueprint();
+	/** Helps the user create a Blueprint class */
+	static void CreateBlueprintClass();
 
 	/** Shows only selected actors, hiding any unselected actors and unhiding any selected hidden actors. */
 	static void OnShowOnlySelectedActors();
@@ -1077,7 +1111,7 @@ public:
 	static void OnToggleLevelStreamingVolumePrevis();
 	static bool OnIsLevelStreamingVolumePrevisEnabled(); 
 	
-	static FString GetAudioVolumeToolTip();
+	static FText GetAudioVolumeToolTip();
 	static float GetAudioVolume();
 	static void OnAudioVolumeChanged(float Volume);
 	static bool GetAudioMuted();
@@ -1085,7 +1119,7 @@ public:
 
 	static void OnEnableActorSnap();
 	static bool OnIsActorSnapEnabled();
-	static FString GetActorSnapTooltip();
+	static FText GetActorSnapTooltip();
 	static float GetActorSnapSetting();
 	static void SetActorSnapSetting(float Distance);
 	static void OnEnableVertexSnap();
@@ -1133,7 +1167,7 @@ public:
 	 * @param InUseBounds		Whether or not to base the line trace off of the bounds.
 	 * @param InUsePivot		Whether or not to use the pivot position.
 	 */
-	static void SnapActorToFloor_Clicked( bool InAlign, bool InUseLineTrace, bool InUseBounds, bool InUsePivot );
+	static void SnapToFloor_Clicked( bool InAlign, bool InUseLineTrace, bool InUseBounds, bool InUsePivot );
 
 	/**
 	 * Snaps an actor to another actor.  Optionally will align with the trace normal.
@@ -1164,14 +1198,14 @@ private:
 	static void MoveActorTo_Clicked( const bool InAlign, const AActor* InDestination = NULL, bool bInPerActor = false );
 
 	/** 
-	 * Snaps an actor...  Optionally will align with the trace normal.
+	 * Snaps an actor or component...  Optionally will align with the trace normal.
 	 * @param InAlign			Whether or not to rotate the actor to align with the trace normal.
 	 * @param InUseLineTrace	Whether or not to only trace with a line through the world.
 	 * @param InUseBounds		Whether or not to base the line trace off of the bounds.
 	 * @param InUsePivot		Whether or not to use the pivot position.
 	 * @param InDestination		The destination actor we want to move this actor to, NULL assumes we just want to go towards the floor
 	 */
-	static void SnapActorTo_Clicked( const bool InAlign, const bool InUseLineTrace, const bool InUseBounds, const bool InUsePivot, const AActor* InDestination = NULL );
+	static void SnapTo_Clicked( const bool InAlign, const bool InUseLineTrace, const bool InUseBounds, const bool InUsePivot, AActor* InDestination = NULL );
 
 	/** 
 	 * Create and apply animation to the SkeletalMeshComponent if Simulating

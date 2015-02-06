@@ -68,7 +68,7 @@
 ///
 /// @see dtNavMeshQuery
 
-dtQueryFilterData::dtQueryFilterData() : heuristicScale(0.999f), m_includeFlags(0xffff), m_excludeFlags(0), m_isBacktracking(0)
+dtQueryFilterData::dtQueryFilterData() : heuristicScale(0.999f), lowestAreaCost(1.0f), m_includeFlags(0xffff), m_excludeFlags(0), m_isBacktracking(0)
 {
 	for (int i = 0; i < DT_MAX_AREAS; ++i)
 		m_areaCost[i] = 1.0f;
@@ -1263,7 +1263,7 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 	}
 	
 	//@UE4 BEGIN
-	const float H_SCALE = filter->getHeuristicScale();
+	const float H_SCALE = filter->getModifiedHeuristicScale();
 	//@UE4 END
 
 #if TRACK_PATHFINDING_PERF
@@ -1673,7 +1673,7 @@ dtStatus dtNavMeshQuery::initSlicedFindPath(dtPolyRef startRef, dtPolyRef endRef
 	}
 	
 	//@UE4 BEGIN
-	const float H_SCALE = filter->getHeuristicScale();
+	const float H_SCALE = filter->getModifiedHeuristicScale();
 	//@UE4 END
 
 	m_nodePool->clear();
@@ -1708,7 +1708,7 @@ dtStatus dtNavMeshQuery::updateSlicedFindPath(const int maxIter, int* doneIters)
 	}
 
 	//@UE4 BEGIN
-	const float H_SCALE = m_query.filter->getHeuristicScale();
+	const float H_SCALE = m_query.filter->getModifiedHeuristicScale();
 	//@UE4 END
 			
 	int iter = 0;

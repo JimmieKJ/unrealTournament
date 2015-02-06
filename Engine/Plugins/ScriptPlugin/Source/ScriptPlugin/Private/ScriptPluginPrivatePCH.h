@@ -5,7 +5,7 @@
 #include "CoreUObject.h"
 #include "ModuleManager.h"
 #include "Engine.h"
-#include "ScriptComponent.h"
+#include "ScriptPluginComponent.h"
 #include "ScriptContext.h"
 #include "ScriptContextComponent.h"
 #include "ScriptTestActor.h"

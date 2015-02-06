@@ -486,9 +486,9 @@ void SBlueprintMerge::OnAcceptLocal()
 				// copy until then by adding it to the OnBlueprintUnloaded delegate
 				FKismetEditorUtilities::FOnBlueprintUnloaded::FDelegate OnPackageUnloaded = FKismetEditorUtilities::FOnBlueprintUnloaded::FDelegate::CreateLambda(OverwriteBlueprintFile);
 					
-				FKismetEditorUtilities::OnBlueprintUnloaded.Add(OnPackageUnloaded);
+				FDelegateHandle OnPackageUnloadedDelegateHandle = FKismetEditorUtilities::OnBlueprintUnloaded.Add(OnPackageUnloaded);
 				NewBlueprint = FKismetEditorUtilities::ReloadBlueprint(TargetBlueprint);
-				FKismetEditorUtilities::OnBlueprintUnloaded.Remove(OnPackageUnloaded);
+				FKismetEditorUtilities::OnBlueprintUnloaded.Remove(OnPackageUnloadedDelegateHandle);
 			}
 		}
 	}

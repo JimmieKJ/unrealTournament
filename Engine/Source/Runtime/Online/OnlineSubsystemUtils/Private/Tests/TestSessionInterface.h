@@ -54,26 +54,45 @@
     /** Delegate for unregistering player(s) with a session */
 	FOnUnregisterPlayersCompleteDelegate OnUnregisterPlayersCompleteDelegate;
 
-	/** Delegate after joining a session */
-	FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
-
-	/** Delegate for joining a friend (JIP) */
-	FOnFindFriendSessionCompleteDelegate OnFindFriendSessionCompleteDelegate;
-
 	/** Delegate for searching for sessions */
 	FOnFindSessionsCompleteDelegate OnFindSessionsCompleteDelegate;
 	/** Delegate for canceling a search */
 	FOnCancelFindSessionsCompleteDelegate OnCancelFindSessionsCompleteDelegate;
 
-	/** Settings defined when acting as host */
-	TSharedPtr<class TestOnlineGameSettings> HostSettings;
-	/** Search settings defined when searching as client */
-	TSharedPtr<class TestOnlineSearchSettings> SearchSettings;
+	/** Delegate after joining a session */
+	FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
 
 	/** Delegate for destroying a session after previously ending it */
 	FOnEndSessionCompleteDelegate OnEndForJoinSessionCompleteDelegate;
 	/** Delegate for joining a new session after previously destroying it */
 	FOnDestroySessionCompleteDelegate OnDestroyForJoinSessionCompleteDelegate;
+
+	/** Handles for the above delegates */
+	FDelegateHandle OnReadFriendsListCompleteDelegateHandle;
+	FDelegateHandle OnSessionInviteAcceptedDelegateHandle;
+	FDelegateHandle OnCreateSessionCompleteDelegateHandle;
+	FDelegateHandle OnStartSessionCompleteDelegateHandle;
+	FDelegateHandle OnEndSessionCompleteDelegateHandle;
+	FDelegateHandle OnDestroySessionCompleteDelegateHandle;
+	FDelegateHandle OnUpdateSessionCompleteDelegateHandle;
+	FDelegateHandle OnRegisterPlayersCompleteDelegateHandle;
+	FDelegateHandle OnUnregisterPlayersCompleteDelegateHandle;
+	FDelegateHandle OnFindSessionsCompleteDelegateHandle;
+	FDelegateHandle OnCancelFindSessionsCompleteDelegateHandle;
+	FDelegateHandle OnJoinSessionCompleteDelegateHandle;
+	FDelegateHandle OnEndForJoinSessionCompleteDelegateHandle;
+	FDelegateHandle OnDestroyForJoinSessionCompleteDelegateHandle;
+
+	/** Delegate for joining a friend (JIP) */
+	FOnFindFriendSessionCompleteDelegate OnFindFriendSessionCompleteDelegate;
+
+	/** Per-player delegate handles for OnFindFriendSessionComplete */
+	TMap<int32, FDelegateHandle> OnFindFriendSessionCompleteDelegateHandles;
+
+	/** Settings defined when acting as host */
+	TSharedPtr<class TestOnlineGameSettings> HostSettings;
+	/** Search settings defined when searching as client */
+	TSharedPtr<class TestOnlineSearchSettings> SearchSettings;
 
 	/** Cached invite/search result while in the process of tearing down an existing session */
 	FOnlineSessionSearchResult CachedSessionResult;

@@ -162,10 +162,7 @@ FEdModeLandscape::FEdModeLandscape()
 	, LandscapeRenderAddCollision(nullptr)
 	, CachedLandscapeMaterial(nullptr)
 	, bToolActive(false)
-	, GizmoMaterial(nullptr)
 {
-	GizmoMaterial = LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorLandscapeResources/GizmoMaterial.GizmoMaterial"), NULL, LOAD_None, NULL);
-
 	GLayerDebugColorMaterial = LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorLandscapeResources/LayerVisMaterial.LayerVisMaterial"), NULL, LOAD_None, NULL);
 	GSelectionColorMaterial = LoadObject<UMaterialInstanceConstant>(NULL, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial_Selected.SelectBrushMaterial_Selected"), NULL, LOAD_None, NULL);
 	GSelectionRegionMaterial = LoadObject<UMaterialInstanceConstant>(NULL, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial_SelectedRegion.SelectBrushMaterial_SelectedRegion"), NULL, LOAD_None, NULL);
@@ -240,7 +237,6 @@ void FEdModeLandscape::AddReferencedObjects(FReferenceCollector& Collector)
 
 	Collector.AddReferencedObject(UISettings);
 
-	Collector.AddReferencedObject(GizmoMaterial);
 	Collector.AddReferencedObject(GLayerDebugColorMaterial);
 	Collector.AddReferencedObject(GSelectionColorMaterial);
 	Collector.AddReferencedObject(GSelectionRegionMaterial);
@@ -321,8 +317,8 @@ void FEdModeLandscape::Enter()
 	UpdateLandscapeList();
 	UpdateTargetList();
 
-	FEditorSupportDelegates::WorldChange.AddRaw(this, &FEdModeLandscape::OnWorldChange);
-	UMaterial::OnMaterialCompilationFinished().AddRaw(this, &FEdModeLandscape::OnMaterialCompilationFinished);
+	OnWorldChangeDelegateHandle                 = FEditorSupportDelegates::WorldChange.AddRaw(this, &FEdModeLandscape::OnWorldChange);
+	OnMaterialCompilationFinishedDelegateHandle = UMaterial::OnMaterialCompilationFinished().AddRaw(this, &FEdModeLandscape::OnMaterialCompilationFinished);
 
 	if (CurrentGizmoActor.IsValid())
 	{
@@ -450,8 +446,8 @@ void FEdModeLandscape::Enter()
 /** FEdMode: Called when the mode is exited */
 void FEdModeLandscape::Exit()
 {
-	FEditorSupportDelegates::WorldChange.RemoveRaw(this, &FEdModeLandscape::OnWorldChange);
-	UMaterial::OnMaterialCompilationFinished().RemoveRaw(this, &FEdModeLandscape::OnMaterialCompilationFinished);
+	FEditorSupportDelegates::WorldChange.Remove(OnWorldChangeDelegateHandle);
+	UMaterial::OnMaterialCompilationFinished().Remove(OnMaterialCompilationFinishedDelegateHandle);
 
 	// Restore real-time viewport state if we changed it
 	const bool bWantRealTime = false;
@@ -1149,9 +1145,13 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 	else
 	{
 		// Override Key Input for Selection Brush
-		if (CurrentBrush && CurrentBrush->InputKey(ViewportClient, Viewport, Key, Event) == true)
+		if (CurrentBrush)
 		{
-			return true;
+			TOptional<bool> BrushKeyOverride = CurrentBrush->InputKey(ViewportClient, Viewport, Key, Event);
+			if (BrushKeyOverride.IsSet())
+			{
+				return BrushKeyOverride.GetValue();
+			}
 		}
 
 		if (CurrentTool && CurrentTool->InputKey(ViewportClient, Viewport, Key, Event) == true)
@@ -2036,39 +2036,6 @@ void FEdModeLandscape::Render(const FSceneView* View, FViewport* Viewport, FPrim
 		PDI->DrawLine(LandscapeRenderAddCollision->Corners[3], LandscapeRenderAddCollision->Corners[0], FColor(0, 255, 128), SDPG_Foreground);
 	}
 
-	if (!GIsGizmoDragging && GLandscapeEditRenderMode & ELandscapeEditRenderMode::Gizmo && CurrentToolTarget.LandscapeInfo.IsValid() && CurrentGizmoActor.IsValid() && CurrentGizmoActor->TargetLandscapeInfo)
-	{
-		FDynamicMeshBuilder MeshBuilder;
-
-		for (int32 i = 0; i < 8; ++i)
-		{
-			MeshBuilder.AddVertex(CurrentGizmoActor->FrustumVerts[i], FVector2D(0, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
-		}
-
-		// Upper box.
-		MeshBuilder.AddTriangle(0, 2, 1);
-		MeshBuilder.AddTriangle(0, 3, 2);
-		// Lower box.
-		MeshBuilder.AddTriangle(4, 6, 5);
-		MeshBuilder.AddTriangle(4, 7, 6);
-		// Others
-		MeshBuilder.AddTriangle(1, 4, 0);
-		MeshBuilder.AddTriangle(1, 5, 4);
-
-		MeshBuilder.AddTriangle(3, 6, 2);
-		MeshBuilder.AddTriangle(3, 7, 6);
-
-		MeshBuilder.AddTriangle(2, 5, 1);
-		MeshBuilder.AddTriangle(2, 6, 5);
-
-		MeshBuilder.AddTriangle(0, 7, 3);
-		MeshBuilder.AddTriangle(0, 4, 7);
-
-		PDI->SetHitProxy(new HTranslucentActor(CurrentGizmoActor.Get(), NULL));
-		MeshBuilder.Draw(PDI, FMatrix::Identity, GizmoMaterial->GetRenderProxy(false), SDPG_World, true);
-		PDI->SetHitProxy(NULL);
-	}
-
 	// Override Rendering for Splines Tool
 	if (CurrentTool)
 	{
@@ -2453,6 +2420,7 @@ void FEdModeLandscape::ImportData(const FLandscapeTargetListInfo& TargetInfo, co
 			else
 			{
 				// I would love to deprecate the raw/r8/r16 support for landscape, r16 doesn't even handle endianness issues...
+				RawData = &Data;
 			}
 
 			if (TargetInfo.TargetType == ELandscapeToolTargetType::Heightmap)

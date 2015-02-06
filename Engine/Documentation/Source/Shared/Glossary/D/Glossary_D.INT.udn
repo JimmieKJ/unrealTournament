@@ -35,7 +35,7 @@ Defaults Mode
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Defaults_Mode]
-The **Blueprint Defaults** or **Defaults** mode displays all of the properties of the _Blueprint_, including variables 
+The **Class Defaults** or **Defaults** mode displays all of the properties of the _Blueprint_, including variables 
 contained within the _Blueprint_ and components defined in native code as well as replication, navigation, 
 and collision properties. The values set for these properties in the **Defaults** mode will be 
 used when new instances of the _Blueprint_ are created.

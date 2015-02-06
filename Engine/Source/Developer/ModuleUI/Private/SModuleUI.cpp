@@ -257,7 +257,7 @@ FReply SModuleUI::FModuleListItem::OnRecompileClicked()
 		{
 			// Perform a hot reload
 			const bool bWaitForCompletion = true;			
-			HotReloadSupport.RebindPackages(PackagesToRebind, TArray<FName>(), bWaitForCompletion, *GLog);
+			ECompilationResult::Type Result = HotReloadSupport.RebindPackages(PackagesToRebind, TArray<FName>(), bWaitForCompletion, *GLog);
 		}
 		else
 		{
@@ -265,7 +265,7 @@ FReply SModuleUI::FModuleListItem::OnRecompileClicked()
 			const bool bReloadAfterRecompile = true;
 			const bool bForceCodeProject = false;
 			const bool bFailIfGeneratedCodeChanges = true;
-			HotReloadSupport.RecompileModule(ModuleName, bReloadAfterRecompile, *GLog, bFailIfGeneratedCodeChanges, bForceCodeProject);
+			const bool bRecompileSucceeded = HotReloadSupport.RecompileModule(ModuleName, bReloadAfterRecompile, *GLog, bFailIfGeneratedCodeChanges, bForceCodeProject);
 		}
 	}
 

@@ -44,7 +44,7 @@ public:
 
 private:
 
-	FString GetDefaultResponse() const;
+	FText GetDefaultResponse() const;
 
 	TSharedPtr<FCustomChannelSetup> ChannelSetup;
 };
@@ -91,8 +91,8 @@ public:
 
 private:
 
-	FString GetObjectType() const;
-	FString GetCollsionEnabled() const;
+	FText GetObjectType() const;
+	FText GetCollsionEnabled() const;
 	TSharedPtr<FCollisionResponseTemplate> ProfileTemplate;
 };
 

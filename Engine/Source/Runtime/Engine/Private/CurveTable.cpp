@@ -91,6 +91,15 @@ void UCurveTable::FinishDestroy()
 	EmptyTable(); // Free memory when UObject goes away
 }
 
+#if WITH_EDITORONLY_DATA
+void UCurveTable::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), ImportPath, FAssetRegistryTag::TT_Hidden) );
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+#endif
+
 FString UCurveTable::GetTableAsString()
 {
 	FString Result;

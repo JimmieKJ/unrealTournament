@@ -340,4 +340,9 @@ EReimportResult::Type UReimportVectorFieldStaticFactory::Reimport( UObject* Obj 
 	return EReimportResult::Succeeded;
 }
 
+int32 UReimportVectorFieldStaticFactory::GetPriority() const
+{
+	return ImportPriority;
+}
+
 #undef LOCTEXT_NAMESPACE

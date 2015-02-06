@@ -82,7 +82,12 @@ public:
 
 	virtual class UThumbnailInfo* GetThumbnailInfo(UObject* Asset) const override
 	{
-		return NULL;
+		return nullptr;
+	}
+
+	virtual TSharedPtr<class SWidget> GetThumbnailOverlay(const FAssetData& AssetData) const override
+	{
+		return nullptr;
 	}
 
 	virtual bool IsImportedAsset() const

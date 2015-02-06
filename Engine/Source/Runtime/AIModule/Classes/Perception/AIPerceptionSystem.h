@@ -162,6 +162,9 @@ public:
 	FString GetSenseName(FAISenseID SenseID) const;
 	FString GetPerceptionDebugLegend() const { return PerceptionDebugLegend; }
 #endif 
+
+private:
+	FTimerHandle AgeStimuliTimerHandle;
 };
 
 //////////////////////////////////////////////////////////////////////////

@@ -488,13 +488,13 @@ bool FStatsWriteFile::IsValid() const
 void FStatsWriteFile::AddNewFrameDelegate()
 {
 	FStatsThreadState const& Stats = FStatsThreadState::GetLocalState();
-	Stats.NewFrameDelegate.AddThreadSafeSP( this->AsShared(), &FStatsWriteFile::NewFrame );
+	NewFrameDelegateHandle = Stats.NewFrameDelegate.AddThreadSafeSP( this->AsShared(), &FStatsWriteFile::NewFrame );
 }
 
 void FStatsWriteFile::RemoveNewFrameDelegate()
 {
 	FStatsThreadState const& Stats = FStatsThreadState::GetLocalState();
-	Stats.NewFrameDelegate.RemoveThreadSafeSP( this->AsShared(), &FStatsWriteFile::NewFrame );
+	Stats.NewFrameDelegate.Remove( NewFrameDelegateHandle );
 }
 
 /*-----------------------------------------------------------------------------

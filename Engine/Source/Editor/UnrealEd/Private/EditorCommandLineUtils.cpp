@@ -318,10 +318,10 @@ FRevisionInfo FMergeAsset::GetRevisionInfo() const
 	FRevisionInfo RevisionInfoOut = FRevisionInfo::InvalidRevision();
 
 	FString BaseFileName, RevisionStr;
-	if (SrcFileName.Split(TEXT("#"), &BaseFileName, &RevisionStr) && RevisionStr.IsNumeric())
+	if (SrcFileName.Split(TEXT("#"), &BaseFileName, &RevisionStr))
 	{
 		// @TODO: if connected to source-control, extract changelist and date info
-		RevisionInfoOut.Revision = FCString::Atoi(*RevisionStr);
+		RevisionInfoOut.Revision = *RevisionStr;
 	}
 
 	return RevisionInfoOut;

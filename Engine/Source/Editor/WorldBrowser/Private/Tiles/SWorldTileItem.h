@@ -95,7 +95,7 @@ private:
 	TSharedRef<SToolTip> CreateToolTipWidget();
 	
 	/** Tile tooltips fields */
-	FString GetLevelNameText() const;
+	FText GetLevelNameText() const;
 	FText GetPositionText() const;
 	FText GetBoundsExtentText() const;
 	FText GetLevelLayerNameText() const;

@@ -195,28 +195,28 @@ void SGraphEditorImpl::Construct( const FArguments& InArgs )
 	
 	struct Local
 	{
-		static FString GetPIENotifyText(TAttribute<FGraphAppearanceInfo> Appearance, FString DefaultText)
+		static FText GetPIENotifyText(TAttribute<FGraphAppearanceInfo> Appearance, FText DefaultText)
 		{
-			FString OverrideText = Appearance.Get().PIENotifyText;
-			return OverrideText.Len() ? OverrideText : DefaultText;
+			FText OverrideText = Appearance.Get().PIENotifyText;
+			return !OverrideText.IsEmpty() ? OverrideText : DefaultText;
 		}
 
-		static FString GetReadOnlyText(TAttribute<FGraphAppearanceInfo>Appearance, FString DefaultText)
+		static FText GetReadOnlyText(TAttribute<FGraphAppearanceInfo>Appearance, FText DefaultText)
 		{
-			FString OverrideText = Appearance.Get().ReadOnlyText;
-			return OverrideText.Len() ? OverrideText : DefaultText;
+			FText OverrideText = Appearance.Get().ReadOnlyText;
+			return !OverrideText.IsEmpty() ? OverrideText : DefaultText;
 		}
 	};
 	
-	FString DefaultPIENotify(TEXT("SIMULATING"));
-	TAttribute<FString> PIENotifyText = Appearance.IsBound() ?
-		TAttribute<FString>::Create( TAttribute<FString>::FGetter::CreateStatic(&Local::GetPIENotifyText, Appearance, DefaultPIENotify) ) :
-		TAttribute<FString>(DefaultPIENotify);
+	FText DefaultPIENotify(LOCTEXT("GraphSimulatingText", "SIMULATING"));
+	TAttribute<FText> PIENotifyText = Appearance.IsBound() ?
+		TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateStatic(&Local::GetPIENotifyText, Appearance, DefaultPIENotify)) :
+		TAttribute<FText>(DefaultPIENotify);
 
-	FString DefaultReadOnlyText(LOCTEXT("GraphReadOnlyText", "READ-ONLY").ToString());
-	TAttribute<FString> ReadOnlyText = Appearance.IsBound() ?
-		TAttribute<FString>::Create(TAttribute<FString>::FGetter::CreateStatic(&Local::GetReadOnlyText, Appearance, DefaultReadOnlyText)) :
-		TAttribute<FString>(DefaultReadOnlyText);
+	FText DefaultReadOnlyText(LOCTEXT("GraphReadOnlyText", "READ-ONLY"));
+	TAttribute<FText> ReadOnlyText = Appearance.IsBound() ?
+		TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateStatic(&Local::GetReadOnlyText, Appearance, DefaultReadOnlyText)) :
+		TAttribute<FText>(DefaultReadOnlyText);
 
 	TSharedPtr<SOverlay> OverlayWidget;
 
@@ -470,16 +470,16 @@ FActionMenuContent SGraphEditorImpl::GraphEd_OnGetContextMenuFor(const FGraphCon
 				return Content;
 			}
 
-			return FActionMenuContent( SNew(STextBlock) .Text( NSLOCTEXT("GraphEditor", "NoNodes", "No Nodes").ToString() ) );
+			return FActionMenuContent( SNew(STextBlock) .Text( NSLOCTEXT("GraphEditor", "NoNodes", "No Nodes") ) );
 		}
 		else
 		{
-			return FActionMenuContent( SNew(STextBlock)  .Text( NSLOCTEXT("GraphEditor", "CannotCreateWhileDebugging", "Cannot create new nodes in a read only graph").ToString() ) );
+			return FActionMenuContent( SNew(STextBlock)  .Text( NSLOCTEXT("GraphEditor", "CannotCreateWhileDebugging", "Cannot create new nodes in a read only graph") ) );
 		}
 	}
 	else
 	{
-		return FActionMenuContent( SNew(STextBlock) .Text( NSLOCTEXT("GraphEditor", "GraphObjectIsNull", "Graph Object is Null").ToString() ) );
+		return FActionMenuContent( SNew(STextBlock) .Text( NSLOCTEXT("GraphEditor", "GraphObjectIsNull", "Graph Object is Null") ) );
 	}
 		
 }
@@ -658,13 +658,13 @@ EVisibility SGraphEditorImpl::ReadOnlyVisibility() const
 	return EVisibility::Hidden;
 }
 
-FString SGraphEditorImpl::GetInstructionText() const
+FText SGraphEditorImpl::GetInstructionText() const
 {
 	if (Appearance.IsBound())
 	{
-		return Appearance.Get().InstructionText.ToString();
+		return Appearance.Get().InstructionText;
 	}
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 EVisibility SGraphEditorImpl::InstructionTextVisibility() const

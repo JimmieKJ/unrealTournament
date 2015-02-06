@@ -34,7 +34,8 @@ public class UE4GameTarget : TargetRules
 		if (UnrealBuildTool.UnrealBuildTool.BuildingRocket())
 		{
 			OutExtraModuleNames.Add("GameMenuBuilder");
-			if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
+
+			if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 			{
 				OutExtraModuleNames.Add("OnlineSubsystemNull");
 				OutExtraModuleNames.Add("OnlineSubsystemAmazon");
@@ -136,4 +137,8 @@ public class UE4GameTarget : TargetRules
     {
         return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Development, UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test };
     }
+	public override bool GUBP_BuildWindowsXPMonolithics()
+	{
+		return true;
+	}
 }

@@ -18,7 +18,7 @@ void UAbilityTask_WaitOverlap::OnOverlapCallback(AActor* OtherActor, class UPrim
 	}
 }
 
-void UAbilityTask_WaitOverlap::OnHitCallback(AActor* OtherActor, UPrimitiveComponent* HitComponent, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void UAbilityTask_WaitOverlap::OnHitCallback(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if(OtherActor)
 	{

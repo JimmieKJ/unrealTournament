@@ -332,6 +332,38 @@ namespace APIDocTool
 			}
 		}
 
+		public void WriteSnippetSection(UdnWriter Writer, List<string> SnippetLines)
+		{
+			if (SnippetLines != null)
+			{
+				Writer.EnterSection("snippets", "Snippets");
+				Writer.EnterRegion("simplecode");
+				foreach (string SnippetLine in SnippetLines)
+				{
+					StringBuilder OutputLine = new StringBuilder();
+					for (int Idx = 0; Idx < SnippetLine.Length; Idx++)
+					{
+						if (SnippetLine[Idx] == ' ')
+						{
+							OutputLine.Append("&nbsp;");
+						}
+						else if (SnippetLine[Idx] == '\t')
+						{
+							OutputLine.Append("&nbsp;&nbsp;&nbsp;&nbsp;");
+						}
+						else
+						{
+							OutputLine.Append(Markdown.EscapeText(SnippetLine.Substring(Idx)));
+							break;
+						}
+					}
+					Writer.WriteLine(OutputLine.ToString() + "  ");
+				}
+				Writer.LeaveRegion();
+				Writer.LeaveSection();
+			}
+		}
+
 		public static string GetNormalizedFileName(string InFileName)
 		{
 			string NormalizedFileName = InFileName.Replace('\\', '/');

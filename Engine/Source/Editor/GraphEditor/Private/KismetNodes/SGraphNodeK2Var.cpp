@@ -158,7 +158,7 @@ void SGraphNodeK2Var::UpdateGraphNode()
 						.Text(TitleText);
 	}
 
-	TSharedPtr<SWidget> ErrorText = SetupErrorReporting();
+	SetupErrorReporting();
 
 	// Setup a meta tag for this node
 	FGraphNodeMetaData TagMeta(TEXT("Graphnode"));
@@ -183,7 +183,7 @@ void SGraphNodeK2Var::UpdateGraphNode()
 		.AutoHeight() 
 		.Padding( FMargin(5.0f, 1.0f) )
 		[
-			ErrorText->AsShared()
+			ErrorReporting->AsWidget()
 		]
 		+SVerticalBox::Slot()
 		[

@@ -8,6 +8,7 @@
 UDragDropOperation::UDragDropOperation(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	Pivot = EDragPivot::CenterCenter;
 }
 
 void UDragDropOperation::Drop_Implementation(const FPointerEvent& PointerEvent)

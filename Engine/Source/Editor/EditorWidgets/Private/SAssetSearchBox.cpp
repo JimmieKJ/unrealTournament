@@ -200,7 +200,7 @@ TSharedRef<ITableRow> SAssetSearchBox::MakeSuggestionListItemWidget(TSharedPtr<F
 		SNew(STableRow< TSharedPtr<FString> >, OwnerTable)
 		[
 			SNew(STextBlock)
-			.Text(*Text.Get())
+			.Text(FText::FromString(*Text.Get()))
 			.HighlightText(this, &SAssetSearchBox::GetHighlightText)
 		];
 }

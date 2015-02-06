@@ -33,15 +33,17 @@ class FAnimTrackCurveBaseInterface : public FCurveOwnerInterface
 {
 public:
 	TWeakObjectPtr<UAnimSequence>	BaseSequence;
+	USkeleton::AnimCurveUID CurveUID;
 	FAnimCurveBase*	CurveData;
 	ETransformCurve::Type	CurveType;
 
 public:
-	FAnimTrackCurveBaseInterface(UAnimSequence * BaseSeq, FAnimCurveBase*	InData, ETransformCurve::Type InCurveType)
+	FAnimTrackCurveBaseInterface(UAnimSequence * BaseSeq, USkeleton::AnimCurveUID InCurveUID, ETransformCurve::Type InCurveType)
 		: BaseSequence(BaseSeq)
-		, CurveData(InData)
+		, CurveUID(InCurveUID)
 		, CurveType(InCurveType)
 	{
+		CurveData = GetCurveDataFromSequence();
 		// they should be valid
 		check (BaseSequence.IsValid());
 		check (CurveData);
@@ -164,6 +166,41 @@ public:
 	virtual void OnCurveChanged() override
 	{
 	}
+
+	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override
+	{
+		// Get the curves with the ID directly from the sequence and compare it since undo/redo can cause previously
+		// used curves to become invalid.
+		FAnimCurveBase* CurrentCurveData = GetCurveDataFromSequence();
+		if (CurrentCurveData != nullptr)
+		{
+			FVectorCurve * CurrentVectorCurveData = (FVectorCurve*)(CurrentCurveData);
+			return
+				CurveInfo.CurveToEdit == &CurrentVectorCurveData->FloatCurves[0] ||
+				CurveInfo.CurveToEdit == &CurrentVectorCurveData->FloatCurves[1] ||
+				CurveInfo.CurveToEdit == &CurrentVectorCurveData->FloatCurves[2];
+		}
+		return false;
+	}
+
+private:
+	FAnimCurveBase*	GetCurveDataFromSequence()
+	{
+		FTransformCurve* Curve = static_cast<FTransformCurve*> (BaseSequence.Get()->RawCurveData.GetCurveData( CurveUID, FRawCurveTracks::TransformType));
+		if (Curve)
+		{
+			switch ( CurveType )
+			{
+			case ETransformCurve::Translation:
+				return &Curve->TranslationCurve;
+			case ETransformCurve::Rotation:
+				return &Curve->RotationCurve;
+			case ETransformCurve::Scale:
+				return &Curve->ScaleCurve;
+			}
+		}
+		return nullptr;
+	}
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -247,9 +284,9 @@ void STransformCurveEdTrack::Construct(const FArguments& InArgs)
 
 	CurveUid = InArgs._CurveUid;
 
-	CurveInterfaces[ETransformCurve::Translation] = new FAnimTrackCurveBaseInterface(Sequence, &Curve->TranslationCurve, ETransformCurve::Translation);
-	CurveInterfaces[ETransformCurve::Rotation] = new FAnimTrackCurveBaseInterface(Sequence, &Curve->RotationCurve, ETransformCurve::Rotation);
-	CurveInterfaces[ETransformCurve::Scale] = new FAnimTrackCurveBaseInterface(Sequence, &Curve->ScaleCurve, ETransformCurve::Scale);
+	CurveInterfaces[ETransformCurve::Translation] = new FAnimTrackCurveBaseInterface(Sequence, CurveUid, ETransformCurve::Translation);
+	CurveInterfaces[ETransformCurve::Rotation] = new FAnimTrackCurveBaseInterface(Sequence, CurveUid, ETransformCurve::Rotation);
+	CurveInterfaces[ETransformCurve::Scale] = new FAnimTrackCurveBaseInterface(Sequence, CurveUid, ETransformCurve::Scale);
 	int32 NumberOfKeys = Sequence->GetNumberOfFrames();
 	//////////////////////////////
 	

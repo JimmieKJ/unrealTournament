@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "SlateCore.h"
+
 /** 
  * Provides the Engine with access to the Slate font cache and font measuring services (for Canvas)
  * On the game thread this just leverages the Slate services, but the render thread needs its own instances

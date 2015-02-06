@@ -6656,11 +6656,11 @@ void DrawParticleSystemHelpers(UParticleSystemComponent* InPSysComp, const FScen
 
 ENGINE_API void DrawParticleSystemHelpers(const FSceneView* View,FPrimitiveDrawInterface* PDI)
 {
-	TArray<UParticleSystemComponent*> PSCArray;
+	TInlineComponentArray<UParticleSystemComponent*> PSCArray;
 
 	for (TObjectIterator<AActor> It; It; ++It)
 	{
-		PSCArray.Empty();
+		PSCArray.Reset();
 		(*It)->GetComponents(PSCArray);
 
 		for (int PSCIndex = 0; PSCIndex < PSCArray.Num(); ++PSCIndex)

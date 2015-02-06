@@ -143,6 +143,17 @@ FText UK2Node_MacroInstance::GetTooltipText() const
 	return CachedTooltip;
 }
 
+FString UK2Node_MacroInstance::GetKeywords() const
+{
+	// This might need to be refined, but seems better than providing no keywords:
+	UBlueprint* MacroBP = MacroGraphReference.GetBlueprint();
+	if (MacroBP)
+	{
+		return MacroBP->BlueprintDescription;
+	}
+	return UK2Node_Tunnel::GetKeywords();
+}
+
 FText UK2Node_MacroInstance::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	UEdGraph* MacroGraph = MacroGraphReference.GetGraph();

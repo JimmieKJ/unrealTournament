@@ -9,8 +9,79 @@
 #include "EditorCategoryUtils.h"
 #include "SSearchBox.h"
 #include "SInlineEditableTextBlock.h"
+#include "Widgets/Views/STableRow.h"
 
 #define LOCTEXT_NAMESPACE "GraphActionMenu"
+
+//////////////////////////////////////////////////////////////////////////
+
+template<typename ItemType>
+class SCategoryHeaderTableRow : public STableRow < ItemType >
+{
+public:
+	SLATE_BEGIN_ARGS(SCategoryHeaderTableRow)
+	{}
+		SLATE_DEFAULT_SLOT(typename SCategoryHeaderTableRow::FArguments, Content)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
+	{
+		STableRow<ItemType>::ChildSlot
+		.Padding(0.0f, 2.0f, 0.0f, 0.0f)
+		[
+			SAssignNew(ContentBorder, SBorder)
+			.BorderImage(this, &SCategoryHeaderTableRow::GetBackgroundImage)
+			.Padding(FMargin(0.0f, 3.0f))
+			.BorderBackgroundColor(FLinearColor(.6, .6, .6, 1.0f))
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.Padding(2.0f, 2.0f, 2.0f, 2.0f)
+				.AutoWidth()
+				[
+					SNew(SExpanderArrow, STableRow< ItemType >::SharedThis(this))
+				]
+
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				[
+					InArgs._Content.Widget
+				]
+			]
+		];
+
+		STableRow < ItemType >::ConstructInternal(
+			typename STableRow< ItemType >::FArguments()
+			.Style(FEditorStyle::Get(), "DetailsView.TreeView.TableRow")
+			.ShowSelection(false),
+			InOwnerTableView
+			);
+	}
+
+	const FSlateBrush* GetBackgroundImage() const
+	{
+		if ( STableRow<ItemType>::IsHovered() )
+		{
+			return STableRow<ItemType>::IsItemExpanded() ? FEditorStyle::GetBrush("DetailsView.CategoryTop_Hovered") : FEditorStyle::GetBrush("DetailsView.CollapsedCategory_Hovered");
+		}
+		else
+		{
+			return STableRow<ItemType>::IsItemExpanded() ? FEditorStyle::GetBrush("DetailsView.CategoryTop") : FEditorStyle::GetBrush("DetailsView.CollapsedCategory");
+		}
+	}
+
+	virtual void SetContent(TSharedRef< SWidget > InContent) override
+	{
+		ContentBorder->SetContent(InContent);
+	}
+
+private:
+	TSharedPtr<SBorder> ContentBorder;
+};
+
+//////////////////////////////////////////////////////////////////////////
 
 namespace GraphActionMenuHelpers
 {
@@ -38,6 +109,8 @@ namespace GraphActionMenuHelpers
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////
+
 void SDefaultGraphActionWidget::Construct(const FArguments& InArgs, const FCreateWidgetForActionData* InCreateData)
 {
 	ActionPtr = InCreateData->Action;
@@ -46,7 +119,7 @@ void SDefaultGraphActionWidget::Construct(const FArguments& InArgs, const FCreat
 	this->ChildSlot
 	[
 		SNew(SHorizontalBox)
-		.ToolTipText( InCreateData->Action->TooltipDescription )
+		.ToolTipText( FText::FromString(InCreateData->Action->TooltipDescription) )
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
@@ -166,6 +239,7 @@ void SGraphActionMenu::Construct( const FArguments& InArgs, bool bIsReadOnly/* =
 {
 	this->SelectedSuggestion = INDEX_NONE;
 	this->bIgnoreUIUpdate = false;
+	this->bUseSectionStyling = InArgs._UseSectionStyling;
 
 	this->bAutoExpandActionMenu = InArgs._AutoExpandActionMenu;
 	this->bShowFilterTextBox = InArgs._ShowFilterTextBox;
@@ -177,9 +251,12 @@ void SGraphActionMenu::Construct( const FArguments& InArgs, bool bIsReadOnly/* =
 	this->OnCreateWidgetForAction = InArgs._OnCreateWidgetForAction;
 	this->OnCreateCustomRowExpander = InArgs._OnCreateCustomRowExpander;
 	this->OnCollectAllActions = InArgs._OnCollectAllActions;
+	this->OnCollectStaticSections = InArgs._OnCollectStaticSections;
 	this->OnCategoryTextCommitted = InArgs._OnCategoryTextCommitted;
 	this->OnCanRenameSelectedAction = InArgs._OnCanRenameSelectedAction;
 	this->OnGetSectionTitle = InArgs._OnGetSectionTitle;
+	this->OnGetSectionToolTip = InArgs._OnGetSectionToolTip;
+	this->OnGetSectionWidget = InArgs._OnGetSectionWidget;
 	this->FilteredRootAction = FGraphActionNode::NewRootNode();
 	this->OnActionMatchesName = InArgs._OnActionMatchesName;
 	
@@ -241,7 +318,7 @@ void SGraphActionMenu::RefreshAllActions(bool bPreserveExpansion, bool bHandleOn
 {
 	// Save Selection (of only the first selected thing)
 	TArray< TSharedPtr<FGraphActionNode> > SelectedNodes = TreeView->GetSelectedItems();
-	TSharedPtr<FGraphActionNode> SelectedAction = SelectedNodes.Num() > 0 ? SelectedNodes[0] : NULL;
+	TSharedPtr<FGraphActionNode> SelectedAction = SelectedNodes.Num() > 0 ? SelectedNodes[0] : nullptr;
 
 	AllActions.Empty();
 	OnCollectAllActions.ExecuteIfBound(AllActions);
@@ -261,6 +338,26 @@ void SGraphActionMenu::RefreshAllActions(bool bPreserveExpansion, bool bHandleOn
 		{
 			// If we do not want to handle the selection, set it directly so it will reselect the item but not handle the event.
 			SelectItemByName(*SelectedAction->GetDisplayName().ToString(), ESelectInfo::Direct, SelectedAction->SectionID, SelectedNodes[0]->IsCategoryNode());
+		}
+	}
+}
+
+void SGraphActionMenu::GetSectionExpansion(TMap<int32, bool>& SectionExpansion) const
+{
+
+}
+
+void SGraphActionMenu::SetSectionExpansion(const TMap<int32, bool>& InSectionExpansion)
+{
+	for ( auto& PossibleSection : FilteredRootAction->Children )
+	{
+		if ( PossibleSection->IsSectionHeadingNode() )
+		{
+			const bool* IsExpanded = InSectionExpansion.Find(PossibleSection->SectionID);
+			if ( IsExpanded != nullptr )
+			{
+				TreeView->SetItemExpansion(PossibleSection, *IsExpanded);
+			}
 		}
 	}
 }
@@ -401,7 +498,7 @@ bool SGraphActionMenu::SelectItemByName(const FName& ItemName, ESelectInfo::Type
 						{
 							if(ChildGraphAction)
 							{
-								if ((OnActionMatchesName.IsBound() && OnActionMatchesName.Execute(GraphAction, ItemName)) || GraphActionMenuHelpers::ActionMatchesName(ChildGraphAction, ItemName))
+								if ((OnActionMatchesName.IsBound() && OnActionMatchesName.Execute(ChildGraphAction, ItemName)) || GraphActionMenuHelpers::ActionMatchesName(ChildGraphAction, ItemName))
 								{
 									SelectionNode = GraphNodes[i]->Children[ChildIdx];
 
@@ -512,6 +609,18 @@ void SGraphActionMenu::GenerateFilteredItems(bool bPreserveExpansion)
 	// Clear the filtered root action
 	FilteredRootAction->ClearChildren();
 
+	// Collect the list of always visible sections if any, and force the creation of those sections.
+	if ( OnCollectStaticSections.IsBound() )
+	{
+		TArray<int32> StaticSectionIDs;
+		OnCollectStaticSections.Execute(StaticSectionIDs);
+
+		for ( int32 i = 0; i < StaticSectionIDs.Num(); i++ )
+		{
+			FilteredRootAction->AddSection(0, StaticSectionIDs[i]);
+		}
+	}
+	
 	// Trim and sanitized the filter text (so that it more likely matches the action descriptions)
 	FString TrimmedFilterString = FText::TrimPrecedingAndTrailing(GetFilterText()).ToString();
 
@@ -626,10 +735,10 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 	int32 TotalWeight = 0;
 
 	// Some simple weight figures to help find the most appropriate match	
-	int32 WholeMatchWeightMultiplier = 2;
-	int32 DescriptionWeight = 5;
-	int32 CategoryWeight = 3;
-	int32 NodeTitleWeight = 3;
+	int32 WholeMatchWeightMultiplier = 1;
+	int32 DescriptionWeight = 1;
+	int32 CategoryWeight = 1;
+	int32 NodeTitleWeight = 1;
 
 	// Helper array
 	struct FArrayWithWeight
@@ -653,7 +762,7 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 
 		// First the keywords
 		InCurrentAction.Actions[Action]->Keywords.ParseIntoArray( &EachEntry.Array, TEXT(" "), true );
-		EachEntry.Weight = 1;
+		EachEntry.Weight = 10;
 		WeightedArrayList.Add( EachEntry );
 
 		// The description
@@ -687,9 +796,9 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 				TotalWeight++;
 			}		
 			// Now check the weighted lists	(We could further improve the hit weight by checking consecutive word matches)
-			int32 WeightPerList = 0;
 			for (int32 iFindCount = 0; iFindCount < WeightedArrayList.Num() ; iFindCount++)
 			{
+				int32 WeightPerList = 0;
 				TArray<FString>& KeywordArray = WeightedArrayList[iFindCount].Array;
 				int32 EachWeight = WeightedArrayList[iFindCount].Weight;
 				int32 WholeMatchCount = 0;
@@ -806,18 +915,53 @@ void SGraphActionMenu::OnItemScrolledIntoView( TSharedPtr<FGraphActionNode> InAc
 
 TSharedRef<ITableRow> SGraphActionMenu::MakeWidget( TSharedPtr<FGraphActionNode> InItem, const TSharedRef<STableViewBase>& OwnerTable, bool bIsReadOnly )
 {
+	FText SectionTitle;
+	TSharedPtr<IToolTip> SectionToolTip;
+
+	if ( InItem->IsSectionHeadingNode() )
+	{
+		if ( OnGetSectionTitle.IsBound() )
+		{
+			SectionTitle = OnGetSectionTitle.Execute(InItem->SectionID);
+		}
+
+		if ( OnGetSectionToolTip.IsBound() )
+		{
+			SectionToolTip = OnGetSectionToolTip.Execute(InItem->SectionID);
+		}
+	}
+
 	// In the case of FGraphActionNodes that have multiple actions, all of the actions will
 	// have the same text as they will have been created at the same point - only the actual
 	// action itself will differ, which is why parts of this function only refer to InItem->Actions[0]
 	// rather than iterating over the array
 
 	// Create the widget but do not add any content, the widget is needed to pass the IsSelectedExclusively function down to the potential SInlineEditableTextBlock widget
-	TSharedPtr< STableRow< TSharedPtr<FGraphActionNode> > > TableRow = SNew(STableRow< TSharedPtr<FGraphActionNode> >, OwnerTable)
-		.OnDragDetected( this, &SGraphActionMenu::OnItemDragDetected )
-		.ShowSelection( !InItem->IsSeparator() );
+	TSharedPtr< STableRow< TSharedPtr<FGraphActionNode> > > TableRow;
+	
+	if ( InItem->IsSectionHeadingNode() )
+	{
+		TableRow = SNew(SCategoryHeaderTableRow< TSharedPtr<FGraphActionNode> >, OwnerTable)
+			.ToolTip(SectionToolTip);
+	}
+	else
+	{
+		const FTableRowStyle* Style = bUseSectionStyling ? &FEditorStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.DarkRow") : &FCoreStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row");
 
+		TableRow = SNew(STableRow< TSharedPtr<FGraphActionNode> >, OwnerTable)
+			.Style(Style)
+			.OnDragDetected(this, &SGraphActionMenu::OnItemDragDetected)
+			.ShowSelection(!InItem->IsSeparator());
+	}
+
+	TSharedPtr<SHorizontalBox> RowContainer;
+	TableRow->SetContent
+	( 
+		SAssignNew(RowContainer, SHorizontalBox)
+	);
 
 	TSharedPtr<SWidget> RowContent;
+	FMargin RowPadding = FMargin(0, 2);
 
 	if( InItem->IsActionNode() )
 	{
@@ -830,7 +974,7 @@ TSharedRef<ITableRow> SGraphActionMenu::MakeWidget( TSharedPtr<FGraphActionNode>
 
 		if(OnCreateWidgetForAction.IsBound())
 		{
-			CreateData.IsRowSelectedDelegate = FIsSelected::CreateSP( TableRow.Get(), &STableRow< TSharedPtr<FGraphActionNode> >::IsSelectedExclusively );
+			CreateData.IsRowSelectedDelegate = FIsSelected::CreateSP( TableRow.Get(), &STableRow< TSharedPtr<FGraphActionNode> >::IsSelected );
 			CreateData.bIsReadOnly = bIsReadOnly;
 			CreateData.bHandleMouseButtonDown = false;		//Default to NOT using the delegate. OnCreateWidgetForAction can set to true if we need it
 			RowContent = OnCreateWidgetForAction.Execute( &CreateData );
@@ -871,46 +1015,23 @@ TSharedRef<ITableRow> SGraphActionMenu::MakeWidget( TSharedPtr<FGraphActionNode>
 	}
 	else if( InItem->IsSeparator() )
 	{
+		RowPadding = FMargin(0);
+
 		FText SectionTitle;
 		if( OnGetSectionTitle.IsBound() )
 		{
 			SectionTitle = OnGetSectionTitle.Execute(InItem->SectionID);
 		}
 
-		if( SectionTitle.IsEmpty() == true )
-		{
-			RowContent = SNew( SVerticalBox )
-				.Visibility(EVisibility::HitTestInvisible)
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				// Add some empty space before the line, and a tiny bit after it
-				.Padding( 0.0f, 5.f, 0.0f, 5.f )
-				[
-					SNew( SBorder )
-
-					// We'll use the border's padding to actually create the horizontal line
-					.Padding(FEditorStyle::GetMargin(TEXT("Menu.Separator.Padding")))
-
-					// Separator graphic
-					.BorderImage( FEditorStyle::GetBrush( TEXT( "Menu.Separator" ) ) )
-				];
-		}
-		else
+		if( SectionTitle.IsEmpty() )
 		{
 			RowContent = SNew( SVerticalBox )
 			.Visibility(EVisibility::HitTestInvisible)
-			+SVerticalBox::Slot()
+
+			+ SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding( 0.0f, 2.f, 0.0f, 0.f )
-			[
-				SNew(STextBlock)
-				.Text( SectionTitle )
-				.TextStyle( FEditorStyle::Get(), TEXT("Menu.Heading") )
-			]
-			+SVerticalBox::Slot()
-			.AutoHeight()			
 			// Add some empty space before the line, and a tiny bit after it
-			.Padding( 0.0f, 2.f, 0.0f, 5.f )
+			.Padding( 0.0f, 5.f, 0.0f, 5.f )
 			[
 				SNew( SBorder )
 
@@ -919,15 +1040,31 @@ TSharedRef<ITableRow> SGraphActionMenu::MakeWidget( TSharedPtr<FGraphActionNode>
 
 				// Separator graphic
 				.BorderImage( FEditorStyle::GetBrush( TEXT( "Menu.Separator" ) ) )
-			];	
+			];
+		}
+		else
+		{
+			RowContent = SNew(SHorizontalBox)
+
+			+ SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(SectionTitle)
+				.Font(FEditorStyle::GetFontStyle("DetailsView.CategoryFontStyle"))
+				.ShadowOffset(FVector2D(1.0f, 1.0f))
+			]
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Right)
+			.Padding(FMargin(0,0,2,0))
+			[
+				OnGetSectionWidget.IsBound() ? OnGetSectionWidget.Execute(TableRow.ToSharedRef(), InItem->SectionID) : SNullWidget::NullWidget
+			];
 		}
 	}
-
-	TSharedPtr<SHorizontalBox> RowContainer;
-	TableRow->SetContent
-	( 
-		SAssignNew(RowContainer, SHorizontalBox)
-	);
 
 	TSharedPtr<SExpanderArrow> ExpanderWidget;
 	if (OnCreateCustomRowExpander.IsBound())
@@ -946,7 +1083,9 @@ TSharedRef<ITableRow> SGraphActionMenu::MakeWidget( TSharedPtr<FGraphActionNode>
 	}
 	else 
 	{
-		ExpanderWidget = SNew(SExpanderArrow, TableRow);
+		ExpanderWidget =
+			SNew(SExpanderArrow, TableRow)
+			.BaseIndentLevel(1);
 	}
 
 	RowContainer->AddSlot()
@@ -958,7 +1097,8 @@ TSharedRef<ITableRow> SGraphActionMenu::MakeWidget( TSharedPtr<FGraphActionNode>
 	];
 
 	RowContainer->AddSlot()
-		.FillWidth(1.0)
+	.FillWidth(1.0)
+	.Padding(RowPadding)
 	[
 		RowContent.ToSharedRef()
 	];

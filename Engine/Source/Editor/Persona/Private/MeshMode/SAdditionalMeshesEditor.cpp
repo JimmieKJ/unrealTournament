@@ -70,7 +70,7 @@ void SAdditionalMeshItem::Construct(const FArguments& InArgs, USkeletalMeshCompo
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(MeshComponent->SkeletalMesh->GetName())
+				.Text(FText::FromString(MeshComponent->SkeletalMesh->GetName()))
 			]
 			+SHorizontalBox::Slot()
 			.AutoWidth()

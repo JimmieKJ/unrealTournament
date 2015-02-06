@@ -145,20 +145,20 @@ EVisibility FEnvQueryParamInstanceCustomization::GetParamBoolValueVisibility() c
 	return (ParamType == EEnvQueryParam::Bool) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-FString FEnvQueryParamInstanceCustomization::GetHeaderDesc() const
+FText FEnvQueryParamInstanceCustomization::GetHeaderDesc() const
 {
 	FString ParamName;
 	if (NameProp->GetValue(ParamName) == FPropertyAccess::Success)
 	{
 		switch (ParamType)
 		{
-		case EEnvQueryParam::Float:	return FString::Printf(TEXT("%s = %s"), *ParamName, *FString::SanitizeFloat(CachedFloat));
-		case EEnvQueryParam::Int:	return FString::Printf(TEXT("%s = %d"), *ParamName, CachedInt);
-		case EEnvQueryParam::Bool:	return FString::Printf(TEXT("%s = %s"), *ParamName, CachedBool ? TEXT("true") : TEXT("false"));
+		case EEnvQueryParam::Float:	return FText::FromString(FString::Printf(TEXT("%s = %s"), *ParamName, *FString::SanitizeFloat(CachedFloat)));
+		case EEnvQueryParam::Int:	return FText::FromString(FString::Printf(TEXT("%s = %d"), *ParamName, CachedInt));
+		case EEnvQueryParam::Bool:	return FText::FromString(FString::Printf(TEXT("%s = %s"), *ParamName, CachedBool ? TEXT("true") : TEXT("false")));
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 void FEnvQueryParamInstanceCustomization::InitCachedTypes()

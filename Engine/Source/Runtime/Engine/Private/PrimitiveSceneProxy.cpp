@@ -19,7 +19,8 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bOwnerNoSee(InComponent->bOwnerNoSee)
 ,	bStatic(false)
 ,	bOftenMoving(false)
-,	bSelected(InComponent->ShouldRenderSelected())
+,	bParentSelected(InComponent->ShouldRenderSelected())
+,	bIndividuallySelected(InComponent->IsComponentIndividuallySelected())
 ,	bHovered(false)
 ,	bUseViewOwnerDepthPriorityGroup(InComponent->bUseViewOwnerDepthPriorityGroup)
 ,	bHasMotionBlurVelocityMeshes(InComponent->bHasMotionBlurVelocityMeshes)
@@ -238,10 +239,11 @@ void FPrimitiveSceneProxy::ApplyWorldOffset(FVector InOffset)
  * Updates selection for the primitive proxy. This is called in the rendering thread by SetSelection_GameThread.
  * @param bInSelected - true if the parent actor is selected in the editor
  */
-void FPrimitiveSceneProxy::SetSelection_RenderThread(const bool bInSelected)
+void FPrimitiveSceneProxy::SetSelection_RenderThread(const bool bInParentSelected, const bool bInIndividuallySelected)
 {
 	check(IsInRenderingThread());
-	bSelected = bInSelected;
+	bParentSelected = bInParentSelected;
+	bIndividuallySelected = bInIndividuallySelected;
 }
 
 /**
@@ -249,17 +251,18 @@ void FPrimitiveSceneProxy::SetSelection_RenderThread(const bool bInSelected)
  * This is called in the game thread as selection is toggled.
  * @param bInSelected - true if the parent actor is selected in the editor
  */
-void FPrimitiveSceneProxy::SetSelection_GameThread(const bool bInSelected)
+void FPrimitiveSceneProxy::SetSelection_GameThread(const bool bInParentSelected, const bool bInIndividuallySelected)
 {
 	check(IsInGameThread());
 
 	// Enqueue a message to the rendering thread containing the interaction to add.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
 		SetNewSelection,
 		FPrimitiveSceneProxy*,PrimitiveSceneProxy,this,
-		const bool,bNewSelection,bInSelected,
+		const bool,bNewParentSelection,bInParentSelected,
+		const bool,bNewIndividuallySelected,bInIndividuallySelected,
 	{
-		PrimitiveSceneProxy->SetSelection_RenderThread(bNewSelection);
+		PrimitiveSceneProxy->SetSelection_RenderThread(bNewParentSelection,bNewIndividuallySelected);
 	});
 }
 

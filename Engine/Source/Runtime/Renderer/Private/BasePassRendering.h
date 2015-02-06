@@ -8,6 +8,7 @@
 
 #include "LightMapRendering.h"
 #include "ShaderBaseClasses.h"
+#include "EditorCompositeParams.h"
 
 /** Whether to allow the indirect lighting cache to be applied to dynamic objects. */
 extern int32 GIndirectLightingCache;
@@ -101,7 +102,7 @@ public:
 	{
 		bool bShouldCache = TBasePassVertexShaderBaseType<LightMapPolicyType>::ShouldCache(Platform, Material, VertexFactoryType);
 		return bShouldCache 
-			&& (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) || (IsPCPlatform(Platform)))
+			&& (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4))
 			&& (!bEnableAtmosphericFog || IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4));
 	}
 
@@ -317,10 +318,7 @@ public:
 	{
 		LightMapPolicyType::PixelParametersType::Bind(Initializer.ParameterMap);
 		TranslucentLightingParameters.Bind(Initializer.ParameterMap);
-		EditorCompositeDepthTestParameter.Bind(Initializer.ParameterMap,TEXT("bEnableEditorPrimitiveDepthTest"));
-		MSAASampleCount.Bind(Initializer.ParameterMap,TEXT("MSAASampleCount"));
-		FilteredSceneDepthTexture.Bind(Initializer.ParameterMap,TEXT("FilteredSceneDepthTexture"));
-		FilteredSceneDepthTextureSampler.Bind(Initializer.ParameterMap,TEXT("FilteredSceneDepthTextureSampler"));
+		EditorCompositeParams.Bind(Initializer.ParameterMap);
 	}
 	TBasePassPixelShaderBaseType() {}
 
@@ -345,41 +343,7 @@ public:
 			}
 		}
 
-#if WITH_EDITOR
-		if ( GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4 )
-		{
-			if( MaterialResource.IsUsedWithEditorCompositing() )
-			{
-				// Compute parameters for converting from screen space to pixel 
-				FIntRect DestRect = View->ViewRect;
-				FIntPoint ViewportOffset = DestRect.Min;
-				FIntPoint ViewportExtent = DestRect.Size();
-
-				FVector4 ScreenPosToPixelValue(
-					ViewportExtent.X * 0.5f,
-					-ViewportExtent.Y * 0.5f,
-					ViewportExtent.X * 0.5f - 0.5f + ViewportOffset.X,
-					ViewportExtent.Y * 0.5f - 0.5f + ViewportOffset.Y);
-
-				if(FilteredSceneDepthTexture.IsBound())
-				{
-					const FTexture2DRHIRef* DepthTexture = GSceneRenderTargets.GetActualDepthTexture();
-					check(DepthTexture != NULL);
-					SetTextureParameter(
-						RHICmdList,
-						ShaderRHI,
-						FilteredSceneDepthTexture,
-						FilteredSceneDepthTextureSampler,
-						TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-						*DepthTexture
-						);
-				}
-
-				SetShaderValue(RHICmdList, ShaderRHI, EditorCompositeDepthTestParameter, bEnableEditorPrimitveDepthTest );
-				SetShaderValue(RHICmdList, ShaderRHI, MSAASampleCount, GSceneRenderTargets.EditorPrimitivesColor ? GSceneRenderTargets.EditorPrimitivesColor->GetDesc().NumSamples : 0 );
-			}
-		}
-#endif
+		EditorCompositeParams.SetParameters(RHICmdList, MaterialResource, View, bEnableEditorPrimitveDepthTest, GetPixelShader());
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, EBlendMode BlendMode)
@@ -398,21 +362,13 @@ public:
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		LightMapPolicyType::PixelParametersType::Serialize(Ar);
 		Ar << TranslucentLightingParameters;
-		Ar << EditorCompositeDepthTestParameter;
-		Ar << MSAASampleCount;
-		Ar << FilteredSceneDepthTexture;
-		Ar << FilteredSceneDepthTextureSampler;
+ 		Ar << EditorCompositeParams;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 	FTranslucentLightingParameters TranslucentLightingParameters;
-	/** Parameter for whether or not to depth test in the pixel shader for editor primitives */
-	FShaderParameter EditorCompositeDepthTestParameter;
-	FShaderParameter MSAASampleCount;
-	/** Parameter for reading filtered depth values */
-	FShaderResourceParameter FilteredSceneDepthTexture; 
-	FShaderResourceParameter FilteredSceneDepthTextureSampler; 
+	FEditorCompositingParameters EditorCompositeParams;
 };
 
 /** The concrete base pass pixel shader type. */
@@ -428,7 +384,7 @@ public:
 		const bool bCacheShaders = !bEnableSkyLight || (Material->GetShadingModel() != MSM_Unlit);
 
 		return bCacheShaders
-			&& (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) || (IsPCPlatform(Platform)))
+			&& (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4))
 			&& TBasePassPixelShaderBaseType<LightMapPolicyType>::ShouldCache(Platform, Material, VertexFactoryType);
 	}
 

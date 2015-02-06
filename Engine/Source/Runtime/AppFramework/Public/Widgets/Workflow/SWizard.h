@@ -145,6 +145,7 @@ public:
 		, _DesiredSize(FVector2D(0, 0))
 		, _ShowPageList(true)
 		, _ShowCancelButton(true)
+		, _PageFooter()
 	{ }
 
 		SLATE_SUPPORTS_SLOT_WITH_ARGS(FWizardPage)
@@ -184,6 +185,9 @@ public:
 
 		/** Holds a flag indicating whether the cancel button should be shown (default = true). */
 		SLATE_ARGUMENT(bool, ShowCancelButton)
+
+		/** Holds an optional widget containing the contents to place above the buttons for all wizard pages */
+		SLATE_NAMED_SLOT(FArguments, PageFooter)
 
 	SLATE_END_ARGS()
 

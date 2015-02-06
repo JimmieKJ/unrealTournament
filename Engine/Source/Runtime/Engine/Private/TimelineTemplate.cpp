@@ -231,16 +231,20 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 #endif // WITH_EDITOR
 
 	const bool bTransientPackage = GetOutermost() == GetTransientPackage();
+	// Prevent curves being duplicated during blueprint reinstancing
+	const bool bDuplicateCurves = !( bTransientPackage || GIsDuplicatingClassForReinstancing );
 
 	for(TArray<struct FTTFloatTrack>::TIterator It = FloatTracks.CreateIterator();It;++It)
 	{
 		FTTFloatTrack& Track = *It;
 		if( Track.CurveFloat != NULL )
 		{
-			// Do not duplicate external curves unless duplicating to a transient package
-			if(!Track.CurveFloat->GetOuter()->IsA(UPackage::StaticClass()) && bTransientPackage )
+			if( bDuplicateCurves && !Track.bIsExternalCurve )
 			{
-				Track.CurveFloat = DuplicateObject<UCurveFloat>(Track.CurveFloat, NewCurveOuter, *MakeUniqueCurveName(Track.CurveFloat, NewCurveOuter));
+				if(!Track.CurveFloat->GetOuter()->IsA(UPackage::StaticClass()))
+				{
+					Track.CurveFloat = DuplicateObject<UCurveFloat>(Track.CurveFloat, NewCurveOuter, *MakeUniqueCurveName(Track.CurveFloat, NewCurveOuter));
+				}
 			}
 		}
 		else
@@ -254,10 +258,12 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 		FTTEventTrack& Track = *It;
 		if( Track.CurveKeys != NULL )
 		{
-			// Do not duplicate external curves unless duplicating to a transient package
-			if(!Track.CurveKeys->GetOuter()->IsA(UPackage::StaticClass()) && bTransientPackage )
+			if( bDuplicateCurves && !Track.bIsExternalCurve )
 			{
-				Track.CurveKeys = DuplicateObject<UCurveFloat>(Track.CurveKeys, NewCurveOuter, *MakeUniqueCurveName(Track.CurveKeys, NewCurveOuter));
+				if(!Track.CurveKeys->GetOuter()->IsA(UPackage::StaticClass()))
+				{
+					Track.CurveKeys = DuplicateObject<UCurveFloat>(Track.CurveKeys, NewCurveOuter, *MakeUniqueCurveName(Track.CurveKeys, NewCurveOuter));
+				}
 			}
 		}
 		else
@@ -271,10 +277,12 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 		FTTVectorTrack& Track = *It;
 		if( Track.CurveVector != NULL )
 		{
-			// Do not duplicate external curves unless duplicating to a transient package
-			if(!Track.CurveVector->GetOuter()->IsA(UPackage::StaticClass()) && bTransientPackage )
+			if( bDuplicateCurves && !Track.bIsExternalCurve )
 			{
-				Track.CurveVector = DuplicateObject<UCurveVector>(Track.CurveVector, NewCurveOuter, *MakeUniqueCurveName(Track.CurveVector, NewCurveOuter));
+				if(!Track.CurveVector->GetOuter()->IsA(UPackage::StaticClass()))
+				{
+					Track.CurveVector = DuplicateObject<UCurveVector>(Track.CurveVector, NewCurveOuter, *MakeUniqueCurveName(Track.CurveVector, NewCurveOuter));
+				}
 			}
 		}
 		else
@@ -288,10 +296,12 @@ void UTimelineTemplate::PostDuplicate(bool bDuplicateForPIE)
 		FTTLinearColorTrack& Track = *It;
 		if( Track.CurveLinearColor != NULL )
 		{
-			// Do not duplicate external curves unless duplicating to a transient package
-			if(!Track.CurveLinearColor->GetOuter()->IsA(UPackage::StaticClass()) && bTransientPackage )
+			if( bDuplicateCurves && !Track.bIsExternalCurve )
 			{
-				Track.CurveLinearColor = DuplicateObject<UCurveLinearColor>(Track.CurveLinearColor, NewCurveOuter, *MakeUniqueCurveName(Track.CurveLinearColor, NewCurveOuter));
+				if(!Track.CurveLinearColor->GetOuter()->IsA(UPackage::StaticClass()))
+				{
+					Track.CurveLinearColor = DuplicateObject<UCurveLinearColor>(Track.CurveLinearColor, NewCurveOuter, *MakeUniqueCurveName(Track.CurveLinearColor, NewCurveOuter));
+				}
 			}
 		}
 		else

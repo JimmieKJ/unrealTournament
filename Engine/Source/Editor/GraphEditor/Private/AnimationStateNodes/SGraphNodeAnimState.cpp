@@ -313,11 +313,11 @@ TSharedPtr<SToolTip> SGraphNodeAnimState::GetComplexTooltip()
 		];
 }
 
-FString SGraphNodeAnimState::GetPreviewCornerText() const
+FText SGraphNodeAnimState::GetPreviewCornerText() const
 {
 	UAnimStateNodeBase* StateNode = CastChecked<UAnimStateNodeBase>(GraphNode);
 
-	return FString::Printf(TEXT("%s state"), *StateNode->GetStateName());
+	return FText::Format(NSLOCTEXT("SGraphNodeAnimState", "PreviewCornerStateText", "{0} state"), FText::FromString(StateNode->GetStateName()));
 }
 
 const FSlateBrush* SGraphNodeAnimState::GetNameIcon() const
@@ -338,11 +338,11 @@ void SGraphNodeAnimConduit::GetNodeInfoPopups(FNodeInfoContext* Context, TArray<
 	// Intentionally empty.
 }
 
-FString SGraphNodeAnimConduit::GetPreviewCornerText() const
+FText SGraphNodeAnimConduit::GetPreviewCornerText() const
 {
 	UAnimStateNodeBase* StateNode = CastChecked<UAnimStateNodeBase>(GraphNode);
 
-	return FString::Printf(TEXT("%s conduit"), *StateNode->GetStateName());
+	return FText::Format(NSLOCTEXT("SGraphNodeAnimState", "PreviewCornerConduitText", "{0} conduit"), FText::FromString(StateNode->GetStateName()));
 }
 
 const FSlateBrush* SGraphNodeAnimConduit::GetNameIcon() const

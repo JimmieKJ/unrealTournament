@@ -8,6 +8,13 @@
 #include "SequencerAssetEditor.h"
 #include "SequencerObjectChangeListener.h"
 
+// We disable the deprecation warnings here because otherwise it'll complain about us
+// implementing RegisterTrackEditor and UnRegisterTrackEditor.  We know
+// that, but we only want it to complain if *others* implement or call these functions.
+//
+// These macros should be removed when those functions are removed.
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
 /**
  * SequencerModule implementation (private)
  */
@@ -46,12 +53,26 @@ class FSequencerModule : public ISequencerModule
 
 	virtual void RegisterTrackEditor( FOnCreateTrackEditor InOnCreateTrackEditor ) override
 	{
-		TrackEditorDelegates.AddUnique( InOnCreateTrackEditor );
+		if (!TrackEditorDelegates.ContainsByPredicate([&](const FOnCreateTrackEditor& Delegate){ return Delegate.DEPRECATED_Compare(InOnCreateTrackEditor); }))
+		{
+			TrackEditorDelegates.Add(InOnCreateTrackEditor);
+		}
 	}
 
 	virtual void UnRegisterTrackEditor( FOnCreateTrackEditor InOnCreateTrackEditor ) override
 	{
-		TrackEditorDelegates.Remove( InOnCreateTrackEditor );
+		TrackEditorDelegates.RemoveAll( [&](const FOnCreateTrackEditor& Delegate){ return Delegate.DEPRECATED_Compare(InOnCreateTrackEditor); } );
+	}
+
+	virtual FDelegateHandle RegisterTrackEditor_Handle( FOnCreateTrackEditor InOnCreateTrackEditor ) override
+	{
+		TrackEditorDelegates.Add( InOnCreateTrackEditor );
+		return TrackEditorDelegates.Last().GetHandle();
+	}
+
+	virtual void UnRegisterTrackEditor_Handle( FDelegateHandle InHandle ) override
+	{
+		TrackEditorDelegates.RemoveAll( [=](const FOnCreateTrackEditor& Delegate){ return Delegate.GetHandle() == InHandle; } );
 	}
 
 	virtual void StartupModule() override
@@ -74,6 +95,7 @@ private:
 	TArray< FOnCreateTrackEditor > TrackEditorDelegates;
 };
 
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 
 IMPLEMENT_MODULE( FSequencerModule, Sequencer );

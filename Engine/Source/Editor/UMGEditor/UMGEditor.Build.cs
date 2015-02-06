@@ -19,6 +19,7 @@ public class UMGEditor : ModuleRules
 				"Editor/UMGEditor/Private/Palette",
 				"Editor/UMGEditor/Private/Details",
 				"Editor/UMGEditor/Private/DragDrop",
+                "Editor/UMGEditor/Private/Utility",
 			});
 
 		PrivateIncludePathModuleNames.AddRange(

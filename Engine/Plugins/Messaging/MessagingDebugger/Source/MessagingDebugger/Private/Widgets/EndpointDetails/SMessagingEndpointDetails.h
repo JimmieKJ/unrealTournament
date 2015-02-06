@@ -42,10 +42,10 @@ private:
 	TSharedRef<ITableRow> HandleAddressListGenerateRow( FMessageTracerAddressInfoPtr AddressInfo, const TSharedRef<STableViewBase>& OwnerTable );
 
 	/** Callback for getting the number of received messages. */
-	FString HandleEndpointDetailsReceivedMessagesText() const;
+	FText HandleEndpointDetailsReceivedMessagesText() const;
 
 	/** Callback for getting the number of sent messages. */
-	FString HandleEndpointDetailsSentMessagesText() const;
+	FText HandleEndpointDetailsSentMessagesText() const;
 
 private:
 

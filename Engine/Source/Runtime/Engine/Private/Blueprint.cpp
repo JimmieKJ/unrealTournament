@@ -22,6 +22,7 @@
 #include "Engine/SCS_Node.h"
 #endif
 #include "Components/TimelineComponent.h"
+#include "Engine/InheritableComponentHandler.h"
 
 DEFINE_LOG_CATEGORY(LogBlueprint);
 
@@ -41,7 +42,7 @@ static void ConformNativeComponents(UBlueprint* Blueprint)
 	{
 		if (AActor* BlueprintCDO = Cast<AActor>(BlueprintClass->ClassDefaultObject))
 		{
-			TArray<UActorComponent*> OldNativeComponents;
+			TInlineComponentArray<UActorComponent*> OldNativeComponents;
 			// collect the native components that this blueprint was serialized out 
 			// with (the native components it had last time it was saved)
 			BlueprintCDO->GetComponents(OldNativeComponents);
@@ -50,11 +51,11 @@ static void ConformNativeComponents(UBlueprint* Blueprint)
 			AActor* NativeCDO = CastChecked<AActor>(NativeSuperClass->ClassDefaultObject);
 			// collect the more up to date native components (directly from the 
 			// native super-class)
-			TArray<UActorComponent*> NewNativeComponents;
+			TInlineComponentArray<UActorComponent*> NewNativeComponents;
 			NativeCDO->GetComponents(NewNativeComponents);
 
 			// utility lambda for finding named components in a supplied list
-			auto FindNamedComponentLambda = [](FName const ComponentName, TArray<UActorComponent*> const& ComponentList)->UActorComponent*
+			auto FindNamedComponentLambda = [](FName const ComponentName, TInlineComponentArray<UActorComponent*> const& ComponentList)->UActorComponent*
 			{
 				UActorComponent* FoundComponent = nullptr;
 				for (UActorComponent* Component : ComponentList)
@@ -363,29 +364,33 @@ void UBlueprint::Serialize(FArchive& Ar)
 
 bool UBlueprint::RenameGeneratedClasses( const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags )
 {
-	FName SkelClassName, GenClassName;
-	GetBlueprintClassNames(GenClassName, SkelClassName, FName(InName));
+	const bool bRenameGeneratedClasses = !(Flags & REN_SkipGeneratedClasses );
 
-	UPackage* NewTopLevelObjectOuter = NewOuter ? NewOuter->GetOutermost() : NULL;
-	if (GeneratedClass != NULL)
+	if(bRenameGeneratedClasses)
 	{
-		bool bMovedOK = GeneratedClass->Rename(*GenClassName.ToString(), NewTopLevelObjectOuter, Flags);
-		if (!bMovedOK)
+		FName SkelClassName, GenClassName;
+		GetBlueprintClassNames(GenClassName, SkelClassName, FName(InName));
+
+		UPackage* NewTopLevelObjectOuter = NewOuter ? NewOuter->GetOutermost() : NULL;
+		if (GeneratedClass != NULL)
 		{
-			return false;
+			bool bMovedOK = GeneratedClass->Rename(*GenClassName.ToString(), NewTopLevelObjectOuter, Flags);
+			if (!bMovedOK)
+			{
+				return false;
+			}
+		}
+
+		// Also move skeleton class, if different from generated class, to new package (again, to create redirector)
+		if (SkeletonGeneratedClass != NULL && SkeletonGeneratedClass != GeneratedClass)
+		{
+			bool bMovedOK = SkeletonGeneratedClass->Rename(*SkelClassName.ToString(), NewTopLevelObjectOuter, Flags);
+			if (!bMovedOK)
+			{
+				return false;
+			}
 		}
 	}
-
-	// Also move skeleton class, if different from generated class, to new package (again, to create redirector)
-	if (SkeletonGeneratedClass != NULL && SkeletonGeneratedClass != GeneratedClass)
-	{
-		bool bMovedOK = SkeletonGeneratedClass->Rename(*SkelClassName.ToString(), NewTopLevelObjectOuter, Flags);
-		if (!bMovedOK)
-		{
-			return false;
-		}
-	}
-
 	return true;
 }
 
@@ -533,6 +538,16 @@ void UBlueprint::PostLoad()
 	}
 
 	FStructureEditorUtils::RemoveInvalidStructureMemberVariableFromBlueprint(this);
+
+
+#if WITH_EDITOR
+	// Do not want to run this code without the editor present nor when running commandlets.
+	if(GEditor && GIsEditor && !IsRunningCommandlet())
+	{
+		// Gathers Find-in-Blueprint data, makes sure that it is fresh and ready, especially if the asset did not have any available.
+		FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(this);
+	}
+#endif
 }
 
 void UBlueprint::DebuggingWorldRegistrationHelper(UObject* ObjectProvidingWorld, UObject* ValueToRegister)
@@ -650,13 +665,23 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	Super::GetAssetRegistryTags(OutTags);
 
 	FString ParentClassPackageName;
+	FString NativeParentClassName;
 	if ( ParentClass )
 	{
 		ParentClassPackageName = ParentClass->GetOutermost()->GetName();
+
+		// Walk up until we find a native class (ie 'while they are BP classes')
+		UClass* NativeParentClass = ParentClass;
+		while (Cast<UBlueprintGeneratedClass>(NativeParentClass) != nullptr) // can't use IsA on UClass
+		{
+			NativeParentClass = NativeParentClass->GetSuperClass();
+		}
+		NativeParentClassName = FString::Printf(TEXT("%s'%s'"), *UClass::StaticClass()->GetName(), *NativeParentClass->GetPathName());
 	}
 	else
 	{
 		ParentClassPackageName = TEXT("None");
+		NativeParentClassName = TEXT("None");
 	}
 
 	//NumReplicatedProperties
@@ -669,6 +694,7 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 
 	OutTags.Add(FAssetRegistryTag("NumReplicatedProperties", FString::FromInt(NumReplicatedProperties), FAssetRegistryTag::TT_Numerical));
 	OutTags.Add(FAssetRegistryTag("ParentClassPackage", ParentClassPackageName, FAssetRegistryTag::TT_Hidden));
+	OutTags.Add(FAssetRegistryTag("NativeParentClass", NativeParentClassName, FAssetRegistryTag::TT_Alphabetical));
 	OutTags.Add(FAssetRegistryTag(GET_MEMBER_NAME_CHECKED(UBlueprint, BlueprintDescription), BlueprintDescription, FAssetRegistryTag::TT_Hidden));
 
 	uint32 ClassFlagsTagged = 0;
@@ -721,7 +747,7 @@ struct FBlueprintInnerHelper
 	}
 };
 
-UActorComponent* UBlueprint::FindTemplateByName(const FName& TemplateName)
+UActorComponent* UBlueprint::FindTemplateByName(const FName& TemplateName) const
 {
 	return FBlueprintInnerHelper::FindObjectByName<UActorComponent>(ComponentTemplates, TemplateName);
 }
@@ -839,6 +865,22 @@ bool UBlueprint::ValidateGeneratedClass(const UClass* InClass)
 	if (const USimpleConstructionScript* SimpleConstructionScript = GeneratedClass->SimpleConstructionScript)
 	{
 		if (!ensure(SimpleConstructionScript->GetOuter() == GeneratedClass))
+		{
+			return false;
+		}
+	}
+
+	if (const UInheritableComponentHandler* InheritableComponentHandler = Blueprint->InheritableComponentHandler)
+	{
+		if (!ensure(InheritableComponentHandler->GetOuter() == GeneratedClass))
+		{
+			return false;
+		}
+	}
+
+	if (const UInheritableComponentHandler* InheritableComponentHandler = GeneratedClass->InheritableComponentHandler)
+	{
+		if (!ensure(InheritableComponentHandler->GetOuter() == GeneratedClass))
 		{
 			return false;
 		}
@@ -1184,6 +1226,23 @@ bool UBlueprint::Modify(bool bAlwaysMarkDirty)
 {
 	bCachedDependenciesUpToDate = false;
 	return Super::Modify(bAlwaysMarkDirty);
+}
+
+UInheritableComponentHandler* UBlueprint::GetInheritableComponentHandler(bool bCreateIfNecessary)
+{
+	static const FBoolConfigValueHelper EnableInheritableComponents(TEXT("Kismet"), TEXT("bEnableInheritableComponents"), GEngineIni);
+	if (!EnableInheritableComponents)
+	{
+		return nullptr;
+	}
+
+	if (!InheritableComponentHandler && bCreateIfNecessary)
+	{
+		UBlueprintGeneratedClass* BPGC = CastChecked<UBlueprintGeneratedClass>(GeneratedClass);
+		ensure(!BPGC->InheritableComponentHandler);
+		InheritableComponentHandler = BPGC->GetInheritableComponentHandler(true);
+	}
+	return InheritableComponentHandler;
 }
 
 #endif

@@ -11,7 +11,7 @@ static TSharedRef<SDockTab> SpawnStandaloneToolkitHost( const FSpawnTabArgs& Arg
 	return
 		SNew(SDockTab)
 		.TabRole(ETabRole::MajorTab)
-		.ContentPadding(FMargin(0,2,0,0));
+		.ContentPadding(FMargin(0));
 }
 
 static TSharedPtr<SDockTab> NeverReuse(const FTabId&)

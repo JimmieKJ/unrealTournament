@@ -15,7 +15,7 @@ bool AOnlineBeacon::InitBase()
 {
 	if (BeaconNetDriverName != NAME_None && GEngine->CreateNamedNetDriver(GetWorld(), BeaconNetDriverName, NAME_BeaconNetDriver))
 	{
-		GEngine->OnNetworkFailure().AddUObject(this, &AOnlineBeacon::HandleNetworkFailure);
+		HandleNetworkFailureDelegateHandle = GEngine->OnNetworkFailure().AddUObject(this, &AOnlineBeacon::HandleNetworkFailure);
 		NetDriver = GEngine->FindNamedNetDriver(GetWorld(), BeaconNetDriverName);
 		return true;
 	}
@@ -32,7 +32,7 @@ bool AOnlineBeacon::HasNetOwner() const
 void AOnlineBeacon::DestroyBeacon()
 {
 	UE_LOG(LogBeacon, Verbose, TEXT("Destroying beacon %s, netdriver %s"), *GetName(), NetDriver ? *NetDriver->GetDescription() : TEXT("NULL"));
-	GEngine->OnNetworkFailure().RemoveUObject(this, &AOnlineBeacon::HandleNetworkFailure);
+	GEngine->OnNetworkFailure().Remove(HandleNetworkFailureDelegateHandle);
 	GEngine->DestroyNamedNetDriver(GetWorld(), BeaconNetDriverName);
 	NetDriver = NULL;
 
@@ -49,7 +49,7 @@ void AOnlineBeacon::HandleNetworkFailure(UWorld *World, UNetDriver *InNetDriver,
 
 void AOnlineBeacon::OnFailure()
 {
-	GEngine->OnNetworkFailure().RemoveUObject(this, &AOnlineBeacon::HandleNetworkFailure);
+	GEngine->OnNetworkFailure().Remove(HandleNetworkFailureDelegateHandle);
 	GEngine->DestroyNamedNetDriver(GetWorld(), BeaconNetDriverName);
 	NetDriver = NULL;
 }

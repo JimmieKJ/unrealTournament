@@ -55,6 +55,10 @@ struct INTROTUTORIALS_API FTutorialCategory
 	UPROPERTY(EditAnywhere, Category="Content")
 	FText Title;
 
+	/** Sort order, used by the tutorial browser - set in editor game-agnostic INI file */
+	UPROPERTY()
+	int32 SortOrder;
+
 	/** Localized text to use to describe this category */
 	UPROPERTY(EditAnywhere, Category="Content", meta=(MultiLine=true))
 	FText Description;
@@ -215,6 +219,10 @@ class INTROTUTORIALS_API UEditorTutorial : public UObject
 	UPROPERTY(EditAnywhere, Category="Tutorial", AssetRegistrySearchable)
 	FText Title;
 
+	/** Sorting priority, used by the tutorial browser */
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = "Tutorial")
+	int32 SortOrder;
+
 	/** Icon name for this tutorial, used when presented to the user in the tutorial browser. This is a name for the icon in the Slate editor style. Only used if there isn't a valid texture to use. */
 	UPROPERTY(EditAnywhere, Category="Tutorial")
 	FString Icon;
@@ -284,20 +292,20 @@ public:
 
 protected:
 	/** Event fired when a tutorial stage begins */
-	UFUNCTION(BlueprintImplementableEvent, Category="Tutorial")
-	void OnTutorialStageStarted(FName StageName) const;
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tutorial")
+	void OnTutorialStageStarted(FName StageName);
 
 	/** Event fired when a tutorial stage ends */
-	UFUNCTION(BlueprintImplementableEvent, Category="Tutorial")
-	void OnTutorialStageEnded(FName StageName) const;
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tutorial")
+	void OnTutorialStageEnded(FName StageName);
 
 	/** Event fired when a tutorial is launched */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tutorial")
-	void OnTutorialLaunched() const;
+	void OnTutorialLaunched();
 
 	/** Event fired when a tutorial is closed */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tutorial")
-	void OnTutorialClosed() const;
+	void OnTutorialClosed();
 
 	/** Advance to the next stage of a tutorial */
 	UFUNCTION(BlueprintCallable, Category="Tutorial")

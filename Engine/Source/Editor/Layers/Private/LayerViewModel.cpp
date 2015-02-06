@@ -328,19 +328,19 @@ void FLayerViewModel::SelectActors( bool bSelect, bool bNotify, bool bSelectEven
 }
 
 
-FString FLayerViewModel::GetActorStatTotal( int32 StatsIndex  ) const
+FText FLayerViewModel::GetActorStatTotal( int32 StatsIndex ) const
 {
 	if( !Layer.IsValid() )
 	{
-		return TEXT( "0" );
+		return FText::AsNumber(0);
 	}
 
 	if( ActorStats.Num() <= StatsIndex )
 	{
-		return LOCTEXT("InvalidActorStatTotal", "Invalid").ToString();
+		return LOCTEXT("InvalidActorStatTotal", "Invalid");
 	}
 
-	return FString::Printf( TEXT( "%d" ), ActorStats[ StatsIndex ].Total );
+	return FText::AsNumber(ActorStats[ StatsIndex ].Total);
 }
 
 

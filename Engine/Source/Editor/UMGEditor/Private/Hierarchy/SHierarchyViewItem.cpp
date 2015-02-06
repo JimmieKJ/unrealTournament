@@ -200,7 +200,6 @@ FReply ProcessHierarchyDragDrop(const FDragDropEvent& DragDropEvent, bool bIsDro
 
 				// Import the old slot properties
 				FWidgetBlueprintEditorUtils::ImportPropertiesFromText(NewSlot, HierarchyDragDropOp->ExportedSlotProperties);
-				NewSlot->SetDesiredPosition(FVector2D::ZeroVector);
 				FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 
 				TSet<FWidgetReference> SelectedTemplates;

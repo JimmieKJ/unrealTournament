@@ -77,6 +77,12 @@ const FString& FXmlNode::GetContent() const
 	return Content;
 }
 
+
+void FXmlNode::SetContent( const FString& InContent )
+{
+	Content = InContent;
+}
+
 FString FXmlNode::GetAttribute(const FString& InTag) const
 {
 	for(auto Iter(Attributes.CreateConstIterator()); Iter; Iter++)

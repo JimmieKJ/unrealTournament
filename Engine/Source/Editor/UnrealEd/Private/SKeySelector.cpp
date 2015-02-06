@@ -38,15 +38,15 @@ public:
 	{
 	}
 
-	FString GetDescription() const
+	FText GetDescription() const
 	{
 		if (Key.IsValid())
 		{
-			return Key->GetDisplayName().ToString();
+			return Key->GetDisplayName();
 		}
 		else
 		{
-			return Name.ToString();
+			return Name;
 		}
 	}
 
@@ -57,7 +57,7 @@ public:
 
 	bool MatchesSearchTokens(const TArray<FString>& SearchTokens)
 	{
-		FString Description = GetDescription();
+		FString Description = GetDescription().ToString();
 
 		for (auto Token : SearchTokens)
 		{
@@ -146,13 +146,13 @@ void SKeySelector::Construct(const FArguments& InArgs)
 //=======================================================================
 // Attribute Helpers
 
-FString SKeySelector::GetKeyDescription() const
+FText SKeySelector::GetKeyDescription() const
 {
 	if (bHasMultipleValues)
 	{
-		return LOCTEXT("MultipleValues", "Multiple Values").ToString();
+		return LOCTEXT("MultipleValues", "Multiple Values");
 	}
-	return CurrentKey.Get().GetDisplayName().ToString();
+	return CurrentKey.Get().GetDisplayName();
 }
 
 const FSlateBrush* SKeySelector::GetKeyIconImage() const
@@ -169,7 +169,7 @@ const FSlateBrush* SKeySelector::GetKeyIconImage() const
 TSharedRef<ITableRow> SKeySelector::GenerateKeyTreeRow(FKeyTreeItem InItem, const TSharedRef<STableViewBase>& OwnerTree)
 {
 	const bool bIsCategory = !InItem->GetKey().IsValid();
-	const FString Description = InItem->GetDescription();
+	const FText Description = InItem->GetDescription();
 
 	// Determine the best icon the to represents this item
 	const FSlateBrush* IconBrush = nullptr;
@@ -179,7 +179,7 @@ TSharedRef<ITableRow> SKeySelector::GenerateKeyTreeRow(FKeyTreeItem InItem, cons
 	}
 
 	return SNew(SComboRow<FKeyTreeItem>, OwnerTree)
-		.ToolTip(IDocumentation::Get()->CreateToolTip(FText::FromString(Description), NULL, *BigTooltipDocLink, *Description))
+		.ToolTip(IDocumentation::Get()->CreateToolTip(Description, nullptr, BigTooltipDocLink, Description.ToString()))
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()

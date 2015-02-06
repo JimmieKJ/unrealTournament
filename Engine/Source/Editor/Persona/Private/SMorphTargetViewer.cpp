@@ -104,7 +104,7 @@ TSharedRef< SWidget > SMorphTargetListRow::GenerateWidgetForColumn( const FName&
 			.VAlign( VAlign_Center )
 			[
 				SNew( STextBlock )
-				.Text( Item->Name.ToString() )
+				.Text( FText::FromName(Item->Name) )
 				.HighlightText( MorphTargetViewer->GetFilterText() )
 			];
 	}
@@ -145,7 +145,7 @@ TSharedRef< SWidget > SMorphTargetListRow::GenerateWidgetForColumn( const FName&
 					.HAlign(HAlign_Right)
 					[
 						SNew(STextBlock)
-						.Text(FString::FromInt(Item->NumberOfVerts))
+						.Text(FText::AsNumber(Item->NumberOfVerts))
 						.HighlightText(MorphTargetViewer->GetFilterText())
 					]
 				];

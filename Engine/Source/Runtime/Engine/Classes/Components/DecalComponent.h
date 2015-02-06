@@ -27,9 +27,6 @@ class ENGINE_API UDecalComponent : public USceneComponent
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Decal)
 	int32 SortOrder;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
-	float FadeScreenSize;
-
 	/** Sets the sort order for the decal component. Higher values draw later (on top). This will force the decal to reattach */
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Decal")
 	void SetSortOrder(int32 Value);
@@ -59,6 +56,9 @@ public:
 protected:
 	/** Handle for efficient management of DestroyDecalComponent timer */
 	FTimerHandle TimerHandle_DestroyDecalComponent;
+
+	/** Called when the life span of the decal has been exceeded */
+	void LifeSpanCallback();
 
 public:
 	
@@ -98,5 +98,6 @@ public:
 	// Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	// End USceneComponent Interface
+
 };
 

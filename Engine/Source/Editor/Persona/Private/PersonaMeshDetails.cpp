@@ -1490,7 +1490,7 @@ TSharedRef<SUniformGridPanel> FPersonaMeshDetails::MakeApexDetailsWidget(int32 A
 				[
 					SNew(STextBlock)
 					.Font(DetailFontInfo)
-					.Text(FString::Printf( TEXT("%d"),SubmeshInfos[i].SubmeshIndex))
+					.Text(FText::AsNumber(SubmeshInfos[i].SubmeshIndex))
 				];
 
 				if(i == 0)
@@ -1500,7 +1500,7 @@ TSharedRef<SUniformGridPanel> FPersonaMeshDetails::MakeApexDetailsWidget(int32 A
 					[
 						SNew(STextBlock)
 						.Font(DetailFontInfo)
-						.Text(FString::Printf( TEXT("%d"),SubmeshInfos[i].SimulVertexCount))
+						.Text(FText::AsNumber(SubmeshInfos[i].SimulVertexCount))
 					];
 				}
 				else
@@ -1510,7 +1510,7 @@ TSharedRef<SUniformGridPanel> FPersonaMeshDetails::MakeApexDetailsWidget(int32 A
 					[
 						SNew(STextBlock)
 						.Font(DetailFontInfo)
-						.Text(FString::Printf( TEXT("Shared") ))
+						.Text(LOCTEXT("SharedLabel", "Shared"))
 					];
 				}
 
@@ -1519,7 +1519,7 @@ TSharedRef<SUniformGridPanel> FPersonaMeshDetails::MakeApexDetailsWidget(int32 A
 					[
 						SNew(STextBlock)
 						.Font(DetailFontInfo)
-						.Text(FString::Printf( TEXT("%d"),SubmeshInfos[i].VertexCount))
+						.Text(FText::AsNumber(SubmeshInfos[i].VertexCount))
 					];
 
 				Grid->AddSlot(3, RowNumber)
@@ -1527,7 +1527,7 @@ TSharedRef<SUniformGridPanel> FPersonaMeshDetails::MakeApexDetailsWidget(int32 A
 				[
 					SNew(STextBlock)
 					.Font(DetailFontInfo)
-					.Text(FString::Printf( TEXT("%d"),SubmeshInfos[i].FixedVertexCount))
+					.Text(FText::AsNumber(SubmeshInfos[i].FixedVertexCount))
 				];
 
 				Grid->AddSlot(4, RowNumber)
@@ -1535,7 +1535,7 @@ TSharedRef<SUniformGridPanel> FPersonaMeshDetails::MakeApexDetailsWidget(int32 A
 				[
 					SNew(STextBlock)
 					.Font(DetailFontInfo)
-					.Text(FString::Printf( TEXT("%d"),SubmeshInfos[i].TriangleCount))
+					.Text(FText::AsNumber(SubmeshInfos[i].TriangleCount))
 				];
 
 				RowNumber++;

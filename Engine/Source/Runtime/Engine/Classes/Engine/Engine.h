@@ -1077,10 +1077,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Settings)
 	float NearClipPlane;
 
-	/** Can the editor report usage analytics (types of assets being spawned, etc...) back to Epic in order for us to improve the editor user experience?  Note: The editor must be restarted for changes to take effect. */
-	UPROPERTY(EditAnywhere, config, Category=Settings, AdvancedDisplay)
-	uint32 bEditorAnalyticsEnabled:1;
-
 	/** Can a runtime game/application report anonymous hardware survey statistics (such as display resolution and GPU model) back to Epic? */
 	UPROPERTY(EditAnywhere, config, Category=Settings, AdvancedDisplay)
 	uint32 bHardwareSurveyEnabled:1;
@@ -1579,6 +1575,13 @@ public:
 
 	/** Called by internal engine systems after a level actor has been requested to be renamed */
 	void BroadcastLevelActorRequestRename(const AActor* InActor) { LevelActorRequestRenameEvent.Broadcast(InActor); }
+
+	/** Editor-only event triggered when actors are being requested to be renamed */
+	DECLARE_EVENT_OneParam(UEngine, FLevelComponentRequestRenameEvent, const UActorComponent*);
+	FLevelComponentRequestRenameEvent& OnLevelComponentRequestRename() { return LevelComponentRequestRenameEvent; }
+
+	/** Called by internal engine systems after a level actor has been requested to be renamed */
+	void BroadcastLevelComponentRequestRename(const UActorComponent* InComponent) { LevelComponentRequestRenameEvent.Broadcast(InComponent); }
 
 #endif // #if WITH_EDITOR
 
@@ -2203,6 +2206,9 @@ private:
 	/** Broadcasts whenever an actor is being renamed */
 	FLevelActorRequestRenameEvent LevelActorRequestRenameEvent;
 
+	/** Broadcasts whenever a component is being renamed */
+	FLevelComponentRequestRenameEvent LevelComponentRequestRenameEvent;
+
 	/** Broadcasts after an actor has been moved, rotated or scaled */
 	FOnActorMovedEvent		OnActorMovedEvent;
 
@@ -2447,6 +2453,10 @@ public:
 	bool ShouldAbsorbCosmeticOnlyEvent();
 
 	UGameViewportClient* GameViewportForWorld(const UWorld *InWorld) const;
+
+	/** @return true if editor analytics are enabled */
+	virtual bool AreEditorAnalyticsEnabled() const { return false; }
+	virtual void CreateStartupAnalyticsAttributes( TArray<struct FAnalyticsEventAttribute>& StartSessionAttributes ) const {}
 
 protected:
 
@@ -2737,4 +2747,6 @@ private:
 #if STATS
 	int32 RenderStatSlateBatches(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #endif
+
+	FDelegateHandle HandleScreenshotCapturedDelegateHandle;
 };

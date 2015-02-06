@@ -11,10 +11,12 @@ public:
 	SLATE_BEGIN_ARGS(STileLayerItem) {}
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, class UPaperTileLayer* InItem, FIsSelected InIsSelectedDelegate);
+	void Construct(const FArguments& InArgs, int32 Index, class UPaperTileMap* InMap, FIsSelected InIsSelectedDelegate);
 
 protected:
-	class UPaperTileLayer* MyLayer;
+	int32 MyIndex;
+	class UPaperTileMap* MyMap;
+	class UPaperTileLayer* GetMyLayer() const { return MyMap->TileLayers[MyIndex]; }
 
 	TSharedPtr<SButton> VisibilityButton;
 

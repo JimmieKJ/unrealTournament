@@ -674,6 +674,13 @@ public:
 		}
 		if (bShutdown)
 		{
+			if(FParse::Param(FCommandLine::Get(), TEXT("MergePaks")) && WritePakCache && WritePakCache->IsWritable())
+			{
+				for (int32 ReadPakIndex = 0; ReadPakIndex < ReadPakCache.Num(); ReadPakIndex++)
+				{
+					WritePakCache->MergeCache(ReadPakCache[ReadPakIndex]);
+				}
+			}
 			for (int32 ReadPakIndex = 0; ReadPakIndex < ReadPakCache.Num(); ReadPakIndex++)
 			{
 				ReadPakCache[ReadPakIndex]->Close();

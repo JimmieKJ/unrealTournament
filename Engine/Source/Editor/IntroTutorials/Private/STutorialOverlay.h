@@ -60,13 +60,13 @@ private:
 	int32 TraverseWidgets(TSharedRef<SWidget> InWidget, const FGeometry& InGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId) const;
 
 	/* Opens the browser that the given widget requires if it is not already. */
-	void OpenBrowserForWidgetAnchor(const FTutorialWidgetContent &WidgetContent);
+	void OpenBrowserForWidgetAnchor(UEditorTutorial* InTutorial, const FTutorialWidgetContent &WidgetContent);
 
 	/* Focus on the blueprint node if an anchor widget references one */
 	void FocusOnAnyBlueprintNodes(const FTutorialWidgetContent &WidgetContent);
 
 	/* Do any interaction stuff for a widget - open browser, scroll to node etc */
-	void PerformWidgetInteractions(const FTutorialWidgetContent &WidgetContent);
+	void PerformWidgetInteractions(UEditorTutorial* InTutorial, const FTutorialWidgetContent &WidgetContent);
 
 private:
 	/** Reference to the canvas we use to position our content widgets */

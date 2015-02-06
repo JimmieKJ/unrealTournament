@@ -82,7 +82,8 @@ TSharedRef< FSlateStyleSet > FAddContentDialogStyle::Create()
 
 	Style->Set("AddContentDialog.BlueprintFeatureCategory", new IMAGE_BRUSH("BlueprintFeature", FVector2D(32.0f, 32.0f)));
 	Style->Set("AddContentDialog.CodeFeatureCategory", new IMAGE_BRUSH("CodeFeature", FVector2D(32.0f, 32.0f)));
-	Style->Set("AddContentDialog.CategoryCategory", new FSlateNoResource());
+	Style->Set("AddContentDialog.ContentPackCategory", new IMAGE_BRUSH( "ContentPack", FVector2D(32.0f, 32.0f)));
+	Style->Set("AddContentDialog.UnknownCategory", new FSlateNoResource());
 
 	return Style;
 }

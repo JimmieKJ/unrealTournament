@@ -162,7 +162,7 @@ namespace CodeView
 		void Populate();
 
 		/** Gets text for the specified item to display in the custom column for the tree */
-		FString GetCustomColumnTextForTreeItem( FTreeItemPtr TreeItem ) const;
+		FText GetCustomColumnTextForTreeItem( FTreeItemPtr TreeItem ) const;
 
 		/** Called by STreeView to generate a table row for the specified item */
 		TSharedRef< ITableRow > OnGenerateRowForTree( FTreeItemPtr Item, const TSharedRef< STableViewBase >& OwnerTable );

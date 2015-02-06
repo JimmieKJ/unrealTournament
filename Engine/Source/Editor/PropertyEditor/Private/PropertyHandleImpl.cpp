@@ -338,8 +338,7 @@ FPropertyAccess::Result FPropertyValueImpl::ImportText( const TArray<FObjectBase
 			if (Cur.BaseAddress == NULL)
 			{
 				//Fully abort this procedure.  The data has changed out from under the object
-				check(false);
-				Result = FPropertyAccess::Fail;;
+				Result = FPropertyAccess::Fail;
 				break;
 			}
 

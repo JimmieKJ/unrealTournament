@@ -29,6 +29,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", config)
 	FAISenseAffiliationFilter DetectionByAffiliation;
 
+	UAISenseConfig_Hearing(const FObjectInitializer& ObjectInitializer);
+
 	virtual TSubclassOf<UAISense> GetSenseImplementation() const override;
 #if !UE_BUILD_SHIPPING
 	//----------------------------------------------------------------------//

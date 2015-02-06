@@ -293,6 +293,9 @@ private:
 	// The last active tab info to be selected, used for opening new documents in the most recently used tab
 	TWeakPtr<FTabInfo> LastEditedTabInfo;
 
+	/** Handle to the registered OnActiveTabChanged delegate */
+	FDelegateHandle OnActiveTabChangedDelegateHandle;
+
 private:
 	// Clean the spawned list 
 	FTabList& GetSpawnedList();

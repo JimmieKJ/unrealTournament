@@ -103,6 +103,7 @@ FWorldDelegates::FOnLevelChanged FWorldDelegates::LevelRemovedFromWorld;
 UWorld::UWorld( const FObjectInitializer& ObjectInitializer )
 :	UObject(ObjectInitializer)
 ,	FeatureLevel(GMaxRHIFeatureLevel)
+, URL(FURL(NULL))
 ,	FXSystem(NULL)
 ,	TickTaskLevel(FTickTaskManagerInterface::Get().AllocateTickTaskLevel())
 ,   bIsBuilt(false)
@@ -116,27 +117,6 @@ UWorld::UWorld( const FObjectInitializer& ObjectInitializer )
 
 	FWorldDelegates::OnPostWorldCreation.Broadcast(this);
 }
-
-
-UWorld::UWorld( const FObjectInitializer& ObjectInitializer,const FURL& InURL )
-:	UObject(ObjectInitializer)
-,	FeatureLevel(GMaxRHIFeatureLevel)
-,	URL(InURL)
-,	FXSystem(NULL)
-,	TickTaskLevel(FTickTaskManagerInterface::Get().AllocateTickTaskLevel())
-,   bIsBuilt(false)
-,	FlushLevelStreamingType(EFlushLevelStreamingType::None)
-,	NextTravelType(TRAVEL_Relative)
-{
-	SetFlags( RF_Transactional );
-	TimerManager = new FTimerManager();
-#if WITH_EDITOR
-	bBroadcastSelectionChange = true;
-#endif // WITH_EDITOR
-
-	FWorldDelegates::OnPostWorldCreation.Broadcast(this);
-}
-
 
 void UWorld::Serialize( FArchive& Ar )
 {
@@ -411,6 +391,11 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 		{
 			FArchiveReplaceObjectRef<UObject> ReplaceAr(Obj, ReplacementMap, bNullPrivateRefs, bIgnoreOuterRef, bIgnoreArchetypeRef);
 		}
+		// PostEditChange is required for some objects to react to the change, e.g. update render-thread proxies
+		for (auto* Obj : ObjectsToFixReferences)
+		{
+			Obj->PostEditChange();
+		}
 	}
 #endif // WITH_EDITOR
 }
@@ -591,10 +576,13 @@ bool UWorld::PreSaveRoot(const TCHAR* Filename, TArray<FString>& AdditionalPacka
 		}
 	}
 #if WITH_EDITOR
-	// If this level has a level script, rebuild it now to ensure no stale data is stored in the level script actor
-	if( !IsRunningCommandlet() && PersistentLevel->GetLevelScriptBlueprint(true) )
+	// Rebuild all level blueprints now to ensure no stale data is stored on the actors
+	if( !IsRunningCommandlet() )
 	{
-		FKismetEditorUtilities::CompileBlueprint(PersistentLevel->GetLevelScriptBlueprint(true), true, true);
+		for (UBlueprint* Blueprint : PersistentLevel->GetLevelBlueprints())
+		{
+			FKismetEditorUtilities::CompileBlueprint(Blueprint, false, true);
+		}
 	}
 #endif
 
@@ -888,7 +876,8 @@ void UWorld::InitWorld(const InitializationValues IVS)
 			// Spawn the default brush.
 			DefaultBrush = SpawnBrush();
 			check(DefaultBrush->GetBrushComponent());
-			DefaultBrush->Brush = new( DefaultBrush->GetOuter(), TEXT("Brush") )UModel( FObjectInitializer(), DefaultBrush, 1 );
+			DefaultBrush->Brush = NewNamedObject<UModel>(DefaultBrush->GetOuter(), TEXT("Brush"));
+			DefaultBrush->Brush->Initialize(DefaultBrush, 1);
 			DefaultBrush->GetBrushComponent()->Brush = DefaultBrush->Brush;
 			DefaultBrush->SetNotForClientOrServer();
 			DefaultBrush->Brush->SetFlags( RF_Transactional );
@@ -958,8 +947,10 @@ void UWorld::InitializeNewWorld(const InitializationValues IVS)
 		ClearFlags(RF_Transactional);
 	}
 
-	PersistentLevel			= new( this, TEXT("PersistentLevel") ) ULevel(FObjectInitializer(),FURL(NULL));
-	PersistentLevel->Model	= new( PersistentLevel				 ) UModel(FObjectInitializer(),NULL, 1 );
+	PersistentLevel = NewNamedObject<ULevel>(this, TEXT("PersistentLevel"));
+	PersistentLevel->Initialize(FURL(nullptr));
+	PersistentLevel->Model = NewObject<UModel>(PersistentLevel);
+	PersistentLevel->Model->Initialize(nullptr, 1);
 	PersistentLevel->OwningWorld = this;
 
 	// Mark objects are transactional for undo/ redo.
@@ -1052,7 +1043,8 @@ UWorld* UWorld::CreateWorld(const EWorldType::Type InWorldType, bool bInformEngi
 
 	// Create new UWorld, ULevel and UModel.
 	const FString WorldNameString = (WorldName != NAME_None) ? WorldName.ToString() : TEXT("NewWorld");
-	UWorld* NewWorld = new(WorldPackage, *WorldNameString) UWorld(FObjectInitializer(),FURL(NULL));
+	UWorld* NewWorld = NewNamedObject<UWorld>(WorldPackage, *WorldNameString);
+	NewWorld->SetFlags(RF_Transactional);
 	NewWorld->WorldType = InWorldType;
 	NewWorld->FeatureLevel = InFeatureLevel;
 	NewWorld->InitializeNewWorld(UWorld::InitializationValues().ShouldSimulatePhysics(false).EnableTraceCollision(true).CreateNavigation(InWorldType == EWorldType::Editor).CreateAISystem(InWorldType == EWorldType::Editor));
@@ -1244,7 +1236,7 @@ void UWorld::UpdateCullDistanceVolumes()
 		// Establish base line of LD specified cull distances.
 		for( FActorIterator It(this); It; ++It )
 		{
-			TArray<UPrimitiveComponent*> PrimitiveComponents;
+			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
 			It->GetComponents(PrimitiveComponents);
 			for (UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
 			{
@@ -2205,7 +2197,7 @@ void UWorld::UpdateLevelStreamingInner(ULevelStreaming* StreamingLevel)
 	// Figure out whether level should be loaded, visible and block on load if it should be loaded but currently isn't.
 	bool bShouldBeLoaded	= bHasVisibilityRequestPending || (!GEngine->bUseBackgroundLevelStreaming && !bShouldForceUnloadStreamingLevels && !StreamingLevel->bIsRequestingUnloadAndRemoval);
 	bool bShouldBeVisible	= bHasVisibilityRequestPending || bShouldForceVisibleStreamingLevels;
-	bool bShouldBlockOnLoad	= StreamingLevel->bShouldBlockOnLoad;
+	bool bShouldBlockOnLoad	= StreamingLevel->bShouldBlockOnLoad || StreamingLevel->ShouldBeAlwaysLoaded();
 
 	// Don't update if the code requested this level object to be unloaded and removed.
 	if(!bShouldForceUnloadStreamingLevels && !StreamingLevel->bIsRequestingUnloadAndRemoval)
@@ -2221,7 +2213,7 @@ void UWorld::UpdateLevelStreamingInner(ULevelStreaming* StreamingLevel)
 	// on purpose as well so the GC code has a chance to execute between consecutive loads of maps.
 	//
 	// NOTE: AllowLevelLoadRequests not an invariant as streaming might affect the result, do NOT pulled out of the loop.
-	bool bAllowLevelLoadRequests =	AllowLevelLoadRequests() || bShouldBlockOnLoad;
+	bool bAllowLevelLoadRequests =	bShouldBlockOnLoad || AllowLevelLoadRequests();
 
 	// Figure out whether there are any levels we haven't collected garbage yet.
 	bool bAreLevelsPendingPurge	=	FLevelStreamingGCHelper::GetNumLevelsPendingPurge() > 0;
@@ -3183,14 +3175,19 @@ void UWorld::RemoveNetworkActor( AActor* Actor )
 	NetworkActors.RemoveSingleSwap( Actor );
 }
 
-void UWorld::AddOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler )
+FDelegateHandle UWorld::AddOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler )
 {
-	OnActorSpawned.Add(InHandler);
+	return OnActorSpawned.Add(InHandler);
 }
 
 void UWorld::RemoveOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler )
 {
-	OnActorSpawned.Remove(InHandler);
+	OnActorSpawned.DEPRECATED_Remove(InHandler);
+}
+
+void UWorld::RemoveOnActorSpawnedHandler( FDelegateHandle InHandle )
+{
+	OnActorSpawned.Remove(InHandle);
 }
 
 ABrush* UWorld::GetBrush() const
@@ -5374,15 +5371,21 @@ void UWorld::ChangeFeatureLevel(ERHIFeatureLevel::Type InFeatureLevel)
             SlowTask.EnterProgressFrame(10.0f);
             if (Scene)
             {
-                PersistentLevel->ReleaseRenderingResources();
+				for (auto* Level : Levels)
+				{
+					Level->ReleaseRenderingResources();
+				}
+
                 Scene->Release();
                 GetRendererModule().RemoveScene(Scene);
-
                 GetRendererModule().AllocateScene(this, bRequiresHitProxies, FXSystem != nullptr, InFeatureLevel );
 
-                PersistentLevel->InitializeRenderingResources();
-                PersistentLevel->PrecomputedVisibilityHandler.UpdateScene(Scene);
-                PersistentLevel->PrecomputedVolumeDistanceField.UpdateScene(Scene);
+				for (auto* Level : Levels)
+				{
+					Level->InitializeRenderingResources();
+					Level->PrecomputedVisibilityHandler.UpdateScene(Scene);
+					Level->PrecomputedVolumeDistanceField.UpdateScene(Scene);
+				}
             }
 
             SlowTask.EnterProgressFrame(10.0f);
@@ -5401,9 +5404,9 @@ void UWorld::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
 	if(PersistentLevel && PersistentLevel->OwningWorld)
 	{
-		if(ULevelScriptBlueprint* LevelBlueprint = PersistentLevel->GetLevelScriptBlueprint(true))
+		for (UBlueprint* Blueprint : PersistentLevel->GetLevelBlueprints())
 		{
-			LevelBlueprint->GetAssetRegistryTags(OutTags);
+			Blueprint->GetAssetRegistryTags(OutTags);
 		}
 	}
 }

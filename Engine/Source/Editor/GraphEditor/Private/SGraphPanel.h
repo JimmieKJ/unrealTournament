@@ -244,6 +244,7 @@ private:
 	TMap<const class UEdGraphNode*, int32> UserAddedNodes;
 
 	FOnGraphChanged::FDelegate MyRegisteredGraphChangedDelegate;
+	FDelegateHandle            MyRegisteredGraphChangedDelegateHandle;
 private:
 	/** Called when watched graph changes */
 	void OnGraphChanged( const FEdGraphEditAction& InAction );

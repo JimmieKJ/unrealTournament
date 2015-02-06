@@ -737,7 +737,7 @@ bool UObject::Modify( bool bAlwaysMarkDirty/*=true*/ )
 			// Attempt to mark the package dirty and save a copy of the object to the transaction
 			// buffer. The save will fail if there isn't a valid transactor, the object isn't
 			// transactional, etc.
-			bSavedToTransactionBuffer = SaveToTransactionBuffer(this, true);
+			bSavedToTransactionBuffer = SaveToTransactionBuffer(this, bAlwaysMarkDirty);
 
 			// If we failed to save to the transaction buffer, but the user requested the package
 			// marked dirty anyway, do so
@@ -1179,6 +1179,12 @@ void UObject::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 		OutTags.Add( FAssetRegistryTag("ResourceSize", FString::Printf(TEXT("%0.2f"), ResourceSize / 1024.f), FAssetRegistryTag::TT_Numerical) );
 	}
 	FAssetRegistryTag::GetAssetRegistryTagsFromSearchableProperties(this, OutTags);
+}
+
+const FName& UObject::SourceFileTagName()
+{
+	static const FName SourceFilePathName("SourceFile");
+	return SourceFilePathName;
 }
 
 bool UObject::IsAsset () const
@@ -1762,27 +1768,41 @@ FString UObject::GetDefaultConfigFilename() const
 	return FString::Printf(TEXT("%sDefault%s.ini"), *FPaths::SourceConfigDir(), *GetClass()->ClassConfigName.ToString());
 }
 
+FString UObject::GetGlobalUserConfigFilename() const
+{
+	return FString::Printf(TEXT("%sUnreal Engine/Engine/Config/User%s.ini"), FPlatformProcess::UserSettingsDir(), *GetClass()->ClassConfigName.ToString());
+}
+
 // @todo ini: Verify per object config objects
-void UObject::UpdateDefaultConfigFile()
+void UObject::UpdateSingleSectionOfConfigFile(const FString& ConfigIniName)
 {
 	// create a sandbox FConfigCache
-	FConfigCacheIni Config;
+	FConfigCacheIni Config(EConfigCacheType::Temporary);
 
 	// add an empty file to the config so it doesn't read in the original file (see FConfigCacheIni.Find())
-	FString DefaultIniName = GetDefaultConfigFilename();
-	FConfigFile& NewFile = Config.Add(DefaultIniName, FConfigFile());
+	FConfigFile& NewFile = Config.Add(ConfigIniName, FConfigFile());
 
 	// save the object properties to this file
-	SaveConfig(CPF_Config, *DefaultIniName, &Config);
+	SaveConfig(CPF_Config, *ConfigIniName, &Config);
 
 	ensureMsgf(Config.Num() == 1, TEXT("UObject::UpdateDefaultConfig() caused more files than expected in the Sandbox config cache!"));
 
 	// make sure SaveConfig wrote only to the file we expected
-	NewFile.UpdateSections(*DefaultIniName, *GetClass()->ClassConfigName.ToString());
+	NewFile.UpdateSections(*ConfigIniName, *GetClass()->ClassConfigName.ToString());
 
 	// reload the file, so that it refresh the cache internally.
 	FString FinalIniFileName;
 	GConfig->LoadGlobalIniFile(FinalIniFileName, *GetClass()->ClassConfigName.ToString(), NULL, NULL, true);
+}
+
+void UObject::UpdateDefaultConfigFile()
+{
+	UpdateSingleSectionOfConfigFile(GetDefaultConfigFilename());
+}
+
+void UObject::UpdateGlobalUserConfigFile()
+{
+	UpdateSingleSectionOfConfigFile(GetGlobalUserConfigFilename());
 }
 
 
@@ -2891,6 +2911,79 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 			Ar.Logf(TEXT("Non-permanent: %d objects, %d edges, %d strongly connected components, %d objects are included in cycles."), IndexSet.TempObjects.Num(), IndexSet.Edges.Num(), TotalCnt, TotalNum);
 			return true;
 		}
+		else if (FParse::Command(&Str, TEXT("VERIFYCOMPONENTS")))
+		{
+			Ar.Logf(TEXT("------------------------------------------------------------------------------"));
+
+			for (FObjectIterator It; It; ++It)
+			{
+				UObject* Target = *It;
+
+				// Skip objects that are trashed
+				if ((Target->GetOutermost() == GetTransientPackage())
+					|| Target->GetClass()->HasAnyClassFlags(CLASS_NewerVersionExists)
+					|| Target->HasAnyFlags(RF_PendingKill))
+				{
+					continue;
+				}
+
+				TArray<UObject*> SubObjects;
+				GetObjectsWithOuter(Target, SubObjects);
+
+				TArray<FString> Errors;
+
+				for (auto SubObjIt : SubObjects)
+				{
+					const UObject* SubObj = SubObjIt;
+					const UClass* SubObjClass = SubObj->GetClass();
+					const FString SubObjName = SubObj->GetName();
+
+					if (SubObj->IsPendingKill())
+					{
+						continue;
+					}
+
+					if (SubObjClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+					{
+						Errors.Add(FString::Printf(TEXT("  - %s has a stale class"), *SubObjName));
+					}
+
+					if (SubObjClass->GetOutermost() == GetTransientPackage())
+					{
+						Errors.Add(FString::Printf(TEXT("  - %s has a class in the transient package"), *SubObjName));
+					}
+
+					if (SubObj->GetOutermost() != Target->GetOutermost())
+					{
+						Errors.Add(FString::Printf(TEXT("  - %s has a different outer than its parent"), *SubObjName));
+					}
+					
+					if (SubObj->GetName().Find(TEXT("TRASH_")) != INDEX_NONE)
+					{
+						Errors.Add(FString::Printf(TEXT("  - %s is TRASH'd"), *SubObjName));
+					}
+
+					if (SubObj->GetName().Find(TEXT("REINST_")) != INDEX_NONE)
+					{
+						Errors.Add(FString::Printf(TEXT("  - %s is a REINST"), *SubObjName));
+					}
+				}
+
+				if (Errors.Num() > 0)
+				{
+					const FString ErrorStr = FString::Printf(TEXT("Errors for %s"), *Target->GetName());
+					Ar.Logf(*ErrorStr);
+
+					for (auto ErrorStr : Errors)
+					{
+						Ar.Logf(*(FString(TEXT("  - ") + ErrorStr)));
+					}
+				}
+			}
+
+			Ar.Logf(TEXT("------------------------------------------------------------------------------"));
+			return true;
+		}
 		else if( FParse::Command(&Str,TEXT("TRANSACTIONAL")) )
 		{
 			int32 Num=0;
@@ -3462,7 +3555,7 @@ void StaticUObjectInit()
 	UObjectBaseInit();
 
 	// Allocate special packages.
-	GObjTransientPkg = new( NULL, TEXT("/Engine/Transient") )UPackage(FObjectInitializer());
+	GObjTransientPkg = NewNamedObject<UPackage>(nullptr, TEXT("/Engine/Transient"));
 	GObjTransientPkg->AddToRoot();
 
 	if( FParse::Param( FCommandLine::Get(), TEXT("VERIFYGC") ) )

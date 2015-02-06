@@ -71,7 +71,7 @@ bool FOnlineSubsystemSteamModule::AreSteamDllsLoaded() const
 	bool bLoadedClientDll = true;
 	bool bLoadedServerDll = true;
 
-#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
+#if PLATFORM_WINDOWS || PLATFORM_MAC
 	bLoadedClientDll = (SteamDLLHandle != NULL) ? true : false;
 #if PLATFORM_32BITS
 	bLoadedServerDll = IsRunningDedicatedServer() ? ((SteamServerDLLHandle != NULL) ? true : false) : true;
@@ -127,24 +127,12 @@ void FOnlineSubsystemSteamModule::LoadSteamModules()
 	#endif	//PLATFORM_64BITS
 #elif PLATFORM_MAC
 	SteamDLLHandle = FPlatformProcess::GetDllHandle(TEXT("libsteam_api.dylib"));
-#elif PLATFORM_LINUX
-
-	UE_LOG_ONLINE(Log, TEXT("Loading system libsteam_api.so."));
-	SteamDLLHandle = FPlatformProcess::GetDllHandle(TEXT("libsteam_api.so"));
-	if (SteamDLLHandle == nullptr)
-	{
-		// try bundled one
-		UE_LOG_ONLINE(Log, TEXT("Could not find system one, loading bundled libsteam_api.so."));
-		FString RootSteamPath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/ThirdParty/Steamworks/%s/Linux/"), STEAM_SDK_VER); 
-		SteamDLLHandle = FPlatformProcess::GetDllHandle(*(RootSteamPath + "libsteam_api.so"));
-	}
-
 #endif	//PLATFORM_WINDOWS
 }
 
 void FOnlineSubsystemSteamModule::UnloadSteamModules()
 {
-#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
+#if PLATFORM_WINDOWS || PLATFORM_MAC
 	if (SteamDLLHandle != NULL)
 	{
 		FPlatformProcess::FreeDllHandle(SteamDLLHandle);

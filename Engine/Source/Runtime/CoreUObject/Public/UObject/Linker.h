@@ -1595,6 +1595,11 @@ public:
 	 */
 	COREUOBJECT_API static void InvalidateExport(UObject* OldObject);
 
+	/**
+	 * Updates the export table with an Object's object flags
+	 */
+	COREUOBJECT_API static void RefreshExportFlags(UObject* Object);
+
 	/** Used by Matinee to fixup component renaming */
 	COREUOBJECT_API static FName FindSubobjectRedirectName(const FName& Name);
 
@@ -1613,6 +1618,14 @@ private:
 	 */
 	UObject* CreateExportAndPreload(int32 ExportIndex, bool bForcePreload = false);
 
+	/**
+	 * Utility function for easily retrieving the specified export's UClass.
+	 * 
+	 * @param  ExportIndex    Index of the export you want a class for.
+	 * @return The class that the specified export's ClassIndex references.
+	 */
+	UClass* GetExportLoadClass(int32 ExportIndex);
+
 	/** 
 	 * Looks for and loads meta data object from export map.
 	 *
@@ -1625,6 +1638,28 @@ private:
 	int32 LoadMetaDataFromExportMap(bool bForcePreload = false);
 
 	UObject* CreateImport( int32 Index );
+
+	/**
+	 * Determines if the specified import belongs to a native "compiled in"
+	 * package (as opposed to an asset-file package). Recursive if the
+	 * specified import is not a package itself.
+	 * 
+	 * @param  ImportIndex    An index into the ImportMap, defining the import you wish to check.
+	 * @return True if the specified import comes from (or is) a "compiled in" package, otherwise false (it is an asset import).
+	 */
+	bool IsImportNative(const int32 ImportIndex) const;
+
+	/**
+	 * Attempts to lookup and return the corresponding ULinkerLoad object for 
+	 * the specified import WITHOUT invoking  a load, or continuing to load 
+	 * the import package (will only return one if it has already been 
+	 * created... could still be in the process of loading).
+	 * 
+	 * @param  ImportIndex    Specifies the import that you would like a linker for.
+	 * @return The imports associated linker (null if it hasn't been created yet).
+	 */
+	ULinkerLoad* FindExistingLinkerForImport(int32 ImportIndex) const;
+
 	UObject* IndexToObject( FPackageIndex Index );
 
 	void DetachExport( int32 i );
@@ -1813,6 +1848,105 @@ private:
 	 * @return	Returns true if regeneration was successful, otherwise false
 	 */
 	bool RegenerateBlueprintClass(UClass* LoadClass, UObject* ExportObject);
+
+	/**
+	 * Determines if the specified import should be deferred. If so, it will 
+	 * instantiate a placeholder object in its place.
+	 * 
+	 * @param  ImportIndex    An index into this linker's ImportMap, specifying which import to check.
+	 * @return True if the specified import was deferred, other wise false (it is ok to load it).
+	 */
+	bool DeferPotentialCircularImport(const int32 ImportIndex);
+	
+	/**
+	 * Stubs in a ULinkerPlaceholderExportObject for the specified export (if 
+	 * one is required, meaning: the export's LoadClass is not fully formed). 
+	 * This should rarely happen, but has been seen in cyclic Blueprint 
+	 * scenarios involving Blueprinted components.
+	 * 
+	 * @param  ExportIndex    Identifies the export you want deferred.
+	 * @return The specified FObjectExport's Object member (unchanged if the deferral failed, or wasn't required).
+	 */
+	UObject* DeferExportCreation(const int32 ExportIndex);
+
+	/**
+	 * Combs the ImportMap for any imports that were deferred, and then creates 
+	 * them (via CreateImport).
+	 * 
+	 * @param  LoadStruct    The (Blueprint) class or struct that you want resolved (so that it no longer contains dependency placeholders).
+	 */
+	void ResolveDeferredDependencies(UStruct* LoadStruct);
+
+	/**
+	 * Loads the import that the Placeholder was initially stubbed in for (NOTE:
+	 * this could cause recursive behavior), and then replaces all known 
+	 * placeholder references with the proper class.
+	 * 
+	 * @param  Placeholder		A ULinkerPlaceholderClass that was substituted in place of a deferred dependency.
+	 * @param  ReferencingClass	The (Blueprint) class that was loading, while we deferred dependencies (now referencing the placeholder).
+	 * @return The number of placeholder references replaced (could be none, if this was recursively resolved).
+	 */
+	int32 ResolveDependencyPlaceholder(UClass* Placeholder, UClass* ReferencingClass = nullptr);
+
+	/**
+	 * Query method to help catch recursive behavior. When this returns true, a 
+	 * dependency placeholder is in the middle of being resolved by 
+	 * ResolveDependencyPlaceholder(). Used so a nested call would know to 
+	 * complete that placeholder before continuing.
+	 * 
+	 * @return True if ResolveDependencyPlaceholder() is being ran on a placeholder that has yet to be resolved. 
+	 */
+	bool HasUnresolvedDependencies() const;
+
+	/**
+	 * Takes the supplied serialized class and serializes in its CDO, then 
+	 * regenerates both.
+	 * 
+	 * @param  LoadClass    The loaded blueprint class (assumes that it has been fully loaded/serialized).
+	 */
+	void FinalizeBlueprint(UClass* LoadClass);
+
+	/**
+	 * Combs the ExportMap for any stubbed in ULinkerPlaceholderExportObjects,
+	 * and finalizes the real export's class before actually creating it
+	 * (exports are deferred when their class isn't fully formed at the time
+	 * CreateExport() is called). Also, this function ensures that deferred CDO  
+	 * serialization is executed (expects its class to be fully resolved at this
+	 * point).
+	 *
+	 * @param  LoadClass    A fully loaded/serialized class that may have property references to placeholder export objects (in need of fix-up).
+	 */
+	void ResolveDeferredExports(UClass* LoadClass);
+
+	/**
+	 * Query method to help handle recursive behavior. When this returns true, 
+	 * this linker is in the middle of, or is about to call FinalizeBlueprint()
+	 * (for a blueprint class somewhere in the current callstack). Needed when 
+	 * we get to finalizing a sub-class before we've finished finalizing its 
+	 * super (so we know we need to finish finalizing the super first).
+	 * 
+	 * @return True if FinalizeBlueprint() is currently being ran (or about to be ran) for an export (Blueprint) class.
+	 */
+	bool IsBlueprintFinalizationPending() const;
+
+#if	USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	/** 
+	 * For deferring dependency loads, we block CDO serialization until the 
+	 * class if complete. If we attempt to serialize the CDO while that is 
+	 * happening, we instead defer it and record the export's index here (so we 
+	 * can return to it later).
+	 */
+	int32 DeferredCDOIndex;
+
+	/** 
+	 * Used to track dependency placeholders currently being resolved inside of 
+	 * ResolveDependencyPlaceholder()... utilized for nested reentrant behavior, 
+	 * to make sure this placeholder is completely resolved before continuing on 
+	 * to the next.
+	 */
+	UClass* ResolvingDeferredPlaceholder;
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
 
 	/** 
 	 * Creates the export hash.

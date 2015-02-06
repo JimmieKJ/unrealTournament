@@ -58,7 +58,7 @@ public:
 				[
 					SNew(STextBlock)
 						.ColorAndOpacity(this, &SUndoHistoryTableRow::HandleTitleTextColorAndOpacity)
-						.Text(Title.ToString())
+						.Text(Title)
 				];
 		}
 

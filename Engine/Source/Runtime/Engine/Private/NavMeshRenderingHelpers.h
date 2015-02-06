@@ -316,14 +316,14 @@ public:
 	void RegisterDebugDrawDelgate()
 	{
 		DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FRecastRenderingSceneProxy::DrawDebugLabels);
-		UDebugDrawService::Register(TEXT("Navigation"), DebugTextDrawingDelegate);
+		DebugTextDrawingDelegateHandle = UDebugDrawService::Register(TEXT("Navigation"), DebugTextDrawingDelegate);
 	}
 
 	void UnregisterDebugDrawDelgate()
 	{
 		if (DebugTextDrawingDelegate.IsBound())
 		{
-			UDebugDrawService::Unregister(DebugTextDrawingDelegate);
+			UDebugDrawService::Unregister(DebugTextDrawingDelegateHandle);
 		}
 	}
 
@@ -584,6 +584,7 @@ private:
 	TArray<FMeshBatchElement> MeshBatchElements;
 
 	FDebugDrawDelegate DebugTextDrawingDelegate;
+	FDelegateHandle DebugTextDrawingDelegateHandle;
 	TWeakObjectPtr<UNavMeshRenderingComponent> RenderingComponent;
 	uint32 bRequestedData : 1;
 	uint32 bForceRendering : 1;

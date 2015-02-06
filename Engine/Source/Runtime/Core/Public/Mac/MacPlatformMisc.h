@@ -20,7 +20,7 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	static void PlatformPostInit(bool ShowSplashScreen = false);
 	static class GenericApplication* CreateApplication();
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
-
+	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
 	static const TCHAR* GetPathVarDelimiter()
 	{
 		return TEXT(":");
@@ -51,6 +51,15 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 		}
 	}
 #endif
+
+	/** Break into debugger. Returning false allows this function to be used in conditionals. */
+	FORCEINLINE static bool DebugBreakReturningFalse()
+	{
+#if !UE_BUILD_SHIPPING
+		DebugBreak();
+#endif
+		return false;
+	}
 
 	FORCEINLINE static void MemoryBarrier()
 	{
@@ -152,11 +161,16 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	 * Returns whether the Mac OS X version is 10.9.x or not.
 	 */
 	static bool IsRunningOnMavericks();
-	
+
 	/**
 	 * Returns if current < target returns 1, if current > target returns 1, else current == target and returns 0.
 	 */
 	static int32 MacOSXVersionCompare(uint8 Major, uint8 Minor, uint8 Revision);
+
+	/**
+	 * Gets a globally unique ID the represents a particular operating system install.
+	 */
+	static FString GetOperatingSystemId();
 
 	static bool bChachedMacMenuStateNeedsUpdate;
 };

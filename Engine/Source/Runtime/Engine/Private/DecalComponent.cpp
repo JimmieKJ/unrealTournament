@@ -36,7 +36,7 @@ void FDeferredDecalProxy::SetTransform(const FTransform& InComponentToWorld)
 }
 
 UDecalComponent::UDecalComponent(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer), FadeScreenSize(0.01)
+	: Super(ObjectInitializer)
 {
 }
 
@@ -44,12 +44,17 @@ void UDecalComponent::SetLifeSpan(const float LifeSpan)
 {
 	if (LifeSpan > 0.f)
 	{
-		GetWorld()->GetTimerManager().SetTimer(TimerHandle_DestroyDecalComponent, this, &UDecalComponent::DestroyComponent, LifeSpan, false);
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle_DestroyDecalComponent, this, &UDecalComponent::LifeSpanCallback, LifeSpan, false);
 	}
 	else
 	{
 		GetWorld()->GetTimerManager().ClearTimer(TimerHandle_DestroyDecalComponent);
 	}
+}
+
+void UDecalComponent::LifeSpanCallback()
+{
+	DestroyComponent();
 }
 
 void UDecalComponent::SetSortOrder(int32 Value)

@@ -57,7 +57,7 @@ void URadialForceComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 				AActor* PokeOwner = PokeComp->GetOwner();
 				if(PokeOwner)
 				{
-					TArray<UMovementComponent*> MovementComponents;
+					TInlineComponentArray<UMovementComponent*> MovementComponents;
 					PokeOwner->GetComponents<UMovementComponent>(MovementComponents);
 					for(const auto& MovementComponent : MovementComponents)
 					{
@@ -119,7 +119,7 @@ void URadialForceComponent::FireImpulse()
 			PokeComp->AddRadialImpulse( Origin, Radius, ImpulseStrength, Falloff, bImpulseVelChange );
 
 			// see if this is a target for a movement component
-			TArray<UMovementComponent*> MovementComponents;
+			TInlineComponentArray<UMovementComponent*> MovementComponents;
 			PokeComp->GetOwner()->GetComponents<UMovementComponent>(MovementComponents);
 			for(const auto& MovementComponent : MovementComponents)
 			{

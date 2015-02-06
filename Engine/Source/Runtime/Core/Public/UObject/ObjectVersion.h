@@ -446,6 +446,24 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_PERFRAME_MATERIAL_UNIFORM_EXPRESSIONS,
 	// Make MikkTSpace the default tangent space calculation method for static meshes.
 	VER_UE4_MIKKTSPACE_IS_DEFAULT,
+	// Only applies to cooked files, grass cooking support.
+	VER_UE4_LANDSCAPE_GRASS_COOKING,
+	// Fixed code for using the bOrientMeshEmitters property.
+	VER_UE4_FIX_SKEL_VERT_ORIENT_MESH_PARTICLES,
+	// Do not change landscape section offset on load under world composition
+	VER_UE4_LANDSCAPE_STATIC_SECTION_OFFSET,
+	// New options for navigation data runtime generation (static, modifiers only, dynamic)
+	VER_UE4_ADD_MODIFIERS_RUNTIME_GENERATION,
+	// Tidied up material's handling of masked blend mode.
+	VER_UE4_MATERIAL_MASKED_BLENDMODE_TIDY,
+	// Original version of VER_UE4_MERGED_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7; renumbered to prevent blocking promotion in main.
+	VER_UE4_MERGED_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7_DEPRECATED,
+	// Original version of VER_UE4_AFTER_MERGED_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7; renumbered to prevent blocking promotion in main.
+	VER_UE4_AFTER_MERGED_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7_DEPRECATED,
+	// After merging VER_UE4_ADD_MODIFIERS_RUNTIME_GENERATION into 4.7 branch
+	VER_UE4_MERGED_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7,
+	// MovementComponent->UpdatedComponent changed from UPrimitiveComponent to USceneComponent
+	VER_UE4_MOVEMENTCOMPONENT_UPDATEDSCENECOMPONENT,
 
 	// -----<new versions can be added before this line>-------------------------------------------------
 	// - this needs to be the last line (see note below)

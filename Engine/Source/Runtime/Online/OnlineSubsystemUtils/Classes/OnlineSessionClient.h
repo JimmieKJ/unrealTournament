@@ -29,6 +29,13 @@ protected:
 	/** Delegate after joining a session */
 	FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
 
+	// Handles to the above delegates
+	FDelegateHandle OnSessionInviteAcceptedDelegateHandle;
+	FDelegateHandle OnEndForJoinSessionCompleteDelegateHandle;
+	FDelegateHandle OnDestroyForJoinSessionCompleteDelegateHandle;
+	FDelegateHandle OnDestroyForMainMenuCompleteDelegateHandle;
+	FDelegateHandle OnJoinSessionCompleteDelegateHandle;
+
 	/** Cached invite/search result while in the process of tearing down an existing session */
 	FOnlineSessionSearchResult CachedSessionResult;
 	/** Is this join from an invite */
@@ -76,6 +83,16 @@ protected:
 	 */
 	void EndExistingSession(FName SessionName, FOnEndSessionCompleteDelegate& Delegate);
 
+private:
+	/**
+	 * Implementation of EndExistingSession
+	 *
+	 * @param SessionName name of session to end
+	 * @param Delegate delegate to call at session end
+	 */
+	FDelegateHandle EndExistingSession_Impl(FName SessionName, FOnEndSessionCompleteDelegate& Delegate);
+
+protected:
 	/**
 	 * Transition from destroying a session to joining a new one of the same name
 	 *
@@ -100,6 +117,17 @@ protected:
 	 */
 	void DestroyExistingSession(FName SessionName, FOnDestroySessionCompleteDelegate& Delegate);
 
+private:
+	/**
+	 * Implementation of DestroyExistingSession
+	 *
+	 * @param SessionName name of session to destroy
+	 * @param Delegate delegate to call at session destruction
+	 * @return Handle to the added delegate.
+	 */
+	FDelegateHandle DestroyExistingSession_Impl(FName SessionName, FOnDestroySessionCompleteDelegate& Delegate);
+
+protected:
 	/**
 	 * Delegate fired when the joining process for an online session has completed
 	 *

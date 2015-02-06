@@ -95,9 +95,10 @@ protected:
 	 *
 	 * @param DelegateInstance The delegate instance to add.
 	 */
-	inline void AddInternal( IDelegateInstance* DelegateInstance )
+	inline FDelegateHandle AddInternal( IDelegateInstance* DelegateInstance )
 	{
 		InvocationList.Add(DelegateInstance);
+		return DelegateInstance->GetHandle();
 	}
 
 	/**

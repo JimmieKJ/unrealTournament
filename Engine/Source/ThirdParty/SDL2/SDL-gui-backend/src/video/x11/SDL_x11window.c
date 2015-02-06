@@ -222,7 +222,9 @@ X11_GetNetWMState(_THIS, Window xwindow)
         }
         if (maximized == 3) {
             flags |= SDL_WINDOW_MAXIMIZED;
-        }  else if (fullscreen == 1) {
+        }
+
+        if (fullscreen == 1) {
             flags |= SDL_WINDOW_FULLSCREEN;
         }
         X11_XFree(propertyValue);
@@ -1259,6 +1261,13 @@ X11_SetWindowFullscreenViaWM(_THIS, SDL_Window * window, SDL_VideoDisplay * _dis
             X11_XUninstallColormap(display, data->colormap);
         }
     }
+
+    /* EG BEGIN */
+    if (!fullscreen && (window->flags & SDL_WINDOW_MAXIMIZED) == 0) {
+        /* Fullscreen windows sometimes end up being maximized without us knowing - this kludge fixes it. */
+        SetWindowMaximized(_this, window, SDL_FALSE);
+    }
+    /* EG END */
 
     X11_XFlush(display);
 }

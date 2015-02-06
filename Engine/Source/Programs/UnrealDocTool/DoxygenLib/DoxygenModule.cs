@@ -106,53 +106,12 @@ namespace DoxygenLib
 		}
 	}
 
-	public class DoxygenSourceFile
-	{
-		public string FileName;
-		public string NormalizedFileName;
-		public List<XmlNode> Lines = new List<XmlNode>();
-
-		public DoxygenSourceFile(string InFileName)
-		{
-			FileName = InFileName;
-			NormalizedFileName = NormalizeFileName(InFileName);
-		}
-
-		public static string NormalizeFileName(string InFileName)
-		{
-			return InFileName.Replace('\\', '/').ToLowerInvariant();
-		}
-
-		public static DoxygenSourceFile FromXml(XmlNode Node)
-		{
-			XmlNode LocationNode = Node.SelectSingleNode("location");
-			if(LocationNode == null) return null;
-
-			DoxygenSourceFile SourceFile = new DoxygenSourceFile(LocationNode.Attributes["file"].InnerText);
-			foreach(XmlNode CodeLineNode in Node.SelectNodes("programlisting/codeline"))
-			{
-				int CodeLineIdx = int.Parse(CodeLineNode.Attributes["lineno"].InnerText) - 1;
-				while(CodeLineIdx >= SourceFile.Lines.Count)
-				{
-					SourceFile.Lines.Add(null);
-				}
-				SourceFile.Lines[CodeLineIdx] = CodeLineNode;
-			}
-			return SourceFile;
-		}
-
-		public override string ToString()
-		{
-			return FileName;
-		}
-	}
 
 	public class DoxygenModule
 	{
 		public readonly string Name;
 		public readonly string BaseSrcDir;
 		public List<DoxygenEntity> Entities = new List<DoxygenEntity>();
-		public List<DoxygenSourceFile> SourceFiles = new List<DoxygenSourceFile>();
 
 		public DoxygenModule(string InName, string InBaseSrcDir)
 		{
@@ -207,13 +166,7 @@ namespace DoxygenLib
 			Dictionary<string, DoxygenEntity> Scopes = new Dictionary<string, DoxygenEntity>();
 			foreach (DoxygenCompound Compound in Compounds)
 			{
-				if (Compound.Kind == "file")
-				{
-					ReadMembers(Module, Compound, "", null, null, Module.Entities);
-					DoxygenSourceFile SourceFile = DoxygenSourceFile.FromXml(Compound.Node);
-					if(SourceFile != null) Module.SourceFiles.Add(SourceFile);
-				}
-				else if (Compound.Kind == "namespace")
+				if (Compound.Kind == "namespace")
 				{
 					ReadMembers(Module, Compound, Compound.Name + "::", null, Compound.Node, Module.Entities);
 				}
@@ -265,23 +218,6 @@ namespace DoxygenLib
 			}
 		}
 
-		protected static DoxygenSourceFile ReadSourceFile(string BaseXmlDir, string CompoundId)
-		{
-			string XmlFileName = Path.Combine(BaseXmlDir, CompoundId + ".xml");
-
-			XmlDocument Document;
-			if(TryReadXmlDocument(XmlFileName, out Document))
-			{
-				DoxygenSourceFile SourceFile = DoxygenSourceFile.FromXml(Document.SelectSingleNode("doxygen/compounddef"));
-				return SourceFile;
-			}
-			else
-			{
-				Console.WriteLine("Couldn't read source document: '{0}'", XmlFileName);
-				return null;
-			}
-		}
-
 		protected static void ReadMembers(DoxygenModule Module, DoxygenCompound Compound, string NamePrefix, DoxygenEntity Parent, XmlNode NamespaceNode, List<DoxygenEntity> Entities)
 		{
 			using (XmlNodeList NodeList = Compound.Node.SelectNodes("sectiondef/memberdef"))
@@ -297,6 +233,7 @@ namespace DoxygenLib
 			}
 		}
 
+		/*
 		public DoxygenSourceFile FindSourceFile(string InFileName)
 		{
 			string NormalizedFileName = DoxygenSourceFile.NormalizeFileName(InFileName);
@@ -309,6 +246,7 @@ namespace DoxygenLib
 			}
 			return null;
 		}
+		 * */
 
 		public override string ToString()
 		{

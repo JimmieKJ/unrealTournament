@@ -25,6 +25,11 @@ FUMGSequencerObjectBindingManager::~FUMGSequencerObjectBindingManager()
 	WidgetBlueprintEditor.GetOnWidgetPreviewUpdated().RemoveAll( this );
 }
 
+void FUMGSequencerObjectBindingManager::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(WidgetAnimation);
+}
+
 FGuid FUMGSequencerObjectBindingManager::FindGuidForObject( const UMovieScene& MovieScene, UObject& Object ) const
 {
 	return PreviewObjectToGuidMap.FindRef( &Object );
@@ -97,7 +102,7 @@ void FUMGSequencerObjectBindingManager::GetRuntimeObjects( const TSharedRef<FMov
 bool FUMGSequencerObjectBindingManager::HasValidWidgetAnimation() const
 {
 	UWidgetBlueprint* WidgetBlueprint = WidgetBlueprintEditor.GetWidgetBlueprintObj();
-	return WidgetAnimation.IsValid() && WidgetBlueprint->Animations.Contains( WidgetAnimation.Get() );
+	return WidgetAnimation != nullptr && WidgetBlueprint->Animations.Contains( WidgetAnimation );
 }
 
 void FUMGSequencerObjectBindingManager::InitPreviewObjects()

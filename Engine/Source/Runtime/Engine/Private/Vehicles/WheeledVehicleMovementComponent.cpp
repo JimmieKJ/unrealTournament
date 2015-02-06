@@ -143,7 +143,14 @@ bool UWheeledVehicleMovementComponent::CanCreateVehicle() const
 		return false;
 	}
 
-	if ( UpdatedComponent->GetBodyInstance() == NULL )
+	if (UpdatedPrimitive == NULL)
+	{
+		UE_LOG(LogVehicles, Warning, TEXT("Cannot create vehicle for %s. UpdatedComponent is not a PrimitiveComponent."),
+			*GetPathName());
+		return false;
+	}
+
+	if (UpdatedPrimitive->GetBodyInstance() == NULL)
 	{
 		UE_LOG( LogVehicles, Warning, TEXT("Cannot create vehicle for %s. UpdatedComponent has not initialized its rigid body actor."),
 			*GetPathName() );
@@ -172,14 +179,16 @@ void UWheeledVehicleMovementComponent::CreateVehicle()
 		if ( CanCreateVehicle() )
 		{
 			check(UpdatedComponent);
-			check(UpdatedComponent->GetBodyInstance()->GetPxRigidDynamic());
-
-
-			SetupVehicle();
-
-			if ( PVehicle != NULL )
+			if (ensure(UpdatedPrimitive != nullptr))
 			{
-				PostSetupVehicle();
+				check(UpdatedPrimitive->GetBodyInstance()->GetPxRigidDynamic());
+				
+				SetupVehicle();
+
+				if ( PVehicle != NULL )
+				{
+					PostSetupVehicle();
+				}
 			}
 		}
 	}
@@ -187,7 +196,12 @@ void UWheeledVehicleMovementComponent::CreateVehicle()
 
 void UWheeledVehicleMovementComponent::SetupVehicleShapes()
 {
-	PxRigidDynamic* PVehicleActor = UpdatedComponent->GetBodyInstance()->GetPxRigidDynamic();
+	if (!UpdatedPrimitive)
+	{
+		return;
+	}
+
+	PxRigidDynamic* PVehicleActor = UpdatedPrimitive->GetBodyInstance()->GetPxRigidDynamic();
 
 	static PxMaterial* WheelMaterial = GPhysXSDK->createMaterial(0.0f, 0.0f, 0.0f);
 
@@ -253,7 +267,12 @@ void UWheeledVehicleMovementComponent::SetupVehicleShapes()
 
 void UWheeledVehicleMovementComponent::SetupVehicleMass()
 {
-	const FBodyInstance& BodyInst = *UpdatedComponent->GetBodyInstance();
+	if (!UpdatedPrimitive)
+	{
+		return;
+	}
+
+	const FBodyInstance& BodyInst = *UpdatedPrimitive->GetBodyInstance();
 	PxRigidDynamic* PVehicleActor = BodyInst.GetPxRigidDynamic();
 
 	// Override mass
@@ -274,7 +293,12 @@ void UWheeledVehicleMovementComponent::SetupVehicleMass()
 
 void UWheeledVehicleMovementComponent::SetupWheels( PxVehicleWheelsSimData* PWheelsSimData )
 {
-	const FBodyInstance& VehicleBodyInstance = *UpdatedComponent->GetBodyInstance();
+	if (!UpdatedPrimitive)
+	{
+		return;
+	}
+
+	const FBodyInstance& VehicleBodyInstance = *UpdatedPrimitive->GetBodyInstance();
 	PxRigidDynamic* PVehicleActor = VehicleBodyInstance.GetPxRigidDynamic();
 
 	const PxReal LengthScale = 100.f; // Convert default from m to cm
@@ -525,12 +549,15 @@ FVector UWheeledVehicleMovementComponent::GetWheelRestingPosition( const FWheelS
 
 FVector UWheeledVehicleMovementComponent::GetLocalCOM() const
 {
-	if (const FBodyInstance* BodyInst = UpdatedComponent->GetBodyInstance())
+	if (UpdatedPrimitive)
 	{
-		if (PxRigidDynamic* PVehicleActor = BodyInst->GetPxRigidDynamic())
+		if (const FBodyInstance* BodyInst = UpdatedPrimitive->GetBodyInstance())
 		{
-			PxTransform PCOMTransform = PVehicleActor->getCMassLocalPose();
-			return P2UVector(PCOMTransform.p);
+			if (PxRigidDynamic* PVehicleActor = BodyInst->GetPxRigidDynamic())
+			{
+				PxTransform PCOMTransform = PVehicleActor->getCMassLocalPose();
+				return P2UVector(PCOMTransform.p);
+			}
 		}
 	}
 
@@ -711,7 +738,7 @@ void UWheeledVehicleMovementComponent::TickVehicle( float DeltaTime )
 
 void UWheeledVehicleMovementComponent::UpdateDrag(float DeltaTime)
 {
-	if (PVehicle && UpdatedComponent)
+	if (PVehicle && UpdatedPrimitive)
 	{
 		float ForwardSpeed = GetForwardSpeed();
 		if (FMath::Abs(ForwardSpeed) > 1.f)
@@ -724,7 +751,7 @@ void UWheeledVehicleMovementComponent::UpdateDrag(float DeltaTime)
 			float DragMag = 0.5f * AirDensity * SpeedSquared * DragCoefficient * ChassisDragArea;
 			DebugDragMagnitude = DragMag;
 			DragVector *= DragMag;
-			FBodyInstance* BodyInstance = UpdatedComponent->GetBodyInstance();
+			FBodyInstance* BodyInstance = UpdatedPrimitive->GetBodyInstance();
 			BodyInstance->AddForce(DragVector, false);
 		}
 		

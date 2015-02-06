@@ -42,6 +42,8 @@ public:
 	 */
 	TSharedPtr<FGraphActionNode> AddChild(FGraphActionListBuilderBase::ActionGroup const& ActionSet);
 
+	TSharedPtr<FGraphActionNode> AddSection(int32 Grouping, int32 InSectionID);
+
 	/**
 	 * Sorts all child nodes by section, group, and type (additionally, can
 	 * sort alphabetically if wanted).

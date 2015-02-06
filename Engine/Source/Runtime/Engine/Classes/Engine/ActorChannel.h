@@ -69,9 +69,15 @@ class ENGINE_API UActorChannel : public UChannel
 	TMap< TWeakObjectPtr< UObject >, TSharedRef< FObjectReplicator > > ReplicationMap;
 
 	// Async networking loading support state
-	TArray< class FInBunch * >	QueuedBunches;			// Queued bunches waiting on pending guids to resolve
-	double						QueuedBunchStartTime;	// Time when since queued bunches was last empty
-	TSet< FNetworkGUID >		PendingGuidResolves;	// These guids are waiting for their resolves, we need to queue up bunches until these are resolved
+	TArray< class FInBunch * >			QueuedBunches;			// Queued bunches waiting on pending guids to resolve
+	double								QueuedBunchStartTime;	// Time when since queued bunches was last empty
+	TSet< FNetworkGUID >				PendingGuidResolves;	// These guids are waiting for their resolves, we need to queue up bunches until these are resolved
+
+	TArray< TWeakObjectPtr< UObject > >	CreateSubObjects;		// Any sub-object we created on this channel
+
+	TArray< FNetworkGUID >				QueuedMustBeMappedGuidsInLastBunch;		// Array of guids that will async load on client. This list is used for queued RPC's.
+
+	TArray< class FOutBunch * >			QueuedExportBunches;			// Bunches that need to be appended to the export list on the next SendBunch call. This list is used for queued RPC's.
 
 	/**
 	 * Default constructor
@@ -117,6 +123,12 @@ class ENGINE_API UActorChannel : public UChannel
 	void SetChannelActor( AActor* InActor );
 
 	void SetChannelActorForDestroy( struct FActorDestructionInfo *DestructInfo );
+
+	/** Append any export bunches */
+	virtual void AppendExportBunches( TArray< FOutBunch* >& OutExportBunches ) override;
+
+	/** Append any "must be mapped" guids to front of bunch. These are guids that the client will wait on before processing this bunch. */
+	virtual void AppendMustBeMappedGuids( FOutBunch* Bunch ) override;
 
 	virtual void Serialize(FArchive& Ar) override;
 

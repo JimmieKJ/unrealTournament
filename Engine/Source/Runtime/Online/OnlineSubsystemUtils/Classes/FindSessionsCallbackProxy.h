@@ -58,6 +58,9 @@ private:
 	// The delegate executed by the online subsystem
 	FOnFindSessionsCompleteDelegate Delegate;
 
+	// Handle to the registered OnFindSessionsComplete delegate
+	FDelegateHandle DelegateHandle;
+
 	// Object to track search results
 	TSharedPtr<FOnlineSessionSearch> SearchObject;
 

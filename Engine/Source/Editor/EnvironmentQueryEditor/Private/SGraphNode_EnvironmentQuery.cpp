@@ -667,10 +667,10 @@ TSharedPtr<SToolTip> SGraphNode_EnvironmentQuery::GetComplexTooltip()
 	return NULL;
 }
 
-FString SGraphNode_EnvironmentQuery::GetPreviewCornerText() const
+FText SGraphNode_EnvironmentQuery::GetPreviewCornerText() const
 {
 	UEnvironmentQueryGraphNode* StateNode = CastChecked<UEnvironmentQueryGraphNode>(GraphNode);
-	return FString(TEXT("Test CornerText"));
+	return FText::FromString(TEXT("Test CornerText"));
 }
 
 const FSlateBrush* SGraphNode_EnvironmentQuery::GetNameIcon() const

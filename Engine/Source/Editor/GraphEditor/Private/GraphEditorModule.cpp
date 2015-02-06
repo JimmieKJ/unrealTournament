@@ -20,6 +20,8 @@ IMPLEMENT_MODULE(FGraphEditorModule, GraphEditor);
 
 void FGraphEditorModule::StartupModule()
 {
+	FGraphEditorCommands::Register();
+
 	TArray< TWeakPtr<SGraphEditor> >& Instances = SGraphEditor::AllInstances;
 	for (auto InstanceIt = SGraphEditor::AllInstances.CreateIterator(); InstanceIt; ++InstanceIt)
 	{

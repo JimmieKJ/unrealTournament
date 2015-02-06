@@ -58,6 +58,8 @@ protected:
 			TArray<UObject*> ObjectList;
 			ObjectList.Add(&GEditor->AccessGameAgnosticSettings());
 			StartupCategory.AddExternalProperty(ObjectList, "bLoadTheMostRecentlyLoadedProjectAtStartup");
+
+			StartupCategory.AddExternalProperty(ObjectList, "bEditorAnalyticsEnabled", EPropertyLocation::Advanced);
 		}
 	}
 };

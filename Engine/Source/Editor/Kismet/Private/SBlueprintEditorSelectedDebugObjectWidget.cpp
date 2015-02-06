@@ -238,12 +238,7 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugWorldNames(bool bRe
 	DebugWorlds.Add(nullptr);
 	DebugWorldNames.Add(MakeShareable(new FString(GetDebugAllWorldsString())));
 
-	UWorld* PreviewWorld = nullptr;
-	TSharedPtr<SSCSEditorViewport> PreviewViewportPtr = BlueprintEditor.Pin()->GetSCSViewport();
-	if (PreviewViewportPtr.IsValid())
-	{
-		PreviewWorld = PreviewViewportPtr->GetPreviewScene().GetWorld();
-	}
+	UWorld* PreviewWorld = BlueprintEditor.Pin()->GetPreviewScene()->GetWorld();
 
 	for (TObjectIterator<UWorld> It; It; ++It)
 	{
@@ -374,12 +369,7 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugObjectNames(bool bR
 		}
 	}
 
-	UWorld* PreviewWorld = nullptr;
-	TSharedPtr<SSCSEditorViewport> PreviewViewportPtr = BlueprintEditor.Pin()->GetSCSViewport();
-	if (PreviewViewportPtr.IsValid())
-	{
-		PreviewWorld = PreviewViewportPtr->GetPreviewScene().GetWorld();
-	}
+	UWorld* PreviewWorld = BlueprintEditor.Pin()->GetPreviewScene()->GetWorld();
 
 	for (TObjectIterator<UObject> It; It; ++It)
 	{

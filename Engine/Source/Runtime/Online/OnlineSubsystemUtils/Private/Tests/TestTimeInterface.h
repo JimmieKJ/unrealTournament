@@ -16,6 +16,8 @@
 	IOnlineTimePtr OnlineTime;
 	/** Delegate to use for querying for server time */
 	FOnQueryServerUtcTimeCompleteDelegate OnQueryServerUtcTimeCompleteDelegate;
+	/** The handle to the above delegate */
+	FDelegateHandle OnQueryServerUtcTimeCompleteDelegateHandle;
 
 	/** Hidden on purpose */
 	FTestTimeInterface()

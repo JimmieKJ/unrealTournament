@@ -19,6 +19,10 @@
 	/** Delegate to use for querying for recent players */
 	FOnQueryRecentPlayersCompleteDelegate OnQueryRecentPlayersCompleteDelegate;
 
+	/** Handles to the above delegates */
+	FDelegateHandle OnDeleteFriendCompleteDelegateHandle;
+	FDelegateHandle OnQueryRecentPlayersCompleteDelegateHandle;
+
 	/** Default name of friends list for running tests */
 	FString FriendsListName;
 	/** Filled in after reading friends list. Invites that are pending will be auto-accepted */

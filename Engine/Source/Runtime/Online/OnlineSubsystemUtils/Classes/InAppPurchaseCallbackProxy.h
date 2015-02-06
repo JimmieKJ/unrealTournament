@@ -46,6 +46,9 @@ private:
 	/** Delegate called when a InAppPurchase has been successfully read */
 	FOnInAppPurchaseCompleteDelegate InAppPurchaseCompleteDelegate;
 
+	/** Handle to the registered InAppPurchaseCompleteDelegate */
+	FDelegateHandle InAppPurchaseCompleteDelegateHandle;
+
 	/** The InAppPurchase read request */
 	FOnlineInAppPurchaseTransactionPtr PurchaseRequest;
 
@@ -57,4 +60,6 @@ private:
 
 	/** Did the purchase succeed? */
 	EInAppPurchaseState::Type SavedPurchaseState;
+
+	FTimerHandle OnInAppPurchaseComplete_DelayedTimerHandle;
 };

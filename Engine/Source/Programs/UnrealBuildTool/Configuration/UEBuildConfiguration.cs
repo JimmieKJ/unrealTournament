@@ -160,10 +160,6 @@ namespace UnrealBuildTool
 		[XmlConfig]
 		public static bool bUseLoggingInShipping;
 
-        /** True if we need to package up Android with the OBB in the APK file */
-		[XmlConfig]
-        public static bool bOBBinAPK;
-
 		/** True if we need PhysX vehicle support */
 		[XmlConfig]
 		public static bool bCompilePhysXVehicle;
@@ -223,7 +219,6 @@ namespace UnrealBuildTool
             bUseLoggingInShipping = false;
 			bCompileSteamOSS = true;
 			bCompileMcpOSS = true;
-            bOBBinAPK = false;
 			bCompilePhysXVehicle = true;
 			bCompileFreeType = true;
 			bCompileForSize = false;

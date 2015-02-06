@@ -29,6 +29,10 @@ private:
 	FOnEnumerateFilesCompleteDelegate OnEnumerateFilesCompleteDelegate;
 	/** Title file download complete delegate */
 	FOnReadFileCompleteDelegate OnReadFileCompleteDelegate;
+	/** OnEnumerateFilesComplete delegate handle */
+	FDelegateHandle OnEnumerateFilesCompleteDelegateHandle;
+	/** OnReadFileComplete delegate handle */
+	FDelegateHandle OnReadFileCompleteDelegateHandle;
 
 	void OnEnumerateFilesComplete(bool bSuccess);
 

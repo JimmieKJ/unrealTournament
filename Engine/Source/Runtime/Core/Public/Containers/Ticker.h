@@ -32,10 +32,21 @@ public:
 	 * @param InDelegate	delegate to fire after the delay
 	 * @param InDelay		Delay until next fire; 0 means "next frame"
 	 */
-	void AddTicker(const FTickerDelegate& InDelegate, float InDelay = 0.0f)
+	FDelegateHandle AddTicker(const FTickerDelegate& InDelegate, float InDelay = 0.0f)
 	{
 		FElement Ticker(CurrentTime + InDelay, InDelay, InDelegate);
 		PriorityQueue.HeapPush(Ticker);
+		return InDelegate.GetHandle();
+	}
+
+	/**
+	 * Removes a previously added ticker delegate.
+	 *
+	 * @param Handle - The handle of the ticker to remove.
+	 */
+	void RemoveTicker(FDelegateHandle Handle)
+	{
+		PriorityQueue.RemoveAll([=](const FElement& Element){ return Element.Delegate.GetHandle() == Handle; });
 	}
 
 	/**
@@ -43,15 +54,16 @@ public:
 	 *
 	 * @param Delegate - The delegate to remove.
 	 */
+	DELEGATE_DEPRECATED("This RemoveTicker overload is deprecated - please remove tickers using the FDelegateHandle returned by the AddTicker function.")
 	void RemoveTicker(const FTickerDelegate& Delegate)
 	{
 		for (int32 Index = 0; Index < PriorityQueue.Num(); ++Index)
 		{
-			if (PriorityQueue[Index].Delegate == Delegate)
+			if (PriorityQueue[Index].Delegate.DEPRECATED_Compare(Delegate))
 			{
 				PriorityQueue.RemoveAt(Index);
 			}
-		}		
+		}
 	}
 
 	/**
@@ -140,8 +152,8 @@ public:
 	FTickerObjectBase(float InDelay = 0.0f)
 	{
 		// Register delegate for ticker callback
-		TickDelegate = FTickerDelegate::CreateRaw(this, &FTickerObjectBase::Tick);
-		FTicker::GetCoreTicker().AddTicker(TickDelegate, InDelay);
+		FTickerDelegate TickDelegate = FTickerDelegate::CreateRaw(this, &FTickerObjectBase::Tick);
+		TickHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, InDelay);
 	}
 
 	/**
@@ -150,7 +162,7 @@ public:
 	virtual ~FTickerObjectBase()
 	{
 		// Unregister ticker delegate
-		FTicker::GetCoreTicker().RemoveTicker(TickDelegate);
+		FTicker::GetCoreTicker().RemoveTicker(TickHandle);
 	}
 
 	/**
@@ -164,5 +176,5 @@ public:
 private:	
 
 	/** Delegate for callbacks to Tick */
-	FTickerDelegate TickDelegate;
+	FDelegateHandle TickHandle;
 };

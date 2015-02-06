@@ -1,0 +1,23 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Git",
+	"Version" : 12,
+	"VersionName" : "1.0",
+	"EngineVersion" : "4.7.0",
+	"Description" : "Git source control management",
+	"Category" : "Editor.Source Control",
+	"CreatedBy" : "SRombauts and Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"CanContainContent" : false,
+	"IsBetaVersion" : true,
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "GitSourceControl",
+			"Type" : "Editor"
+		}
+	]
+}

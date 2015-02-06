@@ -71,7 +71,7 @@ bool AGameSession::ProcessAutoLogin()
 	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
 	if (IdentityInt.IsValid())
 	{
-		IdentityInt->AddOnLoginCompleteDelegate(0, FOnLoginCompleteDelegate::CreateUObject(this, &AGameSession::OnLoginComplete));
+		OnLoginCompleteDelegateHandle = IdentityInt->AddOnLoginCompleteDelegate_Handle(0, FOnLoginCompleteDelegate::CreateUObject(this, &AGameSession::OnLoginComplete));
 		if (!IdentityInt->AutoLogin(0))
 		{
 			// Not waiting for async login
@@ -91,7 +91,7 @@ void AGameSession::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, cons
 	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(World);
 	if (IdentityInt.IsValid())
 	{
-		IdentityInt->ClearOnLoginCompleteDelegate(0, FOnLoginCompleteDelegate::CreateUObject(this, &AGameSession::OnLoginComplete));
+		IdentityInt->ClearOnLoginCompleteDelegate_Handle(0, OnLoginCompleteDelegateHandle);
 		if (IdentityInt->GetLoginStatus(0) == ELoginStatus::LoggedIn)
 		{
 			RegisterServer();

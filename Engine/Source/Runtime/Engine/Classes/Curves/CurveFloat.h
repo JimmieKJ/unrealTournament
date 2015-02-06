@@ -43,6 +43,7 @@ class UCurveFloat : public UCurveBase
 	// Begin FCurveOwnerInterface
 	virtual TArray<FRichCurveEditInfoConst> GetCurves() const override;
 	virtual TArray<FRichCurveEditInfo> GetCurves() override;
+	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override;
 
 	/** Determine if Curve is the same */
 	ENGINE_API bool operator == (const UCurveFloat& Curve) const;

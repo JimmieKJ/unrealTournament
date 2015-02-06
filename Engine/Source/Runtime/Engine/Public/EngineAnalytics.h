@@ -20,7 +20,7 @@ public:
 	 */
 	static ENGINE_API IAnalyticsProvider& GetProvider();
 	/** Helper function to determine if the provider is valid. */
-	static ENGINE_API bool IsAvailable() { return Analytics.IsValid(); }
+	static ENGINE_API bool IsAvailable() { return bShouldSendUsageEvents && Analytics.IsValid(); }
 	/** Called to initialize the singleton. */
 	static void Initialize();
 	/** Called to shut down the singleton */
@@ -28,6 +28,8 @@ public:
 
 private:
 	static bool bIsInitialized;
+	/** This allows us to "opt-out" of engine analytics. We still create a session, but we don't send any usage events. */
+	static bool bShouldSendUsageEvents;
 	static TSharedPtr<IAnalyticsProvider> Analytics;
 };
 

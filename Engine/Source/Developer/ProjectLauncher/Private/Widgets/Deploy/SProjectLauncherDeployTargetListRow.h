@@ -86,7 +86,7 @@ public:
 			return SNew(SCheckBox)
 				.IsChecked(this, &SProjectLauncherDeployTargetListRow::HandleCheckBoxIsChecked)
 				.OnCheckStateChanged(this, &SProjectLauncherDeployTargetListRow::HandleCheckBoxStateChanged)
-				.ToolTipText(LOCTEXT("CheckBoxToolTip", "Check this box to include this device in the current device group").ToString());
+				.ToolTipText(LOCTEXT("CheckBoxToolTip", "Check this box to include this device in the current device group"));
 		}
 		else if (ColumnName == "Device")
 		{
@@ -206,19 +206,19 @@ private:
 	}
 
 	// Callback for getting the text of the current variant
-	FString HandleVariantSelectorText() const
+	FText HandleVariantSelectorText() const
 	{
 		ILauncherDeviceGroupPtr ActiveGroup = DeviceGroup.Get();
 		if (ActiveGroup.IsValid() && DeviceProxy.IsValid())
 		{
 			if (SelectedVariant == NAME_None)
 			{
-				return "Default";
+				return LOCTEXT("DefaultVariant", "Default");
 			}
-			return SelectedVariant.ToString();
+			return FText::FromName(SelectedVariant);
 		}
 
-		return FString();
+		return FText::GetEmpty();
 	}
 
 	// Callback for changing the selected variant
@@ -257,44 +257,44 @@ private:
 	}
 
 	// Callback for getting the friendly name.
-	FString HandleDeviceNameText() const
+	FText HandleDeviceNameText() const
 	{
 		const FString& Name = DeviceProxy->GetName();
 
 		if (Name.IsEmpty())
 		{
-			return LOCTEXT("UnnamedDeviceName", "<unnamed>").ToString();
+			return LOCTEXT("UnnamedDeviceName", "<unnamed>");
 		}
 
-		return Name;
+		return FText::FromString(Name);
 	}
 
 	// Callback for getting the host name.
-	FString HandleHostNameText() const
+	FText HandleHostNameText() const
 	{
-		return DeviceProxy->GetHostName();
+		return FText::FromString(DeviceProxy->GetHostName());
 	}
 
 	// Callback for getting the host user name.
-	FString HandleHostUserText() const
+	FText HandleHostUserText() const
 	{
-		return DeviceProxy->GetHostUser();
+		return FText::FromString(DeviceProxy->GetHostUser());
 	}
 
 	// Callback for getting the host platform name.
-	FString HandleHostPlatformText() const
+	FText HandleHostPlatformText() const
 	{
 		if (DeviceProxy->HasVariant(NAME_None))
 		{
-			return DeviceProxy->GetTargetPlatformName(NAME_None);
+			return FText::FromString(DeviceProxy->GetTargetPlatformName(NAME_None));
 		}
-		return LOCTEXT("InvalidVariant", "Invalid Variant").ToString();
+		return LOCTEXT("InvalidVariant", "Invalid Variant");
 	}
 
 	// Callback for getting the default variant name in the case where 
-	FString HandleHostNoVariantText() const
+	FText HandleHostNoVariantText() const
 	{
-		return LOCTEXT("StandardVariant", "Standard").ToString();
+		return LOCTEXT("StandardVariant", "Standard");
 	}
 
 private:

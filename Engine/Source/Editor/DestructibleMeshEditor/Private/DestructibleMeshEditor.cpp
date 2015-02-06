@@ -445,16 +445,16 @@ void FDestructibleMeshEditor::RefreshViewport()
 	Viewport->RefreshViewport();
 }
 
-FString FDestructibleMeshEditor::HandlePreviewDepthComboBoxContent() const
+FText FDestructibleMeshEditor::HandlePreviewDepthComboBoxContent() const
 {
 	const int32 CurrentPreviewDepth = GetCurrentPreviewDepth();
 
 	if (CurrentPreviewDepth < PreviewDepths.Num())
 	{
-		return *PreviewDepths[CurrentPreviewDepth];
+		return FText::FromString(*PreviewDepths[CurrentPreviewDepth]);
 	}
 
-	return FString(TEXT("Invalid"));
+	return LOCTEXT("Invalid", "Invalid");
 }
 
 void FDestructibleMeshEditor::RegeneratePreviewDepthComboList()
@@ -494,13 +494,16 @@ void FDestructibleMeshEditor::RegeneratePreviewDepthComboList()
 
 TSharedRef<SWidget> FDestructibleMeshEditor::MakeWidgetFromString( TSharedPtr<FString> InItem )
 {
-	return SNew(STextBlock) .Text( *InItem );
+	return SNew(STextBlock) .Text( FText::FromString(*InItem) );
 }
 
-FString FDestructibleMeshEditor::GetButtonLabel() const
+FText FDestructibleMeshEditor::GetButtonLabel() const
 {
-	return FString::Printf( TEXT("%3.1f"), ExplodeFractionOfRange*ExplodeRange );
-}	
+	static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(1)
+		.SetMaximumFractionalDigits(1);
+	return FText::AsNumber( ExplodeFractionOfRange*ExplodeRange, &FormatOptions );
+}
 
 void FDestructibleMeshEditor::ComboBoxSelectionChanged( TSharedPtr<FString> NewSelection )
 {

@@ -36,25 +36,46 @@ void SToolTip::SetContentWidget(const TSharedRef<SWidget>& InContentWidget)
 		WidgetContent = InContentWidget;
 	}
 
-	ToolTipContent = (!WidgetContent.IsValid())
-		? StaticCastSharedRef<SWidget>(
-		SNew(STextBlock)
-		.Text(TextContent)
-		.Font(Font)
-		.ColorAndOpacity(ColorAndOpacity)
-		.WrapTextAt_Static(&SToolTip::GetToolTipWrapWidth)
-		)
-		: InContentWidget;
+	TSharedPtr< SWidget > PinnedWidgetContent = WidgetContent.Pin();
+	if( PinnedWidgetContent.IsValid() )
+	{
+		ToolTipContent = PinnedWidgetContent;
 
-	ChildSlot
-	[
-		SNew(SBorder)
-		.BorderImage(BorderImage)
-		.Padding(TextMargin)
+		// Tool-tip with entirely custom content.  We'll create a border with some padding (as customized by the user), then
+		// embed their custom widget right inside the border.  This tool-tip currently has a different styling than tool-tips
+		// that only contain text.
+		ChildSlot
 		[
-			ToolTipContent.ToSharedRef()
-		]
-	];
+			SNew(SBorder)
+			.BorderImage(BorderImage)
+			.Padding(TextMargin)
+			[
+				ToolTipContent.ToSharedRef()
+			]
+		];
+
+	}
+	else
+	{
+		ToolTipContent =
+			SNew( STextBlock )
+			.Text( TextContent )
+			.Font( FCoreStyle::Get().GetFontStyle( "ToolTip.LargerFont" ) )
+			.ColorAndOpacity( FLinearColor::Black )
+			.WrapTextAt_Static( &SToolTip::GetToolTipWrapWidth );
+
+		// Text-only tool-tip.  This tool-tip currently has a different styling than tool-tips with custom content.  We always want basic
+		// text tool-tips to look consistent.
+		ChildSlot
+		[
+			SNew(SBorder)
+			.BorderImage( FCoreStyle::Get().GetBrush("ToolTip.BrightBackground") )
+			.Padding(FMargin(11.0f))
+			[
+				ToolTipContent.ToSharedRef()
+			]
+		];
+	}
 }
 
 

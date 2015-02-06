@@ -141,7 +141,8 @@ TSharedRef<SWidget> SAddContentWidget::CreateContentSourceTileView()
 	.OnGenerateTile(this, &SAddContentWidget::CreateContentSourceIconTile)
 	.OnSelectionChanged(this, &SAddContentWidget::ContentSourceTileViewSelectionChanged)
 	.ItemWidth(70)
-	.ItemHeight(115);
+	.ItemHeight(115)
+	.SelectionMode(ESelectionMode::Single);
 	ContentSourceTileView->SetSelection(ViewModel->GetSelectedContentSource(), ESelectInfo::Direct);
 	return ContentSourceTileView.ToSharedRef();
 }
@@ -205,8 +206,42 @@ TSharedRef<SWidget> SAddContentWidget::CreateContentSourceDetail(TSharedPtr<FCon
 				.Text(ContentSource->GetDescription())
 				.AutoWrapText(true)
 			]
+		
+			+ SScrollBox::Slot()
+			.Padding(FMargin(0, 0, 0, 5))
+			[
+				SNew(STextBlock)						
+				.Visibility(ContentSource->GetAssetTypes().IsEmpty() == false ? EVisibility::Visible : EVisibility::Collapsed)
+				.TextStyle(FAddContentDialogStyle::Get(), "AddContentDialog.HeadingText")
+				.Text(LOCTEXT("FeaturePackAssetReferences", "Asset types used in this pack:"))
+			]
+			+ SScrollBox::Slot()
+			.Padding(FMargin(0, 0, 0, 5))
+			[
+				SNew(STextBlock)
+				.Text(ContentSource->GetAssetTypes())
+				.Visibility(ContentSource->GetAssetTypes().IsEmpty() == false ? EVisibility::Visible : EVisibility::Collapsed)				
+				.AutoWrapText(true)
+			]
+		
+			+ SScrollBox::Slot()
+			.Padding(FMargin(0, 0, 0, 5))
+			[
+				SNew(STextBlock)
+				.TextStyle(FAddContentDialogStyle::Get(), "AddContentDialog.HeadingText")
+				.Visibility(ContentSource->GetClassTypes().IsEmpty() == false ? EVisibility::Visible : EVisibility::Collapsed)
+				.Text(LOCTEXT("FeaturePackClassReferences", "Class types used in this pack:"))
+			] 
+			+ SScrollBox::Slot()
+			.Padding(FMargin(0, 0, 0, 5))
+			[
+				SNew(STextBlock)
+				.Text(ContentSource->GetClassTypes())
+				.Visibility(ContentSource->GetClassTypes().IsEmpty() == false ? EVisibility::Visible : EVisibility::Collapsed)
+				.AutoWrapText(true)
+			]
 		];
-
+	
 		VerticalBox->AddSlot()
 		.AutoHeight()
 		[

@@ -17,8 +17,8 @@ enum class EWidgetSpace : uint8
 * Beware! This feature is experimental and may be substantially changed or removed in future releases.
 * A 3D instance of a Widget Blueprint that can be interacted with in the world.
 */
-UCLASS(ClassGroup=Experimental, hidecategories=(Object,Activation,"Components|Activation",Sockets,Base,Lighting,LOD,Mesh), editinlinenew, meta=(BlueprintSpawnableComponent,  DevelopmentStatus=Experimental),MinimalAPI)
-class UWidgetComponent : public UPrimitiveComponent
+UCLASS(ClassGroup=Experimental, hidecategories=(Object,Activation,"Components|Activation",Sockets,Base,Lighting,LOD,Mesh), editinlinenew, meta=(BlueprintSpawnableComponent,  DevelopmentStatus=Experimental) )
+class UMG_API UWidgetComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -30,12 +30,13 @@ public:
 	virtual FCollisionShape GetCollisionShape(float Inflation) const override;
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
-	virtual void DestroyComponent() override;
+	virtual void DestroyComponent(bool bPromoteChildren = false) override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
 	virtual FComponentInstanceDataBase* GetComponentInstanceData() const override;
 	virtual FName GetComponentInstanceDataType() const override;
-	virtual void ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData) override;
+
+	void ApplyComponentInstanceData(class FWidgetComponentInstanceData* ComponentInstanceData);
 
 	// Begin UObject
 	virtual void PostLoad() override;
@@ -68,7 +69,7 @@ public:
 	UUserWidget* GetUserWidgetObject() const;
 
 	/** @return List of widgets with their geometry and the cursor position transformed into this Widget component's space. */
-	TArray<FWidgetAndPointer> GetHitWidgetPath(const FHitResult& HitResult, bool bIgnoreEnabledStatus);
+	TArray<FWidgetAndPointer> GetHitWidgetPath( const FHitResult& HitResult, bool bIgnoreEnabledStatus );
 
 	/** @return The render target to which the user widget is rendered */
 	UTextureRenderTarget2D* GetRenderTarget() const { return RenderTarget; }
@@ -80,19 +81,19 @@ public:
 	TSharedPtr<SWidget> GetSlateWidget() const;
 
 	/** @return The draw size of the quad in the world */
-	UFUNCTION(BlueprintCallable, Category = UI)
+	UFUNCTION(BlueprintCallable, Category=UI)
 	FVector2D GetDrawSize() const;
 
 	/** Sets the draw size of the quad in the world */
-	UFUNCTION(BlueprintCallable, Category = UI)
+	UFUNCTION(BlueprintCallable, Category=UI)
 	void SetDrawSize(FVector2D Size);
 
 	/** @return The max distance from which a player can interact with this widget */
-	UFUNCTION(BlueprintCallable, Category = UI)
+	UFUNCTION(BlueprintCallable, Category=UI)
 	float GetMaxInteractionDistance() const;
-	
+
 	/** Sets the max distance from which a player can interact with this widget */
-	UFUNCTION(BlueprintCallable, Category = UI)
+	UFUNCTION(BlueprintCallable, Category=UI)
 	void SetMaxInteractionDistance(float Distance);
 
 	/** @return True if the component is opaque */
@@ -100,14 +101,14 @@ public:
 
 	/** @return The pivot point where the UI is rendered about the origin. */
 	FVector2D GetPivot() const { return Pivot; }
-
+	
 private:
 	/** The class of User Widget to create and display an instance of */
 	UPROPERTY(EditAnywhere, Category=UI)
 	EWidgetSpace Space;
 
 	/** The class of User Widget to create and display an instance of */
-	UPROPERTY(EditAnywhere, Category=UI)
+	UPROPERTY(EditAnywhere, Category=UI, meta=(DisallowCreateNew))
 	TSubclassOf<UUserWidget> WidgetClass;
 	
 	/** The size of the displayed quad. */
@@ -117,6 +118,10 @@ private:
 	/** The Alignment/Pivot point that the widget is placed at relative to the position. */
 	UPROPERTY(EditAnywhere, Category=UI)
 	FVector2D Pivot;
+
+	/** The Screen Space ZOrder that is used if the widget is displayed in screen space. */
+	UPROPERTY(EditDefaultsOnly, Category=UI)
+	int32 ZOrder;
 	
 	/** The maximum distance from which a player can interact with this widget */
 	UPROPERTY(EditAnywhere, Category=UI, meta=(ClampMin="0.0", UIMax="5000.0", ClampMax="100000.0"))

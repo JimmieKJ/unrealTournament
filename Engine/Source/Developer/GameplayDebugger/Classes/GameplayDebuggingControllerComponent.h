@@ -46,6 +46,7 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggingControllerComponent : public UActor
 
 	FOnChangeEQSQuery OnNextEQSQuery;
 	FOnChangeEQSQuery OnPreviousEQSQuery;
+
 protected:
 
 	UPROPERTY(Transient)

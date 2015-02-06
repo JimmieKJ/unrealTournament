@@ -26,14 +26,14 @@ FDebugRenderSceneProxy::FDebugRenderSceneProxy(const UPrimitiveComponent* InComp
 void FDebugRenderSceneProxy::RegisterDebugDrawDelgate()
 {
 	DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FDebugRenderSceneProxy::DrawDebugLabels);
-	UDebugDrawService::Register(*ViewFlagName, DebugTextDrawingDelegate);
+	DebugTextDrawingDelegateHandle = UDebugDrawService::Register(*ViewFlagName, DebugTextDrawingDelegate);
 }
 
 void FDebugRenderSceneProxy::UnregisterDebugDrawDelgate()
 {
 	if (DebugTextDrawingDelegate.IsBound())
 	{
-		UDebugDrawService::Unregister(DebugTextDrawingDelegate);
+		UDebugDrawService::Unregister(DebugTextDrawingDelegateHandle);
 	}
 }
 

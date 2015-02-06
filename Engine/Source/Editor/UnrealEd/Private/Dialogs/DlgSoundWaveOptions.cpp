@@ -117,7 +117,7 @@ public:
 		{
 			TableRowContent =
 				SNew( STextBlock )
-					.Text(FString::Printf( TEXT( "%d" ), Item->PreviewInfo->QualitySetting ));
+					.Text(FText::AsNumber(Item->PreviewInfo->QualitySetting));
 		}
 		else if( ColumnName == SoundWaveCompressionOptions::ColumnID_OriginalDataSizeLabel )
 		{
@@ -151,24 +151,34 @@ public:
 	}
 
 private:
-	/** Retrieves the original data size string. */
-	FString GetOriginalDataSize() const
+	/** Common code to format a data size percentage string */
+	static FText GetFormattedDataSizeText(const int32 InSize, const int32 InOriginalSize)
 	{
-		if(Item->PreviewInfo->OriginalSize == 0)
-		{
-			return FString::Printf( TEXT( "%.2f (0.0%%)" ), Item->PreviewInfo->OriginalSize / 1024.0f );
-		}
-		return FString::Printf( TEXT( "%.2f (%.1f%%)" ), Item->PreviewInfo->OriginalSize / 1024.0f, Item->PreviewInfo->OriginalSize * 100.0f / Item->PreviewInfo->OriginalSize);
+		static const FNumberFormattingOptions DataSizeFormat = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		static const FNumberFormattingOptions OriginalDataSizePercFormat = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(1)
+			.SetMaximumFractionalDigits(1);
+
+		const float SizePerc = (InOriginalSize == 0) ? 0.0f : static_cast<float>(InSize) / static_cast<float>(InOriginalSize);
+		return FText::Format(
+			NSLOCTEXT("SoundWaveCompressionListRow", "DataSizePercentageOriginalFmt", "{0} ({1})"), 
+			FText::AsNumber(static_cast<float>(InSize) / 1024.0f, &DataSizeFormat), 
+			FText::AsPercent(SizePerc, &OriginalDataSizePercFormat)
+			);
+	}
+
+	/** Retrieves the original data size string. */
+	FText GetOriginalDataSize() const
+	{
+		return GetFormattedDataSizeText(Item->PreviewInfo->OriginalSize, Item->PreviewInfo->OriginalSize);
 	}
 
 	/** Retrieves the Vorbis data size string. */
-	FString GetVorbisDataSize() const
+	FText GetVorbisDataSize() const
 	{
-		if(Item->PreviewInfo->OriginalSize == 0)
-		{
-			return FString::Printf( TEXT( "%.2f (0.0%%)" ), Item->PreviewInfo->OggVorbisSize / 1024.0f );
-		}
-		return FString::Printf( TEXT( "%.2f (%.1f%%)" ), Item->PreviewInfo->OggVorbisSize / 1024.0f, Item->PreviewInfo->OggVorbisSize * 100.0f / Item->PreviewInfo->OriginalSize);
+		return GetFormattedDataSizeText(Item->PreviewInfo->OggVorbisSize, Item->PreviewInfo->OriginalSize);
 	}
 
 	/** Plays the Vorbis sound wave. */
@@ -182,13 +192,9 @@ private:
 	}
 
 	/** Retrieves the XMA data size string. */
-	FString GetXMADataSize() const
+	FText GetXMADataSize() const
 	{
-		if(Item->PreviewInfo->OriginalSize == 0)
-		{
-			return FString::Printf( TEXT( "%.2f (0.0%%)" ), Item->PreviewInfo->XMASize / 1024.0f );
-		}
-		return FString::Printf( TEXT( "%.2f (%.1f%%)" ), Item->PreviewInfo->XMASize / 1024.0f, Item->PreviewInfo->XMASize * 100.0f / Item->PreviewInfo->OriginalSize);
+		return GetFormattedDataSizeText(Item->PreviewInfo->XMASize, Item->PreviewInfo->OriginalSize);
 	}
 
 	/** Plays the XMA sound wave. */
@@ -202,13 +208,9 @@ private:
 	}
 
 	/** Retrieves the PS3 data size string. */
-	FString GetPS3DataSize() const
+	FText GetPS3DataSize() const
 	{
-		if(Item->PreviewInfo->OriginalSize == 0)
-		{
-			return FString::Printf( TEXT( "%.2f (0.0%%)" ), Item->PreviewInfo->PS3Size / 1024.0f );
-		}
-		return FString::Printf( TEXT( "%.2f (%.1f%%)" ), Item->PreviewInfo->PS3Size / 1024.0f, Item->PreviewInfo->PS3Size * 100.0f / Item->PreviewInfo->OriginalSize);
+		return GetFormattedDataSizeText(Item->PreviewInfo->PS3Size, Item->PreviewInfo->OriginalSize);
 	}
 
 	/** Plays the PS3 sound wave. */
@@ -402,9 +404,13 @@ TOptional<float> SSoundWaveCompressionOptions::GetProgress() const
 	return 0.0f;
 }
 
-FString SSoundWaveCompressionOptions::GetProgressString() const
+FText SSoundWaveCompressionOptions::GetProgressString() const
 {
-	return FString::Printf(TEXT("%d/%d"), SoundPreviewThreadRunnable->GetIndex(), SoundPreviewThreadRunnable->GetCount());
+	return FText::Format(
+		NSLOCTEXT("SoundWaveOptions", "CompressionProgressXOfYFmt", "{0}/{1}"), 
+		FText::AsNumber(SoundPreviewThreadRunnable->GetIndex()), 
+		FText::AsNumber(SoundPreviewThreadRunnable->GetCount())
+		);
 }
 
 EVisibility SSoundWaveCompressionOptions::IsProgressBarVisible() const

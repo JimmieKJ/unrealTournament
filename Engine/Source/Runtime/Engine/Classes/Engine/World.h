@@ -997,14 +997,6 @@ public:
 	 * UWorld default constructor
 	 */
 	UWorld( const FObjectInitializer& ObjectInitializer );
-
-	/**
-	 * UWorld constructor called at game startup and when creating a new world in the Editor.
-	 * Please note that this constructor does NOT get called when a world is loaded from disk.
-	 *
-	 * @param	InURL	URL associated with this world.
-	 */
-	UWorld( const FObjectInitializer& ObjectInitializer,const FURL& InURL );
 	
 	// LINE TRACE
 
@@ -1746,10 +1738,14 @@ public:
 	void RemoveNetworkActor( AActor* Actor );
 
 	/** Add a listener for OnActorSpawned events */
-	void AddOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler );
+	FDelegateHandle AddOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler );
 
 	/** Remove a listener for OnActorSpawned events */
+	DELEGATE_DEPRECATED("This overload of RemoveOnActorSpawnedHandler is deprecated, instead pass the result of AddOnActorSpawnedHandler.")
 	void RemoveOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler );
+
+	/** Remove a listener for OnActorSpawned events */
+	void RemoveOnActorSpawnedHandler( FDelegateHandle InHandle );
 
 	/**
 	 * Returns whether the passed in actor is part of any of the loaded levels actors array.

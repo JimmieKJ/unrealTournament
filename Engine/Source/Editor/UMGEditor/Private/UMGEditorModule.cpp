@@ -53,8 +53,8 @@ public:
 
 		// Register with the sequencer module that we provide auto-key handlers.
 		ISequencerModule& SequencerModule = FModuleManager::Get().LoadModuleChecked<ISequencerModule>("Sequencer");
-		SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FMarginTrackEditor::CreateTrackEditor));
-		SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&F2DTransformTrackEditor::CreateTrackEditor));
+		MarginTrackEditorCreateTrackEditorHandle    = SequencerModule.RegisterTrackEditor_Handle(FOnCreateTrackEditor::CreateStatic(&FMarginTrackEditor::CreateTrackEditor));
+		TransformTrackEditorCreateTrackEditorHandle = SequencerModule.RegisterTrackEditor_Handle(FOnCreateTrackEditor::CreateStatic(&F2DTransformTrackEditor::CreateTrackEditor));
 	}
 
 	/** Called before the module is unloaded, right before the module object is destroyed. */
@@ -97,7 +97,11 @@ public:
 
 	void PostCompile(UBlueprint* Blueprint)
 	{
-		delete ReRegister;
+		if (ReRegister)
+		{
+			delete ReRegister;
+			ReRegister = nullptr;
+		}
 		
 		if ( GIsEditor && GEditor )
 		{
@@ -119,6 +123,9 @@ private:
 private:
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
+
+	FDelegateHandle MarginTrackEditorCreateTrackEditorHandle;
+	FDelegateHandle TransformTrackEditorCreateTrackEditorHandle;
 
 	/** All created asset type actions.  Cached here so that we can unregister it during shutdown. */
 	TArray< TSharedPtr<IAssetTypeActions> > CreatedAssetTypeActions;

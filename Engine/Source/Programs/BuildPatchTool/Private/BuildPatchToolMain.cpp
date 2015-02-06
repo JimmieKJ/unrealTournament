@@ -18,22 +18,23 @@
 	File based patch data is only recommended for small build images that probably wouldn't benefit from chunking. I.e. Updates are commonly only a few small changed files.
 
 	Required arguments:
-	-BuildRoot=""		Specifies in quotes the directory containing the build image to be read.
-	-CloudDir=""		Specifies in quotes the cloud directory where existing data will be recognised from, and new data added to.
-	-AppID=123456		Specifies without quotes, the ID number for the app
-	-AppName=""			Specifies in quotes, the name of the app
-	-BuildVersion=""	Specifies in quotes, the version string for the build image
-	-AppLaunch=""		Specifies in quotes, the path to the app executable, must be relative to, and inside of BuildRoot.
-	-AppArgs=""			Specifies in quotes, the commandline to send to the app on launch.
+	-BuildRoot=""			Specifies in quotes the directory containing the build image to be read.
+	-CloudDir=""			Specifies in quotes the cloud directory where existing data will be recognised from, and new data added to.
+	-AppID=123456			Specifies without quotes, the ID number for the app
+	-AppName=""				Specifies in quotes, the name of the app
+	-BuildVersion=""		Specifies in quotes, the version string for the build image
+	-AppLaunch=""			Specifies in quotes, the path to the app executable, must be relative to, and inside of BuildRoot.
+	-AppArgs=""				Specifies in quotes, the commandline to send to the app on launch.
 
 	Optional arguments:
-	-stdout				Adds stdout logging to the app.
-	-nochunks			Creates file based patch data instead of chunk based patch data. Should not be used with builds that have large files.
-	-FileIgnoreList=""	Specifies in quotes, the path to a text file containing BuildRoot relative files, separated by \r\n line endings, to not be included in the build.
-	-PrereqName=""		Specifies in quotes, the display name for the prerequisites installer
-	-PrereqPath=""		Specifies in quotes, the prerequisites installer to launch on successful product install
-	-PrereqArgs=""		Specifies in quotes, the commandline to send to prerequisites installer on launch
-	-DataAgeThreshold=12.5		Specified the maximum age (in days) of existing patch data which can be reused in the generated manifest
+	-stdout					Adds stdout logging to the app.
+	-nochunks				Creates file based patch data instead of chunk based patch data. Should not be used with builds that have large files.
+	-FileIgnoreList=""		Specifies in quotes, the path to a text file containing BuildRoot relative files, separated by \r\n line endings, to not be included in the build.
+	-FileAttributeList=""	Specifies in quotes, the path to a text file containing quoted BuildRoot relative files followed by optional attribute keywords readonly compressed executable, separated by \r\n line endings. These attribute will be applied when build is installed client side.
+	-PrereqName=""			Specifies in quotes, the display name for the prerequisites installer
+	-PrereqPath=""			Specifies in quotes, the prerequisites installer to launch on successful product install
+	-PrereqArgs=""			Specifies in quotes, the commandline to send to prerequisites installer on launch
+	-DataAgeThreshold=12.5	Specified the maximum age (in days) of existing patch data which can be reused in the generated manifest
 
 	NB: -DataAgeThreshold can also be present in the [PatchGeneration] section of BuildPatchTool.ini in the cloud directory
 	NB: If -DataAgeThreshold is not supplied, either on the command-line or in BuildPatchTool.ini, then all existing data is eligible for reuse in the generated manifest
@@ -144,6 +145,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 	FString LaunchExe;
 	FString LaunchCommand;
 	FString IgnoreListFile;
+	FString AttributeListFile;
 	FString PrereqName;
 	FString PrereqPath;
 	FString PrereqArgs;
@@ -172,6 +174,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		int32 AppLaunchIdx;
 		int32 AppArgsIdx;
 		int32 FileIgnoreListIdx;
+		int32 FileAttributeListIdx;
 		int32 PrereqNameIdx;
 		int32 PrereqPathIdx;
 		int32 PrereqArgsIdx;
@@ -215,6 +218,9 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 
 		Matcher.Command = TEXT( "FileIgnoreList" );
 		FileIgnoreListIdx = Switches.IndexOfByPredicate(Matcher);
+
+		Matcher.Command = TEXT("FileAttributeList");
+		FileAttributeListIdx = Switches.IndexOfByPredicate(Matcher);
 
 		Matcher.Command = TEXT( "PrereqName" );
 		PrereqNameIdx = Switches.IndexOfByPredicate(Matcher);
@@ -262,6 +268,11 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		if( FileIgnoreListIdx != INDEX_NONE )
 		{
 			FParse::Value( *Switches[ FileIgnoreListIdx ], TEXT( "FileIgnoreList=" ), IgnoreListFile );
+		}
+
+		if( FileAttributeListIdx != INDEX_NONE )
+		{
+			FParse::Value( *Switches[ FileAttributeListIdx ], TEXT( "FileAttributeList=" ), AttributeListFile );
 		}
 
 		if( PrereqNameIdx != INDEX_NONE )
@@ -376,6 +387,9 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		}
 	}
 
+	// Initialize the file manager
+	IFileManager::Get().ProcessCommandLineOptions();
+
 	// Check for argument error
 	if( !bSuccess )
 	{
@@ -389,8 +403,17 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		return 5;
 	}
 
-	// Initialize the file manager
-	IFileManager::Get().ProcessCommandLineOptions();
+	if (!IgnoreListFile.IsEmpty() && !FPaths::FileExists(IgnoreListFile))
+	{
+		GLog->Logf(ELogVerbosity::Error, TEXT("Provided file ignore list was not found %s"), *IgnoreListFile);
+		return 6;
+	}
+
+	if (!AttributeListFile.IsEmpty() && !FPaths::FileExists(AttributeListFile))
+	{
+		GLog->Logf(ELogVerbosity::Error, TEXT("Provided file attribute list was not found %s"), *AttributeListFile);
+		return 7;
+	}
 
 	// Load the BuildPatchServices Module
 	TSharedPtr<IBuildPatchServicesModule> BuildPatchServicesModule = StaticCastSharedPtr<IBuildPatchServicesModule>( FModuleManager::Get().LoadModule( TEXT( "BuildPatchServices" ) ) );
@@ -453,6 +476,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		Settings.LaunchExe = LaunchExe;
 		Settings.LaunchCommand = LaunchCommand;
 		Settings.IgnoreListFile = IgnoreListFile;
+		Settings.AttributeListFile = AttributeListFile;
 		Settings.PrereqName = PrereqName;
 		Settings.PrereqPath = PrereqPath;
 		Settings.PrereqArgs = PrereqArgs;

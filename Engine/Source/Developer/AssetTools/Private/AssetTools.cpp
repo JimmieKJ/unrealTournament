@@ -45,6 +45,7 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_DialogueVoice) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_DialogueWave) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Enum) );
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Class) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Struct) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Font) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ForceFeedbackEffect) );
@@ -145,6 +146,45 @@ TWeakPtr<IAssetTypeActions> FAssetTools::GetAssetTypeActionsForClass( UClass* Cl
 	}
 
 	return MostDerivedAssetTypeActions;
+}
+
+void FAssetTools::RegisterClassTypeActions(const TSharedRef<IClassTypeActions>& NewActions)
+{
+	ClassTypeActionsList.Add(NewActions);
+}
+
+void FAssetTools::UnregisterClassTypeActions(const TSharedRef<IClassTypeActions>& ActionsToRemove)
+{
+	ClassTypeActionsList.Remove(ActionsToRemove);
+}
+
+void FAssetTools::GetClassTypeActionsList( TArray<TWeakPtr<IClassTypeActions>>& OutClassTypeActionsList ) const
+{
+	for (auto ActionsIt = ClassTypeActionsList.CreateConstIterator(); ActionsIt; ++ActionsIt)
+	{
+		OutClassTypeActionsList.Add(*ActionsIt);
+	}
+}
+
+TWeakPtr<IClassTypeActions> FAssetTools::GetClassTypeActionsForClass( UClass* Class ) const
+{
+	TSharedPtr<IClassTypeActions> MostDerivedClassTypeActions;
+
+	for (int32 TypeActionsIdx = 0; TypeActionsIdx < ClassTypeActionsList.Num(); ++TypeActionsIdx)
+	{
+		TSharedRef<IClassTypeActions> TypeActions = ClassTypeActionsList[TypeActionsIdx];
+		UClass* SupportedClass = TypeActions->GetSupportedClass();
+
+		if ( Class->IsChildOf(SupportedClass) )
+		{
+			if ( !MostDerivedClassTypeActions.IsValid() || SupportedClass->IsChildOf( MostDerivedClassTypeActions->GetSupportedClass() ) )
+			{
+				MostDerivedClassTypeActions = TypeActions;
+			}
+		}
+	}
+
+	return MostDerivedClassTypeActions;
 }
 
 bool FAssetTools::GetAssetActions( const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder, bool bIncludeHeading )
@@ -263,6 +303,50 @@ UObject* FAssetTools::CreateAsset(const FString& AssetName, const FString& Packa
 	}
 
 	return NewObj;
+}
+
+UObject* FAssetTools::CreateAsset(UClass* AssetClass, UFactory* Factory, FName CallingContext)
+{
+	if (Factory != nullptr)
+	{
+		// Determine the starting path. Try to use the most recently used directory
+		FString AssetPath;
+
+		const FString DefaultFilesystemDirectory = FEditorDirectories::Get().GetLastDirectory(ELastDirectory::NEW_ASSET);
+		if (DefaultFilesystemDirectory.IsEmpty() || !FPackageName::TryConvertFilenameToLongPackageName(DefaultFilesystemDirectory, AssetPath))
+		{
+			// No saved path, just use the game content root
+			AssetPath = TEXT("/Game");
+		}
+
+		FString PackageName;
+		FString AssetName;
+		CreateUniqueAssetName(AssetPath / Factory->GetDefaultNewAssetName(), TEXT(""), PackageName, AssetName);
+
+		FSaveAssetDialogConfig SaveAssetDialogConfig;
+		SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("SaveAssetDialogTitle", "Save Asset As");
+		SaveAssetDialogConfig.DefaultPath = AssetPath;
+		SaveAssetDialogConfig.DefaultAssetName = AssetName;
+		SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+		FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+		if (!SaveObjectPath.IsEmpty())
+		{
+			FEditorDelegates::OnConfigureNewAssetProperties.Broadcast(Factory);
+			if (Factory->ConfigureProperties())
+			{
+				const FString SavePackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
+				const FString SaveAssetPath = FPaths::GetPath(SavePackageName);
+				const FString SaveAssetName = FPaths::GetBaseFilename(SavePackageName);
+				FEditorDirectories::Get().SetLastDirectory(ELastDirectory::NEW_ASSET, SaveAssetPath);
+
+				return CreateAsset(SaveAssetName, SaveAssetPath, AssetClass, Factory, CallingContext);
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 UObject* FAssetTools::DuplicateAsset(const FString& AssetName, const FString& PackagePath, UObject* OriginalObject)
@@ -426,7 +510,7 @@ void FAssetTools::ExpandDirectories(const TArray<FString>& Files, const FString&
 	}
 }
 
-TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const FString& RootDestinationPath, UFactory* SpecifiedFactory) const
+TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const FString& RootDestinationPath, UFactory* SpecifiedFactory, bool bSyncToBrowser ) const
 {
 	TArray<UObject*> ReturnObjects;
 	TMap< FString, TArray<UFactory*> > ExtensionToFactoriesMap;
@@ -790,7 +874,7 @@ TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const F
 	}
 
 	// Sync content browser to the newly created assets
-	if ( ReturnObjects.Num() )
+	if ( ReturnObjects.Num() && (bSyncToBrowser != false ) )
 	{
 		FAssetTools::Get().SyncBrowserToAssets(ReturnObjects);
 	}
@@ -950,10 +1034,10 @@ void FAssetTools::DiffAgainstDepot( UObject* InObject, const FString& InPackageP
 							FRevisionInfo OldRevision;
 							OldRevision.Changelist = Revision->GetCheckInIdentifier();
 							OldRevision.Date = Revision->GetDate();
-							OldRevision.Revision = Revision->GetRevisionNumber();
+							OldRevision.Revision = Revision->GetRevision();
 
 							FRevisionInfo NewRevision; 
-							NewRevision.Revision = -1;
+							NewRevision.Revision = TEXT("");
 							DiffAssets(OldObject, InObject, OldRevision, NewRevision);
 						}
 					}

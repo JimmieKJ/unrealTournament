@@ -1663,7 +1663,7 @@ AActor* AMatineeActor::FindViewedActor()
 void AMatineeActor::UpdateReplicatedData( bool bIsBeginningPlay )
 {
 	ForceNetUpdate();
-	
+
 	if (bIsPlaying || bIsBeginningPlay)
 	{
 		GetWorldTimerManager().SetTimer(TimerHandle_CheckPriorityRefresh, this, &AMatineeActor::CheckPriorityRefresh, 1.0f, true);
@@ -8146,7 +8146,7 @@ static void AddMaterialRefsForActor(
 {
 	if (Actor && !Actor->IsRootComponentStatic())
 	{
-		TArray<USceneComponent*> Components;
+		TInlineComponentArray<USceneComponent*> Components;
 		Actor->GetComponents(Components);
 
 		for (int32 MaterialIndex = 0; MaterialIndex < Materials.Num(); MaterialIndex++)

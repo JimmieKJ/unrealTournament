@@ -183,6 +183,9 @@ protected:
 	 * The object graph for the assets referenced by the currently selected actors.
 	 */
 	ObjectReferenceGraph ReferenceGraph;
+
+	/** Handle to the registered OnEditorMapChange delegate. */
+	FDelegateHandle OnEditorMapChangeDelegateHandle;
 };
 
 #endif // __REFERENCEDASSETSBROWSER_H__

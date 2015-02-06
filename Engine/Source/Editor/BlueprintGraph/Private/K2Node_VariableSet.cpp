@@ -368,16 +368,16 @@ void UK2Node_VariableSet::CreateOutputPinTooltip()
 	Pin->PinToolTip = NSLOCTEXT("K2Node", "SetPinOutputTooltip", "Retrieves the value of the variable, can use instead of a separate Get node").ToString();
 }
 
-FString UK2Node_VariableSet::GetPinNameOverride(const UEdGraphPin& Pin) const
+FText UK2Node_VariableSet::GetPinNameOverride(const UEdGraphPin& Pin) const
 {
 	// Stop the output pin for the variable, effectively the "get" pin, from displaying a name.
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 	if(Pin.Direction == EGPD_Output || Pin.PinType.PinCategory == K2Schema->PC_Exec)
 	{
-		return FString();
+		return FText::GetEmpty();
 	}
 
-	return !Pin.PinFriendlyName.IsEmpty() ? Pin.PinFriendlyName.ToString() : Pin.PinName;
+	return !Pin.PinFriendlyName.IsEmpty() ? Pin.PinFriendlyName : FText::FromString(Pin.PinName);
 }
 
 void UK2Node_VariableSet::ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)

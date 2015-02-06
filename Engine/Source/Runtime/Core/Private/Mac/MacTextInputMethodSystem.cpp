@@ -6,6 +6,7 @@
 #include "MacTextInputMethodSystem.h"
 #include "CocoaTextView.h"
 #include "CocoaThread.h"
+#include "MacApplication.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMacTextInputMethodSystem, Log, All);
 
@@ -53,14 +54,8 @@ namespace
 		if(ChangeType != ELayoutChangeType::Created && GetContextWindow().IsValid())
 		{
 			FCocoaWindow* CocoaWindow = (FCocoaWindow*)GetContextWindow()->GetOSWindowHandle();
-			MainThreadCall(^{
-				SCOPED_AUTORELEASE_POOL;
-				if(CocoaWindow && [CocoaWindow openGLView])
-				{
-					FCocoaTextView* TextView = (FCocoaTextView*)[CocoaWindow openGLView];
-					[[TextView inputContext] invalidateCharacterCoordinates];
-				}
-			}, UE4IMEEventMode, true);
+			
+			MacApplication->InvalidateTextLayout( CocoaWindow );
 		}
 	}
 	

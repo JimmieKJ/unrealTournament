@@ -37,7 +37,7 @@ public:
 					.AutoWidth()
 					[
 						SNew(STextBlock) 
-						.Text( ClassesToDrop[0]->GetName() )
+						.Text( FText::FromString(ClassesToDrop[0]->GetName()) )
 					]
 				];
 		}
@@ -51,7 +51,7 @@ public:
 				.AutoWidth()
 				[
 					SNew(STextBlock) 
-					.Text( ClassesToDrop[0]->GetName() )
+					.Text( FText::FromString(ClassesToDrop[0]->GetName()) )
 				]
 			];
 	}
@@ -102,7 +102,7 @@ public:
 				.AutoWidth()
 				[
 					SNew(STextBlock) 
-					.Text( (*AssetsToDrop.Get())[0].AssetName )
+					.Text( FText::FromString((*AssetsToDrop.Get())[0].AssetName) )
 				]
 			];
 	}

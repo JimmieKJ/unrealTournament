@@ -25,7 +25,7 @@ public:
 	virtual FLinearColor GetNodeTitleColor() const override { return FLinearColor( 0.2f, 1.f, 0.2f ); }
 	ENGINE_API virtual FText GetTooltipText() const override;
 	ENGINE_API virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
-	ENGINE_API virtual FString GetPinNameOverride(const UEdGraphPin& Pin) const override;
+	ENGINE_API virtual FText GetPinNameOverride(const UEdGraphPin& Pin) const override;
 	ENGINE_API virtual void ResizeNode(const FVector2D& NewSize) override;
 	ENGINE_API virtual void PostPlacedNewNode() override;
 	ENGINE_API virtual void OnRenameNode(const FString& NewName) override;

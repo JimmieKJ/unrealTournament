@@ -357,6 +357,12 @@ namespace AutomationTool
 		private static void CompileAndLoadTargetsAssembly(ProjectProperties Properties, string TargetsDllFilename, bool DoNotCompile, List<string> TargetScripts)
 		{
 			CommandUtils.Log("Compiling targets DLL: {0}", TargetsDllFilename);
+
+			if (!DoNotCompile && GlobalCommandLine.NoCodeProject)
+			{
+				//throw new AutomationException("Building is not supported when -nocodeproject flag is provided.");
+			}
+
 			var ReferencedAssemblies = new List<string>() 
 					{ 
 						"System.dll", 

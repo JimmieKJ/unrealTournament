@@ -31,7 +31,7 @@ void SScreenShotItem::Construct( const FArguments& InArgs )
 				.HAlign(HAlign_Center)
 				.Padding( 4.0f, 4.0f )
 				[
-					SNew( STextBlock ) .Text( ScreenShotData->GetName() )
+					SNew( STextBlock ) .Text( FText::FromString(ScreenShotData->GetName()) )
 				]
 				+SVerticalBox::Slot()
 				.AutoHeight()

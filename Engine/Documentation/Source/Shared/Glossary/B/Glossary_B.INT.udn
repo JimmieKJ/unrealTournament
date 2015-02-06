@@ -15,7 +15,7 @@ Blueprints
 [EXCERPT:Glossary_Blueprints]
 **Blueprints** are a visual gameplay scripting system based on the concept of using a node-based interface to create gameplay elements from within Unreal Editor. This system is extremely flexible and powerful as it provides the ability to use virtually the full range of concepts and tools generally only available to programmers, through programming languages and the features they support.
 
-There are several kinds of Blueprints, including Level Blueprints, Class Blueprints, Blueprint Macro Libraries, and Animation Blueprints.
+There are several kinds of Blueprints, including Level Blueprints, Blueprint Classes, Blueprint Macro Libraries, and Animation Blueprints.
 [/EXCERPT:Glossary_Blueprints]
 
 	[/PARAM]

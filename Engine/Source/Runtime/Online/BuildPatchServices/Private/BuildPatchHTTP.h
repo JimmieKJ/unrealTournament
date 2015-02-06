@@ -119,6 +119,7 @@ private:
 private:
 	static FBuildPatchHTTP& Get();
 	static FBuildPatchHTTP* SingletonInstance;
+	static FDelegateHandle TickDelegateHandle;
 };
 
 #endif // __BuildPatchHTTP_h__

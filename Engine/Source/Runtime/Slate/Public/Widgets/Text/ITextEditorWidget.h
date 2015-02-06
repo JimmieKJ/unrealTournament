@@ -102,6 +102,57 @@ private:
 	float GeometryScale;
 };
 
+/** Manages the state for an active context menu */
+class FActiveTextEditContextMenu
+{
+public:
+	FActiveTextEditContextMenu()
+		: bIsPendingSummon(false)
+		, ActiveMenuWindow()
+	{
+	}
+
+	/** Check to see whether this context is valid (either pending or active) */
+	bool IsValid() const
+	{
+		return bIsPendingSummon || ActiveMenuWindow.IsValid();
+	}
+
+	/** Called to reset the active context menu state */
+	void Reset()
+	{
+		bIsPendingSummon = false;
+		ActiveMenuWindow.Reset();
+	}
+
+	/** Called before you summon your context menu */
+	void PrepareToSummon()
+	{
+		bIsPendingSummon = true;
+		ActiveMenuWindow.Reset();
+	}
+
+	/** Called when you've successfully summoned your context menu */
+	void SummonSucceeded(const TSharedRef<SWindow>& InActiveMenuWindow)
+	{
+		bIsPendingSummon = false;
+		ActiveMenuWindow = InActiveMenuWindow;
+	}
+
+	/** Called if your context menu summon fails */
+	void SummonFailed()
+	{
+		bIsPendingSummon = false;
+		ActiveMenuWindow.Reset();
+	}
+
+private:
+	/** True if we are pending the summon of a context menu, but don't yet have an active window pointer */
+	bool bIsPendingSummon;
+
+	/** Handle to the active context menu (if any) */
+	TWeakPtr<SWindow> ActiveMenuWindow;
+};
 
 class SLATE_API ITextEditorWidget 
 {

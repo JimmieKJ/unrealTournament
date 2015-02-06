@@ -288,7 +288,7 @@ private:
 		}
 		return FEditorStyle::GetBrush("GameProjectDialog.DefaultGameThumbnail.Small");
 	}
-
+	
 };
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -299,7 +299,7 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 	bLastGlobalValidityCheckSuccessful = true;
 	bLastNameAndLocationValidityCheckSuccessful = true;
 	bPreventPeriodicValidityChecksUntilNextChange = false;
-	bCopyStarterContent = true;
+	bCopyStarterContent = GEditor ? GEditor->AccessGameAgnosticSettings().bCopyStarterContentPreference : true;
 
 	IHardwareTargetingModule& HardwareTargeting = IHardwareTargetingModule::Get();
 
@@ -330,13 +330,22 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 		TArray<SDecoratedEnumCombo<int32>::FComboOption> StarterContentInfo;
 		StarterContentInfo.Add(SDecoratedEnumCombo<int32>::FComboOption(
 			0, FSlateIcon(FEditorStyle::GetStyleSetName(), "GameProjectDialog.NoStarterContent"), LOCTEXT("NoStarterContent", "No Starter Content")));
-		StarterContentInfo.Add(SDecoratedEnumCombo<int32>::FComboOption(
-			1, FSlateIcon(FEditorStyle::GetStyleSetName(), "GameProjectDialog.IncludeStarterContent"), LOCTEXT("IncludeStarterContent", "With Starter Content")));
+		FString RequiredTooltipText = LOCTEXT("CopyStarterContent_ToolTip", "Enable to include an additional content pack containing simple placeable meshes with basic materials and textures.\nYou can opt out of including this to create a project that only has the bare essentials for the selected project template.").ToString();
+		// Only add the option to add starter content if its there to add !
+		if( GameProjectUtils::IsStarterContentAvailableForNewProjects() == true )
+		{
+			StarterContentInfo.Add(SDecoratedEnumCombo<int32>::FComboOption(
+				1, FSlateIcon(FEditorStyle::GetStyleSetName(), "GameProjectDialog.IncludeStarterContent"), LOCTEXT("IncludeStarterContent", "With Starter Content")));
+		}
+		else
+		{
+			RequiredTooltipText = LOCTEXT("NoStarterContent_ToolTip", "Starter content is not currently available.").ToString();
+		}
 
 		StartContentCombo = SNew(SDecoratedEnumCombo<int32>, MoveTemp(StarterContentInfo))
 			.SelectedEnum(this, &SNewProjectWizard::GetCopyStarterContentIndex)
 			.OnEnumChanged(this, &SNewProjectWizard::OnSetCopyStarterContent)
-			.ToolTipText( LOCTEXT("CopyStarterContent_ToolTip", "Enable to include an additional content pack containing simple placeable meshes with basic materials and textures.\nYou can opt out of including this to create a project that only has the bare essentials for the selected project template."));
+			.ToolTipText( RequiredTooltipText );
 	}
 
 	const float UniformPadding = 16.f;
@@ -371,11 +380,13 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 						SNew(SVerticalBox)
 
 						+ SVerticalBox::Slot()
-						//.Padding(FMargin(0, 0, 0, 15))
+						.Padding(FMargin(0, 0, 0, 15))
 						.AutoHeight()
 						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("ProjectTemplateDescription", "First, choose a template to use as a starting point for your new project:"))
+							SNew(SRichTextBlock)
+							.Text(LOCTEXT("ProjectTemplateDescription", "Choose a <RichTextBlock.BoldHighlight>template</> to use as a starting point for your new project.  Any of these features can be added later by clicking <RichTextBlock.BoldHighlight>Add Feature or Content Pack</> in <RichTextBlock.BoldHighlight>Content Browser</>."))
+							.AutoWrapText(true)
+ 							.DecoratorStyleSet(&FEditorStyle::Get())
 							.ToolTip(IDocumentation::Get()->CreateToolTip(LOCTEXT("TemplateChoiceTooltip", "A template consists of a little bit of player control logic (either as a Blueprint or in C++), input bindings, and appropriate prototyping assets."), NULL, TEXT("Shared/Editor/NewProjectWizard"), TEXT("TemplateChoice")))
 						]
 
@@ -554,8 +565,10 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 								.AutoHeight()
 								.Padding(FMargin(0, 0, 0, 15.f))
 								[
-									SNew(STextBlock)
-									.Text(LOCTEXT("ProjectSettingsDescription", "Next, choose some settings for your project. Don't worry, you can choose later or change these at any time in [Project Settings - Target Hardware]:"))
+									SNew(SRichTextBlock)
+									.Text(LOCTEXT("ProjectSettingsDescription", "Choose some <RichTextBlock.BoldHighlight>settings</> for your project.  Don't worry, you can change these later in the <RichTextBlock.BoldHighlight>Target Hardware</> section of <RichTextBlock.BoldHighlight>Project Settings</>.  You can also add the <RichTextBlock.BoldHighlight>Starter Content</> to your project later using <RichTextBlock.BoldHighlight>Content Browser</>."))
+									.AutoWrapText(true)
+ 									.DecoratorStyleSet(&FEditorStyle::Get())
 									.ToolTip(IDocumentation::Get()->CreateToolTip(LOCTEXT("HardwareTargetTooltip", "These settings will choose good defaults for a number of other settings in the project such as post-processing flags and touch input emulation using the mouse."), NULL, TEXT("Shared/Editor/NewProjectWizard"), TEXT("TargetHardware")))
 								]
 
@@ -624,8 +637,10 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 								.AutoHeight()
 								.Padding(FMargin(0, 0, 0, 15.f))
 								[
-									SNew(STextBlock)
-									.Text(LOCTEXT("ProjectPathDescription", "Finally, choose a location for your project to be stored:"))
+									SNew(SRichTextBlock)
+									.Text(LOCTEXT("ProjectPathDescription", "Select a <RichTextBlock.BoldHighlight>location</> for your project to be stored."))
+									.AutoWrapText(true)
+ 									.DecoratorStyleSet(&FEditorStyle::Get())
 									.ToolTip(IDocumentation::Get()->CreateToolTip(LOCTEXT("ProjectPathDescriptionTooltip", "All of your project content and code will be stored here."), NULL, TEXT("Shared/Editor/NewProjectWizard"), TEXT("ProjectPath")))
 								]
 
@@ -661,7 +676,16 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 				.Padding( UniformPadding / 2 )
 				[
 					SNew(SHorizontalBox)
-										
+						
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.Padding(2.f)
+					.AutoWidth()
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush("MessageLog.Warning"))
+					]
+
 					+SHorizontalBox::Slot()
 					.VAlign(VAlign_Center)
 					.FillWidth(1.0f)
@@ -671,15 +695,14 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 						.TextStyle(FEditorStyle::Get(), TEXT("GameProjectDialog.ErrorLabelFont"))
 					]
 
-					// A link to a platform-specific IDE, only shown when a compiler is not available
+					// Button/link to the suggested IDE
 					+SHorizontalBox::Slot()
 					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
 					.AutoWidth()
+					.Padding(5.f, 0.f)
 					[
-						SNew(SHyperlink)
-						.Text(FText::Format(LOCTEXT("IDEDownloadLinkText", "Download {0}"), FSourceCodeNavigation::GetSuggestedSourceCodeIDE()))
-						.OnNavigate(this, &SNewProjectWizard::OnDownloadIDEClicked, FSourceCodeNavigation::GetSuggestedSourceCodeIDEDownloadURL())
-						.Visibility(this, &SNewProjectWizard::GetGlobalErrorLabelIDELinkVisibility)
+						SNew(SGetSuggestedIDEWidget)
 					]
 									
 					// A button to close the persistent global error text
@@ -712,10 +735,19 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 				.Padding(UniformPadding / 2)
 				[
 					SNew(SHorizontalBox)
-										
+					
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.Padding(2.f)
+					.AutoWidth()
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush("MessageLog.Warning"))
+					]
+
 					+SHorizontalBox::Slot()
 					.VAlign(VAlign_Center)
-					.FillWidth(1.0f)
+					.AutoWidth()
 					[
 						SNew(STextBlock)
 						.AutoWrapText(true)
@@ -813,11 +845,11 @@ FText SNewProjectWizard::GetStarterContentWarningTooltip() const
 {
 	if (SelectedGraphicsPreset == EGraphicsPreset::Maximum)
 	{
-		return LOCTEXT("StarterContentMobileWarning_Maximum", "Note: Starter content can increase the packaged size significantly, removing the example maps will result in only packaging content that is actually used");
+		return LOCTEXT("StarterContentMobileWarning_Maximum", "Note: Starter content will be inserted first time the project is opened, and can increase the packaged size significantly, removing the example maps will result in only packaging content that is actually used");
 	}
 	else
 	{
-		return LOCTEXT("StarterContentMobileWarning_Scalable", "Warning: Starter content is not optimized for scalable mobile projects");
+		return LOCTEXT("StarterContentMobileWarning_Scalable", "Warning: Starter content content will be inserted first time the project is opened, and is not optimized for scalable mobile projects");
 	}
 }
 
@@ -852,9 +884,9 @@ TSharedPtr<FTemplateItem> SNewProjectWizard::GetSelectedTemplateItem() const
 	return NULL;
 }
 
-FString SNewProjectWizard::GetSelectedTemplateClassTypes() const
+FText SNewProjectWizard::GetSelectedTemplateClassTypes() const
 {
-	return GetSelectedTemplateProperty<FString>(&FTemplateItem::ClassTypes);
+	return FText::FromString(GetSelectedTemplateProperty<FString>(&FTemplateItem::ClassTypes));
 }
 
 EVisibility SNewProjectWizard::GetSelectedTemplateClassVisibility() const
@@ -862,9 +894,9 @@ EVisibility SNewProjectWizard::GetSelectedTemplateClassVisibility() const
 	return GetSelectedTemplateProperty<FString>(&FTemplateItem::ClassTypes).IsEmpty() == false? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-FString SNewProjectWizard::GetSelectedTemplateAssetTypes() const
+FText SNewProjectWizard::GetSelectedTemplateAssetTypes() const
 {
-	return GetSelectedTemplateProperty<FString>(&FTemplateItem::AssetTypes);
+	return FText::FromString(GetSelectedTemplateProperty<FString>(&FTemplateItem::AssetTypes));
 }
 
 EVisibility SNewProjectWizard::GetSelectedTemplateAssetVisibility() const
@@ -1009,13 +1041,6 @@ FReply SNewProjectWizard::HandleBrowseButtonClicked()
 	return FReply::Handled();
 }
 
-
-void SNewProjectWizard::OnDownloadIDEClicked(FString URL)
-{
-	FPlatformProcess::LaunchURL( *URL, NULL, NULL );
-}
-
-
 void SNewProjectWizard::HandleTemplateListViewDoubleClick( TSharedPtr<FTemplateItem> TemplateItem )
 {
 	// Advance to the name/location page
@@ -1066,13 +1091,6 @@ EVisibility SNewProjectWizard::GetGlobalErrorLabelCloseButtonVisibility() const
 {
 	return PersistentGlobalErrorLabelText.IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
 }
-
-
-EVisibility SNewProjectWizard::GetGlobalErrorLabelIDELinkVisibility() const
-{
-	return (IsCompilerRequired() && !FSourceCodeNavigation::IsCompilerAvailable()) ? EVisibility::Visible : EVisibility::Collapsed;
-}
-
 
 FText SNewProjectWizard::GetGlobalErrorLabelText() const
 {
@@ -1200,7 +1218,7 @@ void SNewProjectWizard::FindTemplateProjects()
 					FText TemplateDescription = TemplateDefs->GetLocalizedDescription();
 					FString ClassTypes = TemplateDefs->ClassTypes;
 					FString AssetTypes = TemplateDefs->AssetTypes;
-
+					
 					// If no template name was specified for the current culture, just use the project name
 					if ( TemplateName.IsEmpty() )
 					{
@@ -1462,10 +1480,30 @@ void SNewProjectWizard::CreateAndOpenProject( )
 			// Prevent periodic validity checks. This is to prevent a brief error message about the project already existing while you are exiting.
 			bPreventPeriodicValidityChecksUntilNextChange = true;
 
-			// If it's a code project, compile the binaries first.
-			if(!GetSelectedTemplateItem()->bGenerateCode || GameProjectUtils::BuildCodeProject(ProjectFile))
+			bool bCanOpenProject = false;
+			if( GetSelectedTemplateItem()->bGenerateCode )
 			{
-				OpenProject( ProjectFile );
+			    // Rocket already has the engine compiled, so we can try to build and open a new project immediately. Non-Rocket might require building
+			    // the engine (especially the case when binaries came from P4), so we only open the IDE for that.
+			    if( FRocketSupport::IsRocket() && GameProjectUtils::BuildCodeProject(ProjectFile) )
+			    {
+					// Everything compiled OK, so we can go ahead and open the project
+					bCanOpenProject = true;
+		
+					// Open Visual Studio or Xcode if the user created a project with C++ files.  Note that if the code failed to compile, the
+					// BuildCodeProject() function will already offer to open the IDE for the user, so we only do this if every compiled OK.
+					OpenCodeIDE( ProjectFile );
+			    }
+			}
+			else
+			{
+				// We can always open non-code projects, because they don't have any DLLs
+				bCanOpenProject = true;
+			}
+
+			if( bCanOpenProject )
+			{
+				OpenProject(ProjectFile);
 			}
 		}
 	}

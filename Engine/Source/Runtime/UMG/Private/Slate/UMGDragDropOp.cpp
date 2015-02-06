@@ -6,23 +6,33 @@
 
 //////////////////////////////////////////////////////////////////////////
 // FUMGDragDropOp
+
+FUMGDragDropOp::FUMGDragDropOp()
+{
+	StartTime = FSlateApplicationBase::Get().GetCurrentTime();
+}
+
+void FUMGDragDropOp::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(DragOperation);
+}
+
 void FUMGDragDropOp::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent )
 {
-	UDragDropOperation* OperationObject = DragOperation.Get();
-	if ( OperationObject )
+	if ( DragOperation )
 	{
 		if ( bDropWasHandled )
 		{
-			OperationObject->Drop(MouseEvent);
+			DragOperation->Drop(MouseEvent);
 		}
 		else
 		{
 			if ( SourceUserWidget.IsValid() )
 			{
-				SourceUserWidget->OnDragCancelled(FDragDropEvent(MouseEvent, AsShared()), OperationObject);
+				SourceUserWidget->OnDragCancelled(FDragDropEvent(MouseEvent, AsShared()), DragOperation);
 			}
 
-			OperationObject->DragCancelled(MouseEvent);
+			DragOperation->DragCancelled(MouseEvent);
 		}
 	}
 	
@@ -31,15 +41,67 @@ void FUMGDragDropOp::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEve
 
 void FUMGDragDropOp::OnDragged( const class FDragDropEvent& DragDropEvent )
 {
-	UDragDropOperation* OperationObject = DragOperation.Get();
-	if ( OperationObject )
+	if ( DragOperation )
 	{
-		OperationObject->Dragged(DragDropEvent);
+		DragOperation->Dragged(DragDropEvent);
 	}
 
-	FVector2D Position = DragDropEvent.GetScreenSpacePosition() + Offset;
+	FVector2D CachedDesiredSize = DecoratorWidget->GetDesiredSize();
 
-	CursorDecoratorWindow->MoveWindowTo(Position);
+	FVector2D Position = DragDropEvent.GetScreenSpacePosition();
+	Position += CachedDesiredSize * DragOperation->Offset;
+
+	switch ( DragOperation->Pivot )
+	{
+	case EDragPivot::MouseDown:
+		Position += MouseDownOffset;
+		break;
+
+	case EDragPivot::TopLeft:
+		// Position is already Top Left.
+		break;
+	case EDragPivot::TopCenter:
+		Position -= CachedDesiredSize * FVector2D(0.5f, 0);
+		break;
+	case EDragPivot::TopRight:
+		Position -= CachedDesiredSize * FVector2D(1, 0);
+		break;
+
+	case EDragPivot::CenterLeft:
+		Position -= CachedDesiredSize * FVector2D(0, 0.5f);
+		break;
+	case EDragPivot::CenterCenter:
+		Position -= CachedDesiredSize * FVector2D(0.5f, 0.5f);
+		break;
+	case EDragPivot::CenterRight:
+		Position -= CachedDesiredSize * FVector2D(1.0f, 0.5f);
+		break;
+
+	case EDragPivot::BottomLeft:
+		Position -= CachedDesiredSize * FVector2D(0, 1);
+		break;
+	case EDragPivot::BottomCenter:
+		Position -= CachedDesiredSize * FVector2D(0.5f, 1);
+		break;
+	case EDragPivot::BottomRight:
+		Position -= CachedDesiredSize * FVector2D(1, 1);
+		break;
+	}
+
+	const double AnimationTime = 0.150;
+
+	double DeltaTime = FSlateApplicationBase::Get().GetCurrentTime() - StartTime;
+
+	if ( DeltaTime < AnimationTime )
+	{
+		float T = DeltaTime / AnimationTime;
+		FVector2D LerpPosition = ( Position - StartingScreenPos ) * T;
+		CursorDecoratorWindow->MoveWindowTo(StartingScreenPos + LerpPosition);
+	}
+	else
+	{
+		CursorDecoratorWindow->MoveWindowTo(Position);
+	}
 }
 
 TSharedPtr<SWidget> FUMGDragDropOp::GetDefaultDecorator() const
@@ -49,8 +111,10 @@ TSharedPtr<SWidget> FUMGDragDropOp::GetDefaultDecorator() const
 
 TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfDragee, TSharedPtr<SObjectWidget> SourceUserWidget)
 {
-	TSharedRef<FUMGDragDropOp> Operation = MakeShareable(new FUMGDragDropOp);
-	Operation->Offset = ScreenPositionOfDragee - CursorPosition;
+	check(InOperation);
+
+	TSharedRef<FUMGDragDropOp> Operation = MakeShareable(new FUMGDragDropOp());
+	Operation->MouseDownOffset = ScreenPositionOfDragee - CursorPosition;
 	Operation->StartingScreenPos = ScreenPositionOfDragee;
 	Operation->SourceUserWidget = SourceUserWidget;
 

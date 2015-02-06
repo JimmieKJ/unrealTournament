@@ -56,6 +56,7 @@ public:
 	
 	/** Edit Blueprint global options */
 	TSharedPtr<FUICommandInfo> EditGlobalOptions;
+	TSharedPtr<FUICommandInfo> EditClassDefaults;
 
 	/** Initialize commands */
 	virtual void RegisterCommands() override;

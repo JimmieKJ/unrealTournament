@@ -26,7 +26,7 @@ void UAbilityTask_WaitAbilityActivate::Activate()
 {
 	if (AbilitySystemComponent.IsValid())
 	{
-		AbilitySystemComponent->AbilityActivatedCallbacks.AddUObject(this, &UAbilityTask_WaitAbilityActivate::OnAbilityActivate);
+		OnAbilityActivateDelegateHandle = AbilitySystemComponent->AbilityActivatedCallbacks.AddUObject(this, &UAbilityTask_WaitAbilityActivate::OnAbilityActivate);
 	}
 }
 
@@ -53,7 +53,7 @@ void UAbilityTask_WaitAbilityActivate::OnDestroy(bool AbilityEnded)
 {
 	if (AbilitySystemComponent.IsValid())
 	{
-		AbilitySystemComponent->AbilityActivatedCallbacks.RemoveUObject(this, &UAbilityTask_WaitAbilityActivate::OnAbilityActivate);
+		AbilitySystemComponent->AbilityActivatedCallbacks.Remove(OnAbilityActivateDelegateHandle);
 	}
 
 	Super::OnDestroy(AbilityEnded);

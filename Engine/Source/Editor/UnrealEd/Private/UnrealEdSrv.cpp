@@ -49,6 +49,8 @@
 #include "Components/SphereComponent.h"
 #include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
+#include "LevelEditor.h"
+#include "ComponentEditorUtils.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdSrv, Log, All);
@@ -1586,37 +1588,56 @@ bool UUnrealEdEngine::DoDirtyPackagesNeedCheckout() const
 
 bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar )
 {
+	const bool bComponentsSelected = GetSelectedComponentCount() > 0;
+
 	if( FParse::Command(&Str,TEXT("CUT")) )
 	{
-		TArray<FEdMode*> ActiveModes; 
-		GLevelEditorModeTools().GetActiveModes( ActiveModes );
-		for( int32 ModeIndex = 0; ModeIndex < ActiveModes.Num(); ++ModeIndex )
+		TArray<FEdMode*> ActiveModes;
+		GLevelEditorModeTools().GetActiveModes(ActiveModes);
+		for (int32 ModeIndex = 0; ModeIndex < ActiveModes.Num(); ++ModeIndex)
 		{
 			if (ActiveModes[ModeIndex]->ProcessEditCut())
 			{
 				return true;
 			}
 		}
-		CopySelectedActorsToClipboard( InWorld, true );
+
+		if (bComponentsSelected)
+		{
+			edactCopySelected(InWorld);
+			edactDeleteSelected(InWorld);
+		}
+		else
+		{
+			CopySelectedActorsToClipboard(InWorld, true);
+		}
 	}
 	else if( FParse::Command(&Str,TEXT("COPY")) )
 	{
-		TArray<FEdMode*> ActiveModes; 
-		GLevelEditorModeTools().GetActiveModes( ActiveModes );
-		for( int32 ModeIndex = 0; ModeIndex < ActiveModes.Num(); ++ModeIndex )
+		TArray<FEdMode*> ActiveModes;
+		GLevelEditorModeTools().GetActiveModes(ActiveModes);
+		for (int32 ModeIndex = 0; ModeIndex < ActiveModes.Num(); ++ModeIndex)
 		{
 			if (ActiveModes[ModeIndex]->ProcessEditCopy())
 			{
 				return true;
 			}
 		}
-		CopySelectedActorsToClipboard( InWorld, false );
+
+		if (bComponentsSelected)
+		{
+			edactCopySelected(InWorld);
+		}
+		else
+		{
+			CopySelectedActorsToClipboard(InWorld, false);
+		}
 	}
 	else if( FParse::Command(&Str,TEXT("PASTE")) )
 	{
-		TArray<FEdMode*> ActiveModes; 
-		GLevelEditorModeTools().GetActiveModes( ActiveModes );
-		for( int32 ModeIndex = 0; ModeIndex < ActiveModes.Num(); ++ModeIndex )
+		TArray<FEdMode*> ActiveModes;
+		GLevelEditorModeTools().GetActiveModes(ActiveModes);
+		for (int32 ModeIndex = 0; ModeIndex < ActiveModes.Num(); ++ModeIndex)
 		{
 			if (ActiveModes[ModeIndex]->ProcessEditPaste())
 			{
@@ -1624,27 +1645,35 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 			}
 		}
 
-		// How should this paste be handled
-		EPasteTo PasteTo = PT_OriginalLocation;
-		FText TransDescription = NSLOCTEXT("UnrealEd", "Paste", "Paste");
-		if( FParse::Value( Str, TEXT("TO="), TempStr, 15 ) )
+		if (bComponentsSelected)
 		{
-			if( !FCString::Strcmp( TempStr, TEXT("HERE") ) )
+			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "PasteComponents", "Paste Components"));
+			edactPasteSelected(InWorld, false, false, true);
+		}
+		else
+		{
+			// How should this paste be handled
+			EPasteTo PasteTo = PT_OriginalLocation;
+			FText TransDescription = NSLOCTEXT("UnrealEd", "Paste", "Paste");
+			if (FParse::Value(Str, TEXT("TO="), TempStr, 15))
 			{
-				PasteTo = PT_Here;
-				TransDescription = NSLOCTEXT("UnrealEd", "PasteHere", "Paste Here");
-			}
-			else
-			{
-				if( !FCString::Strcmp( TempStr, TEXT("ORIGIN") ) )
+				if (!FCString::Strcmp(TempStr, TEXT("HERE")))
 				{
-					PasteTo = PT_WorldOrigin;
-					TransDescription = NSLOCTEXT("UnrealEd", "PasteToWorldOrigin", "Paste To World Origin");
+					PasteTo = PT_Here;
+					TransDescription = NSLOCTEXT("UnrealEd", "PasteHere", "Paste Here");
+				}
+				else
+				{
+					if (!FCString::Strcmp(TempStr, TEXT("ORIGIN")))
+					{
+						PasteTo = PT_WorldOrigin;
+						TransDescription = NSLOCTEXT("UnrealEd", "PasteToWorldOrigin", "Paste To World Origin");
+					}
 				}
 			}
-		}
 
-		PasteSelectedActorsFromClipboard( InWorld, TransDescription, PasteTo );
+			PasteSelectedActorsFromClipboard(InWorld, TransDescription, PasteTo);
+		}
 	}
 
 	return false;
@@ -1791,7 +1820,7 @@ TArray<FPoly*> GetSelectedPolygons()
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
 		FTransform ActorToWorld = Actor->ActorToWorld();
 		
-		TArray<UStaticMeshComponent*> StaticMeshComponents;
+		TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents;
 		Actor->GetComponents(StaticMeshComponents);
 
 		for(int32 j=0; j<StaticMeshComponents.Num(); j++)

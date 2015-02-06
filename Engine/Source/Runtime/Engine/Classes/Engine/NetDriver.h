@@ -297,6 +297,11 @@ public:
 
 	TSet< TWeakPtr< FObjectReplicator > > UnmappedReplicators;
 
+	/** Handles to various registered delegates */
+	FDelegateHandle TickDispatchDelegateHandle;
+	FDelegateHandle TickFlushDelegateHandle;
+	FDelegateHandle PostTickFlushDelegateHandle;
+
 	/**
 	* Updates the standby cheat information and
 	 * causes the dialog to be shown/hidden as needed
@@ -532,9 +537,9 @@ protected:
 	ENGINE_API void	AddClientConnection(UNetConnection * NewConnection);
 
 	/** Register all TickDispatch, TickFlush, PostTickFlush to tick in World */
-	ENGINE_API void RegisterTickEvents(class UWorld* InWorld) const;
+	ENGINE_API void RegisterTickEvents(class UWorld* InWorld);
 	/** Unregister all TickDispatch, TickFlush, PostTickFlush to tick in World */
-	ENGINE_API void UnregisterTickEvents(class UWorld* InWorld) const;
+	ENGINE_API void UnregisterTickEvents(class UWorld* InWorld);
 	/** Returns true if this actor is considered to be in a loaded level */
 	bool IsLevelInitializedForActor(const AActor* InActor, const UNetConnection* InConnection) const;
 };

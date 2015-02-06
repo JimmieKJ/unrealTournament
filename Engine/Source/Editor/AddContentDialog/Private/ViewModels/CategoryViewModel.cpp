@@ -47,12 +47,12 @@ void FCategoryViewModel::Initialize()
 		break;
 	case EContentSourceCategory::Content:
 		Text = LOCTEXT("ContentPacks", "Content Packs");
-		IconBrush = FAddContentDialogStyle::Get().GetBrush("AddContentDialog.ContentPacks");
+		IconBrush = FAddContentDialogStyle::Get().GetBrush("AddContentDialog.ContentPackCategory");
 		SortID = 2;
 		break;
 	default:
 		Text = LOCTEXT("Miscellaneous", "Miscellaneous");
-		IconBrush = FAddContentDialogStyle::Get().GetBrush("AddContentDialog.DefaultCategory");
+		IconBrush = FAddContentDialogStyle::Get().GetBrush("AddContentDialog.UnknownCategory");
 		SortID = 3;
 		break;
 	}

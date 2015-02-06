@@ -10,6 +10,7 @@
 #include "SAssetDialog.h"
 #include "TutorialMetaData.h"
 #include "SDockTab.h"
+#include "NativeClassHierarchy.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -295,7 +296,8 @@ void FContentBrowserSingleton::OnEditorLoadSelectedAssetsIfNeeded()
 
 FContentBrowserSingleton& FContentBrowserSingleton::Get()
 {
-	FContentBrowserModule& Module = FModuleManager::GetModuleChecked<FContentBrowserModule>("ContentBrowser");
+	static const FName ModuleName = "ContentBrowser";
+	FContentBrowserModule& Module = FModuleManager::GetModuleChecked<FContentBrowserModule>(ModuleName);
 	return static_cast<FContentBrowserSingleton&>(Module.Get());
 }
 
@@ -333,6 +335,15 @@ void FContentBrowserSingleton::ContentBrowserClosed(const TSharedRef<SContentBro
 	}
 
 	BrowserToLastKnownTabManagerMap.Add(ClosedBrowser->GetInstanceName(), ClosedBrowser->GetTabManager());
+}
+
+TSharedRef<FNativeClassHierarchy> FContentBrowserSingleton::GetNativeClassHierarchy()
+{
+	if(!NativeClassHierarchy.IsValid())
+	{
+		NativeClassHierarchy = MakeShareable(new FNativeClassHierarchy());
+	}
+	return NativeClassHierarchy.ToSharedRef();
 }
 
 void FContentBrowserSingleton::SharedCreateAssetDialogWindow(const TSharedRef<SAssetDialog>& AssetDialog, const FSharedAssetDialogConfig& InConfig, bool bModal) const

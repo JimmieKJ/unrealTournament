@@ -13,6 +13,7 @@
 class UFoliageType;
 struct FFoliageInstancePlacementInfo;
 struct FFoliageMeshInfo;
+class UFoliageType_InstancedStaticMesh;
 
 UCLASS(notplaceable, hidecategories = Object, MinimalAPI, NotBlueprintable)
 class AInstancedFoliageActor : public AActor
@@ -69,7 +70,7 @@ public:
 	ENGINE_API FFoliageMeshInfo* FindOrAddMesh(UFoliageType* InType);
 
 	// Add a new static mesh.
-	ENGINE_API FFoliageMeshInfo* AddMesh(UStaticMesh* InMesh, UFoliageType** OutSettings = nullptr);
+	ENGINE_API FFoliageMeshInfo* AddMesh(UStaticMesh* InMesh, UFoliageType** OutSettings = nullptr, const UFoliageType_InstancedStaticMesh* DefaultSettings = nullptr);
 	ENGINE_API FFoliageMeshInfo* AddMesh(UFoliageType* InType);
 
 	// Remove the static mesh from the mesh list, and all its instances.
@@ -105,5 +106,8 @@ public:
 
 	// Get the instanced foliage actor for the specified streaming level. Never creates a new IFA.
 	static ENGINE_API AInstancedFoliageActor* GetInstancedFoliageActorForLevel(ULevel* Level);
+
+	/* Called to notify InstancedFoliageActor that a UFoliageType has been modified */
+	void NotifyFoliageTypeChanged(UFoliageType* FoliageType);
 #endif	//WITH_EDITOR
 };

@@ -52,7 +52,7 @@ public class BootstrapPackagedGameTarget : TargetRules
 
 		if (Target.Platform == UnrealTargetPlatform.Win32)
 		{
-			WindowsPlatform.SupportWindowsXP = true;
+			WindowsPlatform.SupportWindowsXPIfAvailable = true;
 		}
 	}
 	

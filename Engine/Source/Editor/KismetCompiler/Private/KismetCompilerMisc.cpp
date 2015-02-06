@@ -16,6 +16,10 @@
 
 #define LOCTEXT_NAMESPACE "KismetCompiler"
 
+DECLARE_CYCLE_STAT(TEXT("Choose Terminal Scope"), EKismetCompilerStats_ChooseTerminalScope, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Resolve compiled statements"), EKismetCompilerStats_ResolveCompiledStatements, STATGROUP_KismetCompiler );
+
+
 //////////////////////////////////////////////////////////////////////////
 // FKismetCompilerUtilities
 
@@ -663,7 +667,10 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 			if (SubType->HasAnyClassFlags(CLASS_Interface))
 			{
 				UInterfaceProperty* NewPropertyObj = NewNamedObject<UInterfaceProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
-				NewPropertyObj->InterfaceClass = SubType;
+				// we want to use this setter function instead of setting the 
+				// InterfaceClass member directly, because it properly handles  
+				// placeholder classes (classes that are stubbed in during load)
+				NewPropertyObj->SetInterfaceClass(SubType);
 				NewProperty = NewPropertyObj;
 			}
 			else
@@ -678,7 +685,10 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 				{
 					NewPropertyObj = NewNamedObject<UObjectProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 				}
-				NewPropertyObj->PropertyClass = SubType;
+				// we want to use this setter function instead of setting the 
+				// PropertyClass member directly, because it properly handles  
+				// placeholder classes (classes that are stubbed in during load)
+				NewPropertyObj->SetPropertyClass(SubType);
 				NewProperty = NewPropertyObj;
 			}
 		}
@@ -726,7 +736,10 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 		if (SubType != NULL)
 		{
 			UClassProperty* NewPropertyClass = NewNamedObject<UClassProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
-			NewPropertyClass->MetaClass = SubType;
+			// we want to use this setter function instead of setting the 
+			// MetaClass member directly, because it properly handles  
+			// placeholder classes (classes that are stubbed in during load)
+			NewPropertyClass->SetMetaClass(SubType);
 			NewPropertyClass->PropertyClass = UClass::StaticClass();
 			NewProperty = NewPropertyClass;
 		}

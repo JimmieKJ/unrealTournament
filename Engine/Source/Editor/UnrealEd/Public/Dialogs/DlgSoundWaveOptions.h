@@ -39,7 +39,7 @@ private:
 
 	/** Progress Bar Callbacks */
 	TOptional<float> GetProgress() const;
-	FString GetProgressString() const;
+	FText GetProgressString() const;
 	EVisibility IsProgressBarVisible() const;
 
 	/** Button click callbacks. */

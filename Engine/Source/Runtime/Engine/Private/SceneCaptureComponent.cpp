@@ -194,7 +194,7 @@ void USceneCaptureComponent::HideActorComponents(AActor* InActor)
 {
 	if (InActor)
 	{
-		TArray<UPrimitiveComponent*> PrimitiveComponents;
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
 		InActor->GetComponents(PrimitiveComponents);
 		for (int32 ComponentIndex = 0, NumComponents = PrimitiveComponents.Num(); ComponentIndex < NumComponents; ++ComponentIndex)
 		{

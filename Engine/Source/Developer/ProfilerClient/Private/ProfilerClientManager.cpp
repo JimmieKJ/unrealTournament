@@ -53,7 +53,7 @@ FProfilerClientManager::FProfilerClientManager( const IMessageBusRef& InMessageB
 	LoadTask = nullptr;
 #endif
 	LoadConnection = nullptr;
-	FTicker::GetCoreTicker().AddTicker(MessageDelegate, 0.05f);
+	MessageDelegateHandle = FTicker::GetCoreTicker().AddTicker(MessageDelegate, 0.05f);
 #endif
 }
 
@@ -73,8 +73,8 @@ FProfilerClientManager::~FProfilerClientManager()
 		UE_LOG(LogProfile, Log, TEXT( "File service-client transfer aborted: %s" ), *It.Key() );
 	}
 
-	FTicker::GetCoreTicker().RemoveTicker(MessageDelegate);
-	FTicker::GetCoreTicker().RemoveTicker(TickDelegate);
+	FTicker::GetCoreTicker().RemoveTicker(MessageDelegateHandle);
+	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
 
 	Unsubscribe();
 
@@ -129,7 +129,7 @@ void FProfilerClientManager::Track( const FGuid& Instance )
 		MessageEndpoint->Publish(new FProfilerServiceSubscribe(ActiveSessionId, Instance), EMessageScope::Network);
 
 		RetryTime = 5.f;
-		FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);
+		TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);
 	}
 #endif
 }
@@ -302,7 +302,7 @@ void FProfilerClientManager::LoadCapture( const FString& DataFilepath, const FGu
 #endif
 
 	RetryTime = 0.05f;
-	FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);
+	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, RetryTime);
 	ProfilerLoadStartedDelegate.Broadcast(ProfileId);
 #endif
 }

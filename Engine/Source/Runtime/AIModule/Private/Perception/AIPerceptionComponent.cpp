@@ -45,9 +45,9 @@ const int32 UAIPerceptionComponent::InitialStimuliToProcessArraySize = 10;
 
 UAIPerceptionComponent::UAIPerceptionComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bCleanedUp(false)
 	, PerceptionListenerId(FPerceptionListenerID::InvalidID())
 {
-	MaxActiveAge.AddZeroed(FAISenseID::GetSize());
 }
 
 void UAIPerceptionComponent::RequestStimuliListenerUpdate()
@@ -91,16 +91,6 @@ UAISenseConfig* UAIPerceptionComponent::GetSenseConfig(const FAISenseID& SenseID
 void UAIPerceptionComponent::PostInitProperties() 
 {
 	Super::PostInitProperties();
-
-	if (HasAnyFlags(RF_ClassDefaultObject) == false)
-	{
-		AActor* Owner = GetOwner();
-		if (Owner)
-		{
-			Owner->OnEndPlay.AddDynamic(this, &UAIPerceptionComponent::OnOwnerEndPlay);
-			AIOwner = Cast<AAIController>(Owner);
-		}
-	}
 }
 
 void UAIPerceptionComponent::ConfigureSense(UAISenseConfig& Config)
@@ -113,12 +103,15 @@ void UAIPerceptionComponent::ConfigureSense(UAISenseConfig& Config)
 		{
 			ConfigIndex = Index;
 			SensesConfig[Index] = &Config;
+			SetMaxStimulusAge(Index, Config.GetMaxAge());
+			break;
 		}
 	}
 
 	if (ConfigIndex == INDEX_NONE)
 	{
 		ConfigIndex = SensesConfig.Add(&Config);
+		SetMaxStimulusAge(ConfigIndex, Config.GetMaxAge());
 	}
 
 	if (IsRegistered())
@@ -128,12 +121,30 @@ void UAIPerceptionComponent::ConfigureSense(UAISenseConfig& Config)
 	// else the sense will be auto-configured during OnRegister
 }
 
+void UAIPerceptionComponent::SetMaxStimulusAge(int32 ConfigIndex, float MaxAge)
+{
+	if (MaxActiveAge.IsValidIndex(ConfigIndex) == false)
+	{
+		MaxActiveAge.AddUninitialized(ConfigIndex - MaxActiveAge.Num() + 1);
+	}
+	MaxActiveAge[ConfigIndex] = MaxAge;
+}
+
 void UAIPerceptionComponent::OnRegister()
 {
 	Super::OnRegister();
 
+	bCleanedUp = false;
+
+	AActor* Owner = GetOwner();
+	if (Owner != nullptr)
+	{
+		Owner->OnEndPlay.AddUniqueDynamic(this, &UAIPerceptionComponent::OnOwnerEndPlay);
+		AIOwner = Cast<AAIController>(Owner);
+	}
+
 	UAIPerceptionSystem* AIPerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
-	if (AIPerceptionSys != NULL)
+	if (AIPerceptionSys != nullptr)
 	{
 		PerceptionFilter.Clear();
 
@@ -151,16 +162,19 @@ void UAIPerceptionComponent::OnRegister()
 						// make sure it's registered with perception system
 						AIPerceptionSys->RegisterSenseClass(SenseImplementation);
 
-						if (SenseConfig->bStartsEnabled)
+						if (SenseConfig->IsEnabled())
 						{
 							PerceptionFilter.AcceptChannel(UAISense::GetSenseID(SenseImplementation));
 						}
+
+						const FAISenseID SenseID = UAISense::GetSenseID(SenseImplementation);
+						check(SenseID.IsValid());
+						SetMaxStimulusAge(SenseID, SenseConfig->GetMaxAge());
 					}
 				}
 			}
 
 			AIPerceptionSys->UpdateListener(*this);
-
 		}
 	}
 
@@ -175,9 +189,8 @@ void UAIPerceptionComponent::OnRegister()
 
 void UAIPerceptionComponent::OnUnregister()
 {
-	Super::OnUnregister();
-
 	CleanUp();
+	Super::OnUnregister();
 }
 
 void UAIPerceptionComponent::OnOwnerEndPlay(EEndPlayReason::Type EndPlayReason)
@@ -187,13 +200,21 @@ void UAIPerceptionComponent::OnOwnerEndPlay(EEndPlayReason::Type EndPlayReason)
 
 void UAIPerceptionComponent::CleanUp()
 {
-	if (IsRegistered())
+	if (bCleanedUp == false)
 	{
 		UAIPerceptionSystem* AIPerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
-		if (AIPerceptionSys != NULL)
+		if (AIPerceptionSys != nullptr)
 		{
 			AIPerceptionSys->UnregisterListener(*this);
 		}
+
+		AActor* Owner = GetOwner();
+		if (Owner != nullptr)
+		{
+			Owner->OnEndPlay.RemoveDynamic(this, &UAIPerceptionComponent::OnOwnerEndPlay);
+		}
+
+		bCleanedUp = true;
 	}
 }
 
@@ -515,7 +536,7 @@ bool UAIPerceptionComponent::HasAnyActiveStimulus(const AActor& Source) const
 	{
 		if (Info->LastSensedStimuli[SenseID].WasSuccessfullySensed() &&
 			Info->LastSensedStimuli[SenseID].GetAge() < FAIStimulus::NeverHappenedAge &&
-			Info->LastSensedStimuli[SenseID].GetAge() <= MaxActiveAge[SenseID])
+			(Info->LastSensedStimuli[SenseID].GetAge() <= MaxActiveAge[SenseID] || MaxActiveAge[SenseID] == 0.f))
 		{
 			return true;
 		}
@@ -531,7 +552,7 @@ bool UAIPerceptionComponent::HasActiveStimulus(const AActor& Source, FAISenseID 
 		&& Info->LastSensedStimuli.IsValidIndex(Sense) 
 		&& Info->LastSensedStimuli[Sense].WasSuccessfullySensed()
 		&& Info->LastSensedStimuli[Sense].GetAge() < FAIStimulus::NeverHappenedAge
-		&& Info->LastSensedStimuli[Sense].GetAge() <= MaxActiveAge[Sense]);
+		&& (Info->LastSensedStimuli[Sense].GetAge() <= MaxActiveAge[Sense] || MaxActiveAge[Sense] == 0.f));
 }
 
 void UAIPerceptionComponent::RemoveDeadData()

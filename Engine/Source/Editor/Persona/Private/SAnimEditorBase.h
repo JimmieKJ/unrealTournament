@@ -85,7 +85,7 @@ protected:
 	virtual UAnimSequenceBase* GetEditorObject() const PURE_VIRTUAL(SAnimEditorBase::GetEditorObject, return NULL;);
 
 	/** Get Name of Object being edited **/
-	FString GetEditorObjectName() const;
+	FText GetEditorObjectName() const;
 
 	/** Get Min/Max Input of value **/
 	float ViewMinInput;
@@ -95,9 +95,9 @@ protected:
 	class UAnimSingleNodeInstance* GetPreviewInstance() const;
 
 	/** For the information section **/
-	FString GetCurrentSequenceTime() const;
-	FString GetCurrentPercentage() const;
-	FString GetCurrentFrame() const;
+	FText GetCurrentSequenceTime() const;
+	FText GetCurrentPercentage() const;
+	FText GetCurrentFrame() const;
 
 	/** Recalculate sequence length after modifying */
 	void RecalculateSequenceLength();

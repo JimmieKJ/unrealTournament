@@ -40,4 +40,6 @@ protected:
 
 	virtual void OnDestroy(bool AbilityIsEnding) override;
 	bool Registered;
+
+	FDelegateHandle OnGameplayEffectRemovedDelegateHandle;
 };

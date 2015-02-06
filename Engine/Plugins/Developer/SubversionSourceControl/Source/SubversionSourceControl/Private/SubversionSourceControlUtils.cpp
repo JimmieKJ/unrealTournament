@@ -370,7 +370,8 @@ void ParseLogResults(const FString& InFilename, const TArray<FXmlFile>& ResultsX
 				Revisions.Add(SourceControlRevision);
 
 				SourceControlRevision->Filename = InFilename;
-				SourceControlRevision->RevisionNumber = FCString::Atoi(*LogEntryNode->GetAttribute(Revision));
+				SourceControlRevision->Revision = LogEntryNode->GetAttribute(Revision);
+				SourceControlRevision->RevisionNumber = FCString::Atoi(*SourceControlRevision->Revision);
 			
 				const FXmlNode* MsgNode = LogEntryNode->FindChildNode(Msg);
 				if(MsgNode != NULL)

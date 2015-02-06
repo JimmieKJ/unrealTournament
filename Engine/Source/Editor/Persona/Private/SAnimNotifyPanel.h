@@ -280,4 +280,7 @@ private:
 
 	/** Classes that are known to be derived from blueprint state notifies */
 	TArray<FString> NotifyStateClassNames;
+
+	/** Handle to the registered OnPropertyChangedHandle delegate */
+	FDelegateHandle OnPropertyChangedHandleDelegateHandle;
 };

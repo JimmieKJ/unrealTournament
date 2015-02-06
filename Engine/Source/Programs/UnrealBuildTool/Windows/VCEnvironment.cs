@@ -61,7 +61,7 @@ namespace UnrealBuildTool
 				throw new BuildException("Visual Studio 2012 or Visual Studio 2013 must be installed in order to build this target.");
 			}
 
-			WindowsSDKDir        = FindWindowsSDKInstallationFolder();
+			WindowsSDKDir        = FindWindowsSDKInstallationFolder(Platform);
 			PlatformVSToolPath   = GetPlatformVSToolPath      (Platform, BaseVSToolPath);
 			CompilerPath         = GetCompilerToolPath        (PlatformVSToolPath);
 			CLExeVersion         = FindCLExeVersion           (CompilerPath);
@@ -74,7 +74,7 @@ namespace UnrealBuildTool
 
 			// When targeting Windows XP on Visual Studio 2012+, we need to override the Windows SDK include and lib path set
 			// by the batch file environment (http://blogs.msdn.com/b/vcblog/archive/2012/10/08/10357555.aspx)
-			if (WindowsPlatform.SupportWindowsXP)
+			if (WindowsPlatform.IsWindowsXPSupported())
 			{
 				// Lib and bin folders have a x64 subfolder for 64 bit development.
 				var ConfigSuffix = (Platform == CPPTargetPlatform.Win64) ? "\\x64" : "";
@@ -86,12 +86,12 @@ namespace UnrealBuildTool
 		}
 
 		/// <returns>The path to Windows SDK directory for the specified version.</returns>
-		private static string FindWindowsSDKInstallationFolder()
+		private static string FindWindowsSDKInstallationFolder(CPPTargetPlatform InPlatform)
 		{
 			// When targeting Windows XP on Visual Studio 2012+, we need to point at the older Windows SDK 7.1A that comes
 			// installed with Visual Studio 2012 Update 1. (http://blogs.msdn.com/b/vcblog/archive/2012/10/08/10357555.aspx)
 			string Version;
-			if (WindowsPlatform.SupportWindowsXP)
+			if (WindowsPlatform.IsWindowsXPSupported())
 			{
 				Version = "v7.1A";
 			}
@@ -208,7 +208,7 @@ namespace UnrealBuildTool
 				return Path.Combine(WindowsSDKDir, "bin/x64/rc.exe");
 			}
 
-			if( !WindowsPlatform.SupportWindowsXP )	// Windows XP requires use to force Windows SDK 7.1 even on the newer compiler, so we need the old path RC.exe
+			if (!WindowsPlatform.IsWindowsXPSupported())	// Windows XP requires use to force Windows SDK 7.1 even on the newer compiler, so we need the old path RC.exe
 			{
 				return Path.Combine(WindowsSDKDir, "bin/x86/rc.exe");
 			}

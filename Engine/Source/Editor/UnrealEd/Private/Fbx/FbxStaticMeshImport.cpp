@@ -956,7 +956,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	}
 	else
 	{
-		StaticMesh = new(Package,FName(*MeshName),Flags|RF_Public) UStaticMesh(FObjectInitializer());
+		StaticMesh = NewNamedObject<UStaticMesh>(Package, FName(*MeshName), Flags | RF_Public);
 	}
 
 	if (StaticMesh->SourceModels.Num() < LODIndex+1)

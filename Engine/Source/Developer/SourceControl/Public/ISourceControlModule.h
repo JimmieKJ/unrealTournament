@@ -99,12 +99,6 @@ public:
 	virtual void ShowLoginDialog(const FSourceControlLoginClosed& InOnSourceControlLoginClosed, ELoginWindowMode::Type InLoginWindowMode, EOnLoginWindowStartup::Type InOnLoginWindowStartup = EOnLoginWindowStartup::ResetProviderToNone) = 0;
 
 	/**
-	 * Create a status widget, used to display passive source control status
-	 * @returns a new status widget
-	 */
-	virtual TSharedPtr<class SWidget> CreateStatusWidget() const = 0;
-
-	/**
 	 * Get whether we should use global or per-project settings
 	 * @return true if we should use global settings
 	 */

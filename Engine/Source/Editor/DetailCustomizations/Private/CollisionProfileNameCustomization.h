@@ -33,8 +33,8 @@ protected:
 	void SetPropertyWithName(const FName& Name);
 	void GetPropertyAsName(FName& OutName) const;
 
-	FString GetProfileComboBoxContent() const;
-	FString GetProfileComboBoxToolTip() const;
+	FText GetProfileComboBoxContent() const;
+	FText GetProfileComboBoxToolTip() const;
 
 protected:
 

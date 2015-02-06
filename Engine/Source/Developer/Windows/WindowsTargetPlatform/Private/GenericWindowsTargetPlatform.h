@@ -47,6 +47,11 @@ public:
 					TargetedShaderFormats.Remove(ShaderFormat);
 				}
 			}
+
+			// If we're targeting only DX11 we can use DX11 texture formats. Otherwise we'd have to compress fallbacks and increase the size of cooked content significantly.
+			static FString NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
+			bSupportDX11TextureFormats = TargetedShaderFormats.Num() == 1
+				&& TargetedShaderFormats[0] == NAME_PCD3D_SM5;
 		#endif
 	}
 
@@ -110,9 +115,6 @@ public:
 		// no shaders needed for dedicated server target
 		if (!IS_DEDICATED_SERVER)
 		{
-			// Only shader formats needed for cooked builds should be added here.
-			// TODO: this should be configurable per-project, e.g. you may or
-			//       may not wish to support SM4 or OpenGL.
 			static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
 			static FName NAME_PCD3D_SM4(TEXT("PCD3D_SM4"));
 			static FName NAME_GLSL_150(TEXT("GLSL_150"));
@@ -140,10 +142,26 @@ public:
 
 	virtual void GetTextureFormats( const UTexture* InTexture, TArray<FName>& OutFormats ) const override
 	{
+		static FName NameBC6H(TEXT("BC6H"));
+		static FName NameBC7(TEXT("BC7"));
+		static FName NameRGBA16F(TEXT("RGBA16F"));
+		static FName NameAutoDXT(TEXT("AutoDXT"));
+
 		if (!IS_DEDICATED_SERVER)
 		{
-			// just use the standard texture format name for this texture
-			OutFormats.Add(GetDefaultTextureFormatName(InTexture, EngineSettings));
+			FName TextureFormatName = GetDefaultTextureFormatName(InTexture, EngineSettings);
+			if (!bSupportDX11TextureFormats)
+			{
+				if (TextureFormatName == NameBC6H)
+				{
+					TextureFormatName = NameRGBA16F;
+				}
+				else if (TextureFormatName == NameBC7)
+				{
+					TextureFormatName = NameAutoDXT;
+				}
+			}
+			OutFormats.Add(TextureFormatName);
 		}
 	}
 
@@ -249,6 +267,9 @@ private:
 
 	// List of shader formats specified as targets
 	TArray<FString> TargetedShaderFormats;
+
+	// True if the project supports non-DX11 texture formats.
+	bool bSupportDX11TextureFormats;
 #endif // WITH_ENGINE
 
 private:

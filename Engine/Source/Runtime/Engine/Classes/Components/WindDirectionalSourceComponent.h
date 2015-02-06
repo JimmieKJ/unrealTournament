@@ -17,7 +17,7 @@ class UWindDirectionalSourceComponent : public USceneComponent
 
 
 public:
-	FWindSourceSceneProxy* SceneProxy;
+	class FWindSourceSceneProxy* SceneProxy;
 
 protected:
 	// Begin UActorComponent interface.

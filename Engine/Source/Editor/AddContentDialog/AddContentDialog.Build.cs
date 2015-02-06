@@ -9,6 +9,7 @@ public class AddContentDialog : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"AssetTools",
+				"ContentBrowser",
 			}
 		);
 

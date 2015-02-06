@@ -90,7 +90,7 @@ void SProjectLauncherPackagePage::Construct( const FArguments& InArgs, const FPr
 /* SProjectLauncherLaunchPage callbacks
  *****************************************************************************/
 
-FString SProjectLauncherPackagePage::HandlePackagingModeComboButtonContentText( ) const
+FText SProjectLauncherPackagePage::HandlePackagingModeComboButtonContentText( ) const
 {
 	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
 
@@ -100,23 +100,23 @@ FString SProjectLauncherPackagePage::HandlePackagingModeComboButtonContentText( 
 
 		if (PackagingMode == ELauncherProfilePackagingModes::DoNotPackage)
 		{
-			return TEXT("Do not package");
+			return LOCTEXT("DoNotPackageAction", "Do not package");
 		}
 
 		if (PackagingMode == ELauncherProfilePackagingModes::Locally)
 		{
-			return TEXT("Package & store locally");
+			return LOCTEXT("LocallyAction", "Package & store locally");
 		}
 
 		if (PackagingMode == ELauncherProfilePackagingModes::SharedRepository)
 		{
-			return TEXT("Package & store in repository");
+			return LOCTEXT("SharedRepositoryAction", "Package & store in repository");
 		}
 
-		return LOCTEXT("PackagingModeComboButtonDefaultText", "Select...").ToString();
+		return LOCTEXT("PackagingModeComboButtonDefaultText", "Select...");
 	}
 
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 

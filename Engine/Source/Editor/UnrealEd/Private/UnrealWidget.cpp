@@ -64,6 +64,7 @@ FWidget::FWidget()
 
 	bDragging = false;
 	bSnapEnabled = false;
+	bDefaultVisibility = true;
 }
 
 extern ENGINE_API void StringSize(UFont* Font,int32& XL,int32& YL,const TCHAR* Text, FCanvas* Canvas);
@@ -118,9 +119,9 @@ void FWidget::Render( const FSceneView* View,FPrimitiveDrawInterface* PDI, FEdit
 	//reset HUD text
 	HUDString.Empty();
 
-	bool bDrawModeSupportsWidgetDrawing = true;
+	bool bDrawModeSupportsWidgetDrawing = bDefaultVisibility;
 
-	if( EditorModeTools )
+	if( EditorModeTools && ActiveModes.Num() > 0)
 	{
 		bDrawModeSupportsWidgetDrawing = false;
 		// Check to see of any active modes support widget drawing

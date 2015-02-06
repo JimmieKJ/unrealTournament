@@ -146,7 +146,7 @@ struct SBlueprintFavoritesPaletteUtils
 				{
 					if (ToolTipText.IsEmpty())
 					{
-						ToolTipText = FText::FromString(FString::Printf(*LOCTEXT("ProfileAvailable", "Loads %s node favorites").ToString(), *FriendlyProfileName));
+						ToolTipText = FText::Format(LOCTEXT("ProfileAvailableFmt", "Loads {0} node favorites"), FText::FromString(FriendlyProfileName));
 					}
 
 					ProfileAction = FUIAction(
@@ -171,7 +171,7 @@ struct SBlueprintFavoritesPaletteUtils
 				TSharedRef<STextBlock> MenuTextEntry = SNew(STextBlock)
 					.TextStyle(MenuBuilder.GetStyleSet(), FEditorStyle::Join("Menu", ".Label"))
 					// @TODO how do we best localize this
-					.Text(FriendlyProfileName);
+					.Text(FText::FromString(FriendlyProfileName));
 
 				FSlateFontInfo ToolTipFont(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 8);
 

@@ -39,6 +39,9 @@ private:
 	// The delegate executed by the online subsystem
 	FOnJoinSessionCompleteDelegate Delegate;
 
+	// Handle to the registered FOnJoinSessionComplete delegate
+	FDelegateHandle DelegateHandle;
+
 	// The world context object in which this call is taking place
 	UObject* WorldContextObject;
 };

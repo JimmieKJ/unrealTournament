@@ -35,10 +35,9 @@ public:
 			];
 	}
 
-	FString GetHoverText() const
+	FText GetHoverText() const
 	{
-		FString HoverText = FString::Printf(TEXT("Bone %s"), *BoneName.GetPlainNameString());
-		return HoverText;
+		return FText::Format(NSLOCTEXT("BoneDragDropOp", "BoneHoverTextFmt", "Bone {0}"), FText::FromString(BoneName.GetPlainNameString()));
 	}
 
 	const FSlateBrush* GetIcon( ) const

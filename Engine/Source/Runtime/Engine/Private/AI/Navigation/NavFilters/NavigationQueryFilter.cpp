@@ -142,9 +142,6 @@ void UNavigationQueryFilter::InitializeFilter(const ANavigationData* NavData, FN
 		const int32 AreaId = NavData->GetAreaID(AreaData.AreaClass);
 		if (AreaId == INDEX_NONE)
 		{
-			UE_LOG(LogNavigation, Warning, TEXT("Can't find area '%s' in '%s' for filter: %s"),
-				*GetNameSafe(AreaData.AreaClass), *GetNameSafe(NavData), *GetName());
-
 			continue;
 		}
 

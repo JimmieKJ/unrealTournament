@@ -31,7 +31,12 @@ public:
 	/** Script source code. @todo: this should be editor-only */
 	UPROPERTY()
 	FString SourceCode;
-	 
+	
+#if WITH_EDITORONLY_DATA
+	/** Override to ensure we write out the asset import data */
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
+#endif
+
 #if WITH_EDITOR
 	virtual UClass* GetBlueprintClass() const override;
 

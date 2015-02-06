@@ -103,6 +103,9 @@ private:
 	/** Google callback when auth is complete */
 	void OnAuthActionFinished(gpg::AuthOperation Op, gpg::AuthStatus Status);
 
+	/** Android callback when an activity is finished */
+	void OnActivityResult(JNIEnv *env, jobject thiz, jobject activity, jint requestCode, jint resultCode, jobject data);
+
 	/** Online async task runnable */
 	TUniquePtr<class FOnlineAsyncTaskManagerGooglePlay> OnlineAsyncTaskThreadRunnable;
 

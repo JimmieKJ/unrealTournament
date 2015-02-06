@@ -5,6 +5,7 @@
 #include "MessageLog.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
+#include "FileHelpers.h"
 
 
 IMPLEMENT_MODULE( FDefaultModuleImpl, SourceControlWindows );
@@ -451,6 +452,186 @@ private:
 	ECheckBoxState	KeepCheckedOut;
 };
 
+
+TWeakPtr<SNotificationItem> FSourceControlWindows::ChoosePackagesToCheckInNotification;
+
+void FSourceControlWindows::ChoosePackagesToCheckInCompleted(const TArray<UPackage*>& LoadedPackages, const TArray<FString>& PackageNames, const TArray<FString>& ConfigFiles)
+{
+	if (ChoosePackagesToCheckInNotification.IsValid())
+	{
+		ChoosePackagesToCheckInNotification.Pin()->ExpireAndFadeout();
+	}
+	ChoosePackagesToCheckInNotification.Reset();
+
+	check(PackageNames.Num() > 0 || ConfigFiles.Num() > 0);
+
+	// Prompt the user to ask if they would like to first save any dirty packages they are trying to check-in
+	const FEditorFileUtils::EPromptReturnCode UserResponse = FEditorFileUtils::PromptForCheckoutAndSave(LoadedPackages, true, true);
+
+	// If the user elected to save dirty packages, but one or more of the packages failed to save properly OR if the user
+	// canceled out of the prompt, don't follow through on the check-in process
+	const bool bShouldProceed = (UserResponse == FEditorFileUtils::EPromptReturnCode::PR_Success || UserResponse == FEditorFileUtils::EPromptReturnCode::PR_Declined);
+	if (bShouldProceed)
+	{
+		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
+		FSourceControlWindows::PromptForCheckin(PackageNames, ConfigFiles);
+	}
+	else
+	{
+		// If a failure occurred, alert the user that the check-in was aborted. This warning shouldn't be necessary if the user cancelled
+		// from the dialog, because they obviously intended to cancel the whole operation.
+		if (UserResponse == FEditorFileUtils::EPromptReturnCode::PR_Failure)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "SCC_Checkin_Aborted", "Check-in aborted as a result of save failure."));
+		}
+	}
+}
+
+void FSourceControlWindows::ChoosePackagesToCheckInCancelled(FSourceControlOperationRef InOperation)
+{
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+	SourceControlProvider.CancelOperation(InOperation);
+
+	if (ChoosePackagesToCheckInNotification.IsValid())
+	{
+		ChoosePackagesToCheckInNotification.Pin()->ExpireAndFadeout();
+	}
+	ChoosePackagesToCheckInNotification.Reset();
+}
+
+void FSourceControlWindows::ChoosePackagesToCheckInCallback(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult)
+{
+	if (ChoosePackagesToCheckInNotification.IsValid())
+	{
+		ChoosePackagesToCheckInNotification.Pin()->ExpireAndFadeout();
+	}
+	ChoosePackagesToCheckInNotification.Reset();
+
+	if (InResult == ECommandResult::Succeeded)
+	{
+		// Get a list of all the checked out packages
+		int32 NumSelectedNames = 0;
+		int32 NumSelectedPackages = 0;
+		TArray<FString> PackageNames;
+		TArray<UPackage*> LoadedPackages;
+		TMap<FString, FSourceControlStatePtr> PackageStates;
+		FEditorFileUtils::FindAllSubmittablePackageFiles(PackageStates, true);
+		for (TMap<FString, FSourceControlStatePtr>::TConstIterator PackageIter(PackageStates); PackageIter; ++PackageIter)
+		{
+			const FString Filename = *PackageIter.Key();
+			const FString PackageName = FPackageName::FilenameToLongPackageName(Filename);
+			const FSourceControlStatePtr CurPackageSCCState = PackageIter.Value();
+
+			UPackage* Package = FindPackage(NULL, *PackageName);
+
+			// Put pre-selected items at the start of the list
+			if (CurPackageSCCState.IsValid() && CurPackageSCCState->IsSourceControlled())
+			{
+				if (Package != NULL)
+				{
+					LoadedPackages.Insert(Package, NumSelectedPackages++);
+				}
+				PackageNames.Insert(PackageName, NumSelectedNames++);
+			}
+			else
+			{
+				if (Package != NULL)
+				{
+					LoadedPackages.Add(Package);
+				}
+				PackageNames.Add(PackageName);
+			}
+		}
+
+		// Get a list of all the checked out config files
+		TMap<FString, FSourceControlStatePtr> ConfigFileStates;
+		TArray<FString> ConfigFilesToSubmit;
+		FEditorFileUtils::FindAllSubmittableConfigFiles(ConfigFileStates);
+		for (TMap<FString, FSourceControlStatePtr>::TConstIterator It(ConfigFileStates); It; ++It)
+		{
+			ConfigFilesToSubmit.Add(It.Key());
+		}
+
+		if (PackageNames.Num() > 0 || ConfigFilesToSubmit.Num() > 0)
+		{
+			ChoosePackagesToCheckInCompleted(LoadedPackages, PackageNames, ConfigFilesToSubmit);
+		}
+		else
+		{
+			FMessageLog EditorErrors("EditorErrors");
+			EditorErrors.Warning(LOCTEXT("NoAssetsToCheckIn", "No assets to check in!"));
+			EditorErrors.Notify();
+		}
+	}
+	else if (InResult == ECommandResult::Failed)
+	{
+		FMessageLog EditorErrors("EditorErrors");
+		EditorErrors.Warning(LOCTEXT("CheckInOperationFailed", "Failed checking source control status!"));
+		EditorErrors.Notify();
+	}
+}
+
+void FSourceControlWindows::ChoosePackagesToCheckIn()
+{
+	if (ISourceControlModule::Get().IsEnabled())
+	{
+		if (ISourceControlModule::Get().GetProvider().IsAvailable())
+		{
+			// make sure we update the SCC status of all packages (this could take a long time, so we will run it as a background task)
+			TArray<FString> Packages;
+			FEditorFileUtils::FindAllPackageFiles(Packages);
+
+			// Get list of filenames corresponding to packages
+			TArray<FString> Filenames = SourceControlHelpers::PackageFilenames(Packages);
+
+			// Add game config files to the list
+			FEditorFileUtils::FindAllConfigFiles(Filenames);
+
+			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+			FSourceControlOperationRef Operation = ISourceControlOperation::Create<FUpdateStatus>();
+			SourceControlProvider.Execute(Operation, Filenames, EConcurrency::Asynchronous, FSourceControlOperationComplete::CreateStatic(&FSourceControlWindows::ChoosePackagesToCheckInCallback));
+
+			if (ChoosePackagesToCheckInNotification.IsValid())
+			{
+				ChoosePackagesToCheckInNotification.Pin()->ExpireAndFadeout();
+			}
+
+			FNotificationInfo Info(LOCTEXT("ChooseAssetsToCheckInIndicator", "Checking for assets to check in..."));
+			Info.bFireAndForget = false;
+			Info.ExpireDuration = 0.0f;
+			Info.FadeOutDuration = 1.0f;
+
+			if (SourceControlProvider.CanCancelOperation(Operation))
+			{
+				Info.ButtonDetails.Add(FNotificationButtonInfo(
+					LOCTEXT("ChoosePackagesToCheckIn_CancelButton", "Cancel"),
+					LOCTEXT("ChoosePackagesToCheckIn_CancelButtonTooltip", "Cancel the check in operation."),
+					FSimpleDelegate::CreateStatic(&FSourceControlWindows::ChoosePackagesToCheckInCancelled, Operation)
+					));
+			}
+
+			ChoosePackagesToCheckInNotification = FSlateNotificationManager::Get().AddNotification(Info);
+
+			if (ChoosePackagesToCheckInNotification.IsValid())
+			{
+				ChoosePackagesToCheckInNotification.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
+			}
+		}
+		else
+		{
+			FMessageLog EditorErrors("EditorErrors");
+			EditorErrors.Warning(LOCTEXT("NoSCCConnection", "No connection to source control available!"))
+				->AddToken(FDocumentationToken::Create(TEXT("Engine/UI/SourceControl")));
+			EditorErrors.Notify();
+		}
+	}
+}
+
+bool FSourceControlWindows::CanChoosePackagesToCheckIn()
+{
+	return !ChoosePackagesToCheckInNotification.IsValid();
+}
+
 static void FindFilesForCheckIn(const TArray<FString>& InFilenames, TArray<FString>& OutAddFiles, TArray<FString>& OutOpenFiles)
 {
 	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
@@ -461,7 +642,7 @@ static void FindFilesForCheckIn(const TArray<FString>& InFilenames, TArray<FStri
 	for (const FString& Filename : InFilenames)
 	{
 		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Filename, EStateCacheUsage::Use);
-		if(SourceControlState.IsValid())
+		if (SourceControlState.IsValid())
 		{
 			if (SourceControlState->CanCheckIn())
 			{
@@ -469,7 +650,7 @@ static void FindFilesForCheckIn(const TArray<FString>& InFilenames, TArray<FStri
 			}
 			else
 			{
-				if( !SourceControlState->IsSourceControlled() )
+				if (!SourceControlState->IsSourceControlled())
 				{
 					OutAddFiles.Add(Filename);
 				}
@@ -477,7 +658,6 @@ static void FindFilesForCheckIn(const TArray<FString>& InFilenames, TArray<FStri
 		}
 	}
 }
-
 
 bool FSourceControlWindows::PromptForCheckin(const TArray<FString>& InPackageNames, const TArray<FString>& InConfigFiles)
 {
@@ -587,6 +767,7 @@ bool FSourceControlWindows::PromptForCheckin(const TArray<FString>& InPackageNam
 
 	return bCheckInSuccess;
 }
+
 
 #undef LOCTEXT_NAMESPACE
 

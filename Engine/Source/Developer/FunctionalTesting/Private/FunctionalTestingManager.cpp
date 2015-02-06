@@ -5,12 +5,10 @@
 
 //----------------------------------------------------------------------//
 // 6/25 @todo these will be removed once marge from main comes
-#include "Editor/UnrealEdTypes.h"
-#include "Editor/EditorEngine.h"
+#include "UnrealEd.h"
 class UFactory;
 //----------------------------------------------------------------------//
 
-#include "Editor.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "FunctionalTesting"
@@ -161,7 +159,7 @@ void UFunctionalTestingManager::TriggerFirstValidTest()
 	{
 		bInitialDelayApplied = true;
 		static const float WaitingTime = 0.25f;
-		World->GetTimerManager().SetTimer(this, &UFunctionalTestingManager::TriggerFirstValidTest, WaitingTime);
+		World->GetTimerManager().SetTimer(TriggerFirstValidTestTimerHandle, this, &UFunctionalTestingManager::TriggerFirstValidTest, WaitingTime);
 	}
 }
 

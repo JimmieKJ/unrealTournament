@@ -6,6 +6,7 @@
 #include "SDockTab.h"
 #include "SNumericEntryBox.h"
 #include "Engine/TextureCube.h"
+#include "Engine/TextureRenderTarget.h"
 #include "Engine/TextureRenderTargetCube.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/Texture2D.h"
@@ -983,7 +984,7 @@ bool FTextureEditorToolkit::HandleRedChannelActionIsChecked( ) const
 
 bool FTextureEditorToolkit::HandleReimportActionCanExecute( ) const
 {
-	if (Texture->IsA<ULightMapTexture2D>() || Texture->IsA<UShadowMapTexture2D>() || Texture->IsA<UTexture2DDynamic>())
+	if (Texture->IsA<ULightMapTexture2D>() || Texture->IsA<UShadowMapTexture2D>() || Texture->IsA<UTexture2DDynamic>() || Texture->IsA<UTextureRenderTarget>())
 	{
 		return false;
 	}

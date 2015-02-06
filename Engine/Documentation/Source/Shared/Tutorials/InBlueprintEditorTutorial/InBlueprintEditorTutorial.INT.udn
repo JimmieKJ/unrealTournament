@@ -26,16 +26,16 @@ For example, the above graph changes the color of the rocket from blue to orange
 [EXCERPT:2]
 
 [VAR:StageTitle]
-Class Blueprints and Level Blueprints
+Blueprint Classes and Level Blueprints
 [/VAR]
 
-Both Level Blueprints and Class Blueprints contain graphs, and allow you to set up gameplay logic. 
+Both Level Blueprints and Blueprint Classes contain graphs, and allow you to set up gameplay logic. 
 
-A Class Blueprint allows you to set up an Actor, or a gameplay object that is placed in your level.  Whether this is the character you control, or an item you pick up, its behavior is set up in graphs contained within the Class Blueprint. The Class Blueprint sets up all the aspects of the Actor, including components and properties.
+A Blueprint Class allows you to set up an Actor, or a gameplay object that is placed in your level.  Whether this is the character you control, or an item you pick up, its behavior is set up in graphs contained within the Blueprint Class. The Blueprint Class sets up all the aspects of the Actor, including components and properties.
 
 ![](ClassBlueprint.png)
 
-While editing Class Blueprints, in addition to Graph Mode where you can edit graphs, you can add components like Static Meshes and Point Lights in Components Mode, and set default values for properties in Defaults Mode.
+While editing Blueprints Class, in addition to Graph Mode where you can edit graphs, you can add components like Static Meshes and Point Lights in Components Mode, and set default values for properties in Defaults Mode.
 
 ![](BPEditorModes.png)
 

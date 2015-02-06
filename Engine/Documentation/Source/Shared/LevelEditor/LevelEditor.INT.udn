@@ -48,7 +48,7 @@ Gameplay/Framework/Controller/PlayerController
 [/EXCERPT:OpenPlayerControllerBlueprint]
 
 [EXCERPT:CreateClassBlueprint]
-A Class Blueprint, often shortened as Blueprint, is an asset that allows content creators to easily add functionality on top of existing gameplay classes. Blueprints are created inside of Unreal Editor visually, instead of by typing code, and saved as assets in a content package. These essentially define a new class or type of Actor which can then be placed into maps as instances that behave like any other type of Actor.
+A Blueprint Class, often shortened as Blueprint, is an asset that allows content creators to easily add functionality on top of existing gameplay classes. Blueprints are created inside of Unreal Editor visually, instead of by typing code, and saved as assets in a content package. These essentially define a new class or type of Actor which can then be placed into maps as instances that behave like any other type of Actor.
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Types/ClassBlueprint
 [/VAR]
@@ -89,7 +89,7 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 [/EXCERPT:KeepSimulationChanges]
 
 [EXCERPT:PushToBlueprintDefaults]
-Any property changes made to the selected Actor in the level will be pushed back to the Blueprint Defaults for this class, allowing you to adjust settings on one instance and then apply them to all future instances.
+Any property changes made to the selected Actor in the level will be pushed back to the Class Defaults for this class, allowing you to adjust settings on one instance and then apply them to all future instances.
 [/EXCERPT:PushToBlueprintDefaults]
 
 [EXCERPT:ResetToBlueprintDefaults]

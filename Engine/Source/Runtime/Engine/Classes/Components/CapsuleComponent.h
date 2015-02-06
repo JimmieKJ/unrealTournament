@@ -7,7 +7,7 @@
 /** 
  * A capsule generally used for simple collision. Bounds are rendered as lines in the editor.
  */
-UCLASS(ClassGroup=Shapes, editinlinenew, hidecategories=(Object,LOD,Lighting,TextureStreaming), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup="Physics", editinlinenew, hidecategories=(Object,LOD,Lighting,TextureStreaming), meta=(DisplayName="Capsule Collision", BlueprintSpawnableComponent))
 class ENGINE_API UCapsuleComponent : public UShapeComponent
 {
 	GENERATED_UCLASS_BODY()

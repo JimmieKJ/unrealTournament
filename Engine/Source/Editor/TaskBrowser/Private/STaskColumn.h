@@ -26,7 +26,7 @@ public:
 private:
 
 	/** Helper func to get the field from the localized name */
-	FString GetFieldNameLoc( const EField InField );
+	FText GetFieldNameLoc( const EField InField );
 
 	/** Handle when the column in the table has been clicked */
 	FReply OnTaskColumnClicked();

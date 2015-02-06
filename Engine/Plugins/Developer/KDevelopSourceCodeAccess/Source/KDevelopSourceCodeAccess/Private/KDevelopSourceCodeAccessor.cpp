@@ -70,6 +70,11 @@ bool FKDevelopSourceCodeAccessor::OpenSourceFiles(const TArray<FString>& Absolut
 	return false;
 }
 
+bool FKDevelopSourceCodeAccessor::AddSourceFiles(const TArray<FString>& AbsoluteSourcePaths, const TArray<FString>& AvailableModules)
+{
+	return false;
+}
+
 bool FKDevelopSourceCodeAccessor::OpenFileAtLine(const FString& FullPath, int32 LineNumber, int32 ColumnNumber)
 {
 	// column & line numbers are 1-based, so dont allow zero

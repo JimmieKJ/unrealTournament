@@ -372,6 +372,12 @@ public:
 	 * @return the set of selected non-actor objects.
 	 */
 	virtual class USelection* GetSelectedObjects() const;
+
+	/**
+	 * Returns the world that is being edited by this mode manager
+	 */ 
+	virtual UWorld* GetWorld() const;
+
 protected:
 	/** 
 	 * Delegate handlers

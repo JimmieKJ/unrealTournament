@@ -20,6 +20,9 @@
 	/** Delegates for callbacks of each test */
 	FOnQueryEntitlementsCompleteDelegate OnQueryEntitlementsCompleteDelegate;
 
+	/** Handle to the above delegates */
+	FDelegateHandle OnQueryEntitlementsCompleteDelegateHandle;
+
 	/** toggles for whether to run each test */
 	bool bQueryEntitlements;
 

@@ -11,6 +11,7 @@
 #include "DefaultValueHelper.h"
 #include "ConsoleSettings.h"
 #include "GameFramework/InputSettings.h"
+#include "Stats/StatsData.h"
 
 static const uint32 MAX_AUTOCOMPLETION_LINES = 20;
 
@@ -219,6 +220,25 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 		AutoCompleteList[NewIdx].Command = FString(TEXT("open 127.0.0.1"));
 		AutoCompleteList[NewIdx].Desc = FString(TEXT("open 127.0.0.1 (opens connection to localhost)"));
 	}
+
+#if STATS
+	// stat commands
+	{
+		const TSet<FName>& StatGroupNames = FStatGroupGameThreadNotifier::Get().StatGroupNames;
+
+		int32 NewIdx = AutoCompleteList.AddZeroed(StatGroupNames.Num());
+		for (const FName& StatGroupName : StatGroupNames)
+		{
+			FString Command = FString(TEXT("Stat "));
+			Command += StatGroupName.ToString().RightChop(sizeof("STATGROUP_") - 1);
+
+			AutoCompleteList[NewIdx].Command = Command;
+			AutoCompleteList[NewIdx].Desc = FString();
+			NewIdx++;
+		}
+	}
+#endif
+
 	// build the magic tree!
 	for (int32 ListIdx = 0; ListIdx < AutoCompleteList.Num(); ListIdx++)
 	{
@@ -352,28 +372,27 @@ void UConsole::ConsoleCommand(const FString& Command)
 
 	OutputText(FString::Printf(TEXT("\n>>> %s <<<"), *Command));
 
-	UWorld* World = GetOuterUGameViewportClient()->GetWorld();
-	if (ConsoleTargetPlayer != NULL)
+	UWorld *World = GetOuterUGameViewportClient()->GetWorld();
+	if(ConsoleTargetPlayer != NULL)
 	{
 		// If there is a console target player, execute the command in the player's context.
 		ConsoleTargetPlayer->PlayerController->ConsoleCommand(Command);
 	}
-	else
+	else if(World && World->GetPlayerControllerIterator())
 	{
-		if (World != NULL && World->GetPlayerControllerIterator())
+		// If there are any players, execute the command in the first player's context that has a non-null Player.
+		for (auto PCIter = World->GetPlayerControllerIterator(); PCIter; ++PCIter)
 		{
-			// If there are any players, execute the command in the first player's context that has a non-null Player.
-			for (auto PCIter = World->GetPlayerControllerIterator(); PCIter; ++PCIter)
+			APlayerController* PC = *PCIter;
+			if (PC && PC->Player)
 			{
-				APlayerController* PC = *PCIter;
-				if (PC != NULL && PC->Player != NULL)
-				{
-					PC->ConsoleCommand(Command);
-					return;
-				}
+				PC->ConsoleCommand(Command);
+				break;
 			}
 		}
-
+	}
+	else
+	{
 		// Otherwise, execute the command in the context of the viewport.
 		GetOuterUGameViewportClient()->ConsoleCommand(Command);
 	}

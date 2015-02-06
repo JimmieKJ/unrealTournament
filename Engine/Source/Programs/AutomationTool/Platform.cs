@@ -377,6 +377,14 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// True if this platform can write to the abslog path that's on the host desktop.
+		/// </summary>
+		public virtual bool UseAbsLog
+		{
+			get { return true; }
+		}
+
+		/// <summary>
 		/// Remaps the given content directory to its final location
 		/// </summary>
 		public virtual string Remap(string Dest)

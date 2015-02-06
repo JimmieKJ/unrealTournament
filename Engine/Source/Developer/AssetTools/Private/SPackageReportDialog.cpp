@@ -211,7 +211,7 @@ TSharedRef<ITableRow> SPackageReportDialog::GenerateTreeRow( TSharedPtr<FPackage
 			+SHorizontalBox::Slot()
 			.FillWidth(1.f)
 			[
-				SNew(STextBlock).Text(TreeItem->NodeName)
+				SNew(STextBlock).Text(FText::FromString(TreeItem->NodeName))
 			]
 		];
 }

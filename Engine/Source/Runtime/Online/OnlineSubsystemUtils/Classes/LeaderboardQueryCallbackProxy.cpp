@@ -34,8 +34,8 @@ void ULeaderboardQueryCallbackProxy::TriggerQuery(APlayerController* PlayerContr
 					new (ReadObject->ColumnMetadata) FColumnMetaData(StatName, StatType);
 
 					// Register the completion callback
-					LeaderboardReadCompleteDelegate = FOnLeaderboardReadCompleteDelegate::CreateUObject(this, &ULeaderboardQueryCallbackProxy::OnStatsRead);
-					Leaderboards->AddOnLeaderboardReadCompleteDelegate(LeaderboardReadCompleteDelegate);
+					LeaderboardReadCompleteDelegate       = FOnLeaderboardReadCompleteDelegate::CreateUObject(this, &ULeaderboardQueryCallbackProxy::OnStatsRead);
+					LeaderboardReadCompleteDelegateHandle = Leaderboards->AddOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadCompleteDelegate);
 
 					TArray< TSharedRef<FUniqueNetId> > ListOfIDs;
 					ListOfIDs.Add(UserID.ToSharedRef());
@@ -108,7 +108,7 @@ void ULeaderboardQueryCallbackProxy::OnStatsRead(bool bWasSuccessful)
 	{
 		// Use a dummy timer handle as we don't need to store it for later but we don't need to look for something to clear
 		FTimerHandle TimerHandle;
-		World->GetTimerManager().SetTimer(this, &ULeaderboardQueryCallbackProxy::OnStatsRead_Delayed, 0.001f, false);
+		World->GetTimerManager().SetTimer(OnStatsRead_DelayedTimerHandle, this, &ULeaderboardQueryCallbackProxy::OnStatsRead_Delayed, 0.001f, false);
 	}
 	ReadObject = NULL;
 }
@@ -134,7 +134,7 @@ void ULeaderboardQueryCallbackProxy::RemoveDelegate()
 			IOnlineLeaderboardsPtr Leaderboards = OnlineSub->GetLeaderboardsInterface();
 			if (Leaderboards.IsValid())
 			{
-				Leaderboards->ClearOnLeaderboardReadCompleteDelegate(LeaderboardReadCompleteDelegate);
+				Leaderboards->ClearOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadCompleteDelegateHandle);
 			}
 		}
 	}

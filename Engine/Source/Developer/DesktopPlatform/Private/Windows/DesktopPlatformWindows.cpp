@@ -424,7 +424,12 @@ void FDesktopPlatformWindows::EnumerateEngineInstallations(TMap<FString, FString
 	HKEY hKey;
 	if (RegOpenKeyEx(HKEY_CURRENT_USER, InstallationsSubKey, 0, KEY_ALL_ACCESS, &hKey) == ERROR_SUCCESS)
 	{
+		// Get a list of all the directories
+		TArray<FString> UniqueDirectories;
+		OutInstallations.GenerateValueArray(UniqueDirectories);
+
 		// Enumerate all the installations
+		TArray<FString> InvalidKeys;
 		for (::DWORD Index = 0;; Index++)
 		{
 			TCHAR ValueName[256];
@@ -441,7 +446,17 @@ void FDesktopPlatformWindows::EnumerateEngineInstallations(TMap<FString, FString
 
 				FString NormalizedInstalledDirectory(ValueDataLength, ValueData);
 				FPaths::NormalizeDirectoryName(NormalizedInstalledDirectory);
-				OutInstallations.Add(ValueName, NormalizedInstalledDirectory);
+				FPaths::CollapseRelativeDirectories(NormalizedInstalledDirectory);
+
+				if(IsValidRootDirectory(NormalizedInstalledDirectory) && !UniqueDirectories.Contains(NormalizedInstalledDirectory))
+				{
+					OutInstallations.Add(ValueName, NormalizedInstalledDirectory);
+					UniqueDirectories.Add(NormalizedInstalledDirectory);
+				}
+				else
+				{
+					InvalidKeys.Add(ValueName);
+				}
 			}
 			else if(Result == ERROR_NO_MORE_ITEMS)
 			{
@@ -449,14 +464,10 @@ void FDesktopPlatformWindows::EnumerateEngineInstallations(TMap<FString, FString
 			}
 		}
 
-		// Trim the list to everything that's valid
-		for(TMap<FString, FString>::TIterator Iter(OutInstallations); Iter; ++Iter)
+		// Remove all the keys which weren't valid
+		for(const FString InvalidKey: InvalidKeys)
 		{
-			if (!IsValidRootDirectory(Iter.Value()))
-			{
-				RegDeleteValue(hKey, *Iter.Key());
-				Iter.RemoveCurrent();
-			}
+			RegDeleteValue(hKey, *InvalidKey);
 		}
 
 		RegCloseKey(hKey);
@@ -546,7 +557,7 @@ bool FDesktopPlatformWindows::RunUnrealBuildTool(const FText& Description, const
 
 bool FDesktopPlatformWindows::IsUnrealBuildToolRunning()
 {
-	FString UBTPath = GetUnrealBuildToolExecutableFilename();
+	FString UBTPath = GetUnrealBuildToolExecutableFilename(FPaths::RootDir());
 	FPaths::MakePlatformFilename(UBTPath);
 
 	HANDLE SnapShot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -576,6 +587,11 @@ FFeedbackContext* FDesktopPlatformWindows::GetNativeFeedbackContext()
 {
 	static FWindowsNativeFeedbackContext FeedbackContext;
 	return &FeedbackContext;
+}
+
+FString FDesktopPlatformWindows::GetUserTempPath()
+{
+	return FString(FPlatformProcess::UserTempDir());
 }
 
 void FDesktopPlatformWindows::GetRequiredRegistrySettings(TIndirectArray<FRegistryRootedKey> &RootedKeys)

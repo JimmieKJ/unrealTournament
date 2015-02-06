@@ -7,10 +7,10 @@
 
 struct FProjectLauncherMessage
 {
-	FString Message;
+	FText Message;
 	ELogVerbosity::Type Verbosity;
 
-	FProjectLauncherMessage(const FString& NewMessage, ELogVerbosity::Type InVerbosity)
+	FProjectLauncherMessage(const FText& NewMessage, ELogVerbosity::Type InVerbosity)
 		: Message(NewMessage)
 		, Verbosity(InVerbosity)
 	{ }

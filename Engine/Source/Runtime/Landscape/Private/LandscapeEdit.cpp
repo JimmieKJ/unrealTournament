@@ -2261,7 +2261,7 @@ void ALandscapeProxy::Import(FGuid Guid, int32 VertsX, int32 VertsY,
 
 bool ALandscapeProxy::ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh) const
 {
-	TArray<ULandscapeComponent*> RegisteredLandscapeComponents;
+	TInlineComponentArray<ULandscapeComponent*> RegisteredLandscapeComponents;
 	GetComponents<ULandscapeComponent>(RegisteredLandscapeComponents);
 
 	const FIntRect LandscapeSectionRect = GetBoundingRect();
@@ -3496,7 +3496,7 @@ void ALandscapeProxy::RecreateCollisionComponents()
 	CollisionComponents.Empty();
 
 	// Destroy any owned collision components
-	TArray<ULandscapeHeightfieldCollisionComponent*> CollisionComps;
+	TInlineComponentArray<ULandscapeHeightfieldCollisionComponent*> CollisionComps;
 	GetComponents(CollisionComps);
 	for (ULandscapeHeightfieldCollisionComponent* Component : CollisionComps)
 	{
@@ -4815,21 +4815,6 @@ bool ALandscapeProxy::IsValidLandscapeActor(ALandscape* Landscape)
 				return true;
 			}
 		}
-	}
-	return false;
-}
-
-bool ALandscapeProxy::GetSelectedComponents(TArray<UObject*>& SelectedObjects)
-{
-	ULandscapeInfo* Info = GetLandscapeInfo(false);
-	if (Info && Info->bCurrentlyEditing)
-	{
-		auto SelectedComponents = Info->GetSelectedComponents();
-		for (auto It = SelectedComponents.CreateIterator(); It; ++It)
-		{
-			SelectedObjects.Add(*It);
-		}
-		return true;
 	}
 	return false;
 }

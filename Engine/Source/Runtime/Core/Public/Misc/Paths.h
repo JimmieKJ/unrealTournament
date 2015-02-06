@@ -266,9 +266,9 @@ public:
 	static FString GameSourceDir();
 
 	/**
-	 * @return The directory where starter content is kept
+	 * @return The directory where feature packs are kept
 	 */
-	static FString StarterContentDir();
+	static FString FeaturePackDir();
 
 	/**
 	 * Checks whether the path to the project file, if any, is set.

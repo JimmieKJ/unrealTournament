@@ -6,6 +6,7 @@
 #include "Json.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
+#include "AutoSaveUtils.h"
 
 namespace PackageAutoSaverJson
 {
@@ -160,7 +161,7 @@ void FPackageAutoSaver::AttemptAutoSave()
 			GUnrealEd->SaveConfig();
 
 			// Make sure the auto-save directory exists before attempting to write the file
-			const FString& AutoSaveDir = GUnrealEd->AutoSaveDir;
+			const FString AutoSaveDir = AutoSaveUtils::GetAutoSaveDir();
 			IFileManager::Get().MakeDirectory(*AutoSaveDir, true);
 
 			// Auto-save maps and/or content packages based on user settings.
@@ -303,7 +304,7 @@ void FPackageAutoSaver::OnPackageSaved(const FString& Filename, UObject* Obj)
 		{
 			// Make the filename relative to the auto-save directory
 			// Note: MakePathRelativeTo modifies in-place, hence the copy of Filename
-			const FString AutoSaveDir = GUnrealEd->AutoSaveDir / "";
+			const FString AutoSaveDir = AutoSaveUtils::GetAutoSaveDir() / "";
 			FString RelativeFilename = Filename;
 			FPaths::MakePathRelativeTo(RelativeFilename, *AutoSaveDir);
 
@@ -592,7 +593,7 @@ void FPackageAutoSaver::ClearStalePointers()
 
 FString PackageAutoSaverJson::GetRestoreFilename(const bool bEnsurePath)
 {
-	const FString& AutoSaveDir = GUnrealEd->AutoSaveDir;
+	const FString AutoSaveDir = AutoSaveUtils::GetAutoSaveDir();
 	if(bEnsurePath)
 	{
 		// Make sure the auto-save directory exists before attempting to write the file

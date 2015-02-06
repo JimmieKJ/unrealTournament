@@ -125,28 +125,28 @@ private:
 		return
 			SNew( STableRow<TSharedPtr<FString>>, OwnerTable)
 			[
-				SNew( STextBlock ).Text( *InItem )
+				SNew( STextBlock ).Text( FText::FromString(*InItem) )
 			];
 	}
 
 	/** Display the current selection */
-	FString GetRowNameComboBoxContentText( ) const
+	FText GetRowNameComboBoxContentText( ) const
 	{
-		FString RowName = TEXT( "Multiple Values" );
-		const FPropertyAccess::Result RowResult = RowNamePropertyHandle->GetValue( RowName );
+		FString RowNameValue;
+		const FPropertyAccess::Result RowResult = RowNamePropertyHandle->GetValue( RowNameValue );
 		if ( RowResult != FPropertyAccess::MultipleValues )
 		{
 			TSharedPtr<FString> SelectedRowName = CurrentSelectedItem;
 			if ( SelectedRowName.IsValid() )
 			{
-				RowName = *SelectedRowName;
+				return FText::FromString(*SelectedRowName);
 			}
 			else
 			{
-				RowName = TEXT( "None" );
+				return NSLOCTEXT( "CurveTableCustomization", "None", "None" );
 			}
 		}
-		return RowName;
+		return NSLOCTEXT( "CurveTableCustomization", "MultipleValues", "Multiple Values" );
 	}
 
 	/** Update the root data on a change of selection */

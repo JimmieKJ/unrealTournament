@@ -100,7 +100,10 @@ const TArray<uint8>& FMacHttpRequest::GetContent()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpRequest::GetContent()"));
 	RequestPayload.Empty();
-	RequestPayload.Append((const uint8*)[[Request HTTPBody] bytes], GetContentLength());
+	RequestPayload.Reserve( GetContentLength() );
+
+	FMemory::Memcpy( RequestPayload.GetData(), [[Request HTTPBody] bytes], RequestPayload.Num() );
+
 	return RequestPayload;
 }
 
@@ -343,6 +346,7 @@ void FMacHttpRequest::Tick(float DeltaSeconds)
 
 @implementation FHttpResponseMacWrapper
 @synthesize Response;
+@synthesize Payload;
 @synthesize bIsReady;
 @synthesize bHadError;
 
@@ -363,16 +367,15 @@ void FMacHttpRequest::Tick(float DeltaSeconds)
 	self.Response = (NSHTTPURLResponse*)response;
 	
 	// presize the payload container if possible
-	Payload.Empty();
-	Payload.Reserve([response expectedContentLength] != NSURLResponseUnknownLength ? [response expectedContentLength] : 0);
-	UE_LOG(LogHttp, Verbose, TEXT("didReceiveResponse: expectedContentLength = %d. Length = %d: %p"), [response expectedContentLength], Payload.Max(), self);
+	self.Payload = [NSMutableData dataWithCapacity:([response expectedContentLength] != NSURLResponseUnknownLength ? [response expectedContentLength] : 0)];
+	UE_LOG(LogHttp, Verbose, TEXT("didReceiveResponse: expectedContentLength = %d. Length = %d: %p"), [response expectedContentLength], [self.Payload length], self);
 }
 
 
 -(void) connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
 {
-	Payload.Append((const uint8*)[data bytes], [data length]);
-	UE_LOG(LogHttp, Verbose, TEXT("didReceiveData with %d bytes. After Append, Payload Length = %d: %p"), [data length], Payload.Num(), self);
+	[self.Payload appendData:data];
+	UE_LOG(LogHttp, Verbose, TEXT("didReceiveData with %d bytes. After Append, Payload Length = %d: %p"), [data length], [self.Payload length], self);
 }
 
 
@@ -391,11 +394,6 @@ void FMacHttpRequest::Tick(float DeltaSeconds)
 {
 	UE_LOG(LogHttp, Verbose, TEXT("connectionDidFinishLoading: %p"), self);
 	self.bIsReady = YES;
-}
-
-- (TArray<uint8>&)getPayload
-{
-	return Payload;
 }
 
 @end
@@ -418,8 +416,7 @@ FMacHttpResponse::FMacHttpResponse(const FMacHttpRequest& InRequest)
 FMacHttpResponse::~FMacHttpResponse()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpResponse::~FMacHttpResponse()"));
-	[ResponseWrapper getPayload].Empty();
-
+	[[ResponseWrapper Payload] release];
 	[ResponseWrapper release];
 }
 
@@ -488,7 +485,7 @@ int32 FMacHttpResponse::GetContentLength()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FMacHttpResponse::GetContentLength()"));
 
-	return [ResponseWrapper getPayload].Num();
+	return [[ResponseWrapper Payload] length];
 }
 
 
@@ -500,8 +497,11 @@ const TArray<uint8>& FMacHttpResponse::GetContent()
 	}
 	else
 	{
-		Payload = [ResponseWrapper getPayload];
-		UE_LOG(LogHttp, Verbose, TEXT("FMacHttpResponse::GetContent() - Num: %i"), [ResponseWrapper getPayload].Num());
+		Payload.Empty();
+		Payload.AddZeroed( [[ResponseWrapper Payload] length] );
+	
+		FMemory::Memcpy( Payload.GetData(), [[ResponseWrapper Payload] bytes], [[ResponseWrapper Payload] length] );
+		UE_LOG(LogHttp, Verbose, TEXT("FMacHttpResponse::GetContent() - Num: %i"), [[ResponseWrapper Payload] length]);
 	}
 
 	return Payload;
@@ -565,5 +565,5 @@ bool FMacHttpResponse::HadError()
 
 const int32 FMacHttpResponse::GetNumBytesReceived() const
 {
-	return [ResponseWrapper getPayload].Num();
+	return [[ResponseWrapper Payload] length];
 }

@@ -6,19 +6,12 @@ using System.Text;
 using System.Diagnostics;
 using System.IO;
 using System.Xml;
+using System.Linq;
 
 namespace UnrealBuildTool
 {
 	class AndroidPlatform : UEBuildPlatform
 	{
-		/// <summary>
-		/// Android settings.
-		/// </summary>
-		[XmlConfig]
-		public static string AndroidNdkApiTarget = "android-19";
-		[XmlConfig]
-		public static string AndroidSdkApiTarget = "latest";
-
 		// The current architecture - affects everything about how UBT operates on Android
 		public override string GetActiveArchitecture()
 		{
@@ -64,38 +57,77 @@ namespace UnrealBuildTool
         private bool HasAnySDK()
         {
             string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
-			bool bNeedsNDKPath = string.IsNullOrEmpty(NDKPath);
-			bool bNeedsAndroidHome = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANDROID_HOME"));
-			bool bNeedsAntHome = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANT_HOME"));
+/* Don't check for existence of env vars, always set them from the .ini values if they exist
+//			bool bNeedsNDKPath = string.IsNullOrEmpty(NDKPath);
+//			bool bNeedsAndroidHome = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANDROID_HOME"));
+//			bool bNeedsAntHome = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANT_HOME"));
+ //           if((bNeedsNDKPath || bNeedsAndroidHome || bNeedsAntHome))
+ */
+            {
+                var configCacheIni = new ConfigCacheIni("Engine", null);
+                var AndroidEnv = new Dictionary<string, string>();
 
-			if (Utils.IsRunningOnMono && (bNeedsNDKPath || bNeedsAndroidHome || bNeedsAntHome))
-			{
-				// Try reading env variables we need from .bash_profile
-				string BashProfilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), ".bash_profile");
-				if(File.Exists(BashProfilePath))
-				{
-					string[] BashProfileContents = File.ReadAllLines(BashProfilePath);
-					foreach (string Line in BashProfileContents)
-					{
-						if (bNeedsAndroidHome && Line.StartsWith("export ANDROID_HOME="))
-						{
-							string PathVar = Line.Split('=')[1].Replace("\"", "");
-							Environment.SetEnvironmentVariable("ANDROID_HOME", PathVar);
-						}
-						else if (bNeedsNDKPath && Line.StartsWith("export NDKROOT="))
-						{
-							string PathVar = Line.Split('=')[1].Replace("\"", "");
-							Environment.SetEnvironmentVariable("NDKROOT", PathVar);
-							NDKPath = PathVar;
-						}
-						else if (bNeedsAntHome && Line.StartsWith("export ANT_HOME="))
-						{
-							string PathVar = Line.Split('=')[1].Replace("\"", "");
-							Environment.SetEnvironmentVariable("ANT_HOME", PathVar);
-						}
-					}
-				}
-			}
+                Dictionary<string, string> EnvVarNames = new Dictionary<string,string> { 
+                                                         {"ANDROID_HOME", "SDKPath"}, 
+                                                         {"NDKROOT", "NDKPath"}, 
+                                                         {"ANT_HOME", "ANTPath"},
+                                                         {"JAVA_HOME", "JavaPath"}
+                                                         };
+
+                string path;
+                foreach(var kvp in EnvVarNames)
+                {
+                    if (configCacheIni.GetPath("/Script/AndroidPlatformEditor.AndroidSDKSettings", kvp.Value, out path) && !string.IsNullOrEmpty(path))
+                    {
+//                        Log.TraceWarning("Adding {0} from ini as {1} to {2}", kvp.Value, path, kvp.Key);
+                        AndroidEnv.Add(kvp.Key, path);
+                    }
+                    else
+                    {
+                        var envValue = Environment.GetEnvironmentVariable(kvp.Key);
+                        if(!String.IsNullOrEmpty(envValue))
+                        {
+//                            Log.TraceWarning("Adding {0} from env as {1}", kvp.Key, envValue);
+                            AndroidEnv.Add(kvp.Key, envValue);
+                        }
+                    }
+                }
+
+                // If we are on Mono and we are still missing a key then go and find it from the .bash_profile
+                if (Utils.IsRunningOnMono && !EnvVarNames.All(s => AndroidEnv.ContainsKey(s.Key)))
+                {
+                    string BashProfilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), ".bash_profile");
+                    if (File.Exists(BashProfilePath))
+                    {
+                        string[] BashProfileContents = File.ReadAllLines(BashProfilePath);
+                        foreach (string Line in BashProfileContents)
+                        {
+                            foreach (var kvp in EnvVarNames)
+                            {
+                                if (AndroidEnv.ContainsKey(kvp.Key))
+                                {
+                                    continue;
+                                }
+
+                                if (Line.StartsWith("export " + kvp.Key + "="))
+                                {
+                                    string PathVar = Line.Split('=')[1].Replace("\"", "");
+                                    AndroidEnv.Add(kvp.Key, PathVar);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Set for the process
+                foreach (var kvp in AndroidEnv)
+                {
+                    Environment.SetEnvironmentVariable(kvp.Key, kvp.Value);
+                }
+
+                // See if we have an NDK path now...
+                AndroidEnv.TryGetValue("NDKROOT", out NDKPath);
+            }
 
             // we don't have an NDKROOT specified
             if (String.IsNullOrEmpty(NDKPath))
@@ -134,7 +166,7 @@ namespace UnrealBuildTool
 
 		protected override void RegisterBuildPlatformInternal()
 		{
-			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (HasRequiredSDKsInstalled() == SDKStatus.Valid))
+			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (HasRequiredSDKsInstalled() == SDKStatus.Valid) || Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
 			{
 				bool bRegisterBuildPlatform = true;
 
@@ -255,7 +287,7 @@ namespace UnrealBuildTool
 
 		public override void ModifyNewlyLoadedModule(UEBuildModule InModule, TargetInfo Target)
 		{
-			if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
+			if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Mac))
 			{
 				bool bBuildShaderFormats = UEBuildConfiguration.bForceBuildShaderFormats;
 				if (!UEBuildConfiguration.bBuildRequiresCookedData)

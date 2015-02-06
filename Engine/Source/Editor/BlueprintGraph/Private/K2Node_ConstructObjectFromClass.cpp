@@ -62,7 +62,7 @@ void UK2Node_ConstructObjectFromClass::SetPinToolTip(UEdGraphPin& MutatablePin, 
 	if (K2Schema != nullptr)
 	{
 		MutatablePin.PinToolTip += TEXT(" ");
-		MutatablePin.PinToolTip += K2Schema->GetPinDisplayName(&MutatablePin);
+		MutatablePin.PinToolTip += K2Schema->GetPinDisplayName(&MutatablePin).ToString();
 	}
 
 	MutatablePin.PinToolTip += FString(TEXT("\n")) + PinDescription.ToString();

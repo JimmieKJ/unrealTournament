@@ -109,7 +109,7 @@ TSharedRef<SWidget> SPropertyEditorLevelPackage::MakePickerWidget()
 				.AutoHeight()
 				[
 					SNew( SSearchBox )
-					.ToolTipText(LOCTEXT("LevelPackage_FilterTooltip", "Type here to search levels").ToString())
+					.ToolTipText(LOCTEXT("LevelPackage_FilterTooltip", "Type here to search levels"))
 					.HintText(LOCTEXT( "LevelPackage_FilterHint", "Search Levels" ))
 					.OnTextChanged(SearchBoxLevelPackageFilter.Get(), &LevelPackageTextFilter::SetRawFilterText)
 				]
@@ -149,8 +149,8 @@ TSharedRef<ITableRow> SPropertyEditorLevelPackage::MakeListRowWidget(TSharedPtr<
 			.BorderImage(FEditorStyle::GetBrush("NoBrush"))
 			[
 				SNew(STextBlock)
-				.ToolTipText(InPackageItem->LongPackageName)
-				.Text(InPackageItem->DisplayName)
+				.ToolTipText(FText::FromString(InPackageItem->LongPackageName))
+				.Text(FText::FromString(InPackageItem->DisplayName))
 				
 			]
 		];

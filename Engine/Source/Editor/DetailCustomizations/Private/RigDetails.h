@@ -41,7 +41,7 @@ private:
 	/** Called to create a widget for each string */
 	TSharedRef<SWidget> MakeItemWidget(TSharedPtr<FString> StringItem);
 	// Helper method to get the text for a given item in the combo box 
-	FString GetSelectedTextLabel(TSharedRef<IPropertyHandle> ParentSpacePropertyHandle) const;
+	FText GetSelectedTextLabel(TSharedRef<IPropertyHandle> ParentSpacePropertyHandle) const;
 	void OnComboBoxOopening(TSharedRef<IPropertyHandle> ParentSpacePropertyHandle, int32 ArrayIndex, bool bTranslation);
 	// check box handler
 	// Callback for changing this row's Share check box state.

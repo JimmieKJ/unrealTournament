@@ -211,19 +211,19 @@ private:
 			];
 	}
 
-	FString HandleVariantSelectorText() const
+	FText HandleVariantSelectorText() const
 	{
 		if (SimpleProfile.IsValid())
 		{
 			FName Variant = SimpleProfile->GetDeviceVariant();
 			if (Variant == NAME_None)
 			{
-				return "Default";
+				return LOCTEXT("DefaultVariant", "Default");
 			}
-			return Variant.ToString();
+			return FText::FromName(Variant);
 		}
 
-		return FString();
+		return FText::GetEmpty();
 	}
 
 	void HandleVariantSelectorVariantSelected(FName InVariant)
@@ -258,14 +258,14 @@ private:
 			];
 	}
 
-	FString HandleBuildConfigurationSelectorText() const
+	FText HandleBuildConfigurationSelectorText() const
 	{
 		if (SimpleProfile.IsValid())
 		{
-			return EBuildConfigurations::ToString(SimpleProfile->GetBuildConfiguration());
+			return FText::FromString(EBuildConfigurations::ToString(SimpleProfile->GetBuildConfiguration()));
 		}
 
-		return FString();
+		return FText::GetEmpty();
 	}
 
 	void HandleBuildConfigurationSelectorConfigurationSelected(EBuildConfigurations::Type Configuration)
@@ -294,33 +294,33 @@ private:
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SProjectLauncherCookModeSelector)
-				.OnCookModeSelected(this, &SProjectLauncherSimpleDeviceListRow::HandleCookModSelectorConfigurationSelected)
-				.Text(this, &SProjectLauncherSimpleDeviceListRow::HandleCookModSelectorText)
+				.OnCookModeSelected(this, &SProjectLauncherSimpleDeviceListRow::HandleCookModeSelectorConfigurationSelected)
+				.Text(this, &SProjectLauncherSimpleDeviceListRow::HandleCookModeSelectorText)
 				.Visibility(this, &SProjectLauncherSimpleDeviceListRow::IsAdvancedVisible)
 			];
 	}
 
-	FString HandleCookModSelectorText() const
+	FText HandleCookModeSelectorText() const
 	{
 		if (SimpleProfile.IsValid())
 		{
 			switch (SimpleProfile->GetCookMode())
 			{
 			case ELauncherProfileCookModes::DoNotCook:
-				return TEXT("Do not cook");
+				return LOCTEXT("CookMode_DoNotCook", "Do not cook");
 
 			case ELauncherProfileCookModes::ByTheBook:
-				return TEXT("By the book");
+				return LOCTEXT("CookMode_ByTheBook", "By the book");
 
 			case ELauncherProfileCookModes::OnTheFly:
-				return TEXT("On the fly");
+				return LOCTEXT("CookMode_OnTheFly", "On the fly");
 			}
 		}
 
-		return FString();
+		return FText::GetEmpty();
 	}
 
-	void HandleCookModSelectorConfigurationSelected(ELauncherProfileCookModes::Type CookMode)
+	void HandleCookModeSelectorConfigurationSelected(ELauncherProfileCookModes::Type CookMode)
 	{
 		if (SimpleProfile.IsValid())
 		{
@@ -408,38 +408,38 @@ private:
 	}
 
 	// Callback for getting the friendly name.
-	FString HandleDeviceNameText() const
+	FText HandleDeviceNameText() const
 	{
 		const FString& Name = DeviceProxy->GetName();
 
 		if (Name.IsEmpty())
 		{
-			return LOCTEXT("UnnamedDeviceName", "<unnamed>").ToString();
+			return LOCTEXT("UnnamedDeviceName", "<unnamed>");
 		}
 
-		return Name;
+		return FText::FromString(Name);
 	}
 
 	// Callback for getting the host name.
-	FString HandleHostNameText( ) const
+	FText HandleHostNameText( ) const
 	{
-		return DeviceProxy->GetHostName();
+		return FText::FromString(DeviceProxy->GetHostName());
 	}
 
 	// Callback for getting the host user name.
-	FString HandleHostUserText( ) const
+	FText HandleHostUserText( ) const
 	{
-		return DeviceProxy->GetHostUser();
+		return FText::FromString(DeviceProxy->GetHostUser());
 	}
 
 	// Callback for getting the host platform name.
-	FString HandleHostPlatformText( ) const
+	FText HandleHostPlatformText( ) const
 	{
 		if (LaunchProfile.IsValid())
 		{
-			return DeviceProxy->GetTargetPlatformName(SimpleProfile->GetDeviceVariant());
+			return FText::FromString(DeviceProxy->GetTargetPlatformName(SimpleProfile->GetDeviceVariant()));
 		}
-		return LOCTEXT("InvalidVariant", "Invalid Variant").ToString();
+		return LOCTEXT("InvalidVariant", "Invalid Variant");
 	}
 
 private:

@@ -37,6 +37,10 @@ class SLATE_API ITableRow
 
 		/** Called when the expander arrow for this row is shift+clicked */
 		virtual void Private_OnExpanderArrowShiftClicked() = 0;
+
+	protected:
+		/** Called to query the selection mode for the row */
+		virtual ESelectionMode::Type GetSelectionMode() const = 0;
 };
 
 
@@ -65,7 +69,7 @@ DECLARE_DELEGATE_RetVal_OneParam(FReply, FOnTableRowDrop, FDragDropEvent const&)
 template<typename ItemType>
 class STableRow : public ITableRow, public SBorder
 {
-	static_assert(TIsValidListItem<ItemType>::Value, "Item type T must be a pointer or a TSharedPtr.");
+	static_assert(TIsValidListItem<ItemType>::Value, "Item type T must be UObjectBase*, TSharedRef<>, or TSharedPtr<>.");
 
 public:
 	/** Delegate signature for querying whether this FDragDropEvent will be handled by the drop target of type ItemType. */
@@ -153,20 +157,23 @@ public:
 		else
 		{
 			// -- Row is for TreeView --
-			
+
 			// Rows in a TreeView need an expander button and some indentation
 			this->ChildSlot
 			[
 				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-					.AutoWidth()
-					.HAlign(HAlign_Right) .VAlign(VAlign_Fill)
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Fill)
 				[
 					SNew(SExpanderArrow, SharedThis(this) )
 				]
-				+SHorizontalBox::Slot()
-					.FillWidth(1)
-					.Padding( InPadding )
+
+				+ SHorizontalBox::Slot()
+				.FillWidth(1)
+				.Padding( InPadding )
 				[
 					InContent
 				]
@@ -269,7 +276,7 @@ public:
 
 		if ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
 		{
-			switch( OwnerWidget->Private_GetSelectionMode() )
+			switch( GetSelectionMode() )
 			{
 			case ESelectionMode::Single:
 				{
@@ -374,7 +381,7 @@ public:
 			{
 				if ( bIsUnderMouse )
 				{
-					switch( OwnerWidget->Private_GetSelectionMode() )
+					switch( GetSelectionMode() )
 					{
 					case ESelectionMode::SingleToggle:
 						{
@@ -435,7 +442,7 @@ public:
 			// Handle selection of items when releasing the right mouse button, but only if the user isn't actively
 			// scrolling the view by holding down the right mouse button.
 
-			switch( OwnerWidget->Private_GetSelectionMode() )
+			switch( GetSelectionMode() )
 			{
 			case ESelectionMode::Single:
 			case ESelectionMode::SingleToggle:
@@ -483,7 +490,7 @@ public:
 			const TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
 			const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget( this );
 
-			switch( OwnerWidget->Private_GetSelectionMode() )
+			switch( GetSelectionMode() )
 			{
 				default:
 				case ESelectionMode::None:
@@ -759,7 +766,7 @@ public:
 		else
 		{
 			// Add a slightly lighter background for even rows
-			const bool bAllowSelection = OwnerWidget->Private_GetSelectionMode() != ESelectionMode::None;
+			const bool bAllowSelection = GetSelectionMode() != ESelectionMode::None;
 			if( IndexInList % 2 == 0 )
 			{
 				return ( IsHovered() && bAllowSelection )
@@ -778,7 +785,7 @@ public:
 	}
 
 	/** 
-	 * Callback to determine if the row is selected or not
+	 * Callback to determine if the row is selected singularly and has keyboard focus or not
 	 *
 	 * @return		true if selected by owning widget.
 	 */
@@ -793,6 +800,19 @@ public:
 
 		const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget( this );
 		return OwnerWidget->Private_IsItemSelected( *MyItem );
+	}
+
+	/**
+	 * Callback to determine if the row is selected or not
+	 *
+	 * @return		true if selected by owning widget.
+	 */
+	bool IsSelected() const
+	{
+		TSharedPtr< ITypedTableView< ItemType > > OwnerWidget = OwnerTablePtr.Pin();
+
+		const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget(this);
+		return OwnerWidget->Private_IsItemSelected(*MyItem);
 	}
 
 	/** Protected constructor; SWidgets should only be instantiated via declarative syntax. */
@@ -861,6 +881,12 @@ protected:
 		return bIsSelected
 			? SelectedForeground
 			: NonSelectedForeground;
+	}
+
+	virtual ESelectionMode::Type GetSelectionMode() const override
+	{
+		const TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
+		return OwnerWidget->Private_GetSelectionMode();
 	}
 
 protected:

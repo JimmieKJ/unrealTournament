@@ -474,7 +474,7 @@ TSharedRef<SDockTab> FTranslationEditor::SpawnTab_Search(const FSpawnTabArgs& Ar
 			[
 				SAssignNew(SearchBox, SSearchBox)
 				.HintText(LOCTEXT("FilterSearch", "Search..."))
-				.ToolTipText(LOCTEXT("FilterSearchHint", "Type here to search").ToString())
+				.ToolTipText(LOCTEXT("FilterSearchHint", "Type here to search"))
 				.OnTextChanged(this, &FTranslationEditor::OnFilterTextChanged)
 				.OnTextCommitted(this, &FTranslationEditor::OnFilterTextCommitted)
 			]

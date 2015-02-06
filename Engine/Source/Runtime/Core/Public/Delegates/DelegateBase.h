@@ -94,6 +94,22 @@ public:
 		DelegateInstance = InDelegateInstance;
 	}
 
+	/**
+	 * Gets a handle to the delegate.
+	 *
+	 * @return The delegate instance.
+	 */
+	inline FDelegateHandle GetHandle() const
+	{
+		FDelegateHandle Result;
+		if (DelegateInstance)
+		{
+			Result = DelegateInstance->GetHandle();
+		}
+
+		return Result;
+	}
+
 private:
 
 	// Holds the delegate instance

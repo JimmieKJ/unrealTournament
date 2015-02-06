@@ -194,6 +194,9 @@ private:
 	
 	/** The log target for compile events */
 	static FCompilerResultsLog* CurrentEventTarget;
+
+	/** Handle to the registered GetGlobalModuleCompilerDump delegate. */
+	static FDelegateHandle GetGlobalModuleCompilerDumpDelegateHandle;
 };
 
 /** This class will begin a new compile event on construction, and automatically end it when the instance goes out of scope */
@@ -220,9 +223,6 @@ public:
 		}
 	}
 };
-
-#define BP_SCOPED_COMPILER_EVENT_NAME(Name) \
-	FScopedCompilerEvent ScopedCompilerEvent(Name)
 
 #if STATS
 #define BP_SCOPED_COMPILER_EVENT_STAT(Stat) \

@@ -213,10 +213,10 @@ private:
 	TSharedRef<ITableRow> OnGenerateWidgetForLog(TSharedPtr<FAutomationOutputMessage> Message, const TSharedRef<STableViewBase>& OwnerTable);
 
 	/** Returns number of enabled tests (regardless of visibility) */
-	FString OnGetNumEnabledTestsString() const;
+	FText OnGetNumEnabledTestsString() const;
 	
 	/** Returns number of workers in a device cluster */
-	FString OnGetNumDevicesInClusterString(const int32 ClusterIndex) const;
+	FText OnGetNumDevicesInClusterString(const int32 ClusterIndex) const;
 
 	/** Callback when the list has been refreshed by the Automation Controller */
 	void OnRefreshTestCallback();
@@ -330,7 +330,7 @@ private:
 	*
 	* @return A start or stop tests label Depending on state.
 	*/
-	FString GetRunAutomationLabel() const;
+	FText GetRunAutomationLabel() const;
 
 	/**
 	* Gets the brush to use for the test list background.
@@ -426,7 +426,7 @@ private:
 	void ExpandEnabledTests( TSharedPtr< IAutomationReport > InReport );
 
 	/** Gets the text to display for the preset combo box. */
-	FString GetPresetComboText() const;
+	FText GetPresetComboText() const;
 
 	/**
 	 * Handle the copy button clicked in the command bar.

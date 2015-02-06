@@ -13,6 +13,7 @@
 #include "PostProcessMobile.h"
 #include "SceneUtils.h"
 #include "PostProcessUpscale.h"
+#include "PostProcessCompositeEditorPrimitives.h"
 
 uint32 GetShadowQuality();
 
@@ -106,17 +107,27 @@ void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	FGlobalDynamicVertexBuffer::Get().Commit();
 	FGlobalDynamicIndexBuffer::Get().Commit();
 
+	// This might eventually be a problem with multiple views.
+	// Using only view 0 to check to do on-chip transform of alpha.
+	FViewInfo& View = Views[0];
+
 	const bool bGammaSpace = !IsMobileHDR();
 	const bool bRequiresUpscale = ((uint32)ViewFamily.RenderTarget->GetSizeXY().X > ViewFamily.FamilySizeX || (uint32)ViewFamily.RenderTarget->GetSizeXY().Y > ViewFamily.FamilySizeY);
+	const bool bRenderToScene = bRequiresUpscale || FSceneRenderer::ShouldCompositeEditorPrimitives(View);
 
-	if (bGammaSpace && !bRequiresUpscale)
+	if (bGammaSpace && !bRenderToScene)
 	{
 		SetRenderTarget(RHICmdList, ViewFamily.RenderTarget->GetRenderTargetTexture(), GSceneRenderTargets.GetSceneDepthTexture(), ESimpleRenderTargetMode::EClearToDefault);
 	}
 	else
 	{
 		// Begin rendering to scene color
-        GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearToDefault);
+		GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearToDefault);
+	}
+
+	if (GIsEditor)
+	{
+		RHICmdList.Clear(true, Views[0].BackgroundColor, false, 0, false, 0, FIntRect());
 	}
 
 	RenderForwardShadingBasePass(RHICmdList);
@@ -147,10 +158,6 @@ void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		RenderTranslucency(RHICmdList);
 	}
 
-	// This might eventually be a problem with multiple views.
-	// Using only view 0 to check to do on-chip transform of alpha.
-	FViewInfo& View = Views[0];
-
 	static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
 	bool bOnChipSunMask =
 		GSupportsRenderTargetFormat_PF_FloatRGBA &&
@@ -175,7 +182,7 @@ void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		CompositeContext.Process(TEXT("OnChipAlphaTransform"));
 	}
 
-	if (!bGammaSpace || bRequiresUpscale)
+	if (!bGammaSpace || bRenderToScene)
 	{
 		// Resolve the scene color for post processing.
 		GSceneRenderTargets.ResolveSceneColor(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
@@ -211,46 +218,56 @@ void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			}
 		}
 	}
-	else if (bRequiresUpscale)
+	else if (bRenderToScene)
 	{
-		SimpleUpscale(RHICmdList, View);
+		BasicPostProcess(RHICmdList, View, bRequiresUpscale, FSceneRenderer::ShouldCompositeEditorPrimitives(View));
 	}
 	RenderFinish(RHICmdList);
 }
 
-// Perform simple upscale when required and post process is not in use.
-void FForwardShadingSceneRenderer::SimpleUpscale(FRHICommandListImmediate& RHICmdList, FViewInfo &View)
+// Perform simple upscale and/or editor primitive composite if the fully-featured post process is not in use.
+void FForwardShadingSceneRenderer::BasicPostProcess(FRHICommandListImmediate& RHICmdList, FViewInfo &View, bool bDoUpscale, bool bDoEditorPrimitives)
 {
 	FRenderingCompositePassContext CompositeContext(RHICmdList, View);
 	FPostprocessContext Context(CompositeContext.Graph, View);
-	// simple bilinear upscaling for ES2.
-	FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(1, 0.0f));
 
-	Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
-	Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput));
+	if (bDoUpscale)
+	{	// simple bilinear upscaling for ES2.
+		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(1, 0.0f));
 
-	Context.FinalOutput = FRenderingCompositeOutputRef(Node);
+		Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
+		Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput));
 
-	{
-		// currently created on the heap each frame but View.Family->RenderTarget could keep this object and all would be cleaner
-		TRefCountPtr<IPooledRenderTarget> Temp;
-		FSceneRenderTargetItem Item;
-		Item.TargetableTexture = (FTextureRHIRef&)View.Family->RenderTarget->GetRenderTargetTexture();
-		Item.ShaderResourceTexture = (FTextureRHIRef&)View.Family->RenderTarget->GetRenderTargetTexture();
-
-		FPooledRenderTargetDesc Desc;
-
-		Desc.Extent = View.Family->RenderTarget->GetSizeXY();
-		// todo: this should come from View.Family->RenderTarget
-		Desc.Format = PF_B8G8R8A8;
-		Desc.NumMips = 1;
-
-		GRenderTargetPool.CreateUntrackedElement(Desc, Temp, Item);
-
-		Context.FinalOutput.GetOutput()->PooledRenderTarget = Temp;
-		Context.FinalOutput.GetOutput()->RenderTargetDesc = Desc;
+		Context.FinalOutput = FRenderingCompositeOutputRef(Node);
 	}
 
+	// Composite editor primitives if we had any to draw and compositing is enabled
+	if (bDoEditorPrimitives)
+	{
+		FRenderingCompositePass* EditorCompNode = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessCompositeEditorPrimitives(false));
+		EditorCompNode->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
+		//Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.SceneDepth));
+		Context.FinalOutput = FRenderingCompositeOutputRef(EditorCompNode);
+	}
+
+	// currently created on the heap each frame but View.Family->RenderTarget could keep this object and all would be cleaner
+	TRefCountPtr<IPooledRenderTarget> Temp;
+	FSceneRenderTargetItem Item;
+	Item.TargetableTexture = (FTextureRHIRef&)View.Family->RenderTarget->GetRenderTargetTexture();
+	Item.ShaderResourceTexture = (FTextureRHIRef&)View.Family->RenderTarget->GetRenderTargetTexture();
+
+	FPooledRenderTargetDesc Desc;
+
+	Desc.Extent = View.Family->RenderTarget->GetSizeXY();
+	// todo: this should come from View.Family->RenderTarget
+	Desc.Format = PF_B8G8R8A8;
+	Desc.NumMips = 1;
+
+	GRenderTargetPool.CreateUntrackedElement(Desc, Temp, Item);
+
+	Context.FinalOutput.GetOutput()->PooledRenderTarget = Temp;
+	Context.FinalOutput.GetOutput()->RenderTargetDesc = Desc;
+
 	CompositeContext.Root->AddDependency(Context.FinalOutput);
-	CompositeContext.Process(TEXT("ES2Upscale"));
+	CompositeContext.Process(TEXT("ES2BasicPostProcess"));
 }

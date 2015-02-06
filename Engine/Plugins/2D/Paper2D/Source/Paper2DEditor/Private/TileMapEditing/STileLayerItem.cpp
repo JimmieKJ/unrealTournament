@@ -12,9 +12,10 @@
 //////////////////////////////////////////////////////////////////////////
 // STileLayerItem
 
-void STileLayerItem::Construct(const FArguments& InArgs, class UPaperTileLayer* InItem, FIsSelected InIsSelectedDelegate)
+void STileLayerItem::Construct(const FArguments& InArgs, int32 Index, class UPaperTileMap* InMap, FIsSelected InIsSelectedDelegate)
 {
-	MyLayer = InItem;
+	MyMap = InMap;
+	MyIndex = Index;
 
 	static const FName EyeClosedBrushName("TileMapEditor.LayerEyeClosed");
 	static const FName EyeOpenedBrushName("TileMapEditor.LayerEyeOpened");
@@ -60,12 +61,13 @@ FText STileLayerItem::GetLayerDisplayName() const
 {
 	const FText UnnamedText = LOCTEXT("NoLayerName", "(unnamed)");
 
-	return MyLayer->LayerName.IsEmpty() ? UnnamedText : MyLayer->LayerName;
+	return GetMyLayer()->LayerName.IsEmpty() ? UnnamedText : GetMyLayer()->LayerName;
 }
 
 void STileLayerItem::OnLayerNameCommitted(const FText& NewText, ETextCommit::Type CommitInfo)
 {
 	const FScopedTransaction Transaction( LOCTEXT("TileMapRenameLayer", "Rename Layer") );
+	UPaperTileLayer* MyLayer = GetMyLayer();
 	MyLayer->SetFlags(RF_Transactional);
 	MyLayer->Modify();
 	MyLayer->LayerName = NewText;
@@ -74,6 +76,7 @@ void STileLayerItem::OnLayerNameCommitted(const FText& NewText, ETextCommit::Typ
 FReply STileLayerItem::OnToggleVisibility()
 {
 	const FScopedTransaction Transaction( LOCTEXT("ToggleVisibility", "Toggle Layer Visibility") );
+	UPaperTileLayer* MyLayer = GetMyLayer();
 	MyLayer->SetFlags(RF_Transactional);
 	MyLayer->Modify();
 	MyLayer->bHiddenInEditor = !MyLayer->bHiddenInEditor;
@@ -83,7 +86,7 @@ FReply STileLayerItem::OnToggleVisibility()
 
 const FSlateBrush* STileLayerItem::GetVisibilityBrushForLayer() const
 {
-	return MyLayer->bHiddenInEditor ? EyeClosed : EyeOpened;
+	return GetMyLayer()->bHiddenInEditor ? EyeClosed : EyeOpened;
 }
 
 FSlateColor STileLayerItem::GetForegroundColorForVisibilityButton() const

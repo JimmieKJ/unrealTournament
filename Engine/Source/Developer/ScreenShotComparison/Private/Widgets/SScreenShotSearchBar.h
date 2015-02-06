@@ -30,7 +30,7 @@ protected:
 	 *
 	 * @return The platform string.
 	 */
-	FString GetPlatformString() const;
+	FText GetPlatformString() const;
 
 	/**
 	 * Set the view filter based on the input from the search box

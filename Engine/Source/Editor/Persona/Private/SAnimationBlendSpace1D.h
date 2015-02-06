@@ -211,5 +211,8 @@ private:
 
 	/** Cache which orientation we have built our editor panel in */
 	bool bCachedDisplayVerticalValue;
+
+	/** Handle to the registered OnPropertyChangedHandle delegate */
+	FDelegateHandle OnPropertyChangedHandleDelegateHandle;
 };
 

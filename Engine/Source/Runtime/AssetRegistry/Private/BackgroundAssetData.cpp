@@ -2,7 +2,7 @@
 
 #include "AssetRegistryPCH.h"
 
-FBackgroundAssetData::FBackgroundAssetData(const FString& InPackageName, const FString& InPackagePath, const FString& InGroupNames, const FString& InAssetName, const FString& InAssetClass, const TMap<FString, FString>& InTags, const TArray<int32>& InChunkIDs)
+FBackgroundAssetData::FBackgroundAssetData(const FString& InPackageName, const FString& InPackagePath, const FString& InGroupNames, const FString& InAssetName, const FString& InAssetClass, const TMultiMap<FString, FString>& InTags, const TArray<int32>& InChunkIDs)
 {
 	PackageName = InPackageName;
 	PackagePath = InPackagePath;
@@ -44,9 +44,23 @@ FBackgroundAssetData::FBackgroundAssetData(const FAssetData& InAssetData)
 FAssetData FBackgroundAssetData::ToAssetData() const
 {
 	TMap<FName, FString> CopiedTagsAndValues;
-	for (TMap<FString,FString>::TConstIterator TagIt(TagsAndValues); TagIt; ++TagIt)
+
+	// Copy over tags and values, retaining unique entries in the map for duplicate names
+	TSet<FString> VisitedKeys;
+	for (const auto& Pair : TagsAndValues)
 	{
-		CopiedTagsAndValues.Add(FName(*TagIt.Key()), TagIt.Value());
+		if (VisitedKeys.Find(Pair.Key))
+		{
+			continue;
+		}
+
+		VisitedKeys.Add(Pair.Key);
+
+		int32 NameIndex = 0;
+		for (auto It = TagsAndValues.CreateConstKeyIterator(Pair.Key); It; ++It, ++NameIndex)
+		{
+			CopiedTagsAndValues.Add(FName(FName(*It.Key()), NameIndex), *It.Value());
+		}
 	}
 
 	return FAssetData(

@@ -38,10 +38,7 @@ void SWidgetDetailsView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetB
 	FPropertyEditorModule& EditModule = FModuleManager::Get().GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 
 	FNotifyHook* NotifyHook = this;
-	FDetailsViewArgs DetailsViewArgs( /*bUpdateFromSelection=*/ false, /*bLockable=*/ false, /*bAllowSearch=*/ true, /*bObjectsUseNameArea=*/ true, /*bHideSelectionTip=*/ true, /*InNotifyHook=*/ NotifyHook, /*InSearchInitialKeyFocus=*/ false, /*InViewIdentifier=*/ NAME_None);
-
-	// We hide the actor name area because we're providing our own.
-	DetailsViewArgs.bHideActorNameArea = true;
+	FDetailsViewArgs DetailsViewArgs( /*bUpdateFromSelection=*/ false, /*bLockable=*/ false, /*bAllowSearch=*/ true, FDetailsViewArgs::HideNameArea, /*bHideSelectionTip=*/ true, /*InNotifyHook=*/ NotifyHook, /*InSearchInitialKeyFocus=*/ false, /*InViewIdentifier=*/ NAME_None);
 
 	PropertyView = EditModule.CreateDetailView(DetailsViewArgs);
 
@@ -196,6 +193,11 @@ void SWidgetDetailsView::RegisterCustomizations()
 void SWidgetDetailsView::OnEditorSelectionChanging()
 {
 	ClearFocusIfOwned();
+
+	// We force the destruction of the currently monitored object when selection is about to change, to ensure all migrations occur
+	// immediately.
+	SelectedObjects.Empty();
+	PropertyView->SetObjects(SelectedObjects);
 }
 
 void SWidgetDetailsView::OnEditorSelectionChanged()

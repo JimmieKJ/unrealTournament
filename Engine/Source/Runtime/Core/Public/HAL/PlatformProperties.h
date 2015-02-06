@@ -24,7 +24,7 @@ typedef FIOSPlatformProperties FPlatformProperties;
 typedef FAndroidPlatformProperties FPlatformProperties;
 #elif PLATFORM_WINRT
 #include "WinRT/WinRTProperties.h"
-typedef FWinRTPlatformPropertiesFPlatformProperties;
+typedef FWinRTPlatformProperties FPlatformProperties;
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformProperties.h"
 typedef FHTML5PlatformProperties FPlatformProperties;

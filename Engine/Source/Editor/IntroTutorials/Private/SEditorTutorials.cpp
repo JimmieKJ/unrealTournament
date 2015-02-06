@@ -28,6 +28,8 @@ void SEditorTutorials::Construct(const FArguments& InArgs)
 	[
 		ContentBox.ToSharedRef()
 	];
+
+	RebuildCurrentContent();
 }
 
 void SEditorTutorials::LaunchTutorial(bool bInIsNavigationWindow, FSimpleDelegate InOnTutorialClosed, FSimpleDelegate InOnTutorialExited)
@@ -43,6 +45,8 @@ void SEditorTutorials::HideContent()
 {
 	HandleHomeClicked();
 	bIsNavigationWindow = false;
+
+	RebuildCurrentContent();
 }
 
 bool SEditorTutorials::IsNavigationVisible() const

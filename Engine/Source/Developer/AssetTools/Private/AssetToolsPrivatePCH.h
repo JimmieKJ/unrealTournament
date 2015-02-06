@@ -9,10 +9,14 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetTools, Log, All);
 
 #include "IAssetTypeActions.h"
+#include "IClassTypeActions.h"
 #include "IAssetTools.h"
 
 #include "AssetTypeActions_Base.h"
 #include "AssetTypeActions_CSVAssetBase.h"
+
+#include "ClassTypeActions_Base.h"
+#include "AssetTypeActions/AssetTypeActions_ClassTypeBase.h"
 
 #include "AssetTypeActions/AssetTypeActions_Blueprint.h"
 #include "AssetTypeActions/AssetTypeActions_Curve.h"
@@ -43,6 +47,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAssetTools, Log, All);
 #include "AssetTypeActions/AssetTypeActions_DialogueVoice.h"
 #include "AssetTypeActions/AssetTypeActions_DialogueWave.h"
 #include "AssetTypeActions/AssetTypeActions_Enum.h"
+#include "AssetTypeActions/AssetTypeActions_Class.h"
 #include "AssetTypeActions/AssetTypeActions_Struct.h"
 #include "AssetTypeActions/AssetTypeActions_Font.h"
 #include "AssetTypeActions/AssetTypeActions_ForceFeedbackEffect.h"

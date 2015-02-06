@@ -21,6 +21,7 @@ public:
 	virtual bool GetAnnotated( FString& InOutFilename ) const override;
 	virtual const FString& GetFilename() const override;
 	virtual int32 GetRevisionNumber() const override;
+	virtual const FString& GetRevision() const override;
 	virtual const FString& GetDescription() const override;
 	virtual const FString& GetUserName() const override;
 	virtual const FString& GetClientSpec() const override;
@@ -36,6 +37,9 @@ public:
 
 	/** The revision number of this file */
 	int32 RevisionNumber;
+
+	/** The revision to display to the user */
+	FString Revision;
 
 	/** The changelist description of this revision */
 	FString Description;

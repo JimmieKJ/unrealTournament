@@ -36,6 +36,7 @@ void SHierarchyView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluep
 
 	UWidgetBlueprint* Blueprint = GetBlueprint();
 	Blueprint->OnChanged().AddRaw(this, &SHierarchyView::OnBlueprintChanged);
+	Blueprint->OnCompiled().AddRaw(this, &SHierarchyView::OnBlueprintChanged);
 
 	FilterHandler = MakeShareable(new TreeFilterHandler< TSharedPtr<FHierarchyModel> >());
 	FilterHandler->SetFilter(SearchBoxWidgetFilter.Get());
@@ -81,6 +82,7 @@ SHierarchyView::~SHierarchyView()
 	if ( Blueprint )
 	{
 		Blueprint->OnChanged().RemoveAll(this);
+		Blueprint->OnCompiled().RemoveAll(this);
 	}
 
 	if ( BlueprintEditor.IsValid() )

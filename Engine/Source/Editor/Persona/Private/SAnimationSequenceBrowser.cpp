@@ -758,7 +758,7 @@ TSharedRef<SToolTip> SAnimationSequenceBrowser::CreateCustomAssetToolTip(FAssetD
 				.AutoWidth()
 				[
 					SNew(STextBlock)
-					.Text(TagPair.Value)
+					.Text(FText::FromString(TagPair.Value))
 					.ColorAndOpacity(FSlateColor::UseForeground())
 				]
 			];
@@ -809,7 +809,7 @@ TSharedRef<SToolTip> SAnimationSequenceBrowser::CreateCustomAssetToolTip(FAssetD
 						.HAlign(HAlign_Center)
 						[
 							SNew(STextBlock)
-							.Text(FString(TEXT("No Preview Mesh")))
+							.Text(LOCTEXT("NoPreviewMesh", "No Preview Mesh"))
 						]
 
 						+ SOverlay::Slot()

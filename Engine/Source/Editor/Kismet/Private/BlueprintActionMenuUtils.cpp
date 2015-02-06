@@ -20,6 +20,7 @@
 #include "BlueprintEditorSettings.h"
 #include "Engine/Selection.h"
 #include "Engine/LevelScriptActor.h"
+#include "Engine/LevelScriptBlueprint.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintActionMenuUtils"
 
@@ -428,44 +429,9 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 	// only want bound actions for this menu section
 	LevelActorsFilter.AddRejectionTest(FBlueprintActionFilter::FRejectionTestDelegate::CreateStatic(IsUnBoundSpawner));
 
-	// make sure the bound menu sections have the proper OwnerClasses specified
-	for (UObject* Selection : Context.SelectedObjects)
-	{
-		if (UObjectProperty* ObjProperty = Cast<UObjectProperty>(Selection))
-		{
-			LevelActorsFilter.Context.SelectedObjects.Remove(Selection);
-		}
-		else if (AActor* LevelActor = Cast<AActor>(Selection))
-		{
-			ComponentsFilter.Context.SelectedObjects.Remove(Selection);
-			if (!LevelActor->NeedsLoadForClient() && !LevelActor->NeedsLoadForServer())
-			{
-				// don't want to let the level script operate on actors that won't be loaded in game
-				LevelActorsFilter.Context.SelectedObjects.Remove(Selection);
-			}
-		}
-		else
-		{
-			ComponentsFilter.Context.SelectedObjects.Remove(Selection);
-			LevelActorsFilter.Context.SelectedObjects.Remove(Selection);
-		}
-	}
-
-	// make sure all selected level actors are accounted for (in case the caller
-	// did not include them in the context)
-	for (FSelectionIterator LvlActorIt(*GEditor->GetSelectedActors()); LvlActorIt; ++LvlActorIt)
-	{
-		AActor* LevelActor = Cast<AActor>(*LvlActorIt);
-		// don't want to let the level script operate on actors that won't be loaded in game
-		if (LevelActor->NeedsLoadForClient() || LevelActor->NeedsLoadForServer())
-		{
-			LevelActorsFilter.Context.SelectedObjects.AddUnique(LevelActor);
-		}
-	}
-
 	const UBlueprintEditorSettings* BlueprintSettings = GetDefault<UBlueprintEditorSettings>();
 	bool const bAddTargetContext  = bIsContextSensitive && BlueprintSettings->bUseTargetContextForNodeMenu;
-	bool bCanOperateOnLevelActors = bIsContextSensitive;
+	bool bCanOperateOnLevelActors = bIsContextSensitive && (Context.Pins.Num() == 0);
 	bool bCanHaveActorComponents  = bIsContextSensitive;
 	// determine if we can operate on certain object selections (level actors, 
 	// components, etc.)
@@ -481,6 +447,68 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 			}
 		}
 		bCanHaveActorComponents &= FBlueprintEditorUtils::DoesSupportComponents(Blueprint);
+	}
+
+	UEdGraphSchema_K2 const* K2Schema = GetDefault<UEdGraphSchema_K2>();
+
+	// make sure the bound menu sections have the proper OwnerClasses specified
+	for (UObject* Selection : Context.SelectedObjects)
+	{
+		if (UObjectProperty* ObjProperty = Cast<UObjectProperty>(Selection))
+		{
+			LevelActorsFilter.Context.SelectedObjects.Remove(Selection);
+		}
+		else if (AActor* LevelActor = Cast<AActor>(Selection))
+		{
+			ComponentsFilter.Context.SelectedObjects.Remove(Selection);
+			if (!bCanOperateOnLevelActors || (!LevelActor->NeedsLoadForClient() && !LevelActor->NeedsLoadForServer()))
+			{
+				// don't want to let the level script operate on actors that won't be loaded in game
+				LevelActorsFilter.Context.SelectedObjects.Remove(Selection);
+			}
+			else
+			{
+				// Make sure every blueprint is in the same level as this actor
+				for (UBlueprint* Blueprint : Context.Blueprints)
+				{
+					if (!K2Schema->IsActorValidForLevelScriptRefs(LevelActor, Blueprint))
+					{
+						LevelActorsFilter.Context.SelectedObjects.Remove(Selection);
+						break;
+					}
+				}
+			}
+		}
+		else
+		{
+			ComponentsFilter.Context.SelectedObjects.Remove(Selection);
+			LevelActorsFilter.Context.SelectedObjects.Remove(Selection);
+		}
+	}
+
+	// make sure all selected level actors are accounted for (in case the caller
+	// did not include them in the context)
+	for (FSelectionIterator LvlActorIt(*GEditor->GetSelectedActors()); LvlActorIt; ++LvlActorIt)
+	{
+		AActor* LevelActor = Cast<AActor>(*LvlActorIt);
+		// don't want to let the level script operate on actors that won't be loaded in game
+		if (bCanOperateOnLevelActors && (LevelActor->NeedsLoadForClient() || LevelActor->NeedsLoadForServer()))
+		{
+			bool bAddActor = true;
+			// Make sure every blueprint is in the same level as this actor
+			for (UBlueprint* Blueprint : Context.Blueprints)
+			{
+				if (!K2Schema->IsActorValidForLevelScriptRefs(LevelActor, Blueprint))
+				{
+					bAddActor = false;
+					break;
+				}
+			}
+			if (bAddActor)
+			{
+				LevelActorsFilter.Context.SelectedObjects.AddUnique(LevelActor);
+			}
+		}
 	}
 
 	if(bCanHaveActorComponents)
@@ -699,7 +727,8 @@ const UK2Node* FBlueprintActionMenuUtils::ExtractNodeTemplateFromAction(TSharedP
 			ActionId == FEdGraphSchemaAction_K2TargetNode::StaticGetTypeId() ||
 			ActionId == FEdGraphSchemaAction_K2PasteHere::StaticGetTypeId() ||
 			ActionId == FEdGraphSchemaAction_K2Event::StaticGetTypeId() || 
-			ActionId == FEdGraphSchemaAction_K2AddEvent::StaticGetTypeId())
+			ActionId == FEdGraphSchemaAction_K2AddEvent::StaticGetTypeId() ||
+			ActionId == FEdGraphSchemaAction_K2InputAction::StaticGetTypeId())
 		{
 			FEdGraphSchemaAction_K2NewNode* NewNodeAction = (FEdGraphSchemaAction_K2NewNode*)PaletteAction.Get();
 			TemplateNode = NewNodeAction->NodeTemplate;

@@ -118,19 +118,18 @@ FString FLevelViewModel::GetName(bool bForceDisplayPath /*=false*/, bool bDispla
 	return DisplayName;
 }
 
-FString FLevelViewModel::GetDisplayName() const
+FText FLevelViewModel::GetDisplayName() const
 {
-	return GetName();
+	return FText::FromString(GetName());
 }
 
-FString FLevelViewModel::GetActorCountString() const
+FText FLevelViewModel::GetActorCountString() const
 {
-	return FString::Printf(TEXT( "%i" ), LevelActorsCount);
+	return FText::AsNumber(LevelActorsCount);
 }
 
-FString FLevelViewModel::GetLightmassSizeString() const
+FText FLevelViewModel::GetLightmassSizeString() const
 {
-	FString MemorySizeString;
 	ULevel* CurLevel = Level.Get();
 
 	if ( CurLevel && GetDefault<ULevelBrowserSettings>()->bDisplayLightmassSize  )
@@ -139,15 +138,17 @@ FString FLevelViewModel::GetLightmassSizeString() const
 		static const float ByteConversion = 1.0f / 1024.0f;
 		float LightmapSize = CurLevel->LightmapTotalSize * ByteConversion;
 		
-		MemorySizeString += FString::Printf( TEXT( "%.2f" ), LightmapSize );
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::AsNumber(LightmapSize, &FormatOptions);
 	}
 
-	return MemorySizeString;
+	return FText::GetEmpty();
 }
 
-FString FLevelViewModel::GetFileSizeString() const
+FText FLevelViewModel::GetFileSizeString() const
 {
-	FString MemorySizeString;
 	ULevel* CurLevel = Level.Get();
 
 	if ( CurLevel && GetDefault<ULevelBrowserSettings>()->bDisplayFileSize  )
@@ -156,10 +157,13 @@ FString FLevelViewModel::GetFileSizeString() const
 		static const float ByteConversion = 1.0f / 1024.0f;
 		float FileSize = CurLevel->GetOutermost()->GetFileSize() * ByteConversion * ByteConversion;
 		
-		MemorySizeString += FString::Printf( TEXT( "%.2f" ), FileSize );
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::AsNumber(FileSize, &FormatOptions);
 	}
 
-	return MemorySizeString;
+	return FText::GetEmpty();
 }
 
 void FLevelViewModel::ClearDirtyFlag()

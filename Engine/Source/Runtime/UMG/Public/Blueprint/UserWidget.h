@@ -140,11 +140,13 @@ public:
 	virtual void SetIsDesignTime(bool bInDesignTime) override;
 
 	/**
-	 * Adds it to the game's viewport, defaults to filling the entire viewport area.
-	 * @param bModal If this dialog should steal keyboard/mouse focus and consume all input. Great for a fullscreen menu. Terrible for HUDs.
+	 * Adds it to the game's viewport and fills the entire screen, unless SetDesiredSizeInViewport is called
+	 * to explicitly set the size.
+	 *
+	 * @param ZOrder The higher the number the greater the priority when determining if it will above other widgets.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="User Interface|Viewport")
-	void AddToViewport();
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="User Interface|Viewport", meta=( AdvancedDisplay = "ZOrder" ))
+	void AddToViewport(int32 ZOrder = 0);
 
 	/**
 	 * Removes the widget from the viewport.
@@ -193,6 +195,13 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Player")
 	class ULocalPlayer* GetOwningLocalPlayer() const;
+
+	/**
+	 * Sets the local player associated with this UI.
+	 * @param LocalPlayer The local player you want to be the conceptual owner of this UI.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Player")
+	void SetOwningLocalPlayer(ULocalPlayer* LocalPlayer);
 
 	/**
 	 * Gets the player controller associated with this UI.
@@ -677,7 +686,7 @@ private:
 template< class T >
 T* CreateWidget(UWorld* World, UClass* UserWidgetClass)
 {
-	if ( !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) )
+	if ( World == nullptr || !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) || UserWidgetClass->HasAnyClassFlags(CLASS_Abstract) )
 	{
 		// TODO UMG Error?
 		return nullptr;
@@ -685,10 +694,13 @@ T* CreateWidget(UWorld* World, UClass* UserWidgetClass)
 
 	// Assign the outer to the game instance if it exists, otherwise use the world
 	UObject* Outer = World->GetGameInstance() ? StaticCast<UObject*>(World->GetGameInstance()) : StaticCast<UObject*>(World);
-	ULocalPlayer* Player = World->GetFirstLocalPlayerFromController();
 	UUserWidget* NewWidget = ConstructObject<UUserWidget>(UserWidgetClass, Outer);
 
-	NewWidget->SetPlayerContext(FLocalPlayerContext(Player));
+	if ( ULocalPlayer* Player = World->GetFirstLocalPlayerFromController() )
+	{
+		NewWidget->SetPlayerContext(FLocalPlayerContext(Player));
+	}
+
 	NewWidget->Initialize();
 
 	return Cast<T>(NewWidget);
@@ -697,9 +709,15 @@ T* CreateWidget(UWorld* World, UClass* UserWidgetClass)
 template< class T >
 T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass)
 {
-	if ( !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) )
+	if ( OwningPlayer == nullptr || !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) || UserWidgetClass->HasAnyClassFlags(CLASS_Abstract) )
 	{
 		// TODO UMG Error?
+		return nullptr;
+	}
+
+	if ( !OwningPlayer->IsLocalPlayerController() )
+	{
+		//Don't create widgets for proxies of the Player Controller, only the actual local player.
 		return nullptr;
 	}
 
@@ -709,6 +727,27 @@ T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass)
 	UUserWidget* NewWidget = ConstructObject<UUserWidget>(UserWidgetClass, Outer);
 	
 	NewWidget->SetPlayerContext(FLocalPlayerContext(OwningPlayer));
+	NewWidget->Initialize();
+
+	return Cast<T>(NewWidget);
+}
+
+template< class T >
+T* CreateWidget(UGameInstance* OwningGame, UClass* UserWidgetClass)
+{
+	if ( OwningGame == nullptr || !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) || UserWidgetClass->HasAnyClassFlags(CLASS_Abstract) )
+	{
+		// TODO UMG Error?
+		return nullptr;
+	}
+
+	UUserWidget* NewWidget = ConstructObject<UUserWidget>(UserWidgetClass, OwningGame);
+
+	if ( ULocalPlayer* Player = OwningGame->GetFirstGamePlayer() )
+	{
+		NewWidget->SetPlayerContext(FLocalPlayerContext(Player));
+	}
+	
 	NewWidget->Initialize();
 
 	return Cast<T>(NewWidget);

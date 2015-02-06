@@ -450,7 +450,7 @@ TSharedRef<SWidget> SSurfaceProperties::ConstructTextureScale()
 				.Label()
 				[
 					SNew(STextBlock)
-					.Text(ControlLabels[idx])
+					.Text(FText::FromString(ControlLabels[idx]))
 				]
 			]
 			.MenuContent()
@@ -868,7 +868,7 @@ TSharedRef< ITableRow > SSurfaceProperties::OnGenerateScaleTableRow( TSharedPtr<
 {
 	return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
 	[
-		SNew(STextBlock) .Text(*Item.Get())
+		SNew(STextBlock) .Text(FText::FromString(*Item.Get()))
 	];
 }
 

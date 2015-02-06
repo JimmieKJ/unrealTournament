@@ -36,9 +36,12 @@ void UPaperTileLayer::DestructiveAllocateMap(int32 NewWidth, int32 NewHeight)
 
 void UPaperTileLayer::ResizeMap(int32 NewWidth, int32 NewHeight)
 {
-	LayerWidth = NewWidth;
-	LayerHeight = NewHeight;
-	ReallocateAndCopyMap();
+	if ((LayerWidth != NewWidth) || (LayerHeight != NewHeight))
+	{
+		LayerWidth = NewWidth;
+		LayerHeight = NewHeight;
+		ReallocateAndCopyMap();
+	}
 }
 
 void UPaperTileLayer::ReallocateAndCopyMap()

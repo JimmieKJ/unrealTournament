@@ -607,7 +607,7 @@ void FMaterial::SerializeInlineShaderMap(FArchive& Ar)
 			FinishCompilation();
 
 			bool bValid = GameThreadShaderMap != NULL && GameThreadShaderMap->CompiledSuccessfully();
-
+			
 			Ar << bValid;
 
 			if (bValid)
@@ -1274,6 +1274,7 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 
 	if (GameThreadShaderMap && GameThreadShaderMap->TryToAddToExistingCompilationTask(this))
 	{
+		OutstandingCompileShaderMapIds.Add(GameThreadShaderMap->GetCompilingId());
 		// Reset the shader map so the default material will be used until the compile finishes.
 		GameThreadShaderMap = NULL;
 		bSucceeded = true;

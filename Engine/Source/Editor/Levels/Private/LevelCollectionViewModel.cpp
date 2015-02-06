@@ -1349,10 +1349,10 @@ void FLevelCollectionViewModel::OnSCCDiffAgainstDepot()
 							FRevisionInfo OldRevision;
 							OldRevision.Changelist = Revision->GetCheckInIdentifier();
 							OldRevision.Date = Revision->GetDate();
-							OldRevision.Revision = Revision->GetRevisionNumber();
+							OldRevision.Revision = Revision->GetRevision();
 
 							FRevisionInfo NewRevision; 
-							NewRevision.Revision = -1;
+							NewRevision.Revision = TEXT("");
 
 							// Dump assets to temp text files
 							FString OldTextFilename = AssetToolsModule.Get().DumpAssetToTempFile(OldPackage);

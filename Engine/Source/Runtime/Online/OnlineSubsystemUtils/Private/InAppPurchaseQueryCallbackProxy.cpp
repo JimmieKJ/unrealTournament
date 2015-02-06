@@ -25,8 +25,8 @@ void UInAppPurchaseQueryCallbackProxy::TriggerQuery(APlayerController* PlayerCon
 				bFailedToEvenSubmit = false;
 
 				// Register the completion callback
-				InAppPurchaseReadCompleteDelegate = FOnQueryForAvailablePurchasesCompleteDelegate::CreateUObject(this, &UInAppPurchaseQueryCallbackProxy::OnInAppPurchaseRead);
-				StoreInterface->AddOnQueryForAvailablePurchasesCompleteDelegate(InAppPurchaseReadCompleteDelegate);
+				InAppPurchaseReadCompleteDelegate       = FOnQueryForAvailablePurchasesCompleteDelegate::CreateUObject(this, &UInAppPurchaseQueryCallbackProxy::OnInAppPurchaseRead);
+				InAppPurchaseReadCompleteDelegateHandle = StoreInterface->AddOnQueryForAvailablePurchasesCompleteDelegate_Handle(InAppPurchaseReadCompleteDelegate);
 
 
 				ReadObject = MakeShareable(new FOnlineProductInformationRead());
@@ -72,7 +72,7 @@ void UInAppPurchaseQueryCallbackProxy::OnInAppPurchaseRead(bool bWasSuccessful)
 	{
 		// Use a local timer handle as we don't need to store it for later but we don't need to look for something to clear
 		FTimerHandle TimerHandle;
-		World->GetTimerManager().SetTimer(this, &UInAppPurchaseQueryCallbackProxy::OnInAppPurchaseRead_Delayed, 0.001f, false);
+		World->GetTimerManager().SetTimer(OnInAppPurchaseRead_DelayedTimerHandle, this, &UInAppPurchaseQueryCallbackProxy::OnInAppPurchaseRead_Delayed, 0.001f, false);
 	}
 
 	ReadObject = NULL;
@@ -99,7 +99,7 @@ void UInAppPurchaseQueryCallbackProxy::RemoveDelegate()
 			IOnlineStorePtr InAppPurchases = OnlineSub->GetStoreInterface();
 			if (InAppPurchases.IsValid())
 			{
-				InAppPurchases->ClearOnQueryForAvailablePurchasesCompleteDelegate(InAppPurchaseReadCompleteDelegate);
+				InAppPurchases->ClearOnQueryForAvailablePurchasesCompleteDelegate_Handle(InAppPurchaseReadCompleteDelegateHandle);
 			}
 		}
 	}

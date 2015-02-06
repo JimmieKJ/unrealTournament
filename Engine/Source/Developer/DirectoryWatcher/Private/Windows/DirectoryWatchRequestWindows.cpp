@@ -100,22 +100,29 @@ bool FDirectoryWatchRequestWindows::Init(const FString& InDirectory)
 	return true;
 }
 
-void FDirectoryWatchRequestWindows::AddDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
+FDelegateHandle FDirectoryWatchRequestWindows::AddDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
 {
 	Delegates.Add(InDelegate);
+	return Delegates.Last().GetHandle();
 }
 
 bool FDirectoryWatchRequestWindows::RemoveDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
 {
-	if ( Delegates.Contains(InDelegate) )
-	{
-		Delegates.Remove(InDelegate);
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return DEPRECATED_RemoveDelegate(InDelegate);
+}
+
+bool FDirectoryWatchRequestWindows::DEPRECATED_RemoveDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
+{
+	return Delegates.RemoveAll([&](const IDirectoryWatcher::FDirectoryChanged& Delegate) {
+		return Delegate.DEPRECATED_Compare(InDelegate);
+	}) != 0;
+}
+
+bool FDirectoryWatchRequestWindows::RemoveDelegate( FDelegateHandle InHandle )
+{
+	return Delegates.RemoveAll([=](const IDirectoryWatcher::FDirectoryChanged& Delegate) {
+		return Delegate.GetHandle() == InHandle;
+	}) != 0;
 }
 
 bool FDirectoryWatchRequestWindows::HasDelegates() const

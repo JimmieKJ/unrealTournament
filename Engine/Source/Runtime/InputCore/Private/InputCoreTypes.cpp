@@ -2,6 +2,7 @@
 
 #include "InputCorePrivatePCH.h"
 #include "PropertyTag.h"
+#include "InputCoreTypes.h"
 
 UInputCoreTypes::UInputCoreTypes(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

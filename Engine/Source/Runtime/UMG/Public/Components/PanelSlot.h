@@ -20,18 +20,6 @@ public:
 	
 	bool IsDesignTime() const;
 
-	virtual void SetDesiredPosition(FVector2D InPosition);
-
-	virtual void SetDesiredSize(FVector2D InSize);
-
-	virtual void Resize(const FVector2D& Direction, const FVector2D& Amount);
-
-	virtual bool CanResize(const FVector2D& Direction) const;
-
-	virtual void MoveTo(const FVector2D& Location);
-
-	virtual bool CanMove() const;
-
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 
 	/** Applies all properties to the live slot if possible. */

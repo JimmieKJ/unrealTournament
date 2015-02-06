@@ -11,6 +11,16 @@ extern const FName BlueprintEditorAppName;
 class FBlueprintEditor;
 class UUserDefinedEnum;
 
+/** Describes the reason for Refreshing the editor */
+namespace ERefreshBlueprintEditorReason
+{
+	enum Type
+	{
+		BlueprintCompiled,
+		UnknownReason
+	};
+}
+
 /**
  * Enum editor public interface
  */
@@ -36,7 +46,7 @@ public:
 	/** Invokes the search UI and sets the mode and search terms optionally */
 	virtual void SummonSearchUI(bool bSetFindWithinBlueprint, FString NewSearchTerms = FString(), bool bSelectFirstResult = false) = 0;
 
-	virtual void RefreshEditors() = 0;
+	virtual void RefreshEditors(ERefreshBlueprintEditorReason::Type Reason = ERefreshBlueprintEditorReason::UnknownReason) = 0;
 
 	virtual bool CanPasteNodes() const= 0;
 
@@ -152,4 +162,7 @@ private:
 	 * of the blueprint editor. 
 	 */
 	TSharedPtr<FUICommandList> SharedBlueprintEditorCommands;
+
+	/** Handle to a registered LevelViewportContextMenuBlueprintExtender delegate */
+	FDelegateHandle LevelViewportContextMenuBlueprintExtenderDelegateHandle;
 };

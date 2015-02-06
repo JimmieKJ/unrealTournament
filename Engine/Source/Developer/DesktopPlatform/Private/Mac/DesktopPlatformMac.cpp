@@ -752,4 +752,9 @@ FFeedbackContext* FDesktopPlatformMac::GetNativeFeedbackContext()
 	return &Warn;
 }
 
+FString FDesktopPlatformMac::GetUserTempPath()
+{
+	return FString(FPlatformProcess::UserTempDir());
+}
+
 #undef LOCTEXT_NAMESPACE

@@ -30,7 +30,7 @@ public:
 	FDateTime Date;
 
 	/** Number of this revision */
-	int32 RevisionNumber;
+	FString Revision;
 
 	/** Changelist number */
 	int32 ChangelistNumber;
@@ -51,7 +51,7 @@ public:
 		Action = InRevision->GetAction();
 		BranchSource = InRevision->GetBranchSource().IsValid() ? InRevision->GetBranchSource()->GetFilename() : TEXT("");
 		Date = InRevision->GetDate();
-		RevisionNumber = InRevision->GetRevisionNumber();
+		Revision = InRevision->GetRevision();
 		ChangelistNumber = InRevision->GetCheckInIdentifier();
 		FileSize = InRevision->GetFileSize();
 	}
@@ -159,8 +159,7 @@ static UObject* GetAssetRevisionObject(TSharedPtr<FHistoryTreeItem> HistoryTreeI
 			if (FileSourceControlState.IsValid())
 			{
 				// lookup the specific revision we want
-				int32 RevisionNum = RevisionListItem->RevisionNumber;
-				TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> FileRevision = FileSourceControlState->FindHistoryRevision(RevisionNum);
+				TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> FileRevision = FileSourceControlState->FindHistoryRevision(RevisionListItem->Revision);
 
 				FString TempPackageName;
 				if (FileRevision.IsValid() && FileRevision->Get(TempPackageName)) // grab the path to a temporary package (where the revision item will be stored)
@@ -197,7 +196,7 @@ static UObject* GetAssetRevisionObject(TSharedPtr<FHistoryTreeItem> HistoryTreeI
  */
 static void GetRevisionInfo(TSharedPtr<FHistoryTreeItem> HistoryTreeItemIn, FRevisionInfo& RevisionInfoOut)
 {
-	RevisionInfoOut.Revision = -1; // clear the revision info (-1 is used signify the current working version)
+	RevisionInfoOut.Revision = TEXT(""); // clear the revision info (empty string is used signify the current working version)
 
 	// if this is a specific revision item
 	if (HistoryTreeItemIn.IsValid() && HistoryTreeItemIn->RevisionListItem.IsValid())
@@ -205,7 +204,7 @@ static void GetRevisionInfo(TSharedPtr<FHistoryTreeItem> HistoryTreeItemIn, FRev
 		TSharedPtr<FHistoryRevisionListViewItem> RevisionListItem = HistoryTreeItemIn->RevisionListItem;
 
 		// fill out the revision info
-		RevisionInfoOut.Revision = RevisionListItem->RevisionNumber;
+		RevisionInfoOut.Revision = RevisionListItem->Revision;
 		RevisionInfoOut.Changelist = RevisionListItem->ChangelistNumber;
 		RevisionInfoOut.Date = RevisionListItem->Date;
 	}
@@ -285,7 +284,7 @@ static bool DiffHistoryItems(TSharedPtr<FHistoryTreeItem> const FirstSelection, 
 			// the second selection is the newer revision iff the first isn't the current working version, and
 			// it's either the current working version itself, or a newer revision
 			bool bSecondSelectionIsNewer = !bFirstSelectionIsCurrentVersion && 
-				(bSecondSelectionIsCurrentVersion ||(SecondSelection->RevisionListItem->RevisionNumber > FirstSelection->RevisionListItem->RevisionNumber));
+				(bSecondSelectionIsCurrentVersion ||(SecondSelection->RevisionListItem->Date > FirstSelection->RevisionListItem->Date));
 
 			if (bSecondSelectionIsNewer)
 			{
@@ -527,7 +526,7 @@ public:
 				.AutoWidth()
 				[
 					SNew(STextBlock)
-					.Text( FText::AsNumber( RevisionListItem->RevisionNumber, NULL, FInternationalization::Get().GetInvariantCulture() ) )
+					.Text( FText::FromString(RevisionListItem->Revision) )
 				];	
 		}
 		else if (ColumnName == TEXT("Changelist"))
@@ -567,8 +566,8 @@ public:
 
 			return
 				SNew(STextBlock)
-				.Text(SingleLineDescription)
-				.ToolTipText(TooltipDescription);
+				.Text(FText::FromString(SingleLineDescription))
+				.ToolTipText(FText::FromString(TooltipDescription));
 		}
 		else
 		{
@@ -613,6 +612,19 @@ public:
 	{	
 		AddHistoryInfo(InArgs._SourceControlStates.Get());
 
+		TSharedRef<SHeaderRow> HeaderRow = SNew(SHeaderRow);
+
+		const bool bUsesChangelists = ISourceControlModule::Get().GetProvider().UsesChangelists();
+
+		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Revision") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Revision", "Revision"))	.FillWidth(bUsesChangelists ? 100 : 250));
+		if(bUsesChangelists)
+		{
+			HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Changelist") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Changelist", "ChangeList"))	.FillWidth(150));
+		}
+		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Date") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Date", "Date Submitted"))			.FillWidth(250));
+		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("UserName") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "UserName", "Submitted By"))		.FillWidth(200));
+		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Description") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Description", "Description"))	.FillWidth(300));
+
 		ChildSlot
 		[
 			SNew(SBorder)
@@ -639,12 +651,7 @@ public:
 							.OnContextMenuOpening(this, &SSourceControlHistoryWidget::OnCreateContextMenu )
 							.HeaderRow
 							(
-							SNew(SHeaderRow)
-							+ SHeaderRow::Column("Revision") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Revision", "Revision"))			.FillWidth(100)
-							+ SHeaderRow::Column("Changelist") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Changelist", "ChangeList"))	.FillWidth(150)
-							+ SHeaderRow::Column("Date") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Date", "Date Submitted"))			.FillWidth(250)
-							+ SHeaderRow::Column("UserName") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "UserName", "Submitted By"))		.FillWidth(200)
-							+ SHeaderRow::Column("Description") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Description", "Description"))	.FillWidth(300)
+								HeaderRow
 							)
 						]
 					]
@@ -695,28 +702,28 @@ private:
 					.Padding(Padding)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Revision", "Revision:").ToString())
+						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Revision", "Revision:"))
 					]
 					+SVerticalBox::Slot()
 					.FillHeight(0.25f)
 					.Padding(Padding)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Date", "Date Submitted:").ToString())
+						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Date", "Date Submitted:"))
 					]
 					+SVerticalBox::Slot()
 					.FillHeight(0.25f)
 					.Padding(Padding)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "SubmittedBy", "Submitted By:").ToString())
+						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "SubmittedBy", "Submitted By:"))
 					]
 					+SVerticalBox::Slot()
 					.FillHeight(0.25f)
 					.Padding(Padding)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Action", "Action:").ToString())
+						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Action", "Action:"))
 					]			
 				]
 				+SHorizontalBox::Slot()
@@ -772,28 +779,28 @@ private:
 					.Padding(Padding)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Changelist", "Changelist:").ToString())
+						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Changelist", "Changelist:"))
 					]
 					+SVerticalBox::Slot()
 					.FillHeight(0.25f)
 					.Padding(Padding)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Workspace", "Workspace:").ToString())
+						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Workspace", "Workspace:"))
 					]
 					+SVerticalBox::Slot()
 					.FillHeight(0.25f)
 					.Padding(Padding)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "FileSize", "File Size:").ToString())
+						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "FileSize", "File Size:"))
 					]
 					+SVerticalBox::Slot()
 					.FillHeight(0.25f)
 					.Padding(Padding)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "BranchedFrom", "Branched From:").ToString())
+						.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "BranchedFrom", "Branched From:"))
 					]
 				]
 				+SHorizontalBox::Slot()
@@ -844,7 +851,7 @@ private:
 			.Padding(Padding, 10, Padding, 5)
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Description", "Description:").ToString())
+				.Text(NSLOCTEXT("SourceControl.HistoryPanel.Info", "Description", "Description:"))
 			]
 			+SVerticalBox::Slot()
 			.FillHeight(1.0f)
@@ -866,93 +873,101 @@ private:
 	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 	/** Get the last selected revision's revision number */
-	FString GetRevisionNumber() const
+	FText GetRevisionNumber() const
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			return FString::Printf(TEXT("%d"), LastSelectedRevisionItem.Pin()->RevisionNumber);
+			return FText::FromString(LastSelectedRevisionItem.Pin()->Revision);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/** Get the last selected revision's date */
-	FString GetDate() const
+	FText GetDate() const
 	{
 		if(LastSelectedRevisionItem.IsValid() && LastSelectedRevisionItem.Pin()->Date != 0)
 		{
-			return FText::AsDateTime( LastSelectedRevisionItem.Pin()->Date ).ToString();
+			return FText::AsDateTime(LastSelectedRevisionItem.Pin()->Date);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/** Get the last selected revision's username */
-	FString GetUserName() const
+	FText GetUserName() const
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			return LastSelectedRevisionItem.Pin()->UserName;
+			return FText::FromString(LastSelectedRevisionItem.Pin()->UserName);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/** Get the last selected revision's revision number */
-	FString GetAction() const
+	FText GetAction() const
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			return LastSelectedRevisionItem.Pin()->Action;
+			return FText::FromString(LastSelectedRevisionItem.Pin()->Action);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/** Get the last selected revision's changelist number */
-	FString GetChangelistNumber() const
+	FText GetChangelistNumber() const
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			return FString::Printf(TEXT("%d"), LastSelectedRevisionItem.Pin()->ChangelistNumber);
+			static const FNumberFormattingOptions ChangelistFormatOptions = FNumberFormattingOptions()
+				.SetUseGrouping(false); // don't group the CL# as Perforce doesn't display it that way
+			return FText::AsNumber(LastSelectedRevisionItem.Pin()->ChangelistNumber, &ChangelistFormatOptions);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/** Get the last selected revision's client spec */
-	FString GetClientSpec() const
+	FText GetClientSpec() const
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			return LastSelectedRevisionItem.Pin()->ClientSpec;
+			return FText::FromString(LastSelectedRevisionItem.Pin()->ClientSpec);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/** Get the last selected revision's file size */
-	FString GetFileSize() const
+	FText GetFileSize() const
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			return FString::Printf(TEXT("%.1f MB"),((float)LastSelectedRevisionItem.Pin()->FileSize) / (1024.f * 1024.f));
+			static const FNumberFormattingOptions FileSizeFormatOptions = FNumberFormattingOptions()
+				.SetMinimumFractionalDigits(1)
+				.SetMaximumFractionalDigits(1);
+			return FText::Format(
+				NSLOCTEXT("SourceControlHistory", "FileSizeInMBFmt", "{0} MB"), 
+				FText::AsNumber(((float)LastSelectedRevisionItem.Pin()->FileSize) / (1024.f * 1024.f), &FileSizeFormatOptions)
+				);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/** Get the last selected revision's description */
-	FString GetDescription() const
+	FText GetDescription() const
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			return LastSelectedRevisionItem.Pin()->Description;
+			return FText::FromString(LastSelectedRevisionItem.Pin()->Description);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/** Get the last selected revision's description */
-	FString GetBranchedFrom() const
+	FText GetBranchedFrom() const
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			return LastSelectedRevisionItem.Pin()->BranchSource;
+			return FText::FromString(LastSelectedRevisionItem.Pin()->BranchSource);
 		}
-		return FString("");
+		return FText::GetEmpty();
 	}
 
 	/**
@@ -975,7 +990,7 @@ private:
 					[
 						SNew( STextBlock )
 						.Font( FEditorStyle::GetFontStyle( TEXT("BoldFont") ))
-						.Text( FileListItem->FileName )
+						.Text( FText::FromString(FileListItem->FileName) )
 					]
 				]
 				.OnDragDetected(this, &SSourceControlHistoryWidget::OnRowDragDetected)
@@ -1280,14 +1295,14 @@ private:
 				FText DraggedRevisionText = CurrentRevisionText;
 				if (DraggedItem->RevisionListItem.IsValid())
 				{
-					DraggedRevisionText = FText::Format(RevisionFormatText, FText::AsNumber(DraggedItem->RevisionListItem->RevisionNumber));
+					DraggedRevisionText = FText::Format(RevisionFormatText, FText::FromString(DraggedItem->RevisionListItem->Revision));
 				}
 
 				// set text identifying the hovered item's revision (current version vs. revision X)
 				FText HoveredRevisionText = CurrentRevisionText;
 				if (HoveredItem->RevisionListItem.IsValid())
 				{
-					HoveredRevisionText = FText::Format(RevisionFormatText, FText::AsNumber(HoveredItem->RevisionListItem->RevisionNumber));
+					HoveredRevisionText = FText::Format(RevisionFormatText, FText::FromString(HoveredItem->RevisionListItem->Revision));
 				}
 
 				TSharedPtr<FHistoryFileListViewItem> const DraggedFileItem = GetFileListItem(DraggedItem);

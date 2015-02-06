@@ -334,6 +334,9 @@ protected:
 	/** Buffer to store the compressed data, used by the FAsyncWriteWorker. */
 	TArray<uint8> CompressedData;
 
+	/** NewFrame delegate handle  */
+	FDelegateHandle NewFrameDelegateHandle;
+
 public:
 	/** Constructor. **/
 	FStatsWriteFile();

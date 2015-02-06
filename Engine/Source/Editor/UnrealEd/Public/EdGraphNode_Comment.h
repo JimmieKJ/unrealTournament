@@ -53,7 +53,7 @@ public:
 	UNREALED_API virtual FLinearColor GetNodeCommentColor() const override;
 	UNREALED_API virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual bool ShouldOverridePinNames() const override { return true; }
-	UNREALED_API virtual FString GetPinNameOverride(const UEdGraphPin& Pin) const override;
+	UNREALED_API virtual FText GetPinNameOverride(const UEdGraphPin& Pin) const override;
 	UNREALED_API virtual void ResizeNode(const FVector2D& NewSize) override;
 	UNREALED_API virtual void PostPlacedNewNode() override;
 	UNREALED_API virtual void OnRenameNode(const FString& NewName) override;

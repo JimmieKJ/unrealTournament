@@ -61,11 +61,7 @@ public class TargetPlatform : ModuleRules
 					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-
-					if (!UnrealBuildTool.UnrealBuildTool.RunningRocket() && !UnrealBuildTool.UnrealBuildTool.BuildingRocket())
-					{
-						DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
-					}
+                    DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
 				}
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
@@ -93,11 +89,7 @@ public class TargetPlatform : ModuleRules
 					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-
-					if (!UnrealBuildTool.UnrealBuildTool.RunningRocket() && !UnrealBuildTool.UnrealBuildTool.BuildingRocket())
-					{
-						DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
-					}
+					DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
 				}
 			}
             else if (Target.Platform == UnrealTargetPlatform.Linux)

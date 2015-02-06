@@ -233,7 +233,7 @@ TSharedRef<ITableRow> SConsoleInputBox::MakeSuggestionListItemWidget(TSharedPtr<
 			.WidthOverride(300)			// to enforce some minimum width, ideally we define the minimum, not a fixed width
 			[
 				SNew(STextBlock)
-				.Text(Combined)
+				.Text(FText::FromString(Combined))
 				.TextStyle( FEditorStyle::Get(), "Log.Normal")
 				.HighlightText(HighlightText)
 			]

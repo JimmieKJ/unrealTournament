@@ -15,7 +15,7 @@ namespace AutomationTool
 		/// <param name="Env">Environment to use.</param>
 		/// <param name="CommandLine">Commandline to pass on to UBT.</param>
 		/// <param name="LogName">Optional logfile name.</param>
-		public static void RunUBT(CommandEnvironment Env, string UBTExecutable, string CommandLine, string LogName = null)
+        public static void RunUBT(CommandEnvironment Env, string UBTExecutable, string CommandLine, string LogName = null, Dictionary<string, string> EnvVars = null)
 		{
 			if (!FileExists(UBTExecutable))
 			{
@@ -30,7 +30,9 @@ namespace AutomationTool
 			{
 				CommandLine += " -nocreatestub";
 			}
-			CommandUtils.RunAndLog(Env, UBTExecutable, CommandLine, LogName);
+			CommandLine += " -NoHotReloadFromIDE";
+
+			CommandUtils.RunAndLog(Env, UBTExecutable, CommandLine, LogName, EnvVars: EnvVars);
 		}
 
 		/// <summary>
@@ -66,9 +68,9 @@ namespace AutomationTool
 		/// <param name="Config">Configuration to build.</param>
 		/// <param name="AdditionalArgs">Additional arguments to pass on to UBT.</param>
 		/// <param name="LogName">Optional logifle name.</param>
-		public static void RunUBT(CommandEnvironment Env, string UBTExecutable, string Project, string Target, string Platform, string Config, string AdditionalArgs = "", string LogName = null)
+		public static void RunUBT(CommandEnvironment Env, string UBTExecutable, string Project, string Target, string Platform, string Config, string AdditionalArgs = "", string LogName = null, Dictionary<string, string> EnvVars = null)
 		{
-			RunUBT(Env, UBTExecutable, UBTCommandline(Project, Target, Platform, Config, AdditionalArgs), LogName);
+			RunUBT(Env, UBTExecutable, UBTCommandline(Project, Target, Platform, Config, AdditionalArgs), LogName, EnvVars);
 		}
 
 	}

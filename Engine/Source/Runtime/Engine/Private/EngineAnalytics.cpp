@@ -6,92 +6,9 @@
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
-
 bool FEngineAnalytics::bIsInitialized;
 TSharedPtr<IAnalyticsProvider> FEngineAnalytics::Analytics;
-
-#define DEBUG_ANALYTICS 0
-
-#if DEBUG_ANALYTICS
-
-DEFINE_LOG_CATEGORY_STATIC(LogDebugAnalytics, Log, All);
-
-namespace DebugAnalyticsProviderDefs
-{
-	const static int32 MaxAttributeCount = 40;
-}
-
-/**
- * Debug analytics provider for debugging analytics events
- * without the need to connect to a real provider.
- */
-class FDebugAnalyticsProvider : public IAnalyticsProvider
-{
-public:
-	virtual bool StartSession(const TArray<FAnalyticsEventAttribute>& Attributes)
-	{
-		UE_LOG(LogDebugAnalytics, Log, TEXT("FDebugAnalyticsProvider: StartSession..."));
-		OutputAttributesToLog(Attributes);
-		return true;
-	}
-
-	virtual void EndSession()
-	{
-		UE_LOG(LogDebugAnalytics, Log, TEXT("FDebugAnalyticsProvider: EndSession"));
-	}
-
-	virtual FString GetSessionID() const
-	{
-		return SessionID;
-	}
-
-	virtual bool SetSessionID(const FString& InSessionID)
-	{
-		UE_LOG(LogDebugAnalytics, Log, TEXT("FDebugAnalyticsProvider: SetSessionID SessionID=%s"), *InSessionID);
-		SessionID = InSessionID;
-		return true;
-	}
-
-	virtual void FlushEvents()
-	{
-	}
-
-	virtual void SetUserID(const FString& InUserID)
-	{
-		UE_LOG(LogDebugAnalytics, Log, TEXT("FDebugAnalyticsProvider: SetUserID UserID=%s"), *InUserID);
-		UserID = InUserID;
-	}
-
-	virtual FString GetUserID() const
-	{
-		return UserID;
-	}
-
-	virtual void RecordEvent(const FString& EventName, const TArray<FAnalyticsEventAttribute>& Attributes)
-	{
-		if (Attributes.Num() > DebugAnalyticsProviderDefs::MaxAttributeCount)
-		{
-			UE_LOG(LogDebugAnalytics, Warning, TEXT("FDebugAnalyticsProvider: Event %s has too many attributes (%d)"), *EventName, Attributes.Num());
-		}
-
-		UE_LOG(LogDebugAnalytics, Log, TEXT("FDebugAnalyticsProvider: RecordEvent Name=%s"), *EventName);
-		OutputAttributesToLog(Attributes);
-	}
-
-private:
-	void OutputAttributesToLog(const TArray<FAnalyticsEventAttribute>& Attributes)
-	{
-		for (auto& Attrib : Attributes)
-		{
-			UE_LOG(LogDebugAnalytics, Log, TEXT("AnalyticsAttrib Name=%s, Value=%s"), *Attrib.AttrName, *Attrib.AttrValue);
-		}
-	}
-
-	FString SessionID;
-	FString UserID;
-};
-
-#endif // DEBUG_ANALYTICS
+bool FEngineAnalytics::bShouldSendUsageEvents;
 
 /**
  * Engine analytics config log to initialize the engine analytics provider.
@@ -110,7 +27,8 @@ FAnalytics::FProviderConfigurationDelegate& GetEngineAnalyticsOverrideConfigDele
  */
 IAnalyticsProvider& FEngineAnalytics::GetProvider()
 {
-	checkf(bIsInitialized && Analytics.IsValid(), TEXT("FEngineAnalytics::GetProvider called outside of Initialize/Shutdown."));
+	checkf(bIsInitialized && IsAvailable(), TEXT("FEngineAnalytics::GetProvider called outside of Initialize/Shutdown."));
+
 	return *Analytics.Get();
 }
  
@@ -119,30 +37,23 @@ void FEngineAnalytics::Initialize()
 	checkf(!bIsInitialized, TEXT("FEngineAnalytics::Initialize called more than once."));
 
 	// Never use analytics when running a commandlet tool
-	bool bShouldInitAnalytics = !IsRunningCommandlet();
+	const bool bShouldInitAnalytics = !IsRunningCommandlet();
 
 	check(GEngine);
 #if WITH_EDITORONLY_DATA
 	if (GIsEditor)
 	{
-		bShouldInitAnalytics = bShouldInitAnalytics && GEngine->bEditorAnalyticsEnabled;
+		bShouldSendUsageEvents = GEngine->AreEditorAnalyticsEnabled();
 	}
 	else
 #endif
 	{
 		// Outside of the editor, the only engine analytics usage is the hardware survey
-		bShouldInitAnalytics = bShouldInitAnalytics && GEngine->bHardwareSurveyEnabled;
+		bShouldSendUsageEvents = GEngine->bHardwareSurveyEnabled;
 	}
 
 	if (bShouldInitAnalytics)
 	{
-#if DEBUG_ANALYTICS
-		// Dummy analytics provider just logs events locally
-		Analytics = MakeShareable(new FDebugAnalyticsProvider());
-		Analytics->SetUserID(FPlatformMisc::GetUniqueDeviceId());
-		Analytics->StartSession();
-#else
-
 		{
 			// Setup some default engine analytics if there is nothing custom bound
 			FAnalytics::FProviderConfigurationDelegate DefaultEngineAnalyticsConfig;
@@ -162,13 +73,7 @@ void FEngineAnalytics::Initialize()
 							 FAnalytics::Get().GetBuildType() == FAnalytics::Release) &&
 							!FEngineBuildSettings::IsInternalBuild();	// Internal Epic build
 
-						if (GIsEditor)
-						{
-							const TCHAR* DevelopmentAccountAPIKeyET = TEXT("UTEditor.Source.Dev");
-							const TCHAR* ReleaseAccountAPIKeyET = TEXT("UTEditor.Source.Release");
-							ConfigMap.Add(TEXT("APIKeyET"), bUseReleaseAccount ? ReleaseAccountAPIKeyET : DevelopmentAccountAPIKeyET);
-						}
-						else if( FRocketSupport::IsRocket() )
+						if( FRocketSupport::IsRocket() )
 						{
 							const TCHAR* DevelopmentAccountAPIKeyET = TEXT("Rocket.Dev");
 							const TCHAR* ReleaseAccountAPIKeyET = TEXT("Rocket.Release");
@@ -208,11 +113,14 @@ void FEngineAnalytics::Initialize()
 				DefaultEngineAnalyticsConfig);
 			if (Analytics.IsValid())
 			{
-				Analytics->SetUserID(FPlatformMisc::GetUniqueDeviceId());
-				Analytics->StartSession();
+				Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
+
+				TArray<FAnalyticsEventAttribute> StartSessionAttributes;
+				GEngine->CreateStartupAnalyticsAttributes( StartSessionAttributes );
+
+				Analytics->StartSession( StartSessionAttributes );
 			}
 		}
-#endif
 	}
 	bIsInitialized = true;
 }

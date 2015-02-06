@@ -24,7 +24,7 @@ void SPathPicker::Construct( const FArguments& InArgs )
 		.OnGetPathContextMenuExtender(InArgs._PathPickerConfig.OnGetPathContextMenuExtender)
 		.FocusSearchBoxWhenOpened(InArgs._PathPickerConfig.bFocusSearchBoxWhenOpened)
 		.AllowContextMenu(InArgs._PathPickerConfig.bAllowContextMenu)
-		.AllowClassesFolder(false)
+		.AllowClassesFolder(InArgs._PathPickerConfig.bAllowClassesFolder)
 		.SelectionMode(ESelectionMode::Single)
 	];
 
@@ -54,12 +54,35 @@ TSharedPtr<SWidget> SPathPicker::GetFolderContextMenu(const TArray<FString>& Sel
 	const bool bCloseSelfOnly = true;
 	FMenuBuilder MenuBuilder(bInShouldCloseWindowAfterSelection, nullptr, Extender, bCloseSelfOnly);
 
+	// We can only create folders when we have a single path selected
+	const bool bCanCreateNewFolder = SelectedPaths.Num() == 1 && ContentBrowserUtils::IsValidPathToCreateNewFolder(SelectedPaths[0]);
+
+	FText NewFolderToolTip;
+	if(SelectedPaths.Num() == 1)
+	{
+		if(bCanCreateNewFolder)
+		{
+			NewFolderToolTip = FText::Format(LOCTEXT("NewFolderTooltip_CreateIn", "Create a new folder in {0}."), FText::FromString(SelectedPaths[0]));
+		}
+		else
+		{
+			NewFolderToolTip = FText::Format(LOCTEXT("NewFolderTooltip_InvalidPath", "Cannot create new folders in {0}."), FText::FromString(SelectedPaths[0]));
+		}
+	}
+	else
+	{
+		NewFolderToolTip = LOCTEXT("NewFolderTooltip_InvalidNumberOfPaths", "Can only create folders when there is a single path selected.");
+	}
+
 	// New Folder
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("NewFolder", "New Folder"),
-		LOCTEXT("NewSubFolderTooltip", "Creates a new sub-folder in this folder."),
+		NewFolderToolTip,
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.NewFolderIcon"),
-		FUIAction(FExecuteAction::CreateSP(this, &SPathPicker::CreateNewFolder, SelectedPaths.Num() > 0 ? SelectedPaths[0] : FString(), InOnCreateNewFolder)),
+		FUIAction(
+			FExecuteAction::CreateSP(this, &SPathPicker::CreateNewFolder, SelectedPaths.Num() > 0 ? SelectedPaths[0] : FString(), InOnCreateNewFolder),
+			FCanExecuteAction::CreateLambda( [bCanCreateNewFolder] { return bCanCreateNewFolder; } )
+			),
 		"NewFolder"
 		);
 

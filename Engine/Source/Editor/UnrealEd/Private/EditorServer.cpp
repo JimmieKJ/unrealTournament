@@ -59,6 +59,7 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "EditorUndoClient.h"
+#include "DesktopPlatformModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
 
@@ -531,7 +532,7 @@ void UEditorEngine::LoadAndSelectAssets( TArray<FAssetData>& Assets, UClass* Typ
 bool UEditorEngine::UsePercentageBasedScaling() const
 {
 	// Use percentage based scaling if the user setting is enabled or more than component or actor is selected.  Multiplicative scaling doesn't work when more than one object is selected
-	return GetDefault<ULevelEditorViewportSettings>()->UsePercentageBasedScaling() || GetSelectedActorCount() > 1;
+	return GetDefault<ULevelEditorViewportSettings>()->UsePercentageBasedScaling() || GetSelectedActorCount() > 1 || GetSelectedComponentCount() > 1;
 }
 
 bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar )
@@ -564,7 +565,7 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 			WorldBrush->SetActorLocation(SnapLocation - PrePivot, false);
 			WorldBrush->SetPrePivot( FVector::ZeroVector );
 			WorldBrush->Brush->Polys->Element.Empty();
-			UPolysFactory* It = new UPolysFactory(FObjectInitializer());
+			UPolysFactory* It = NewObject<UPolysFactory>();
 			It->FactoryCreateText( UPolys::StaticClass(), WorldBrush->Brush->Polys->GetOuter(), *WorldBrush->Brush->Polys->GetName(), RF_NoFlags, WorldBrush->Brush->Polys, TEXT("t3d"), GStream, GStream+FCString::Strlen(GStream), GWarn );
 			// Do NOT merge faces.
 			FBSPOps::bspValidateBrush( WorldBrush->Brush, 0, 1 );
@@ -1048,11 +1049,18 @@ void UEditorEngine::HandleTransactorBeforeRedoUndo( FUndoSessionContext SessionC
 {
 	//Get the list of all selected actors before the undo/redo is performed
 	OldSelectedActors.Empty();
-
-	for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
+	for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 	{
 		AActor* Actor = CastChecked<AActor>( *It );
 		OldSelectedActors.Add( Actor);
+	}
+
+	// Get the list of selected components as well
+	OldSelectedComponents.Empty();
+	for (FSelectionIterator It(GetSelectedComponentIterator()); It; ++It)
+	{
+		auto Component = CastChecked<UActorComponent>(*It);
+		OldSelectedComponents.Add(Component);
 	}
 }
 
@@ -1074,6 +1082,26 @@ void UEditorEngine::HandleTransactorUndo( FUndoSessionContext SessionContext, bo
 	ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "UndoMessageFormat", "Undo: {0}"), SessionContext.Title), Succeeded);
 }
 
+bool UEditorEngine::AreEditorAnalyticsEnabled() const 
+{
+	return GetGameAgnosticSettings().bEditorAnalyticsEnabled;
+}
+
+void UEditorEngine::CreateStartupAnalyticsAttributes( TArray<FAnalyticsEventAttribute>& StartSessionAttributes ) const
+{
+	Super::CreateStartupAnalyticsAttributes( StartSessionAttributes );
+
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	if(DesktopPlatform != nullptr)
+	{
+		// If this is false, CanOpenLauncher will only return true if the launcher is already installed on the users machine
+		const bool bIncludeLauncherInstaller = false;
+
+		bool bIsLauncherInstalled = DesktopPlatform->CanOpenLauncher(bIncludeLauncherInstaller);
+		StartSessionAttributes.Add(FAnalyticsEventAttribute(TEXT("IsLauncherInstalled"), bIsLauncherInstalled));
+	}
+}
+
 UTransactor* UEditorEngine::CreateTrans()
 {
 	int32 UndoBufferSize;
@@ -1083,7 +1111,8 @@ UTransactor* UEditorEngine::CreateTrans()
 		UndoBufferSize = 16;
 	}
 
-	UTransBuffer* TransBuffer = new UTransBuffer(FObjectInitializer(), UndoBufferSize * 1024 * 1024);
+	UTransBuffer* TransBuffer = NewObject<UTransBuffer>();
+	TransBuffer->Initialize(UndoBufferSize * 1024 * 1024);
 	TransBuffer->OnBeforeRedoUndo().AddUObject(this, &UEditorEngine::HandleTransactorBeforeRedoUndo);
 	TransBuffer->OnRedo().AddUObject(this, &UEditorEngine::HandleTransactorRedo);
 	TransBuffer->OnUndo().AddUObject(this, &UEditorEngine::HandleTransactorUndo);
@@ -1093,20 +1122,21 @@ UTransactor* UEditorEngine::CreateTrans()
 
 void UEditorEngine::PostUndo (bool bSuccess)
 {
-	//Make sure that the proper objects display as selected
+	//Update the actor selection followed by the component selection if needed (note: order is important)
+
 	//Get the list of all selected actors after the operation
 	TArray<AActor*> SelectedActors;
-	for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
+	for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
 	{
-		AActor* Actor = CastChecked<AActor>( *It );
+		AActor* Actor = CastChecked<AActor>(*It);
 		//if this actor is NOT in a hidden level add it to the list - otherwise de-select it
-		if( FLevelUtils::IsLevelLocked( Actor ) == false )
+		if (FLevelUtils::IsLevelLocked(Actor) == false)
 		{
-			SelectedActors.Add( Actor);
+			SelectedActors.Add(Actor);
 		}
 		else
 		{
-			GetSelectedActors()->Select( Actor, false );				
+			GetSelectedActors()->Select(Actor, false);
 		}
 	}
 
@@ -1114,7 +1144,7 @@ void UEditorEngine::PostUndo (bool bSuccess)
 	Selection->BeginBatchSelectOperation();
 
 	//Deselect all of the actors that were selected prior to the operation
-	for ( int32 OldSelectedActorIndex = OldSelectedActors.Num()-1 ; OldSelectedActorIndex >= 0 ; --OldSelectedActorIndex )
+	for (int32 OldSelectedActorIndex = OldSelectedActors.Num() - 1; OldSelectedActorIndex >= 0; --OldSelectedActorIndex)
 	{
 		AActor* Actor = OldSelectedActors[OldSelectedActorIndex];
 
@@ -1127,21 +1157,70 @@ void UEditorEngine::PostUndo (bool bSuccess)
 		}
 		else
 		{
-			SelectActor( Actor, false, false );//First false is to deselect, 2nd is to notify
+			SelectActor(Actor, false, false);//First false is to deselect, 2nd is to notify
 			Actor->UpdateComponentTransforms();
 		}
 	}
 
 	//Select all of the actors in SelectedActors
-	for ( int32 SelectedActorIndex = 0 ; SelectedActorIndex < SelectedActors.Num() ; ++SelectedActorIndex )
+	for (int32 SelectedActorIndex = 0; SelectedActorIndex < SelectedActors.Num(); ++SelectedActorIndex)
 	{
 		AActor* Actor = SelectedActors[SelectedActorIndex];
-		SelectActor( Actor, true, false );	//false is to stop notify which is done below if bOpWasSuccessful
+		SelectActor(Actor, true, false);	//false is to stop notify which is done below if bOpWasSuccessful
 		Actor->UpdateComponentTransforms();
 	}
 
 	OldSelectedActors.Empty();
 	Selection->EndBatchSelectOperation();
+	
+	if (GetSelectedComponentCount() > 0)
+	{
+		//@todo Check to see if component owner is in a hidden level
+		
+		// Get a list of all selected components after the operation
+		TArray<UActorComponent*> SelectedComponents;
+		for (FSelectionIterator It(GetSelectedComponentIterator()); It; ++It)
+		{
+			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
+		}
+		
+		USelection* Selection = GetSelectedComponents();
+		Selection->BeginBatchSelectOperation();
+
+		//Deselect all of the actors that were selected prior to the operation
+		for (int32 OldSelectedComponentIndex = OldSelectedComponents.Num() - 1; OldSelectedComponentIndex >= 0; --OldSelectedComponentIndex)
+		{
+			UActorComponent* Component = OldSelectedComponents[OldSelectedComponentIndex];
+
+			//To stop us from unselecting and then reselecting again (causing two force update components, we will remove (from both lists) any object that was selected and should continue to be selected
+			int32 FoundIndex;
+			if (SelectedComponents.Find(Component, FoundIndex))
+			{
+				OldSelectedComponents.RemoveAt(OldSelectedComponentIndex);
+				SelectedComponents.RemoveAt(FoundIndex);
+			}
+			else
+			{
+				// Deselect without any notification
+				SelectComponent(Component, false, false);
+				//Actor->UpdateComponentTransforms();
+			}
+		}
+
+		//Select all of the components left in SelectedComponents
+		for (int32 SelectedComponentIndex = 0; SelectedComponentIndex < SelectedComponents.Num(); ++SelectedComponentIndex)
+		{
+			UActorComponent* Component = SelectedComponents[SelectedComponentIndex];
+			SelectComponent(Component, true, false);	//false is to stop notify which is done below if bOpWasSuccessful
+			//Actor->UpdateComponentTransforms();
+		}
+
+		OldSelectedComponents.Empty();
+
+		// We want to broadcast the component SelectionChangedEvent even if the selection didn't actually change
+		Selection->MarkBatchDirty();
+		Selection->EndBatchSelectOperation();
+	}
 }
 
 bool UEditorEngine::UndoTransaction()
@@ -1613,6 +1692,46 @@ void UEditorEngine::BSPIntersectionHelper(UWorld* InWorld, ECsgOper Operation)
 	}
 }
 
+void UEditorEngine::CheckForWorldGCLeaks( UWorld* NewWorld, UPackage* WorldPackage )
+{
+	// Make sure the old world is completely gone, except if the new world was one of it's sublevels
+	for(TObjectIterator<UWorld> It; It; ++It)
+	{
+		UWorld* RemainingWorld = *It;
+		const bool bIsNewWorld = (NewWorld && RemainingWorld == NewWorld);
+		const bool bIsPersistantWorldType = (RemainingWorld->WorldType == EWorldType::Inactive) || (RemainingWorld->WorldType == EWorldType::Preview);
+		if(!bIsNewWorld && !bIsPersistantWorldType && !WorldHasValidContext(RemainingWorld))
+		{
+			StaticExec(RemainingWorld, *FString::Printf(TEXT("OBJ REFS CLASS=WORLD NAME=%s"), *RemainingWorld->GetPathName()));
+
+			TMap<UObject*, UProperty*>	Route		= FArchiveTraceRoute::FindShortestRootPath(RemainingWorld, true, GARBAGE_COLLECTION_KEEPFLAGS);
+			FString						ErrorString	= FArchiveTraceRoute::PrintRootPath(Route, RemainingWorld);
+
+			UE_LOG(LogEditorServer, Fatal, TEXT("%s still around trying to load %s") LINE_TERMINATOR TEXT("%s"), *RemainingWorld->GetPathName(), TempFname, *ErrorString);
+		}
+	}
+
+
+	if(WorldPackage != NULL)
+	{
+		UPackage* NewWorldPackage = NewWorld ? NewWorld->GetOutermost() : nullptr;
+		for(TObjectIterator<UPackage> It; It; ++It)
+		{
+			UPackage* RemainingPackage = *It;
+			const bool bIsNewWorldPackage = (NewWorldPackage && RemainingPackage == NewWorldPackage);
+			if(!bIsNewWorldPackage && RemainingPackage == WorldPackage)
+			{
+				StaticExec(NULL, *FString::Printf(TEXT("OBJ REFS CLASS=PACKAGE NAME=%s"), *RemainingPackage->GetPathName()));
+
+				TMap<UObject*, UProperty*>	Route		= FArchiveTraceRoute::FindShortestRootPath(RemainingPackage, true, GARBAGE_COLLECTION_KEEPFLAGS);
+				FString						ErrorString	= FArchiveTraceRoute::PrintRootPath(Route, RemainingPackage);
+
+				UE_LOG(LogEditorServer, Fatal, TEXT("%s still around trying to load %s") LINE_TERMINATOR TEXT("%s"), *RemainingPackage->GetPathName(), TempFname, *ErrorString);
+			}
+		}
+	}
+}
+
 void UEditorEngine::EditorDestroyWorld( FWorldContext & Context, const FText& CleanseText, UWorld* NewWorld )
 {
 	UWorld* ContextWorld = Context.World();
@@ -1706,41 +1825,8 @@ void UEditorEngine::EditorDestroyWorld( FWorldContext & Context, const FText& Cl
 		NewWorld->RemoveFromRoot();
 	}
 
-	// Make sure the old world is completely gone, except if the new world was one of it's sublevels
-	for( TObjectIterator<UWorld> It; It; ++It )
-	{
-		UWorld* RemainingWorld = *It;
-		const bool bIsNewWorld = (NewWorld && RemainingWorld == NewWorld);
-		const bool bIsPersistantWorldType = (RemainingWorld->WorldType == EWorldType::Inactive) || (RemainingWorld->WorldType == EWorldType::Preview);
-		if (!bIsNewWorld && !bIsPersistantWorldType && !WorldHasValidContext(RemainingWorld))
-		{
-			StaticExec(RemainingWorld, *FString::Printf(TEXT("OBJ REFS CLASS=WORLD NAME=%s"), *RemainingWorld->GetPathName()));
+	CheckForWorldGCLeaks( NewWorld, WorldPackage );
 
-			TMap<UObject*,UProperty*>	Route		= FArchiveTraceRoute::FindShortestRootPath( RemainingWorld, true, GARBAGE_COLLECTION_KEEPFLAGS );
-			FString						ErrorString	= FArchiveTraceRoute::PrintRootPath( Route, RemainingWorld );
-
-			UE_LOG(LogEditorServer, Fatal,TEXT("%s still around trying to load %s") LINE_TERMINATOR TEXT("%s"),*RemainingWorld->GetPathName(),TempFname,*ErrorString);
-		}
-	}
-
-	if (WorldPackage != NULL)
-	{
-		UPackage* NewWorldPackage = NewWorld ? NewWorld->GetOutermost() : nullptr;
-		for( TObjectIterator<UPackage> It; It; ++It )
-		{
-			UPackage* RemainingPackage = *It;
-			const bool bIsNewWorldPackage = (NewWorldPackage && RemainingPackage == NewWorldPackage);
-			if (!bIsNewWorldPackage && RemainingPackage == WorldPackage)
-			{
-				StaticExec(NULL, *FString::Printf(TEXT("OBJ REFS CLASS=PACKAGE NAME=%s"), *RemainingPackage->GetPathName()));
-
-				TMap<UObject*,UProperty*>	Route		= FArchiveTraceRoute::FindShortestRootPath( RemainingPackage, true, GARBAGE_COLLECTION_KEEPFLAGS );
-				FString						ErrorString	= FArchiveTraceRoute::PrintRootPath( Route, RemainingPackage );
-
-				UE_LOG(LogEditorServer, Fatal,TEXT("%s still around trying to load %s") LINE_TERMINATOR TEXT("%s"),*RemainingPackage->GetPathName(),TempFname,*ErrorString);
-			}
-		}
-	}
 }
 
 bool UEditorEngine::ShouldAbortBecauseOfPIEWorld() const
@@ -2741,11 +2827,13 @@ void UEditorEngine::DoMoveSelectedActorsToLevel( ULevel* InDestLevel )
 
 ULevel*  UEditorEngine::CreateTransLevelMoveBuffer( UWorld* InWorld )
 {
-	ULevel* BufferLevel = new(GetTransientPackage(), TEXT("TransLevelMoveBuffer")) ULevel(FObjectInitializer(),FURL(NULL));
+	ULevel* BufferLevel = NewNamedObject<ULevel>(GetTransientPackage(), TEXT("TransLevelMoveBuffer"));
+	BufferLevel->Initialize(FURL(nullptr));
 	check( BufferLevel );
 	BufferLevel->AddToRoot();
 	BufferLevel->OwningWorld = InWorld;
-	BufferLevel->Model = new( BufferLevel ) UModel( FObjectInitializer(), NULL, true );
+	BufferLevel->Model = NewObject<UModel>(BufferLevel);
+	BufferLevel->Model->Initialize(nullptr, true);
 	BufferLevel->bIsVisible = true;
 		
 	BufferLevel->SetFlags( RF_Transactional );
@@ -2764,7 +2852,8 @@ ULevel*  UEditorEngine::CreateTransLevelMoveBuffer( UWorld* InWorld )
 	BufferDefaultBrush->Brush = CastChecked<UModel>(StaticFindObject(UModel::StaticClass(), BufferLevel->OwningWorld->GetOuter(), TEXT("Brush"), true), ECastCheckedType::NullAllowed);
 	if (!BufferDefaultBrush->Brush)
 	{
-		BufferDefaultBrush->Brush = new( InWorld, TEXT("Brush") )UModel( FObjectInitializer(), BufferDefaultBrush, 1 );
+		BufferDefaultBrush->Brush = NewNamedObject<UModel>(InWorld, TEXT("Brush"));
+		BufferDefaultBrush->Brush->Initialize(BufferDefaultBrush, 1);
 	}
 	BufferDefaultBrush->GetBrushComponent()->Brush = BufferDefaultBrush->Brush;
 	BufferDefaultBrush->SetNotForClientOrServer();
@@ -4157,13 +4246,17 @@ void UEditorEngine::MoveViewportCamerasToActor(AActor& Actor,  bool bActiveViewp
 
 	Actors.Add( &Actor );
 
-	MoveViewportCamerasToActor( Actors, bActiveViewportOnly );
+	MoveViewportCamerasToActor( Actors, TArray<UPrimitiveComponent*>(), bActiveViewportOnly );
 }
-
 
 void UEditorEngine::MoveViewportCamerasToActor(const TArray<AActor*> &Actors, bool bActiveViewportOnly)
 {
-	if( Actors.Num() == 0 )
+	MoveViewportCamerasToActor( Actors, TArray<UPrimitiveComponent*>(), bActiveViewportOnly );
+}
+
+void UEditorEngine::MoveViewportCamerasToActor(const TArray<AActor*> &Actors, const TArray<UPrimitiveComponent*>& Components, bool bActiveViewportOnly)
+{
+	if( Actors.Num() == 0 && Components.Num() == 0 )
 	{
 		return;
 	}
@@ -4178,116 +4271,140 @@ void UEditorEngine::MoveViewportCamerasToActor(const TArray<AActor*> &Actors, bo
 		}
 	}
 
+	struct ComponentTypeMatcher
+	{
+		ComponentTypeMatcher(UPrimitiveComponent* InComponentToMatch)
+			: ComponentToMatch(InComponentToMatch)
+		{}
+
+		bool operator()(const UClass* ComponentClass) const
+		{
+			return ComponentToMatch->IsA(ComponentClass);
+		}
+
+		UPrimitiveComponent* ComponentToMatch;
+	};
+
 	TArray<AActor*> InvisLevelActors;
 
 	TArray<UClass*> PrimitiveComponentTypesToIgnore;
 	PrimitiveComponentTypesToIgnore.Add( UShapeComponent::StaticClass() );
 	PrimitiveComponentTypesToIgnore.Add( UNavLinkRenderingComponent::StaticClass() );
 	PrimitiveComponentTypesToIgnore.Add( UDrawFrustumComponent::StaticClass() );
-
 	// Create a bounding volume of all of the selected actors.
 	FBox BoundingBox( 0 );
-	int32 NumActiveActors = 0;
-	for( int32 ActorIdx = 0; ActorIdx < Actors.Num(); ActorIdx++ )
+
+	if( Components.Num() > 0 )
 	{
-		AActor* Actor = Actors[ActorIdx];
-
-		if( Actor )
+		// First look at components
+		for(UPrimitiveComponent* PrimitiveComponent : Components)
 		{
-
-			// Don't allow moving the viewport cameras to actors in invisible levels
-			if ( !FLevelUtils::IsLevelVisible( Actor->GetLevel() ) )
+			if(PrimitiveComponent)
 			{
-				InvisLevelActors.Add( Actor );
-				continue;
-			}
-
-			const bool bActorIsEmitter = (Cast<AEmitter>(Actor) != NULL);
-	
-			if (bActorIsEmitter && bCustomCameraAlignEmitter)
-			{
-				const FVector DefaultExtent(CustomCameraAlignEmitterDistance,CustomCameraAlignEmitterDistance,CustomCameraAlignEmitterDistance);
-				const FBox DefaultSizeBox(Actor->GetActorLocation() - DefaultExtent, Actor->GetActorLocation() + DefaultExtent);
-				BoundingBox += DefaultSizeBox;
-			}
-			else
-			{
-				TArray<UPrimitiveComponent*> Components;
-				Actor->GetComponents(Components);
-
-				for(int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ++ComponentIndex)
+				if(!FLevelUtils::IsLevelVisible(PrimitiveComponent->GetComponentLevel()))
 				{
-					UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
+					continue;
+				}
 
-					if( PrimitiveComponent->IsRegistered() )
+				// Some components can have huge bounds but are not visible.  Ignore these components unless it is the only component on the actor 
+				const bool bIgnore = Components.Num() > 1 && PrimitiveComponentTypesToIgnore.IndexOfByPredicate(ComponentTypeMatcher(PrimitiveComponent)) != INDEX_NONE;
+
+				if(!bIgnore && PrimitiveComponent->IsRegistered())
+				{
+					BoundingBox += PrimitiveComponent->Bounds.GetBox();
+				}
+
+			}
+		}
+	}
+	else 
+	{
+		for(int32 ActorIdx = 0; ActorIdx < Actors.Num(); ActorIdx++)
+		{
+			AActor* Actor = Actors[ActorIdx];
+
+			if(Actor)
+			{
+
+				// Don't allow moving the viewport cameras to actors in invisible levels
+				if(!FLevelUtils::IsLevelVisible(Actor->GetLevel()))
+				{
+					InvisLevelActors.Add(Actor);
+					continue;
+				}
+
+				const bool bActorIsEmitter = (Cast<AEmitter>(Actor) != NULL);
+
+				if(bActorIsEmitter && bCustomCameraAlignEmitter)
+				{
+					const FVector DefaultExtent(CustomCameraAlignEmitterDistance, CustomCameraAlignEmitterDistance, CustomCameraAlignEmitterDistance);
+					const FBox DefaultSizeBox(Actor->GetActorLocation() - DefaultExtent, Actor->GetActorLocation() + DefaultExtent);
+					BoundingBox += DefaultSizeBox;
+				}
+				else
+				{
+					TInlineComponentArray<UPrimitiveComponent*> Components;
+					Actor->GetComponents(Components);
+
+					for(int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ++ComponentIndex)
 					{
-						struct ComponentTypeMatcher
-						{
-							ComponentTypeMatcher( UPrimitiveComponent* InComponentToMatch )
-								: ComponentToMatch( InComponentToMatch )
-							{}
+						UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
 
-							bool operator()(const UClass* ComponentClass) const
+						if(PrimitiveComponent->IsRegistered())
+						{
+
+							// Some components can have huge bounds but are not visible.  Ignore these components unless it is the only component on the actor 
+							const bool bIgnore = Components.Num() > 1 && PrimitiveComponentTypesToIgnore.IndexOfByPredicate(ComponentTypeMatcher(PrimitiveComponent)) != INDEX_NONE;
+
+							if(!bIgnore)
 							{
-								return ComponentToMatch->IsA(ComponentClass);
+								BoundingBox += PrimitiveComponent->Bounds.GetBox();
+							}
+						}
+					}
+
+					if(Actor->IsA<ABrush>() && GLevelEditorModeTools().IsModeActive(FBuiltinEditorModes::EM_Geometry))
+					{
+						FEdModeGeometry* GeometryMode = GLevelEditorModeTools().GetActiveModeTyped<FEdModeGeometry>(FBuiltinEditorModes::EM_Geometry);
+
+						TArray<FGeomVertex*> SelectedVertices;
+						TArray<FGeomPoly*> SelectedPolys;
+						TArray<FGeomEdge*> SelectedEdges;
+
+						GeometryMode->GetSelectedVertices(SelectedVertices);
+						GeometryMode->GetSelectedPolygons(SelectedPolys);
+						GeometryMode->GetSelectedEdges(SelectedEdges);
+
+						if(SelectedVertices.Num() + SelectedPolys.Num() + SelectedEdges.Num() > 0)
+						{
+							BoundingBox.Init();
+
+							for(FGeomVertex* Vertex : SelectedVertices)
+							{
+								BoundingBox += Vertex->GetWidgetLocation();
 							}
 
-							UPrimitiveComponent* ComponentToMatch;
-						};
+							for(FGeomPoly* Poly : SelectedPolys)
+							{
+								BoundingBox += Poly->GetWidgetLocation();
+							}
 
-						// Some components can have huge bounds but are not visible.  Ignore these components unless it is the only component on the actor 
-						const bool bIgnore = Components.Num() > 1 && PrimitiveComponentTypesToIgnore.IndexOfByPredicate(ComponentTypeMatcher(PrimitiveComponent)) != INDEX_NONE;
+							for(FGeomEdge* Edge : SelectedEdges)
+							{
+								BoundingBox += Edge->GetWidgetLocation();
+							}
 
-						if( !bIgnore )
-						{
-							BoundingBox += PrimitiveComponent->Bounds.GetBox();
+							// Zoom out a little bit so you can see the selection
+							BoundingBox = BoundingBox.ExpandBy(25);
 						}
-					}
-				}
-
-				if (Actor->IsA<ABrush>() && GLevelEditorModeTools().IsModeActive(FBuiltinEditorModes::EM_Geometry))
-				{
-					FEdModeGeometry* GeometryMode = GLevelEditorModeTools().GetActiveModeTyped<FEdModeGeometry>(FBuiltinEditorModes::EM_Geometry);
-
-					TArray<FGeomVertex*> SelectedVertices;
-					TArray<FGeomPoly*> SelectedPolys;
-					TArray<FGeomEdge*> SelectedEdges;
-
-					GeometryMode->GetSelectedVertices(SelectedVertices);
-					GeometryMode->GetSelectedPolygons(SelectedPolys);
-					GeometryMode->GetSelectedEdges(SelectedEdges);
-
-					if (SelectedVertices.Num() + SelectedPolys.Num() + SelectedEdges.Num() > 0)
-					{
-						BoundingBox.Init();
-
-						for (FGeomVertex* Vertex : SelectedVertices)
-						{
-							BoundingBox += Vertex->GetWidgetLocation();
-						}
-
-						for (FGeomPoly* Poly : SelectedPolys)
-						{
-							BoundingBox += Poly->GetWidgetLocation();
-						}
-
-						for (FGeomEdge* Edge : SelectedEdges)
-						{
-							BoundingBox += Edge->GetWidgetLocation();
-						}
-
-						// Zoom out a little bit so you can see the selection
-						BoundingBox = BoundingBox.ExpandBy(25);
 					}
 				}
 			}
-
-			NumActiveActors++;
 		}
 	}
 
 	// Make sure we had atleast one non-null actor in the array passed in.
-	if( NumActiveActors > 0 )
+	if( BoundingBox.GetSize() != FVector::ZeroVector )
 	{
 		if ( bActiveViewportOnly )
 		{
@@ -4355,25 +4472,23 @@ void UEditorEngine::MoveViewportCamerasToActor(const TArray<AActor*> &Actors, bo
  * @param InDestination		The destination actor we want to move this actor to, NULL assumes we just want to go towards the floor
  * @return					Whether or not the actor was moved.
  */
-bool UEditorEngine::SnapActorTo( AActor* InActor, const bool InAlign, const bool InUseLineTrace, const bool InUseBounds, const bool InUsePivot, const AActor* InDestination/* = NULL*/ )
+bool UEditorEngine::SnapObjectTo( FActorOrComponent Object, const bool InAlign, const bool InUseLineTrace, const bool InUseBounds, const bool InUsePivot, FActorOrComponent InDestination )
 {
-	check( InActor );
-	if ( InActor == InDestination )	// Early out
+	if ( !Object.IsValid() || Object == InDestination )	// Early out
 	{
 		return false;
 	}
 
 
-	FVector	StartLocation = InActor->GetActorLocation();
+	FVector	StartLocation = Object.GetWorldLocation();
 	FVector	LocationOffset = FVector::ZeroVector;
 	FVector	Extent = FVector::ZeroVector;
-	ABrush* Brush = Cast< ABrush >( InActor );
+	ABrush* Brush = Cast< ABrush >( Object.Actor );
 	bool UseLineTrace = Brush ? true: InUseLineTrace;
 	bool UseBounds = Brush ? true: InUseBounds;
 
 	if( UseLineTrace && UseBounds )
 	{
-		check(InActor->GetRootComponent()->IsRegistered());
 		if (InUsePivot)
 		{
 			// Will do a line trace from the pivot location.
@@ -4382,68 +4497,65 @@ bool UEditorEngine::SnapActorTo( AActor* InActor, const bool InAlign, const bool
 		else
 		{
 			// Will do a line trace from the center bottom of the bounds through the world. Will begin at the bottom center of the component's bounds.
-			StartLocation = InActor->GetRootComponent()->Bounds.Origin;
-			StartLocation.Z -= InActor->GetRootComponent()->Bounds.BoxExtent.Z;
+			StartLocation = Object.GetBounds().Origin;
+			StartLocation.Z -= Object.GetBounds().BoxExtent.Z;
 		}
 
 		// Forces a line trace.
 		Extent = FVector::ZeroVector;
-		LocationOffset = StartLocation - InActor->GetActorLocation();
+		LocationOffset = StartLocation - Object.GetWorldLocation();
 	}
 	else if( UseLineTrace )
 	{
 		// This will be false if multiple objects are selected. In that case the actor's position should be used so all the objects do not go to the same point.
-		if( InUsePivot && !InDestination )	// @todo: If the destination actor is part of the selection tho, we can't use the pivot! (remove check if not)
+		if( InUsePivot && !InDestination.IsValid() )	// @todo: If the destination actor is part of the selection tho, we can't use the pivot! (remove check if not)
 		{
 			StartLocation = GetPivotLocation();
 		}
 		else
 		{
-			StartLocation = InActor->GetActorLocation();
+			StartLocation = Object.GetWorldLocation();
 		}
 
 		// Forces a line trace.
 		Extent = FVector::ZeroVector;
-		LocationOffset = StartLocation - InActor->GetActorLocation();
+		LocationOffset = StartLocation - Object.GetWorldLocation();
 	}
-	else if(InActor->GetRootComponent()) // Casts the entire bounds through the world to find collision.
+	else 
 	{
-		check(InActor->GetRootComponent()->IsRegistered());
-		StartLocation = InActor->GetRootComponent()->Bounds.Origin;
+		StartLocation = Object.GetBounds().Origin;
 
-		Extent = InActor->GetRootComponent()->Bounds.BoxExtent;
-		LocationOffset = StartLocation - InActor->GetActorLocation();
+		Extent = Object.GetBounds().BoxExtent;
+		LocationOffset = StartLocation - Object.GetWorldLocation();
 	}
 
 
 	FVector Direction = FVector(0.f,0.f,-1.f);
-	if ( InDestination )	// If a destination actor was specified, work out the direction
+	if ( InDestination.IsValid() )	// If a destination actor was specified, work out the direction
 	{
-		FVector	EndLocation = InDestination->GetActorLocation();
+		FVector	EndLocation = InDestination.GetWorldLocation();
 
 		// Code here assumes you want to same type of end point as the start point used, comment out to just use the destination actors origin!
 		if( UseLineTrace && UseBounds )
 		{
-			check(InDestination->GetRootComponent()->IsRegistered());
-			EndLocation = InDestination->GetRootComponent()->Bounds.Origin;
-			EndLocation.Z -= InDestination->GetRootComponent()->Bounds.BoxExtent.Z;
+			EndLocation = InDestination.GetBounds().Origin;
+			EndLocation.Z -= InDestination.GetBounds().BoxExtent.Z;
 		}
 		else if( UseLineTrace )
 		{
 			// This will be false if multiple objects are selected. In that case the actor's position should be used so all the objects do not go to the same point.
-			if( InUsePivot && !InDestination )	// @todo: If the destination actor is part of the selection tho, we can't use the pivot! (remove check if not)
+			if( InUsePivot && !InDestination.IsValid() )	// @todo: If the destination actor is part of the selection tho, we can't use the pivot! (remove check if not)
 			{
 				EndLocation = GetPivotLocation();
 			}
 			else
 			{
-				EndLocation = InDestination->GetActorLocation();
+				EndLocation = InDestination.GetWorldLocation();
 			}
 		}
-		else if( InDestination->GetRootComponent() )
+		else
 		{
-			check(InDestination->GetRootComponent()->IsRegistered());
-			EndLocation = InDestination->GetRootComponent()->Bounds.Origin;
+			EndLocation = InDestination.GetBounds().Origin;
 		}
 
 		if ( EndLocation.Equals( StartLocation ) )
@@ -4459,32 +4571,43 @@ bool UEditorEngine::SnapActorTo( AActor* InActor, const bool InAlign, const bool
 	if (Brush)
 	{
 		const float fTinyOffset = 0.01f;
-		StartLocation.Z = InActor->GetRootComponent()->Bounds.Origin.Z - InActor->GetRootComponent()->Bounds.BoxExtent.Z - fTinyOffset;
+		StartLocation.Z = Brush->GetRootComponent()->Bounds.Origin.Z - Brush->GetRootComponent()->Bounds.BoxExtent.Z - fTinyOffset;
 	}
 
 	// Do the actual actor->world check.  We try to collide against the world, straight down from our current position.
 	// If we hit anything, we will move the actor to a position that lets it rest on the floor.
 	FHitResult Hit(1.0f);
-	FCollisionQueryParams Params(FName(TEXT("MoveActorToTrace")), false, InActor);
-	if ( InActor->GetWorld()->SweepSingle(Hit, StartLocation, StartLocation + Direction*WORLD_MAX, FQuat::Identity, FCollisionShape::MakeBox(Extent), Params, FCollisionObjectQueryParams(ECC_WorldStatic)))
+	FCollisionQueryParams Params(FName(TEXT("MoveActorToTrace")), false);
+	if( Object.Actor )
+	{
+		Params.AddIgnoredActor( Object.Actor );
+	}
+	else
+	{
+		Params.AddIgnoredComponent( Cast<UPrimitiveComponent>(Object.Component) );
+	}
+
+	if ( Object.GetWorld()->SweepSingle(Hit, StartLocation, StartLocation + Direction*WORLD_MAX, FQuat::Identity, FCollisionShape::MakeBox(Extent), Params, FCollisionObjectQueryParams(ECC_WorldStatic)))
 	{
 		FVector NewLocation = Hit.Location - LocationOffset;
 		NewLocation.Z += KINDA_SMALL_NUMBER;	// Move the new desired location up by an error tolerance
-		
-		InActor->TeleportTo( NewLocation, InActor->GetActorRotation(), false,true );
+
+		Object.SetWorldLocation( NewLocation );
+		//InActor->TeleportTo( NewLocation, InActor->GetActorRotation(), false,true );
 		
 		if( InAlign )
 		{
 			//@todo: This doesn't take into account that rotating the actor changes LocationOffset.
 			FRotator NewRotation( Hit.Normal.Rotation() );
 			NewRotation.Pitch -= 90.f;
-			InActor->SetActorRotation(NewRotation);
+			Object.SetWorldRotation( NewRotation );
 		}
 
 		// Switch to the pie world if we have one
 		FScopedConditionalWorldSwitcher WorldSwitcher( GCurrentLevelEditingViewportClient );
 
-		InActor->PostEditMove( true );
+		Object.Actor ? Object.Actor->PostEditMove(true) : Object.Component->GetOwner()->PostEditMove(true);
+		//InActor->PostEditMove( true );
 		if (Brush)
 		{
 			RebuildAlteredBSP();
@@ -4607,15 +4730,24 @@ bool UEditorEngine::Exec_Camera( const TCHAR* Str, FOutputDevice& Ar )
 				Actors.Add( Actor );
 			}
 
-			if( Actors.Num() )
+			TArray<UPrimitiveComponent*> SelectedComponents;
+			for( FSelectionIterator It( GetSelectedComponentIterator() ); It; ++It )
 			{
-				MoveViewportCamerasToActor( Actors, bActiveViewportOnly );
-				Ar.Log( TEXT("Aligned camera to fit all selected actors.") );
+				UPrimitiveComponent* PrimitiveComp = Cast<UPrimitiveComponent>( *It );
+				if( PrimitiveComp )
+				{
+					SelectedComponents.Add( PrimitiveComp );
+				}
+			}
+
+			if( Actors.Num() || SelectedComponents.Num() )
+			{
+				MoveViewportCamerasToActor( Actors, SelectedComponents, bActiveViewportOnly );
 				return true;
 			}
 			else
 			{
-				Ar.Log( TEXT("Can't find target actor.") );
+				Ar.Log( TEXT("Can't find target actor or component.") );
 				return false;
 			}
 		}
@@ -4753,7 +4885,7 @@ void UEditorEngine::AssignReplacementComponentsByActors(TArray<AActor*>& ActorsT
 		// if we are clearing the replacement, then we don't need to find a component
 		if (Replacement)
 		{
-			TArray<UPrimitiveComponent*> Components;
+			TInlineComponentArray<UPrimitiveComponent*> Components;
 			Replacement->GetComponents(Components);
 
 			for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
@@ -4773,7 +4905,7 @@ void UEditorEngine::AssignReplacementComponentsByActors(TArray<AActor*>& ActorsT
 	{
 		AActor* Actor = ActorsToReplace[ActorIndex];
 
-		TArray<UPrimitiveComponent*> Components;
+		TInlineComponentArray<UPrimitiveComponent*> Components;
 		Actor->GetComponents(Components);
 
 		for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
@@ -5120,13 +5252,6 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	if( FParse::Command(&Str,TEXT("LEVEL")) )
 	{
 		return CommandIsDeprecated( CommandTemp, Ar );
-	}
-	//------------------------------------------------------------------------------------
-	// LEVEL
-	//
-	if( FParse::Command(&Str,TEXT("PREFAB")) )
-	{
-		return HandlePrefabCommand( Str, Ar );
 	}
 	//------------------------------------------------------------------------------------
 	// PARTICLE: Particle system-related commands
@@ -5573,16 +5698,6 @@ bool UEditorEngine::HandleDeleteCommand( const TCHAR* Str, FOutputDevice& Ar, UW
 	return true;
 }
 
-bool UEditorEngine::HandlePrefabCommand( const TCHAR* Str, FOutputDevice& Ar )
-{
-	if( FParse::Command(&Str,TEXT("SELECTACTORSINPREFABS")) )
-	{
-		edactSelectPrefabActors();
-		return true;
-	}
-	return false;	
-}
-
 bool UEditorEngine::HandleLightmassDebugCommand( const TCHAR* Str, FOutputDevice& Ar )
 {
 	extern UNREALED_API bool GLightmassDebugMode;
@@ -5681,7 +5796,7 @@ bool UEditorEngine::HandleSetReplacementCommand( const TCHAR* Str, FOutputDevice
 	// attempt to set replacement component for all selected actors
 	for( FSelectedActorIterator It(InWorld); It; ++It )
 	{
-		TArray<UPrimitiveComponent*> Components;
+		TInlineComponentArray<UPrimitiveComponent*> Components;
 		It->GetComponents(Components);
 
 		for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
@@ -5921,7 +6036,7 @@ bool UEditorEngine::HandleSetDetailModeCommand( const TCHAR* Str, FOutputDevice&
 			AActor* Actor = static_cast<AActor*>( *It );
 			checkSlow( Actor->IsA(AActor::StaticClass()) );
 
-			TArray<UPrimitiveComponent*> Components;
+			TInlineComponentArray<UPrimitiveComponent*> Components;
 			Actor->GetComponents(Components);
 
 			for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
@@ -5976,7 +6091,7 @@ bool UEditorEngine::HandleSetDetailModeViewCommand( const TCHAR* Str, FOutputDev
 			AActor* Actor = static_cast<AActor*>( *It );
 			checkSlow( Actor->IsA(AActor::StaticClass()) );
 
-			TArray<UPrimitiveComponent*> Components;
+			TInlineComponentArray<UPrimitiveComponent*> Components;
 			Actor->GetComponents(Components);
 
 			for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)

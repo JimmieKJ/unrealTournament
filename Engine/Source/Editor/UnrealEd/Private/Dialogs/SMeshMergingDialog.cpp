@@ -346,7 +346,7 @@ void SMeshMergingDialog::GenerateNewPackageName()
 		AActor* Actor = Cast<AActor>(*Iter);
 		if (Actor)
 		{
-			TArray<UStaticMeshComponent*> SMComponets; 
+			TInlineComponentArray<UStaticMeshComponent*> SMComponets; 
 			Actor->GetComponents<UStaticMeshComponent>(SMComponets);
 			for (UStaticMeshComponent* Component : SMComponets)
 			{

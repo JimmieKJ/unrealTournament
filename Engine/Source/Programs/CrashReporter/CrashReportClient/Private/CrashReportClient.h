@@ -6,35 +6,21 @@
 #include "PlatformErrorReport.h"
 #include "CrashReportUtil.h"
 
+#if !CRASH_REPORT_UNATTENDED_ONLY
+
+class FCrashReportClient;
+
 /**
  * Helper task class to process a crash report in the background
  */
-class FDiagnoseReportWorker 
+class FDiagnoseReportWorker  : public FNonAbandonableTask
 {
 public:
-	/** Diagnostics from crash report text to fill in. */
-	FText& DiagnosticText;
-
-	/** Error report files to use. */
-	const FPlatformErrorReport& ErrorReport;
-
-	/** Machine ID. */
-	const FString MachineId;
-
-	/** Epic Account ID. */
-	const FString EpicAccountId;
-
-	/** User name without dot. */
-	const FString UserNameNoDot;
+	/** Pointer to the crash report client, used to store the results. */
+	FCrashReportClient* CrashReportClient;
 
 	/** Initialization constructor. */
-	FDiagnoseReportWorker( FText* InDiagnosticText, const FString InMachineId, const FString InEpicAccountId, const FString InUserNameNoDot, const FPlatformErrorReport* InErrorReport )
-		: DiagnosticText( *InDiagnosticText )		
-		, ErrorReport( *InErrorReport )
-		, MachineId(InMachineId)
-		, EpicAccountId(InEpicAccountId)
-		, UserNameNoDot(InUserNameNoDot)
-	{}
+	FDiagnoseReportWorker( FCrashReportClient* InCrashReportClient );
 
 	/**
 	 * Do platform-specific work to get information about the crash.
@@ -50,19 +36,22 @@ public:
 	}
 };
 
-#if !CRASH_REPORT_UNATTENDED_ONLY
-
 /**
  * Main implementation of the crash report client application
  */
 class FCrashReportClient : public TSharedFromThis<FCrashReportClient>
 {
+	friend class FDiagnoseReportWorker;
+
 public:
 	/**
 	 * Constructor: sets up background diagnosis
 	 * @param ErrorReport Error report to upload
 	 */
 	FCrashReportClient( const FPlatformErrorReport& InErrorReport );
+
+	/** Destructor. */
+	virtual ~FCrashReportClient();
 
 	/**
 	 * Respond to the user pressing Submit
@@ -71,40 +60,16 @@ public:
 	FReply Submit();
 
 	/**
-	 * Respond to the user pressing Cancel or Close
-	 * @return Whether the request was handled
-	 */
-	FReply Cancel();
-
-	/**
 	 * Respond to the user requesting the callstack to be copied to the clipboard
 	 * @return Whether the request was handled
 	 */
 	FReply CopyCallstack();
 
 	/**
-	 * Provide text to display at the bottom of the app
-	 * @return Localized text to display
-	 */
-	FText GetStatusText() const;
-
-	/**
-	 * Tell UI to display 'Cancel' or 'Close'
-	 * @return Localized text to display
-	 */
-	FText GetCancelButtonText() const;
-
-	/**
 	 * Pass on exception and callstack from the platform error report code
 	 * @return Localized text to display
 	 */
 	FText GetDiagnosticText() const;
-
-	/**
-	 * Indicate availability of Submit button
-	 * @return Whether button should be visible
-	 */
-	EVisibility SubmitButtonVisibility() const;
 
 	/**
 	 * Access to name (which usually includes the build config) of the app that crashed
@@ -120,16 +85,24 @@ public:
 	void UserCommentChanged(const FText& Comment, ETextCommit::Type CommitType);
 
 	/**
-	 * Indication of whether the app should be visible
-	 * @return Whether the main window should be hidden
-	 */
-	bool ShouldWindowBeHidden() const;
-
-	/**
-	 * Handle user closing the main window: same behaviour as Cancel
+	 * Handle user closing the main window
 	 * @param Window Main window
 	 */
 	void RequestCloseWindow(const TSharedRef<SWindow>& Window);
+
+	/** Whether the main window should be hidden. */
+	bool ShouldWindowBeHidden() const
+	{
+		return bShouldWindowBeHidden;
+	}
+
+	/** Whether the app should enable widgets related to the displayed callstack. */
+	bool AreCallstackWidgetsEnabled() const;
+
+	/** Whether the throbber should be visible while processing the callstack. */
+	EVisibility IsThrobberVisible() const;
+
+	void SCrashReportClient_OnCheckStateChanged( ECheckBoxState NewRadioState );
 
 private:
 	/**
@@ -142,29 +115,20 @@ private:
 	 * @param DeltaTime Time since last update, unused
 	 * @return Whether the updates should continue
 	 */
-	bool UIWillCloseTick(float DeltaTime);
+	bool Tick(float DeltaTime);
 
 	/**
-	 * Begin calling UIWillCloseTick once a second
+	 * Begin calling Tick once a second
 	 */
-	void StartUIWillCloseTicker();
+	void StartTicker();
 
-	/** State enum to keep track of what the app is doing */
-	struct EApplicationState
-	{
-		enum Type
-		{
-			Ready,				/** Waiting for user input */
-			CountingDown,		/** Submit pressed; counting down */
-			Closing				/** UI hidden, possibly waiting for tasks to finish */
-		};
-	};
+	/** Enqueued from the diagnose report worker thread to be executed on the game thread. */
+	void FinalizeDiagnoseReportWorker( FText ReportText );
 
-	/** What the app is currently doing */
-	EApplicationState::Type AppState;
-
-	/** Count-down until closing the app after user has pressed Submit */
-	int SubmittedCountdown;
+	/**
+	 * @return true if we are still processing a callstack
+	 */
+	bool IsProcessingCallstack() const;
 
 	/** Comment provided by the user */
 	FText UserComment;
@@ -172,11 +136,8 @@ private:
 	/** Exception and call-stack to show, valid once diagnosis task is complete */
 	FText DiagnosticText;
 
-	/** Flag to remember having told the crash uploader to send the diagnostic file */
-	bool bDiagnosticFileSent;
-
 	/** Background worker to get a callstack from the report */
-	TOneShotTaskUsingDedicatedThread<FDiagnoseReportWorker> DiagnoseReportTask;
+	FAsyncTask<FDiagnoseReportWorker>* DiagnoseReportTask;
 
 	/** Platform code for accessing the report */
 	FPlatformErrorReport ErrorReport;
@@ -184,8 +145,15 @@ private:
 	/** Object that uploads report files to the server */
 	FCrashUpload Uploader;
 
-	/** Text for Cancel/Close button, including count-down value */
-	FText CancelButtonText;
+	/** Whether BeginUpload has been called. */
+	bool bBeginUploadCalled;
+
+	/** Whether the main window should be hidden. */
+	bool bShouldWindowBeHidden;
+
+	/** Whether the user allowed us to be contacted. */
+	bool bAllowToBeContacted;
+
 };
 
 #endif // !CRASH_REPORT_UNATTENDED_ONLY

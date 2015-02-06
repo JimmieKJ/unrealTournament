@@ -63,6 +63,7 @@ TSharedRef<SWidget> UScrollBox::RebuildWidget()
 {
 	MyScrollBox = SNew(SScrollBox)
 		.Style(&WidgetStyle)
+		.ScrollBarStyle(&WidgetBarStyle)
 		.Orientation(Orientation);
 
 	for ( UPanelSlot* Slot : Slots )

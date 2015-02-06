@@ -13,6 +13,15 @@ UScriptBlueprint::UScriptBlueprint(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+#if WITH_EDITORONLY_DATA
+void UScriptBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+#endif
+
 #if WITH_EDITOR
 UClass* UScriptBlueprint::GetBlueprintClass() const
 {

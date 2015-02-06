@@ -43,7 +43,7 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 	static const TCHAR* StaticConfigName() {return TEXT("Engine");}
 
 	// Constructors and destructors.
-	UObject() { };
+	UObject();
 	UObject(const FObjectInitializer& ObjectInitializer);
 	UObject( EStaticConstructor, EObjectFlags InFlags );
 
@@ -519,6 +519,9 @@ public:
 	};
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
 
+	/** Get the common tag name used for all asset source file import paths */
+	static const FName& SourceFileTagName();
+
 	/** Returns true if this object is considered an asset. */
 	virtual bool IsAsset() const;
 
@@ -703,9 +706,26 @@ public:
 	void UpdateDefaultConfigFile();
 
 	/**
+	 * Saves just the section(s) for this class into the global user ini file for the class (with just the changes from base)
+	 */
+	void UpdateGlobalUserConfigFile();
+
+private:
+	/**
+	 * Saves just the section(s) for this class into the given ini file for the class (with just the changes from base)
+	 */
+	void UpdateSingleSectionOfConfigFile(const FString& ConfigIniName);
+public:
+	
+	/**
 	 * Get the default config filename for the specified UObject
 	 */
 	FString GetDefaultConfigFilename() const;
+
+	/**
+	 * Get the global user override config filename for the specified UObject
+	 */
+	FString GetGlobalUserConfigFilename() const;
 
 	/**
 	 * Imports property values from an .ini file.
@@ -777,7 +797,7 @@ public:
 	 * 
 	 * @return the archetype for this object
 	 */
-	static UObject* GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FName Name, bool bIsCDO);
+	static UObject* GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FName Name, EObjectFlags ObjectFlags);
 
 	/**
 	 * Return the template this object is based on. 
@@ -786,7 +806,7 @@ public:
 	 */
 	UObject* GetArchetype() const
 	{
-		return GetArchetypeFromRequiredInfo(GetClass(), GetOuter(), GetFName(), HasAnyFlags(RF_ClassDefaultObject));
+		return GetArchetypeFromRequiredInfo(GetClass(), GetOuter(), GetFName(), GetFlags());
 	}
 
 	/**

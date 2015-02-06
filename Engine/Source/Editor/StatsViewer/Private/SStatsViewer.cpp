@@ -749,7 +749,7 @@ bool SStatsViewer::AreStatsDisplayed( TSharedRef<IStatsPage> StatsPage ) const
 	return CurrentStats == StatsPage;
 }
 
-FString SStatsViewer::OnGetFilterComboButtonLabel() const
+FText SStatsViewer::OnGetFilterComboButtonLabel() const
 {
 	if( CurrentStats.IsValid() )
 	{
@@ -768,14 +768,14 @@ FString SStatsViewer::OnGetFilterComboButtonLabel() const
 
 					FFormatNamedArguments Arguments;
 					Arguments.Add(TEXT("FilterName"), FText::FromString(FilterName));
-					return FText::Format( LOCTEXT( "FilterSelected", "Filter: {FilterName}" ), Arguments ).ToString();
+					return FText::Format( LOCTEXT( "FilterSelected", "Filter: {FilterName}" ), Arguments );
 				}
 				++ColumnIndex;
 			}
 		}
 	}
 
-	return LOCTEXT( "Filter", "Filter" ).ToString();
+	return LOCTEXT( "Filter", "Filter" );
 }
 
 void SStatsViewer::SetObjectSet( int32 InSetIndex )

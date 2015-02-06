@@ -3564,7 +3564,7 @@ void FMeshUtilities::CreateProxyMesh(
 		}
 		else
 		{
-			TArray<UStaticMeshComponent*> Components;
+			TInlineComponentArray<UStaticMeshComponent*> Components;
 			Actor->GetComponents<UStaticMeshComponent>(Components);
 			// TODO: support instanced static meshes
 			Components.RemoveAll([](UStaticMeshComponent* Val){ return Val->IsA(UInstancedStaticMeshComponent::StaticClass()); });
@@ -3698,7 +3698,7 @@ void FMeshUtilities::CreateProxyMesh(
 		MeshPackage->Modify();
 	}
 
-	UStaticMesh* StaticMesh = new(MeshPackage, FName(*MeshAssetName), RF_Public|RF_Standalone) UStaticMesh(FObjectInitializer());
+	auto StaticMesh = NewNamedObject<UStaticMesh>(MeshPackage, FName(*MeshAssetName), RF_Public | RF_Standalone);
 	StaticMesh->InitResources();
 	{
 		FString OutputPath = StaticMesh->GetPathName();
@@ -3908,7 +3908,7 @@ void FMeshUtilities::MergeActors(
 	// Collect static mesh components
 	for (AActor* Actor : SourceActors)
 	{
-		TArray<UStaticMeshComponent*> Components;
+		TInlineComponentArray<UStaticMeshComponent*> Components;
 		Actor->GetComponents<UStaticMeshComponent>(Components);
 		ComponentsToMerge.Append(Components);
 	}
@@ -4085,7 +4085,7 @@ void FMeshUtilities::MergeActors(
 		Package->FullyLoad();
 		Package->Modify();
 
-		UStaticMesh* StaticMesh = new(Package, *AssetName, RF_Public|RF_Standalone) UStaticMesh(FObjectInitializer());
+		auto StaticMesh = NewNamedObject<UStaticMesh>(Package, *AssetName, RF_Public | RF_Standalone);
 		StaticMesh->InitResources();
 		
 		FString OutputPath = StaticMesh->GetPathName();

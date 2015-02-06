@@ -428,6 +428,11 @@ private:
 private:
 	/** The "Object" class node that is used as a rooting point for the Class Viewer. */
 	TSharedPtr< FClassViewerNode > ObjectClassRoot;
+
+	/** Handles to various registered RequestPopulateClassHierarchy delegates */
+	FDelegateHandle OnFilesLoadedRequestPopulateClassHierarchyDelegateHandle;
+	FDelegateHandle OnBlueprintCompiledRequestPopulateClassHierarchyDelegateHandle;
+	FDelegateHandle OnClassPackageLoadedOrUnloadedRequestPopulateClassHierarchyDelegateHandle;
 };
 
 namespace ClassViewer
@@ -1083,7 +1088,7 @@ namespace ClassViewer
 
 				MenuBuilder.AddMenuEntry(
 					TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateStatic(&BlueprintNameEntry::MakeFullPathLabel)), 
-						LOCTEXT("PickNewBlueprintTooltip_Create", "Create new Blueprint"),
+						LOCTEXT("PickNewBlueprintTooltip_Create", "Create new Blueprint Class"),
 						FSlateIcon(), 
 						FUIAction(
 							FExecuteAction::CreateStatic( &BlueprintNameEntry::CreateBlueprintClicked, InCreationClass ),
@@ -1091,11 +1096,11 @@ namespace ClassViewer
 						)
 					);
 
-				MenuBuilder.BeginSection( NAME_None, LOCTEXT("PickNewBlueprintFilename", "Blueprint Filename") );
+				MenuBuilder.BeginSection( NAME_None, LOCTEXT("PickNewBlueprintFilename", "Blueprint Class Filename") );
 				MenuBuilder.AddWidget( BlueprintNameEntry::MakeBlueprintNameWidget(InCreationClass), FText::GetEmpty() );
 				MenuBuilder.EndSection();
 
-				MenuBuilder.BeginSection( NAME_None, LOCTEXT("PickNewBlueprintPath", "Blueprint Path") );
+				MenuBuilder.BeginSection( NAME_None, LOCTEXT("PickNewBlueprintPath", "Blueprint Class Path") );
 				MenuBuilder.AddWidget( BlueprintNameEntry::MakeBlueprintPathWidget(), FText::GetEmpty() );
 				MenuBuilder.EndSection();
 			}
@@ -1106,11 +1111,11 @@ namespace ClassViewer
 		{
 			if(InCreationClass->HasAnyClassFlags(CLASS_Deprecated))
 			{
-				return LOCTEXT("ClassViewerMenuCreateDeprecatedBlueprint_Tooltip", "Blueprint class is deprecated!");
+				return LOCTEXT("ClassViewerMenuCreateDeprecatedBlueprint_Tooltip", "Class is deprecated!");
 			}
 			else
 			{
-				return LOCTEXT("ClassViewerMenuCreateBlueprint_Tooltip", "Creates a Blueprint using this class as a base.");
+				return LOCTEXT("ClassViewerMenuCreateBlueprint_Tooltip", "Creates a Blueprint Class using this class as a base.");
 			}
 		}
 
@@ -1127,25 +1132,11 @@ namespace ClassViewer
 		 */
 		static void OpenCreateCPlusPlusClassWizard(UClass* InCreationClass)
 		{
-			TSharedRef<SWindow> AddCodeWindow =
-				SNew(SWindow)
-				.Title(LOCTEXT( "AddCodeWindowHeader", "Add Code"))
-				.ClientSize( FVector2D(1280, 720) )
-				.SizingRule( ESizingRule::FixedSize )
-				.SupportsMinimize(false) 
-				.SupportsMaximize(false);
-
-			AddCodeWindow->SetContent( FGameProjectGenerationModule::Get().CreateNewClassDialog(InCreationClass) );
-
-			TSharedPtr<SWindow> ParentWindow = FGlobalTabmanager::Get()->GetRootWindow();
-			if (ParentWindow.IsValid())
-			{
-				FSlateApplication::Get().AddWindowAsNativeChild(AddCodeWindow, ParentWindow.ToSharedRef());
-			}
-			else
-			{
-				FSlateApplication::Get().AddWindow(AddCodeWindow);
-			}
+			FGameProjectGenerationModule::Get().OpenAddCodeToProjectDialog(
+				FAddToProjectConfig()
+				.ParentClass(InCreationClass)
+				.ParentWindow(FGlobalTabmanager::Get()->GetRootWindow())
+			);
 		}
 
 		/**
@@ -1388,7 +1379,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew( STextBlock )
-						.Text( *ClassName.Get() )
+						.Text( FText::FromString(*ClassName.Get()) )
 						.HighlightText(*InArgs._HighlightText)
 						.ColorAndOpacity( this, &SClassItem::GetTextColor)
 						.ToolTip(Local::GetToolTip(AssociatedNode))
@@ -1495,7 +1486,7 @@ private:
 						TAttribute<FText> DynamicTooltipAttribute = TAttribute<FText>::Create(DynamicTooltipGetter);
 
 						MenuBuilder.AddSubMenu(
-							LOCTEXT("ClassViewerMenuCreateBlueprint", "Create Blueprint"), 
+							LOCTEXT("ClassViewerMenuCreateBlueprint", "Create Blueprint Class"), 
 							DynamicTooltipAttribute, 
 							FNewMenuDelegate::CreateStatic( &ClassViewer::Helpers::OpenCreateBlueprintMenu, Class ),
 							FUIAction(
@@ -1514,7 +1505,7 @@ private:
 					MenuBuilder.BeginSection("ClassViewerDropDownHasBlueprint");
 					{
 						FUIAction Action( FExecuteAction::CreateStatic( &ClassViewer::Helpers::OpenBlueprintTool, ClassViewer::Helpers::GetBlueprint(Class) ) );
-						MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuEditBlueprint", "Edit Blueprint..."), LOCTEXT("ClassViewerMenuEditBlueprint_Tooltip", "Open the Blueprint in the editor."), FSlateIcon(), Action);
+						MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuEditBlueprint", "Edit Blueprint Class..."), LOCTEXT("ClassViewerMenuEditBlueprint_Tooltip", "Open the Blueprint Class in the editor."), FSlateIcon(), Action);
 					}
 					MenuBuilder.EndSection();
 
@@ -1592,7 +1583,7 @@ FClassHierarchy::FClassHierarchy()
 {
 	// Register with the Asset Registry to be informed when it is done loading up files.
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	AssetRegistryModule.Get().OnFilesLoaded().AddStatic( ClassViewer::Helpers::RequestPopulateClassHierarchy );
+	OnFilesLoadedRequestPopulateClassHierarchyDelegateHandle = AssetRegistryModule.Get().OnFilesLoaded().AddStatic( ClassViewer::Helpers::RequestPopulateClassHierarchy );
 	AssetRegistryModule.Get().OnAssetAdded().AddRaw( this, &FClassHierarchy::AddAsset);
 	AssetRegistryModule.Get().OnAssetRemoved().AddRaw( this, &FClassHierarchy::RemoveAsset );
 
@@ -1601,8 +1592,8 @@ FClassHierarchy::FClassHierarchy()
 	HotReloadSupport.OnHotReload().AddRaw( this, &FClassHierarchy::OnHotReload );
 
 	// Register to have Populate called when a Blueprint is compiled.
-	GEditor->OnBlueprintCompiled().AddStatic(ClassViewer::Helpers::RequestPopulateClassHierarchy);
-	GEditor->OnClassPackageLoadedOrUnloaded().AddStatic(ClassViewer::Helpers::RequestPopulateClassHierarchy);
+	OnBlueprintCompiledRequestPopulateClassHierarchyDelegateHandle            = GEditor->OnBlueprintCompiled().AddStatic(ClassViewer::Helpers::RequestPopulateClassHierarchy);
+	OnClassPackageLoadedOrUnloadedRequestPopulateClassHierarchyDelegateHandle = GEditor->OnClassPackageLoadedOrUnloaded().AddStatic(ClassViewer::Helpers::RequestPopulateClassHierarchy);
 
 	FModuleManager::Get().OnModulesChanged().AddStatic(&OnModulesChanged);
 }
@@ -1613,7 +1604,7 @@ FClassHierarchy::~FClassHierarchy()
 	if( FModuleManager::Get().IsModuleLoaded( TEXT("AssetRegistry") ) )
 	{
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-		AssetRegistryModule.Get().OnFilesLoaded().RemoveStatic(ClassViewer::Helpers::RequestPopulateClassHierarchy);
+		AssetRegistryModule.Get().OnFilesLoaded().Remove(OnFilesLoadedRequestPopulateClassHierarchyDelegateHandle);
 		AssetRegistryModule.Get().OnAssetAdded().RemoveAll( this );
 		AssetRegistryModule.Get().OnAssetRemoved().RemoveAll( this );
 
@@ -1622,8 +1613,8 @@ FClassHierarchy::~FClassHierarchy()
 		HotReloadSupport.OnHotReload().RemoveAll( this );
 
 		// Unregister to have Populate called when a Blueprint is compiled.
-		GEditor->OnBlueprintCompiled().RemoveStatic(ClassViewer::Helpers::RequestPopulateClassHierarchy);
-		GEditor->OnClassPackageLoadedOrUnloaded().RemoveStatic(ClassViewer::Helpers::RequestPopulateClassHierarchy);
+		GEditor->OnBlueprintCompiled().Remove(OnBlueprintCompiledRequestPopulateClassHierarchyDelegateHandle);
+		GEditor->OnClassPackageLoadedOrUnloaded().Remove(OnClassPackageLoadedOrUnloadedRequestPopulateClassHierarchyDelegateHandle);
 	}
 
 	FModuleManager::Get().OnModulesChanged().RemoveAll(this);
@@ -1834,7 +1825,7 @@ void FClassHierarchy::AddAsset(const FAssetData& InAddedAssetData)
 		TArray<FName> AncestorClassNames;
 		AssetRegistryModule.Get().GetAncestorClassNames(InAddedAssetData.AssetClass, AncestorClassNames);
 
-		if( AncestorClassNames.Contains(UBlueprint::StaticClass()->GetFName()) )
+		if( AncestorClassNames.Contains(UBlueprintCore::StaticClass()->GetFName()) )
 		{
 			// Make sure that the node does not already exist. There is a bit of double adding going on at times and this prevents it.
 			if(!FindNodeByGeneratedClassPackageName(ObjectClassRoot, InAddedAssetData.PackageName.ToString()).IsValid())
@@ -2409,7 +2400,7 @@ TSharedPtr< SWidget > SClassViewer::BuildMenuWidget()
 			TAttribute<FText> DynamicTooltipAttribute = TAttribute<FText>::Create(DynamicTooltipGetter);
 
 			MenuBuilder.AddSubMenu(
-				LOCTEXT("ClassViewerMenuCreateBlueprint", "Create Blueprint"), 
+				LOCTEXT("ClassViewerMenuCreateBlueprint", "Create Blueprint Class"), 
 				DynamicTooltipAttribute, 
 				FNewMenuDelegate::CreateStatic( &ClassViewer::Helpers::OpenCreateBlueprintMenu, RightClickClass ),
 				FUIAction(
@@ -2426,7 +2417,7 @@ TSharedPtr< SWidget > SClassViewer::BuildMenuWidget()
 			MenuBuilder.BeginSection("ClassViewerHasBlueprint");
 			{
 				FUIAction Action( FExecuteAction::CreateRaw( this, &SClassViewer::OnOpenBlueprintTool ) );
-				MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuEditBlueprint", "Edit Blueprint..."), LOCTEXT("ClassViewerMenuEditBlueprint_Tooltip", "Open the Blueprint in the editor."), FSlateIcon(), Action);
+				MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuEditBlueprint", "Edit Blueprint Class..."), LOCTEXT("ClassViewerMenuEditBlueprint_Tooltip", "Open the Blueprint Class in the editor."), FSlateIcon(), Action);
 			}
 			MenuBuilder.EndSection();
 
@@ -2712,7 +2703,7 @@ void SClassViewer::FillFilterEntries( FMenuBuilder& MenuBuilder )
 
 	MenuBuilder.BeginSection("ClassViewerFilterEntries2");
 	{
-		MenuBuilder.AddMenuEntry( LOCTEXT("BlueprintsOnly", "Blueprint Bases Only"), LOCTEXT( "BlueprinsOnly_Tooltip", "Filter the Class Viewer to show only base blueprint classes." ), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(this, &SClassViewer::MenuBlueprintBasesOnly_Execute), FCanExecuteAction::CreateRaw(this, &SClassViewer::Menu_CanExecute), FIsActionChecked::CreateRaw(this, &SClassViewer::MenuBlueprintBasesOnly_IsChecked)), NAME_None, EUserInterfaceActionType::Check );
+		MenuBuilder.AddMenuEntry( LOCTEXT("BlueprintsOnly", "Blueprint Class Bases Only"), LOCTEXT( "BlueprinsOnly_Tooltip", "Filter the Class Viewer to show only base blueprint classes." ), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(this, &SClassViewer::MenuBlueprintBasesOnly_Execute), FCanExecuteAction::CreateRaw(this, &SClassViewer::Menu_CanExecute), FIsActionChecked::CreateRaw(this, &SClassViewer::MenuBlueprintBasesOnly_IsChecked)), NAME_None, EUserInterfaceActionType::Check );
 	}
 	MenuBuilder.EndSection();
 }

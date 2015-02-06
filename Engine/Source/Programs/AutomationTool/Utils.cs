@@ -276,13 +276,56 @@ namespace AutomationTool
 			return Result;
 		}
 
+		// @todo: This could be passed in from elsewhere, and this should be somehow done per ini section
+		// but this will get it so that games won't ship passwords
+		private static string[] LinesToFilter = new string[]
+		{
+			"KeyStorePassword",
+		};
+
+		private static void FilterIniFile(string SourceName, string TargetName)
+		{
+			string[] Lines = File.ReadAllLines(SourceName);
+			StringBuilder NewLines = new StringBuilder("");
+
+			foreach (string Line in Lines)
+			{
+				// look for each filter on each line
+				bool bFiltered = false;
+				foreach (string Filter in LinesToFilter)
+				{
+					if (Line.StartsWith(Filter + "="))
+					{
+						bFiltered = true;
+						break;
+					}
+				}
+
+				// write out if it's not filtered out
+				if (!bFiltered)
+				{
+					NewLines.AppendLine(Line);
+				}
+			}
+
+			// now write out the final .ini file
+			if (File.Exists(TargetName))
+			{
+				File.Delete(TargetName);
+			}
+			File.WriteAllText(TargetName, NewLines.ToString());
+
+			// other code assumes same timestamp for source and dest
+			File.SetLastWriteTimeUtc(TargetName, File.GetLastWriteTimeUtc(SourceName));
+		}
+
 		/// <summary>
 		/// Copies a file.
 		/// </summary>
 		/// <param name="SourceName">Source name</param>
 		/// <param name="TargetName">Target name</param>
 		/// <returns>True if the operation was successful, false otherwise.</returns>
-		public static bool SafeCopyFile(string SourceName, string TargetName, bool bQuiet = false)
+		public static bool SafeCopyFile(string SourceName, string TargetName, bool bQuiet = false, bool bFilterSpecialLinesFromIniFiles = false)
 		{
 			if (!bQuiet)
 			{
@@ -298,13 +341,23 @@ namespace AutomationTool
 				bool Retry = true;
 				try
 				{
-					File.Copy(SourceName, TargetName, overwrite: true);
+					bool bSkipSizeCheck = false;
+					if (bFilterSpecialLinesFromIniFiles && Path.GetExtension(SourceName) == ".ini")
+					{
+						FilterIniFile(SourceName, TargetName);
+						// ini files may change size, don't check
+						bSkipSizeCheck = true;
+					}
+					else
+					{
+						File.Copy(SourceName, TargetName, overwrite: true);
+					}
 					Retry = !File.Exists(TargetName);
 					if (!Retry)
 					{
 						FileInfo SourceInfo = new FileInfo(SourceName);
 						FileInfo TargetInfo = new FileInfo(TargetName);
-						if (SourceInfo.Length != TargetInfo.Length)
+						if (!bSkipSizeCheck && SourceInfo.Length != TargetInfo.Length)
 						{
 							Log.WriteLine(TraceEventType.Warning, "Size mismatch {0} = {1} to {2} = {3}", SourceName, SourceInfo.Length, TargetName, TargetInfo.Length);
 							Retry = true;

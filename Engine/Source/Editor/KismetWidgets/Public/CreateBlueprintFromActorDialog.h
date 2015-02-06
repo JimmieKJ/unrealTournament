@@ -12,8 +12,9 @@ public:
 	 * Static function to access constructing this window.
 	 *
 	 * @param bInHarvest		true if the components of the selected actors should be harvested for the blueprint.
+	 * @param ActorOverride		If set convert the specified actor, if null use the currently selected actor
 	 */
-	static KISMETWIDGETS_API void OpenDialog(bool bInHarvest);
+	static KISMETWIDGETS_API void OpenDialog(bool bInHarvest, AActor* InActorOverride = nullptr);
 private:
 
 	/** 
@@ -23,4 +24,6 @@ private:
 	 * @param bInHarvest		true if the components of the selected actors should be harvested for the blueprint.
 	 */
 	static void OnCreateBlueprint(const FString& InAssetPath, bool bInHarvest);
+private:
+	static TWeakObjectPtr<AActor> ActorOverride;
 };

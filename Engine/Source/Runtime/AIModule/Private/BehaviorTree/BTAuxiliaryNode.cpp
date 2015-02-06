@@ -106,3 +106,49 @@ uint16 UBTAuxiliaryNode::GetSpecialMemorySize() const
 {
 	return bTickIntervals ? sizeof(FBTAuxiliaryMemory) : Super::GetSpecialMemorySize();
 }
+
+//----------------------------------------------------------------------//
+// DEPRECATED
+//----------------------------------------------------------------------//
+void UBTAuxiliaryNode::WrappedOnBecomeRelevant(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
+{
+	if (OwnerComp)
+	{
+		WrappedOnBecomeRelevant(*OwnerComp, NodeMemory);
+	}
+}
+void UBTAuxiliaryNode::WrappedOnCeaseRelevant(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory) const
+{
+	if (OwnerComp)
+	{
+		WrappedOnCeaseRelevant(*OwnerComp, NodeMemory);
+	}
+}
+void UBTAuxiliaryNode::WrappedTickNode(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds) const
+{
+	if (OwnerComp)
+	{
+		WrappedTickNode(*OwnerComp, NodeMemory, DeltaSeconds);
+	}
+}
+void UBTAuxiliaryNode::OnBecomeRelevant(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory)
+{
+	if (OwnerComp)
+	{
+		OnBecomeRelevant(*OwnerComp, NodeMemory);
+	}
+}
+void UBTAuxiliaryNode::OnCeaseRelevant(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory)
+{
+	if (OwnerComp)
+	{
+		OnCeaseRelevant(*OwnerComp, NodeMemory);
+	}
+}
+void UBTAuxiliaryNode::TickNode(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds)
+{
+	if (OwnerComp)
+	{
+		TickNode(*OwnerComp, NodeMemory, DeltaSeconds);
+	}
+}

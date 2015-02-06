@@ -68,19 +68,22 @@ void STileLayerList::Construct(const FArguments& InArgs, UPaperTileMap* InTileMa
 
 	TSharedRef<SWidget> Toolbar = ToolbarBuilder.MakeWidget();
 
+	RefreshMirrorList();
+
 	ListViewWidget = SNew(SPaperLayerListView)
 		.SelectionMode(ESelectionMode::Single)
 		.ClearSelectionOnClick(false)
-		.ListItemsSource(&(InTileMap->TileLayers))
+		.ListItemsSource(&MirrorList)
 		.OnSelectionChanged(this, &STileLayerList::OnSelectionChanged)
 		.OnGenerateRow(this, &STileLayerList::OnGenerateLayerListRow)
 		.OnContextMenuOpening(this, &STileLayerList::OnConstructContextMenu);
 
 	// Restore the selection
 	InTileMap->ValidateSelectedLayerIndex();
-	if (InTileMap->SelectedLayerIndex != INDEX_NONE)
+	if (InTileMap->TileLayers.IsValidIndex(InTileMap->SelectedLayerIndex))
 	{
-		SetSelectedLayer(InTileMap->TileLayers[InTileMap->SelectedLayerIndex]);
+		UPaperTileLayer* SelectedLayer = InTileMap->TileLayers[InTileMap->SelectedLayerIndex];
+		SetSelectedLayer(SelectedLayer);
 	}
 
 	ChildSlot
@@ -102,22 +105,35 @@ void STileLayerList::Construct(const FArguments& InArgs, UPaperTileMap* InTileMa
 	];
 }
 
-TSharedRef<ITableRow> STileLayerList::OnGenerateLayerListRow(class UPaperTileLayer* Item, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<ITableRow> STileLayerList::OnGenerateLayerListRow(FMirrorEntry Item, const TSharedRef<STableViewBase>& OwnerTable)
 {
-	typedef STableRow<class UPaperTileLayer*> RowType;
+	typedef STableRow<FMirrorEntry> RowType;
 
 	TSharedRef<RowType> NewRow = SNew(RowType, OwnerTable)
 		.Style(&FPaperStyle::Get()->GetWidgetStyle<FTableRowStyle>("TileMapEditor.LayerBrowser.TableViewRow"));
 
 	FIsSelected IsSelectedDelegate = FIsSelected::CreateSP(NewRow, &RowType::IsSelectedExclusively);
-	NewRow->SetContent(SNew(STileLayerItem, Item, IsSelectedDelegate));
+	NewRow->SetContent(SNew(STileLayerItem, *Item, TileMapPtr.Get(), IsSelectedDelegate));
 
 	return NewRow;
 }
 
 UPaperTileLayer* STileLayerList::GetSelectedLayer() const
 {
-	return (ListViewWidget->GetNumItemsSelected() > 0) ? ListViewWidget->GetSelectedItems()[0] : nullptr;
+	if (UPaperTileMap* TileMap = TileMapPtr.Get())
+	{
+		if (ListViewWidget->GetNumItemsSelected() > 0)
+		{
+			FMirrorEntry SelectedItem = ListViewWidget->GetSelectedItems()[0];
+			const int32 SelectedIndex = *SelectedItem;
+			if (TileMap->TileLayers.IsValidIndex(SelectedIndex))
+			{
+				return TileMap->TileLayers[SelectedIndex];
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 FText STileLayerList::GenerateDuplicatedLayerName(const FString& InputNameRaw, UPaperTileMap* TileMap)
@@ -212,6 +228,7 @@ void STileLayerList::ChangeLayerOrdering(int32 OldIndex, int32 NewIndex)
 			if (TileMap->SelectedLayerIndex == OldIndex)
 			{
 				TileMap->SelectedLayerIndex = NewIndex;
+				SetSelectedLayer(LayerToMove);
 			}
 
 			PostEditNotfications();
@@ -377,10 +394,20 @@ bool STileLayerList::CanExecuteActionNeedingSelectedLayer() const
 
 void STileLayerList::SetSelectedLayer(UPaperTileLayer* SelectedLayer)
 {
-	ListViewWidget->SetSelection(SelectedLayer);
+	if (UPaperTileMap* TileMap = TileMapPtr.Get())
+	{
+		int32 NewIndex;
+		if (TileMap->TileLayers.Find(SelectedLayer, /*out*/ NewIndex))
+		{
+			if (MirrorList.IsValidIndex(NewIndex))
+			{
+				ListViewWidget->SetSelection(MirrorList[NewIndex]);
+			}
+		}
+	}
 }
 
-void STileLayerList::OnSelectionChanged(UPaperTileLayer* ItemChangingState, ESelectInfo::Type SelectInfo)
+void STileLayerList::OnSelectionChanged(FMirrorEntry ItemChangingState, ESelectInfo::Type SelectInfo)
 {
 	if (UPaperTileMap* TileMap = TileMapPtr.Get())
 	{
@@ -410,6 +437,8 @@ TSharedPtr<SWidget> STileLayerList::OnConstructContextMenu()
 
 void STileLayerList::PostEditNotfications()
 {
+	RefreshMirrorList();
+
 	ListViewWidget->RequestListRefresh();
 
 	if (UPaperTileMap* TileMap = TileMapPtr.Get())
@@ -422,6 +451,31 @@ void STileLayerList::PostEditNotfications()
 		UProperty* TileMapProperty = FindFieldChecked<UProperty>(UPaperTileMapComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(UPaperTileMapComponent, TileMap));
 		NotifyHook->NotifyPreChange(TileMapProperty);
 		NotifyHook->NotifyPostChange(FPropertyChangedEvent(TileMapProperty), TileMapProperty);
+	}
+}
+
+void STileLayerList::RefreshMirrorList()
+{
+	if (UPaperTileMap* TileMap = TileMapPtr.Get())
+	{
+		const int32 NumEntriesToAdd = TileMap->TileLayers.Num() - MirrorList.Num();
+		if (NumEntriesToAdd < 0)
+		{
+			MirrorList.RemoveAt(TileMap->TileLayers.Num(), -NumEntriesToAdd);
+		}
+		else if (NumEntriesToAdd > 0)
+		{
+			for (int32 Count = 0; Count < NumEntriesToAdd; ++Count)
+			{
+				TSharedPtr<int32> NewEntry = MakeShareable(new int32);
+				*NewEntry = MirrorList.Num();
+				MirrorList.Add(NewEntry);
+			}
+		}
+	}
+	else
+	{
+		MirrorList.Empty();
 	}
 }
 

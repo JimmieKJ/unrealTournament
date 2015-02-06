@@ -91,7 +91,7 @@ public:
 				.FillWidth(1.f)
 				[
 					SNew(STextBlock)
-					.Text(SocketInfo->Description.Name.ToString())
+					.Text(FText::FromName(SocketInfo->Description.Name))
 				]
 			];
 	}

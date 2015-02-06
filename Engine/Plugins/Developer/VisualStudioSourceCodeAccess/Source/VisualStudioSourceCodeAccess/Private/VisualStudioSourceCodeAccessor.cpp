@@ -54,12 +54,14 @@ enum class EAccessVisualStudioResult : uint8
 	VSInstanceIsOpen,
 	/** An instance of Visual Studio is not available */
 	VSInstanceIsNotOpen,
+	/** An instance of Visual Studio is open, but could not be fully queried because it is blocked by a modal operation - this may succeed later */
+	VSInstanceIsBlocked,
 	/** It is unknown whether an instance of Visual Studio is available, as an error occurred when performing the check */
 	VSInstanceUnknown,
 };
 
 /** save all open documents in visual studio, when recompiling */
-void SaveVisualStudioDocuments()
+void OnModuleCompileStarted(bool bIsAsyncCompile)
 {
 	FVisualStudioSourceCodeAccessModule& VisualStudioSourceCodeAccessModule = FModuleManager::LoadModuleChecked<FVisualStudioSourceCodeAccessModule>(TEXT("VisualStudioSourceCodeAccess"));
 	VisualStudioSourceCodeAccessModule.GetAccessor().SaveAllOpenDocuments();
@@ -71,7 +73,7 @@ void FVisualStudioSourceCodeAccessor::Startup()
 
 #if WITH_EDITOR
 	// Setup compilation for saving all VS documents upon compilation start
-	IHotReloadModule::Get().OnModuleCompilerStarted().AddStatic( &SaveVisualStudioDocuments );
+	SaveVisualStudioDocumentsDelegateHandle = IHotReloadModule::Get().OnModuleCompilerStarted().AddStatic( &OnModuleCompileStarted );
 #endif
 
 	// Cache this so we don't have to do it on a background thread
@@ -79,10 +81,6 @@ void FVisualStudioSourceCodeAccessor::Startup()
 
 	// Preferential order of VS versions
 	AddVisualStudioVersion(12); // Visual Studio 2013
-	if (!FRocketSupport::IsRocket())
-	{
-		AddVisualStudioVersion(11); // Visual Studio 2012
-	}
 }
 
 void FVisualStudioSourceCodeAccessor::Shutdown()
@@ -91,7 +89,7 @@ void FVisualStudioSourceCodeAccessor::Shutdown()
 	// Unregister the hot-reload callback
 	if(IHotReloadModule::IsAvailable())
 	{
-		IHotReloadModule::Get().OnModuleCompilerStarted().RemoveStatic( &SaveVisualStudioDocuments );
+		IHotReloadModule::Get().OnModuleCompilerStarted().Remove( SaveVisualStudioDocumentsDelegateHandle );
 	}
 #endif
 }
@@ -156,6 +154,11 @@ EAccessVisualStudioResult AccessVisualStudioViaDTE(CComPtr<EnvDTE::_DTE>& OutDTE
 									OutDTE = TempDTE;
 									AccessResult = EAccessVisualStudioResult::VSInstanceIsOpen;
 								}
+							}
+							else
+							{
+								UE_LOG(LogVSAccessor, Warning, TEXT("Visual Studio is open but could not be queried - it may be blocked by a modal operation"));
+								AccessResult = EAccessVisualStudioResult::VSInstanceIsBlocked;
 							}
 						}
 						else
@@ -351,6 +354,14 @@ bool FVisualStudioSourceCodeAccessor::OpenVisualStudioFilesInternalViaDTE(const 
 					}
 				}
 			}
+		}
+		break;
+
+	case EAccessVisualStudioResult::VSInstanceIsBlocked:
+		{
+			// VS may be open for the solution we want, but we can't query it right now as it's blocked for some reason
+			// Defer this operation so we can try it again later should VS become unblocked
+			bDefer = true;
 		}
 		break;
 
@@ -767,6 +778,191 @@ bool FVisualStudioSourceCodeAccessor::OpenSourceFiles(const TArray<FString>& Abs
 	return false;
 }
 
+bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& AbsoluteSourcePaths, const TArray<FString>& AvailableModules)
+{
+	// This requires DTE - there is no fallback for this operation when DTE is not available
+#if VSACCESSOR_HAS_DTE
+	bool bSuccess = true;
+
+	struct FModuleNameAndPath
+	{
+		FString ModuleBuildFilePath;
+		FString ModulePath;
+		FName ModuleName;
+	};
+
+	TArray<FModuleNameAndPath> ModuleNamesAndPaths;
+	ModuleNamesAndPaths.Reserve(AvailableModules.Num());
+	for (const FString& AvailableModule : AvailableModules)
+	{
+		static const int32 BuildFileExtensionLen = FString(TEXT(".Build.cs")).Len();
+
+		// AvailableModule is the relative path to the .Build.cs file
+		FModuleNameAndPath ModuleNameAndPath;
+		ModuleNameAndPath.ModuleBuildFilePath = FPaths::ConvertRelativePathToFull(AvailableModule);
+		ModuleNameAndPath.ModulePath = FPaths::GetPath(ModuleNameAndPath.ModuleBuildFilePath);
+		ModuleNameAndPath.ModuleName = *FPaths::GetCleanFilename(ModuleNameAndPath.ModuleBuildFilePath).LeftChop(BuildFileExtensionLen);
+		ModuleNamesAndPaths.Add(ModuleNameAndPath);
+	}
+
+	struct FModuleNewSourceFiles
+	{
+		FModuleNameAndPath ModuleNameAndPath;
+		TArray<FString> NewSourceFiles;
+	};
+
+	// Work out which module each source file will be in
+	TMap<FName, FModuleNewSourceFiles> ModuleToNewSourceFiles;
+	{
+		const FModuleNameAndPath* LastSourceFilesModule = nullptr;
+		for (const FString& SourceFile : AbsoluteSourcePaths)
+		{
+			// First check to see if this source file is in the same module as the last source file - this is usually the case, and saves us a lot of string compares
+			if (LastSourceFilesModule && SourceFile.StartsWith(LastSourceFilesModule->ModulePath))
+			{
+				FModuleNewSourceFiles& ModuleNewSourceFiles = ModuleToNewSourceFiles.FindChecked(LastSourceFilesModule->ModuleName);
+				ModuleNewSourceFiles.NewSourceFiles.Add(SourceFile);
+				continue;
+			}
+
+			// Look for the module which will contain this file
+			LastSourceFilesModule = nullptr;
+			for (const FModuleNameAndPath& ModuleNameAndPath : ModuleNamesAndPaths)
+			{
+				if (SourceFile.StartsWith(ModuleNameAndPath.ModulePath))
+				{
+					LastSourceFilesModule = &ModuleNameAndPath;
+
+					FModuleNewSourceFiles& ModuleNewSourceFiles = ModuleToNewSourceFiles.FindOrAdd(ModuleNameAndPath.ModuleName);
+					ModuleNewSourceFiles.ModuleNameAndPath = ModuleNameAndPath;
+					ModuleNewSourceFiles.NewSourceFiles.Add(SourceFile);
+					break;
+				}
+			}
+
+			// Failed to find the module for this source file?
+			if (!LastSourceFilesModule)
+			{
+				UE_LOG(LogVSAccessor, Warning, TEXT("Cannot add source file '%s' as it doesn't belong to a known module"), *SourceFile);
+				bSuccess = false;
+			}
+		}
+	}
+
+	CComPtr<EnvDTE::_DTE> DTE;
+	if (AccessVisualStudioViaDTE(DTE, GetSolutionPath(), Locations) == EAccessVisualStudioResult::VSInstanceIsOpen)
+	{
+		CComPtr<EnvDTE::_Solution> Solution;
+		if (SUCCEEDED(DTE->get_Solution(&Solution)) && Solution)
+		{
+			// Process each module
+			for (const auto& ModuleNewSourceFilesKeyValue : ModuleToNewSourceFiles)
+			{
+				const FModuleNewSourceFiles& ModuleNewSourceFiles = ModuleNewSourceFilesKeyValue.Value;
+
+				const FString& ModuleBuildFilePath = ModuleNewSourceFiles.ModuleNameAndPath.ModuleBuildFilePath;
+				auto ANSIModuleBuildFilePath = StringCast<ANSICHAR>(*ModuleBuildFilePath);
+				CComBSTR COMStrModuleBuildFilePath(ANSIModuleBuildFilePath.Get());
+
+				CComPtr<EnvDTE::ProjectItem> BuildFileProjectItem;
+				if (SUCCEEDED(Solution->FindProjectItem(COMStrModuleBuildFilePath, &BuildFileProjectItem)) && BuildFileProjectItem)
+				{
+					// We found the .Build.cs file in the existing solution - now we need its parent ProjectItems as that's what we'll be adding new content to
+					CComPtr<EnvDTE::ProjectItems> ModuleProjectFolder;
+					if (SUCCEEDED(BuildFileProjectItem->get_Collection(&ModuleProjectFolder)) && ModuleProjectFolder)
+					{
+						for (const FString& SourceFile : AbsoluteSourcePaths)
+						{
+							const FString ProjectRelativeSourceFilePath = SourceFile.Mid(ModuleNewSourceFiles.ModuleNameAndPath.ModulePath.Len());
+							TArray<FString> SourceFileParts;
+							ProjectRelativeSourceFilePath.ParseIntoArray(&SourceFileParts, TEXT("/"), true);
+					
+							if (SourceFileParts.Num() == 0)
+							{
+								// This should never happen as it means we somehow have no filename within the project directory
+								bSuccess = false;
+								continue;
+							}
+
+							CComPtr<EnvDTE::ProjectItems> CurProjectItems = ModuleProjectFolder;
+
+							// Firstly we need to make sure that all the folders we need exist - this also walks us down to the correct place to add the file
+							for (int32 FilePartIndex = 0; FilePartIndex < SourceFileParts.Num() - 1 && CurProjectItems; ++FilePartIndex)
+							{
+								const FString& SourceFilePart = SourceFileParts[FilePartIndex];
+
+								auto ANSIPart = StringCast<ANSICHAR>(*SourceFilePart);
+								CComBSTR COMStrFilePart(ANSIPart.Get());
+
+								::VARIANT vProjectItemName;
+								vProjectItemName.vt = VT_BSTR;
+								vProjectItemName.bstrVal = COMStrFilePart;
+
+								CComPtr<EnvDTE::ProjectItem> ProjectItem;
+								if (SUCCEEDED(CurProjectItems->Item(vProjectItemName, &ProjectItem)) && !ProjectItem)
+								{
+									// Add this part
+									CurProjectItems->AddFolder(COMStrFilePart, nullptr, &ProjectItem);
+								}
+
+								if (ProjectItem)
+								{
+									ProjectItem->get_ProjectItems(&CurProjectItems);
+								}
+								else
+								{
+									CurProjectItems = nullptr;
+								}
+							}
+
+							if (!CurProjectItems)
+							{
+								// Failed to find or add all the path parts
+								bSuccess = false;
+								continue;
+							}
+
+							// Now we add the file to the project under the last folder we found along its path
+							auto ANSIPath = StringCast<ANSICHAR>(*SourceFile);
+							CComBSTR COMStrFileName(ANSIPath.Get());
+							CComPtr<EnvDTE::ProjectItem> FileProjectItem;
+							if (SUCCEEDED(CurProjectItems->AddFromFile(COMStrFileName, &FileProjectItem)))
+							{
+								bSuccess &= true;
+							}
+						}
+					}
+					else
+					{
+						UE_LOG(LogVSAccessor, Warning, TEXT("Cannot add source files as we failed to get the parent items container for the '%s' item"), *ModuleBuildFilePath);
+						bSuccess = false;
+					}
+				}
+				else
+				{
+					UE_LOG(LogVSAccessor, Warning, TEXT("Cannot add source files as we failed to find '%s' in the solution"), *ModuleBuildFilePath);
+					bSuccess = false;
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(LogVSAccessor, Warning, TEXT("Cannot add source files as Visual Studio failed to return a solution when queried"));
+			bSuccess = false;
+		}
+	}
+	else
+	{
+		UE_LOG(LogVSAccessor, Verbose, TEXT("Cannot add source files as Visual Studio is either not open or not responding"));
+		bSuccess = false;
+	}
+
+	return bSuccess;
+#endif
+
+	return false;
+}
+
 bool FVisualStudioSourceCodeAccessor::OpenFileAtLine(const FString& FullPath, int32 LineNumber, int32 ColumnNumber)
 {
 	// column & line numbers are 1-based, so dont allow zero
@@ -929,17 +1125,17 @@ FString FVisualStudioSourceCodeAccessor::GetSolutionPath() const
 
 void FVisualStudioSourceCodeAccessor::Tick(const float DeltaTime)
 {
-	if (IsVSLaunchInProgress())
+	TArray<FileOpenRequest> TmpDeferredRequests;
 	{
-		TArray<FileOpenRequest> TmpDeferredRequests;
-		{
-			FScopeLock Lock(&DeferredRequestsCriticalSection);
+		FScopeLock Lock(&DeferredRequestsCriticalSection);
 
-			// Copy the DeferredRequests array, as OpenVisualStudioFilesInternal may update it
-			TmpDeferredRequests = DeferredRequests;
-			DeferredRequests.Empty();
-		}
+		// Copy the DeferredRequests array, as OpenVisualStudioFilesInternal may update it
+		TmpDeferredRequests = DeferredRequests;
+		DeferredRequests.Empty();
+	}
 
+	if(TmpDeferredRequests.Num() > 0)
+	{
 		// Try and open any pending files in VS first (this will update the VS launch state appropriately)
 		OpenVisualStudioFilesInternal(TmpDeferredRequests);
 	}

@@ -12,10 +12,10 @@
 UCLASS(transient)
 class UMatineeTransBuffer : public UTransBuffer
 {
-    GENERATED_UCLASS_BODY()
-
-	UMatineeTransBuffer(const FObjectInitializer& ObjectInitializer, SIZE_T InMaxMemory)
-		:	UTransBuffer( ObjectInitializer, InMaxMemory )
+public:
+    GENERATED_BODY()
+	UMatineeTransBuffer(const FObjectInitializer& ObjectInitializer)
+		:	UTransBuffer(ObjectInitializer)
 	{ }
 
 	/**  

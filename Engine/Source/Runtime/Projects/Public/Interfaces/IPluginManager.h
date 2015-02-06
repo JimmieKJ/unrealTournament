@@ -59,6 +59,9 @@ public:
 
 	/** Whether the plug-in has a content folder. */
 	bool bHasContentFolder;
+
+	/** List of all modules associated with this plugin */
+	TArray<FModuleDescriptor> Modules;
 };
 
 

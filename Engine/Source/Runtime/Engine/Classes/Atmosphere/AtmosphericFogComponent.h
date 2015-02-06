@@ -242,7 +242,7 @@ public:
 	mutable FByteBulkData IrradianceData;
 	mutable FByteBulkData InscatterData;
 	
-	// Begin UObject interface.
+	// Begin UObject interface. 
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
 
@@ -260,8 +260,9 @@ public:
 	// Begin UActorComponent interface.
 	virtual FComponentInstanceDataBase* GetComponentInstanceData() const override;
 	virtual FName GetComponentInstanceDataType() const override;
-	virtual void ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData) override;
 	// End UActorComponent interface.
+
+	void ApplyComponentInstanceData(class FAtmospherePrecomputeInstanceData* ComponentInstanceData);
 
 	const FAtmospherePrecomputeParameters& GetPrecomputeParameters() const { return PrecomputeParams;  }
 

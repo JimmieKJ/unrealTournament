@@ -129,7 +129,7 @@ void SScreenShotSearchBar::Construct( const FArguments& InArgs, IScreenShotManag
 				.OnClicked(this, &SScreenShotSearchBar::RefreshView)
 				[
 					SNew(SImage)
-					.ToolTipText( LOCTEXT( "Refresh Screen shots", "Refresh Screen Shots" ).ToString() )
+					.ToolTipText( LOCTEXT( "Refresh Screen shots", "Refresh Screen Shots" ) )
 					.Image(FEditorStyle::GetBrush("AutomationWindow.RefreshTests.Small"))
 				]
 			]
@@ -152,9 +152,9 @@ int32 SScreenShotSearchBar::GetDisplayEveryNthScreenshot() const
 	return DisplayEveryNthScreenshot;
 }
 
-FString SScreenShotSearchBar::GetPlatformString() const
+FText SScreenShotSearchBar::GetPlatformString() const
 {
-	return PlatformDisplayString;
+	return FText::FromString(PlatformDisplayString);
 }
 
 /** Filtering */
@@ -196,7 +196,7 @@ TSharedRef<ITableRow> SScreenShotSearchBar::HandlePlatformListViewGenerateRow( T
 	return SNew(STableRow<TSharedPtr<FString> >, OwnerTable)
 	.Content()
 	[
-		SNew( STextBlock ) .Text( *PlatformName )
+		SNew( STextBlock ) .Text( FText::FromString(*PlatformName) )
 	];
 }
 

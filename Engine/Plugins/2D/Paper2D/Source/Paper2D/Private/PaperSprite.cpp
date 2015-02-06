@@ -1246,12 +1246,38 @@ void UPaperSprite::InitializeSprite(const FSpriteAssetInitParameters& InitParams
 		const UPaperRuntimeSettings* DefaultSettings = GetDefault<UPaperRuntimeSettings>();
 		PixelsPerUnrealUnit = DefaultSettings->DefaultPixelsPerUnrealUnit;
 
-		if (UMaterialInterface* TranslucentMaterial = LoadObject<UMaterialInterface>(nullptr, *DefaultSettings->DefaultTranslucentSpriteMaterialName.ToString(), nullptr, LOAD_None, nullptr))
+		bool bUseMaskedTexture = true;
+
+		// Analyze the texture if desired (to see if it's got greyscale alpha or just binary alpha, picking either a ranslucent or masked material)
+		if (DefaultSettings->bPickBestMaterialWhenCreatingSprite)
 		{
-			DefaultMaterial = TranslucentMaterial;
+			if (InitParams.Texture != nullptr)
+			{
+				FAlphaBitmap AlphaBitmap(InitParams.Texture);
+				bool bHasIntermediateValues;
+				bool bHasZeros;
+				AlphaBitmap.AnalyzeImage((int32)InitParams.Offset.X, (int32)InitParams.Offset.Y, (int32)InitParams.Dimension.X, (int32)InitParams.Dimension.Y, /*out*/ bHasZeros, /*out*/ bHasIntermediateValues);
+
+				bUseMaskedTexture = !bHasIntermediateValues;
+			}
 		}
 
-		if (UMaterialInterface* OpaqueMaterial = LoadObject<UMaterialInterface>(nullptr, *DefaultSettings->DefaultOpaqueSpriteMaterialName.ToString(), nullptr, LOAD_None, nullptr))
+		if (bUseMaskedTexture)
+		{
+			if (UMaterialInterface* MaskedMaterial = LoadObject<UMaterialInterface>(nullptr, *DefaultSettings->DefaultMaskedMaterialName.ToString(), nullptr, LOAD_None, nullptr))
+			{
+				DefaultMaterial = MaskedMaterial;
+			}
+		}
+		else
+		{
+			if (UMaterialInterface* TranslucentMaterial = LoadObject<UMaterialInterface>(nullptr, *DefaultSettings->DefaultTranslucentMaterialName.ToString(), nullptr, LOAD_None, nullptr))
+			{
+				DefaultMaterial = TranslucentMaterial;
+			}
+		}
+
+		if (UMaterialInterface* OpaqueMaterial = LoadObject<UMaterialInterface>(nullptr, *DefaultSettings->DefaultOpaqueMaterialName.ToString(), nullptr, LOAD_None, nullptr))
 		{
 			AlternateMaterial = OpaqueMaterial;
 		}

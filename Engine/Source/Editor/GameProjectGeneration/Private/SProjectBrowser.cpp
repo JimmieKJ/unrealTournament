@@ -442,7 +442,7 @@ TSharedRef<ITableRow> SProjectBrowser::MakeProjectViewWidget(TSharedPtr<FProject
 					.Padding(10)
 					[
 						SNew(STextBlock)
-						.Text(ProjectItem->GetEngineLabel())
+						.Text(FText::FromString(ProjectItem->GetEngineLabel()))
 						.TextStyle(FEditorStyle::Get(), "ProjectBrowser.VersionOverlayText")
 						.ColorAndOpacity(FLinearColor::White.CopyWithNewOpacity(0.5f))
 						.Visibility(ProjectItem->IsUpToDate() ? EVisibility::Collapsed : EVisibility::Visible)

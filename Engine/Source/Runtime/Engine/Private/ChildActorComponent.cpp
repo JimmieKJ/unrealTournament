@@ -40,11 +40,11 @@ void UChildActorComponent::OnComponentDestroyed()
 	DestroyChildActor();
 }
 
-class FChildActorComponentInstanceData : public FComponentInstanceDataBase
+class FChildActorComponentInstanceData : public FSceneComponentInstanceData
 {
 public:
 	FChildActorComponentInstanceData(const UChildActorComponent* Component)
-		: FComponentInstanceDataBase(Component)
+		: FSceneComponentInstanceData(Component)
 		, ChildActorName(Component->ChildActorName)
 	{
 		if (Component->ChildActor)
@@ -69,6 +69,12 @@ public:
 				}
 			}
 		}
+	}
+
+	virtual void ApplyToComponent(UActorComponent* Component) override
+	{
+		FSceneComponentInstanceData::ApplyToComponent(Component);
+		CastChecked<UChildActorComponent>(Component)->ApplyComponentInstanceData(this);
 	}
 
 	FName ChildActorName;
@@ -106,10 +112,10 @@ FComponentInstanceDataBase* UChildActorComponent::GetComponentInstanceData() con
 	return InstanceData;
 }
 
-void UChildActorComponent::ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData)
+void UChildActorComponent::ApplyComponentInstanceData(FChildActorComponentInstanceData* ChildActorInstanceData)
 {
-	check(ComponentInstanceData);
-	FChildActorComponentInstanceData* ChildActorInstanceData  = static_cast<FChildActorComponentInstanceData*>(ComponentInstanceData);
+	check(ChildActorInstanceData);
+
 	ChildActorName = ChildActorInstanceData->ChildActorName;
 	if (ChildActor)
 	{

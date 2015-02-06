@@ -40,6 +40,9 @@ private:
 
 	/** Node factory for abilities graph; Cached so it can be unregistered */
 	TSharedPtr<FGameplayAbilitiesGraphPanelNodeFactory> GameplayAbilitiesGraphPanelNodeFactory;
+
+	/** Handle to the registered GameplayTagTreeChanged delegate */
+	FDelegateHandle GameplayTagTreeChangedDelegateHandle;
 };
 
 IMPLEMENT_MODULE(FGameplayAbilitiesEditorModule, GameplayAbilitiesEditor)
@@ -73,7 +76,7 @@ void FGameplayAbilitiesEditorModule::StartupModule()
 
 	// Listen for changes to the gameplay tag tree so we can refresh blueprint actions for the GameplayCueEvent node
 	UGameplayTagsManager& GameplayTagsManager = IGameplayTagsModule::Get().GetGameplayTagsManager();
-	GameplayTagsManager.OnGameplayTagTreeChanged().AddStatic(&FGameplayAbilitiesEditorModule::GameplayTagTreeChanged);
+	GameplayTagTreeChangedDelegateHandle = GameplayTagsManager.OnGameplayTagTreeChanged().AddStatic(&FGameplayAbilitiesEditorModule::GameplayTagTreeChanged);
 }
 
 void FGameplayAbilitiesEditorModule::RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action)
@@ -138,6 +141,6 @@ void FGameplayAbilitiesEditorModule::ShutdownModule()
 	if ( IGameplayTagsModule::IsAvailable() )
 	{
 		UGameplayTagsManager& GameplayTagsManager = IGameplayTagsModule::Get().GetGameplayTagsManager();
-		GameplayTagsManager.OnGameplayTagTreeChanged().RemoveStatic(&FGameplayAbilitiesEditorModule::GameplayTagTreeChanged);
+		GameplayTagsManager.OnGameplayTagTreeChanged().Remove(GameplayTagTreeChangedDelegateHandle);
 	}
 }

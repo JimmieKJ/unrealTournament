@@ -44,7 +44,7 @@ private:
 	EVisibility GetNameErrorLabelVisibility() const;
 
 	/** Gets the text to display in the name error label */
-	FString GetNameErrorLabelText() const;
+	FText GetNameErrorLabelText() const;
 
 	/** Handler for when a path is selected in the path view */
 	void HandlePathSelected(const FString& NewPath);

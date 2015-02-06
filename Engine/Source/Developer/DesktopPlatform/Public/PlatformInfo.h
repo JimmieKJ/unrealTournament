@@ -158,6 +158,9 @@ namespace PlatformInfo
 		/** Enabled in binary distribution */
 		bool bEnabledInBinary;
 
+		/** Whether code projects for this platform require the host platform compiler to be installed. Host platforms typically have a SDK status of valid, but they can't necessarily build. */
+		bool bUsesHostCompiler;
+
 		/** Returns true if this platform is vanilla */
 		FORCEINLINE bool IsVanilla() const
 		{

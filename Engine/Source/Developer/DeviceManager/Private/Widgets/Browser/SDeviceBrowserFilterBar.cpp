@@ -106,9 +106,9 @@ ECheckBoxState SDeviceBrowserFilterBar::HandlePlatformListRowIsChecked(TSharedPt
 }
 
 
-FString SDeviceBrowserFilterBar::HandlePlatformListRowText(TSharedPtr<FDeviceBrowserFilterEntry> PlatformEntry) const
+FText SDeviceBrowserFilterBar::HandlePlatformListRowText(TSharedPtr<FDeviceBrowserFilterEntry> PlatformEntry) const
 {
-	return FString::Printf(TEXT("%s (%i)"), *(PlatformEntry->PlatformName), Filter->GetServiceCountPerPlatform(PlatformEntry->PlatformName));
+	return FText::Format(LOCTEXT("PlatformListRowFmt", "{0} ({1})"), FText::FromString(PlatformEntry->PlatformName), FText::AsNumber(Filter->GetServiceCountPerPlatform(PlatformEntry->PlatformName)));
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION

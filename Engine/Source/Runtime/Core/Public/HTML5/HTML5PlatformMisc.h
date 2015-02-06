@@ -53,6 +53,13 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 		}
 	}
 
+	/** Break into debugger. Returning false allows this function to be used in conditionals. */
+	FORCEINLINE static bool DebugBreakReturningFalse()
+	{
+		DebugBreak();
+		return false;
+	}
+
 	FORCEINLINE static void LocalPrint( const TCHAR* Str )
 	{
 		wprintf(TEXT("%ls"), Str);

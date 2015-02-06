@@ -122,6 +122,7 @@ void SFindInBT::Construct( const FArguments& InArgs, TSharedPtr<FBehaviorTreeEdi
 					SAssignNew(SearchTextField, SSearchBox)
 					.HintText(LOCTEXT("BehaviorTreeSearchHint", "Enter text to find nodes..."))
 					.OnTextChanged(this, &SFindInBT::OnSearchTextChanged)
+					.OnTextCommitted(this, &SFindInBT::OnSearchTextCommitted)
 				]
 			]
 			+SVerticalBox::Slot()
@@ -158,6 +159,11 @@ void SFindInBT::OnSearchTextChanged(const FText& Text)
 	SearchValue = Text.ToString();
 	
 	InitiateSearch();
+}
+
+void SFindInBT::OnSearchTextCommitted(const FText& Text, ETextCommit::Type CommitType)
+{
+	OnSearchTextChanged(Text);
 }
 
 void SFindInBT::InitiateSearch()
@@ -288,7 +294,7 @@ TSharedRef<ITableRow> SFindInBT::OnGenerateRow( FSearchResult InItem, const TSha
 					.Padding(2, 0)
 					[
 						SNew(STextBlock)
-						.Text(InItem->Value)
+						.Text(FText::FromString(InItem->Value))
 						.HighlightText(HighlightText)
 					]
 				]
@@ -298,7 +304,7 @@ TSharedRef<ITableRow> SFindInBT::OnGenerateRow( FSearchResult InItem, const TSha
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(InItem->GetNodeTypeText())
+				.Text(FText::FromString(InItem->GetNodeTypeText()))
 				.HighlightText(HighlightText)
 			]
 			+SHorizontalBox::Slot()
@@ -306,7 +312,7 @@ TSharedRef<ITableRow> SFindInBT::OnGenerateRow( FSearchResult InItem, const TSha
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(InItem->GetCommentText())
+				.Text(FText::FromString(InItem->GetCommentText()))
 				.ColorAndOpacity(FLinearColor::Yellow)
 				.HighlightText(HighlightText)
 			]

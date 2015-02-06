@@ -66,8 +66,10 @@ public:
 
 	/**
 	* Performs hot reload from the editor of all currently loaded game modules.
+	* @param	bWaitForCompletion	True if RebindPackages should not return until the recompile and reload has completed
+	* @return	If bWaitForCompletion was set to true, this will return the result of the compilation, otherwise will return ECompilationResult::Unknown
 	*/
-	virtual ECompilationResult::Type DoHotReloadFromEditor() = 0;
+	virtual ECompilationResult::Type DoHotReloadFromEditor(const bool bWaitForCompletion) = 0;
 
 	/**
 	* HotReload: Reloads the DLLs for given packages.
@@ -75,8 +77,10 @@ public:
 	* @param	DependentModules	Additional modules that don't contain UObjects, but rely on them
 	* @param	bWaitForCompletion	True if RebindPackages should not return until the recompile and reload has completed
 	* @param	Ar					Output device for logging compilation status
+	* 
+	* @return	If bWaitForCompletion was set to true, this will return the result of the compilation, otherwise will return ECompilationResult::Unknown
 	*/
-	virtual void RebindPackages(TArray<UPackage*> Packages, TArray<FName> DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar) = 0;
+	virtual ECompilationResult::Type RebindPackages(TArray<UPackage*> Packages, TArray<FName> DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar) = 0;
 
 	/** Called when a Hot Reload event has completed. 
 	 * 
@@ -90,7 +94,7 @@ public:
 	 *
 	 * @return The event delegate.
 	 */
-	DECLARE_MULTICAST_DELEGATE(FModuleCompilerStartedEvent);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FModuleCompilerStartedEvent, bool /*bIsAsyncCompile*/);
 	virtual FModuleCompilerStartedEvent& OnModuleCompilerStarted() = 0;
 
 	/**

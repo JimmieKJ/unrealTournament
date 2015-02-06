@@ -452,7 +452,7 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 	TArray<AActor*> AttachedActors;
 	ThisActor->GetAttachedActors(AttachedActors);
 
-	TArray<USceneComponent*> SceneComponents;
+	TInlineComponentArray<USceneComponent*> SceneComponents;
 	ThisActor->GetComponents(SceneComponents);
 
 	if (AttachedActors.Num() > 0)

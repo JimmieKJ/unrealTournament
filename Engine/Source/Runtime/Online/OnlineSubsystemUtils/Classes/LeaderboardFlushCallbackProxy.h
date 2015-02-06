@@ -42,6 +42,9 @@ private:
 	/** Delegate called when a leaderboard has been successfully flushed */
 	FOnLeaderboardFlushCompleteDelegate LeaderboardFlushCompleteDelegate;
 
+	/** OnLeaderboardFlushComplete delegate handle */
+	FDelegateHandle LeaderboardFlushCompleteDelegateHandle;
+
 	/** Did we fail immediately? */
 	bool bFailedToEvenSubmit;
 };

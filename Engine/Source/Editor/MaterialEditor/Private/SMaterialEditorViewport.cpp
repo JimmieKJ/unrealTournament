@@ -65,6 +65,9 @@ FMaterialEditorViewportClient::FMaterialEditorViewportClient(TWeakPtr<IMaterialE
 
 	OverrideNearClipPlane(1.0f);
 	bUsingOrbitCamera = true;
+
+	// Don't want to display the widget in this viewport
+	Widget->SetDefaultVisibility(false);
 }
 
 

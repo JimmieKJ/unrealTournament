@@ -38,15 +38,18 @@ APlayerController* UGameplayStatics::GetPlayerController(UObject* WorldContextOb
 	if (WorldContextObject)
 	{
 		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-		uint32 Index = 0;
-		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		if(World != nullptr)
 		{
-			APlayerController* PlayerController = *Iterator;
-			if (Index == PlayerIndex)
+			uint32 Index = 0;
+			for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				return PlayerController;
+				APlayerController* PlayerController = *Iterator;
+				if (Index == PlayerIndex)
+				{
+					return PlayerController;
+				}
+				Index++;
 			}
-			Index++;
 		}
 	}
 
@@ -82,7 +85,7 @@ APlayerController* UGameplayStatics::CreatePlayer(UObject* WorldContextObject, i
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
 	FString Error;
 
-	ULocalPlayer* LocalPlayer = World->GetGameInstance()->CreateLocalPlayer(ControllerId, Error, bSpawnPawn);
+	ULocalPlayer* LocalPlayer = World ? World->GetGameInstance()->CreateLocalPlayer(ControllerId, Error, bSpawnPawn) : NULL;
 
 	if (Error.Len() > 0)
 	{
@@ -112,33 +115,43 @@ class UClass* UGameplayStatics::GetObjectClass(const UObject* Object)
 float UGameplayStatics::GetGlobalTimeDilation(UObject* WorldContextObject)
 {
 	UWorld* const World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	return World->GetWorldSettings()->TimeDilation;
+	return World ? World->GetWorldSettings()->TimeDilation : 1.f;
 }
 
 void UGameplayStatics::SetGlobalTimeDilation(UObject* WorldContextObject, float TimeDilation)
 {
 	UWorld* const World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	if (TimeDilation < 0.0001f || TimeDilation > 20.f)
+	if(World != nullptr)
 	{
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("Time Dilation must be between 0.0001 and 20.  Clamping value to that range."));
-		TimeDilation = FMath::Clamp(TimeDilation, 0.0001f, 20.0f);
+		if (TimeDilation < 0.0001f || TimeDilation > 20.f)
+		{
+			UE_LOG(LogBlueprintUserMessages, Warning, TEXT("Time Dilation must be between 0.0001 and 20.  Clamping value to that range."));
+			TimeDilation = FMath::Clamp(TimeDilation, 0.0001f, 20.0f);
+		}
+		World->GetWorldSettings()->TimeDilation = TimeDilation;
 	}
-	World->GetWorldSettings()->TimeDilation = TimeDilation;
 }
 
 bool UGameplayStatics::SetGamePaused(UObject* WorldContextObject, bool bPaused)
 {
 	UWorld* const World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	APlayerController* const PC = World->GetFirstPlayerController();
-	check(PC); // Gathering some information for TTP #303973
+	if(World != nullptr)
+	{
+		APlayerController* const PC = World->GetFirstPlayerController();
+		check(PC); // Gathering some information for TTP #303973
 
-	return PC->SetPause(bPaused);
+		return PC->SetPause(bPaused);
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool UGameplayStatics::IsGamePaused(UObject* WorldContextObject)
 {
 	UWorld* const World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	return World->IsPaused();
+	return World ? World->IsPaused() : false;
 }
 
 /** @RETURN True if weapon trace from Origin hits component VictimComp.  OutHitResult will contain properties of the hit. */
@@ -335,22 +348,28 @@ AActor* UGameplayStatics::FinishSpawningActor(AActor* Actor, const FTransform& S
 void UGameplayStatics::LoadStreamLevel(UObject* WorldContextObject, FName LevelName,bool bMakeVisibleAfterLoad,bool bShouldBlockOnLoad,FLatentActionInfo LatentInfo)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	FLatentActionManager& LatentManager = World->GetLatentActionManager();
-	if (LatentManager.FindExistingAction<FStreamLevelAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == NULL)
+	if(World != nullptr)
 	{
-		FStreamLevelAction* NewAction = new FStreamLevelAction(true, LevelName, bMakeVisibleAfterLoad, bShouldBlockOnLoad, LatentInfo, World);
-		LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction);
+		FLatentActionManager& LatentManager = World->GetLatentActionManager();
+		if (LatentManager.FindExistingAction<FStreamLevelAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == NULL)
+		{
+			FStreamLevelAction* NewAction = new FStreamLevelAction(true, LevelName, bMakeVisibleAfterLoad, bShouldBlockOnLoad, LatentInfo, World);
+			LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction);
+		}
 	}
 }
 
 void UGameplayStatics::UnloadStreamLevel(UObject* WorldContextObject, FName LevelName,FLatentActionInfo LatentInfo)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	FLatentActionManager& LatentManager = World->GetLatentActionManager();
-	if (LatentManager.FindExistingAction<FStreamLevelAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == NULL)
+	if (World != nullptr)
 	{
-		FStreamLevelAction* NewAction = new FStreamLevelAction(false, LevelName, false, false, LatentInfo, World );
-		LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction );
+		FLatentActionManager& LatentManager = World->GetLatentActionManager();
+		if (LatentManager.FindExistingAction<FStreamLevelAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == NULL)
+		{
+			FStreamLevelAction* NewAction = new FStreamLevelAction(false, LevelName, false, false, LatentInfo, World );
+			LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction );
+		}
 	}
 }
 
@@ -359,16 +378,19 @@ ULevelStreaming* UGameplayStatics::GetStreamingLevel(UObject* WorldContextObject
 	if (InPackageName != NAME_None)
 	{
 		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-		const FString SearchPackageName = FStreamLevelAction::MakeSafeLevelName(InPackageName, World);
-
-		for (ULevelStreaming* LevelStreaming : World->StreamingLevels)
+		if (World != nullptr)
 		{
-			// We check only suffix of package name, to handle situations when packages were saved for play into a temporary folder
-			// Like Saved/Autosaves/PackageName
-			if (LevelStreaming && 
-				LevelStreaming->GetWorldAssetPackageName().EndsWith(SearchPackageName, ESearchCase::IgnoreCase))
+			const FString SearchPackageName = FStreamLevelAction::MakeSafeLevelName(InPackageName, World);
+
+			for (ULevelStreaming* LevelStreaming : World->StreamingLevels)
 			{
-				return LevelStreaming;
+				// We check only suffix of package name, to handle situations when packages were saved for play into a temporary folder
+				// Like Saved/Autosaves/PackageName
+				if (LevelStreaming && 
+					LevelStreaming->GetWorldAssetPackageName().EndsWith(SearchPackageName, ESearchCase::IgnoreCase))
+				{
+					return LevelStreaming;
+				}
 			}
 		}
 	}
@@ -454,7 +476,7 @@ void UGameplayStatics::GetAllActorsOfClass(UObject* WorldContextObject, TSubclas
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
 
 	// We do nothing if not class provided, rather than giving ALL actors!
-	if(ActorClass != NULL)
+	if(ActorClass != NULL && World != nullptr)
 	{
 		for(TActorIterator<AActor> It(World, ActorClass); It; ++It)
 		{
@@ -473,7 +495,7 @@ void UGameplayStatics::GetAllActorsWithInterface(UObject* WorldContextObject, TS
 
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
 	// We do nothing if not class provided, rather than giving ALL actors!
-	if(Interface != NULL)
+	if(Interface != NULL && World != nullptr)
 	{
 		for(FActorIterator It(World); It; ++It)
 		{
@@ -490,7 +512,10 @@ void UGameplayStatics::GetAllActorsWithInterface(UObject* WorldContextObject, TS
 void UGameplayStatics::PlayWorldCameraShake(UObject* WorldContextObject, TSubclassOf<class UCameraShake> Shake, FVector Epicenter, float InnerRadius, float OuterRadius, float Falloff, bool bOrientShakeTowardsEpicenter)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	APlayerCameraManager::PlayWorldCameraShake(World, Shake, Epicenter, InnerRadius, OuterRadius, Falloff, bOrientShakeTowardsEpicenter);
+	if(World != nullptr)
+	{
+		APlayerCameraManager::PlayWorldCameraShake(World, Shake, Epicenter, InnerRadius, OuterRadius, Falloff, bOrientShakeTowardsEpicenter);
+	}
 }
 
 UParticleSystemComponent* CreateParticleSystem(UParticleSystem* EmitterTemplate, UWorld* World, AActor* Actor, bool bAutoDestroy)
@@ -513,13 +538,15 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(UObject* Worl
 	if (EmitterTemplate)
 	{
 		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+		if(World != nullptr)
+		{
+			PSC = CreateParticleSystem(EmitterTemplate, World, NULL, bAutoDestroy);
 
-		PSC = CreateParticleSystem(EmitterTemplate, World, NULL, bAutoDestroy);
-
-		PSC->SetAbsolute(true, true, true);
-		PSC->SetWorldLocationAndRotation(SpawnLocation, SpawnRotation);
-		PSC->SetRelativeScale3D(FVector(1.f));
-		PSC->ActivateSystem(true);
+			PSC->SetAbsolute(true, true, true);
+			PSC->SetWorldLocationAndRotation(SpawnLocation, SpawnRotation);
+			PSC->SetRelativeScale3D(FVector(1.f));
+			PSC->ActivateSystem(true);
+		}
 	}
 	return PSC;
 }
@@ -592,6 +619,10 @@ void UGameplayStatics::PlaySoundAtLocation(UObject* WorldContextObject, class US
 	}
 
 	UWorld* ThisWorld = GEngine->GetWorldFromContextObject(WorldContextObject);
+	if(ThisWorld == nullptr)
+	{
+		return;
+	}
 
 	const bool bIsInGameWorld = ThisWorld->IsGameWorld();
 
@@ -648,7 +679,7 @@ void UGameplayStatics::PlayDialogueAtLocation(UObject* WorldContextObject, class
 	}
 
 	UWorld* ThisWorld = GEngine->GetWorldFromContextObject(WorldContextObject);
-	if (GEngine && GEngine->UseSound() && ThisWorld->bAllowAudioPlayback)
+	if (GEngine && GEngine->UseSound() && (ThisWorld != nullptr) && ThisWorld->bAllowAudioPlayback)
 	{
 		const bool bIsInGameWorld = ThisWorld->IsGameWorld();
 
@@ -877,8 +908,11 @@ UDecalComponent* UGameplayStatics::SpawnDecalAtLocation(UObject* WorldContextObj
 	if (DecalMaterial)
 	{
 		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-		DecalComp = CreateDecalComponent(DecalMaterial, DecalSize, World, NULL, LifeSpan);
-		DecalComp->SetWorldLocationAndRotation(Location, Rotation);
+		if(World != nullptr)
+		{
+			DecalComp = CreateDecalComponent(DecalMaterial, DecalSize, World, NULL, LifeSpan);
+			DecalComp->SetWorldLocationAndRotation(Location, Rotation);
+		}
 	}
 
 	return DecalComp;
@@ -1047,17 +1081,20 @@ USaveGame* UGameplayStatics::LoadGameFromSlot(const FString& SlotName, const int
 
 float UGameplayStatics::GetWorldDeltaSeconds(UObject* WorldContextObject)
 {
-	return GEngine->GetWorldFromContextObject(WorldContextObject)->GetDeltaSeconds();
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	return World ? World->GetDeltaSeconds() : 0.f;
 }
 
 float UGameplayStatics::GetRealTimeSeconds(UObject* WorldContextObject)
 {
-	return GEngine->GetWorldFromContextObject(WorldContextObject)->GetRealTimeSeconds();
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	return World ? World->GetRealTimeSeconds() : 0.f;
 }
 
 float UGameplayStatics::GetAudioTimeSeconds(UObject* WorldContextObject)
 {
-	return GEngine->GetWorldFromContextObject(WorldContextObject)->GetAudioTimeSeconds();
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	return World ? World->GetAudioTimeSeconds() : 0.f;
 }
 
 void UGameplayStatics::GetAccurateRealTime(UObject* WorldContextObject, int32& Seconds, float& PartialSeconds)
@@ -1263,11 +1300,14 @@ bool UGameplayStatics::SuggestProjectileVelocity(UObject* WorldContextObject, FV
 FIntVector UGameplayStatics::GetWorldOriginLocation(UObject* WorldContextObject)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	return World->OriginLocation;
+	return World ? World->OriginLocation : FIntVector::ZeroValue;
 }
 
 void UGameplayStatics::SetWorldOriginLocation(UObject* WorldContextObject, FIntVector NewLocation)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	return World->RequestNewWorldOrigin(NewLocation);
+	if ( World )
+	{
+		World->RequestNewWorldOrigin(NewLocation);
+	}
 }

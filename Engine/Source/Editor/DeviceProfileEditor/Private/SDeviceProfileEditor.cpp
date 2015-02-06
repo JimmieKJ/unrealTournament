@@ -315,9 +315,6 @@ SDeviceProfileEditor::~SDeviceProfileEditor()
 	if( DeviceProfileManager.IsValid() )
 	{
 		DeviceProfileManager->SaveProfiles();
-
-		// Unbind our delegates when destroyed
-		DeviceProfileManager->OnManagerUpdated().RemoveRaw( this, &SDeviceProfileEditor::RebuildPropertyTable );
 	}
 
 	if (TabManager.IsValid())

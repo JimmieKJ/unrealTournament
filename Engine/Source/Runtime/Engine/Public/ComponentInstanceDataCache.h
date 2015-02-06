@@ -10,7 +10,8 @@ class ENGINE_API FComponentInstanceDataBase
 {
 public:
 	FComponentInstanceDataBase()
-		: SourceComponentTypeSerializedIndex(-1)
+		: SourceComponentClass(nullptr)
+		, SourceComponentTypeSerializedIndex(-1)
 	{}
 
 	FComponentInstanceDataBase(const UActorComponent* SourceComponent);
@@ -18,15 +19,27 @@ public:
 	virtual ~FComponentInstanceDataBase()
 	{}
 
-	virtual bool MatchesComponent(const UActorComponent* Component) const;
+	/** Determines whether this component instance data matches the component */
+	bool MatchesComponent(const UActorComponent* Component) const;
+
+	/** Applies this component instance data to the supplied component */
+	virtual void ApplyToComponent(UActorComponent* Component);
+
+	/** Replaces any references to old instances during Actor reinstancing */
+	virtual void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap) { };
 
 protected:
 	/** The name of the source component */
 	FName SourceComponentName;
 
+	/** The class type of the source component */
+	UClass* SourceComponentClass;
+
 	/** The index of the source component in its owner's serialized array 
 		when filtered to just that component type */
 	int32 SourceComponentTypeSerializedIndex;
+
+	TArray<uint8> SavedProperties;
 };
 
 /** 
@@ -43,12 +56,17 @@ public:
 
 	~FComponentInstanceDataCache();
 
-	/** Util to iterate over components and apply data to each */
+	/** Iterates over an Actor's components and applies the stored component instance data to each */
 	void ApplyToActor(AActor* Actor) const;
+
+	/** Iterates over components and replaces any object references with the reinstanced information */
+	void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
 
 	bool HasInstanceData() const { return TypeToDataMap.Num() > 0; }
 
 private:
 	/** Map of data type name to data of that type */
 	TMultiMap< FName, FComponentInstanceDataBase* >	TypeToDataMap;
+
+	TMap< USceneComponent*, FTransform > InstanceComponentTransformToRootMap;
 };

@@ -185,14 +185,14 @@ void SAssetDialog::Construct(const FArguments& InArgs, const FSharedAssetDialogC
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		.HAlign(HAlign_Right)
-		.VAlign(VAlign_Fill)
-		.Padding(bIncludeNameBox ? 80 : 4, 3, 4, 3)
+		.VAlign(VAlign_Bottom)
+		.Padding(bIncludeNameBox ? 80 : 4, 20, 4, 3)
 		[
 			LabelsBox
 		]
 		+ SHorizontalBox::Slot()
 		.FillWidth(1)
-		.VAlign(VAlign_Fill)
+		.VAlign(VAlign_Bottom)
 		.Padding(4, 3)
 		[
 			ContentBox
@@ -204,6 +204,7 @@ void SAssetDialog::Construct(const FArguments& InArgs, const FSharedAssetDialogC
 		[
 			SNew(SButton)
 			.Text(ConfirmButtonText)
+			.ContentPadding(FMargin(8, 2, 8, 2))
 			.IsEnabled(this, &SAssetDialog::IsConfirmButtonEnabled)
 			.OnClicked(this, &SAssetDialog::OnConfirmClicked)
 		]
@@ -213,6 +214,7 @@ void SAssetDialog::Construct(const FArguments& InArgs, const FSharedAssetDialogC
 		.Padding(4, 3)
 		[
 			SNew(SButton)
+			.ContentPadding(FMargin(8, 2, 8, 2))
 			.Text(LOCTEXT("AssetDialogCancelButton", "Cancel"))
 			.OnClicked(this, &SAssetDialog::OnCancelClicked)
 		];
@@ -220,13 +222,9 @@ void SAssetDialog::Construct(const FArguments& InArgs, const FSharedAssetDialogC
 	MainVerticalBox->AddSlot()
 		.AutoHeight()
 		.HAlign(HAlign_Fill)
-		.Padding(8, 2, 8, 4)
+		.Padding(0)
 		[
-			SNew(SBorder)
-			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-			[
-				ButtonsAndNameBox
-			]
+			ButtonsAndNameBox
 		];
 
 	ChildSlot
@@ -306,14 +304,14 @@ EVisibility SAssetDialog::GetNameErrorLabelVisibility() const
 	return GetNameErrorLabelText().IsEmpty() ? EVisibility::Hidden : EVisibility::Visible;
 }
 
-FString SAssetDialog::GetNameErrorLabelText() const
+FText SAssetDialog::GetNameErrorLabelText() const
 {
 	if (!bLastInputValidityCheckSuccessful)
 	{
-		return LastInputValidityErrorText.ToString();
+		return LastInputValidityErrorText;
 	}
 
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 void SAssetDialog::HandlePathSelected(const FString& NewPath)

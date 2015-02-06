@@ -11,9 +11,8 @@
 // for VisualizeSSS
 #include "MiniFontCommon.usf"
 
-/** RGBA8 linear texture containing random normals */
+/** one profile per line, sample set left to right: high/med/low */
 Texture2D SSProfilesTexture;
-SamplerState SSProfilesTextureSampler;
 // x:Radius*DistanceToProjectionWindow/KernelSize*0.5, y:DistanceToProjectionWindow, zw:xy scale correction for BufferSize!=ViewportSize
 float4 SSSParams;
 
@@ -427,7 +426,7 @@ void SubsurfaceRecombinePS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColo
 		SSSColor = SSSColorWithAlpha.rgb / max(SSSColorWithAlpha.a, 0.00001f);
 	}
 
-	// 0: don't fade in subsurface half res,  1:fully fade in half res
+	// 0: no SSS,  1: full SSS
 	float BlendFactor = (ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE);
 	float LerpFactor = 1;
 
@@ -439,6 +438,9 @@ void SubsurfaceRecombinePS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColo
 	// hack to debug if the fade is happening at the same time the VisualizeSSS shows it
 //	SSSColor = 0;
 #endif
+
+	// only affect pixels that have SSS
+	LerpFactor *= BlendFactor;
 
 	// add back in non subsurface pixels and specular, alpha: 0=don't blend in, 1:fully blend in
 	OutColor = float4(SSSColor * BlendFactor + SceneColor4.rgb, LerpFactor);

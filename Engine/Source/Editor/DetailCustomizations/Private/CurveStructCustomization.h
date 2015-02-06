@@ -34,6 +34,7 @@ public:
 	virtual void ModifyOwner() override;
 	virtual void MakeTransactional() override;
 	virtual void OnCurveChanged() override;
+	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo );
 
 private:
 	/**

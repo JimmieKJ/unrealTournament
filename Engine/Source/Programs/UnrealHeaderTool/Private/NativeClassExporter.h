@@ -112,6 +112,11 @@ private:
 	};
 
 	/**
+	 * Gets generated function text device.
+	 */
+	FStringOutputDevice& GetGeneratedFunctionTextDevice();
+
+	/**
 	 * Sorts the list of header files being exported from a package according to their dependency on each other.
 	 *
 	 * @param	HeaderDependencyMap		A map of headers and their dependencies. Each header is represented as the actual filename string.

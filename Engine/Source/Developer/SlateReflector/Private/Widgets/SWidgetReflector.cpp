@@ -60,10 +60,6 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 	bShowFocus = false;
 	bIsPicking = false;
 
-	bEnableDemoMode = false;
-	LastMouseClickTime = -1;
-	CursorPingPosition = FVector2D::ZeroVector;
-
 	this->ChildSlot
 	[
 		SNew(SBorder)
@@ -209,30 +205,6 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 							]
 						]
 					]
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(SCheckBox)
-						.Style(FCoreStyle::Get(), "ToggleButtonCheckbox")
-						.IsChecked_Lambda([&]()
-						{
-							return bEnableDemoMode ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-						})
-						.OnCheckStateChanged_Lambda([&](const ECheckBoxState NewState)
-						{
-							bEnableDemoMode = (NewState == ECheckBoxState::Checked) ? true : false;
-						})
-						[
-							SNew(SBox)
-							.VAlign(VAlign_Center)
-							.HAlign(HAlign_Center)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("EnableDemoMode", "Demo Mode"))
-							]
-						]
-					]
 				]
 
 				+ SVerticalBox::Slot()
@@ -308,16 +280,6 @@ void SWidgetReflector::Tick( const FGeometry& AllottedGeometry, const double InC
 
 void SWidgetReflector::OnEventProcessed( const FInputEvent& Event, const FReplyBase& InReply )
 {
-	if ( Event.IsPointerEvent() )
-	{
-		const FPointerEvent& PtrEvent = static_cast<const FPointerEvent&>(Event);
-		if (PtrEvent.GetEffectingButton() == EKeys::LeftMouseButton)
-		{
-			LastMouseClickTime = FSlateApplication::Get().GetCurrentTime();
-			CursorPingPosition = PtrEvent.GetScreenSpacePosition();
-		}
-	}
-
 	#if WITH_EVENT_LOGGING
 		if (LoggedEvents.Num() >= MaxLoggedEvents)
 		{
@@ -376,43 +338,6 @@ int32 SWidgetReflector::Visualize( const FWidgetPath& InWidgetsToVisualize, FSla
 		return VisualizePickAsRectangles(InWidgetsToVisualize, OutDrawElements, LayerId);
 	}		
 
-	return LayerId;
-}
-
-int32 SWidgetReflector::VisualizeCursorAndKeys(FSlateWindowElementList& OutDrawElements, int32 LayerId) const
-{
-	if (bEnableDemoMode)
-	{
-		static const float ClickFadeTime = 0.5f;
-		static const float PingScaleAmount = 3.0f;
-		static const FName CursorPingBrush("DemoRecording.CursorPing");
-		const TSharedPtr<SWindow> WindowBeingDrawn = OutDrawElements.GetWindow();
-
-		// Normalized animation value for the cursor ping between 0 and 1.
-		const float AnimAmount = (FSlateApplication::Get().GetCurrentTime() - LastMouseClickTime) / ClickFadeTime;
-
-		if (WindowBeingDrawn.IsValid() && AnimAmount <= 1.0f)
-		{
-			const FVector2D CursorPosDesktopSpace = CursorPingPosition;
-			const FVector2D CursorSize = FSlateApplication::Get().GetCursorSize();
-			const FVector2D PingSize = CursorSize*PingScaleAmount*FCurveHandle::ApplyEasing(AnimAmount, ECurveEaseFunction::QuadOut);
-			const FLinearColor PingColor = FLinearColor(1.0f, 0.0f, 1.0f, 1.0f - FCurveHandle::ApplyEasing(AnimAmount, ECurveEaseFunction::QuadIn));
-
-			FGeometry CursorHighlightGeometry = FGeometry::MakeRoot(PingSize, FSlateLayoutTransform(CursorPosDesktopSpace - PingSize / 2));
-			CursorHighlightGeometry.AppendTransform(Inverse(WindowBeingDrawn->GetLocalToScreenTransform()));
-
-			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId++,
-				CursorHighlightGeometry.ToPaintGeometry(),
-				FCoreStyle::Get().GetBrush(CursorPingBrush),
-				OutDrawElements.GetWindow()->GetClippingRectangleInWindow(),
-				ESlateDrawEffect::None,
-				PingColor
-				);
-		}
-	}
-	
 	return LayerId;
 }
 

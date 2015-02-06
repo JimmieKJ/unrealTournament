@@ -1825,12 +1825,8 @@ static void GatherInstanceTransformsInArea(const UHierarchicalInstancedStaticMes
 {
 	const TArray<FClusterNode>& ClusterTree = *Component.ClusterTreePtr;
 	const FClusterNode& ChildNode = ClusterTree[Child];
-	const FVector WorldMinMax[] = {
-		Component.ComponentToWorld.TransformPosition(ChildNode.BoundMin),
-		Component.ComponentToWorld.TransformPosition(ChildNode.BoundMax)
-	};
-	const FBox WorldNodeBox(WorldMinMax, 2);
-
+	const FBox WorldNodeBox = FBox(ChildNode.BoundMin, ChildNode.BoundMax).TransformBy(Component.ComponentToWorld);
+	
 	if (AreaBox.Intersect(WorldNodeBox))
 	{
 		if (ChildNode.FirstChild < 0 || AreaBox.IsInside(WorldNodeBox))

@@ -6,7 +6,7 @@
 struct FReferenceViewerHistoryData
 {
 	/** History Description */
-	FString HistoryDesc;
+	FText HistoryDesc;
 
 	/** The list of package names to serve as the root */
 	TArray<FName> PackageNames;
@@ -50,10 +50,10 @@ public:
 	bool CanGoBack() const;
 
 	/** Gets the description of the previous history entry */
-	FString GetBackDesc() const;
+	FText GetBackDesc() const;
 
 	/** Gets the description of the next history entry */
-	FString GetForwardDesc() const;
+	FText GetForwardDesc() const;
 
 	/**
 	 * Populates a list of menu items that can be added to a context menu

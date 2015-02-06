@@ -349,6 +349,14 @@ void UTexture::PreSave()
 #endif // #if WITH_EDITOR
 }
 
+#if WITH_EDITORONLY_DATA
+void UTexture::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+#endif
 
 float UTexture::GetAverageBrightness(bool bIgnoreTrueBlack, bool bUseGrayscale)
 {
@@ -401,6 +409,7 @@ UEnum* UTexture::GetPixelFormatEnum()
 	static UEnum* PixelFormatEnum = NULL;
 	if (PixelFormatEnum == NULL)
 	{
+		check(IsInGameThread());
 		UEnum::LookupEnumName(PixelFormatUnknownName, &PixelFormatEnum);
 		check(PixelFormatEnum);
 	}

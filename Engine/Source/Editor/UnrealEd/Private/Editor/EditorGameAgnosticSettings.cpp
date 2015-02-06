@@ -6,6 +6,7 @@ UEditorGameAgnosticSettings::UEditorGameAgnosticSettings(const FObjectInitialize
 	: Super(ObjectInitializer)
 {
 	bCopyStarterContentPreference = true;
+	bEditorAnalyticsEnabled = true;
 	AutoScalabilityWorkScaleAmount = 1;
 }
 

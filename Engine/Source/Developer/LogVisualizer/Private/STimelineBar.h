@@ -23,7 +23,7 @@ public:
 
 	virtual bool SupportsKeyboardFocus() const { return true;  }
 
-	void Construct(const FArguments& InArgs, TSharedPtr<FSequencerTimeSliderController> InTimeSliderController, TSharedPtr<class STimeline> TimelineOwner);
+	void Construct(const FArguments& InArgs, TSharedPtr<FVisualLoggerTimeSliderController> InTimeSliderController, TSharedPtr<class STimeline> TimelineOwner);
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	FVector2D ComputeDesiredSize() const;
 	void SnapScrubPosition(float ScrubPosition);
@@ -35,7 +35,7 @@ public:
 
 protected:
 	TSharedPtr<IVisualLoggerInterface> VisualLoggerInterface;
-	TSharedPtr<class FSequencerTimeSliderController> TimeSliderController;
+	TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController;
 	TWeakPtr<class STimeline> TimelineOwner;
 	mutable int32 CurrentItemIndex;
 };

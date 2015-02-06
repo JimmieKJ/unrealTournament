@@ -111,14 +111,6 @@ public:
 	void RenderVisualizeTexturePool(FRHICommandListImmediate& RHICmdList);
 #endif
 
-	/**
-	 * Whether or not to composite editor objects onto the scene as a post processing step
-	 *
-	 * @param View The view to test against
-	 *
-	 * @return true if compositing is needed
-	 */
-	static bool ShouldCompositeEditorPrimitives(const FViewInfo& View);
 
 	/** bound shader state for occlusion test prims */
 	static FGlobalBoundShaderState OcclusionTestBoundShaderState;

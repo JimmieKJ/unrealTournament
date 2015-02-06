@@ -10,9 +10,44 @@
 #include "EngineBuildSettings.h"
 #include "Paths.h"
 
+#if WITH_EDITOR
+	#define INI_CACHE 1
+#else
+	#define INI_CACHE 0
+#endif
 
 DEFINE_LOG_CATEGORY(LogConfig);
+namespace 
+{
+	FString GenerateHierarchyCacheKey(const TArray<FIniFilename>& IniHierarchy, const FString& IniPath, const FString& BaseIniName)
+	{
+#if !INI_CACHE
+		return TEXT("");
+#else
+		// A Hierarchy Key is a combined list of all ini file paths that affect that inis data set.
+		FString HierKey;
+		//
+		auto KeyLen = IniPath.Len();
+		KeyLen += BaseIniName.Len();
+		for (const auto& Ini : IniHierarchy)
+		{
+			KeyLen += Ini.Filename.Len();
+		}
+		HierKey.Reserve(KeyLen);
+		HierKey += BaseIniName;
+		for (const auto& Ini : IniHierarchy)
+		{
+			HierKey += Ini.Filename;
+		}
+		HierKey += IniPath;
 
+		return HierKey;
+#endif
+	}
+#if INI_CACHE
+	TMap<FString, FConfigFile> HierarchyCache;
+#endif
+}
 
 class FTextFriendHelper
 {
@@ -552,8 +587,8 @@ void FConfigFile::Read( const FString& Filename )
 bool FConfigFile::ShouldExportQuotedString(const FString& PropertyValue) const
 {
 	// The value should be exported as quoted string if it begins with a space (which is stripped on import) or
-	// when it contains ' //' (interpreted as a comment when importing) or starts with '//'
-	return **PropertyValue == TEXT(' ') || FCString::Strstr(*PropertyValue, TEXT(" //")) != NULL || PropertyValue.StartsWith(TEXT("//"));
+	// when it contains '//' (interpreted as a comment when importing).
+	return **PropertyValue == TEXT(' ') || FCString::Strstr(*PropertyValue, TEXT("//")) != NULL;
 }
 
 
@@ -633,7 +668,7 @@ static void OverrideFromCommandline(FConfigFile* File, const FString& Filename)
  * @param ConfigFile - This is the FConfigFile which will have the contents of the .ini loaded into and Combined()
  *
  **/
-static bool LoadIniFileHierarchy(const TArray<FIniFilename>& HierarchyToLoad, FConfigFile& ConfigFile)
+static bool LoadIniFileHierarchy(const TArray<FIniFilename>& HierarchyToLoad, FConfigFile& ConfigFile, const bool bUseCache)
 {
 	// This shouldn't be getting called if seekfree is enabled on console.
 	check(!GUseSeekFreeLoading || !FPlatformProperties::RequiresCookedData());
@@ -664,33 +699,84 @@ static bool LoadIniFileHierarchy(const TArray<FIniFilename>& HierarchyToLoad, FC
 		}
 	}
 
+	int32 FirstCacheIndex = 0;
+#if INI_CACHE
+	if ( bUseCache )
+	{
+		// Find the last value in the hierarchy that is cached. We can start the load from there
+		for( int32 IniIndex = 0; IniIndex < HierarchyToLoad.Num(); IniIndex++ )
+		{
+			if (HierarchyCache.Find(HierarchyToLoad[IniIndex].CacheKey)) 
+			{
+				FirstCacheIndex = IniIndex;
+			}
+		}
+	}
+#endif
+
 	TArray<FDateTime> TimestampsOfInis;
 
 	// Traverse ini list back to front, merging along the way.
-	for( int32 IniIndex = 0; IniIndex < HierarchyToLoad.Num(); IniIndex++ )
+	for( int32 IniIndex = FirstCacheIndex; IniIndex < HierarchyToLoad.Num(); IniIndex++ )
 	{
 		const FIniFilename& IniToLoad = HierarchyToLoad[ IniIndex ];
 		const FString& IniFileName = IniToLoad.Filename;
-
-		// Spit out friendly error if there was a problem locating .inis (e.g. bad command line parameter or missing folder, ...).
-		if (IsUsingLocalIniFile(*IniFileName, NULL) && (IFileManager::Get().FileSize(*IniFileName) < 0))
+		bool bDoProcess = true;
+#if INI_CACHE
+		bool bShouldCache = IniToLoad.CacheKey.Len() > 0;
+		bShouldCache &= bUseCache;
+		if ( bShouldCache ) // if we are forcing a load don't mess with the cache
 		{
-			if (IniToLoad.bRequired)
+			auto* CachedConfigFile = HierarchyCache.Find(IniToLoad.CacheKey);
+			if (CachedConfigFile) 
 			{
-				//UE_LOG(LogConfig, Error, TEXT("Couldn't locate '%s' which is required to run '%s'"), *IniToLoad.Filename, FApp::GetGameName() );
-				return false;
+				ConfigFile = *CachedConfigFile;
+				bDoProcess = false;
 			}
-			else
+			ConfigFile.CacheKey = IniToLoad.CacheKey;
+		}
+		else
+		{
+			ConfigFile.CacheKey = TEXT("");
+		}
+#endif
+		if (bDoProcess)
+		{
+			// Spit out friendly error if there was a problem locating .inis (e.g. bad command line parameter or missing folder, ...).
+			if (IsUsingLocalIniFile(*IniFileName, NULL) && (IFileManager::Get().FileSize(*IniFileName) < 0))
 			{
-				continue;
+				if (IniToLoad.bRequired)
+				{
+					//UE_LOG(LogConfig, Error, TEXT("Couldn't locate '%s' which is required to run '%s'"), *IniToLoad.Filename, FApp::GetGameName() );
+					return false;
+				}
+				else
+				{
+#if INI_CACHE
+					// missing file just add the current config file to the cache
+					if ( bShouldCache )
+					{
+							HierarchyCache.Add(IniToLoad.CacheKey, ConfigFile);
+					}
+#endif
+					continue;
+				}
 			}
+
+			bool bDoEmptyConfig = false;
+			bool bDoCombine = (IniIndex != 0);
+			bool bDoWrite = false;
+			//UE_LOG(LogConfig, Log,  TEXT( "Combining configFile: %s" ), *IniList(IniIndex) );
+			ProcessIniContents(*HierarchyToLoad.Last().Filename, *IniFileName, &ConfigFile, bDoEmptyConfig, bDoCombine, bDoWrite);
+#if INI_CACHE
+			if ( bShouldCache )
+			{
+				HierarchyCache.Add(IniToLoad.CacheKey, ConfigFile);
+			}
+#endif
 		}
 
-		bool bDoEmptyConfig = false;
-		bool bDoCombine = (IniIndex != 0);
-		bool bDoWrite = false;
-		//UE_LOG(LogConfig, Log,  TEXT( "Combining configFile: %s" ), *IniList(IniIndex) );
-		ProcessIniContents(*HierarchyToLoad.Last().Filename, *IniFileName, &ConfigFile, bDoEmptyConfig, bDoCombine, bDoWrite);
+
 	}
 
 	// Set this configs files source ini hierarchy to show where it was loaded from.
@@ -791,6 +877,25 @@ bool PropertySetFromCommandlineOption(const FConfigFile* InConfigFile, const FSt
 	return bFromCommandline;
 }
 
+/**
+ * Clear the hierarchy cache
+ * cos nobody want dat junk no more! bro
+ *
+ * @param Base ini name of the file hierarchy that we want to clear the cache for
+ */
+static void ClearHierarchyCache( const TCHAR* BaseIniName )
+{
+#if INI_CACHE
+	// if we are forcing reload from disk then clear the cached hierarchy files
+	for ( TMap<FString, FConfigFile>::TIterator It(HierarchyCache); It; ++It )
+	{
+		if ( It.Key().StartsWith( BaseIniName ) )
+		{
+			It.RemoveCurrent();
+		}
+	}
+#endif
+}
 
 bool FConfigFile::Write( const FString& Filename, bool bDoRemoteWrite/* = true*/, const FString& InitialText/*=FString()*/ )
 {
@@ -840,8 +945,13 @@ bool FConfigFile::Write( const FString& Filename, bool bDoRemoteWrite/* = true*/
 				// check whether the option we are attempting to write out, came from the commandline as a temporary override.
 				const bool bOptionIsFromCommandline = PropertySetFromCommandlineOption(this, SectionName, PropertyName, PropertyValue);
 
+				// If we are writing to a default config file and this property is an array, we need to be careful to remove those from higher up the hierarchy
+				const bool bIsADefaultIniWrite = !Filename.Contains( FPaths::GameSavedDir() ) 
+					&& !Filename.Contains( FPaths::EngineSavedDir() ) 
+					&& FPaths::GetBaseFilename(Filename).StartsWith( TEXT( "Default" ) );
+
 				// Check if the property matches the source configs. We do not wanna write it out if so.
-				if( (bDifferentNumberOfElements || !DoesConfigPropertyValueMatch( SourceConfigFile, SectionName, PropertyName, PropertyValue )) && !bOptionIsFromCommandline )
+				if ((bIsADefaultIniWrite || bDifferentNumberOfElements || !DoesConfigPropertyValueMatch(SourceConfigFile, SectionName, PropertyName, PropertyValue)) && !bOptionIsFromCommandline)
 				{
 					// If this is the first property we are writing of this section, then print the section name
 					if( !bWroteASectionProperty )
@@ -860,11 +970,6 @@ bool FConfigFile::Write( const FString& Filename, bool bDoRemoteWrite/* = true*/
 					// Write out our property, if it is an array we need to write out the entire array.
 					TArray< FString > CompletePropertyToWrite;
 					Section.MultiFind( PropertyName, CompletePropertyToWrite, true );
-
-					// If we are writing to a default config file and this property is an array, we need to be careful to remove those from higher up the hierarchy
-					bool bIsADefaultIniWrite = !Filename.Contains( FPaths::GameSavedDir() ) 
-						&& !Filename.Contains( FPaths::EngineSavedDir() ) 
-						&& FPaths::GetBaseFilename(Filename).StartsWith( TEXT( "Default" ) );
 
 					if( bIsADefaultIniWrite )
 					{
@@ -901,6 +1006,20 @@ bool FConfigFile::Write( const FString& Filename, bool bDoRemoteWrite/* = true*/
 		FRemoteConfig::Get()->Write(*Filename, Text);
 	}
 	bool bResult = FFileHelper::SaveStringToFile( Text, *Filename );
+
+#if INI_CACHE
+	// if we wrote the config successfully
+	if ( bResult && CacheKey.Len() > 0 )
+	{
+		check( Name != NAME_None );
+		ClearHierarchyCache(*Name.ToString());
+	}
+	
+	/*if (bResult && CacheKey.Len() > 0)
+	{
+		HierarchyCache.Add(CacheKey, *this);
+	}*/
+#endif
 
 	// File is still dirty if it didn't save.
 	Dirty = !bResult;
@@ -1159,70 +1278,31 @@ void FConfigFile::ProcessSourceAndCheckAgainstBackup()
 
 void FConfigFile::ProcessPropertyAndWriteForDefaults( const TArray< FString >& InCompletePropertyToProcess, FString& OutText, const FString& SectionName, const FString& PropertyName )
 {
-	// Get a list of the array elements we have processed, 
-	// we will remove any which are in the base hierarchy
-	// any which are left will be written to the default config
-	TArray<FString> UnprocessedPropertyValues = InCompletePropertyToProcess;
+	FConfigCacheIni Hierarchy(EConfigCacheType::Temporary);
+	const FString& LastFileInHierarchy = SourceIniHierarchy.Last().Filename;
 
-	// Iterate over the base hierarchy of the config file and check that our element did not originate from a further up the tree file
-	// if it did we need to ensure it is not added again.
-	for( TArray<FIniFilename>::TIterator HierarchyFileIt(SourceIniHierarchy); HierarchyFileIt; ++HierarchyFileIt )
+	// Build a config file out of this default configs hierarchy.
+	FConfigFile& DefaultConfigFile = Hierarchy.Add(LastFileInHierarchy, FConfigFile());
+	for (TArray<FIniFilename>::TIterator HierarchyFileIt(SourceIniHierarchy); HierarchyFileIt; ++HierarchyFileIt)
 	{
-		FConfigFile HierarchyFile;
-		ProcessIniContents(*HierarchyFileIt->Filename, *HierarchyFileIt->Filename, &HierarchyFile, false, false, false);
+		DefaultConfigFile.Combine(HierarchyFileIt->Filename);
+	}
+	
+	// Handle array elements from the configs hierarchy.
+	if (PropertyName.StartsWith(TEXT("+")) || InCompletePropertyToProcess.Num() > 1)
+	{
+		TArray<FString> ArrayProperties;
+		Hierarchy.GetArray(*SectionName, *PropertyName.Replace(TEXT("+"), TEXT("")), ArrayProperties, *LastFileInHierarchy);
 
-		FConfigSection* FoundSection = HierarchyFile.Find( SectionName );
-		if( FoundSection != NULL )
+		for (const FString& NextElement : ArrayProperties)
 		{
-			// The non-default config hierarchy array property names are prefixed with a . and not a +, so change
-			// that before searching.
-			FString HierarchyPropertyName;
-			if (PropertyName.StartsWith(TEXT("+")))
-			{
-				HierarchyPropertyName = TEXT(".") + PropertyName.RightChop(1);
-			}
-			else
-			{
-				HierarchyPropertyName = PropertyName;
-			}
-			TArray< FString > HierearchysArrayContribution;
-			FoundSection->MultiFind( *HierarchyPropertyName, HierearchysArrayContribution, true );
-
-			// Find array elements which should be removed.
-			for( TArray<FString>::TIterator PropertyIt(HierearchysArrayContribution); PropertyIt; ++PropertyIt )
-			{
-				FString PropertyValue = *PropertyIt;
-
-				// Check if the string formatted array element needs quotation marks
-				if (ShouldExportQuotedString(PropertyValue))
-				{
-					PropertyValue = FString::Printf( TEXT( "\"%s\"" ), *PropertyValue );
-				}
-				
-				// If the array we are processing doesn't have this value, there is a good chance it has been deleted and
-				// the default ini should add the removed element to the stream with the appropriate array syntax
-				//
-				// NOTE:	This also allows us to fix an issue with string comparison issue with elements in the base
-				//			configs having slightly different formats of properties to the ones serialized by the config load system.
-				//			I.e.	ArrEl=1.000f and ArrEl=1.f would not be a match.
-				//			This logic allows is to remove the ArrEl=1.000f and instead add 1.f in the default ini. It would look like this:
-				//			[MySection]
-				//			-ArrEl=1.000f
-				//			+ArrEl=1.f
-				if( UnprocessedPropertyValues.Contains( PropertyValue ) == false )
-				{
-					FString PropertyNameWithRemoveOp = PropertyName.Replace(TEXT("+"), TEXT("-"));
-					OutText += FString::Printf(TEXT("%s=%s") LINE_TERMINATOR, *PropertyNameWithRemoveOp, *PropertyValue);
-				}
-
-				// We need to remove this element from unprocessed if it exists on the list.
-				UnprocessedPropertyValues.RemoveSingle( PropertyValue );
-			}
+			FString PropertyNameWithRemoveOp = PropertyName.Replace(TEXT("+"), TEXT("-"));
+			OutText += FString::Printf(TEXT("%s=%s") LINE_TERMINATOR, *PropertyNameWithRemoveOp, *NextElement);
 		}
 	}
 
-	// Add all elements which were not in the hierarchy to the default with the correct '+' syntax
-	for (TArray<FString>::TIterator PropertyIt(UnprocessedPropertyValues); PropertyIt; ++PropertyIt)
+	// Write the properties out to a file.
+	for ( auto& PropertyIt : InCompletePropertyToProcess)
 	{
 		FString PropertyValue = *PropertyIt;
 
@@ -1240,9 +1320,10 @@ void FConfigFile::ProcessPropertyAndWriteForDefaults( const TArray< FString >& I
 	FConfigCacheIni
 -----------------------------------------------------------------------------*/
 
-FConfigCacheIni::FConfigCacheIni()
+FConfigCacheIni::FConfigCacheIni(EConfigCacheType InType)
 	: bAreFileOperationsDisabled(false)
 	, bIsReadyForUse(false)
+	, Type(InType)
 {
 }
 
@@ -1278,6 +1359,12 @@ FConfigFile* FConfigCacheIni::Find( const FString& Filename, bool CreateIfNotFou
 
 void FConfigCacheIni::Flush( bool Read, const FString& Filename )
 {
+	// never Flush temporary cache objects
+	if (Type == EConfigCacheType::Temporary)
+	{
+		return;
+	}
+
 	// write out the files if we can
 	if (!bAreFileOperationsDisabled)
 	{
@@ -2448,10 +2535,10 @@ static void LoadAnIniFile(const FString& FilenameToLoad, FConfigFile& ConfigFile
  * @param DestIniFilename			The name of the destination .ini file - it's loaded and checked against source (e.g. Engine.ini)
  * @param SourceIniFilename			The name of the source .ini file (e.g. DefaultEngine.ini)
  */
-static bool GenerateDestIniFile(FConfigFile& DestConfigFile, const FString& DestIniFilename, const TArray<FIniFilename>& SourceIniHierarchy, bool bAllowGeneratedINIs)
+static bool GenerateDestIniFile(FConfigFile& DestConfigFile, const FString& DestIniFilename, const TArray<FIniFilename>& SourceIniHierarchy, bool bAllowGeneratedINIs, const bool bUseHierarchyCache)
 {
-	bool bResult = LoadIniFileHierarchy(SourceIniHierarchy, *DestConfigFile.SourceConfigFile);
-	if( !bResult )
+	bool bResult = LoadIniFileHierarchy(SourceIniHierarchy, *DestConfigFile.SourceConfigFile, bUseHierarchyCache);
+	if ( bResult == false )
 	{
 		return false;
 	}
@@ -2525,7 +2612,7 @@ static bool GenerateDestIniFile(FConfigFile& DestConfigFile, const FString& Dest
 	// Regenerate the file.
 	if( bForceRegenerate )
 	{
-		bResult = LoadIniFileHierarchy(SourceIniHierarchy, DestConfigFile);
+		bResult = LoadIniFileHierarchy(SourceIniHierarchy, DestConfigFile, bUseHierarchyCache);
 		DestConfigFile.SourceConfigFile = new FConfigFile( DestConfigFile );
 
 		// mark it as dirty (caller may want to save)
@@ -2608,35 +2695,68 @@ static FString GetSourceIniFilename(const TCHAR* BaseIniName, const TCHAR* Platf
  */
 static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCHAR* InPlatformName, const TCHAR* InGameName, const TCHAR* EngineConfigDir, const TCHAR* SourceConfigDir, TArray<FIniFilename>& OutHierarchy, bool bRequireDefaultIni)
 {
+	
+	/**************************************************
+	 **** CRITICAL NOTES
+	 **** If you change this function, you need to also change EnumerateCrossPlatformIniFileNames() in EngineConfiguration.cs!!!
+	 **************************************************/
+	
 	const FString PlatformName(InPlatformName ? InPlatformName : ANSI_TO_TCHAR(FPlatformProperties::IniPlatformName()));
-	const FString BuildPurposeName(FEngineBuildSettings::IsInternalBuild() ? "Internal" : "External");
 
+	// [[[[ ENGINE DEFAULTS ]]]]
 	// Engine/Config/Base.ini (included in every ini type, required)
 	OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%sBase.ini"), EngineConfigDir), true) );
 	// Engine/Config/Base* ini
 	OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%sBase%s.ini"), EngineConfigDir, InBaseIniName), false) );
-	// Engine/Config/Base[Internal/External]* ini
-	OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%sBase%s%s.ini"), EngineConfigDir, *BuildPurposeName, InBaseIniName), false) );
+	// Engine/Config/NotForLicensees/Base* ini
+	OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%sNotForLicensees/Base%s.ini"), EngineConfigDir, InBaseIniName), false) );
+	// Engine/Config/NoRedist/Base* ini
+	/////
+	// NOTE: 4.7
+	// There was a bug that was causing this file to be written out for all users and for all projects, with bad values
+	// that would break all projects (external reference errors)
+	// Since this file has not been used yet, we will delete it if it exists, and then for 4.8, we will put this back
+	// into the hierarchy and remove the delete operation
+	// - Remember to fixup EngineConfiguration.cs
+	/////
+	IFileManager::Get().Delete(*FString::Printf(TEXT("%sNoRedist/Base%s.ini"), EngineConfigDir, InBaseIniName), false, true, true);
+	IFileManager::Get().DeleteDirectory(*FString::Printf(TEXT("%sNoRedist"), EngineConfigDir), false, false);
+	// OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%sNoRedist/Base%s.ini"), EngineConfigDir, InBaseIniName), false) );
 
-	// <AppData>/UE4/EngineConfig/User* ini
-    OutHierarchy.Add(FIniFilename(FPaths::Combine(FPlatformProcess::UserSettingsDir(), *FString::Printf(TEXT("Unreal Engine/Engine/Config/User%s.ini"), InBaseIniName)), false));
-	// <Documents>/UE4/EngineConfig/User* ini
-    OutHierarchy.Add(FIniFilename(FPaths::Combine(FPlatformProcess::UserDir(), *FString::Printf(TEXT("Unreal Engine/Engine/Config/User%s.ini"), InBaseIniName)), false));
-
+	// [[[[ PROJECT SETTINGS ]]]]
 	// Game/Config/Default* ini
 	OutHierarchy.Add(FIniFilename(FString::Printf(TEXT("%sDefault%s.ini"), SourceConfigDir, InBaseIniName), bRequireDefaultIni));
-	// Game/Config/DedicatedServer* ini
+	// Game/Config/DedicatedServer* ini (knowingly NOT in EngineConfiguration.cs because this is a runtime only check)
 	if (IsRunningDedicatedServer())
 	{
 		OutHierarchy.Add(FIniFilename(FString::Printf(TEXT("%s/DedicatedServer%s.ini"), SourceConfigDir, InBaseIniName), false));
 	}
-	// Game/Config/User* ini
-	OutHierarchy.Add(FIniFilename(FString::Printf(TEXT("%s/User%s.ini"), SourceConfigDir, InBaseIniName), false));
+	// Game/Config/NotForLicensees/Default* ini
+	OutHierarchy.Add(FIniFilename(FString::Printf(TEXT("%sNotForLicensees/Default%s.ini"), SourceConfigDir, InBaseIniName), false));
+	// Game/Config/NoRedist/Default* ini (Checkpointed here before the platform ini divergence)
+	FString HierarchyCheckpointPath = FString::Printf(TEXT("%sNoRedist/Default%s.ini"), SourceConfigDir, InBaseIniName);
+	OutHierarchy.Add(FIniFilename(HierarchyCheckpointPath, false, GenerateHierarchyCacheKey(OutHierarchy, HierarchyCheckpointPath, InBaseIniName)));
 	
-	// Engine/Config/Platform/Platform* ini
-	OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%s%s/%s%s.ini"), EngineConfigDir, *PlatformName, *PlatformName, InBaseIniName), false) );
-	// Game/Config/Platform/Platform* ini
-	OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%s%s/%s%s.ini"), SourceConfigDir, *PlatformName, *PlatformName, InBaseIniName), false) );
+	if (PlatformName.Len() > 0)
+	{
+		// [[[[ PLATFORM DEFAULTS AND PROJECT SETTINGS ]]]]
+		// Engine/Config/Platform/Platform* ini
+		OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%s%s/%s%s.ini"), EngineConfigDir, *PlatformName, *PlatformName, InBaseIniName), false) );
+		// Game/Config/Platform/Platform* ini
+		OutHierarchy.Add( FIniFilename(FString::Printf(TEXT("%s%s/%s%s.ini"), SourceConfigDir, *PlatformName, *PlatformName, InBaseIniName), false) );
+	}
+
+	// [[[[ GLOBAL USER OVERRIDES ]]]]
+	// <AppData>/UE4/EngineConfig/User* ini
+	OutHierarchy.Add(FIniFilename(FPaths::Combine(FPlatformProcess::UserSettingsDir(), *FString::Printf(TEXT("Unreal Engine/Engine/Config/User%s.ini"), InBaseIniName)), false));
+	// <Documents>/UE4/EngineConfig/User* ini
+	OutHierarchy.Add(FIniFilename(FPaths::Combine(FPlatformProcess::UserDir(), *FString::Printf(TEXT("Unreal Engine/Engine/Config/User%s.ini"), InBaseIniName)), false));
+
+	// [[[[ PROJECT USER OVERRIDES ]]]]
+	// Game/Config/User* ini (Checkpointed here at the end)
+	HierarchyCheckpointPath = FString::Printf(TEXT("%s/User%s.ini"), SourceConfigDir, InBaseIniName);
+	OutHierarchy.Add(FIniFilename(HierarchyCheckpointPath, false, GenerateHierarchyCacheKey(OutHierarchy, HierarchyCheckpointPath, InBaseIniName)));
+	
 }
 
 /**
@@ -2673,7 +2793,7 @@ static FString GetDestIniFilename(const TCHAR* BaseIniName, const TCHAR* Platfor
 void FConfigCacheIni::InitializeConfigSystem()
 {
 	// create GConfig
-	GConfig = new FConfigCacheIni;
+	GConfig = new FConfigCacheIni(EConfigCacheType::DiskBacked);
 
 	// load the main .ini files (unless we're running a program or a gameless UE4Editor.exe, DefaultEngine.ini is required).
 	const bool bIsGamelessExe = !FApp::HasGameName();
@@ -2762,15 +2882,20 @@ bool FConfigCacheIni::LoadGlobalIniFile(FString& FinalIniFilename, const TCHAR* 
 	// make a new entry in GConfig (overwriting what's already there)
 	FConfigFile& NewConfigFile = GConfig->Add(FinalIniFilename, FConfigFile());
 
+	if ( bForceReload )
+	{
+		ClearHierarchyCache(BaseIniName);
+	}
+
+
 	// calculate the source ini file name,
 	GetSourceIniHierarchyFilenames( BaseIniName, Platform, GameName, *FPaths::EngineConfigDir(), *FPaths::SourceConfigDir(), NewConfigFile.SourceIniHierarchy, bRequireDefaultIni );
 
 	// Keep a record of the original settings
 	NewConfigFile.SourceConfigFile = new FConfigFile();
-	LoadIniFileHierarchy(NewConfigFile.SourceIniHierarchy, *NewConfigFile.SourceConfigFile );
 
 	// now generate and make sure it's up to date
-	bool bResult = GenerateDestIniFile(NewConfigFile, FinalIniFilename, NewConfigFile.SourceIniHierarchy, bAllowGeneratedIniWhenCooked);
+	bool bResult = GenerateDestIniFile(NewConfigFile, FinalIniFilename, NewConfigFile.SourceIniHierarchy, bAllowGeneratedIniWhenCooked, true);
 	NewConfigFile.Name = BaseIniName;
 
 	// don't write anything to disk in cooked builds - we will always use re-generated INI files anyway.
@@ -2789,10 +2914,14 @@ bool FConfigCacheIni::LoadGlobalIniFile(FString& FinalIniFilename, const TCHAR* 
 	return bResult;
 }
 
-void FConfigCacheIni::LoadLocalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, bool bGenerateDestIni, const TCHAR* Platform, const TCHAR* GameName)
+void FConfigCacheIni::LoadLocalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, bool bGenerateDestIni, const TCHAR* Platform, const TCHAR* GameName, const bool bForceReload )
 {
+
+	LoadExternalIniFile( ConfigFile, IniName, *FPaths::EngineConfigDir(), *FPaths::SourceConfigDir(), bGenerateDestIni, Platform, GameName, bForceReload );
+
+
 	// if bGenerateDestIni is false, that means the .ini is a ready-to-go .ini file, and just needs to be loaded into the FConfigFile
-	if (!bGenerateDestIni)
+	/*if (!bGenerateDestIni)
 	{
 		// generate path to the .ini file (not a Default ini, IniName is the complete name of the file, without path)
 		FString SourceIniFilename = FString::Printf(TEXT("%s%s.ini"), *FPaths::SourceConfigDir(), IniName);
@@ -2806,16 +2935,15 @@ void FConfigCacheIni::LoadLocalIniFile(FConfigFile& ConfigFile, const TCHAR* Ini
 		
 		// Keep a record of the original settings
 		ConfigFile.SourceConfigFile = new FConfigFile();
-		LoadIniFileHierarchy(ConfigFile.SourceIniHierarchy, *ConfigFile.SourceConfigFile );
 
 		// now generate and make sure it's up to date (using IniName as a Base for an ini filename)
 		const bool bAllowGeneratedINIs = true;
-		GenerateDestIniFile(ConfigFile, GetDestIniFilename(IniName, Platform, GameName, *FPaths::GeneratedConfigDir()), ConfigFile.SourceIniHierarchy, bAllowGeneratedINIs);
+		GenerateDestIniFile(ConfigFile, GetDestIniFilename(IniName, Platform, GameName, *FPaths::GeneratedConfigDir()), ConfigFile.SourceIniHierarchy, bAllowGeneratedINIs, true);
 	}
-	ConfigFile.Name = IniName;
+	ConfigFile.Name = IniName;*/
 }
 
-void FConfigCacheIni::LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, const TCHAR* EngineConfigDir, const TCHAR* SourceConfigDir, bool bGenerateDestIni, const TCHAR* Platform, const TCHAR* GameName)
+void FConfigCacheIni::LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, const TCHAR* EngineConfigDir, const TCHAR* SourceConfigDir, bool bGenerateDestIni, const TCHAR* Platform, const TCHAR* GameName, const bool bForceReload)
 {
 	// if bGenerateDestIni is false, that means the .ini is a ready-to-go .ini file, and just needs to be loaded into the FConfigFile
 	if (!bGenerateDestIni)
@@ -2830,13 +2958,18 @@ void FConfigCacheIni::LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* 
 	{
 		GetSourceIniHierarchyFilenames( IniName, Platform, GameName, EngineConfigDir, SourceConfigDir, ConfigFile.SourceIniHierarchy, false );
 
+		if ( bForceReload )
+		{
+			ClearHierarchyCache( IniName );
+		}
+
+
 		// Keep a record of the original settings
 		ConfigFile.SourceConfigFile = new FConfigFile();
-		LoadIniFileHierarchy(ConfigFile.SourceIniHierarchy, *ConfigFile.SourceConfigFile );
 
 		// now generate and make sure it's up to date (using IniName as a Base for an ini filename)
 		const bool bAllowGeneratedINIs = true;
-		GenerateDestIniFile(ConfigFile, GetDestIniFilename(IniName, Platform, GameName, *FPaths::GeneratedConfigDir()), ConfigFile.SourceIniHierarchy, bAllowGeneratedINIs);
+		GenerateDestIniFile(ConfigFile, GetDestIniFilename(IniName, Platform, GameName, *FPaths::GeneratedConfigDir()), ConfigFile.SourceIniHierarchy, bAllowGeneratedINIs, true);
 	}
 	ConfigFile.Name = IniName;
 }
@@ -2956,11 +3089,13 @@ void FConfigFile::UpdateSections(const TCHAR* DiskFilename, const TCHAR* IniRoot
 			}
 		}
 
+		ClearHierarchyCache(IniRootName);
+
 		// Get a collection of the source hierachy properties
 		SourceConfigFile = new FConfigFile();
-		
+
 		// now when Write it called below, it will diff against SourceIniHierarchy
-		LoadIniFileHierarchy(SourceIniHierarchy, *SourceConfigFile);
+		LoadIniFileHierarchy(SourceIniHierarchy, *SourceConfigFile, true );
 
 	}
 

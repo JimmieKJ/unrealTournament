@@ -41,7 +41,7 @@ private:
 		 * Returns title for this panel
 		 * @return The Title
 		 */
-		FString GetTitle() const;
+		FText GetTitle() const;
 
 		/** 
 		 * Called when user hits keyboard shortcut to copy nodes

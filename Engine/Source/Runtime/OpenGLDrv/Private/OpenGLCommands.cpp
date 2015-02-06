@@ -466,6 +466,7 @@ void FOpenGLDynamicRHI::InternalUpdateTextureBuffer( FOpenGLContextState& Contex
 				ContextState.ActiveTexture = TextureIndex;
 			}
 			
+			FOpenGL::TexBuffer(GL_TEXTURE_BUFFER, GLFormat.InternalFormat[0], 0);
 			FOpenGL::TexBuffer(GL_TEXTURE_BUFFER, GLFormat.InternalFormat[0], VB->Resource);
 			
 			SRV->ModificationVersion = VB->ModificationCount;
@@ -1947,16 +1948,20 @@ void FOpenGLDynamicRHI::SetupVertexArraysVAB(FOpenGLContextState& ContextState, 
 	uint32 Divisor[NUM_OPENGL_VERTEX_STREAMS] = { 0 };
 	uint32 LastMaxAttrib = ContextState.MaxActiveAttrib;
 	bool UpdateDivisors = false;
+	uint32 StreamMask = ContextState.ActiveStreamMask;
 
 	check(IsValidRef(PendingState.BoundShaderState));
 	check(IsValidRef(PendingState.BoundShaderState->VertexShader));
 	FOpenGLVertexDeclaration* VertexDeclaration = PendingState.BoundShaderState->VertexDeclaration;
 	uint32 AttributeMask = PendingState.BoundShaderState->VertexShader->Bindings.InOutMask;
-	if ( ContextState.VertexDecl != VertexDeclaration )
+
+	if (ContextState.VertexDecl != VertexDeclaration || AttributeMask != ContextState.ActiveAttribMask)
 	{
-		ContextState.MaxActiveStream = 0;
 		ContextState.MaxActiveAttrib = 0;
+		StreamMask = 0;
 		UpdateDivisors = true;
+
+		check(VertexDeclaration->VertexElements.Num() <= 32);
 
 		for (int32 ElementIndex = 0; ElementIndex < VertexDeclaration->VertexElements.Num(); ElementIndex++)
 		{
@@ -1964,20 +1969,20 @@ void FOpenGLDynamicRHI::SetupVertexArraysVAB(FOpenGLContextState& ContextState, 
 			const uint32 AttributeIndex = VertexElement.AttributeIndex;
 			const uint32 StreamIndex = VertexElement.StreamIndex;
 
-			ContextState.MaxActiveStream = FMath::Max( ContextState.MaxActiveStream, StreamIndex);
 			ContextState.MaxActiveAttrib = FMath::Max( ContextState.MaxActiveAttrib, AttributeIndex);
 
 			if ( VertexElement.StreamIndex < NumStreams)
 			{
-			
 				FOpenGLCachedAttr &Attr = ContextState.VertexAttrs[AttributeIndex];
+
+				// Track the actively used streams, to limit the updates to those in use
+				StreamMask |= 0x1 << VertexElement.StreamIndex;
 
 				// Verify that the Divisor is consistent across the stream
 				check( !KnowsDivisor[StreamIndex] || Divisor[StreamIndex] == VertexElement.Divisor);
 				KnowsDivisor[StreamIndex] = true;
 				Divisor[StreamIndex] = VertexElement.Divisor;
 
-#if 1
 				if (
 					(Attr.StreamOffset != VertexElement.Offset) ||
 					(Attr.Size != VertexElement.Size) ||
@@ -2004,18 +2009,6 @@ void FOpenGLDynamicRHI::SetupVertexArraysVAB(FOpenGLContextState& ContextState, 
 					FOpenGL::VertexAttribBinding( AttributeIndex, VertexElement.StreamIndex);
 					Attr.StreamIndex = StreamIndex;
 				}
-#else
-				if (!VertexElement.bShouldConvertToFloat)
-				{
-					FOpenGL::VertexAttribIFormat( AttributeIndex, VertexElement.Size, VertexElement.Type, VertexElement.Offset);
-				}
-				else
-				{
-					FOpenGL::VertexAttribFormat( AttributeIndex, VertexElement.Size, VertexElement.Type, VertexElement.bNormalized, VertexElement.Offset);
-				}
-
-				FOpenGL::VertexAttribBinding( AttributeIndex, VertexElement.StreamIndex);
-#endif
 			}
 			else
 			{
@@ -2023,21 +2016,28 @@ void FOpenGLDynamicRHI::SetupVertexArraysVAB(FOpenGLContextState& ContextState, 
 				float data[4] = { 0.0f};
 
 				glVertexAttrib4fv( AttributeIndex, data );
+
+				//Kill this attribute to make sure it isn't enabled
+				AttributeMask &= ~(1 << AttributeIndex);
 			}
 		}
 		ContextState.VertexDecl = VertexDeclaration;
+
+		//Update the stream mask
+		ContextState.ActiveStreamMask = StreamMask;
 	}
 
 	//setup streams
-	for (uint32 StreamIndex = 0; StreamIndex < NumStreams && StreamIndex <= ContextState.MaxActiveStream; StreamIndex++)
+	for (uint32 StreamIndex = 0; StreamIndex < NumStreams && StreamMask != 0; StreamIndex++, StreamMask >>= 1)
 	{
 		FOpenGLStream &CachedStream = ContextState.VertexStreams[StreamIndex];
 		FOpenGLStream &Stream = Streams[StreamIndex];
-		if (Stream.VertexBuffer)
+		if ((StreamMask & 0x1) != 0 && Stream.VertexBuffer)
 		{
 			uint32 Offset = BaseVertexIndex * Stream.Stride + Stream.Offset;
 			if ( CachedStream.VertexBuffer != Stream.VertexBuffer || CachedStream.Offset != Offset || CachedStream.Stride != Stream.Stride)
 			{
+				check(Stream.VertexBuffer->Resource != 0);
 				FOpenGL::BindVertexBuffer( StreamIndex, Stream.VertexBuffer->Resource, Offset, Stream.Stride);
 				CachedStream.VertexBuffer = Stream.VertexBuffer;
 				CachedStream.Offset = Offset;
@@ -2050,6 +2050,9 @@ void FOpenGLDynamicRHI::SetupVertexArraysVAB(FOpenGLContextState& ContextState, 
 			}
 		}
 	}
+
+	//Ensure that all requested streams were set
+	check(StreamMask == 0);
 
 	// Set the enable/disable state on the arrays
 	uint32 MaskDif = ContextState.ActiveAttribMask ^ AttributeMask;

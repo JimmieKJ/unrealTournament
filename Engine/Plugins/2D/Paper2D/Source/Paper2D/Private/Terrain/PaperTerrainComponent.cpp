@@ -8,9 +8,10 @@
 
 #define PAPER_USE_MATERIAL_SLOPES 1
 
+
 //////////////////////////////////////////////////////////////////////////
 
-FBox2D GetSpriteRenderDataBounds2D(const TArray<FVector4>& Data)
+static FBox2D GetSpriteRenderDataBounds2D(const TArray<FVector4>& Data)
 {
 	FBox2D Bounds(ForceInit);
 	for (const FVector4& XYUV : Data)
@@ -21,29 +22,52 @@ FBox2D GetSpriteRenderDataBounds2D(const TArray<FVector4>& Data)
 	return Bounds;
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+
+FTerrainSpriteStamp::FTerrainSpriteStamp(const UPaperSprite* InSprite, float InTime, bool bIsEndCap) : Sprite(InSprite)
+, Time(InTime)
+, Scale(1.0f)
+, bCanStretch(!bIsEndCap)
+{
+	const FBox2D Bounds2D = GetSpriteRenderDataBounds2D(InSprite->BakedRenderData);
+	NominalWidth = FMath::Max<float>(Bounds2D.GetSize().X, 1.0f);
+}
+
+
+FTerrainSegment::FTerrainSegment() : Rule(nullptr)
+{
+
+}
+
+void FTerrainSegment::RepositionStampsToFillSpace()
+{
+
+}
+
 //////////////////////////////////////////////////////////////////////////
 // FPaperTerrainSceneProxy
 
 class FPaperTerrainSceneProxy : public FPaperRenderSceneProxy
 {
 public:
-	FPaperTerrainSceneProxy(const UPaperTerrainComponent* InComponent, const TArray<FPaperTerrainMaterialPair>& InDrawingData);
+	FPaperTerrainSceneProxy(const UPaperTerrainComponent* InComponent, const TArray<FPaperTerrainSpriteGeometry>& InDrawingData);
 
 protected:
-	TArray<FPaperTerrainMaterialPair> DrawingData;
+	TArray<FPaperTerrainSpriteGeometry> DrawingData;
 protected:
 	// FPaperRenderSceneProxy interface
 	virtual void GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, bool bUseOverrideColor, const FLinearColor& OverrideColor, FMeshElementCollector& Collector) const override;
 	// End of FPaperRenderSceneProxy interface
 };
 
-FPaperTerrainSceneProxy::FPaperTerrainSceneProxy(const UPaperTerrainComponent* InComponent, const TArray<FPaperTerrainMaterialPair>& InDrawingData)
+FPaperTerrainSceneProxy::FPaperTerrainSceneProxy(const UPaperTerrainComponent* InComponent, const TArray<FPaperTerrainSpriteGeometry>& InDrawingData)
 	: FPaperRenderSceneProxy(InComponent)
 {
 	DrawingData = InDrawingData;
 
 	// Combine the material relevance for all materials
-	for (const FPaperTerrainMaterialPair& Batch : DrawingData)
+	for (const FPaperTerrainSpriteGeometry& Batch : DrawingData)
 	{
 		const UMaterialInterface* MaterialInterface = (Batch.Material != nullptr) ? Batch.Material : UMaterial::GetDefaultMaterial(MD_Surface);
 		MaterialRelevance |= MaterialInterface->GetRelevance_Concurrent(GetScene().GetFeatureLevel());
@@ -52,7 +76,7 @@ FPaperTerrainSceneProxy::FPaperTerrainSceneProxy(const UPaperTerrainComponent* I
 
 void FPaperTerrainSceneProxy::GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, bool bUseOverrideColor, const FLinearColor& OverrideColor, FMeshElementCollector& Collector) const
 {
-	for (const FPaperTerrainMaterialPair& Batch : DrawingData)
+	for (const FPaperTerrainSpriteGeometry& Batch : DrawingData)
 	{
 		if (Batch.Material != nullptr)
 		{
@@ -66,6 +90,8 @@ void FPaperTerrainSceneProxy::GetDynamicMeshElementsForView(const FSceneView* Vi
 
 UPaperTerrainComponent::UPaperTerrainComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bFilledSpline(true)
+	, SegmentOverlapAmount(100.0f)
 	, TerrainColor(FLinearColor::White)
 	, ReparamStepsPerSegment(8)
 	, SpriteCollisionDomain(ESpriteCollisionMode::Use3DPhysics)
@@ -137,7 +163,7 @@ FBoxSphereBounds UPaperTerrainComponent::CalcBounds(const FTransform& LocalToWor
 	{
 		FBox BoundingBox(ForceInit);
 
-		for (const FPaperTerrainMaterialPair& DrawCall : GeneratedSpriteGeometry)
+		for (const FPaperTerrainSpriteGeometry& DrawCall : GeneratedSpriteGeometry)
 		{
 			for (const FSpriteDrawCallRecord& Record : DrawCall.Records)
 			{
@@ -219,6 +245,87 @@ FTransform UPaperTerrainComponent::GetTransformAtDistance(float InDistance) cons
 	return LocalTransform;
 }
 
+// Simplify spline by removing vertices from nearly flat edges
+// Currently don't allow merging points when the offset is different
+// SplineEdgeOffsetAmounts is ignored if empty
+static void SimplifyPolygon(TArray<FVector2D> &SplinePolyVertices2D, TArray<float> &SplineEdgeOffsetAmounts, float FlatEdgeDistance = 10)
+{
+	const bool bHasSplineEdgeOffsets = SplineEdgeOffsetAmounts.Num() == SplinePolyVertices2D.Num();
+	const float FlatEdgeDistanceThreshold = FlatEdgeDistance * FlatEdgeDistance;
+	for (int i = 0; i < SplinePolyVertices2D.Num() && SplinePolyVertices2D.Num() > 3; ++i)
+	{
+		int StartRemoveIndex = (i + 1) % SplinePolyVertices2D.Num();
+		int EndRemoveIndex = StartRemoveIndex;
+		FVector2D& A = SplinePolyVertices2D[i];
+		float SplineEdgeOffsetA = bHasSplineEdgeOffsets ? SplineEdgeOffsetAmounts[i] : 0;
+
+		// Keep searching to find if any of the vector rejections fail in subsequent points on the polygon
+		// A B C D E F (eg. when testing A B C, test rejection for BA, CA)
+		// When testing A E F, test rejection for AB-AF, AC-AF, AD-AF, AE-AF
+		// When one of these fails we discard all verts between A and one before the current vertex being tested
+		for (int j = i; j < SplinePolyVertices2D.Num(); ++j)
+		{
+			int IndexC = (j + 2) % SplinePolyVertices2D.Num();
+			FVector2D& C = SplinePolyVertices2D[IndexC];
+			float SplineEdgeOffsetC = bHasSplineEdgeOffsets ? SplineEdgeOffsetAmounts[IndexC] : 0;
+			bool bSmallOffsetFailed = SplineEdgeOffsetA != SplineEdgeOffsetC;
+
+			for (int k = i; k <= j && !bSmallOffsetFailed; ++k)
+			{
+				int IndexB = (k + 1) % SplinePolyVertices2D.Num();
+				FVector2D& B = SplinePolyVertices2D[IndexB];
+				float SplineEdgeOffsetB = bHasSplineEdgeOffsets ? SplineEdgeOffsetAmounts[IndexB] : 0;
+				if (SplineEdgeOffsetA != SplineEdgeOffsetB)
+				{
+					bSmallOffsetFailed = true;
+					break;
+				}
+
+				FVector2D CA = C - A;
+				FVector2D BA = B - A;
+				FVector2D Rejection_BA_CA = BA - (FVector2D::DotProduct(BA, CA) / FVector2D::DotProduct(CA, CA)) * CA;
+				float RejectionLengthSquared = Rejection_BA_CA.SizeSquared();
+				if (RejectionLengthSquared > FlatEdgeDistanceThreshold)
+				{
+					bSmallOffsetFailed = true;
+					break;
+				}
+			}
+
+			if (bSmallOffsetFailed)
+			{
+				break;
+			}
+			else
+			{
+				EndRemoveIndex = (EndRemoveIndex + 1) % SplinePolyVertices2D.Num();
+			}
+		}
+
+		// Remove the vertices that we deemed "too flat"
+		if (EndRemoveIndex > StartRemoveIndex)
+		{
+			SplinePolyVertices2D.RemoveAt(StartRemoveIndex, EndRemoveIndex - StartRemoveIndex);
+			if (bHasSplineEdgeOffsets)
+			{
+				SplineEdgeOffsetAmounts.RemoveAt(StartRemoveIndex, EndRemoveIndex - StartRemoveIndex);
+			}
+		}
+		else if (EndRemoveIndex < StartRemoveIndex)
+		{
+			SplinePolyVertices2D.RemoveAt(StartRemoveIndex, SplinePolyVertices2D.Num() - StartRemoveIndex);
+			SplinePolyVertices2D.RemoveAt(0, EndRemoveIndex);
+			if (bHasSplineEdgeOffsets)
+			{
+				SplineEdgeOffsetAmounts.RemoveAt(StartRemoveIndex, SplineEdgeOffsetAmounts.Num() - StartRemoveIndex);
+				SplineEdgeOffsetAmounts.RemoveAt(0, EndRemoveIndex);
+			}
+			// The search has wrapped around, no more vertices to test
+			break;
+		}
+	}
+}
+
 void UPaperTerrainComponent::OnSplineEdited()
 {
 	// Ensure we have the data structure for the desired collision method
@@ -250,43 +357,6 @@ void UPaperTerrainComponent::OnSplineEdited()
 
 		float SplineLength = AssociatedSpline->GetSplineLength();
 
-
-		struct FSpriteStamp
-		{
-			const UPaperSprite* Sprite;
-			float NominalWidth;
-			float Time;
-			float Scale;
-			bool bCanStretch;
-
-			FSpriteStamp(const UPaperSprite* InSprite, float InTime, bool bIsEndCap)
-				: Sprite(InSprite)
-				, Time(InTime)
-				, Scale(1.0f)
-				, bCanStretch(!bIsEndCap)
-			{
-				const FBox2D Bounds2D = GetSpriteRenderDataBounds2D(InSprite->BakedRenderData);
-				NominalWidth = FMath::Max<float>(Bounds2D.GetSize().X, 1.0f);
-			}
-		};
-
-		struct FTerrainSegment
-		{
-			float StartTime;
-			float EndTime;
-			const FPaperTerrainMaterialRule* Rule;
-			TArray<FSpriteStamp> Stamps;
-
-			FTerrainSegment()
-				: Rule(nullptr)
-			{
-			}
-
-			void RepositionStampsToFillSpace()
-			{
-			}
-
-		};
 
 		struct FTerrainRuleHelper
 		{
@@ -375,6 +445,12 @@ void UPaperTerrainComponent::OnSplineEdited()
 					else
 					{
 						ActiveSegment->EndTime = CurrentTime;
+						
+						// Segment is too small, delete it
+						if (ActiveSegment->EndTime < ActiveSegment->StartTime + 2.0f * SegmentOverlapAmount)
+						{
+							Segments.Pop(false);
+						}
 
 						ActiveSegment = new (Segments)FTerrainSegment();
 						ActiveSegment->StartTime = CurrentTime;
@@ -385,6 +461,13 @@ void UPaperTerrainComponent::OnSplineEdited()
 
 				CurrentTime += SlopeAnalysisTimeRate;
 			}
+		}
+
+		// Account for overlap
+		for (FTerrainSegment& Segment : Segments)
+		{
+			Segment.StartTime -= SegmentOverlapAmount;
+			Segment.EndTime += SegmentOverlapAmount;
 		}
 
 		// Convert those segments to actual geometry
@@ -403,15 +486,8 @@ void UPaperTerrainComponent::OnSplineEdited()
 			// Add the start cap
 			if (RuleHelper.StartWidth > 0.0f)
 			{
-				new (Segment.Stamps) FSpriteStamp(Segment.Rule->StartCap, Segment.StartTime + RuleHelper.StartWidth * 0.5f, /*bIsEndCap=*/ bUseBodySegments);
+				new (Segment.Stamps) FTerrainSpriteStamp(Segment.Rule->StartCap, Segment.StartTime + RuleHelper.StartWidth * 0.5f, /*bIsEndCap=*/ bUseBodySegments);
 			}
-
-			// Add the end cap
-			if (RuleHelper.EndWidth > 0.0f)
-			{
-				new (Segment.Stamps) FSpriteStamp(Segment.Rule->EndCap, Segment.EndTime - RuleHelper.EndWidth * 0.5f, /*bIsEndCap=*/ bUseBodySegments);
-			}
-			
 
 			// Add body segments
 			if (bUseBodySegments)
@@ -429,7 +505,7 @@ void UPaperTerrainComponent::OnSplineEdited()
  					{
  						break;
  					}
-					new (Segment.Stamps) FSpriteStamp(Sprite, Position + (Width * 0.5f), /*bIsEndCap=*/ false);
+					new (Segment.Stamps) FTerrainSpriteStamp(Sprite, Position + (Width * 0.5f), /*bIsEndCap=*/ false);
 
 					DistanceBudget -= Width;
 					Position += Width;
@@ -443,7 +519,7 @@ void UPaperTerrainComponent::OnSplineEdited()
 				float PositionCorrectionSum = 0.0f;
  				for (int32 Index = 0; Index < NumSegments; ++Index)
  				{
-					FSpriteStamp& Stamp = Segment.Stamps[Index + (Segment.Stamps.Num() - NumSegments)];
+					FTerrainSpriteStamp& Stamp = Segment.Stamps[Index + (Segment.Stamps.Num() - NumSegments)];
 					
 					const float WidthChange = (OverallScaleFactor - 1.0f) * Stamp.NominalWidth;
 					const float FirstGapIsSmallerFactor = (Index == 0) ? 0.5f : 1.0f;
@@ -458,19 +534,23 @@ void UPaperTerrainComponent::OnSplineEdited()
 				// Stretch endcaps
 			}
 
-			// Convert stamps into geometry
-			for (const FSpriteStamp& Stamp : Segment.Stamps)
+			// Add the end cap
+			if (RuleHelper.EndWidth > 0.0f)
 			{
-				SpawnSegment(Stamp.Sprite, Stamp.Time, Stamp.Scale, Stamp.NominalWidth, Segment.Rule);
+				new (Segment.Stamps) FTerrainSpriteStamp(Segment.Rule->EndCap, Segment.EndTime - RuleHelper.EndWidth * 0.5f, /*bIsEndCap=*/ bUseBodySegments);
 			}
 		}
 
+		// Convert stamps into geometry
+		SpawnSegments(Segments, !bClosedSpline || (bClosedSpline && !bFilledSpline));
+
 		// Generate the background if the spline is closed
-		if (bClosedSpline && (TerrainMaterial->InteriorFill != nullptr))
+		if (bClosedSpline && bFilledSpline)
 		{
 			// Create a polygon from the spline
 			FBox2D SplineBounds(ForceInit);
 			TArray<FVector2D> SplinePolyVertices2D;
+			TArray<float> SplineEdgeOffsetAmounts;
 			{
 				float CurrentTime = 0.0f;
 				while (CurrentTime < SplineLength)
@@ -482,52 +562,80 @@ void UPaperTerrainComponent::OnSplineEdited()
 					SplineBounds += Position2D;
 					SplinePolyVertices2D.Add(Position2D);
 
+					// Find the collision offset for this sample point
+					float CollisionOffset = 0;
+					for (int SegmentIndex = 0; SegmentIndex < Segments.Num(); ++SegmentIndex)
+					{
+						FTerrainSegment& Segment = Segments[SegmentIndex];
+						if (CurrentTime >= Segment.StartTime && CurrentTime <= Segment.EndTime)
+						{
+							CollisionOffset = (Segment.Rule != nullptr) ? (Segment.Rule->CollisionOffset * 0.25f) : 0;
+							break;
+						}
+					}
+					SplineEdgeOffsetAmounts.Add(CollisionOffset);
+
 					CurrentTime += FillRasterizationTimeRate;
 				}
 			}
 
-			const UPaperSprite* FillSprite = TerrainMaterial->InteriorFill;
-			FPaperTerrainMaterialPair& MaterialBatch = *new (GeneratedSpriteGeometry) FPaperTerrainMaterialPair(); //@TODO: Look up the existing one instead
-			MaterialBatch.Material = FillSprite->GetDefaultMaterial();
+			SimplifyPolygon(SplinePolyVertices2D, SplineEdgeOffsetAmounts);
 
-			FSpriteDrawCallRecord& FillDrawCall = *new (MaterialBatch.Records) FSpriteDrawCallRecord();
-			FillDrawCall.BuildFromSprite(FillSprite);
-			FillDrawCall.RenderVerts.Empty();
-			FillDrawCall.Color = TerrainColor;
-			FillDrawCall.Destination = PaperAxisZ * 0.1f;
+			// Always CCW and facing forward regardless of spline winding
+			TArray<FVector2D> CorrectedSplineVertices;
+			PaperGeomTools::CorrectPolygonWinding(CorrectedSplineVertices, SplinePolyVertices2D, false);
 
-			const FVector2D TextureSize = GetSpriteRenderDataBounds2D(FillSprite->BakedRenderData).GetSize();
-			const FVector2D SplineSize = SplineBounds.GetSize();
-			
-			SpawnFromPoly(FillSprite, FillDrawCall, TextureSize, SplinePolyVertices2D);
+			TArray<FVector2D> TriangulatedPolygonVertices;
+			PaperGeomTools::TriangulatePoly(/*out*/TriangulatedPolygonVertices, CorrectedSplineVertices, false);
 
-			//@TODO: Add support for the fill sprite being smaller than the entire texture
-#if NOT_WORKING
-			const float StartingDivisionPointX = FMath::CeilToFloat(SplineBounds.Min.X / TextureSize.X);
-			const float StartingDivisionPointY = FMath::CeilToFloat(SplineBounds.Min.Y / TextureSize.Y);
+			GenerateCollisionDataFromPolygon(SplinePolyVertices2D, SplineEdgeOffsetAmounts, TriangulatedPolygonVertices);
 
-			FPoly VerticalRemainder = SplineAsPolygon;
-			for (float Y = StartingDivisionPointY; VerticalRemainder.Vertices.Num() > 0; Y += TextureSize.Y)
+			if (TerrainMaterial->InteriorFill != nullptr)
 			{
-				FPoly Top;
-				FPoly Bottom;
-				const FVector SplitBaseOuter = (Y * PaperAxisY);
-				VerticalRemainder.SplitWithPlane(SplitBaseOuter, -PaperAxisY, &Top, &Bottom, 1);
-				VerticalRemainder = Bottom;
+				const UPaperSprite* FillSprite = TerrainMaterial->InteriorFill;
+				FPaperTerrainSpriteGeometry& MaterialBatch = *new (GeneratedSpriteGeometry)FPaperTerrainSpriteGeometry(); //@TODO: Look up the existing one instead
+				MaterialBatch.Material = FillSprite->GetDefaultMaterial();
 
-				FPoly HorizontalRemainder = Top;
-				for (float X = StartingDivisionPointX; HorizontalRemainder.Vertices.Num() > 0; X += TextureSize.X)
+				FSpriteDrawCallRecord& FillDrawCall = *new (MaterialBatch.Records) FSpriteDrawCallRecord();
+				FillDrawCall.BuildFromSprite(FillSprite);
+				FillDrawCall.RenderVerts.Empty();
+				FillDrawCall.Color = TerrainColor;
+				FillDrawCall.Destination = PaperAxisZ * 0.1f;
+
+				const FVector2D TextureSize = GetSpriteRenderDataBounds2D(FillSprite->BakedRenderData).GetSize();
+				const FVector2D SplineSize = SplineBounds.GetSize();
+
+				GenerateFillRenderDataFromPolygon(FillSprite, FillDrawCall, TextureSize, TriangulatedPolygonVertices);
+
+				//@TODO: Add support for the fill sprite being smaller than the entire texture
+#if NOT_WORKING
+				const float StartingDivisionPointX = FMath::CeilToFloat(SplineBounds.Min.X / TextureSize.X);
+				const float StartingDivisionPointY = FMath::CeilToFloat(SplineBounds.Min.Y / TextureSize.Y);
+
+				FPoly VerticalRemainder = SplineAsPolygon;
+				for (float Y = StartingDivisionPointY; VerticalRemainder.Vertices.Num() > 0; Y += TextureSize.Y)
 				{
-					FPoly Left;
-					FPoly Right;
-					const FVector SplitBaseInner = (X * PaperAxisX) + (Y * PaperAxisY);
-					HorizontalRemainder.SplitWithPlane(SplitBaseInner, -PaperAxisX, &Left, &Right, 1);
-					HorizontalRemainder = Right;
+					FPoly Top;
+					FPoly Bottom;
+					const FVector SplitBaseOuter = (Y * PaperAxisY);
+					VerticalRemainder.SplitWithPlane(SplitBaseOuter, -PaperAxisY, &Top, &Bottom, 1);
+					VerticalRemainder = Bottom;
 
-					SpawnFromPoly(FillSprite, FillDrawCall, TextureSize, Left);
+					FPoly HorizontalRemainder = Top;
+					for (float X = StartingDivisionPointX; HorizontalRemainder.Vertices.Num() > 0; X += TextureSize.X)
+					{
+						FPoly Left;
+						FPoly Right;
+						const FVector SplitBaseInner = (X * PaperAxisX) + (Y * PaperAxisY);
+						HorizontalRemainder.SplitWithPlane(SplitBaseInner, -PaperAxisX, &Left, &Right, 1);
+						HorizontalRemainder = Right;
+
+						//BROKEN, function no longer exists (split into 2 parts)
+						SpawnFromPoly(Segments, SplineEdgeOffsetAmounts, FillSprite, FillDrawCall, TextureSize, Left);
+					}
 				}
-			}
 #endif
+			}
 		}
 
 		// Draw debug frames at the start and end of the spline
@@ -549,75 +657,280 @@ void UPaperTerrainComponent::OnSplineEdited()
 	RecreateRenderState_Concurrent();
 }
 
-void UPaperTerrainComponent::SpawnSegment(const UPaperSprite* NewSprite, float Position, float HorizontalScale, float NominalWidth, const FPaperTerrainMaterialRule* Rule)
+#define USE_SIMPLIFIED_POLYGON_COLLIDERS_FOR_SEGMENTS
+
+void UPaperTerrainComponent::SpawnSegments(const TArray<FTerrainSegment>& TerrainSegments, bool bGenerateSegmentColliders)
 {
-	if ((Rule->bEnableCollision) && (CachedBodySetup != nullptr))
+#ifdef USE_SIMPLIFIED_POLYGON_COLLIDERS_FOR_SEGMENTS
+	TArray<FVector2D> CollisionPolygonPoints;
+#endif
+
+	for (const FTerrainSegment& Segment : TerrainSegments)
 	{
-		const FTransform LocalTransformAtCenter(GetTransformAtDistance(Position));
-
-		FKBoxElem Box;
-
-		if (bClosedSpline)
+		for (const FTerrainSpriteStamp& Stamp : Segment.Stamps)
 		{
-			//@TODO: Add proper support for this!
-			Box.SetTransform(LocalTransformAtCenter);
-			Box.X = NominalWidth * HorizontalScale;
-			Box.Y = CollisionThickness;
-			Box.Z = 30.0f;
+			const class UPaperSprite* NewSprite = Stamp.Sprite;
+			float Position = Stamp.Time;
+			float HorizontalScale = Stamp.Scale;
+			float NominalWidth = Stamp.NominalWidth;
+			const struct FPaperTerrainMaterialRule* Rule = Segment.Rule;
+
+			if (bGenerateSegmentColliders && (Rule->bEnableCollision) && (CachedBodySetup != nullptr))
+			{
+				const FTransform LocalTransformAtCenter(GetTransformAtDistance(Position));
+
+#ifdef USE_SIMPLIFIED_POLYGON_COLLIDERS_FOR_SEGMENTS
+				// Check note be low Re: bClosedSplines
+				FVector2D BoxExtents( 0.5f * NominalWidth * HorizontalScale, 0.5f * FMath::Max<float>(1.0f, FMath::Abs<float>(Rule->CollisionOffset * 0.5f)) );
+				
+				FVector BoxPoints[4];
+				BoxPoints[0] = LocalTransformAtCenter.TransformPosition(FVector(BoxExtents.X, 0, BoxExtents.Y));
+				BoxPoints[1] = LocalTransformAtCenter.TransformPosition(FVector(-BoxExtents.X, 0, BoxExtents.Y));
+				BoxPoints[2] = LocalTransformAtCenter.TransformPosition(FVector(-BoxExtents.X, 0, -BoxExtents.Y));
+				BoxPoints[3] = LocalTransformAtCenter.TransformPosition(FVector(BoxExtents.X, 0, -BoxExtents.Y));
+
+				FVector2D BoxPoints2D[4];
+				BoxPoints2D[0].Set(BoxPoints[0].X, BoxPoints[0].Z);
+				BoxPoints2D[1].Set(BoxPoints[1].X, BoxPoints[1].Z);
+				BoxPoints2D[2].Set(BoxPoints[2].X, BoxPoints[2].Z);
+				BoxPoints2D[3].Set(BoxPoints[3].X, BoxPoints[3].Z);
+
+				// If there is a previous polygon, try to merge
+				if (CollisionPolygonPoints.Num() >= 4)
+				{
+					int InsertPoint = CollisionPolygonPoints.Num() / 2 - 1;
+					float LengthV0 = FVector2D::Distance(CollisionPolygonPoints[InsertPoint], BoxPoints2D[0]);
+					float LengthV1 = FVector2D::Distance(CollisionPolygonPoints[InsertPoint + 1], BoxPoints2D[3]);
+					float MergeThreshold = 10;
+					bool bMergeIntoPolygon = LengthV0 < MergeThreshold && LengthV1 < MergeThreshold;
+					if (bMergeIntoPolygon)
+					{
+						CollisionPolygonPoints.Insert(BoxPoints2D[2], InsertPoint + 1);
+						CollisionPolygonPoints.Insert(BoxPoints2D[1], InsertPoint + 1);
+					}
+					else
+					{
+						InsertConvexCollisionDataFromPolygon(CollisionPolygonPoints);
+						CollisionPolygonPoints.Empty(0);
+						CollisionPolygonPoints.Add(BoxPoints2D[0]);
+						CollisionPolygonPoints.Add(BoxPoints2D[1]);
+						CollisionPolygonPoints.Add(BoxPoints2D[2]);
+						CollisionPolygonPoints.Add(BoxPoints2D[3]);
+					}
+				}
+				else
+				{
+					CollisionPolygonPoints.Add(BoxPoints2D[0]);
+					CollisionPolygonPoints.Add(BoxPoints2D[1]);
+					CollisionPolygonPoints.Add(BoxPoints2D[2]);
+					CollisionPolygonPoints.Add(BoxPoints2D[3]);
+				}
+#else
+				FKBoxElem Box;
+				// The spline is never "closed" properly right now
+				//if (bClosedSpline)
+				//{
+				//	//@TODO: Add proper support for this!
+				//	Box.SetTransform(LocalTransformAtCenter);
+				//	Box.X = NominalWidth * HorizontalScale;
+				//	Box.Y = CollisionThickness;
+				//	Box.Z = 30.0f;
+				//}
+				//else
+				{
+					Box.SetTransform(LocalTransformAtCenter);
+					Box.X = NominalWidth * HorizontalScale;
+					Box.Y = CollisionThickness;
+
+					Box.Z = FMath::Max<float>(1.0f, FMath::Abs<float>(Rule->CollisionOffset * 0.5f));
+				}
+				CachedBodySetup->AggGeom.BoxElems.Add(Box);
+#endif
+			}
+
+			if (NewSprite)
+			{
+				FPaperTerrainSpriteGeometry& MaterialBatch = *new (GeneratedSpriteGeometry) FPaperTerrainSpriteGeometry(); //@TODO: Look up the existing one instead
+				MaterialBatch.Material = NewSprite->GetDefaultMaterial();
+				MaterialBatch.DrawOrder = Rule->DrawOrder;
+
+				FSpriteDrawCallRecord& Record = *new (MaterialBatch.Records) FSpriteDrawCallRecord();
+				Record.BuildFromSprite(NewSprite);
+				Record.Color = TerrainColor;
+
+				// Work out if the sprite is likely to be bent > X deg (folded over itself)
+				const FVector ForwardVector(1, 0, 0);
+				const FTransform LocalTransformAtBack(GetTransformAtDistance(Position - 0.5f * NominalWidth * HorizontalScale));
+				FVector StartForwardVector = LocalTransformAtBack.TransformVector(ForwardVector).GetSafeNormal();
+				const FTransform LocalTransformAtFront(GetTransformAtDistance(Position + 0.5f * NominalWidth * HorizontalScale));
+				FVector EndForwardVector = LocalTransformAtFront.TransformVector(ForwardVector).GetSafeNormal();
+				bool bIsSpriteBent = FVector::DotProduct(StartForwardVector, EndForwardVector) < 0.0f;// 0.7071f; // (45deg looks worse)
+
+				for (FVector4& XYUV : Record.RenderVerts)
+				{
+					FTransform LocalTransformAtX(GetTransformAtDistance(Position + (XYUV.X * HorizontalScale)));
+
+					// When the quad is overly bent, inherit rotation from the start of the quad to unfold it
+					if (bIsSpriteBent)
+					{
+						LocalTransformAtX.SetRotation(LocalTransformAtFront.GetRotation());
+					}
+
+					const FVector SourceVector = (XYUV.Y * PaperAxisY);
+					const FVector NewVector = LocalTransformAtX.TransformPosition(SourceVector);
+
+					const float NewX = FVector::DotProduct(NewVector, PaperAxisX);
+					const float NewY = FVector::DotProduct(NewVector, PaperAxisY);
+
+					XYUV.X = NewX;
+					XYUV.Y = NewY;
+				}
+			}
 		}
-		else
-		{
-			Box.SetTransform(LocalTransformAtCenter);
-			Box.X = NominalWidth * HorizontalScale;
-			Box.Y = CollisionThickness;
-			Box.Z = FMath::Max<float>(1.0f, FMath::Abs<float>(Rule->CollisionOffset * 0.5f));
-		}
-		CachedBodySetup->AggGeom.BoxElems.Add(Box);
 	}
 
-	if (NewSprite)
+	//@TODO: Sort by draw order first, materials next - Merge batches with the same material
+	GeneratedSpriteGeometry.Sort([](const FPaperTerrainSpriteGeometry& A, const FPaperTerrainSpriteGeometry& B) { return B.DrawOrder > A.DrawOrder; });
+
+#ifdef USE_SIMPLIFIED_POLYGON_COLLIDERS_FOR_SEGMENTS
+	// For whatever is remaining
+	if (CollisionPolygonPoints.Num() > 0)
 	{
-		FPaperTerrainMaterialPair& MaterialBatch = *new (GeneratedSpriteGeometry) FPaperTerrainMaterialPair(); //@TODO: Look up the existing one instead
-		MaterialBatch.Material = NewSprite->GetDefaultMaterial();
+		InsertConvexCollisionDataFromPolygon(CollisionPolygonPoints);
+	}
+#endif
+}
 
-		FSpriteDrawCallRecord& Record = *new (MaterialBatch.Records) FSpriteDrawCallRecord();
-		Record.BuildFromSprite(NewSprite);
-		Record.Color = TerrainColor;
+// Create an extruded convex hull resulting from extruding edges by the amount defined in EdgeExtrudeAmount
+// Each edge is extruded in the normal direction to the edge
+static void CreateExtrudedConvexHull(TArray<FVector2D>& OutConvexHull, TArray<FVector2D>& SourcePoints, TArray<float> EdgeExtrudeAmount)
+{
+	TArray<FVector2D> ExtrudedPoints;
+	int SourcePointsCount = SourcePoints.Num();
+	for (int i = 0; i < SourcePointsCount; ++i)
+	{
+		FVector2D& A = SourcePoints[i];
+		FVector2D& B = SourcePoints[(i + 1) % SourcePointsCount];
+		FVector2D N(B.Y - A.Y, A.X - B.X);
+		N.Normalize();
+		float extrude = EdgeExtrudeAmount[i];
 
-		for (FVector4& XYUV : Record.RenderVerts)
+		// Each edge is pushed forwards and backwards, and the points added
+		ExtrudedPoints.Add(A + N * extrude);
+		ExtrudedPoints.Add(A - N * extrude);
+		ExtrudedPoints.Add(B + N * extrude);
+		ExtrudedPoints.Add(B - N * extrude);
+	}
+
+	PaperGeomTools::GenerateConvexHullFromPoints(OutConvexHull, ExtrudedPoints);
+}
+
+void UPaperTerrainComponent::GenerateFillRenderDataFromPolygon(const class UPaperSprite* NewSprite, FSpriteDrawCallRecord& FillDrawCall, const FVector2D& TextureSize, const TArray<FVector2D>& TriangulatedPolygonVertices)
+{
+	const FVector2D TextureSizeInUnits = TextureSize * NewSprite->GetUnrealUnitsPerPixel();
+
+	// Pack vertex data
+	if (TriangulatedPolygonVertices.Num() >= 3)
+	{
+		for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < TriangulatedPolygonVertices.Num(); ++TriangleVertexIndex)
 		{
-			const FTransform LocalTransformAtX(GetTransformAtDistance(Position + (XYUV.X * HorizontalScale)));
-			const FVector SourceVector = (XYUV.Y * PaperAxisY);
-			const FVector NewVector = LocalTransformAtX.TransformPosition(SourceVector);
-
-			const float NewX = FVector::DotProduct(NewVector, PaperAxisX);
-			const float NewY = FVector::DotProduct(NewVector, PaperAxisY);
-
-			XYUV.X = NewX;
-			XYUV.Y = NewY;
+			const FVector2D& TriangleVertex = TriangulatedPolygonVertices[TriangleVertexIndex];
+			new (FillDrawCall.RenderVerts) FVector4(TriangleVertex.X, TriangleVertex.Y, TriangleVertex.X / TextureSizeInUnits.X, -TriangleVertex.Y / TextureSizeInUnits.Y);
 		}
 	}
 }
 
-void UPaperTerrainComponent::SpawnFromPoly(const class UPaperSprite* NewSprite, FSpriteDrawCallRecord& Batch, const FVector2D& TextureSize, const TArray<FVector2D>& SplinePolyVertices2D)
+void UPaperTerrainComponent::GenerateCollisionDataFromPolygon(const TArray<FVector2D>& SplinePolyVertices2D, const TArray<float>& TerrainOffsets, const TArray<FVector2D>& TriangulatedPolygonVertices)
 {
-	const FVector2D TextureSizeInUnits = TextureSize * NewSprite->GetUnrealUnitsPerPixel();
-
-	// Correct spline vertices so they are always CCW
-	//@TODO: Handle overlapping and crossing polygon edges during triangulation
-	TArray<FVector2D> CorrectedSpriteVertices;
-	PaperGeomTools::CorrectPolygonWinding(/*out*/CorrectedSpriteVertices, SplinePolyVertices2D, false);
-
-	if (SplinePolyVertices2D.Num() >= 3)
+	if (CachedBodySetup != nullptr && TriangulatedPolygonVertices.Num() >= 3)
 	{
-		TArray<FVector2D> TriangulatedPolygonVertices;
-		PaperGeomTools::TriangulatePoly(/*out*/TriangulatedPolygonVertices, CorrectedSpriteVertices, false);
+		// Generate polygon collider
+		TArray<TArray<FVector2D>> ConvexHulls;
+		PaperGeomTools::GenerateConvexPolygonsFromTriangles(ConvexHulls, TriangulatedPolygonVertices);
+		TArray<float> ConvexHullEdgeExtrusionAmount;
 
-		// Pack vertex data
-		for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < TriangulatedPolygonVertices.Num(); ++TriangleVertexIndex)
+		for (TArray<FVector2D> ConvexHull : ConvexHulls)
 		{
-			const FVector2D& TriangleVertex = TriangulatedPolygonVertices[TriangleVertexIndex];
-			new (Batch.RenderVerts) FVector4(TriangleVertex.X, TriangleVertex.Y, TriangleVertex.X / TextureSizeInUnits.X, -TriangleVertex.Y / TextureSizeInUnits.Y);
+			ConvexHullEdgeExtrusionAmount.Empty(ConvexHull.Num());
+
+			// Find distances for each edge in this convex hull from the pair of points forming the edge
+			// Not all edges will match edges in the original concave geometry, eg. newly created internal edges
+			//TODO: Speed this up by using indices / vertex & edge identifiers instead of brute force search
+			for (int ConvexHullPoint = 0; ConvexHullPoint < ConvexHull.Num(); ++ConvexHullPoint)
+			{
+				const FVector2D& A = ConvexHull[ConvexHullPoint];
+				const FVector2D& B = ConvexHull[(ConvexHullPoint + 1) % ConvexHull.Num()];
+				bool bFound = false;
+				for (int Vertex = 0; Vertex < SplinePolyVertices2D.Num(); ++Vertex)
+				{
+					// The winding is might be different to the source polygon, compare both ways
+					int NextVertexIndex = (Vertex + 1) % SplinePolyVertices2D.Num();
+					if ((A.Equals(SplinePolyVertices2D[Vertex], THRESH_POINTS_ARE_SAME) && B.Equals(SplinePolyVertices2D[NextVertexIndex], THRESH_POINTS_ARE_SAME)) ||
+						(B.Equals(SplinePolyVertices2D[Vertex], THRESH_POINTS_ARE_SAME) && A.Equals(SplinePolyVertices2D[NextVertexIndex], THRESH_POINTS_ARE_SAME)))
+					{
+						// Found an edge that matches the 2 vertex points
+						ConvexHullEdgeExtrusionAmount.Add(TerrainOffsets[Vertex]);
+						bFound = true;
+						break;
+					}
+				}
+				if (!bFound)
+				{
+					// Couldn't find this edge in the original polygon 
+					ConvexHullEdgeExtrusionAmount.Add(0);
+				}
+			}
+				
+			TArray<FVector2D> ExtrudedConvexHull;
+			CreateExtrudedConvexHull(ExtrudedConvexHull, ConvexHull, ConvexHullEdgeExtrusionAmount);
+//			ExtrudedConvexHull = ConvexHull;
+
+			// Generate convex hull
+			FKConvexElem Convex;
+			for (int J = 0; J < ExtrudedConvexHull.Num(); ++J)
+			{
+				FVector2D& Vert = ExtrudedConvexHull[J];
+				new(Convex.VertexData) FVector(Vert.X, -0.5f * CollisionThickness, Vert.Y);
+				new(Convex.VertexData) FVector(Vert.X, 0.5f * CollisionThickness, Vert.Y);
+			}
+			Convex.UpdateElemBox();
+
+			CachedBodySetup->AggGeom.ConvexElems.Add(Convex);
+		}
+	}
+}
+
+void UPaperTerrainComponent::InsertConvexCollisionDataFromPolygon(const TArray<FVector2D>& ClosedPolyVertices2D)
+{
+	if (CachedBodySetup != nullptr && ClosedPolyVertices2D.Num() >= 3)
+	{
+		// Simplify polygon
+		TArray<float> EmptyOffsetsList;
+		TArray<FVector2D> LocalPolyVertices = ClosedPolyVertices2D;
+		SimplifyPolygon(LocalPolyVertices, EmptyOffsetsList);
+
+		// Always CCW and facing forward regardless of spline winding
+		TArray<FVector2D> CorrectedSplineVertices;
+		PaperGeomTools::CorrectPolygonWinding(CorrectedSplineVertices, LocalPolyVertices, false);
+
+		TArray<FVector2D> TriangulatedPolygonVertices;
+		PaperGeomTools::TriangulatePoly(/*out*/TriangulatedPolygonVertices, CorrectedSplineVertices, false);
+
+		TArray<TArray<FVector2D>> ConvexHulls;
+		PaperGeomTools::GenerateConvexPolygonsFromTriangles(ConvexHulls, TriangulatedPolygonVertices);
+
+		for (TArray<FVector2D> ConvexHull : ConvexHulls)
+		{
+			FKConvexElem Convex;
+			for (int J = 0; J < ConvexHull.Num(); ++J)
+			{
+				FVector2D& Vert = ConvexHull[J];
+				new(Convex.VertexData) FVector(Vert.X, -0.5f * CollisionThickness, Vert.Y);
+				new(Convex.VertexData) FVector(Vert.X, 0.5f * CollisionThickness, Vert.Y);
+			}
+			Convex.UpdateElemBox();
+
+			CachedBodySetup->AggGeom.ConvexElems.Add(Convex);
 		}
 	}
 }
@@ -630,7 +943,7 @@ void UPaperTerrainComponent::SetTerrainColor(FLinearColor NewColor)
 		TerrainColor = NewColor;
 
 		// Update the color in the game-thread copy of the render geometry
-		for (FPaperTerrainMaterialPair& Batch : GeneratedSpriteGeometry)
+		for (FPaperTerrainSpriteGeometry& Batch : GeneratedSpriteGeometry)
 		{
 			for (FSpriteDrawCallRecord& DrawCall : Batch.Records)
 			{

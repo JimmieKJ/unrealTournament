@@ -2,12 +2,12 @@
 
 #pragma once
 
-class SGraphPanel;
-class SGraphNode;
+#include "SNodePanel.h"
+
 class SGraphPin;
+class SGraphPanel;
 class UEdGraphNode;
 class FActorDragDropOp;
-
 
 /////////////////////////////////////////////////////
 // SNodeTitle
@@ -195,6 +195,9 @@ public:
 	/** Returns the current Node LOD or Highest LOD if unable to query */
 	EGraphRenderingLOD::Type GetCurrentLOD() const;
 
+	/** Called when GraphNode changes its error information, may be called when no change has actually occurred: */
+	void RefreshErrorInfo();
+
 protected:
 	SGraphNode();
 
@@ -212,7 +215,7 @@ protected:
 	 *
 	 *	@return string to be displayed as tooltip.
 	 */
-	FString GetErrorMsgToolTip() const;
+	FText GetErrorMsgToolTip() const;
 
 	/**
 	 * Add a new pin to this graph node. The pin must be newly created.
@@ -254,7 +257,7 @@ protected:
 	void UpdateErrorInfo();
 
 	/** Set-up the error reporting widget for the node */
-	TSharedPtr<SWidget>	SetupErrorReporting();
+	void SetupErrorReporting();
 
 	// Should we use low-detail node titles?
 	virtual bool UseLowDetailNodeTitles() const;

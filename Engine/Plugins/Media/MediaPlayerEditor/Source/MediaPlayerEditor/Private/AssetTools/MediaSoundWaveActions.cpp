@@ -35,7 +35,7 @@ UClass* FMediaSoundWaveActions::GetSupportedClass() const
 
 FColor FMediaSoundWaveActions::GetTypeColor() const
 {
-	return FColor::Blue;
+	return FColor(77, 93, 239);
 }
 
 

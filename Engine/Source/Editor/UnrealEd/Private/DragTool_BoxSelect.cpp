@@ -300,7 +300,7 @@ bool FDragTool_ActorBoxSelect::IntersectsBox( AActor& InActor, const FBox& InBox
 	if( !bActorIsHiddenByShowFlags && !InActor.IsHiddenEd() && !FActorEditorUtils::IsABuilderBrush(&InActor) && bActorRecentlyRendered )
 	{
 		// Iterate over all actor components, selecting out primitive components
-		TArray<UPrimitiveComponent*> PrimitiveComponents;
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
 		InActor.GetComponents(PrimitiveComponents);
 
 		for (const UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)

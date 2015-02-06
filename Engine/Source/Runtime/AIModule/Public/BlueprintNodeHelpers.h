@@ -32,4 +32,10 @@ namespace BlueprintNodeHelpers
 	{
 		return Ob->GetClass()->GetName().LeftChop(2);
 	}
+
+	//----------------------------------------------------------------------//
+	// DEPRECATED
+	//----------------------------------------------------------------------//
+	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UActorComponent rather than a pointer.")
+	void AbortLatentActions(UActorComponent* OwnerOb, const UObject* Ob);
 }

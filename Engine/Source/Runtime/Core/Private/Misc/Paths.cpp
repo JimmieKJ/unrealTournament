@@ -359,9 +359,9 @@ FString FPaths::GameSourceDir()
 	return FPaths::GameDir() + TEXT("Source/");
 }
 
-FString FPaths::StarterContentDir()
+FString FPaths::FeaturePackDir()
 {
-	return FPaths::RootDir() + TEXT("Samples/StarterContent/");
+	return FPaths::RootDir() + TEXT("FeaturePacks/");
 }
 
 bool FPaths::IsProjectFilePathSet()

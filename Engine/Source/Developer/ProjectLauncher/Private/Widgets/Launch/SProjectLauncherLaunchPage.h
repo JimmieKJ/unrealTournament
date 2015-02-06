@@ -45,7 +45,7 @@ private:
 	EVisibility HandleLaunchModeBoxVisibility( ) const;
 
 	// Callback for getting the content text of the 'Launch Mode' combo button.
-	FString HandleLaunchModeComboButtonContentText( ) const;
+	FText HandleLaunchModeComboButtonContentText( ) const;
 
 	// Callback for clicking an item in the 'Launch Mode' menu.
 	void HandleLaunchModeMenuEntryClicked( ELauncherProfileLaunchModes::Type LaunchMode );

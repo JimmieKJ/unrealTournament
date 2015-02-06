@@ -2,7 +2,7 @@
 #pragma once
 #include "IDocumentationPage.h"
 
-class SDocumentationToolTip : public SCompoundWidget
+class DOCUMENTATION_API SDocumentationToolTip : public SCompoundWidget
 {
 
 public:
@@ -10,7 +10,12 @@ public:
 	SLATE_BEGIN_ARGS( SDocumentationToolTip )
 		: _Text()
 		, _Style( TEXT("Documentation.SDocumentationTooltip") )
-		, _ColorAndOpacity( FLinearColor( 1.0f, 1.0f, 1.0f, 1.0f ) )
+		, _SubduedStyle( TEXT("Documentation.SDocumentationTooltipSubdued") )
+		, _HyperlinkTextStyle( TEXT("Documentation.SDocumentationTooltipHyperlinkText") )
+		, _HyperlinkButtonStyle( TEXT("Documentation.SDocumentationTooltipHyperlinkButton") )
+		, _ColorAndOpacity( FLinearColor::Black )
+		, _AddDocumentation( true )
+		, _DocumentationMargin(0)
 		, _Content()
 		{}
 
@@ -20,8 +25,22 @@ public:
 		/** The text style to use for this tool tip */
 		SLATE_ARGUMENT( FName, Style )
 		
+		/** The text style to use for subdued footer text in this tool tip */
+		SLATE_ARGUMENT( FName, SubduedStyle )
+		
+		/** The text style to use for hyperlinks in this tool tip */
+		SLATE_ARGUMENT( FName, HyperlinkTextStyle )
+
+		/** Hyperlink button style */
+		SLATE_ARGUMENT( FName, HyperlinkButtonStyle )
+
 		/** Font color and opacity */
 		SLATE_ATTRIBUTE( FSlateColor, ColorAndOpacity )
+
+		/**  */
+		SLATE_ARGUMENT( bool, AddDocumentation )
+
+		SLATE_ARGUMENT( FMargin, DocumentationMargin )
 
 		/**  */
 		SLATE_ARGUMENT( FString, DocumentationLink )
@@ -50,6 +69,14 @@ public:
 		return TextContent.Get();
 	}
 
+	/**
+	 * Adds slots to the provided Vertical Box containing the documentation information.
+	 * If you specify not to add it (AddDocumentation = false) you may call this externally to do custom tooltip layout
+	 *
+	 * @param	VerticalBox	The vertical box to add it to
+	 */
+	void AddDocumentation(TSharedPtr< SVerticalBox > VerticalBox);
+
 private:
 
 	void ConstructSimpleTipContent();
@@ -66,6 +93,9 @@ private:
 	TAttribute< FText > TextContent;
 	TSharedPtr< SWidget > OverrideContent;
 	FTextBlockStyle StyleInfo;
+	FTextBlockStyle SubduedStyleInfo;
+	FTextBlockStyle HyperlinkTextStyleInfo;
+	FButtonStyle HyperlinkButtonStyleInfo;
 	TAttribute< FSlateColor > ColorAndOpacity;
 
 	/** The link to the documentation */
@@ -73,7 +103,7 @@ private:
 	FString ExcerptName;
 
 	/** Content widget */
-	TSharedPtr< SBorder > WidgetContent;
+	TSharedPtr< SBox > WidgetContent;
 
 	TSharedPtr< SWidget > SimpleTipContent;
 	bool IsDisplayingDocumentationLink;
@@ -82,4 +112,7 @@ private:
 
 	TSharedPtr< IDocumentationPage > DocumentationPage;
 	bool IsShowingFullTip;
+
+	bool bAddDocumentation;
+	FMargin DocumentationMargin;
 };

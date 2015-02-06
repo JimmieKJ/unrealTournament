@@ -504,23 +504,23 @@ ENetMode UNetDriver::GetNetMode() const
 	return (IsServer() ? (GIsClient ? NM_ListenServer : NM_DedicatedServer) : NM_Client);
 }
 
-void UNetDriver::RegisterTickEvents(class UWorld* InWorld) const
+void UNetDriver::RegisterTickEvents(class UWorld* InWorld)
 {
 	if (InWorld)
 	{
-		InWorld->OnTickDispatch().AddUObject(this, &UNetDriver::TickDispatch);
-		InWorld->OnTickFlush().AddUObject(this, &UNetDriver::TickFlush);
-		InWorld->OnPostTickFlush().AddUObject(this, &UNetDriver::PostTickFlush);
+		TickDispatchDelegateHandle  = InWorld->OnTickDispatch ().AddUObject(this, &UNetDriver::TickDispatch);
+		TickFlushDelegateHandle     = InWorld->OnTickFlush    ().AddUObject(this, &UNetDriver::TickFlush);
+		PostTickFlushDelegateHandle = InWorld->OnPostTickFlush().AddUObject(this, &UNetDriver::PostTickFlush);
 	}
 }
 
-void UNetDriver::UnregisterTickEvents(class UWorld* InWorld) const
+void UNetDriver::UnregisterTickEvents(class UWorld* InWorld)
 {
 	if (InWorld)
 	{
-		InWorld->OnTickDispatch().RemoveUObject(this, &UNetDriver::TickDispatch);
-		InWorld->OnTickFlush().RemoveUObject(this, &UNetDriver::TickFlush);
-		InWorld->OnPostTickFlush().RemoveUObject(this, &UNetDriver::PostTickFlush);
+		InWorld->OnTickDispatch ().Remove(TickDispatchDelegateHandle);
+		InWorld->OnTickFlush    ().Remove(TickFlushDelegateHandle);
+		InWorld->OnPostTickFlush().Remove(PostTickFlushDelegateHandle);
 	}
 }
 
@@ -680,11 +680,8 @@ void UNetDriver::InternalProcessRemoteFunction
 			}
 			else
 			{
-				UE_LOG(LogNet, Log, TEXT("Error: Can't send function '%s' on '%s': Client hasn't loaded the level for this Actor"), *Function->GetName(), *Actor->GetName());
-				if ( !Connection->TrackLogsPerSecond() )	// This will disconnect the client if we get here too often
-				{
-					return;
-				}
+				UE_LOG(LogNet, Verbose, TEXT("Can't send function '%s' on '%s': Client hasn't loaded the level for this Actor"), *Function->GetName(), *Actor->GetName());
+				return;
 			}
 		}
 		if (!Ch)
@@ -1501,7 +1498,7 @@ void UNetDriver::FlushActorDormancy(AActor* Actor)
 UChildConnection* UNetDriver::CreateChild(UNetConnection* Parent)
 {
 	UE_LOG(LogNet, Log, TEXT("Creating child connection with %s parent"), *Parent->GetName());
-	UChildConnection* Child = new UChildConnection(FObjectInitializer());
+	auto Child = NewObject<UChildConnection>();
 	Child->Driver = this;
 	Child->URL = FURL();
 	Child->State = Parent->State;

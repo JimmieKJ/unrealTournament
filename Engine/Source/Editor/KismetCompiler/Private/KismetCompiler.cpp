@@ -23,6 +23,7 @@
 #include "EdGraph/EdGraphNode_Documentation.h"
 #include "Engine/DynamicBlueprintBinding.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Engine/InheritableComponentHandler.h"
 
 static bool bDebugPropertyPropagation = false;
 
@@ -31,25 +32,20 @@ static bool bDebugPropertyPropagation = false;
 
 //////////////////////////////////////////////////////////////////////////
 // Stats for this module
-
-
-DEFINE_STAT(EKismetCompilerStats_CompileTime);
-DEFINE_STAT(EKismetCompilerStats_CreateSchema);
-DEFINE_STAT(EKismetCompilerStats_CreateFunctionList);
-DEFINE_STAT(EKismetCompilerStats_Expansion);
-DEFINE_STAT(EKismetCompilerStats_ProcessUbergraph);
-DEFINE_STAT(EKismetCompilerStats_ProcessFunctionGraph);
-DEFINE_STAT(EKismetCompilerStats_PrecompileFunction);
-DEFINE_STAT(EKismetCompilerStats_CompileFunction);
-DEFINE_STAT(EKismetCompilerStats_PostcompileFunction);
-DEFINE_STAT(EKismetCompilerStats_FinalizationWork);
-DEFINE_STAT(EKismetCompilerStats_CodeGenerationTime);
-DEFINE_STAT(EKismetCompilerStats_ChooseTerminalScope);
-DEFINE_STAT(EKismetCompilerStats_CleanAndSanitizeClass);
-DEFINE_STAT(EKismetCompilerStats_CreateClassVariables);
-DEFINE_STAT(EKismetCompilerStats_BindAndLinkClass);
-DEFINE_STAT(EKismetCompilerStats_ChecksumCDO);
-DEFINE_STAT(EKismetCompilerStats_ResolveCompiledStatements);
+DECLARE_CYCLE_STAT(TEXT("Create Schema"), EKismetCompilerStats_CreateSchema, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Create Function List"), EKismetCompilerStats_CreateFunctionList, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Expansion"), EKismetCompilerStats_Expansion, STATGROUP_KismetCompiler )
+DECLARE_CYCLE_STAT(TEXT("Process uber"), EKismetCompilerStats_ProcessUbergraph, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Process func"), EKismetCompilerStats_ProcessFunctionGraph, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Precompile Function"), EKismetCompilerStats_PrecompileFunction, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Compile Function"), EKismetCompilerStats_CompileFunction, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Postcompile Function"), EKismetCompilerStats_PostcompileFunction, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Finalization"), EKismetCompilerStats_FinalizationWork, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Code Gen"), EKismetCompilerStats_CodeGenerationTime, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Clean and Sanitize Class"), EKismetCompilerStats_CleanAndSanitizeClass, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Create Class Properties"), EKismetCompilerStats_CreateClassVariables, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Bind and Link Class"), EKismetCompilerStats_BindAndLinkClass, STATGROUP_KismetCompiler );
+DECLARE_CYCLE_STAT(TEXT("Calculate checksum of CDO"), EKismetCompilerStats_ChecksumCDO, STATGROUP_KismetCompiler );
 		
 //////////////////////////////////////////////////////////////////////////
 // FKismetCompilerContext
@@ -257,6 +253,14 @@ void FKismetCompilerContext::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjectC
 		{
 			SubObjectsToSave.AddObject(Curve);
 		}
+	}
+
+	if (Blueprint->InheritableComponentHandler)
+	{
+		SubObjectsToSave.AddObject(Blueprint->InheritableComponentHandler);
+		TArray<UActorComponent*> AllTemplates;
+		Blueprint->InheritableComponentHandler->GetAllTemplates(AllTemplates);
+		SubObjectsToSave.AddObjects(AllTemplates);
 	}
 }
 
@@ -583,7 +587,7 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 					const FString CategoryName = Node->CategoryName != NAME_None ? Node->CategoryName.ToString() : Blueprint->GetName();
 					
 					NewProperty->SetMetaData(TEXT("Category"), *CategoryName);
-					NewProperty->SetPropertyFlags(CPF_BlueprintVisible|CPF_NonTransactional);
+					NewProperty->SetPropertyFlags(CPF_BlueprintVisible | CPF_NonTransactional | CPF_BlueprintReadOnly);
 				}
 			}
 		}
@@ -902,7 +906,7 @@ void FKismetCompilerContext::CheckConnectionResponse(const FPinConnectionRespons
 {
 	if (!Response.CanSafeConnect())
 	{
-		MessageLog.Error(*FString::Printf(*LOCTEXT("FailedBuildingConnection_Error", "COMPILER ERROR: failed building connection with '%s' at @@").ToString(), *Response.Message), Node);
+		MessageLog.Error(*FString::Printf(*LOCTEXT("FailedBuildingConnection_Error", "COMPILER ERROR: failed building connection with '%s' at @@").ToString(), *Response.Message.ToString()), Node);
 	}
 }
 
@@ -1695,6 +1699,15 @@ void FKismetCompilerContext::FinishCompilingClass(UClass* Class)
 		{
 			Class->SetMetaData(TEXT("AutoCollapseCategories"), *ParentClass->GetMetaData("AutoCollapseCategories"));
 		}
+		
+		// Blueprinted Components are always Blueprint Spawnable
+		if (ParentClass->IsChildOf(UActorComponent::StaticClass()))
+		{
+			static const FName NAME_ClassGroupNames(TEXT("ClassGroupNames"));
+			Class->SetMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent, TEXT("true"));
+			Class->SetMetaData(NAME_ClassGroupNames, *NSLOCTEXT("BlueprintableComponents", "CategoryName", "Custom").ToString());
+		}
+
 
 		// Add a category if one has been specified
 		if(Blueprint->BlueprintCategory.Len() > 0)
@@ -1752,6 +1765,11 @@ void FKismetCompilerContext::FinishCompilingClass(UClass* Class)
 				Property->RepNotifyFunc = NAME_None;
 			}
 		}
+		if( Property->HasAnyPropertyFlags( CPF_Config ))
+		{
+			// If we have properties that are set from the config, then the class needs to also have CLASS_Config flags
+			Class->ClassFlags |= CLASS_Config;
+		}
 	}
 
 	// Set class metadata as needed
@@ -1767,10 +1785,12 @@ void FKismetCompilerContext::FinishCompilingClass(UClass* Class)
 		BPGClass->ComponentTemplates.Empty();
 		BPGClass->Timelines.Empty();
 		BPGClass->SimpleConstructionScript = NULL;
+		BPGClass->InheritableComponentHandler = NULL;
 
 		BPGClass->ComponentTemplates = Blueprint->ComponentTemplates;
 		BPGClass->Timelines = Blueprint->Timelines;
 		BPGClass->SimpleConstructionScript = Blueprint->SimpleConstructionScript;
+		BPGClass->InheritableComponentHandler = Blueprint->InheritableComponentHandler;
 	}
 
 	//@TODO: Not sure if doing this again is actually necessary
@@ -2547,7 +2567,7 @@ void FKismetCompilerContext::VerifyValidOverrideEvent(const UEdGraph* Graph)
 					{
 						MessageLog.Warning(*EventNode->GetDeprecationMessage(), EventNode);
 					}
-					else
+					else if(!Function->HasAllFunctionFlags(FUNC_Const))	// ...allow legacy event nodes that override methods declared as 'const' to pass.
 					{
 						MessageLog.Error(TEXT("The function in node @@ cannot be overridden and/or placed as event"), EventNode);
 					}
@@ -3263,6 +3283,15 @@ void FKismetCompilerContext::Compile()
 		++TimelineIndex;
 	}
 
+	if (CompileOptions.CompileType == EKismetCompileType::Full)
+	{
+		auto InheritableComponentHandler = Blueprint->GetInheritableComponentHandler(false);
+		if (InheritableComponentHandler)
+		{
+			InheritableComponentHandler->ValidateTemplates();
+		}
+	}
+
 	CleanAndSanitizeClass(TargetClass, OldCDO);
 
 	FKismetCompilerVMBackend Backend_VM(Blueprint, Schema, *this);
@@ -3508,7 +3537,8 @@ void FKismetCompilerContext::Compile()
 		}
 
 		CopyTermDefaultsToDefaultObject(NewCDO);
-		SetCanEverTickForActor();
+		SetCanEverTick();
+		SetWantsInitialize();
 		FKismetCompilerUtilities::ValidateEnumProperties(NewCDO, MessageLog);
 	}
 
@@ -3681,48 +3711,91 @@ const UK2Node_FunctionEntry* FKismetCompilerContext::FindLocalEntryPoint(const U
 	return NULL;
 }
 
-void FKismetCompilerContext::SetCanEverTickForActor()
+void FKismetCompilerContext::SetCanEverTick() const
 {
-	AActor* const CDActor = NewClass ? Cast<AActor>(NewClass->GetDefaultObject()) : NULL;
-	if(NULL == CDActor)
+	FTickFunction* TickFunction = nullptr;
+	FTickFunction* ParentTickFunction = nullptr;
+	
+	if (AActor* CDActor = Cast<AActor>(NewClass->GetDefaultObject()))
+	{
+		TickFunction = &CDActor->PrimaryActorTick;
+		ParentTickFunction = &NewClass->GetSuperClass()->GetDefaultObject<AActor>()->PrimaryActorTick;
+	}
+	else if (UActorComponent* CDComponent = Cast<UActorComponent>(NewClass->GetDefaultObject()))
+	{
+		TickFunction = &CDComponent->PrimaryComponentTick;
+		ParentTickFunction = &NewClass->GetSuperClass()->GetDefaultObject<UActorComponent>()->PrimaryComponentTick;
+	}
+
+	if (TickFunction == nullptr)
 	{
 		return;
 	}
 
-	const bool bOldFlag = CDActor->PrimaryActorTick.bCanEverTick;
+	const bool bOldFlag = TickFunction->bCanEverTick;
 	// RESET FLAG 
-	{
-		UClass* ParentClass = NewClass->GetSuperClass();
-		const AActor* ParentCDO = ParentClass ? Cast<AActor>(ParentClass->GetDefaultObject()) : NULL;
-		check(NULL != ParentCDO);
-		// Clear to handle case, when an event (that forced a flag) was removed, or class was re-parented
-		CDActor->PrimaryActorTick.bCanEverTick = ParentCDO->PrimaryActorTick.bCanEverTick;
-	}
+	TickFunction->bCanEverTick = ParentTickFunction->bCanEverTick;
 	
 	// RECEIVE TICK
-	static FName ReceiveTickName(GET_FUNCTION_NAME_CHECKED(AActor, ReceiveTick));
-	const UFunction* ReciveTickEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(ReceiveTickName, NewClass);
-	if (ReciveTickEvent)
+	if (!TickFunction->bCanEverTick)
 	{
-		static const FName ChildCanTickName = TEXT("ChildCanTick");
-		const UClass* FirstNativeClass = FBlueprintEditorUtils::FindFirstNativeClass(NewClass);
-		const bool bOverrideFlags = (AActor::StaticClass() == FirstNativeClass) || (FirstNativeClass && FirstNativeClass->HasMetaData(ChildCanTickName));
-		if(bOverrideFlags)
+		static FName ReceiveTickName(GET_FUNCTION_NAME_CHECKED(AActor, ReceiveTick));
+		static FName ComponentReceiveTickName(GET_FUNCTION_NAME_CHECKED(UActorComponent, ReceiveTick)); // Only doing this to ensure that both classes have the correct, same name
+		const UFunction* ReciveTickEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(ReceiveTickName, NewClass);
+		if (ReciveTickEvent)
 		{
-			CDActor->PrimaryActorTick.bCanEverTick = true;
-		}
-		else if(!CDActor->PrimaryActorTick.bCanEverTick)
-		{
-			const FString ReceivTickEventWarning = FString::Printf( 
-				*LOCTEXT("ReceiveTick_CanNeverTick", "Blueprint %s has the ReceiveTick @@ event, but it can never tick.  Please consider using a Timer instead of a tick, using Actor as the parent class, or you can enable Tick using code in one of the following ways: set ChildCanTick in the metadata on the parent class, or set bCanEverTick to true.").ToString(), *NewClass->GetName());
-			MessageLog.Warning( *ReceivTickEventWarning, FindLocalEntryPoint(ReciveTickEvent) );
+			static const FName ChildCanTickName = TEXT("ChildCanTick");
+			const UClass* FirstNativeClass = FBlueprintEditorUtils::FindFirstNativeClass(NewClass);
+			const bool bOverrideFlags = (AActor::StaticClass() == FirstNativeClass) || (UActorComponent::StaticClass() == FirstNativeClass) || (FirstNativeClass && FirstNativeClass->HasMetaData(ChildCanTickName));
+			if (bOverrideFlags)
+			{
+				TickFunction->bCanEverTick = true;
+			}
+			else if (!TickFunction->bCanEverTick)
+			{
+				const FString ReceivTickEventWarning = FString::Printf( 
+					*LOCTEXT("ReceiveTick_CanNeverTick", "Blueprint %s has the ReceiveTick @@ event, but it can never tick.  Please consider using a Timer instead of a tick or you can enable Tick using code in one of the following ways: set ChildCanTick in the metadata on the parent class, or set bCanEverTick to true.").ToString(), *NewClass->GetName());
+				MessageLog.Warning( *ReceivTickEventWarning, FindLocalEntryPoint(ReciveTickEvent) );
+			}
 		}
 	}
 
-	if(CDActor->PrimaryActorTick.bCanEverTick != bOldFlag)
+	if(TickFunction->bCanEverTick != bOldFlag)
 	{
-		UE_LOG(LogK2Compiler, Verbose, TEXT("Overridden flags for Actor class '%s': CanEverTick %s "), *NewClass->GetName(),
-			CDActor->PrimaryActorTick.bCanEverTick ? *(GTrue.ToString()) : *(GFalse.ToString()) );
+		UE_LOG(LogK2Compiler, Verbose, TEXT("Overridden flag for class '%s': CanEverTick %s "), *NewClass->GetName(),
+			TickFunction->bCanEverTick ? *(GTrue.ToString()) : *(GFalse.ToString()) );
+	}
+}
+
+void FKismetCompilerContext::SetWantsInitialize() const
+{
+	UActorComponent* CDComponent = Cast<UActorComponent>(NewClass->GetDefaultObject());
+
+	if (CDComponent == nullptr)
+	{
+		return;
+	}
+
+	const bool bOldFlag = CDComponent->bWantsInitializeComponent;
+
+	CDComponent->bWantsInitializeComponent = NewClass->GetSuperClass()->GetDefaultObject<UActorComponent>()->bWantsInitializeComponent;
+
+	if (!CDComponent->bWantsInitializeComponent)
+	{
+		static FName ReceiveInitializeComponentName(GET_FUNCTION_NAME_CHECKED(UActorComponent, ReceiveInitializeComponent));
+		static FName ReceiveUninitializeComponentName(GET_FUNCTION_NAME_CHECKED(UActorComponent, ReceiveUninitializeComponent));
+		const UFunction* ReciveInitializeComponentEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(ReceiveInitializeComponentName, NewClass);
+		const UFunction* ReciveUninitializeComponentEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(ReceiveUninitializeComponentName, NewClass);
+		if (ReciveInitializeComponentEvent || ReciveUninitializeComponentEvent)
+		{
+			CDComponent->bWantsInitializeComponent = true;
+		}
+	}
+
+	if(CDComponent->bWantsInitializeComponent != bOldFlag)
+	{
+		UE_LOG(LogK2Compiler, Verbose, TEXT("Overridden flag for class '%s': bWantsInitializeComponent %s "), *NewClass->GetName(),
+			CDComponent->bWantsInitializeComponent ? *(GTrue.ToString()) : *(GFalse.ToString()) );
 	}
 }
 

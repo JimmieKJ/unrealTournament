@@ -11,6 +11,7 @@
 #include "Editor/UnrealEd/Public/PackageTools.h"
 #include "SColorPicker.h"
 #include "GenericCommands.h"
+#include "NativeClassHierarchy.h"
 
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
@@ -25,9 +26,19 @@ FPathContextMenu::FPathContextMenu(const TWeakPtr<SWidget>& InParentContent)
 	
 }
 
-void FPathContextMenu::SetOnNewAssetRequested(const FNewAssetContextMenu::FOnNewAssetRequested& InOnNewAssetRequested)
+void FPathContextMenu::SetOnNewAssetRequested(const FNewAssetOrClassContextMenu::FOnNewAssetRequested& InOnNewAssetRequested)
 {
 	OnNewAssetRequested = InOnNewAssetRequested;
+}
+
+void FPathContextMenu::SetOnNewClassRequested(const FNewAssetOrClassContextMenu::FOnNewClassRequested& InOnNewClassRequested)
+{
+	OnNewClassRequested = InOnNewClassRequested;
+}
+
+void FPathContextMenu::SetOnImportAssetRequested( const FNewAssetOrClassContextMenu::FOnImportAssetRequested& InOnImportAssetRequested )
+{
+	OnImportAssetRequested = InOnImportAssetRequested;
 }
 
 void FPathContextMenu::SetOnRenameFolderRequested(const FOnRenameFolderRequested& InOnRenameFolderRequested)
@@ -72,22 +83,83 @@ TSharedRef<FExtender> FPathContextMenu::MakePathViewContextMenuExtender(const TA
 
 void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 {
-	const FString& SelectedPath = GetFirstSelectedPath();
+	int32 NumAssetPaths, NumClassPaths;
+	ContentBrowserUtils::CountPathTypes(SelectedPaths, NumAssetPaths, NumClassPaths);
 
 	// Only add something if at least one folder is selected
-	if ( SelectedPath.Len() && SelectedPath != TEXT("/Classes") )
+	if ( SelectedPaths.Num() > 0 )
 	{
+		const bool bHasAssetPaths = NumAssetPaths > 0;
+		const bool bHasClassPaths = NumClassPaths > 0;
+
 		// Common operations section //
 		MenuBuilder.BeginSection("PathViewFolderOptions", LOCTEXT("PathViewOptionsMenuHeading", "Folder Options") );
 		{
-			// New Asset (submenu)
-			MenuBuilder.AddSubMenu(
-				LOCTEXT( "CreateNewAsset", "Create Asset" ),
-				LOCTEXT( "CreateNewAssetTooltip", "Create a new asset." ),
-				FNewMenuDelegate::CreateRaw( this, &FPathContextMenu::MakeNewAssetSubMenu ),
-				false,
-				FSlateIcon( FEditorStyle::GetStyleSetName(), "ContentBrowser.PathActions.NewAsset" )
-				);
+			if(bHasAssetPaths)
+			{
+				FText NewAssetToolTip;
+				if(SelectedPaths.Num() == 1)
+				{
+					if(CanCreateAsset())
+					{
+						NewAssetToolTip = FText::Format(LOCTEXT("NewAssetTooltip_CreateIn", "Create a new asset in {0}."), FText::FromString(SelectedPaths[0]));
+					}
+					else
+					{
+						NewAssetToolTip = FText::Format(LOCTEXT("NewAssetTooltip_InvalidPath", "Cannot create new assets in {0}."), FText::FromString(SelectedPaths[0]));
+					}
+				}
+				else
+				{
+					NewAssetToolTip = LOCTEXT("NewAssetTooltip_InvalidNumberOfPaths", "Can only create assets when there is a single path selected.");
+				}
+
+				// New Asset (submenu)
+				MenuBuilder.AddSubMenu(
+					LOCTEXT( "NewAssetLabel", "New Asset" ),
+					NewAssetToolTip,
+					FNewMenuDelegate::CreateRaw( this, &FPathContextMenu::MakeNewAssetSubMenu ),
+					FUIAction(
+						FExecuteAction(),
+						FCanExecuteAction::CreateRaw( this, &FPathContextMenu::CanCreateAsset )
+						),
+					NAME_None,
+					EUserInterfaceActionType::Button,
+					false,
+					FSlateIcon( FEditorStyle::GetStyleSetName(), "ContentBrowser.PathActions.NewAsset" )
+					);
+			}
+
+			if(bHasClassPaths)
+			{
+				FText NewClassToolTip;
+				if(SelectedPaths.Num() == 1)
+				{
+					if(CanCreateClass())
+					{
+						NewClassToolTip = FText::Format(LOCTEXT("NewClassTooltip_CreateIn", "Create a new class in {0}."), FText::FromString(SelectedPaths[0]));
+					}
+					else
+					{
+						NewClassToolTip = FText::Format(LOCTEXT("NewClassTooltip_InvalidPath", "Cannot create new classes in {0}."), FText::FromString(SelectedPaths[0]));
+					}
+				}
+				else
+				{
+					NewClassToolTip = LOCTEXT("NewClassTooltip_InvalidNumberOfPaths", "Can only create classes when there is a single path selected.");
+				}
+
+				// New Class
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("NewClassLabel", "New C++ Class..."),
+					NewClassToolTip,
+					FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.AddCodeToProject"),
+					FUIAction(
+						FExecuteAction::CreateRaw( this, &FPathContextMenu::ExecuteCreateClass ),
+						FCanExecuteAction::CreateRaw( this, &FPathContextMenu::CanCreateClass )
+						)
+					);
+			}
 
 			// Explore
 			MenuBuilder.AddMenuEntry(
@@ -127,124 +199,157 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 		}
 		MenuBuilder.EndSection();
 
-		// Bulk operations section //
-		MenuBuilder.BeginSection("PathContextBulkOperations", LOCTEXT("AssetTreeBulkMenuHeading", "Bulk Operations") );
+		if(bHasAssetPaths)
 		{
-		    // Save
-		    MenuBuilder.AddMenuEntry(
-			    LOCTEXT("SaveFolder", "Save All"),
-			    LOCTEXT("SaveFolderTooltip", "Saves all modified assets in this folder."),
-			    FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.SaveAll"),
-			    FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSaveFolder ) )
-			    );
+			// Bulk operations section //
+			MenuBuilder.BeginSection("PathContextBulkOperations", LOCTEXT("AssetTreeBulkMenuHeading", "Bulk Operations") );
+			{
+				// Save
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("SaveFolder", "Save All"),
+					LOCTEXT("SaveFolderTooltip", "Saves all modified assets in this folder."),
+					FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.SaveAll"),
+					FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSaveFolder ) )
+					);
     
-		    // Delete
-			MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete, NAME_None,
-			    LOCTEXT("DeleteFolder", "Delete"),
-			    LOCTEXT("DeleteFolderTooltip", "Removes this folder and all assets it contains."),
-				FSlateIcon( FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Delete" )
-			    );
+				// Delete
+				MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete, NAME_None,
+					LOCTEXT("DeleteFolder", "Delete"),
+					LOCTEXT("DeleteFolderTooltip", "Removes this folder and all assets it contains."),
+					FSlateIcon( FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Delete" )
+					);
 
-			// Reference Viewer
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("ReferenceViewer", "Reference Viewer..."),
-				LOCTEXT("ReferenceViewerOnFolderTooltip", "Shows a graph of references for this folder."),
-				FSlateIcon(),
-				FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteReferenceViewer ) )
-				);
+				// Reference Viewer
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("ReferenceViewer", "Reference Viewer..."),
+					LOCTEXT("ReferenceViewerOnFolderTooltip", "Shows a graph of references for this folder."),
+					FSlateIcon(),
+					FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteReferenceViewer ) )
+					);
     
-			// Fix Up Redirectors in Folder
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("FixUpRedirectorsInFolder", "Fix Up Redirectors in Folder"),
-				LOCTEXT("FixUpRedirectorsInFolderTooltip", "Finds referencers to all redirectors in the selected folders and resaves them if possible, then deletes any redirectors that had all their referencers fixed."),
-				FSlateIcon(),
-				FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteFixUpRedirectorsInFolder ) )
-				);
+				// Fix Up Redirectors in Folder
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("FixUpRedirectorsInFolder", "Fix Up Redirectors in Folder"),
+					LOCTEXT("FixUpRedirectorsInFolderTooltip", "Finds referencers to all redirectors in the selected folders and resaves them if possible, then deletes any redirectors that had all their referencers fixed."),
+					FSlateIcon(),
+					FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteFixUpRedirectorsInFolder ) )
+					);
 
-		    if ( SelectedPaths.Num() == 1 )
-		    {
-			    // Migrate Folder
-			    MenuBuilder.AddMenuEntry(
-				    LOCTEXT("MigrateFolder", "Migrate..."),
-				    LOCTEXT("MigrateFolderTooltip", "Copies assets found in this folder and their dependencies to another game content folder."),
-				    FSlateIcon(),
-				    FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteMigrateFolder ) )
-				    );
-		    }
+				if ( NumAssetPaths == 1 && NumClassPaths == 0 )
+				{
+					// Migrate Folder
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("MigrateFolder", "Migrate..."),
+						LOCTEXT("MigrateFolderTooltip", "Copies assets found in this folder and their dependencies to another game content folder."),
+						FSlateIcon(),
+						FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteMigrateFolder ) )
+						);
+				}
+			}
+			MenuBuilder.EndSection();
 		}
-		MenuBuilder.EndSection();
 
-		// Source control section //
-		MenuBuilder.BeginSection("PathContextSourceControl", LOCTEXT("AssetTreeSCCMenuHeading", "Source Control") );
-
-		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-		if ( SourceControlProvider.IsEnabled() )
+		if(bHasAssetPaths)
 		{
-			// Check out
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("FolderSCCCheckOut", "Check Out"),
-				LOCTEXT("FolderSCCCheckOutTooltip", "Checks out all assets from source control which are in this folder."),
-				FSlateIcon(),
-				FUIAction(
-					FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCCheckOut ),
-					FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCCheckOut )
-					)
-				);
+			// Source control section //
+			MenuBuilder.BeginSection("PathContextSourceControl", LOCTEXT("AssetTreeSCCMenuHeading", "Source Control") );
 
-			// Open for Add
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("FolderSCCOpenForAdd", "Mark For Add"),
-				LOCTEXT("FolderSCCOpenForAddTooltip", "Adds all assets to source control that are in this folder and not already added."),
-				FSlateIcon(),
-				FUIAction(
-					FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCOpenForAdd ),
-					FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCOpenForAdd )
-					)
-				);
+			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+			if ( SourceControlProvider.IsEnabled() )
+			{
+				// Check out
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("FolderSCCCheckOut", "Check Out"),
+					LOCTEXT("FolderSCCCheckOutTooltip", "Checks out all assets from source control which are in this folder."),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCCheckOut ),
+						FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCCheckOut )
+						)
+					);
 
-			// Check in
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("FolderSCCCheckIn", "Check In"),
-				LOCTEXT("FolderSCCCheckInTooltip", "Checks in all assets to source control which are in this folder."),
-				FSlateIcon(),
-				FUIAction(
-					FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCCheckIn ),
-					FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCCheckIn )
-					)
-				);
+				// Open for Add
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("FolderSCCOpenForAdd", "Mark For Add"),
+					LOCTEXT("FolderSCCOpenForAddTooltip", "Adds all assets to source control that are in this folder and not already added."),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCOpenForAdd ),
+						FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCOpenForAdd )
+						)
+					);
 
-			// Sync
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("FolderSCCSync", "Sync"),
-				LOCTEXT("FolderSCCSyncTooltip", "Syncs all the assets in this folder to the latest version."),
-				FSlateIcon(),
-				FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCSync ) )
-				);
+				// Check in
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("FolderSCCCheckIn", "Check In"),
+					LOCTEXT("FolderSCCCheckInTooltip", "Checks in all assets to source control which are in this folder."),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCCheckIn ),
+						FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCCheckIn )
+						)
+					);
+
+				// Sync
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("FolderSCCSync", "Sync"),
+					LOCTEXT("FolderSCCSyncTooltip", "Syncs all the assets in this folder to the latest version."),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCSync ),
+						FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCSync )
+						)
+					);
+			}
+			else
+			{
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("FolderSCCConnect", "Connect To Source Control"),
+					LOCTEXT("FolderSCCConnectTooltip", "Connect to source control to allow source control operations to be performed on content and levels."),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCConnect ),
+						FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCConnect )
+						)
+					);	
+			}
+
+			MenuBuilder.EndSection();
 		}
-		else
-		{
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("FolderSCCConnect", "Connect To Source Control"),
-				LOCTEXT("FolderSCCConnectTooltip", "Connect to source control to allow source control operations to be performed on content and levels."),
-				FSlateIcon(),
-				FUIAction(
-					FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSCCConnect ),
-					FCanExecuteAction::CreateSP( this, &FPathContextMenu::CanExecuteSCCConnect )
-					)
-				);	
-		}
-
-		MenuBuilder.EndSection();
 	}
+}
+
+bool FPathContextMenu::CanCreateAsset() const
+{
+	// We can only create assets when we have a single asset path selected
+	return SelectedPaths.Num() == 1 && !ContentBrowserUtils::IsClassPath(SelectedPaths[0]);
 }
 
 void FPathContextMenu::MakeNewAssetSubMenu(FMenuBuilder& MenuBuilder)
 {
-	const FString& SourcesPath = GetFirstSelectedPath();
-	if ( ensure(SourcesPath.Len()) )
+	if ( SelectedPaths.Num() )
 	{
-		FNewAssetContextMenu::MakeContextMenu(MenuBuilder, SourcesPath, OnNewAssetRequested, FNewAssetContextMenu::FOnNewFolderRequested());
+		FNewAssetOrClassContextMenu::MakeContextMenu(
+			MenuBuilder, 
+			SelectedPaths, 
+			OnNewAssetRequested, 
+			FNewAssetOrClassContextMenu::FOnNewClassRequested(), 
+			FNewAssetOrClassContextMenu::FOnNewFolderRequested(), 
+			OnImportAssetRequested, 
+			FNewAssetOrClassContextMenu::FOnGetContentRequested()
+			);
 	}
+}
+
+void FPathContextMenu::ExecuteCreateClass()
+{
+	OnNewClassRequested.ExecuteIfBound(SelectedPaths[0]);
+}
+
+bool FPathContextMenu::CanCreateClass() const
+{
+	// We can only create assets when we have a single class path selected
+	return SelectedPaths.Num() == 1 && ContentBrowserUtils::IsValidPathToCreateNewClass(SelectedPaths[0]);
 }
 
 void FPathContextMenu::MakeSetColorSubMenu(FMenuBuilder& MenuBuilder)
@@ -334,25 +439,54 @@ void FPathContextMenu::ExecuteExplore()
 	for (int32 PathIdx = 0; PathIdx < SelectedPaths.Num(); ++PathIdx)
 	{
 		const FString& Path = SelectedPaths[PathIdx];
-		const FString FilePath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(Path + TEXT("/")));
-
-		// If the folder has not yet been created, make is right before we try to explore to it
-		if ( !IFileManager::Get().DirectoryExists(*FilePath) )
+		FString FilePath;
+		if (ContentBrowserUtils::IsClassPath(Path))
 		{
-			IFileManager::Get().MakeDirectory(*FilePath, /*Tree=*/true);
+			TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+			if (NativeClassHierarchy->GetFileSystemPath(Path, FilePath))
+			{
+				FilePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*FilePath);
+			}
+		}
+		else
+		{
+			FilePath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(Path + TEXT("/")));
 		}
 
-		FPlatformProcess::ExploreFolder( *FilePath );
+		if (!FilePath.IsEmpty())
+		{
+			// If the folder has not yet been created, make is right before we try to explore to it
+			if (!IFileManager::Get().DirectoryExists(*FilePath))
+			{
+				IFileManager::Get().MakeDirectory(*FilePath, /*Tree=*/true);
+			}
+
+			FPlatformProcess::ExploreFolder(*FilePath);
+		}
 	}
 }
 
 bool FPathContextMenu::CanExecuteRename() const
 {
-	if (SelectedPaths.Num() == 1 && !ContentBrowserUtils::IsAssetRootDir(SelectedPaths[0]))
+	// We can't rename when we have more than one path selected
+	if (SelectedPaths.Num() != 1)
 	{
-		return true;
+		return false;
 	}
-	return false;
+
+	// We can't rename a root folder
+	if (ContentBrowserUtils::IsRootDir(SelectedPaths[0]))
+	{
+		return false;
+	}
+
+	// We can't rename *any* folders that belong to class roots
+	if (ContentBrowserUtils::IsClassPath(SelectedPaths[0]))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 void FPathContextMenu::ExecuteRename()
@@ -474,7 +608,11 @@ void FPathContextMenu::ExecuteSaveFolder()
 
 bool FPathContextMenu::CanExecuteDelete() const
 {
-	return SelectedPaths.Num() > 0;
+	int32 NumAssetPaths, NumClassPaths;
+	ContentBrowserUtils::CountPathTypes(SelectedPaths, NumAssetPaths, NumClassPaths);
+
+	// We can't delete folders containing classes
+	return NumAssetPaths > 0 && NumClassPaths == 0;
 }
 
 void FPathContextMenu::ExecuteDelete()
@@ -764,22 +902,47 @@ void FPathContextMenu::ExecuteSCCConnect() const
 
 bool FPathContextMenu::CanExecuteSCCCheckOut() const
 {
-	return bCanExecuteSCCCheckOut;
+	int32 NumAssetPaths, NumClassPaths;
+	ContentBrowserUtils::CountPathTypes(SelectedPaths, NumAssetPaths, NumClassPaths);
+
+	// Can only perform SCC operations on asset paths
+	return bCanExecuteSCCCheckOut && (NumAssetPaths > 0 && NumClassPaths == 0);
 }
 
 bool FPathContextMenu::CanExecuteSCCOpenForAdd() const
 {
-	return bCanExecuteSCCOpenForAdd;
+	int32 NumAssetPaths, NumClassPaths;
+	ContentBrowserUtils::CountPathTypes(SelectedPaths, NumAssetPaths, NumClassPaths);
+
+	// Can only perform SCC operations on asset paths
+	return bCanExecuteSCCOpenForAdd && (NumAssetPaths > 0 && NumClassPaths == 0);
 }
 
 bool FPathContextMenu::CanExecuteSCCCheckIn() const
 {
-	return bCanExecuteSCCCheckIn;
+	int32 NumAssetPaths, NumClassPaths;
+	ContentBrowserUtils::CountPathTypes(SelectedPaths, NumAssetPaths, NumClassPaths);
+
+	// Can only perform SCC operations on asset paths
+	return bCanExecuteSCCCheckIn && (NumAssetPaths > 0 && NumClassPaths == 0);
+}
+
+bool FPathContextMenu::CanExecuteSCCSync() const
+{
+	int32 NumAssetPaths, NumClassPaths;
+	ContentBrowserUtils::CountPathTypes(SelectedPaths, NumAssetPaths, NumClassPaths);
+
+	// Can only perform SCC operations on asset paths
+	return (NumAssetPaths > 0 && NumClassPaths == 0);
 }
 
 bool FPathContextMenu::CanExecuteSCCConnect() const
 {
-	return !ISourceControlModule::Get().IsEnabled() || !ISourceControlModule::Get().GetProvider().IsAvailable();
+	int32 NumAssetPaths, NumClassPaths;
+	ContentBrowserUtils::CountPathTypes(SelectedPaths, NumAssetPaths, NumClassPaths);
+
+	// Can only perform SCC operations on asset paths
+	return (!ISourceControlModule::Get().IsEnabled() || !ISourceControlModule::Get().GetProvider().IsAvailable()) && (NumAssetPaths > 0 && NumClassPaths == 0);
 }
 
 void FPathContextMenu::CacheCanExecuteVars()

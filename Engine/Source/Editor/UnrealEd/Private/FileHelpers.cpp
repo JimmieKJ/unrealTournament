@@ -31,6 +31,7 @@
 #include "NotificationManager.h"
 #include "Engine/LevelStreaming.h"
 #include "GameMapsSettings.h"
+#include "AutoSaveUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFileHelpers, Log, All);
 
@@ -392,7 +393,7 @@ static bool SaveWorld(UWorld* World,
 		{
 			// If package exists, but doesn't feature the default extension, it will not load when launched,
 			// Change the extension of the map to the default for the auto-save
-			Path			= GEditor->AutoSaveDir;
+			Path			= AutoSaveUtils::GetAutoSaveDir();
 			CleanFilename	= FPackageName::GetLongPackageAssetName(PackageName) + FPackageName::GetMapPackageExtension();
 		}
 		else
@@ -412,7 +413,7 @@ static bool SaveWorld(UWorld* World,
 	else
 	{
 		// No package filename exists and none was specified, so save the package in the autosaves folder.
-		Path			= GEditor->AutoSaveDir;
+		Path			= AutoSaveUtils::GetAutoSaveDir();
 		CleanFilename	= FPackageName::GetLongPackageAssetName(PackageName) + FPackageName::GetMapPackageExtension();
 	}
 
@@ -2843,51 +2844,56 @@ FEditorFileUtils::EPromptReturnCode FEditorFileUtils::PromptForCheckoutAndSave( 
 
 			const FScopedBusyCursor BusyCursor;
 			FSaveErrorOutputDevice SaveErrors;
-			GWarn->BeginSlowTask( NSLOCTEXT("UnrealEd", "SavingPackagesE", "Saving packages..."), true );
-			for( TArray<UPackage*>::TConstIterator PackageIter( FinalSaveList ); PackageIter; ++PackageIter )
+
 			{
-				UPackage* Package = *PackageIter;
-				
-				if( !Package->IsFullyLoaded() )
-				{
-					// Packages must be fully loaded to save.
-					Package->FullyLoad();
-				}
+				FScopedSlowTask SlowTask(FinalSaveList.Num()*2, NSLOCTEXT("UnrealEd", "SavingPackagesE", "Saving packages..."));
+				SlowTask.MakeDialog();
 
-				const UWorld* const AssociatedWorld = UWorld::FindWorldInPackage(Package);
-				const bool bIsMapPackage = AssociatedWorld != nullptr;
-
-				const FText SavingPackageText = (bIsMapPackage) 
-					? FText::Format(NSLOCTEXT("UnrealEd", "SavingMapf", "Saving map {0}"), FText::FromString(Package->GetName()))
-					: FText::Format(NSLOCTEXT("UnrealEd", "SavingAssetf", "Saving asset {0}"), FText::FromString(Package->GetName()));
-
-				GWarn->StatusForceUpdate( PackageIter.GetIndex(), FinalSaveList.Num(), SavingPackageText );
-				
-				// Save the package
-				bool bPackageLocallyWritable;
-				const int32 SaveStatus = InternalSavePackage( Package, bPackageLocallyWritable, SaveErrors );
-				
-				// If InternalSavePackage reported that the provided package was locally writable, add it to the list of writable files
-				// to warn the user about
-				if ( bPackageLocallyWritable )
+				for (auto* Package : FinalSaveList)
 				{
-					WritablePackageFiles.Add( Package );
-				}
+					SlowTask.EnterProgressFrame(1);
 
-				if( SaveStatus == EAppReturnType::No )
-				{
-					// The package could not be saved so add it to the failed array and change the return response to indicate failure
-					FailedPackages.Add( Package );
-					ReturnResponse = PR_Failure;
-				}
-				else if( SaveStatus == EAppReturnType::Cancel )
-				{
-					// No need to save anything else, the user wants to cancel everything
-					ReturnResponse = PR_Cancelled;
-					break;
+					if( !Package->IsFullyLoaded() )
+					{
+						// Packages must be fully loaded to save.
+						Package->FullyLoad();
+					}
+
+					const UWorld* const AssociatedWorld = UWorld::FindWorldInPackage(Package);
+					const bool bIsMapPackage = AssociatedWorld != nullptr;
+
+					const FText SavingPackageText = (bIsMapPackage) 
+						? FText::Format(NSLOCTEXT("UnrealEd", "SavingMapf", "Saving map {0}"), FText::FromString(Package->GetName()))
+						: FText::Format(NSLOCTEXT("UnrealEd", "SavingAssetf", "Saving asset {0}"), FText::FromString(Package->GetName()));
+
+					SlowTask.EnterProgressFrame(1, SavingPackageText);
+					
+					// Save the package
+					bool bPackageLocallyWritable;
+					const int32 SaveStatus = InternalSavePackage( Package, bPackageLocallyWritable, SaveErrors );
+					
+					// If InternalSavePackage reported that the provided package was locally writable, add it to the list of writable files
+					// to warn the user about
+					if ( bPackageLocallyWritable )
+					{
+						WritablePackageFiles.Add( Package );
+					}
+
+					if( SaveStatus == EAppReturnType::No )
+					{
+						// The package could not be saved so add it to the failed array and change the return response to indicate failure
+						FailedPackages.Add( Package );
+						ReturnResponse = PR_Failure;
+					}
+					else if( SaveStatus == EAppReturnType::Cancel )
+					{
+						// No need to save anything else, the user wants to cancel everything
+						ReturnResponse = PR_Cancelled;
+						break;
+					}
 				}
 			}
-			GWarn->EndSlowTask();
+
 			SaveErrors.Flush();
 
 			if( UserResponse == false && PackagesNotNeedingCheckout.Num() > 0 )

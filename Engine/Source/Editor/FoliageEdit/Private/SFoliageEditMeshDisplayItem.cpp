@@ -41,7 +41,7 @@ void SFoliageEditMeshDisplayItem::Construct(const FArguments& InArgs)
 
 	// Create the details panels for the clustering tab.
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	const FDetailsViewArgs DetailsViewArgs(false, false, true, false, true, this);
+	const FDetailsViewArgs DetailsViewArgs(false, false, true, FDetailsViewArgs::HideNameArea, true, this);
 	ClusterSettingsDetails = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
 
 	DetailsObjectList.Add(FoliageSettingsPtr);
@@ -1458,7 +1458,7 @@ void SFoliageEditMeshDisplayItem::Construct(const FArguments& InArgs)
 				.BorderBackgroundColor(TAttribute<FSlateColor>(this, &SFoliageEditMeshDisplayItem::GetBorderColor))
 				[
 					SNew(SBorder)
-					.BorderImage(FEditorStyle::GetBrush("ToolTip.Background"))
+					.BorderImage(FCoreStyle::Get().GetBrush("ToolTip.Background"))
 					.Padding(0.0f)
 					[
 						SNew(SCheckBox)
@@ -1682,11 +1682,6 @@ void SFoliageEditMeshDisplayItem::Construct(const FArguments& InArgs)
 	];
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
-
-void SFoliageEditMeshDisplayItem::NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged)
-{
-	FoliageEditPtr.Pin()->GetFoliageEditMode()->ReallocateClusters(FoliageSettingsPtr);
-}
 
 void SFoliageEditMeshDisplayItem::BindCommands()
 {

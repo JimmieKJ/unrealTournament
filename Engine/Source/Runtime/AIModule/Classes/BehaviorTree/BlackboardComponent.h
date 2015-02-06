@@ -65,10 +65,17 @@ public:
 	bool HasValidAsset() const;
 
 	/** register observer for blackboard key */
-	void RegisterObserver(FBlackboard::FKey KeyID, FOnBlackboardChange ObserverDelegate);
+	FDelegateHandle RegisterObserver(FBlackboard::FKey KeyID, UObject* NotifyOwner, FOnBlackboardChange ObserverDelegate);
 
 	/** unregister observer from blackboard key */
+	DELEGATE_DEPRECATED("This overload of UnregisterObserver is deprecated, instead pass the result of RegisterObserver.")
 	void UnregisterObserver(FBlackboard::FKey KeyID, FOnBlackboardChange ObserverDelegate);
+
+	/** unregister observer from blackboard key */
+	void UnregisterObserver(FBlackboard::FKey KeyID, FDelegateHandle ObserverHandle);
+
+	/** unregister all observers associated with given owner */
+	void UnregisterObserversFrom(UObject* NotifyOwner);
 
 	/** pause change notifies and add them to queue */
 	void PauseUpdates();
@@ -273,6 +280,9 @@ protected:
 
 	/** observers registered for blackboard keys */
 	TMultiMap<uint8, FOnBlackboardChange> Observers;
+
+	/** observers registered from owner objects */
+	TMultiMap<UObject*, FDelegateHandle> ObserverHandles;
 
 	/** queued key change notification, will be processed on ResumeUpdates call */
 	mutable TArray<uint8> QueuedUpdates;

@@ -21,7 +21,7 @@ struct FPersonaTabs
 	// Skeleton/Sockets
 	// Anim Blueprint Params
 	// Explorer
-	// Blueprint Defaults
+	// Class Defaults
 	static const FName AnimBlueprintDefaultsEditorID;
 	static const FName AnimBlueprintParentPlayerEditorID;
 	// Anim Document

@@ -117,7 +117,7 @@ protected:
 
 	FSlateColor GetBorderBackgroundColor() const;
 	FSlateColor GetBackgroundColor() const;
-	FString	GetDescription() const;
+	FText GetDescription() const;
 
 	virtual const FSlateBrush* GetNameIcon() const;
 	virtual EVisibility GetBlueprintIconVisibility() const;
@@ -137,5 +137,5 @@ protected:
 	/** Handle hover state changing for the index widget - we use this to highlight sibling nodes */
 	void OnIndexHoverStateChanged(bool bHovered);
 
-	FString GetPinTooltip(UEdGraphPin* GraphPinObj) const;
+	FText GetPinTooltip(UEdGraphPin* GraphPinObj) const;
 };

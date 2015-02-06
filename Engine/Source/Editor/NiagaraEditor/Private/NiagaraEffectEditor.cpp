@@ -106,7 +106,7 @@ TSharedRef<SNiagaraEffectEditorWidget> FNiagaraEffectEditor::CreateEditorWidget(
 
 	// Create the appearance info
 	FGraphAppearanceInfo AppearanceInfo;
-	AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText", "NIAGARA").ToString();
+	AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText", "NIAGARA");
 
 	// Make title bar
 	TSharedRef<SWidget> TitleBarWidget =

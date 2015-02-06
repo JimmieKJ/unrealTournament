@@ -276,6 +276,9 @@ private:
 	/** Called when the heartbeat event should be sent to engine analytics */
 	void EditorAnalyticsHeartbeat();
 
+	/** Handles "Enable World Composition" option in WorldSettings */
+	bool EnableWorldComposition(UWorld* InWorld, bool bEnable);
+
 private:
 
 	/** The current state of the autosave */
@@ -319,4 +322,12 @@ private:
 
 	/** Package names and the number of times they have been updated */
 	TMap<FName, uint32> NumUpdatesByAssetName;
+
+	/** Handle to the registered OnUserDefinedGestureChanged delegate. */
+	FDelegateHandle OnUserDefinedGestureChangedDelegateHandle;
+
+	/** Handle to the registered OnMapChanged delegate. */
+	FDelegateHandle OnMapChangedDelegateHandle;
+
+	FTimerHandle EditorAnalyticsHeartbeatTimerHandle;	
 };

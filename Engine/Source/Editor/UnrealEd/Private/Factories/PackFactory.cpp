@@ -246,7 +246,7 @@ UObject* UPackFactory::FactoryCreateBinary
 	const uint8*		BufferEnd,
 	FFeedbackContext*	Warn
 )
-{
+{ 
 	FBufferReader PakReader((void*)Buffer, BufferEnd-Buffer, false);
 	FPakFile PakFile(&PakReader);
 
@@ -305,13 +305,16 @@ UObject* UPackFactory::FactoryCreateBinary
 			}
 		}
 
+		bool bProjectHadSourceFiles = false;
+
 		// If we have source files, set up the project files if necessary and the game name redirects for blueprints saved with class
 		// references to the module name from the source template
 		if (bContainsSource)
 		{
 			FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
+			bProjectHadSourceFiles = GameProjectModule.Get().ProjectHasCodeFiles();
 
-			if (!GameProjectModule.Get().ProjectHasCodeFiles())
+			if (!bProjectHadSourceFiles)
 			{
 				TArray<FString> StartupModuleNames;
 				TArray<FString> CreatedFiles;
@@ -336,7 +339,6 @@ UObject* UPackFactory::FactoryCreateBinary
 					// Setup the game name redirect
 					if (FString* GameName = ConfigParameters.Find("GameName"))
 					{
-
 						const FString EngineIniFilename = FPaths::ConvertRelativePathToFull(GetDefault<UEngine>()->GetDefaultConfigFilename());
 
 						if (ISourceControlModule::Get().IsEnabled())
@@ -353,7 +355,7 @@ UObject* UPackFactory::FactoryCreateBinary
 						const FString LongOldGameName = FString::Printf(TEXT("/Script/%s"), **GameName);
 						const FString LongNewGameName = FString::Printf(TEXT("/Script/%s"), *ModuleInfo.ModuleName);
 						
-						FConfigCacheIni Config;
+						FConfigCacheIni Config(EConfigCacheType::Temporary);
 						FConfigFile& NewFile = Config.Add(EngineIniFilename, FConfigFile());
 						FConfigCacheIni::LoadLocalIniFile(NewFile, TEXT("DefaultEngine"), false);
 						FConfigSection* PackageRedirects = Config.GetSectionPrivate(*RedirectsSection, true, false, EngineIniFilename);
@@ -478,15 +480,39 @@ UObject* UPackFactory::FactoryCreateBinary
 		if (WrittenFiles.Num() > 0)
 		{
 			// If we wrote out source files, kick off the hot reload process
-			// TODO: Ideally we would block on finishing the factory until the hot reload completed
 			if (WrittenSourceFiles.Num() > 0)
 			{
-				IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
-				if( !HotReloadSupport.IsCurrentlyCompiling() )
+				// Update the game projects before we attempt to build
+				FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
+				FText FailReason;
+				if (!GameProjectModule.UpdateCodeProject(FailReason))
 				{
-					HotReloadSupport.DoHotReloadFromEditor();
+					FMessageDialog::Open(EAppMsgType::Ok, FailReason);
 				}
 
+				// Compile the new code, either using the in editor hot-reload (if an existing module), or as a brand new module (if no existing code)
+				IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
+				if (bProjectHadSourceFiles)
+				{
+					// We can only hot-reload via DoHotReloadFromEditor when we already had code in our project
+					if (!HotReloadSupport.IsCurrentlyCompiling())
+					{
+						const bool bWaitForCompletion = true;
+						HotReloadSupport.DoHotReloadFromEditor(bWaitForCompletion);
+					}
+				}
+				else
+				{
+					const bool bReloadAfterCompiling = true;
+					const bool bForceCodeProject = true;
+					const bool bFailIfGeneratedCodeChanges = false;
+					if (!HotReloadSupport.RecompileModule(FApp::GetGameName(), bReloadAfterCompiling, *GWarn, bFailIfGeneratedCodeChanges, bForceCodeProject))
+					{
+						FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("PackFactory", "FailedToCompileNewGameModule", "Failed to compile newly created game module."));
+					}
+				}
+
+				// Ask about editing code where applicable
 				if (FSlateApplication::Get().SupportsSourceAccess() )
 				{
 					// Code successfully added, notify the user and ask about opening the IDE now
@@ -496,11 +522,9 @@ UObject* UPackFactory::FactoryCreateBinary
 						FSourceCodeNavigation::OpenSourceFiles(WrittenSourceFiles);
 					}
 				}
-
 			}
-
-			// Find an asset to return as the file to be selected in the content browser
-			// TODO: Should we load all objects? Should the config file be able to specify which asset is selected?
+			
+			// Find an asset to return (It will be marked as dirty)
 			for (const FString& Filename : WrittenFiles)
 			{
 				static const FString AssetExtension(TEXT(".uasset"));
@@ -515,7 +539,7 @@ UObject* UPackFactory::FactoryCreateBinary
 						{
 							const FString AssetName = GameFileName.RightChop(SlashIndex + 1);
 							ReturnAsset = LoadObject<UObject>(nullptr, *(GameFileName + TEXT(".") + AssetName));
-							if (ReturnAsset) 
+							if (ReturnAsset)
 							{
 								break;
 							}
@@ -542,7 +566,6 @@ UObject* UPackFactory::FactoryCreateBinary
 	{
 		UE_LOG(LogPackFactory, Warning, TEXT("Invalid pak file."));
 	}
-
 
 	return ReturnAsset;
 }

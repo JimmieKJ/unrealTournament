@@ -9,11 +9,13 @@ struct FTreeItem : public TSharedFromThis<FTreeItem>
 	{
 		FORCEINLINE bool operator()( TSharedPtr<FTreeItem> A, TSharedPtr<FTreeItem> B ) const
 		{
-			return A->FolderName < B->FolderName;
+			return A->DisplayName.ToString() < B->DisplayName.ToString();
 		}
 	};
 
-	/** The name of the tree item without the path */
+	/** The display name of the tree item (typically the same as FolderName, but may be localized for known folder types) */
+	FText DisplayName;
+	/** The leaf-name of the tree item folder */
 	FString FolderName;
 	/** The path of the tree item including the name */
 	FString FolderPath;
@@ -33,11 +35,12 @@ struct FTreeItem : public TSharedFromThis<FTreeItem>
 	FRenamedRequestEvent OnRenamedRequestEvent;
 
 	/** Constructor */
-	FTreeItem(const FString& InFolderName, const FString& InFolderPath, TSharedPtr<FTreeItem> InParent, bool InNamingFolder = false)
-		: FolderName(InFolderName)
-		, FolderPath(InFolderPath)
+	FTreeItem(FText InDisplayName, FString InFolderName, FString InFolderPath, TSharedPtr<FTreeItem> InParent, bool InNamingFolder = false)
+		: DisplayName(MoveTemp(InDisplayName))
+		, FolderName(MoveTemp(InFolderName))
+		, FolderPath(MoveTemp(InFolderPath))
 		, bNamingFolder(InNamingFolder)
-		, Parent(InParent)
+		, Parent(MoveTemp(InParent))
 	{}
 
 	/** Returns true if this item is a child of the specified item */

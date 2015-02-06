@@ -76,7 +76,7 @@ public:
 				[
 					SNew(STextBlock)
 						.HighlightText(HighlightText)
-						.Text(TypeInfo->TypeName.ToString())
+						.Text(FText::FromName(TypeInfo->TypeName))
 				];
 		}
 		else if (ColumnName == "Visibility")
@@ -100,9 +100,9 @@ public:
 private:
 
 	/** Gets the text for the Messages column. */
-	FString HandleMessagesText() const
+	FText HandleMessagesText() const
 	{
-		return FString::Printf(TEXT("%i"), TypeInfo->Messages.Num());
+		return FText::AsNumber(TypeInfo->Messages.Num());
 	}
 
 	/** Handles changing the checked state of the visibility check box. */

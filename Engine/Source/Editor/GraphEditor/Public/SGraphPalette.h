@@ -33,9 +33,9 @@ public:
 
 protected:
 	/** Creates an icon type widget, including big tooltip link */
-	TSharedRef<SWidget> CreateIconWidget( const FString& IconToolTip, const FSlateBrush* IconBrush, const FSlateColor& IconColor, const FString& DocLink, const FString& DocExcerpt );
+	TSharedRef<SWidget> CreateIconWidget( const FText& IconToolTip, const FSlateBrush* IconBrush, const FSlateColor& IconColor, const FString& DocLink, const FString& DocExcerpt );
 	/** Create an icon type widget */
-	TSharedRef<SWidget> CreateIconWidget(const FString& IconToolTip, const FSlateBrush* IconBrush, const FSlateColor& IconColor);
+	TSharedRef<SWidget> CreateIconWidget(const FText& IconToolTip, const FSlateBrush* IconBrush, const FSlateColor& IconColor);
 
 
 	/* Create the text widget */
@@ -51,7 +51,7 @@ protected:
 	virtual FText GetDisplayText() const;
 
 	/** Callback to get the tooltip */
-	virtual FString GetItemTooltip() const;
+	virtual FText GetItemTooltip() const;
 };
 
 //////////////////////////////////////////////////////////////////////////

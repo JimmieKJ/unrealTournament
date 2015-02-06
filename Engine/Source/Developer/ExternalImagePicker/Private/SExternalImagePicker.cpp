@@ -64,7 +64,7 @@ void SExternalImagePicker::Construct(const FArguments& InArgs)
 			[
 				SNew(SButton)
 				.ButtonStyle( FEditorStyle::Get(), "HoverHintOnly" )
-				.ToolTipText( LOCTEXT( "FileButtonToolTipText", "Choose a file from this computer").ToString() )
+				.ToolTipText( LOCTEXT( "FileButtonToolTipText", "Choose a file from this computer") )
 				.OnClicked( FOnClicked::CreateSP(this, &SExternalImagePicker::OnPickFile) )
 				.ContentPadding( 2.0f )
 				.ForegroundColor( FSlateColor::UseForeground() )

@@ -35,17 +35,14 @@ namespace FActorEditorUtils
 
 	void GetEditableComponents( const AActor* InActor, TArray<UActorComponent*>& OutEditableComponents )
 	{
-		for( TFieldIterator<UObjectProperty> PropIt(InActor->GetClass(), EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt )
+		// If a component wasn't created by a construction script (i.e. it's native or an instance), it's editable
+		TInlineComponentArray<UActorComponent*> InstanceComponents;
+		InActor->GetComponents(InstanceComponents);
+		for (auto Component : InstanceComponents)
 		{
-			UObjectProperty* ObjectProp = *PropIt;
-			if( ObjectProp->HasAnyPropertyFlags(CPF_Edit) )
+			if (!Component->IsCreatedByConstructionScript())
 			{
-				UObject* ObjPtr = ObjectProp->GetObjectPropertyValue(ObjectProp->ContainerPtrToValuePtr<void>(InActor));
-
-				if( ObjPtr && ObjPtr->IsA<UActorComponent>() )
-				{
-					OutEditableComponents.Add( CastChecked<UActorComponent>( ObjPtr ) );
-				}
+				OutEditableComponents.Add(Component);
 			}
 		}
 	}

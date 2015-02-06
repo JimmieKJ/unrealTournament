@@ -8,6 +8,7 @@
 
 #include "LightMapRendering.h"
 #include "ShaderBaseClasses.h"
+#include "EditorCompositeParams.h"
 
 enum EOutputFormat
 {
@@ -142,13 +143,15 @@ public:
 	{
 		LightMapPolicyType::PixelParametersType::Bind(Initializer.ParameterMap);
 		ReflectionCubemap.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemap"));
-		ReflectionSampler.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler"));		
+		ReflectionSampler.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler"));
+		EditorCompositeParams.Bind(Initializer.ParameterMap);
 	}
 	TBasePassForForwardShadingPSBaseType() {}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FMaterial& MaterialResource,const FSceneView* View,ESceneRenderTargetsMode::Type TextureMode)
+	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView* View, ESceneRenderTargetsMode::Type TextureMode, bool bEnableEditorPrimitveDepthTest)
 	{
 		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(),MaterialRenderProxy,MaterialResource,*View,TextureMode);
+		EditorCompositeParams.SetParameters(RHICmdList, MaterialResource, View, bEnableEditorPrimitveDepthTest, GetPixelShader());
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement)
@@ -179,13 +182,15 @@ public:
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		LightMapPolicyType::PixelParametersType::Serialize(Ar);
 		Ar << ReflectionCubemap;
-		Ar << ReflectionSampler;		
+		Ar << ReflectionSampler;
+		Ar << EditorCompositeParams;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 	FShaderResourceParameter ReflectionCubemap;
-	FShaderResourceParameter ReflectionSampler;	
+	FShaderResourceParameter ReflectionSampler;
+	FEditorCompositingParameters EditorCompositeParams;
 };
 
 
@@ -257,12 +262,14 @@ public:
 		ESceneRenderTargetsMode::Type InSceneTextureMode,
 		bool bInEnableSkyLight,
 		bool bOverrideWithShaderComplexity,
-		ERHIFeatureLevel::Type FeatureLevel
+		ERHIFeatureLevel::Type FeatureLevel,
+		bool bInEnableEditorPrimitiveDepthTest = false
 		):
 		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource,bOverrideWithShaderComplexity),
 		LightMapPolicy(InLightMapPolicy),
 		BlendMode(InBlendMode),
-		SceneTextureMode(InSceneTextureMode)
+		SceneTextureMode(InSceneTextureMode),
+		bEnableEditorPrimitiveDepthTest(bInEnableEditorPrimitiveDepthTest)
 	{
 		if (IsMobileHDR32bpp())
 		{
@@ -304,6 +311,14 @@ public:
 				PixelShader = InMaterialResource.GetShader< TBasePassForForwardShadingPS<LightMapPolicyType, LDR_GAMMA_32, false> >(InVertexFactory->GetType());
 			}			
 		}
+
+#if DO_GUARD_SLOW
+		// Somewhat hacky
+		if (SceneTextureMode == ESceneRenderTargetsMode::DontSet && !bEnableEditorPrimitiveDepthTest && InMaterialResource.IsUsedWithEditorCompositing())
+		{
+			SceneTextureMode = ESceneRenderTargetsMode::DontSetIgnoreBoundByEditorCompositing;
+		}
+#endif
 	}
 
 	// FMeshDrawingPolicy interface.
@@ -342,7 +357,7 @@ public:
 		else
 #endif
 		{
-			PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, SceneTextureMode);
+			PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, SceneTextureMode, bEnableEditorPrimitiveDepthTest);
 
 			switch(BlendMode)
 			{
@@ -466,6 +481,8 @@ protected:
 	LightMapPolicyType LightMapPolicy;
 	EBlendMode BlendMode;
 	ESceneRenderTargetsMode::Type SceneTextureMode;
+	/** Whether or not this policy is compositing editor primitives and needs to depth test against the scene geometry in the base pass pixel shader */
+	uint32 bEnableEditorPrimitiveDepthTest : 1;
 };
 
 /**
@@ -478,7 +495,11 @@ public:
 	enum { bAllowSimpleElements = true };
 	struct ContextType 
 	{
-		ContextType(ESceneRenderTargetsMode::Type InTextureMode) :
+		/** Whether or not to perform depth test in the pixel shader */
+		bool bEditorCompositeDepthTest;
+
+		ContextType(bool bInEditorCompositeDepthTest, ESceneRenderTargetsMode::Type InTextureMode) :
+			bEditorCompositeDepthTest(bInEditorCompositeDepthTest),
 			TextureMode(InTextureMode)
 		{}
 

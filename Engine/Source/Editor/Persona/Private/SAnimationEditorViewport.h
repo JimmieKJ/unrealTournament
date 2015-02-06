@@ -149,7 +149,7 @@ public:
 	void RestoreData();
 
 	/** Returns Detail description of what's going with viewport **/
-	FString GetDisplayString() const;
+	FText GetDisplayString() const;
 
 	/** Can we use gizmos? */
 	bool CanUseGizmos() const;
@@ -175,14 +175,14 @@ public:
 	float GetWindStrengthSliderValue() const;
 
 	/** Function to get slider value which returns a string*/
-	FString GetWindStrengthLabel() const;
+	FText GetWindStrengthLabel() const;
 
 	bool IsApplyingClothWind() const;
 
 	/** Show gravity scale */
 	void SetGravityScale( float SliderPos );
 	float GetGravityScaleSliderValue() const;
-	FString GetGravityScaleLabel() const;
+	FText GetGravityScaleLabel() const;
 
 protected:
 

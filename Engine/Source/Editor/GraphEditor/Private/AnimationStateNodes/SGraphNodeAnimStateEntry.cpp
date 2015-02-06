@@ -85,7 +85,7 @@ void SGraphNodeAnimStateEntry::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
 	OutputPins.Add(PinToAdd);
 }
 
-FString SGraphNodeAnimStateEntry::GetPreviewCornerText() const
+FText SGraphNodeAnimStateEntry::GetPreviewCornerText() const
 {
-	return FString(TEXT("Entry point for state machine"));
+	return NSLOCTEXT("SGraphNodeAnimStateEntry", "CornerTextDescription", "Entry point for state machine");
 }

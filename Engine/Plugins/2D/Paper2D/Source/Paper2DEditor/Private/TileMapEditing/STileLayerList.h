@@ -14,7 +14,10 @@ public:
 	void Construct(const FArguments& InArgs, UPaperTileMap* TileMap, FNotifyHook* InNotifyHook);
 
 protected:
-	typedef SListView<class UPaperTileLayer*> SPaperLayerListView;
+	typedef TSharedPtr<int32> FMirrorEntry;
+
+	TArray<FMirrorEntry> MirrorList;
+	typedef SListView<FMirrorEntry> SPaperLayerListView;
 
 protected:
 	TSharedPtr<SPaperLayerListView> ListViewWidget;
@@ -22,7 +25,7 @@ protected:
 	TWeakObjectPtr<class UPaperTileMap> TileMapPtr;
 	FNotifyHook* NotifyHook;
 protected:
-	TSharedRef<ITableRow> OnGenerateLayerListRow(class UPaperTileLayer* Item, const TSharedRef<STableViewBase>& OwnerTable);
+	TSharedRef<ITableRow> OnGenerateLayerListRow(FMirrorEntry Item, const TSharedRef<STableViewBase>& OwnerTable);
 
 	class UPaperTileLayer* GetSelectedLayer() const;
 
@@ -51,8 +54,10 @@ protected:
 
 	void SetSelectedLayer(UPaperTileLayer* SelectedLayer);
 
-	void OnSelectionChanged(UPaperTileLayer* ItemChangingState, ESelectInfo::Type SelectInfo);
+	void OnSelectionChanged(FMirrorEntry ItemChangingState, ESelectInfo::Type SelectInfo);
 	TSharedPtr<SWidget> OnConstructContextMenu();
+
+	void RefreshMirrorList();
 
 	// Called after edits are finished
 	void PostEditNotfications();

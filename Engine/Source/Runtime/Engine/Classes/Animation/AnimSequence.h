@@ -553,6 +553,7 @@ public:
 #endif // WITH_EDITOR
 	ENGINE_API virtual void BeginDestroy() override;
 	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
 	// End of UObject interface
 
 	// Begin UAnimationAsset interface
@@ -827,7 +828,7 @@ private:
 	int32 GetSpaceBasedAnimationData(TArray< TArray<FTransform> > & AnimationDataInComponentSpace, FAnimSequenceTrackContainer * RiggingAnimationData) const;
 
 	/** Verify Track Map is valid, if not, fix up */
-	void VerifyTrackMap();
+	void VerifyTrackMap(USkeleton* MySkeleton=NULL);
 	/** Reset Animation Data. Called before Creating new Animation data **/
 	void ResetAnimation();
 	/** Refresh Track Map from Animation Track Names **/

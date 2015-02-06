@@ -9,6 +9,7 @@
 #include "SThumbnailEditModeTools.h"
 #include "DragAndDrop/AssetDragDropOp.h"
 #include "DragAndDrop/AssetPathDragDropOp.h"
+#include "DragDropHandler.h"
 #include "BreakIterator.h"
 #include "SInlineEditableTextBlock.h"
 
@@ -160,7 +161,7 @@ void SAssetViewItem::Construct( const FArguments& InArgs )
 	SourceControlStateDelay = 0.0f;
 	bSourceControlStateRequested = false;
 
-	ISourceControlModule::Get().GetProvider().RegisterSourceControlStateChanged(FSourceControlStateChanged::FDelegate::CreateSP(this, &SAssetViewItem::HandleSourceControlStateChanged));
+	ISourceControlModule::Get().GetProvider().RegisterSourceControlStateChanged_Handle(FSourceControlStateChanged::FDelegate::CreateSP(this, &SAssetViewItem::HandleSourceControlStateChanged));
 
 	// Source control state may have already been cached, make sure the control is in sync with 
 	// cached state as the delegate is not going to be invoked again until source control state 
@@ -195,39 +196,18 @@ TSharedPtr<IToolTip> SAssetViewItem::GetToolTip()
 	return ShouldAllowToolTip.Get() ? SCompoundWidget::GetToolTip() : NULL;
 }
 
+bool SAssetViewItem::ValidateDragDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) const
+{
+	return IsFolder() && DragDropHandler::ValidateDragDropOnAssetFolder(MyGeometry, DragDropEvent, StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath);
+}
+
 void SAssetViewItem::OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
 {
 	bDraggedOver = false;
 
-	if(IsFolder())
+	if (ValidateDragDrop(MyGeometry, DragDropEvent))
 	{
-		TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
-		if (Operation->IsOfType<FAssetDragDropOp>())
-		{
-			TArray< FAssetData > AssetDatas = AssetUtil::ExtractAssetDataFromDrag( DragDropEvent );
-
-			if ( AssetDatas.Num() > 0 )
-			{
-				TSharedPtr< FAssetDragDropOp > DragDropOp = StaticCastSharedPtr< FAssetDragDropOp >( DragDropEvent.GetOperation() );	
-				DragDropOp->SetToolTip( LOCTEXT( "OnDragAssetsOverFolder", "Move or Copy Asset(s)" ), FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.OK")) );
-			}
-			bDraggedOver = true;
-		}
-		else if (Operation->IsOfType<FAssetPathDragDropOp>())
-		{
-			TSharedPtr<FAssetPathDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetPathDragDropOp>( DragDropEvent.GetOperation() );
-			bool bCanDrop = DragDropOp->PathNames.Num() > 0;
-			if ( DragDropOp->PathNames.Contains(StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath) )
-			{
-				// You can't drop a folder onto itself
-				bCanDrop = false;
-			}
-
-			if(bCanDrop)
-			{
-				bDraggedOver = true;
-			}
-		}
+		bDraggedOver = true;
 	}
 }
 	
@@ -235,11 +215,19 @@ void SAssetViewItem::OnDragLeave( const FDragDropEvent& DragDropEvent )
 {
 	if(IsFolder())
 	{
-		TSharedPtr< FAssetDragDropOp > DragDropOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
-		if(DragDropOp.IsValid())
+		TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
+		if (Operation.IsValid())
 		{
-			DragDropOp->ResetToDefaultToolTip();
+			Operation->SetCursorOverride(TOptional<EMouseCursor::Type>());
+
+			if (Operation->IsOfType<FAssetDragDropOp>())
+			{
+				TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>(Operation);
+				DragDropOp->ResetToDefaultToolTip();
+			}
 		}
+
+		bDraggedOver = false;
 	}
 
 	bDraggedOver = false;
@@ -247,44 +235,12 @@ void SAssetViewItem::OnDragLeave( const FDragDropEvent& DragDropEvent )
 
 FReply SAssetViewItem::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
 {
-	if(IsFolder())
+	bDraggedOver = false;
+
+	if (ValidateDragDrop(MyGeometry, DragDropEvent))
 	{
-		TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
-		if (!Operation.IsValid())
-		{
-			return FReply::Unhandled();
-		}
-
-		if (Operation->IsOfType<FExternalDragOperation>())
-		{
-			TSharedPtr<FExternalDragOperation> DragDropOp = StaticCastSharedPtr<FExternalDragOperation>(Operation);
-			if ( DragDropOp->HasFiles() )
-			{
-				bDraggedOver = true;
-				return FReply::Handled();
-			}
-		}
-		else if (Operation->IsOfType<FAssetDragDropOp>())
-		{
-			bDraggedOver = true;
-			return FReply::Handled();
-		}
-		else if (Operation->IsOfType<FAssetPathDragDropOp>())
-		{
-			TSharedPtr<FAssetPathDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetPathDragDropOp>(Operation);
-			bool bCanDrop = DragDropOp->PathNames.Num() > 0;
-			if ( DragDropOp->PathNames.Contains(StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath) )
-			{
-				// You can't drop a folder onto itself
-				bCanDrop = false;
-			}
-
-			if(bCanDrop)
-			{
-				bDraggedOver = true;
-			}
-			return FReply::Handled();
-		}
+		bDraggedOver = true;
+		return FReply::Handled();
 	}
 
 	return FReply::Unhandled();
@@ -294,7 +250,7 @@ FReply SAssetViewItem::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent
 {
 	bDraggedOver = false;
 
-	if(IsFolder())
+	if (ValidateDragDrop(MyGeometry, DragDropEvent))
 	{
 		check(AssetItem->GetType() == EAssetItemType::Folder);
 
@@ -307,39 +263,19 @@ FReply SAssetViewItem::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent
 		if (Operation->IsOfType<FExternalDragOperation>())
 		{
 			TSharedPtr<FExternalDragOperation> DragDropOp = StaticCastSharedPtr<FExternalDragOperation>(Operation);
-
-			if ( DragDropOp->HasFiles() )
-			{
-				OnFilesDragDropped.ExecuteIfBound(DragDropOp->GetFiles(), StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath);
-			}
-
+			OnFilesDragDropped.ExecuteIfBound(DragDropOp->GetFiles(), StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath);
 			return FReply::Handled();
 		}
 		else if (Operation->IsOfType<FAssetPathDragDropOp>())
 		{
 			TSharedPtr<FAssetPathDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetPathDragDropOp>(Operation);
-
-			bool bCanDrop = DragDropOp->PathNames.Num() > 0;
-
-			if ( DragDropOp->PathNames.Contains(StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath) )
-			{
-				// You can't drop a folder onto itself
-				bCanDrop = false;
-			}
-
-			if ( bCanDrop )
-			{
-				OnPathsDragDropped.ExecuteIfBound(DragDropOp->PathNames, StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath);
-			}
-
+			OnPathsDragDropped.ExecuteIfBound(DragDropOp->PathNames, StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath);
 			return FReply::Handled();
 		}
 		else if (Operation->IsOfType<FAssetDragDropOp>())
 		{
 			TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>(Operation);
-
 			OnAssetsDragDropped.ExecuteIfBound(DragDropOp->AssetData, StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath);
-
 			return FReply::Handled();
 		}
 	}
@@ -420,7 +356,7 @@ const FSlateBrush* SAssetViewItem::GetSCCStateImage() const
 
 void SAssetViewItem::HandleSourceControlStateChanged()
 {
-	if ( ISourceControlModule::Get().IsEnabled() && AssetItem.IsValid() && (AssetItem->GetType() == EAssetItemType::Normal) && !AssetItem->IsTemporaryItem() && !CachedPackageFileName.IsEmpty() )
+	if ( ISourceControlModule::Get().IsEnabled() && AssetItem.IsValid() && (AssetItem->GetType() == EAssetItemType::Normal) && !AssetItem->IsTemporaryItem() && !FPackageName::IsScriptPackage(CachedPackageName) )
 	{
 		FSourceControlStatePtr SourceControlState = ISourceControlModule::Get().GetProvider().GetState(CachedPackageFileName, EStateCacheUsage::Use);
 		if(SourceControlState.IsValid())
@@ -717,7 +653,7 @@ EVisibility SAssetViewItem::GetCheckedOutByOtherTextVisibility() const
 	return GetCheckedOutByOtherText().IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
-FString SAssetViewItem::GetCheckedOutByOtherText() const
+FText SAssetViewItem::GetCheckedOutByOtherText() const
 {
 	if ( AssetItem.IsValid() && AssetItem->GetType() != EAssetItemType::Folder && !GIsSavingPackage && !GIsGarbageCollecting )
 	{
@@ -729,12 +665,12 @@ FString SAssetViewItem::GetCheckedOutByOtherText() const
 		{
 			if ( !UserWhichHasPackageCheckedOut.IsEmpty() )
 			{
-				return SourceControlState->GetDisplayTooltip().ToString();
+				return SourceControlState->GetDisplayTooltip();
 			}
 		}
 	}
 
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 
@@ -785,9 +721,14 @@ void SAssetViewItem::AddToToolTipInfoBox(const TSharedRef<SVerticalBox>& InfoBox
 void SAssetViewItem::UpdatePackageDirtyState()
 {
 	bool bNewIsDirty = false;
-	if ( AssetPackage.IsValid() )
+
+	// Only update the dirty state for non-temporary asset items that aren't a built in script
+	if ( AssetItem.IsValid() && !AssetItem->IsTemporaryItem() && AssetItem->GetType() != EAssetItemType::Folder && !FPackageName::IsScriptPackage(CachedPackageName) )
 	{
-		bNewIsDirty = AssetPackage->IsDirty();
+		if ( AssetPackage.IsValid() )
+		{
+			bNewIsDirty = AssetPackage->IsDirty();
+		}
 	}
 
 	if ( bNewIsDirty != bPackageDirty )
@@ -808,17 +749,11 @@ void SAssetViewItem::UpdateSourceControlState(float InDeltaTime)
 
 	if ( !bSourceControlStateRequested && SourceControlStateDelay > 1.0f && AssetItem.IsValid() )
 	{
-		if ( AssetItem.IsValid() && AssetItem->GetType() != EAssetItemType::Folder )
+		// Only update the SCC state for non-temporary asset items that aren't a built in script
+		if ( AssetItem.IsValid() && !AssetItem->IsTemporaryItem() && AssetItem->GetType() != EAssetItemType::Folder && !FPackageName::IsScriptPackage(CachedPackageName) )
 		{
-			if ( !AssetItem->IsTemporaryItem() )
-			{
-				// dont query status for built-in types
-				if(!FPackageName::IsScriptPackage(CachedPackageName))
-				{
-				// Request the most recent SCC state for this asset
-				ISourceControlModule::Get().QueueStatusUpdate(CachedPackageFileName);
-			}
-		}
+			// Request the most recent SCC state for this asset
+			ISourceControlModule::Get().QueueStatusUpdate(CachedPackageFileName);
 		}
 
 		bSourceControlStateRequested = true;
@@ -978,9 +913,15 @@ void SAssetListItem::Construct( const FArguments& InArgs )
 	TSharedPtr<SWidget> Thumbnail;
 	if ( AssetItem.IsValid() && AssetThumbnail.IsValid() )
 	{
-		const bool bForceGenericThumbnail = (AssetItem->GetType() == EAssetItemType::Creation);
-		const bool bAllowFadeIn = true;
-		Thumbnail = AssetThumbnail->MakeThumbnailWidget(bAllowFadeIn, bForceGenericThumbnail, InArgs._ThumbnailLabel, InArgs._HighlightText, InArgs._ThumbnailHintColorAndOpacity, InArgs._AllowThumbnailHintLabel );
+		FAssetThumbnailConfig ThumbnailConfig;
+		ThumbnailConfig.bAllowFadeIn = true;
+		ThumbnailConfig.bAllowHintText = InArgs._AllowThumbnailHintLabel;
+		ThumbnailConfig.bForceGenericThumbnail = (AssetItem->GetType() == EAssetItemType::Creation);
+		ThumbnailConfig.bAllowAssetSpecificThumbnailOverlay = (AssetItem->GetType() != EAssetItemType::Creation);
+		ThumbnailConfig.ThumbnailLabel = InArgs._ThumbnailLabel;
+		ThumbnailConfig.HighlightedText = InArgs._HighlightText;
+		ThumbnailConfig.HintColorAndOpacity = InArgs._ThumbnailHintColorAndOpacity;
+		Thumbnail = AssetThumbnail->MakeThumbnailWidget(ThumbnailConfig);
 	}
 	else
 	{
@@ -1181,9 +1122,15 @@ void SAssetTileItem::Construct( const FArguments& InArgs )
 	TSharedPtr<SWidget> Thumbnail;
 	if ( AssetItem.IsValid() && AssetThumbnail.IsValid() )
 	{
-		const bool bForceGenericThumbnail = (AssetItem->GetType() == EAssetItemType::Creation);
-		const bool bAllowFadeIn = true;
-		Thumbnail = AssetThumbnail->MakeThumbnailWidget(bAllowFadeIn, bForceGenericThumbnail, InArgs._ThumbnailLabel, InArgs._HighlightText, InArgs._ThumbnailHintColorAndOpacity, InArgs._AllowThumbnailHintLabel);
+		FAssetThumbnailConfig ThumbnailConfig;
+		ThumbnailConfig.bAllowFadeIn = true;
+		ThumbnailConfig.bAllowHintText = InArgs._AllowThumbnailHintLabel;
+		ThumbnailConfig.bForceGenericThumbnail = (AssetItem->GetType() == EAssetItemType::Creation);
+		ThumbnailConfig.bAllowAssetSpecificThumbnailOverlay = (AssetItem->GetType() != EAssetItemType::Creation);
+		ThumbnailConfig.ThumbnailLabel = InArgs._ThumbnailLabel;
+		ThumbnailConfig.HighlightedText = InArgs._HighlightText;
+		ThumbnailConfig.HintColorAndOpacity = InArgs._ThumbnailHintColorAndOpacity;
+		Thumbnail = AssetThumbnail->MakeThumbnailWidget(ThumbnailConfig);
 	}
 	else
 	{
@@ -1349,14 +1296,19 @@ FSlateFontInfo SAssetTileItem::GetThumbnailFont() const
 	if ( ThumbSize.IsSet() )
 	{
 		float Size = ThumbSize.Get();
-		if ( Size < 85 )
+		if ( Size < 50 )
 		{
-			static FName SmallFontName("ContentBrowser.AssetTileViewNameFontSmall");
+			const static FName SmallFontName("ContentBrowser.AssetTileViewNameFontVerySmall");
+			return FEditorStyle::GetFontStyle(SmallFontName);
+		}
+		else if ( Size < 85 )
+		{
+			const static FName SmallFontName("ContentBrowser.AssetTileViewNameFontSmall");
 			return FEditorStyle::GetFontStyle(SmallFontName);
 		}
 	}
 
-	static FName RegularFont("ContentBrowser.AssetTileViewNameFont");
+	const static FName RegularFont("ContentBrowser.AssetTileViewNameFont");
 	return FEditorStyle::GetFontStyle(RegularFont);
 }
 

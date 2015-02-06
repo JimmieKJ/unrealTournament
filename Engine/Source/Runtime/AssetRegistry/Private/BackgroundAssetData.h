@@ -7,7 +7,7 @@ class FBackgroundAssetData
 {
 public:
 	/** Constructor */
-	FBackgroundAssetData(const FString& InPackageName, const FString& InPackagePath, const FString& InGroupNames, const FString& InAssetName, const FString& InAssetClass, const TMap<FString, FString>& InTags, const TArray<int32>& InChunkIDs);
+	FBackgroundAssetData(const FString& InPackageName, const FString& InPackagePath, const FString& InGroupNames, const FString& InAssetName, const FString& InAssetClass, const TMultiMap<FString, FString>& InTags, const TArray<int32>& InChunkIDs);
 	FBackgroundAssetData(const FAssetData& InAssetData);
 
 	/** Creates an AssetData object based on this object */
@@ -26,7 +26,7 @@ public:
 	/** The name of the asset's class */
 	FString AssetClass;
 	/** The map of values for properties that were marked AssetRegistrySearchable */
-	TMap<FString, FString> TagsAndValues;
+	TMultiMap<FString, FString> TagsAndValues;
 	/** The IDs of the chunks this asset is located in for streaming install.  Empty if not assigned to a chunk */
 	TArray<int32> ChunkIDs;
 };

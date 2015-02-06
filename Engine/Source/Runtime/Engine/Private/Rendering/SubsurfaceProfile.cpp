@@ -166,8 +166,8 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 
 		// bias to avoid div by 0 and a jump to a different value
 		// this basically means we don't want subsurface scattering
-		// 0.0001f turned out to be too small to fix the issue
-		const float Bias = 0.001f;
+		// 0.0001f turned out to be too small to fix the issue (for a small KernelSize)
+		const float Bias = 0.009f;
 
 		Data.SubsurfaceColor = Data.SubsurfaceColor.GetClamped(Bias);
 		Data.FalloffColor = Data.FalloffColor.GetClamped(Bias);
@@ -176,9 +176,11 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 		ComputeMirroredSSSKernel(&kernel[KernelSize0], KernelSize1, Data.SubsurfaceColor, Data.FalloffColor);
 		ComputeMirroredSSSKernel(&kernel[KernelSize0 + KernelSize1], KernelSize2, Data.SubsurfaceColor, Data.FalloffColor);
 
+		// could be lower than 1 (but higher than 0) to range compress for better quality (for 8 bit)
 		const float TableMaxRGB = 1.0f;
 		const float TableMaxA = 3.0f;
 
+		// each kernel is normalized to be 1 per channel (center + one_side_samples * 2)
 		for (int32 Pos = 0; Pos < KernelTotalSize; ++Pos)
 		{
 			FVector4 C = kernel[Pos] * FLinearColor(1.0f / TableMaxRGB, 1.0f / TableMaxRGB, 1.0f / TableMaxRGB, 1.0f / TableMaxA);

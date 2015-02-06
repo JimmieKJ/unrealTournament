@@ -24,7 +24,7 @@ public:
 
 	SLATE_BEGIN_ARGS(SProjectLauncherCookModeSelector) { }
 		SLATE_EVENT(FOnSProjectLauncherCookModeSelected, OnCookModeSelected)
-		SLATE_ATTRIBUTE(FString, Text)
+		SLATE_ATTRIBUTE(FText, Text)
 	SLATE_END_ARGS()
 
 public:

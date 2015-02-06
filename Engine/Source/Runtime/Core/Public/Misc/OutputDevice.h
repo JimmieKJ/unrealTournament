@@ -417,6 +417,7 @@ struct CORE_API FDebug
 	{
 		if( bExpressionResult == 0 )
 		{
+			FPlatformMisc::DebugBreak();
 			EnsureFailed( Expr, File, Line, Msg );
 		}
 	

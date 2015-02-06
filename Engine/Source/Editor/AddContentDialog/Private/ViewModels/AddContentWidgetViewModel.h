@@ -56,8 +56,9 @@ private:
 	/** Builds view models for all available content sources. */
 	void BuildContentSourceViewModels();
 
-	/** Filters the current set of content sources based on the selected category and the search text. */
-	void FilterContentSourceViewModels();
+	/** Filters the current set of content sources based on the selected category and the search text, and updates the selection.
+	  * @param bAllowEmptySelection Determines whether or not to select the first available item after filtering if the selected item is null, or not in the filtered set. */
+	void UpdateFilteredContentSourcesAndSelection(bool bAllowEmptySelection);
 
 	/** Converts a content source item to an array of strings for processing by the TTextFilter. */
 	void TransformContentSourceToStrings(TSharedPtr<FContentSourceViewModel> Item, OUT TArray< FString >& Array);

@@ -22,7 +22,7 @@ public class DX11 : ModuleRules
 		}
 
 		// If we're targeting Windows XP, then always delay-load D3D11 as it won't exist on that architecture
-		if( WindowsPlatform.SupportWindowsXP )
+		if (WindowsPlatform.IsWindowsXPSupported())
 		{
 			PublicDelayLoadDLLs.AddRange( new string[] {
 				"d3d11.dll", 

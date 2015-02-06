@@ -30,17 +30,21 @@ class TBaseUFunctionDelegateInstance;
 template <class UserClass, typename WrappedRetValType, typename... ParamTypes, typename... VarTypes>
 class TBaseUFunctionDelegateInstance<UserClass, WrappedRetValType (ParamTypes...), VarTypes...> : public IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)>
 {
-	typedef IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)> Super;
+public:
+	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
+
+private:
+	typedef IBaseDelegateInstance<RetValType (ParamTypes...)>                                  Super;
+	typedef TBaseUFunctionDelegateInstance<UserClass, RetValType (ParamTypes...), VarTypes...> UnwrappedThisType;
 
 	static_assert((CanConvertPointerFromTo<UserClass, const UObjectBase>::Result), "You cannot use UFunction delegates with non UObject classes.");
 
 public:
-	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
-
 	TBaseUFunctionDelegateInstance(UserClass* InUserObject, const FName& InFunctionName, VarTypes... Vars)
 		: FunctionName (InFunctionName)
 		, UserObjectPtr(InUserObject)
 		, Payload      (Vars...)
+		, Handle       (FDelegateHandle::GenerateNewHandle)
 	{
 		check(InFunctionName != NAME_None);
 		
@@ -93,7 +97,7 @@ public:
 
 	virtual Super* CreateCopy( ) override
 	{
-		return Payload.ApplyAfter(&Create, UserObjectPtr.Get(), GetFunctionName());
+		return new UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -106,6 +110,11 @@ public:
 		Payload.ApplyAfter(PayloadAndParams, Params...);
 		UserObjectPtr->ProcessEvent(CachedFunction, &PayloadAndParams);
 		return PayloadAndParams->GetResult();
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 	virtual bool IsSameFunction( const Super& Other ) const override
@@ -128,25 +137,7 @@ public:
 	 */
 	FORCEINLINE static Super* Create(UserClass* InUserObject, const FName& InFunctionName, VarTypes... Vars)
 	{
-		return new TBaseUFunctionDelegateInstance<UserClass, RetValType (ParamTypes...), VarTypes...>(InUserObject, InFunctionName, Vars...);
-	}
-
-	template <typename TupleType, typename IntSeq>
-	struct TCreateFromTuple;
-
-	template <typename... TupleArgs, uint32... Indices>
-	struct TCreateFromTuple<TTuple<TupleArgs...>, TIntegerSequence<Indices...>>
-	{
-		static Super* CreateImpl(UserClass* InUserObject, const FName& InFunctionName, const TTuple<TupleArgs...>& Tuple)
-		{
-			return Create(InUserObject, InFunctionName, Tuple.template Get<Indices>()...);
-		}
-	};
-
-	template <typename... TupleArgs>
-	FORCEINLINE static Super* CreateFromTuple(UserClass* InUserObject, const FName& InFunctionName, const TTuple<TupleArgs...>& Tuple)
-	{
-		return TCreateFromTuple<TTuple<TupleArgs...>, TMakeIntegerSequence<sizeof...(TupleArgs)>>::CreateImpl(InUserObject, InFunctionName, Tuple);
+		return new UnwrappedThisType(InUserObject, InFunctionName, Vars...);
 	}
 
 public:
@@ -161,6 +152,9 @@ public:
 	TWeakObjectPtr<UserClass> UserObjectPtr;
 
 	TTuple<VarTypes...> Payload;
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 template <class UserClass, typename... ParamTypes, typename... VarTypes>
@@ -206,16 +200,21 @@ class TBaseSPMethodDelegateInstance;
 template <bool bConst, class UserClass, ESPMode SPMode, typename WrappedRetValType, typename... ParamTypes, typename... VarTypes>
 class TBaseSPMethodDelegateInstance<bConst, UserClass, SPMode, WrappedRetValType (ParamTypes...), VarTypes...> : public IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)>
 {
-	typedef IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)> Super;
-
 public:
 	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
+
+private:
+	typedef IBaseDelegateInstance<RetValType (ParamTypes...)>                                                 Super;
+	typedef TBaseSPMethodDelegateInstance<bConst, UserClass, SPMode, RetValType (ParamTypes...), VarTypes...> UnwrappedThisType;
+
+public:
 	typedef typename TMemFunPtrType<bConst, UserClass, RetValType (ParamTypes..., VarTypes...)>::Type FMethodPtr;
 
 	TBaseSPMethodDelegateInstance(const TSharedPtr<UserClass, SPMode>& InUserObject, FMethodPtr InMethodPtr, VarTypes... Vars)
 		: UserObject(InUserObject)
 		, MethodPtr (InMethodPtr)
 		, Payload   (Vars...)
+		, Handle    (FDelegateHandle::GenerateNewHandle)
 	{
 		// NOTE: Shared pointer delegates are allowed to have a null incoming object pointer.  Weak pointers can expire,
 		//       an it is possible for a copy of a delegate instance to end up with a null pointer.
@@ -260,7 +259,7 @@ public:
 
 	virtual Super* CreateCopy() override
 	{
-		return Payload.template ApplyAfter_ExplicitReturnType<Super*>(static_cast<Super*(*)(const TSharedPtr<UserClass, SPMode>&, FMethodPtr, VarTypes...)>(&Create), UserObject.Pin(), MethodPtr);
+		return new UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -281,6 +280,11 @@ public:
 		checkSlow(MethodPtr != nullptr);
 
 		return Payload.template ApplyAfter_ExplicitReturnType<RetValType>(TMemberFunctionCaller<MutableUserClass, FMethodPtr>(MutableUserObject, MethodPtr), Params...);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 	virtual bool IsSameFunction( const Super& InOtherDelegate ) const override
@@ -308,7 +312,7 @@ public:
 	 */
 	FORCEINLINE static Super* Create(const TSharedPtr<UserClass, SPMode>& InUserObjectRef, FMethodPtr InFunc, VarTypes... Vars)
 	{
-		return new TBaseSPMethodDelegateInstance<bConst, UserClass, SPMode, RetValType (ParamTypes...), VarTypes...>(InUserObjectRef, InFunc, Vars...);
+		return new UnwrappedThisType(InUserObjectRef, InFunc, Vars...);
 	}
 
 	/**
@@ -353,6 +357,9 @@ protected:
 
 	// Payload member variables, if any.
 	TTuple<VarTypes...> Payload;
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 template <bool bConst, class UserClass, ESPMode SPMode, typename... ParamTypes, typename... VarTypes>
@@ -397,12 +404,16 @@ class TBaseRawMethodDelegateInstance;
 template <bool bConst, class UserClass, typename WrappedRetValType, typename... ParamTypes, typename... VarTypes>
 class TBaseRawMethodDelegateInstance<bConst, UserClass, WrappedRetValType (ParamTypes...), VarTypes...> : public IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)>
 {
-	static_assert((!CanConvertPointerFromTo<UserClass, const UObjectBase>::Result), "You cannot use raw method delegates with UObjects.");
-
-	typedef IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)> Super;
-
 public:
 	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
+
+private:
+	static_assert((!CanConvertPointerFromTo<UserClass, const UObjectBase>::Result), "You cannot use raw method delegates with UObjects.");
+
+	typedef IBaseDelegateInstance<RetValType (ParamTypes...)>                                          Super;
+	typedef TBaseRawMethodDelegateInstance<bConst, UserClass, RetValType (ParamTypes...), VarTypes...> UnwrappedThisType;
+
+public:
 	typedef typename TMemFunPtrType<bConst, UserClass, RetValType (ParamTypes..., VarTypes...)>::Type FMethodPtr;
 
 	/**
@@ -415,6 +426,7 @@ public:
 		: UserObject(InUserObject)
 		, MethodPtr (InMethodPtr)
 		, Payload   (Vars...)
+		, Handle    (FDelegateHandle::GenerateNewHandle)
 	{
 		// Non-expirable delegates must always have a non-null object pointer on creation (otherwise they could never execute.)
 		check(InUserObject != nullptr && MethodPtr != nullptr);
@@ -460,7 +472,7 @@ public:
 
 	virtual Super* CreateCopy( ) override
 	{
-		return Payload.template ApplyAfter_ExplicitReturnType<Super*>(&Create, UserObject, MethodPtr);
+		return new UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -477,6 +489,11 @@ public:
 		checkSlow(MethodPtr != nullptr);
 
 		return Payload.template ApplyAfter_ExplicitReturnType<RetValType>(TMemberFunctionCaller<MutableUserClass, FMethodPtr>(MutableUserObject, MethodPtr), Params...);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 	virtual bool IsSameFunction( const Super& InOtherDelegate ) const override
@@ -505,7 +522,7 @@ public:
 	 */
 	FORCEINLINE static Super* Create(UserClass* InUserObject, FMethodPtr InFunc, VarTypes... Vars)
 	{
-		return new TBaseRawMethodDelegateInstance<bConst, UserClass, RetValType (ParamTypes...), VarTypes...>(InUserObject, InFunc, Vars...);
+		return new UnwrappedThisType(InUserObject, InFunc, Vars...);
 	}
 
 protected:
@@ -534,6 +551,9 @@ protected:
 
 	// Payload member variables (if any).
 	TTuple<VarTypes...> Payload;
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 template <bool bConst, class UserClass, typename... ParamTypes, typename... VarTypes>
@@ -573,18 +593,23 @@ class TBaseUObjectMethodDelegateInstance;
 template <bool bConst, class UserClass, typename WrappedRetValType, typename... ParamTypes, typename... VarTypes>
 class TBaseUObjectMethodDelegateInstance<bConst, UserClass, WrappedRetValType (ParamTypes...), VarTypes...> : public IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)>
 {
-	typedef IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)> Super;
+public:
+	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
+
+private:
+	typedef IBaseDelegateInstance<RetValType (ParamTypes...)>                                              Super;
+	typedef TBaseUObjectMethodDelegateInstance<bConst, UserClass, RetValType (ParamTypes...), VarTypes...> UnwrappedThisType;
 
 	static_assert((CanConvertPointerFromTo<UserClass, const UObjectBase>::Result), "You cannot use UObject method delegates with raw pointers.");
 
 public:
-	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
 	typedef typename TMemFunPtrType<bConst, UserClass, RetValType (ParamTypes..., VarTypes...)>::Type FMethodPtr;
 
 	TBaseUObjectMethodDelegateInstance(UserClass* InUserObject, FMethodPtr InMethodPtr, VarTypes... Vars)
 		: UserObject(InUserObject)
 		, MethodPtr (InMethodPtr)
 		, Payload   (Vars...)
+		, Handle    (FDelegateHandle::GenerateNewHandle)
 	{
 		// NOTE: UObject delegates are allowed to have a null incoming object pointer.  UObject weak pointers can expire,
 		//       an it is possible for a copy of a delegate instance to end up with a null pointer.
@@ -634,7 +659,7 @@ public:
 
 	virtual Super* CreateCopy( ) override
 	{
-		return Payload.template ApplyAfter_ExplicitReturnType<Super*>(&Create, UserObject.Get(), MethodPtr);
+		return new UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -654,6 +679,11 @@ public:
 		checkSlow(MethodPtr != nullptr);
 
 		return Payload.template ApplyAfter_ExplicitReturnType<RetValType>(TMemberFunctionCaller<MutableUserClass, FMethodPtr>(MutableUserObject, MethodPtr), Params...);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 	virtual bool IsSameFunction( const Super& InOtherDelegate ) const override
@@ -680,7 +710,7 @@ public:
 	 */
 	FORCEINLINE static Super* Create(UserClass* InUserObject, FMethodPtr InFunc, VarTypes... Vars)
 	{
-		return new TBaseUObjectMethodDelegateInstance<bConst, UserClass, RetValType (ParamTypes...), VarTypes...>(InUserObject, InFunc, Vars...);
+		return new UnwrappedThisType(InUserObject, InFunc, Vars...);
 	}
 
 protected:
@@ -709,6 +739,9 @@ protected:
 
 	// Payload member variables (if any).
 	TTuple<VarTypes...> Payload;
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 template <bool bConst, class UserClass, typename... ParamTypes, typename... VarTypes>
@@ -752,15 +785,19 @@ class TBaseStaticDelegateInstance;
 template <typename WrappedRetValType, typename... ParamTypes, typename... VarTypes>
 class TBaseStaticDelegateInstance<WrappedRetValType (ParamTypes...), VarTypes...> : public IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)>
 {
-	typedef IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type (ParamTypes...)> Super;
-
 public:
 	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
+
+	typedef IBaseDelegateInstance<RetValType (ParamTypes...)>                    Super;
+	typedef TBaseStaticDelegateInstance<RetValType (ParamTypes...), VarTypes...> UnwrappedThisType;
+
+public:
 	typedef RetValType (*FFuncPtr)(ParamTypes..., VarTypes...);
 
 	TBaseStaticDelegateInstance(FFuncPtr InStaticFuncPtr, VarTypes... Vars)
 		: StaticFuncPtr(InStaticFuncPtr)
 		, Payload      (Vars...)
+		, Handle       (FDelegateHandle::GenerateNewHandle)
 	{
 		check(StaticFuncPtr != nullptr);
 	}
@@ -805,7 +842,7 @@ public:
 
 	virtual Super* CreateCopy( ) override
 	{
-		return Payload.template ApplyAfter_ExplicitReturnType<Super*>(&Create, StaticFuncPtr);
+		return new UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
@@ -816,6 +853,11 @@ public:
 		return Payload.template ApplyAfter_ExplicitReturnType<RetValType>(StaticFuncPtr, Params...);
 	}
 
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
+	}
+
 	virtual bool IsSameFunction( const Super& InOtherDelegate ) const override
 	{
 		// NOTE: Payload data is not currently considered when comparing delegate instances.
@@ -823,7 +865,7 @@ public:
 		if (InOtherDelegate.GetType() == EDelegateInstanceType::Raw)
 		{
 			// Downcast to our delegate type and compare
-			const auto& OtherStaticDelegate = static_cast<const TBaseStaticDelegateInstance<RetValType (ParamTypes...), VarTypes...>&>(InOtherDelegate);
+			const auto& OtherStaticDelegate = static_cast<const UnwrappedThisType&>(InOtherDelegate);
 
 			return (StaticFuncPtr == OtherStaticDelegate.StaticFuncPtr);
 		}
@@ -841,7 +883,7 @@ public:
 	 */
 	FORCEINLINE static Super* Create(FFuncPtr InFunc, VarTypes... Vars)
 	{
-		return new TBaseStaticDelegateInstance<RetValType (ParamTypes...), VarTypes...>(InFunc, Vars...);
+		return new UnwrappedThisType(InFunc, Vars...);
 	}
 
 private:
@@ -851,6 +893,9 @@ private:
 
 	// Payload member variables, if any.
 	TTuple<VarTypes...> Payload;
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 template <typename... ParamTypes, typename... VarTypes>
@@ -886,21 +931,27 @@ class TBaseFunctorDelegateInstance;
 template <typename WrappedRetValType, typename... ParamTypes, typename FunctorType, typename... VarTypes>
 class TBaseFunctorDelegateInstance<WrappedRetValType(ParamTypes...), FunctorType, VarTypes...> : public IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type(ParamTypes...)>
 {
-	static_assert(TAreTypesEqual<FunctorType, typename TRemoveReference<FunctorType>::Type>::Value, "FunctorType cannot be a reference");
-
-	typedef IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type(ParamTypes...)> Super;
-
 public:
 	typedef typename TUnwrapType<WrappedRetValType>::Type RetValType;
 
+private:
+	static_assert(TAreTypesEqual<FunctorType, typename TRemoveReference<FunctorType>::Type>::Value, "FunctorType cannot be a reference");
+
+	typedef IBaseDelegateInstance<typename TUnwrapType<WrappedRetValType>::Type(ParamTypes...)> Super;
+	typedef TBaseFunctorDelegateInstance<RetValType(ParamTypes...), FunctorType, VarTypes...>   UnwrappedThisType;
+
+public:
 	TBaseFunctorDelegateInstance(const FunctorType& InFunctor, VarTypes... Vars)
 		: Functor(InFunctor)
 		, Payload(Vars...)
+		, Handle (FDelegateHandle::GenerateNewHandle)
 	{
 	}
+
 	TBaseFunctorDelegateInstance(FunctorType&& InFunctor, VarTypes... Vars)
 		: Functor(MoveTemp(InFunctor))
 		, Payload(Vars...)
+		, Handle (FDelegateHandle::GenerateNewHandle)
 	{
 	}
 
@@ -948,12 +999,17 @@ public:
 	// IBaseDelegateInstance interface
 	virtual Super* CreateCopy() override
 	{
-		return Payload.template ApplyAfter_ExplicitReturnType<Super*>(static_cast<Super* (*)(const FunctorType&)>(&Create), Functor);
+		return new UnwrappedThisType(*(UnwrappedThisType*)this);
 	}
 
 	virtual RetValType Execute(ParamTypes... Params) const override
 	{
 		return Payload.template ApplyAfter_ExplicitReturnType<RetValType>(Functor, Params...);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 	virtual bool IsSameFunction(const Super& InOtherDelegate) const override
@@ -971,11 +1027,11 @@ public:
 	 */
 	FORCEINLINE static Super* Create(const FunctorType& InFunctor, VarTypes... Vars)
 	{
-		return new TBaseFunctorDelegateInstance<RetValType(ParamTypes...), FunctorType, VarTypes...>(InFunctor, Vars...);
+		return new UnwrappedThisType(InFunctor, Vars...);
 	}
 	FORCEINLINE static Super* Create(FunctorType&& InFunctor, VarTypes... Vars)
 	{
-		return new TBaseFunctorDelegateInstance<RetValType(ParamTypes...), FunctorType, VarTypes...>(MoveTemp(InFunctor), Vars...);
+		return new UnwrappedThisType(MoveTemp(InFunctor), Vars...);
 	}
 
 private:
@@ -984,6 +1040,9 @@ private:
 
 	// Payload member variables, if any.
 	TTuple<VarTypes...> Payload;
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 template <typename FunctorType, typename... ParamTypes, typename... VarTypes>

@@ -27,9 +27,10 @@ public:
 	void Construct(const FArguments& InArgs);
 
 	/** IDetailsView interface */
-	virtual void SetObjects( const TArray<UObject*>& InObjects, bool bForceRefresh = false ) override;
-	virtual void SetObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects, bool bForceRefresh = false ) override;
+	virtual void SetObjects( const TArray<UObject*>& InObjects, bool bForceRefresh = false, bool bOverrideLock = false ) override;
+	virtual void SetObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects, bool bForceRefresh = false, bool bOverrideLock = false ) override;
 	virtual void SetObject( UObject* InObject, bool bForceRefresh = false ) override;
+	virtual void RemoveInvalidObjects() override;
 
 	/**
 	 * Replaces objects being observed by the view with new objects
@@ -44,13 +45,6 @@ public:
 	 * @param DeletedObjects	The objects to delete
 	 */
 	void RemoveDeletedObjects( const TArray<UObject*>& DeletedObjects );
-
-	/**
-     * Removes actors from the property nodes object array which are no longer available
-	 * 
-	 * @param ValidActors	The list of actors which are still valid
-	 */
-	void RemoveInvalidActors( const TSet<AActor*>& ValidActors );
 
 	/** Sets the callback for when the property view changes */
 	virtual void SetOnObjectArrayChanged( FOnObjectArrayChanged OnObjectArrayChangedDelegate);

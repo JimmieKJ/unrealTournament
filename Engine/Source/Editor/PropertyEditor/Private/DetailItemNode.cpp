@@ -159,7 +159,6 @@ TSharedRef< ITableRow > FDetailItemNode::GenerateNodeWidget( const TSharedRef<ST
 	{
 		return
 			SNew(SDetailCategoryTableRow, AsShared(), OwnerTable)
-			.IsEnabled(IsParentEnabled)
 			.DisplayName(Customization.GetPropertyNode()->GetDisplayName())
 			.AddMetaData<FTagMetaData>(TagMeta)
 			.InnerCategory( true );
@@ -168,7 +167,6 @@ TSharedRef< ITableRow > FDetailItemNode::GenerateNodeWidget( const TSharedRef<ST
 	{
 		return
 			SNew(SDetailSingleItemRow, &Customization, HasMultiColumnWidget(), AsShared(), OwnerTable )
-			.IsEnabled( IsParentEnabled )
 			.AddMetaData<FTagMetaData>(TagMeta)
 			.ColumnSizeData(ColumnSizeData);
 	}

@@ -10,8 +10,8 @@
 #include "EnvironmentQuery/EQSTestingPawn.h"
 #include "EnvironmentQuery/EnvQueryDebugHelpers.h"
 #if WITH_EDITOR
+#include "UnrealEd.h"
 #include "Engine/Brush.h"
-#include "Editor/EditorEngine.h"
 #include "EngineUtils.h"
 
 extern UNREALED_API UEditorEngine* GEditor;

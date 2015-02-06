@@ -31,7 +31,7 @@ void STaskColumn::Construct(const FArguments& InArgs)
 	];
 }
 
-FString STaskColumn::GetFieldNameLoc( const EField InField )
+FText STaskColumn::GetFieldNameLoc( const EField InField )
 {
 	// Get a localized column header button text
 	check( InField > EField::Invalid );
@@ -39,19 +39,19 @@ FString STaskColumn::GetFieldNameLoc( const EField InField )
 	switch( InField )
 	{
 	case EField::Number:
-		return LOCTEXT("Number", "Number").ToString();
+		return LOCTEXT("Number", "Number");
 	case EField::Priority:
-		return LOCTEXT("Priority", "Priority").ToString();
+		return LOCTEXT("Priority", "Priority");
 	case EField::Summary:
-		return LOCTEXT("Summary", "Summary").ToString();
+		return LOCTEXT("Summary", "Summary");
 	case EField::Status:
-		return LOCTEXT("Status", "Status").ToString();
+		return LOCTEXT("Status", "Status");
 	case EField::CreatedBy:
-		return LOCTEXT("CreatedBy", "Created By").ToString();
+		return LOCTEXT("CreatedBy", "Created By");
 	case EField::AssignedTo:
-		return LOCTEXT("AssignedTo", "Assigned To").ToString();
+		return LOCTEXT("AssignedTo", "Assigned To");
 	}
-	return LOCTEXT("BadField", "Bad Field").ToString();
+	return LOCTEXT("BadField", "Bad Field");
 }
 
 FReply STaskColumn::OnTaskColumnClicked()

@@ -89,7 +89,7 @@ class SBehaviorTreeBlackboardItem : public SGraphPaletteItem
 		FSlateBrush const* IconBrush   = FEditorStyle::GetBrush(TEXT("NoBrush"));
 		GetPaletteItemIcon(GraphAction, IconBrush);
 
-		TSharedRef<SWidget> IconWidget = CreateIconWidget( GraphAction->TooltipDescription, IconBrush, IconBrush->TintColor );
+		TSharedRef<SWidget> IconWidget = CreateIconWidget( FText::FromString(GraphAction->TooltipDescription), IconBrush, FLinearColor::White );
 		TSharedRef<SWidget> NameSlotWidget = CreateTextSlotWidget( NameFont, InCreateData, BlackboardEntryAction->bIsInherited );
 		TSharedRef<SWidget> DebugSlotWidget = CreateDebugSlotWidget( NameFont );
 
@@ -171,9 +171,9 @@ private:
 		return DisplayWidget.ToSharedRef();
 	}
 
-	virtual FString GetItemTooltip() const override
+	virtual FText GetItemTooltip() const override
 	{
-		return ActionPtr.Pin()->TooltipDescription;
+		return FText::FromString(ActionPtr.Pin()->TooltipDescription);
 	}
 
 	virtual void OnNameTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit) override

@@ -3670,7 +3670,7 @@ void FEdModeMeshPaint::CopyInstanceVertexColors()
 			{
 				if( StaticMeshComponent )
 				{
-					FPerComponentVertexColorData& PerComponentData = CopiedColorsByComponent[CopiedColorsByComponent.Add(FPerComponentVertexColorData(StaticMeshComponent->StaticMesh, StaticMeshComponent->GetSerializedComponentIndex()))];
+					FPerComponentVertexColorData& PerComponentData = CopiedColorsByComponent[CopiedColorsByComponent.Add(FPerComponentVertexColorData(StaticMeshComponent->StaticMesh, StaticMeshComponent->GetBlueprintCreatedComponentIndex()))];
 
 					int32 NumLODs = StaticMeshComponent->StaticMesh->GetNumLODs();
 					for( int32 CurLODIndex = 0; CurLODIndex < NumLODs; ++CurLODIndex )
@@ -3759,12 +3759,12 @@ void FEdModeMeshPaint::PasteInstanceVertexColors()
 					}
 
 					// attempt to find a matching component in our clipboard data
-					const int32 SerializedComponentIndex = StaticMeshComponent->GetSerializedComponentIndex();
+					const int32 BlueprintCreatedComponentIndex = StaticMeshComponent->GetBlueprintCreatedComponentIndex();
 					FPerComponentVertexColorData* FoundColors = NULL;
 					for(auto& CopiedColors : CopiedColorsByComponent)
 					{
 						if(CopiedColors.OriginalMesh.Get() == StaticMeshComponent->StaticMesh &&
-							CopiedColors.ComponentIndex == SerializedComponentIndex)
+							CopiedColors.ComponentIndex == BlueprintCreatedComponentIndex)
 						{
 							FoundColors = &CopiedColors;
 							break;

@@ -56,7 +56,7 @@ class SLATE_API FPopupSupport
 	* @param NotifyWhenClickedOutsideMe    When the user clicks outside this widget, fire a notification.
 	* @param InNotification                The notification to invoke.
 	*/
-	void RegisterClickNotification(const TSharedRef<SWidget>& NotifyWhenClickedOutsideMe, const FOnClickedOutside& InNotification);
+	FDelegateHandle RegisterClickNotification(const TSharedRef<SWidget>& NotifyWhenClickedOutsideMe, const FOnClickedOutside& InNotification);
 
 	/**
 	* NOTE: Only necessary if notification no longer desired.
@@ -64,7 +64,16 @@ class SLATE_API FPopupSupport
 	*
 	* Unregister the notification because it is no longer desired.
 	*/
+	DELEGATE_DEPRECATED("This overload of UnregisterClickNotification is deprecated, instead pass the result of RegisterClickNotification.")
 	void UnregisterClickNotification(const FOnClickedOutside& InNotification);
+
+	/**
+	* NOTE: Only necessary if notification no longer desired.
+	*       Stale notifications are cleaned up automatically.
+	*
+	* Unregister the notification because it is no longer desired.
+	*/
+	void UnregisterClickNotification(FDelegateHandle InHandle);
 
 	private:
 

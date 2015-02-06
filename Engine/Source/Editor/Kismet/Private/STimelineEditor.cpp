@@ -131,7 +131,7 @@ void STimelineEdTrack::Construct(const FArguments& InArgs, TSharedPtr<FTimelineE
 						// Name of track
 						SAssignNew(InlineTextBlock, SInlineEditableTextBlock)
 							.Text(FText::FromName(TrackBase->TrackName))
-							.ToolTipText(FString(TEXT("Enter track name")))
+							.ToolTipText(LOCTEXT("TrackNameTooltip", "Enter track name"))
 							.OnVerifyTextChanged(TimelineRef, &STimelineEditor::OnVerifyTrackNameCommit,TrackBase, this)
 							.OnTextCommitted(TimelineRef, &STimelineEditor::OnTrackNameCommitted,TrackBase, this)
 					]
@@ -524,9 +524,9 @@ FText STimelineEdTrack::GetExternalCurveName( ) const
 	return FText::FromString(ExternalCurveName);
 }
 
-FString STimelineEdTrack::GetExternalCurvePath( ) const
+FText STimelineEdTrack::GetExternalCurvePath( ) const
 {
-	return ExternalCurvePath;
+	return FText::FromString(ExternalCurvePath);
 }
 
 UCurveBase* STimelineEdTrack::CreateCurveAsset()

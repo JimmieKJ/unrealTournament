@@ -21,15 +21,15 @@ protected:
 	void CacheTraceModes(TSharedRef<class IPropertyHandle> StructPropertyHandle);
 
 	/** cached names of trace modes */
-	struct FStringIntPair
+	struct FTextIntPair
 	{
-		FString Str;
+		FText Text;
 		int32 Int;
 
-		FStringIntPair() {}
-		FStringIntPair(FString InStr, int32 InInt) : Str(InStr), Int(InInt) {}
+		FTextIntPair() {}
+		FTextIntPair(FText InText, int32 InInt) : Text(InText), Int(InInt) {}
 	};
-	TArray<FStringIntPair> TraceModes;
+	TArray<FTextIntPair> TraceModes;
 	bool bCanShowProjection;
 	uint8 ActiveMode;
 
@@ -38,8 +38,8 @@ protected:
 
 	void OnTraceModeChanged(int32 Index);
 	TSharedRef<SWidget> OnGetTraceModeContent();
-	FString GetCurrentTraceModeDesc() const;
-	FString GetShortDescription() const;
+	FText GetCurrentTraceModeDesc() const;
+	FText GetShortDescription() const;
 
 	EVisibility GetGeometryVisibility() const;
 	EVisibility GetNavigationVisibility() const;

@@ -121,17 +121,11 @@ void UCheckBox::SetCheckedState(ECheckBoxState InCheckedState)
 
 void UCheckBox::SlateOnCheckStateChangedCallback(ECheckBoxState NewState)
 {
+	CheckedState = NewState;
+
 	//@TODO: Choosing to treat Undetermined as Checked
 	const bool bWantsToBeChecked = NewState != ECheckBoxState::Unchecked;
-
-	if (OnCheckStateChanged.IsBound())
-	{
-		OnCheckStateChanged.Broadcast(bWantsToBeChecked);
-	}
-	else
-	{
-		CheckedState = NewState;
-	}
+	OnCheckStateChanged.Broadcast(bWantsToBeChecked);
 }
 
 void UCheckBox::PostLoad()

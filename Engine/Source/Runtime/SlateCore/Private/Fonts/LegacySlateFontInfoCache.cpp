@@ -49,7 +49,9 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetCompositeFont(con
 		}
 	}
 
-	TSharedRef<const FCompositeFont> NewCompositeFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, LegacyFontPath, new UFontBulkData(LegacyFontPath), InLegacyFontHinting));
+	UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
+	FontBulkData->Initialize(LegacyFontPath);
+	TSharedRef<const FCompositeFont> NewCompositeFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, LegacyFontPath, FontBulkData, InLegacyFontHinting));
 	LegacyFontNameToCompositeFont.Add(LegacyFontKey, NewCompositeFont);
 	return NewCompositeFont;
 }
@@ -59,7 +61,9 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetSystemFont()
 	if (!SystemFont.IsValid())
 	{
 		TArray<uint8> FontBytes = FPlatformMisc::GetSystemFontBytes();
-		SystemFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, TEXT("DefaultSystemFont"), new UFontBulkData(FontBytes.GetData(), FontBytes.Num()), EFontHinting::Default));
+		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
+		FontBulkData->Initialize(FontBytes.GetData(), FontBytes.Num());
+		SystemFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, TEXT("DefaultSystemFont"), FontBulkData, EFontHinting::Default));
 	}
 	return SystemFont;
 }
@@ -80,7 +84,9 @@ const FFontData& FLegacySlateFontInfoCache::GetFallbackFont()
 	}
 
 	const FString FallbackFontPath = FallbackFontName.ToString();
-	TSharedRef<const FFontData> NewFallbackFont = MakeShareable(new FFontData(FallbackFontPath, new UFontBulkData(FallbackFontPath), EFontHinting::Default));
+	UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
+	FontBulkData->Initialize(FallbackFontPath);
+	TSharedRef<const FFontData> NewFallbackFont = MakeShareable(new FFontData(FallbackFontPath, FontBulkData, EFontHinting::Default));
 	FallbackFonts.Add(FallbackFontName, NewFallbackFont);
 	return *NewFallbackFont;
 }
@@ -93,7 +99,9 @@ const FFontData& FLegacySlateFontInfoCache::GetLastResortFont()
 	if (!LastResortFont.IsValid())
 	{
 		const FString LastResortFontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/LastResort.ttf");
-		LastResortFont = MakeShareable(new FFontData(LastResortFontPath, new UFontBulkData(LastResortFontPath), EFontHinting::Default));
+		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
+		FontBulkData->Initialize(LastResortFontPath);
+		LastResortFont = MakeShareable(new FFontData(LastResortFontPath, FontBulkData, EFontHinting::Default));
 	}
 
 	return *LastResortFont;

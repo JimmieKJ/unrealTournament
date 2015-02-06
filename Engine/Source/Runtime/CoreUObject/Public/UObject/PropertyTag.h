@@ -25,7 +25,17 @@ struct FPropertyTag
 
 	// Constructors.
 	FPropertyTag()
+		: Type      (NAME_None)
+		, BoolVal   (0)
+		, Name      (NAME_None)
+		, StructName(NAME_None)
+		, EnumName  (NAME_None)
+		, InnerType (NAME_None)
+		, Size      (0)
+		, ArrayIndex(INDEX_NONE)
+		, SizeOffset(INDEX_NONE)
 	{}
+
 	FPropertyTag( FArchive& InSaveAr, UProperty* Property, int32 InIndex, uint8* Value, uint8* Defaults )
 		: Type      (Property->GetID())
 		, BoolVal   (0)
@@ -67,7 +77,7 @@ struct FPropertyTag
 	{
 		// Name.
 		Ar << Tag.Name;
-		if( Tag.Name == NAME_None )
+		if ((Tag.Name == NAME_None) || !Tag.Name.IsValid())
 		{
 			return Ar;
 		}

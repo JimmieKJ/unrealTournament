@@ -178,16 +178,16 @@ void FEnvQueryParamSetupCustomization::OnParamBoolValueChanged(ECheckBoxState Bo
 	}
 }
 
-FString FEnvQueryParamSetupCustomization::GetComboText() const
+FText FEnvQueryParamSetupCustomization::GetComboText() const
 {
-	return bIsNamed ? FString("NAMED") : FString("VALUE");
+	return bIsNamed ? LOCTEXT("NamedLabel", "NAMED") : LOCTEXT("ValueLabel", "VALUE");
 }
 
-FString FEnvQueryParamSetupCustomization::GetComboTooltip() const
+FText FEnvQueryParamSetupCustomization::GetComboTooltip() const
 {
 	return bIsNamed ?
-		LOCTEXT("NamedTooltip","Value will be provided by named parameter, press to switch into direct mode.").ToString() :
-		LOCTEXT("ValueTooltip","Direct value of property, press to switch into parameter mode.").ToString();
+		LOCTEXT("NamedTooltip","Value will be provided by named parameter, press to switch into direct mode.") :
+		LOCTEXT("ValueTooltip","Direct value of property, press to switch into parameter mode.");
 }
 
 FReply FEnvQueryParamSetupCustomization::ToggleMode()

@@ -1244,9 +1244,9 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& V
 		}
 
 		// Composite editor primitives if we had any to draw and compositing is enabled
-		if( FDeferredShadingSceneRenderer::ShouldCompositeEditorPrimitives(View) )
+		if (FSceneRenderer::ShouldCompositeEditorPrimitives(View))
 		{
-			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessCompositeEditorPrimitives());
+			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessCompositeEditorPrimitives(true));
 			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
 			//Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.SceneDepth));
 			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
@@ -1679,15 +1679,6 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FViewInfo
 			}
 		}
 
-		// Composite editor primitives if we had any to draw and compositing is enabled
-		// TODO: Move FDeferredShadingSceneRenderer::ShouldCompositeEditorPrimitives somewhere more generic
-		if (FDeferredShadingSceneRenderer::ShouldCompositeEditorPrimitives(View) && !DofOutput.IsValid())
-		{
-			FRenderingCompositePass* EditorCompNode = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessCompositeEditorPrimitives());
-			EditorCompNode->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
-			//Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.SceneDepth));
-			Context.FinalOutput = FRenderingCompositeOutputRef(EditorCompNode);
-		}
 
 		// Must run to blit to back buffer even if post processing is off.
 		FRenderingCompositePass* PostProcessTonemap = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessTonemapES2(Context.View, FinalOutputViewRect, FinalTargetSize, bViewRectSource));
@@ -1719,16 +1710,12 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FViewInfo
 			Context.FinalOutput = FRenderingCompositeOutputRef(PostProcessAa);
 		}
 
+		if (FSceneRenderer::ShouldCompositeEditorPrimitives(View) )
 		{
-			// temporary work around for EditorPrimitives / Dof alpha issues.
-			if (FDeferredShadingSceneRenderer::ShouldCompositeEditorPrimitives(View) && DofOutput.IsValid())
-			{
-				// TODO: combine editor prims in tonemap pass or remove AA jitter
-				FRenderingCompositePass* EditorCompNode = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessCompositeEditorPrimitives());
-				EditorCompNode->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
-				//Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.SceneDepth));
-				Context.FinalOutput = FRenderingCompositeOutputRef(EditorCompNode);
-			}
+			FRenderingCompositePass* EditorCompNode = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessCompositeEditorPrimitives(false));
+			EditorCompNode->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
+			//Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.SceneDepth));
+			Context.FinalOutput = FRenderingCompositeOutputRef(EditorCompNode);
 		}
 
 		if(View.Family->EngineShowFlags.ShaderComplexity)

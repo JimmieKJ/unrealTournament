@@ -130,7 +130,7 @@ public:
 private:
 
 	// Handles the level editor module starting to recompile.
-	void HandleLevelEditorModuleCompileStarted( );
+	void HandleLevelEditorModuleCompileStarted( bool bIsAsyncCompile );
 
 	// Handles the user requesting the current compilation to be canceled
 	void OnCancelCodeCompilationClicked();

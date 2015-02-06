@@ -7,7 +7,7 @@ public class LibOVRMobile : ModuleRules
 	public LibOVRMobile(TargetInfo Target)
 	{
 		// current version of the Mobile Oculus SDK
-		string LibOVRVersion = "_041";
+		string LibOVRVersion = "_042";
 		Type = ModuleType.External;
 
 		string OculusThirdPartyDirectory = UEBuildConfiguration.UEThirdPartySourceDirectory + "Oculus/LibOVRMobile/LibOVRMobile" + LibOVRVersion;

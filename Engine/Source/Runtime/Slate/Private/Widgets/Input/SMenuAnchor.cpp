@@ -249,7 +249,7 @@ void SMenuAnchor::RequestClosePopupWindow( const TSharedRef<SWindow>& PopupWindo
 void SMenuAnchor::OnClickedOutsidePopup()
 {
 	bDismissedThisTick = true;
-	FSlateApplication::Get().GetPopupSupport().UnregisterClickNotification( FOnClickedOutside::CreateSP(this, &SMenuAnchor::OnClickedOutsidePopup) );
+	FSlateApplication::Get().GetPopupSupport().UnregisterClickNotification( OnClickedOutsidePopupDelegateHandle );
 	SetIsOpen(false);	
 }
 
@@ -381,7 +381,7 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 						];
 
 						// We want to support dismissing the popup widget when the user clicks outside it.
-						FSlateApplication::Get().GetPopupSupport().RegisterClickNotification( MenuContentRef, FOnClickedOutside::CreateSP( this, &SMenuAnchor::OnClickedOutsidePopup ) );
+						OnClickedOutsidePopupDelegateHandle = FSlateApplication::Get().GetPopupSupport().RegisterClickNotification( MenuContentRef, FOnClickedOutside::CreateSP( this, &SMenuAnchor::OnClickedOutsidePopup ) );
 					}
 
 					if ( bFocusMenu )

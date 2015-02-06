@@ -183,6 +183,12 @@ struct FFileManifestData
 	UPROPERTY()
 	FString SymlinkTarget;
 
+	UPROPERTY()
+	bool bIsReadOnly;
+
+	UPROPERTY()
+	bool bIsCompressed;
+
 	FFileManifestData();
 
 	void Init();

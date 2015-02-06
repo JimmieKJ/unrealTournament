@@ -7,11 +7,14 @@
 class FWidgetBlueprintEditor;
 class UWidgetAnimation;
 
-class FUMGSequencerObjectBindingManager : public ISequencerObjectBindingManager
+class FUMGSequencerObjectBindingManager : public FGCObject, public ISequencerObjectBindingManager
 {
 public:
 	FUMGSequencerObjectBindingManager( FWidgetBlueprintEditor& InWidgetBlueprintEditor, UWidgetAnimation& InAnimation );
 	~FUMGSequencerObjectBindingManager();
+
+	/** FGCObject interface */
+	virtual void AddReferencedObjects(FReferenceCollector& Collector);
 
 	/** ISequencerObjectBindingManager interface */
 	virtual bool AllowsSpawnableObjects() const override { return false; }
@@ -27,7 +30,7 @@ public:
 	bool HasValidWidgetAnimation() const;
 
 	/** @return the current widget animation */
-	UWidgetAnimation* GetWidgetAnimation() { return WidgetAnimation.Get(); }
+	UWidgetAnimation* GetWidgetAnimation() { return WidgetAnimation; }
 
 	/** Rebuilds mappings to live preview objects */
 	void InitPreviewObjects();
@@ -38,7 +41,7 @@ private:
 	/** Mapping of preview objects to sequencer guids */
 	TMap< TWeakObjectPtr<UObject>, FGuid> PreviewObjectToGuidMap;
 
-	TWeakObjectPtr<UWidgetAnimation> WidgetAnimation;
+	UWidgetAnimation* WidgetAnimation;
 
 	FWidgetBlueprintEditor& WidgetBlueprintEditor;
 };

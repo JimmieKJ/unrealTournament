@@ -17,7 +17,7 @@ class UK2Node_VariableSet : public UK2Node_Variable
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual bool ShouldOverridePinNames() const override { return true; }
-	virtual FString GetPinNameOverride(const UEdGraphPin& Pin) const override;
+	virtual FText GetPinNameOverride(const UEdGraphPin& Pin) const override;
 	// End UEdGraphNode interface
 
 	// Begin K2Node interface

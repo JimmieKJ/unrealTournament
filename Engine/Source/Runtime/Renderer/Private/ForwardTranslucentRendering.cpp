@@ -342,6 +342,10 @@ void FForwardShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate& 
 			{
 				GSceneRenderTargets.BeginRenderingTranslucency(RHICmdList, View);
 			}
+			else
+			{
+				RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+			}
 
 			// Enable depth test, disable depth writes.
 			// Note, this is a reversed Z depth surface, using CF_GreaterEqual.

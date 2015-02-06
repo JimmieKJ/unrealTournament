@@ -212,11 +212,11 @@ TSharedRef<ITableRow> SSessionConsoleShortcutWindow::HandleShortcutListViewGener
 					// execute button
 					SNew(SButton)
 						.VAlign(VAlign_Center)
-						.ToolTipText(InItem->Command)
+						.ToolTipText(FText::FromString(InItem->Command))
 						.OnClicked(FOnClicked::CreateSP(this, &SSessionConsoleShortcutWindow::HandleExecuteButtonClicked, InItem))
 						[
 							SNew(STextBlock)
-								.Text(InItem->Name)
+								.Text(FText::FromString(InItem->Name))
 						]
 				]
 

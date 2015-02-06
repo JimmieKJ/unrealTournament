@@ -139,7 +139,6 @@ public:
 	// Begin UActorComponent interface 
 	virtual FComponentInstanceDataBase* GetComponentInstanceData() const override;
 	virtual FName GetComponentInstanceDataType() const override;
-	virtual void ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData) override;
 	// End UActorComponent interface 
 
 	// Begin UPrimitiveComponent Interface
@@ -166,6 +165,9 @@ public:
 	virtual void PostEditUndo() override;
 #endif
 	//End UObject Interface
+
+	/** Applies the cached component instance data to a newly blueprint constructed component */
+	void ApplyComponentInstanceData(class FInstancedStaticMeshComponentInstanceData* ComponentInstanceData);
 
 	/** Check to see if an instance is selected */
 	bool IsInstanceSelected(int32 InInstanceIndex) const;

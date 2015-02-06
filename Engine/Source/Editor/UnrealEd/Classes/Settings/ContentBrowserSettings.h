@@ -71,6 +71,18 @@ public:
 		return ( ( bExcludeOverride ? false : OverrideDisplayPluginFolders ) | DisplayPluginFolders );
 	}
 
+	/** Sets whether we are allowed to display collection folders or not */
+	void SetDisplayCollections(bool bInDisplayCollections)
+	{
+		DisplayCollections = bInDisplayCollections;
+	}
+
+	/** Gets whether we are allowed to display the collection folders or not*/
+	bool GetDisplayCollections() const
+	{
+		return DisplayCollections;
+	}
+
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *
@@ -107,6 +119,9 @@ private:
 
 	/** Temporary override for the DisplayPluginFolders setting */
 	bool OverrideDisplayPluginFolders;
+
+	UPROPERTY(config)
+	bool DisplayCollections;
 
 	// Holds an event delegate that is executed when a setting has changed.
 	static FSettingChangedEvent SettingChangedEvent;

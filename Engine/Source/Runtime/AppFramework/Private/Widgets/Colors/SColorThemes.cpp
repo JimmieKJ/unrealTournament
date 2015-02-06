@@ -627,12 +627,12 @@ void SThemeColorBlocksBar::DestroyPlaceholders()
 
 void SThemeColorBlocksBar::RemoveRefreshCallback()
 {
-	ColorTheme.Get()->OnRefresh().Remove(RefreshCallback);
+	ColorTheme.Get()->OnRefresh().Remove(RefreshCallbackHandle);
 }
 
 void SThemeColorBlocksBar::AddRefreshCallback()
 {
-	ColorTheme.Get()->OnRefresh().Add(RefreshCallback);
+	RefreshCallbackHandle = ColorTheme.Get()->OnRefresh().Add(RefreshCallback);
 }
 
 void SThemeColorBlocksBar::Refresh()

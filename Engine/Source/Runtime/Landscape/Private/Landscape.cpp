@@ -126,6 +126,10 @@ void ULandscapeComponent::AddReferencedObjects(UObject* InThis, FReferenceCollec
 void ULandscapeComponent::Serialize(FArchive& Ar)
 {
 #if ENABLE_LANDSCAPE_COOKING && WITH_EDITOR
+	bool bRestoreAfterCooking = false;
+	UMaterialInstanceConstant* BackupMaterialInstance = MaterialInstance;
+	UTexture2D* BackupHeightmapTexture = HeightmapTexture;
+
 	// Saving for cooking path
 	if (Ar.IsCooking() && Ar.IsSaving() && !HasAnyFlags(RF_ClassDefaultObject))
 	{
@@ -136,12 +140,21 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 				GeneratePlatformVertexData();
 				MaterialInstance = Cast<UMaterialInstanceConstant>(GeneratePlatformPixelData(WeightmapTextures, true));
 				HeightmapTexture = NULL;
+				bRestoreAfterCooking = true;
 			}
 		}
 	}
 #endif
 
 	Super::Serialize(Ar);
+
+#if ENABLE_LANDSCAPE_COOKING && WITH_EDITOR
+	if (bRestoreAfterCooking)
+	{
+		MaterialInstance = BackupMaterialInstance;
+		HeightmapTexture = BackupHeightmapTexture;
+	}
+#endif
 
 	Ar << LightMap;
 	Ar << ShadowMap;
@@ -199,6 +212,13 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 			{
 				Ar << PlatformData;
 			}
+		}
+		if (Ar.UE4Ver() >= VER_UE4_LANDSCAPE_GRASS_COOKING)
+		{
+			// Integrated from main into 4.7 branch; just leave as empty in 4.7.
+			int32 NumChannels = 0;
+			Ar << NumChannels;
+			check(NumChannels == 0);
 		}
 	}
 #endif
@@ -474,6 +494,7 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	bLockLocation = true;
 	bIsMovingToLevel = false;
+	bStaticSectionOffset = true;
 #endif // WITH_EDITORONLY_DATA
 	LODDistanceFactor = 1.0f;
 	LODFalloff = ELandscapeLODFalloff::Linear;
@@ -726,7 +747,7 @@ FPrimitiveSceneProxy* ULandscapeComponent::CreateSceneProxy()
 	return Proxy;
 }
 
-void ULandscapeComponent::DestroyComponent()
+void ULandscapeComponent::DestroyComponent(bool bPromoteChildren/*= false*/)
 {
 	ALandscapeProxy* Proxy = GetLandscapeProxy();
 	if (Proxy)
@@ -734,7 +755,7 @@ void ULandscapeComponent::DestroyComponent()
 		Proxy->LandscapeComponents.Remove(this);
 	}
 
-	Super::DestroyComponent();
+	Super::DestroyComponent(bPromoteChildren);
 }
 
 FBoxSphereBounds ULandscapeComponent::CalcBounds(const FTransform& LocalToWorld) const
@@ -1243,7 +1264,12 @@ void ALandscapeProxy::PostLoad()
 		// Need to clean up invalid collision components
 		RecreateCollisionComponents();
 	}
-
+	
+	if (GetLinker() && GetLinker()->UE4Ver() < VER_UE4_LANDSCAPE_STATIC_SECTION_OFFSET)
+	{
+		bStaticSectionOffset = false;
+	}
+	
 	EditorLayerSettings.Remove(NULL);
 
 	if (EditorCachedLayerInfos_DEPRECATED.Num() > 0)
@@ -1746,6 +1772,65 @@ void ULandscapeInfo::FixupProxiesWeightmaps()
 	}
 }
 
+//
+// This handles legacy behavior of landscapes created under world composition
+// We adjust landscape section offsets and set a flag inside landscape that sections offset are static and should never be touched again
+//
+void AdjustLandscapeSectionOffsets(UWorld* InWorld, const TArray<ALandscapeProxy*> InLandscapeList)
+{
+	// We interested only in registered actors
+	TArray<ALandscapeProxy*> RegisteredLandscapeList = InLandscapeList.FilterByPredicate([](ALandscapeProxy* Proxy) { 
+		return Proxy->GetRootComponent()->IsRegistered(); 
+	});
+
+	// Main Landscape actor should act as origin of global components grid
+	int32 LandcapeIndex = RegisteredLandscapeList.IndexOfByPredicate([](ALandscapeProxy* Proxy) { 
+		return Proxy->IsA<ALandscape>(); 
+	});
+	ALandscapeProxy* StaticLandscape = RegisteredLandscapeList.IsValidIndex(LandcapeIndex) ? RegisteredLandscapeList[LandcapeIndex] : nullptr;
+
+	if (StaticLandscape && !StaticLandscape->bStaticSectionOffset)
+	{
+		StaticLandscape->SetAbsoluteSectionBase(FIntPoint::ZeroValue);
+	}
+	
+	// In case there is no main landscape actor loaded try use any landscape that already has static offsets
+	if (StaticLandscape == nullptr)
+	{
+		LandcapeIndex = RegisteredLandscapeList.IndexOfByPredicate([](ALandscapeProxy* Proxy) { 
+			return Proxy->bStaticSectionOffset; 
+		});
+		StaticLandscape = RegisteredLandscapeList.IsValidIndex(LandcapeIndex) ? RegisteredLandscapeList[LandcapeIndex] : nullptr;
+		// Otherwise offsets will stay variable
+	}
+		
+	ALandscapeProxy* OriginLandscape = StaticLandscape;
+		
+	for (ALandscapeProxy* Proxy : RegisteredLandscapeList)
+	{
+		if (OriginLandscape == nullptr)
+		{
+			OriginLandscape = Proxy;
+		}
+		else if (!Proxy->bStaticSectionOffset)
+		{
+			// Calculate section offset based on relative position from "origin" landscape
+			FVector Offset = Proxy->GetActorLocation() - OriginLandscape->GetActorLocation();
+			FVector	DrawScale = OriginLandscape->GetRootComponent()->RelativeScale3D;
+
+			FIntPoint QuadsSpaceOffset;
+			QuadsSpaceOffset.X = FMath::RoundToInt(Offset.X / DrawScale.X);
+			QuadsSpaceOffset.Y = FMath::RoundToInt(Offset.Y / DrawScale.Y);
+			Proxy->SetAbsoluteSectionBase(QuadsSpaceOffset + OriginLandscape->LandscapeSectionOffset);
+
+			if (StaticLandscape)
+			{
+				Proxy->bStaticSectionOffset = true;
+			}
+		}
+	}
+}
+
 void ULandscapeInfo::RecreateLandscapeInfo(UWorld* InWorld, bool bMapCheck)
 {
 	check(InWorld);
@@ -1773,35 +1858,21 @@ void ULandscapeInfo::RecreateLandscapeInfo(UWorld* InWorld, bool bMapCheck)
 		}
 	}
 
-	// Register gathered landscapes in shared LandscapeInfo map
+	// Handle legacy landscape data under world composition
+	if (InWorld->WorldComposition)
+	{
+		for (auto It = ValidLandscapesMap.CreateIterator(); It; ++It)
+		{
+			AdjustLandscapeSectionOffsets(InWorld, It.Value());
+		}
+	}
+
+	// Register landscapes in global landscape map
 	for (auto It = ValidLandscapesMap.CreateIterator(); It; ++It)
 	{
 		auto& LandscapeList = It.Value();
-		ALandscapeProxy* FirstVisibleLandscape = NULL;
-
-		for (int32 LandscapeIdx = 0; LandscapeIdx < LandscapeList.Num(); LandscapeIdx++)
+		for (ALandscapeProxy* Proxy : LandscapeList)
 		{
-			ALandscapeProxy* Proxy = LandscapeList[LandscapeIdx];
-			if (InWorld->WorldComposition &&
-				Proxy->GetRootComponent()->IsRegistered())
-			{
-				if (FirstVisibleLandscape == NULL)
-				{
-					FirstVisibleLandscape = Proxy;
-				}
-
-				// Setup first landscape in the list as origin for section based grid
-				// And based on that calculate section coordinates for all landscapes in the list
-				FVector Offset = Proxy->GetActorLocation() - FirstVisibleLandscape->GetActorLocation();
-				FVector	DrawScale = FirstVisibleLandscape->GetRootComponent()->RelativeScale3D;
-
-				FIntPoint QuadsSpaceOffset;
-				QuadsSpaceOffset.X = FMath::RoundToInt(Offset.X / DrawScale.X);
-				QuadsSpaceOffset.Y = FMath::RoundToInt(Offset.Y / DrawScale.Y);
-				Proxy->SetAbsoluteSectionBase(QuadsSpaceOffset);
-			}
-
-			// Register gathered landscape actors inside global LandscapeInfo object
 			Proxy->GetLandscapeInfo(true)->RegisterActor(Proxy, bMapCheck);
 		}
 	}

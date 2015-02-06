@@ -8,7 +8,7 @@ FString SGraphNodeK2CreateDelegate::FunctionDescription(const UFunction* Functio
 {
 	if(!Function || !Function->GetOuter())
 	{
-		return TEXT("Error");
+		return NSLOCTEXT("GraphNodeK2Create", "Error", "Error").ToString();
 	}
 
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
@@ -48,7 +48,7 @@ void SGraphNodeK2CreateDelegate::Construct( const FArguments& InArgs, UK2Node* I
 	UpdateGraphNode();
 }
 
-FString SGraphNodeK2CreateDelegate::GetCurrentFunctionDescription() const
+FText SGraphNodeK2CreateDelegate::GetCurrentFunctionDescription() const
 {
 	UK2Node_CreateDelegate* Node = Cast<UK2Node_CreateDelegate>(GraphNode);
 	UFunction* FunctionSignature = Node ? Node->GetDelegateSignature() : NULL;
@@ -56,20 +56,20 @@ FString SGraphNodeK2CreateDelegate::GetCurrentFunctionDescription() const
 
 	if(!FunctionSignature || !ScopeClass)
 	{
-		return TEXT("None");
+		return NSLOCTEXT("GraphNodeK2Create", "NoneLabel", "None");
 	}
 
 	if (const auto Func = FindField<UFunction>(ScopeClass, Node->GetFunctionName()))
 	{
-		return FunctionDescription(Func);
+		return FText::FromString(FunctionDescription(Func));
 	}
 
 	if (Node->GetFunctionName() != NAME_None)
 	{
-		return FString::Printf(TEXT("Error? %s"), *Node->GetFunctionName().ToString());
+		return FText::Format(NSLOCTEXT("GraphNodeK2Create", "ErrorLabelFmt", "Error? {0}"), FText::FromName(Node->GetFunctionName()));
 	}
 
-	return TEXT("Select Function");
+	return NSLOCTEXT("GraphNodeK2Create", "SelectFunctionLabel", "Select Function");
 }
 
 TSharedRef<ITableRow> SGraphNodeK2CreateDelegate::HandleGenerateRowFunction(TSharedPtr<FFunctionItemData> FunctionItemData, const TSharedRef<STableViewBase>& OwnerTable)
@@ -77,7 +77,7 @@ TSharedRef<ITableRow> SGraphNodeK2CreateDelegate::HandleGenerateRowFunction(TSha
 	check(FunctionItemData.IsValid());
 	return SNew(STableRow< TSharedPtr<FFunctionItemData> >, OwnerTable).Content()
 		[
-			SNew( STextBlock ).Text( FunctionItemData->Description )
+			SNew( STextBlock ).Text( FText::FromString(FunctionItemData->Description) )
 		];
 }
 

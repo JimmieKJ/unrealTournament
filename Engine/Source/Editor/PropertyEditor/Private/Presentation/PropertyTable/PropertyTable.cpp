@@ -92,7 +92,7 @@ void FPropertyTable::CreateColorPickerWindow( const TSharedRef< class FPropertyE
 
 void FPropertyTable::EnqueueDeferredAction( FSimpleDelegate DeferredAction )
 {
-	DeferredActions.AddUnique( DeferredAction );
+	DeferredActions.Add( DeferredAction );
 }
 
 TSharedPtr<class FAssetThumbnailPool> FPropertyTable::GetThumbnailPool() const

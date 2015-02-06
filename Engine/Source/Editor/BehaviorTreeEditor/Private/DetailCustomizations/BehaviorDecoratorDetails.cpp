@@ -130,20 +130,20 @@ TSharedRef<SWidget> FBehaviorDecoratorDetails::OnGetAbortModeContent() const
 	return MenuBuilder.MakeWidget();
 }
 
-FString FBehaviorDecoratorDetails::GetCurrentAbortModeDesc() const
+FText FBehaviorDecoratorDetails::GetCurrentAbortModeDesc() const
 {
 	uint8 ByteValue;
 	ModeProperty->GetValue(ByteValue);
 
 	for (int32 i = 0; i < ModeValues.Num(); i++)
-{
+	{
 		if (ModeValues[i].Int == ByteValue)
 		{
-			return ModeValues[i].Str;
+			return FText::FromString(ModeValues[i].Str);
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 #undef LOCTEXT_NAMESPACE

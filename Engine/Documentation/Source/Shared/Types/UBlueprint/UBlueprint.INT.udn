@@ -4,7 +4,7 @@ Crumbs:
 Description:Overview of the Blueprint class
 
 [EXCERPT:UBlueprint]
-A Class Blueprint is an asset that content creators can use to easily add functionality on top of existing gameplay classes. Often shortened as just Blueprint. Blueprints are created inside of Unreal Editor visually, instead of by typing code, and saved as assets in a content package. They essentially define a new class or type of Actor, which can then be placed into maps as instances that behave like any other type of Actor.
+A Blueprint Class is an asset that content creators can use to easily add functionality on top of existing gameplay classes. Often shortened as just Blueprint. Blueprints are created inside of Unreal Editor visually, instead of by typing code, and saved as assets in a content package. They essentially define a new class or type of Actor, which can then be placed into maps as instances that behave like any other type of Actor.
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Types/ClassBlueprint
 [/VAR]

@@ -24,7 +24,7 @@ public:
 
 	SLATE_BEGIN_ARGS(SProjectLauncherBuildConfigurationSelector) { }
 		SLATE_EVENT(FOnSessionSProjectLauncherBuildConfigurationSelected, OnConfigurationSelected)
-		SLATE_ATTRIBUTE(FString, Text)
+		SLATE_ATTRIBUTE(FText, Text)
 		SLATE_ATTRIBUTE(FSlateFontInfo, Font)
 	SLATE_END_ARGS()
 

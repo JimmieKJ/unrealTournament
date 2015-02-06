@@ -668,7 +668,7 @@ void FStaticLightingSystem::InvalidateStaticLighting()
 				{
 					if (!Options.bOnlyBuildVisibility)
 					{
-						TArray<UActorComponent*> Components;
+						TInlineComponentArray<UActorComponent*> Components;
 						Actor->GetComponents(Components);
 
 						for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
@@ -730,7 +730,7 @@ void FStaticLightingSystem::PostInvalidateStaticLighting()
 				{
 					if (!Options.bOnlyBuildVisibility)
 					{
-						TArray<UPrimitiveComponent*> Components;
+						TInlineComponentArray<UPrimitiveComponent*> Components;
 						Actor->GetComponents(Components);
 
 						for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
@@ -936,7 +936,7 @@ void FStaticLightingSystem::GatherStaticLightingInfo(bool bRebuildDirtyGeometryF
 					bBuildLightingForLevel &&
 					(!Options.bOnlyBuildSelected || Actor->IsSelected());
 
-				TArray<UPrimitiveComponent*> Components;
+				TInlineComponentArray<UPrimitiveComponent*> Components;
 				Actor->GetComponents(Components);
 
 				if (bBuildActorLighting)
@@ -1062,7 +1062,7 @@ void FStaticLightingSystem::ApplyNewLightingData(bool bLightingSuccessful)
 
 				if (Actor && bLightingSuccessful && !Options.bOnlyBuildSelected)
 				{
-					TArray<ULightComponentBase*> Components;
+					TInlineComponentArray<ULightComponentBase*> Components;
 					Actor->GetComponents(Components);
 
 					for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)

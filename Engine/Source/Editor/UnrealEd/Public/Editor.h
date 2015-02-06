@@ -621,7 +621,10 @@ namespace EditorUtilities
 			OnlyCopyEditOrInterpProperties = 1 << 3,
 
 			/** Propagate property changes to archetype instances if the target actor is a CDO */
-			PropagateChangesToArcheypeInstances = 1 << 4,
+			PropagateChangesToArchetypeInstances = 1 << 4,
+
+			/** Filters out Blueprint Read-only properties */
+			FilterBlueprintReadOnly = 1 << 5,
 		};
 	}
 

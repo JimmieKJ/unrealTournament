@@ -22,7 +22,7 @@ public:
 
 	/** Constructs this widget with InArgs */
 	virtual ~STimeline();
-	void Construct(const FArguments& InArgs, TSharedPtr<class SVisualLoggerView> VisualLoggerView, TSharedPtr<class FSequencerTimeSliderController> InTimeSliderController, TSharedPtr<class STimelinesContainer> InContainer, const FVisualLogDevice::FVisualLogEntryItem& Entry);
+	void Construct(const FArguments& InArgs, TSharedPtr<class SVisualLoggerView> VisualLoggerView, TSharedPtr<class FVisualLoggerTimeSliderController> InTimeSliderController, TSharedPtr<class STimelinesContainer> InContainer, const FVisualLogDevice::FVisualLogEntryItem& Entry);
 	bool IsSelected() const;
 	bool IsEntryHidden(const FVisualLogDevice::FVisualLogEntryItem&) const;
 	const FSlateBrush* GetBorder() const;

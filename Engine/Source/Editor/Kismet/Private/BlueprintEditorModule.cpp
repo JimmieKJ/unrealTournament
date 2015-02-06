@@ -86,7 +86,9 @@ void FBlueprintEditorModule::StartupModule()
 		// Extend the level viewport context menu to handle blueprints
 		LevelViewportContextMenuBlueprintExtender = FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors::CreateStatic(&ExtendLevelViewportContextMenuForBlueprints);
 		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		LevelEditorModule.GetAllLevelViewportContextMenuExtenders().Add(LevelViewportContextMenuBlueprintExtender);
+		auto& MenuExtenders = LevelEditorModule.GetAllLevelViewportContextMenuExtenders();
+		MenuExtenders.Add(LevelViewportContextMenuBlueprintExtender);
+		LevelViewportContextMenuBlueprintExtenderDelegateHandle = MenuExtenders.Last().GetHandle();
 	}
 
 	FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
@@ -97,6 +99,9 @@ void FBlueprintEditorModule::StartupModule()
 
 	// Listen for clicks in log so we can focus on the object, might have to restart K2 if the K2 tab has been closed
 	MessageLogModule.GetLogListing("BlueprintLog")->OnMessageTokenClicked().AddStatic( &FocusBlueprintEditorOnObject );
+	
+	// Also listen for clicks in the PIE log, runtime errors with Blueprints may post clickable links there
+	MessageLogModule.GetLogListing("PIE")->OnMessageTokenClicked().AddStatic( &FocusBlueprintEditorOnObject );
 
 	// Add a page for pre-loading of the editor
 	MessageLogModule.GetLogListing("BlueprintLog")->NewPage(LOCTEXT("PreloadLogPageLabel", "Editor Load"));
@@ -123,7 +128,9 @@ void FBlueprintEditorModule::ShutdownModule()
 	if ( FModuleManager::Get().IsModuleLoaded( "LevelEditor" ) )
 	{
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>( "LevelEditor" );
-		LevelEditorModule.GetAllLevelViewportContextMenuExtenders().Remove(LevelViewportContextMenuBlueprintExtender);
+		LevelEditorModule.GetAllLevelViewportContextMenuExtenders().RemoveAll([&](const FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors& Delegate) {
+			return Delegate.GetHandle() == LevelViewportContextMenuBlueprintExtenderDelegateHandle;
+		});
 	}
 
 	FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");

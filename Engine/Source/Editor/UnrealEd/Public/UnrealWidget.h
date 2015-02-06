@@ -93,6 +93,16 @@ public:
 	static bool AllowsAbsoluteTranslationMovement(FWidget::EWidgetMode WidgetMode);
 
 	/**
+	 * Sets the default visibility of the widget, if it is not overridden by an active editor mode tool.
+	 *
+	 * @param	bInVisibility	true for visible
+	 */
+	void SetDefaultVisibility(bool bInDefaultVisibility)
+	{
+		bDefaultVisibility = bInDefaultVisibility;
+	}
+
+	/**
 	 * Sets the axis currently being moused over.  Typically called by FMouseDeltaTracker or FLevelEditorViewportClient.
 	 *
 	 * @param	InCurrentAxis	The new axis value.
@@ -377,6 +387,8 @@ private:
 	bool bDragging;
 	/** Whether or not snapping is enabled for all actors */
 	bool bSnapEnabled;
+	/** Default visibility for the widget if an Editor Mode Tool doesn't override it */
+	bool bDefaultVisibility;
 
 	/** Total delta rotation applied since the widget was dragged */
 	float TotalDeltaRotation;

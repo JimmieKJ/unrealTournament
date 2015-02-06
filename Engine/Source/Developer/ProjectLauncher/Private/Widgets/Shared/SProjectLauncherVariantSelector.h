@@ -24,7 +24,7 @@ public:
 
 	SLATE_BEGIN_ARGS(SProjectLauncherVariantSelector) { }
 	SLATE_EVENT(FOnSProjectLauncherVariantSelected, OnVariantSelected)
-		SLATE_ATTRIBUTE(FString, Text)
+		SLATE_ATTRIBUTE(FText, Text)
 	SLATE_END_ARGS()
 
 public:

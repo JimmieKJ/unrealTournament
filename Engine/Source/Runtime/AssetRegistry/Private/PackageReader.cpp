@@ -139,7 +139,7 @@ bool FPackageReader::ReadAssetRegistryData (TArray<FBackgroundAssetData*>& Asset
 		if (bLegacyPackage || bNoMapAsset)
 		{
 			const FString AssetName = FPackageName::GetLongPackageAssetName(PackageName);
-			TMap<FString, FString> TagsAndValues;
+			TMultiMap<FString, FString> TagsAndValues;
 			AssetDataList.Add(new FBackgroundAssetData(PackageName, PackagePath, TEXT(""), AssetName, TEXT("World"), TagsAndValues, PackageFileSummary.ChunkIDs));
 		}
 	}
@@ -154,7 +154,7 @@ bool FPackageReader::ReadAssetRegistryData (TArray<FBackgroundAssetData*>& Asset
 		*this << ObjectClassName;
 		*this << TagCount;
 
-		TMap<FString, FString> TagsAndValues;
+		TMultiMap<FString, FString> TagsAndValues;
 
 		for(int32 TagIdx = 0; TagIdx < TagCount; ++TagIdx)
 		{
@@ -244,7 +244,7 @@ bool FPackageReader::ReadAssetDataFromThumbnailCache(TArray<FBackgroundAssetData
 		}
 
 		// Create a new FBackgroundAssetData for this asset and update it with the gathered data
-		TMap<FString, FString> TagsAndValues;
+		TMultiMap<FString, FString> TagsAndValues;
 		AssetDataList.Add(new FBackgroundAssetData(PackageName, PackagePath, GroupNames, AssetName, AssetClassName, TagsAndValues, PackageFileSummary.ChunkIDs));
 	}
 

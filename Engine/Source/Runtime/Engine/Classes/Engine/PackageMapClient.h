@@ -90,14 +90,16 @@ public:
 UCLASS(transient)
 class UPackageMapClient : public UPackageMap
 {
-    GENERATED_UCLASS_BODY()
+public:
+	GENERATED_BODY()
 
-	UPackageMapClient( const FObjectInitializer & ObjectInitializer, UNetConnection * InConnection, TSharedPtr< FNetGUIDCache > InNetGUIDCache ) : 
-		UPackageMap( ObjectInitializer )
-	,	Connection(InConnection)
+	UPackageMapClient(const FObjectInitializer & ObjectInitializer);
+
+	void Initialize(UNetConnection * InConnection, TSharedPtr<FNetGUIDCache> InNetGUIDCache)
 	{
-		GuidCache				= InNetGUIDCache;
-		ExportNetGUIDCount		= 0;
+		Connection = InConnection;
+		GuidCache = InNetGUIDCache;
+		ExportNetGUIDCount = 0;
 	}
 
 	virtual ~UPackageMapClient()

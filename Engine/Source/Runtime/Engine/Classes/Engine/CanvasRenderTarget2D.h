@@ -39,15 +39,16 @@ public:
 	/**
 	 * Creates a new canvas render target and initializes it to the specified dimensions
 	 *
-	 * @param	Class				Class of the render target.  Unless you want to use a special sub-class, you can simply pass UCanvasRenderTarget2D::StaticClass() here.
+	 * @param	WorldContextObject	The world where this render target will be rendered for
+	 * @param	CanvasRenderTarget2DClass	Class of the render target.  Unless you want to use a special sub-class, you can simply pass UCanvasRenderTarget2D::StaticClass() here.
 	 * @param	Width				Width of the render target.
 	 * @param	Height				Height of the render target.
 	 *
 	 * @return						Returns the instanced render target.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Canvas Render Target 2D")
-	static UCanvasRenderTarget2D* CreateCanvasRenderTarget2D(TSubclassOf<UCanvasRenderTarget2D> CanvasRenderTarget2DClass, int32 Width, int32 Height);
-
+	UFUNCTION(BlueprintCallable, Category="Canvas Render Target 2D",meta=(HidePin="WorldContextObject", DefaultToSelf="WorldContextObject" ))
+	static UCanvasRenderTarget2D* CreateCanvasRenderTarget2D(UObject* WorldContextObject, TSubclassOf<UCanvasRenderTarget2D> CanvasRenderTarget2DClass, int32 Width = 1024, int32 Height = 1024);
+ 
 	/**
 	 * Allows a Blueprint to implement how this Canvas Render Target 2D should be updated.
 	 *
@@ -64,11 +65,22 @@ public:
 	 * @param	Width	Output variable for the render target's width
 	 * @param	Height	Output variable for the render target's height
 	 */
-	UFUNCTION(BlueprintCallable, Category="Canvas Render Target 2D")
+	UFUNCTION(BlueprintPure, Category="Canvas Render Target 2D")
 	void GetSize(int32& Width, int32& Height);
 
 
 	/** Called when this Canvas Render Target is asked to update its texture resource. */
 	UPROPERTY(BlueprintAssignable, Category="Canvas Render Target 2D")
 	FOnCanvasRenderTargetUpdate OnCanvasRenderTargetUpdate;
+
+	// UObject overrides
+	virtual UWorld* GetWorld() const override;
+	
+
+protected:
+
+	/* The world this render target will be used with */
+	UPROPERTY()
+	TWeakObjectPtr<UWorld> World;
+	
 };

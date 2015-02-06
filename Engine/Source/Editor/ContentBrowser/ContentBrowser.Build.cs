@@ -26,6 +26,7 @@ public class ContentBrowser : ModuleRules
 				"CoreUObject",
                 "InputCore",
 				"Engine",
+				"GameProjectGeneration",
 				"Slate",
 				"SlateCore",
                 "EditorStyle",

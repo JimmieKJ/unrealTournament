@@ -221,7 +221,7 @@ void FAssetTypeActions_CameraAnim::OpenAssetEditor( const TArray<UObject*>& InOb
 				GEditor->OpenMatinee(PreviewMatineeActor.Get());
 
 				// install our delegate so we can clean up when finished
-				FEditorDelegates::EditorModeExit.AddSP(this, &FAssetTypeActions_CameraAnim::OnMatineeEditorClosed);
+				OnMatineeEditorClosedDelegateHandle = FEditorDelegates::EditorModeExit.AddSP(this, &FAssetTypeActions_CameraAnim::OnMatineeEditorClosed);
 			}
 			else
 			{
@@ -256,7 +256,7 @@ void FAssetTypeActions_CameraAnim::OnMatineeEditorClosed(FEdMode* InEditorMode)
 		}
 
 		// remove our delegate
-		FEditorDelegates::EditorModeExit.RemoveSP(this, &FAssetTypeActions_CameraAnim::OnMatineeEditorClosed);
+		FEditorDelegates::EditorModeExit.Remove(OnMatineeEditorClosedDelegateHandle);
 	}
 }
 

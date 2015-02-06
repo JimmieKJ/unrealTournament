@@ -397,13 +397,13 @@ TSharedRef<SWidget> SBlueprintLibraryPalette::ConstructClassFilterDropdownConten
 }
 
 //------------------------------------------------------------------------------
-FString SBlueprintLibraryPalette::GetFilterClassName() const
+FText SBlueprintLibraryPalette::GetFilterClassName() const
 {
-	FString FilterDisplayString = TEXT("All");
+	FText FilterDisplayString = LOCTEXT("All", "All");
 	if (FilterClass != NULL)
 	{
 		UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(FilterClass.Get());
-		FilterDisplayString = (Blueprint != NULL) ? Blueprint->GetName() : FilterClass->GetName();
+		FilterDisplayString = FText::FromString((Blueprint != NULL) ? Blueprint->GetName() : FilterClass->GetName());
 	}
 
 	return FilterDisplayString;

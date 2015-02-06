@@ -515,7 +515,7 @@ void SBlendSpace1DWidget::ResampleData()
 
 SBlendSpaceEditor1D::~SBlendSpaceEditor1D()
 {
-	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandle);
+	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandleDelegateHandle);
 }
 
 void SBlendSpaceEditor1D::Construct(const FArguments& InArgs)
@@ -527,7 +527,7 @@ void SBlendSpaceEditor1D::Construct(const FArguments& InArgs)
 
 	// Register to be notified when properties are edited
 	OnPropertyChangedHandle = FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate::CreateRaw(this, &SBlendSpaceEditor1D::OnPropertyChanged);
-	FCoreUObjectDelegates::OnObjectPropertyChanged.Add(OnPropertyChangedHandle);
+	OnPropertyChangedHandleDelegateHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.Add(OnPropertyChangedHandle);
 
 	bCachedDisplayVerticalValue = GetBlendSpace()->bDisplayEditorVertically;
 
@@ -629,18 +629,22 @@ void SBlendSpaceEditor1D::UpdateBlendParameters()
 		ParameterName = TEXT("X");
 	}
 
-	FString LabelFormat;
+	FText LabelFormat;
 	if(GetBlendSpace()->bDisplayEditorVertically)
 	{
-		LabelFormat = TEXT("%s\n[%0.2f]");
+		LabelFormat = FText::FromString(TEXT("{0}\n[{1}]"));
 	}
 	else
 	{
-		LabelFormat = TEXT("%s[%0.2f]");
+		LabelFormat = FText::FromString(TEXT("{0}[{1}]"));
 	}
 
-	Parameter_Min->SetText(FString::Printf(*LabelFormat, *ParameterName, BlendParam.Min));
-	Parameter_Max->SetText(FString::Printf(*LabelFormat, *ParameterName, BlendParam.Max));
+	static const FNumberFormattingOptions NumberFormat = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(2)
+		.SetMaximumFractionalDigits(2);
+
+	Parameter_Min->SetText(FText::Format(LabelFormat, FText::FromString(ParameterName), FText::AsNumber(BlendParam.Min, &NumberFormat)));
+	Parameter_Max->SetText(FText::Format(LabelFormat, FText::FromString(ParameterName), FText::AsNumber(BlendParam.Max, &NumberFormat)));
 
 	BlendSpaceWidget->ResampleData();
 }

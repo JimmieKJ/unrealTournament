@@ -88,7 +88,7 @@ public:
 						[
 							SNew(STextBlock)
 								.Font(FEditorStyle::GetFontStyle("BoldFont"))
-								.Text(InstanceInfo->GetInstanceName())							
+								.Text(FText::FromString(InstanceInfo->GetInstanceName()))
 						]
 				];
 		}
@@ -171,9 +171,9 @@ private:
 	}
 
 	/** Callback for getting the instance's current level. */
-	FString HandleLevelColumnText() const
+	FText HandleLevelColumnText() const
 	{
-		return InstanceInfo->GetCurrentLevel();
+		return FText::FromString(InstanceInfo->GetCurrentLevel());
 	}
 
 	/** Callback for getting the text in the 'Status' column. */

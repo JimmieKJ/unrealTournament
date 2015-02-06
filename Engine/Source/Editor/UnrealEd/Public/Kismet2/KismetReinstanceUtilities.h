@@ -10,14 +10,6 @@
 
 DECLARE_STATS_GROUP(TEXT("Kismet Reinstancer"), STATGROUP_KismetReinstancer, STATCAT_Advanced);
 
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Replace Instances"), EKismetReinstancerStats_ReplaceInstancesOfClass, STATGROUP_KismetReinstancer, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Find Referencers"), EKismetReinstancerStats_FindReferencers, STATGROUP_KismetReinstancer, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Replace References"), EKismetReinstancerStats_ReplaceReferences, STATGROUP_KismetReinstancer, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Construct Replacements"), EKismetReinstancerStats_ReplacementConstruction, STATGROUP_KismetReinstancer, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Update Bytecode References"), EKismetReinstancerStats_UpdateBytecodeReferences, STATGROUP_KismetReinstancer, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Recompile Child Classes"), EKismetReinstancerStats_RecompileChildClasses, STATGROUP_KismetReinstancer, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Replace Classes Without Reinstancing"), EKismetReinstancerStats_ReplaceClassNoReinsancing, STATGROUP_KismetReinstancer, );
-
 class UNREALED_API FBlueprintCompileReinstancer
 {
 protected:
@@ -75,6 +67,15 @@ public:
 
 	/** Worker function to replace all instances of OldClass with a new instance of NewClass */
 	static void ReplaceInstancesOfClass(UClass* OldClass, UClass* NewClass, UObject* OriginalCDO = NULL, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL);
+
+	/**
+	 * When re-instancing a component, we have to make sure all instance owners' 
+	 * construction scripts are re-ran (in-case modifying the component alters 
+	 * the construction of the actor).
+	 * 
+	 * @param  ComponentClass    Identifies the component that was altered (used to find all its instances, and thusly all instance owners).
+	 */
+	static void ReconstructOwnerInstances(TSubclassOf<UActorComponent> ComponentClass);
 	
 	/** Verify that all instances of the duplicated class have been replaced and collected */
 	void VerifyReplacement();

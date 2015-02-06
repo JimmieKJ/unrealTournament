@@ -58,6 +58,9 @@ public:
 	/** Number of the revision */
 	virtual int32 GetRevisionNumber() const = 0;
 
+	/** String representation of the revision */
+	virtual const FString& GetRevision() const = 0;
+
 	/** Changelist/Commit description */
 	virtual const FString& GetDescription() const = 0;
 

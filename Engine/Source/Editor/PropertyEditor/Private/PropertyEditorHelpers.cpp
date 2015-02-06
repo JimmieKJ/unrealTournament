@@ -587,7 +587,7 @@ namespace PropertyEditorHelpers
 
 			UClass* Class = (ClassProp ? ClassProp->MetaClass : FEditorClassUtils::GetClassFromString(NodeProperty->GetMetaData("MetaClass")));
 
-			if (Class && FKismetEditorUtilities::CanCreateBlueprintOfClass(Class))
+			if (Class && FKismetEditorUtilities::CanCreateBlueprintOfClass(Class) && !NodeProperty->HasMetaData("DisallowCreateNew"))
 			{
 				OutRequiredButtons.Add( EPropertyButton::NewBlueprint );
 			}

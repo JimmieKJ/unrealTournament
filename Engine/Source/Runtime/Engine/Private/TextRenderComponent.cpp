@@ -73,6 +73,10 @@ struct FTextIterator
 		{
 			CurrentPosition += 4;
 		}
+		else if (CurrentPosition[0] == '\n')
+		{
+			++CurrentPosition;
+		}
 		else
 		{
 			Ch = *CurrentPosition;
@@ -86,7 +90,7 @@ struct FTextIterator
 	bool Peek(int32& Ch)
 	{
 		check(CurrentPosition);
-		if ( CurrentPosition[0] =='\0' || (CurrentPosition[0] == '<' && CurrentPosition[1] == 'b' && CurrentPosition[2] == 'r' && CurrentPosition[3] == '>'))
+		if ( CurrentPosition[0] =='\0' || (CurrentPosition[0] == '<' && CurrentPosition[1] == 'b' && CurrentPosition[2] == 'r' && CurrentPosition[3] == '>') || (CurrentPosition[0] == '\n') )
 		{
 			return false;
 		}

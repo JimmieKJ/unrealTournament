@@ -26,5 +26,11 @@ public:
 
 	// 2D version of RemoveRedundantTriangles from GeomTools.cpp
 	static void RemoveRedundantTriangles(TArray<FVector2D>& OutTriangles, const TArray<FVector2D>& InTriangles);
+
+	// Generate convex shapes
+	static void GenerateConvexPolygonsFromTriangles(TArray<TArray<FVector2D>>& OutPolygons, const TArray<FVector2D>& InTriangles);
+
+	// Generate convex hull from points
+	static void GenerateConvexHullFromPoints(TArray<FVector2D>& OutConvexHull, TArray<FVector2D>& Points);
 };
 

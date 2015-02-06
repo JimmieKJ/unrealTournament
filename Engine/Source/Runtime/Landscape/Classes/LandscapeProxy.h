@@ -187,7 +187,7 @@ namespace ELandscapeLODFalloff
 	};
 }
 
-UCLASS(NotPlaceable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Rendering, "Utilities|Transformation"), MinimalAPI)
+UCLASS(NotPlaceable, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Rendering, "Utilities|Transformation"), MinimalAPI)
 class ALandscapeProxy : public AActor
 {
 	GENERATED_UCLASS_BODY()
@@ -201,9 +201,15 @@ protected:
 	FGuid LandscapeGuid;
 
 public:
-	/** Offset in quads from landscape actor origin **/
+	/** Offset in quads from global components grid origin (in quads) **/
 	UPROPERTY()
 	FIntPoint LandscapeSectionOffset;
+
+#if WITH_EDITORONLY_DATA
+	/** To support legacy landscape section offset modification under world composition mode */
+	UPROPERTY()
+	bool bStaticSectionOffset;
+#endif
 
 	/** Max LOD level to use when rendering */
 	UPROPERTY(EditAnywhere, Category=LOD)
@@ -349,7 +355,6 @@ public:
 	virtual void PostEditMove(bool bFinished) override;
 	virtual bool ShouldImport(FString* ActorPropString, bool IsMovingLevel) override;
 	virtual bool ShouldExport() override;
-	virtual bool GetSelectedComponents(TArray<UObject*>& SelectedObjects) override;
 	// End AActor Interface
 #endif	//WITH_EDITOR
 
@@ -437,6 +442,5 @@ public:
 	LANDSCAPE_API UTexture2D* CreateLandscapeTexture(int32 InSizeX, int32 InSizeY, TextureGroup InLODGroup, ETextureSourceFormat InFormat, UObject* OptionalOverrideOuter = nullptr) const;
 #endif
 };
-
 
 

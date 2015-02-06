@@ -60,7 +60,7 @@ if [ "$IS_GITHUB_BUILD" = true ]; then
 	echo Github build
 	echo Checking / downloading the latest archives
 	set +e
-	mono Binaries/DotNET/GitDependencies.exe --prompt "$@"
+	Build/BatchFiles/Linux/GitDependencies.sh --prompt "$@"
 	set -e
 
 	#echo Unpacking and massaging the files

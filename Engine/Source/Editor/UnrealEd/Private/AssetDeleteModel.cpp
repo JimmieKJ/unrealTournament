@@ -6,6 +6,9 @@
 #include "ObjectTools.h"
 #include "AssetRegistryModule.h"
 #include "AssetEditorManager.h"
+#include "AutoReimport/AutoReimportUtilities.h"
+#include "AutoReimport/AutoReimportManager.h"
+#include "ISourceControlModule.h"
 
 #define LOCTEXT_NAMESPACE "FAssetDeleteModel"
 
@@ -63,6 +66,7 @@ void FAssetDeleteModel::Tick( const float InDeltaTime )
 		OnDiskReferences = TSet<FName>();
 		bIsAnythingReferencedInMemoryByNonUndo = false;
 		bIsAnythingReferencedInMemoryByUndo = false;
+		SourceFileToAssetCount.Empty();
 		PendingDeleteIndex = 0;
 
 		SetState(Scanning);
@@ -98,6 +102,8 @@ void FAssetDeleteModel::Tick( const float InDeltaTime )
 			}
 			PendingDelete->RemainingMemoryReferences = NonPendingDeletedExternalInMemoryReferences;
 
+			DiscoverSourceFileReferences(*PendingDelete);
+
 			bIsAnythingReferencedInMemoryByNonUndo |= PendingDelete->RemainingMemoryReferences > 0;
 			bIsAnythingReferencedInMemoryByUndo |= PendingDelete->IsReferencedInMemoryByUndo();
 
@@ -114,6 +120,114 @@ void FAssetDeleteModel::Tick( const float InDeltaTime )
 		break;
 	case Finished:
 		break;
+	}
+}
+
+void FAssetDeleteModel::DiscoverSourceFileReferences(FPendingDelete& PendingDelete)
+{
+	if (!GetDefault<UEditorLoadingSavingSettings>()->bMonitorContentDirectories)
+	{
+		return;
+	}
+	
+	// Start by extracting the files from the object
+	TArray<FString> SourceContentFiles;
+	Utils::ExtractSourceFilePaths(PendingDelete.GetObject(), SourceContentFiles);
+
+	auto MonitoredDirectories = GUnrealEd->AutoReimportManager->GetMonitoredDirectories();
+
+	// Remove anything that's not under a monitored, mounted path, or doesn't exist
+	SourceContentFiles.RemoveAll([&](const FString& InFilename){
+		for (const auto& Dir : MonitoredDirectories)
+		{
+			if (!Dir.MountPoint.IsEmpty() && InFilename.StartsWith(Dir.Path))
+			{
+				if (FPaths::FileExists(InFilename))
+				{
+					return false;
+				}
+				else
+				{
+					return true;
+				}
+			}
+		}
+		return true;
+	});
+
+	// Now accumulate references to the same source content file. We only offer to delete a file if it is only referenced by the deleted object(s)
+	IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+	for (const FString& SourcePath : SourceContentFiles)
+	{
+		int32* NumReferences = SourceFileToAssetCount.Find(SourcePath);
+		if (NumReferences)
+		{
+			(*NumReferences)--;
+		}
+		else
+		{
+			SourceFileToAssetCount.Add(SourcePath, Utils::FindAssetsPertainingToFile(AssetRegistry, SourcePath).Num());
+		}
+	}
+}
+
+bool FAssetDeleteModel::HasAnySourceContentFilesToDelete() const
+{
+	for (const auto& Pair : SourceFileToAssetCount)
+	{
+		if (Pair.Value == 0)
+		{
+			return true;
+		}
+	}
+	
+	return false;
+}
+
+void FAssetDeleteModel::DeleteSourceContentFiles()
+{
+	IFileManager& FileManager = IFileManager::Get();
+	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+
+	for (const auto& Pair : SourceFileToAssetCount)
+	{
+		const auto& Path = Pair.Key;
+		// We can only delete this path if there are no (non-deleted) objects referencing it
+		if (Pair.Value != 0)
+		{
+			continue;
+		}
+
+		if (ISourceControlModule::Get().IsEnabled())
+		{
+			const FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Path, EStateCacheUsage::ForceUpdate);
+			const bool bIsSourceControlled = SourceControlState.IsValid() && SourceControlState->IsSourceControlled();
+
+			if (bIsSourceControlled)
+			{
+				// The file is managed by source control. Delete it through there.
+				TArray<FString> DeleteFilenames;
+				DeleteFilenames.Add(Path);
+
+				// Revert the file if it is checked out
+				const bool bIsAdded = SourceControlState->IsAdded();
+				if (SourceControlState->IsCheckedOut() || bIsAdded || SourceControlState->IsDeleted())
+				{
+					SourceControlProvider.Execute(ISourceControlOperation::Create<FRevert>(), DeleteFilenames);
+				}
+
+				// If it wasn't already marked as an add, we can ask the source control provider to delete the file
+				if (!bIsAdded)
+				{
+					// Open the file for delete
+					SourceControlProvider.Execute(ISourceControlOperation::Create<FDelete>(), DeleteFilenames);
+					continue;
+				}
+			}
+		}
+
+		// We'll just delete it ourself
+		FileManager.Delete(*Path, false /* RequireExists */, true /* Even if read only */, true /* Quiet */);
 	}
 }
 
@@ -519,6 +633,36 @@ void FPendingDelete::CheckForReferences()
 	const int32 NonUndoReferenceCount = MemoryReferences.ExternalReferences.Num() + MemoryReferences.InternalReferences.Num();
 
 	bIsReferencedInMemoryByUndo = TotalReferenceCount > NonUndoReferenceCount;
+
+	// If the object itself isn't in the transaction buffer, check to see if it's a Blueprint asset. We might have instances of the
+	// Blueprint in the transaction buffer, in which case we also want to both alert the user and clear it prior to deleting the asset.
+	if ( !bIsReferencedInMemoryByUndo )
+	{
+		UBlueprint* Blueprint = Cast<UBlueprint>( Object );
+		if ( Blueprint && Blueprint->GeneratedClass )
+		{
+			TArray<FReferencerInformation> ExternalMemoryReferences = MemoryReferences.ExternalReferences;
+			for ( auto RefIt = ExternalMemoryReferences.CreateIterator(); RefIt && !bIsReferencedInMemoryByUndo; ++RefIt )
+			{
+				FReferencerInformation& RefInfo = *RefIt;
+				if ( RefInfo.Referencer->IsA( Blueprint->GeneratedClass ) )
+				{
+					if ( IsReferenced( RefInfo.Referencer, GARBAGE_COLLECTION_KEEPFLAGS, true, &ReferencesIncludingUndo ) )
+					{
+						GEditor->Trans->DisableObjectSerialization();
+
+						FReferencerInformationList ReferencesExcludingUndo;
+						if ( IsReferenced( RefInfo.Referencer, GARBAGE_COLLECTION_KEEPFLAGS, true, &ReferencesExcludingUndo ) )
+						{
+							bIsReferencedInMemoryByUndo = ( ReferencesIncludingUndo.InternalReferences.Num() + ReferencesIncludingUndo.ExternalReferences.Num() ) > ( ReferencesExcludingUndo.InternalReferences.Num() + ReferencesExcludingUndo.ExternalReferences.Num() );
+						}
+
+						GEditor->Trans->EnableObjectSerialization();
+					}
+				}
+			}
+		}
+	}
 }
 
 bool FPendingDelete::operator == ( const FPendingDelete& Other ) const

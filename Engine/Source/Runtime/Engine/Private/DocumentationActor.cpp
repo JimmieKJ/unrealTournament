@@ -30,7 +30,7 @@ bool ADocumentationActor::OpenDocumentLink() const
 	bool bOpened = false;
 
 #if WITH_EDITOR
-	bOpened = IDocumentation::Get()->Open(DocumentLink);	
+	bOpened = IDocumentation::Get()->Open(DocumentLink, FDocumentationSourceInfo(TEXT("doc_actors")));
 #endif //WITH_EDITOR
 
 	return bOpened;

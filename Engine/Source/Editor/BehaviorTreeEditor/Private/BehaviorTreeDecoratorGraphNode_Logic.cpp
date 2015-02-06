@@ -69,9 +69,9 @@ bool UBehaviorTreeDecoratorGraphNode_Logic::CanRemovePins() const
 	return (NumInputLinks > 2) && CanAddPins();
 }
 
-void UBehaviorTreeDecoratorGraphNode_Logic::AddInputPin()
+UEdGraphPin* UBehaviorTreeDecoratorGraphNode_Logic::AddInputPin()
 {
-	CreatePin(EGPD_Input, TEXT("Transition"), TEXT(""), NULL, false, false, TEXT("In"));
+	return CreatePin(EGPD_Input, TEXT("Transition"), TEXT(""), NULL, false, false, TEXT("In"));
 }
 
 void UBehaviorTreeDecoratorGraphNode_Logic::RemoveInputPin(class UEdGraphPin* Pin)
@@ -84,4 +84,10 @@ EBTDecoratorLogic::Type UBehaviorTreeDecoratorGraphNode_Logic::GetOperationType(
 {
 	EBTDecoratorLogic::Type LogicTypes[] = { EBTDecoratorLogic::Invalid, EBTDecoratorLogic::And, EBTDecoratorLogic::Or, EBTDecoratorLogic::Not };
 	return LogicTypes[LogicMode];
+}
+
+EDecoratorLogicMode::Type UBehaviorTreeDecoratorGraphNode_Logic::GetLogicMode(EBTDecoratorLogic::Type Op) const
+{
+	EDecoratorLogicMode::Type LogicTypes[] = { EDecoratorLogicMode::Sink, EDecoratorLogicMode::Sink, EDecoratorLogicMode::And, EDecoratorLogicMode::Or, EDecoratorLogicMode::Not };
+	return LogicTypes[Op];
 }

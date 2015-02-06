@@ -86,6 +86,7 @@ protected:
 	FNavPathSharedPtr Path;
 
 	FNavigationPath::FPathObserverDelegate::FDelegate PathObserver;
+	FDelegateHandle PathObserverDelegateHandle;
 	
 	/** Handle for efficient management of DeferredPerformMoveAction timer */
 	FTimerHandle TimerHandle_DeferredPerformMoveAction;

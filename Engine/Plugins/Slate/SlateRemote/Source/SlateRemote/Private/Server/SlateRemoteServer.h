@@ -103,6 +103,9 @@ private:
 	// Holds a delegate to be invoked when the server ticks.
 	FTickerDelegate TickDelegate;
 
+	// Handle to the registered TickDelegate.
+	FDelegateHandle TickDelegateHandle;
+
 	// The time since the last message was received from the Slate Remote application.
 	float TimeSinceLastPing;
 

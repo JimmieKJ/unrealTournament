@@ -41,7 +41,7 @@ FGenericErrorReport::FGenericErrorReport(const FString& Directory)
 	FPlatformFileManager::Get().GetPlatformFile().IterateDirectory(*ReportDirectory, FilenamesVisitor);
 }
 
-bool FGenericErrorReport::SetUserComment(const FText& UserComment)
+bool FGenericErrorReport::SetUserComment(const FText& UserComment, bool bAllowToBeContacted)
 {
 	// Find .xml file
 	FString XmlFilename;
@@ -53,7 +53,7 @@ bool FGenericErrorReport::SetUserComment(const FText& UserComment)
 	FString XmlFilePath = ReportDirectory / XmlFilename;
 	// FXmlFile's constructor loads the file to memory, closes the file and parses the data
 	FXmlFile XmlFile(XmlFilePath);
-	auto DynamicSignaturesNode = XmlFile.IsValid() ?
+	FXmlNode* DynamicSignaturesNode = XmlFile.IsValid() ?
 		XmlFile.GetRootNode()->FindChildNode(TEXT("DynamicSignatures")) :
 		nullptr;
 
@@ -62,8 +62,17 @@ bool FGenericErrorReport::SetUserComment(const FText& UserComment)
 		return false;
 	}
 
-	DynamicSignaturesNode->AppendChildNode(TEXT("Parameter3"), UserComment.ToString());
-
+	// Add or update the user comment.
+	FXmlNode* Parameter3Node = DynamicSignaturesNode->FindChildNode(TEXT("Parameter3"));
+	if( Parameter3Node )
+	{
+		Parameter3Node->SetContent(UserComment.ToString());
+	}
+	else
+	{
+		DynamicSignaturesNode->AppendChildNode(TEXT("Parameter3"), UserComment.ToString());
+	}
+	
 	FString MachineIDandUserID;
 	// Set global user name ID: will be added to the report
 	extern FCrashDescription& GetCrashDescription();
@@ -76,8 +85,28 @@ bool FGenericErrorReport::SetUserComment(const FText& UserComment)
 		MachineIDandUserID = FString::Printf( TEXT( "!MachineId:%s!Name:%s" ), *GetCrashDescription().MachineId, *GetCrashDescription().UserName );
 	}
 
-	// Also write a user ID into the report
-	DynamicSignaturesNode->AppendChildNode(TEXT("Parameter4"), MachineIDandUserID);
+	// Add or update a user ID.
+	FXmlNode* Parameter4Node = DynamicSignaturesNode->FindChildNode(TEXT("Parameter4"));
+	if( Parameter4Node )
+	{
+		Parameter4Node->SetContent(MachineIDandUserID);
+	}
+	else
+	{
+		DynamicSignaturesNode->AppendChildNode(TEXT("Parameter4"), MachineIDandUserID);
+	}
+
+	// Add or update bAllowToBeContacted
+	const FString AllowToBeContacted = bAllowToBeContacted ? TEXT("true") : TEXT("false");
+	FXmlNode* AllowToBeContactedNode = DynamicSignaturesNode->FindChildNode(TEXT("bAllowToBeContacted"));
+	if( AllowToBeContactedNode )
+	{
+		AllowToBeContactedNode->SetContent(AllowToBeContacted);
+	}
+	else
+	{
+		DynamicSignaturesNode->AppendChildNode(TEXT("bAllowToBeContacted"), AllowToBeContacted);
+	}
 
 	// Re-save over the top
 	return XmlFile.Save(XmlFilePath);

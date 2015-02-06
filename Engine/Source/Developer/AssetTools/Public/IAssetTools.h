@@ -3,6 +3,7 @@
 #pragma once
 
 class IAssetTypeActions;
+class IClassTypeActions;
 class FAssetData;
 class UFactory;
 
@@ -43,6 +44,18 @@ public:
 	/** Gets the appropriate AssetTypeActions for the supplied class */
 	virtual TWeakPtr<IAssetTypeActions> GetAssetTypeActionsForClass( UClass* Class ) const = 0;
 
+	/** Registers a class type actions object so it can provide information about and actions for class asset types. */
+	virtual void RegisterClassTypeActions(const TSharedRef<IClassTypeActions>& NewActions) = 0;
+
+	/** Unregisters a class type actions object. It will no longer provide information about or actions for class asset types. */
+	virtual void UnregisterClassTypeActions(const TSharedRef<IClassTypeActions>& ActionsToRemove) = 0;
+
+	/** Generates a list of currently registered ClassTypeActions */
+	virtual void GetClassTypeActionsList( TArray<TWeakPtr<IClassTypeActions>>& OutClassTypeActionsList ) const = 0;
+
+	/** Gets the appropriate ClassTypeActions for the supplied class */
+	virtual TWeakPtr<IClassTypeActions> GetClassTypeActionsForClass( UClass* Class ) const = 0;
+
 	/**
 	 * Fills out a menubuilder with a list of commands that can be applied to the specified objects.
 	 *
@@ -65,6 +78,9 @@ public:
 	 */
 	virtual UObject* CreateAsset(const FString& AssetName, const FString& PackagePath, UClass* AssetClass, UFactory* Factory, FName CallingContext = NAME_None) = 0;
 
+	/** Opens an asset picker dialog and creates an asset with the chosen path */
+	virtual UObject* CreateAsset(UClass* AssetClass, UFactory* Factory, FName CallingContext = NAME_None) = 0;
+
 	/** Creates an asset with the specified name and path. Uses OriginalObject as the duplication source. */
 	virtual UObject* DuplicateAsset(const FString& AssetName, const FString& PackagePath, UObject* OriginalObject) = 0;
 
@@ -74,8 +90,15 @@ public:
 	/** Opens a file open dialog to choose files to import to the destination path. */
 	virtual TArray<UObject*> ImportAssets(const FString& DestinationPath) = 0;
 
-	/** Imports the specified files to the destination path. */
-	virtual TArray<UObject*> ImportAssets(const TArray<FString>& Files, const FString& DestinationPath, UFactory* ChosenFactory = NULL) const = 0;
+	/** 
+	 * Imports the specified files to the destination path. 
+	 *
+	 * @param Files				Files to import
+	 * @param DestinationPath	destination path for imported files
+	 * @param ChosenFactory		Specific factory to use for object creation
+	 * @param bSyncToBrowser	If true sync content browser to first imported asset after import
+	 */
+	virtual TArray<UObject*> ImportAssets(const TArray<FString>& Files, const FString& DestinationPath, UFactory* ChosenFactory = NULL, bool bSyncToBrowser = true) const = 0;
 
 	/** Creates a unique package and asset name taking the form InBasePackageName+InSuffix */
 	virtual void CreateUniqueAssetName(const FString& InBasePackageName, const FString& InSuffix, FString& OutPackageName, FString& OutAssetName) const = 0;

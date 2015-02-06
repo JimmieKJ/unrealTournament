@@ -41,7 +41,7 @@ TSharedRef<SWidget> FSceneOutlinerLayerContentsColumn::ConstructRowWidget(const 
 		.ButtonStyle( FEditorStyle::Get(), "LayerBrowserButton" )
 		.ContentPadding( 0 )
 		.OnClicked( this, &FSceneOutlinerLayerContentsColumn::OnRemoveFromLayerClicked, Actor )
-		.ToolTipText( LOCTEXT("RemoveFromLayerButtonText", "Remove from Layer").ToString() )
+		.ToolTipText( LOCTEXT("RemoveFromLayerButtonText", "Remove from Layer") )
 		[
 			SNew( SImage )
 			.Image( FEditorStyle::GetBrush( TEXT( "LayerBrowser.Actor.RemoveFromLayer" ) ) )

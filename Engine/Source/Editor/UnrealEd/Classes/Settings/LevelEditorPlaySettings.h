@@ -2,7 +2,7 @@
 
 #pragma once
 
-
+#include "SlateCore.h"
 #include "LevelEditorPlaySettings.generated.h"
 
 

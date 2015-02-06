@@ -45,9 +45,6 @@ bool FPListNodeFile::UsesColumns()
 /** Generates a widget for a TableView row */
 TSharedRef<ITableRow> FPListNodeFile::GenerateWidget(const TSharedRef<STableViewBase>& OwnerTable)
 {
-	FString FileLabel = NSLOCTEXT("PListEditor", "PListEditorFileLabel", "file").ToString();
-	FString StatusText = NSLOCTEXT("PListEditor", "PListEditorKeyValuePairs", "key/value pairs").ToString();
-
 	return
 	SNew(STableRow<TSharedPtr<ITableRow> >, OwnerTable)
 	.Content()
@@ -59,7 +56,7 @@ TSharedRef<ITableRow> FPListNodeFile::GenerateWidget(const TSharedRef<STableView
 		.Padding(2, 1)
 		[
 			SAssignNew(TextWidget, STextBlock)
-			.Text(FileLabel + FString(TEXT(" [")) + FString::Printf(TEXT("%i "), GetNumPairs()) + StatusText + FString(TEXT("]")))
+			.Text(FText::Format(NSLOCTEXT("PListEditor", "FileAndNumKeyValuePairsFmt", "file [{0} key/value pairs]"), FText::AsNumber(GetNumPairs())))
 		]
 	];
 }
@@ -101,11 +98,9 @@ void FPListNodeFile::Refresh()
 	}
 
 	// Calculate how many contained key/value pairs exist
-	FString FileLabel = NSLOCTEXT("PListEditor", "PListEditorFileLabel", "file").ToString();
-	FString StatusText = NSLOCTEXT("PListEditor", "PListEditorKeyValuePairs", "key/value pairs").ToString();
 	if(TextWidget.IsValid())
 	{
-		TextWidget->SetText(FileLabel + FString(TEXT(" [")) + FString::Printf(TEXT("%i "), GetNumPairs()) + StatusText + FString(TEXT("]")));
+		TextWidget->SetText(FText::Format(NSLOCTEXT("PListEditor", "FileAndNumKeyValuePairsFmt", "file [{0} key/value pairs]"), FText::AsNumber(GetNumPairs())));
 	}
 }
 

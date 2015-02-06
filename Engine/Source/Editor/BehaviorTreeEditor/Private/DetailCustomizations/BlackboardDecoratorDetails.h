@@ -31,7 +31,7 @@ private:
 
 	void OnEnumValueComboChange(int32 Index);
 	TSharedRef<SWidget> OnGetEnumValueContent() const;
-	FString GetCurrentEnumValueDesc() const;
+	FText GetCurrentEnumValueDesc() const;
 
 	TSharedPtr<IPropertyHandle> IntValueProperty;
 	TSharedPtr<IPropertyHandle> KeyIDProperty;

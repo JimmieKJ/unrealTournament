@@ -3,11 +3,13 @@
 #include "ContentBrowserPCH.h"
 
 #include "DragAndDrop/AssetPathDragDropOp.h"
+#include "DragDropHandler.h"
 
 #include "PathViewTypes.h"
 #include "ObjectTools.h"
 #include "SourcesViewWidgets.h"
 #include "SSearchBox.h"
+#include "NativeClassHierarchy.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -16,6 +18,13 @@ SPathView::~SPathView()
 	// Unsubscribe from content path events
 	FPackageName::OnContentPathMounted().RemoveAll( this );
 	FPackageName::OnContentPathDismounted().RemoveAll( this );
+
+	// Unsubscribe from class events
+	if ( bAllowClassesFolder )
+	{
+		TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+		NativeClassHierarchy->OnClassHierarchyUpdated().RemoveAll( this );
+	}
 
 	// Load the asset registry module to stop listening for updates
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -49,8 +58,12 @@ void SPathView::Construct( const FArguments& InArgs )
 	FPackageName::OnContentPathMounted().AddSP( this, &SPathView::OnContentPathMountedOrDismounted );
 	FPackageName::OnContentPathDismounted().AddSP( this, &SPathView::OnContentPathMountedOrDismounted );
 
-	ClassesRootName = TEXT("Classes");
-	GameRootName = TEXT("Game");
+	// Listen to find out when the available classes are changed, so that we can refresh our paths
+	if ( bAllowClassesFolder )
+	{
+		TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+		NativeClassHierarchy->OnClassHierarchyUpdated().AddSP( this, &SPathView::OnClassHierarchyUpdated );
+	}
 
 	ChildSlot
 	[
@@ -126,6 +139,7 @@ void SPathView::Construct( const FArguments& InArgs )
 	Populate();
 
 	// Always expand the game root initially
+	static const FString GameRootName = TEXT("Game");
 	for ( auto RootIt = TreeRootItems.CreateConstIterator(); RootIt; ++RootIt )
 	{
 		if ( (*RootIt)->FolderName == GameRootName )
@@ -313,7 +327,7 @@ TSharedPtr<FTreeItem> SPathView::AddPath(const FString& Path, bool bUserNamed)
 						break;
 					}
 
-					ChildItem = MakeShareable( new FTreeItem(FolderName, FolderPath, CurrentItem, bUserNamed) );
+					ChildItem = MakeShareable( new FTreeItem(FText::FromString(FolderName), FolderName, FolderPath, CurrentItem, bUserNamed) );
 					CurrentItem->Children.Add(ChildItem);
 					CurrentItem->SortChildren();
 					TreeViewPtr->RequestTreeRefresh();
@@ -422,12 +436,13 @@ void SPathView::SyncToAssets( const TArray<FAssetData>& AssetDataList, const boo
 	for (auto AssetDataIt = AssetDataList.CreateConstIterator(); AssetDataIt; ++AssetDataIt)
 	{
 		FString Path;
-		if ( AssetDataIt->AssetClass == FName("Class") )
+		if ( AssetDataIt->AssetClass == NAME_Class )
 		{
 			if ( bAllowClassesFolder )
 			{
-				// Classes are found in the /Classes root
-				Path = FString::Printf(TEXT("/%s"), *ClassesRootName);
+				// Classes are found in the /Classes_ roots
+				TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+				NativeClassHierarchy->GetClassPath(Cast<UClass>(AssetDataIt->GetAsset()), Path, false/*bIncludeClassName*/);
 			}
 		}
 		else
@@ -641,17 +656,12 @@ TSharedPtr<SWidget> SPathView::MakePathViewContextMenu()
 		return NULL;
 	}
 
-	const TArray<FString> SelectedPaths = GetSelectedPaths();
-	if(SelectedPaths.Contains(TEXT("/Classes")))
-	{
-		return NULL;
-	}
-
 	if(!OnGetFolderContextMenu.IsBound())
 	{
 		return NULL;
 	}
 
+	const TArray<FString> SelectedPaths = GetSelectedPaths();
 	return OnGetFolderContextMenu.Execute(SelectedPaths, OnGetPathContextMenuExtender, FOnCreateNewFolder::CreateSP(this, &SPathView::OnCreateNewFolder));
 }
 
@@ -741,7 +751,8 @@ TSharedPtr<struct FTreeItem> SPathView::AddRootItem( const FString& InFolderName
 		const bool bDisplayPlugins = GetDefault<UContentBrowserSettings>()->GetDisplayPluginFolders();
 		if ( bDisplayPlugins || !ContentBrowserUtils::IsPluginFolder(InFolderName) )
 		{
-			NewItem = MakeShareable( new FTreeItem(InFolderName, FString(TEXT("/")) + InFolderName, TSharedPtr<FTreeItem>()));
+			const FText DisplayName = ContentBrowserUtils::GetRootDirDisplayName(InFolderName);
+			NewItem = MakeShareable( new FTreeItem(DisplayName, InFolderName, FString(TEXT("/")) + InFolderName, TSharedPtr<FTreeItem>()));
 			TreeRootItems.Add( NewItem );
 			TreeViewPtr->RequestTreeRefresh();
 		}
@@ -884,16 +895,28 @@ void SPathView::Populate()
 	TreeRootItems.Empty();
 	TreeViewPtr->ClearSelection();
 
+	// Load the native class hierarchy to listen for updates
+	TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+
 	const bool bFilteringByText = !SearchBoxFolderFilter->GetRawFilterText().IsEmpty();
 	
+	const bool bDisplayEngine = GetDefault<UContentBrowserSettings>()->GetDisplayEngineFolder();
+	const bool bDisplayPlugins = GetDefault<UContentBrowserSettings>()->GetDisplayPluginFolders();
+
+	TArray<FName> ClassRoots;
+	TArray<FString> ClassFolders;
+	if ( bAllowClassesFolder )
+	{
+		NativeClassHierarchy->GetClassFolders(ClassRoots, ClassFolders, bDisplayEngine, bDisplayPlugins);
+	}
+
 	if ( !bFilteringByText )
 	{
 		// If we aren't filtering, add default folders to the asset tree
 
-		if ( bAllowClassesFolder )
+		for(const FName& ClassRoot : ClassRoots)
 		{
-			// Add the 'Classes' root.  Its a special case since it doesn't really have any content in it.
-			AddRootItem(ClassesRootName);
+			AddRootItem(ClassRoot.ToString());
 		}
 
 		// Add all of the content paths we know about.  Note that this can change on the fly (if say, a plugin
@@ -913,9 +936,7 @@ void SPathView::Populate()
 			{
 				CleanRootPathName = CleanRootPathName.Mid( 0, CleanRootPathName.Len() - 1 );
 			}
-
-			// @todo plugin content: These should probably be sorted alphabetically
-			AddRootItem( CleanRootPathName );
+			AddRootItem(CleanRootPathName);
 		}
 	}
 	
@@ -925,6 +946,9 @@ void SPathView::Populate()
 	// Add all paths currently gathered from the asset registry
 	TArray<FString> PathList;
 	AssetRegistryModule.Get().GetAllCachedPaths(PathList);
+
+	// Add any class paths we discovered
+	PathList.Append(ClassFolders);
 
 	// Add the user developer folder
 	const FString UserDeveloperFolder = FPackageName::FilenameToLongPackageName(FPaths::GameUserDeveloperDir().LeftChop(1));
@@ -972,9 +996,68 @@ void SPathView::Populate()
 		}
 	}
 
-	TreeViewPtr->RequestTreeRefresh();
+	SortRootItems();
 
 	bNeedsRepopulate = false;
+}
+
+void SPathView::SortRootItems()
+{
+	// First sort the root items by their display name, but also making sure that content to appears before classes
+	TreeRootItems.Sort([](const TSharedPtr<FTreeItem>& One, const TSharedPtr<FTreeItem>& Two) -> bool
+	{
+		static const FString ClassesPrefix = TEXT("Classes_");
+
+		FString OneModuleName = One->FolderName;
+		const bool bOneIsClass = OneModuleName.StartsWith(ClassesPrefix);
+		if(bOneIsClass)
+		{
+			OneModuleName = OneModuleName.Mid(ClassesPrefix.Len());
+		}
+
+		FString TwoModuleName = Two->FolderName;
+		const bool bTwoIsClass = TwoModuleName.StartsWith(ClassesPrefix);
+		if(bTwoIsClass)
+		{
+			TwoModuleName = TwoModuleName.Mid(ClassesPrefix.Len());
+		}
+
+		// We want to sort content before classes if both items belong to the same module
+		if(OneModuleName == TwoModuleName)
+		{
+			if(!bOneIsClass && bTwoIsClass)
+			{
+				return true;
+			}
+			return false;
+		}
+
+		return One->DisplayName.ToString() < Two->DisplayName.ToString();
+	});
+
+	// We have some manual sorting requirements that game must come before engine, and engine before everything else - we do that here after sorting everything by name
+	// The array below is in the inverse order as we iterate through and move each match to the beginning of the root items array
+	static const FString InverseSortOrder[] = {
+		TEXT("Classes_Engine"),
+		TEXT("Engine"),
+		TEXT("Classes_Game"),
+		TEXT("Game"),
+	};
+	for(const FString& SortItem : InverseSortOrder)
+	{
+		const int32 FoundItemIndex = TreeRootItems.IndexOfByPredicate([&SortItem](const TSharedPtr<FTreeItem>& TreeItem) -> bool
+		{
+			return TreeItem->FolderName == SortItem;
+		});
+		if(FoundItemIndex != INDEX_NONE)
+		{
+			TSharedPtr<FTreeItem> ItemToMove = TreeRootItems[FoundItemIndex];
+			TreeRootItems.RemoveAt(FoundItemIndex);
+			TreeRootItems.Insert(ItemToMove, 0);
+		}
+	}
+
+	TreeViewPtr->RequestTreeRefresh();
 }
 
 void SPathView::PopulateFolderSearchStrings( const FString& FolderName, OUT TArray< FString >& OutSearchStrings ) const
@@ -1059,25 +1142,36 @@ void SPathView::FolderNameChanged( const TSharedPtr< FTreeItem >& TreeItem, cons
 			TreeViewPtr->RequestScrollIntoView(TreeItem);
 		}
 
-		// Update the asset registry so this folder will persist
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-		if (AssetRegistryModule.Get().AddPath(TreeItem->FolderPath) && TreeItem->FolderPath != OldPath)
+		// Update either the asset registry or the native class hierarchy so this folder will persist
+		/*
+		if (ContentBrowserUtils::IsClassPath(TreeItem->FolderPath))
 		{
-			// move any assets in our folder
-			TArray<FAssetData> AssetsInFolder;
-			AssetRegistryModule.Get().GetAssetsByPath(*OldPath, AssetsInFolder, true);
-			TArray<UObject*> ObjectsInFolder;
-			ContentBrowserUtils::GetObjectsInAssetData(AssetsInFolder, ObjectsInFolder);
-			ContentBrowserUtils::MoveAssets(ObjectsInFolder, TreeItem->FolderPath, OldPath);
-
-			// Now check to see if the original folder is empty, if so we can delete it
-			TArray<FAssetData> AssetsInOriginalFolder;
-			AssetRegistryModule.Get().GetAssetsByPath(*OldPath, AssetsInOriginalFolder, true);
-			if (AssetsInOriginalFolder.Num() == 0)
+			// todo: jdale - CLASS - This will need updating to support renaming of class folders (SAssetView has similar logic - needs abstracting)
+			TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+			NativeClassHierarchy->AddFolder(TreeItem->FolderPath);
+		}
+		else
+		*/
+		{
+			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+			if (AssetRegistryModule.Get().AddPath(TreeItem->FolderPath) && TreeItem->FolderPath != OldPath)
 			{
-				TArray<FString> FoldersToDelete;
-				FoldersToDelete.Add(OldPath);
-				ContentBrowserUtils::DeleteFolders(FoldersToDelete);
+				// move any assets in our folder
+				TArray<FAssetData> AssetsInFolder;
+				AssetRegistryModule.Get().GetAssetsByPath(*OldPath, AssetsInFolder, true);
+				TArray<UObject*> ObjectsInFolder;
+				ContentBrowserUtils::GetObjectsInAssetData(AssetsInFolder, ObjectsInFolder);
+				ContentBrowserUtils::MoveAssets(ObjectsInFolder, TreeItem->FolderPath, OldPath);
+
+				// Now check to see if the original folder is empty, if so we can delete it
+				TArray<FAssetData> AssetsInOriginalFolder;
+				AssetRegistryModule.Get().GetAssetsByPath(*OldPath, AssetsInOriginalFolder, true);
+				if (AssetsInOriginalFolder.Num() == 0)
+				{
+					TArray<FString> FoldersToDelete;
+					FoldersToDelete.Add(OldPath);
+					ContentBrowserUtils::DeleteFolders(FoldersToDelete);
+				}
 			}
 		}
 	}
@@ -1156,79 +1250,25 @@ void SPathView::RemoveFolderItem(const TSharedPtr< FTreeItem >& TreeItem)
 
 void SPathView::TreeAssetsDropped(const TArray<FAssetData>& AssetList, const TSharedPtr<FTreeItem>& TreeItem)
 {
-	// Do not display the menu if any of the assets are classes as they cannot be moved or copied
-	for( int32 AssetIndex = 0; AssetIndex < AssetList.Num(); AssetIndex++ )
-	{
-		const FAssetData& Asset = AssetList[AssetIndex];
-		if ( Asset.AssetClass == "Class" )
-		{
-			const FText MessageText = LOCTEXT("AssetTreeDropClassError", "The selection contains one or more 'Class' type assets, these cannot be moved or copied.");
-			FMessageDialog::Open(EAppMsgType::Ok, MessageText);
-			return;
-		}
-	}
-
-	FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, NULL);
-	const FText MoveCopyHeaderString = FText::Format( LOCTEXT("AssetTreeDropMenuHeading", "Move/Copy to {0}"), FText::FromString( TreeItem->FolderName ) );
-	MenuBuilder.BeginSection("PathAssetMoveCopy", MoveCopyHeaderString);
-	{
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropCopy", "Copy Here"),
-			LOCTEXT("DragDropCopyTooltip", "Creates a copy of all dragged files in this folder."),
-			FSlateIcon(),
-			FUIAction(
-			FExecuteAction::CreateSP( this, &SPathView::ExecuteTreeDropCopy, AssetList, TreeItem ),
-			FCanExecuteAction()
-			)
-			);
-
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropMove", "Move Here"),
-			LOCTEXT("DragDropMoveTooltip", "Moves all dragged files to this folder."),
-			FSlateIcon(),
-			FUIAction(
-			FExecuteAction::CreateSP( this, &SPathView::ExecuteTreeDropMove, AssetList, TreeItem ),
-			FCanExecuteAction()
-			)
-			);
-	}
-	MenuBuilder.EndSection();
-
-	TWeakPtr< SWindow > ContextMenuWindow = FSlateApplication::Get().PushMenu(
-		SharedThis( this ),
-		MenuBuilder.MakeWidget(),
-		FSlateApplication::Get().GetCursorPos(),
-		FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
+	DragDropHandler::HandleAssetsDroppedOnAssetFolder(
+		SharedThis(this), 
+		AssetList, 
+		TreeItem->FolderPath, 
+		TreeItem->DisplayName, 
+		DragDropHandler::FExecuteCopyOrMoveAssets::CreateSP(this, &SPathView::ExecuteTreeDropCopy),
+		DragDropHandler::FExecuteCopyOrMoveAssets::CreateSP(this, &SPathView::ExecuteTreeDropMove)
 		);
 }
 
 void SPathView::TreeFoldersDropped(const TArray<FString>& PathNames, const TSharedPtr<FTreeItem>& TreeItem)
 {
-	FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, NULL);
-	const FText MoveCopyHeaderString = FText::Format( LOCTEXT("AssetTreeDropMenuHeading", "Move/Copy to {0}"), FText::FromString( TreeItem->FolderName ) );
-	MenuBuilder.BeginSection("PathFolderMoveCopy", MoveCopyHeaderString);
-	{
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropCopyFolder", "Copy Folder Here"),
-			LOCTEXT("DragDropCopyFolderTooltip", "Creates a copy of all assets in the dragged folders to this folder, preserving folder structure."),
-			FSlateIcon(),
-			FUIAction( FExecuteAction::CreateSP( this, &SPathView::ExecuteTreeDropCopyFolder, PathNames, TreeItem ) )
-			);
-
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropMoveFolder", "Move Folder Here"),
-			LOCTEXT("DragDropMoveFolderTooltip", "Moves all assets in the dragged folders to this folder, preserving folder structure."),
-			FSlateIcon(),
-			FUIAction( FExecuteAction::CreateSP( this, &SPathView::ExecuteTreeDropMoveFolder, PathNames, TreeItem ) )
-			);
-	}
-	MenuBuilder.EndSection();
-
-	TWeakPtr< SWindow > ContextMenuWindow = FSlateApplication::Get().PushMenu(
-		SharedThis( this ),
-		MenuBuilder.MakeWidget(),
-		FSlateApplication::Get().GetCursorPos(),
-		FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
+	DragDropHandler::HandleFoldersDroppedOnAssetFolder(
+		SharedThis(this), 
+		PathNames, 
+		TreeItem->FolderPath, 
+		TreeItem->DisplayName, 
+		DragDropHandler::FExecuteCopyOrMoveFolders::CreateSP(this, &SPathView::ExecuteTreeDropCopyFolder),
+		DragDropHandler::FExecuteCopyOrMoveFolders::CreateSP(this, &SPathView::ExecuteTreeDropMoveFolder)
 		);
 }
 
@@ -1248,62 +1288,70 @@ bool SPathView::IsTreeItemSelected(TSharedPtr<FTreeItem> TreeItem) const
 	return TreeViewPtr->IsItemSelected(TreeItem);
 }
 
-void SPathView::ExecuteTreeDropCopy(TArray<FAssetData> AssetList, TSharedPtr<FTreeItem> TreeItem)
+void SPathView::ExecuteTreeDropCopy(TArray<FAssetData> AssetList, FString DestinationPath)
 {
 	TArray<UObject*> DroppedObjects;
 	ContentBrowserUtils::GetObjectsInAssetData(AssetList, DroppedObjects);
 
-	ContentBrowserUtils::CopyAssets(DroppedObjects, TreeItem->FolderPath);
+	ContentBrowserUtils::CopyAssets(DroppedObjects, DestinationPath);
 }
 
-void SPathView::ExecuteTreeDropMove(TArray<FAssetData> AssetList, TSharedPtr<FTreeItem> TreeItem)
+void SPathView::ExecuteTreeDropMove(TArray<FAssetData> AssetList, FString DestinationPath)
 {
 	TArray<UObject*> DroppedObjects;
 	ContentBrowserUtils::GetObjectsInAssetData(AssetList, DroppedObjects);
 
-	ContentBrowserUtils::MoveAssets(DroppedObjects, TreeItem->FolderPath);
+	ContentBrowserUtils::MoveAssets(DroppedObjects, DestinationPath);
 }
 
-void SPathView::ExecuteTreeDropCopyFolder(TArray<FString> PathNames, TSharedPtr<FTreeItem> TreeItem)
+void SPathView::ExecuteTreeDropCopyFolder(TArray<FString> PathNames, FString DestinationPath)
 {
-	ContentBrowserUtils::CopyFolders(PathNames, TreeItem->FolderPath);
+	ContentBrowserUtils::CopyFolders(PathNames, DestinationPath);
 
-	TreeViewPtr->SetItemExpansion(TreeItem, true);
-
-	// Select all the new folders
-	TreeViewPtr->ClearSelection();
-	for ( auto PathIt = PathNames.CreateConstIterator(); PathIt; ++PathIt )
+	TSharedPtr<FTreeItem> RootItem = FindItemRecursive(DestinationPath);
+	if (RootItem.IsValid())
 	{
-		const FString SubFolderName = FPackageName::GetLongPackageAssetName(*PathIt);
-		const FString NewPath = TreeItem->FolderPath + TEXT("/") + SubFolderName;
-		
-		TSharedPtr<FTreeItem> Item = FindItemRecursive(NewPath);
-		if ( Item.IsValid() )
+		TreeViewPtr->SetItemExpansion(RootItem, true);
+
+		// Select all the new folders
+		TreeViewPtr->ClearSelection();
+		for ( auto PathIt = PathNames.CreateConstIterator(); PathIt; ++PathIt )
 		{
-			TreeViewPtr->SetItemSelection(Item, true);
-			TreeViewPtr->RequestScrollIntoView(Item);
+			const FString SubFolderName = FPackageName::GetLongPackageAssetName(*PathIt);
+			const FString NewPath = DestinationPath + TEXT("/") + SubFolderName;
+		
+			TSharedPtr<FTreeItem> Item = FindItemRecursive(NewPath);
+			if ( Item.IsValid() )
+			{
+				TreeViewPtr->SetItemSelection(Item, true);
+				TreeViewPtr->RequestScrollIntoView(Item);
+			}
 		}
 	}
 }
 
-void SPathView::ExecuteTreeDropMoveFolder(TArray<FString> PathNames, TSharedPtr<FTreeItem> TreeItem)
+void SPathView::ExecuteTreeDropMoveFolder(TArray<FString> PathNames, FString DestinationPath)
 {
-	ContentBrowserUtils::MoveFolders(PathNames, TreeItem->FolderPath);
+	ContentBrowserUtils::MoveFolders(PathNames, DestinationPath);
 
-	TreeViewPtr->SetItemExpansion(TreeItem, true);
-	
-	// Select all the new folders
-	TreeViewPtr->ClearSelection();
-	for ( auto PathIt = PathNames.CreateConstIterator(); PathIt; ++PathIt )
+	TSharedPtr<FTreeItem> RootItem = FindItemRecursive(DestinationPath);
+	if (RootItem.IsValid())
 	{
-		const FString SubFolderName = FPackageName::GetLongPackageAssetName(*PathIt);
-		const FString NewPath = TreeItem->FolderPath + TEXT("/") + SubFolderName;
-
-		TSharedPtr<FTreeItem> Item = FindItemRecursive(NewPath);
-		if ( Item.IsValid() )
+		TreeViewPtr->SetItemExpansion(RootItem, true);
+	
+		// Select all the new folders
+		TreeViewPtr->ClearSelection();
+		for ( auto PathIt = PathNames.CreateConstIterator(); PathIt; ++PathIt )
 		{
-			TreeViewPtr->SetItemSelection(Item, true);
-			TreeViewPtr->RequestScrollIntoView(Item);
+			const FString SubFolderName = FPackageName::GetLongPackageAssetName(*PathIt);
+			const FString NewPath = DestinationPath + TEXT("/") + SubFolderName;
+
+			TSharedPtr<FTreeItem> Item = FindItemRecursive(NewPath);
+			if ( Item.IsValid() )
+			{
+				TreeViewPtr->SetItemSelection(Item, true);
+				TreeViewPtr->RequestScrollIntoView(Item);
+			}
 		}
 	}
 }
@@ -1338,6 +1386,14 @@ void SPathView::OnContentPathMountedOrDismounted( const FString& AssetPath, cons
 {
 	// A new content path has appeared, so we should refresh out root set of paths
 	bNeedsRepopulate = true;
+}
+
+void SPathView::OnClassHierarchyUpdated()
+{
+	// The class hierarchy has changed in some way, so we need to refresh our set of paths
+	bNeedsRepopulate = true;
+	// @todo 4.7 MERGE: This change should NOT be merged back to main.  This code is relying on a feature that we did not merge to the 4.7 branch.
+	// RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SPathView::TriggerRepopulate));
 }
 
 void SPathView::HandleSettingChanged(FName PropertyName)

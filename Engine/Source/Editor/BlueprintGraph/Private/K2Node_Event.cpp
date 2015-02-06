@@ -79,17 +79,11 @@ FText UK2Node_Event::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 		if(TitleType == ENodeTitleType::FullTitle && EventSignatureClass != NULL && EventSignatureClass->IsChildOf(UInterface::StaticClass()))
 		{
-			FString SourceString = EventSignatureClass->GetName();
-
-			// @todo: This action won't be necessary once the new name convention is used.
-			if(SourceString.EndsWith(TEXT("_C")))
-			{
-				SourceString = SourceString.LeftChop(2);
-			}
+			const FText SignatureClassAsText = FBlueprintEditorUtils::GetFriendlyClassDisplayName(EventSignatureClass);
 
 			FFormatNamedArguments FullTitleArgs;
 			FullTitleArgs.Add(TEXT("Title"), Title);
-			FullTitleArgs.Add(TEXT("InterfaceClass"), FText::FromString(SourceString));
+			FullTitleArgs.Add(TEXT("InterfaceClass"), SignatureClassAsText);
 
 			Title = FText::Format(LOCTEXT("EventFromInterface", "{Title}\nFrom {InterfaceClass}"), FullTitleArgs);
 		}
@@ -438,6 +432,24 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 							bDisallowPaste = ExistingEventNodes[i]->bOverrideFunction
 								&& ExistingEventNodes[i]->EventSignatureName == EventSignatureName
 								&& ExistingEventNodes[i]->EventSignatureClass == EventSignatureClass;
+						}
+
+						// We need to also check for 'const' BPIE methods that might already be implemented as functions with a read-only 'self' context (these were previously implemented as events)
+						if(!bDisallowPaste)
+						{
+							TArray<UBlueprint*> ParentBPStack;
+							UBlueprint::GetBlueprintHierarchyFromClass(Blueprint->SkeletonGeneratedClass, ParentBPStack);
+							for(auto BPStackIt = ParentBPStack.CreateConstIterator(); BPStackIt && !bDisallowPaste; ++BPStackIt)
+							{
+								TArray<UK2Node_FunctionEntry*> ExistingFunctionEntryNodes;
+								FBlueprintEditorUtils::GetAllNodesOfClass<UK2Node_FunctionEntry>(*BPStackIt, ExistingFunctionEntryNodes);
+								for(auto NodeIt = ExistingFunctionEntryNodes.CreateConstIterator(); NodeIt && !bDisallowPaste; ++NodeIt)
+								{
+									UK2Node_FunctionEntry* ExistingFunctionEntryNode = *NodeIt;
+									bDisallowPaste = ExistingFunctionEntryNode->bEnforceConstCorrectness
+										&& ExistingFunctionEntryNode->SignatureName == EventSignatureName;
+								}
+							}
 						}
 
 						if(!bDisallowPaste)

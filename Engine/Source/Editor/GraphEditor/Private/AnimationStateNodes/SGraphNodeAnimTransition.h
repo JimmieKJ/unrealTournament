@@ -35,7 +35,7 @@ private:
 	TSharedPtr<STextEntryPopup> TextEntryWidget;
 
 private:
-	FString GetPreviewCornerText(bool reverse) const;
+	FText GetPreviewCornerText(bool reverse) const;
 	FSlateColor GetTransitionColor() const;
 
 	TSharedRef<SWidget> GenerateInlineDisplayOrEditingWidget(bool bShowGraphPreview);

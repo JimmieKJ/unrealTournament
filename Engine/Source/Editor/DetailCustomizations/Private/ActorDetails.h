@@ -67,8 +67,6 @@ private:
 
 	void AddBlueprintCategory( IDetailLayoutBuilder& DetailBuilder, const TMap<UBlueprint*, UObject*>& UniqueBlueprints );
 
-	void AddComponentsCategory( IDetailLayoutBuilder& DetailBuilder );
-
 	void AddLayersCategory( IDetailLayoutBuilder& DetailBuilder );
 
 	void AddTransformCategory( IDetailLayoutBuilder& DetailBuilder );
@@ -82,34 +80,8 @@ private:
 
 	const TArray< TWeakObjectPtr<AActor> >& GetSelectedActors() const;
 
-	/** Creates an area meant to be displayed once for any number of selected blueprints that displays helper buttons. */
-	void AddUtilityBlueprintRows( IDetailCategoryBuilder& BlueprintCategory );
-
 	/** Creates a category to display blutility functionality in a separate space from the standard blueprint details */
 	void AddBlutilityCategory( IDetailLayoutBuilder& DetailBuilder, const TMap<UBlueprint*, UObject*>& UniqueBlueprints );
-
-	// Creates a row for a single blueprint in the selection details view   
-	void AddSingleBlueprintRow( IDetailCategoryBuilder& BlueprintCategory, UBlueprint* InBlueprint, UObject* InExampleActor);
-
-	FText GetBlueprintStatusTooltip( TWeakObjectPtr<class UBlueprint> Asset ) const;
-
-	const FSlateBrush* GetBlueprintStatusIcon(TWeakObjectPtr<class UBlueprint> Asset) const;
-
-	const FSlateBrush* GetBlueprintBreakpointStatusIcon(TWeakObjectPtr<class UBlueprint> Asset) const;
-
-	FReply OnCompileBlueprintClicked(TWeakObjectPtr<class UBlueprint> Asset);
-
-	FReply OnToggleBreakpointsClicked(TWeakObjectPtr<class UBlueprint> Asset);
-
-	FReply OnEditBlueprintClicked( TWeakObjectPtr<UBlueprint> InBlueprint, TWeakObjectPtr<UObject> InAsset );
-
-	bool PushToBlueprintDefaults_IsEnabled( TWeakObjectPtr<UBlueprint> InBlueprint ) const;
-	FReply PushToBlueprintDefaults_OnClicked( TWeakObjectPtr<UBlueprint> InBlueprint );
-	FText PushToBlueprintDefaults_ToolTipText( TWeakObjectPtr<UBlueprint> InBlueprint ) const;
-
-	bool ResetToBlueprintDefaults_IsEnabled( TWeakObjectPtr<UBlueprint> InBlueprint ) const;
-	FReply ResetToBlueprintDefaults_OnClicked( TWeakObjectPtr<UBlueprint> InBlueprint );
-	FText ResetToBlueprintDefaults_ToolTipText( TWeakObjectPtr<UBlueprint> InBlueprint ) const;
 
 	/** Called to determine if an actor has any valid call-in-editor utility functions */
 	bool DoesActorHaveBlutiltyFunctions() const;
@@ -143,9 +115,6 @@ private:
 	TArray< TWeakObjectPtr<AActor> > SelectedActors;
 
 	TSharedPtr< IDetailCustomization > LayersLayoutDetails;
-
-	/** The material category that displays used materials */
-	TSharedPtr< class FActorMaterialCategory > MaterialCategory;
 
 	/** The active blutility function, picked from the combo list and cached here */
 	TWeakObjectPtr<UFunction> ActiveBlutilityFunction;

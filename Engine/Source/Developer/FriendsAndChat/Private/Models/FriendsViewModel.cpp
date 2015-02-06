@@ -6,7 +6,6 @@
 #include "FriendsStatusViewModel.h"
 #include "FriendsUserSettingsViewModel.h"
 #include "FriendListViewModel.h"
-#include "FriendsUserViewModel.h"
 
 class FFriendsViewModelImpl
 	: public FFriendsViewModel
@@ -21,11 +20,6 @@ public:
 	virtual void PerformAction() override
 	{
 		bIsPerformingAction = !bIsPerformingAction;
-	}
-
-	virtual TSharedRef< class FFriendsUserViewModel > GetUserViewModel() override
-	{
-		return FFriendsUserViewModelFactory::Create(FriendsAndChatManager.Pin().ToSharedRef());
 	}
 
 	virtual TSharedRef< FFriendsStatusViewModel > GetStatusViewModel() override

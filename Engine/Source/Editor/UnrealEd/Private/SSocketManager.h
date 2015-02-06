@@ -61,7 +61,7 @@ private:
 	/** Callback for the Delete Socket button. */
 	FReply DeleteSelectedSocket_Execute();
 
-	FString GetSocketHeaderText() const;
+	FText GetSocketHeaderText() const;
 
 	/** Callback for when the socket name textbox is changed, verifies the name is not a duplicate. */
 	void SocketName_TextChanged(const FText& InText);

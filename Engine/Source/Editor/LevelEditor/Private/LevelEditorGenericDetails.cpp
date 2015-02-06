@@ -31,7 +31,9 @@ void FLevelEditorGenericDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 
 void FLevelEditorGenericDetails::GetSelectedSurfaceMaterials(IMaterialListBuilder& MaterialList) const
 {
-	for (TSelectedSurfaceIterator<> SurfaceIt(GWorld); SurfaceIt; ++SurfaceIt)
+	FSelectedActorInfo SelectionInfo = AssetSelectionUtils::GetSelectedActorInfo();	
+
+	for (TSelectedSurfaceIterator<> SurfaceIt(SelectionInfo.SharedWorld); SurfaceIt; ++SurfaceIt)
 	{
         FBspSurf* SelectedSurface = *SurfaceIt;
 
@@ -44,10 +46,12 @@ void FLevelEditorGenericDetails::OnMaterialChanged( UMaterialInterface* NewMater
 {
 	bool bModelDirtied = false;
 	{
-		const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "PolySetMaterial", "Set Material") );
-		GEditor->FlagModifyAllSelectedSurfacesInLevels( GWorld );
+		FSelectedActorInfo SelectionInfo = AssetSelectionUtils::GetSelectedActorInfo();	
 
-		for ( TSelectedSurfaceIterator<> It(GWorld) ; It ; ++It )
+		const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "PolySetMaterial", "Set Material") );
+		GEditor->FlagModifyAllSelectedSurfacesInLevels( SelectionInfo.SharedWorld );
+
+		for ( TSelectedSurfaceIterator<> It(SelectionInfo.SharedWorld) ; It ; ++It )
 		{
 			UModel* Model = It.GetModel();
 			const int32 SurfaceIndex = It.GetSurfaceIndex();
@@ -124,7 +128,9 @@ void FLevelEditorGenericDetails::AddSurfaceDetails( IDetailLayoutBuilder& Detail
 	{
 		static FReply ExecuteExecCommand(FString InCommand)
 		{
-			GUnrealEd->Exec( GWorld, *InCommand );
+			FSelectedActorInfo SelectionInfo = AssetSelectionUtils::GetSelectedActorInfo();	
+
+			GUnrealEd->Exec( SelectionInfo.SharedWorld, *InCommand );
 			return FReply::Handled();
 		}
 	};

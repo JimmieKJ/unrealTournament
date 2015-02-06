@@ -7,6 +7,7 @@
 #include "Editor/PropertyEditor/Public/IDetailsView.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "GenericCommands.h"
+#include "ISourceControlModule.h"
 
 #define LOCTEXT_NAMESPACE "SBehaviorTreeDiff"
 
@@ -27,13 +28,13 @@ struct FDiffResultItem: public TSharedFromThis<FDiffResultItem>
 	 */
 	TSharedRef<SWidget>	GenerateWidget() const
 	{
-		FString ToolTip = Result.ToolTip;
+		FText ToolTip = Result.ToolTip;
 		FLinearColor Color = Result.DisplayColor;
-		FString Text = Result.DisplayString;
-		if(Text.Len() == 0)
+		FText Text = Result.DisplayString;
+		if(Text.IsEmpty())
 		{
-			Text = LOCTEXT("DIF_UnknownDiff", "Unknown Diff").ToString();
-			ToolTip = LOCTEXT("DIF_Confused", "There is an unspecified difference").ToString();
+			Text = LOCTEXT("DIF_UnknownDiff", "Unknown Diff");
+			ToolTip = LOCTEXT("DIF_Confused", "There is an unspecified difference");
 		}
 		return SNew(STextBlock)
 			.ToolTipText(ToolTip)
@@ -100,7 +101,7 @@ void SBehaviorTreeDiff::Construct( const FArguments& InArgs )
 		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.Text(LOCTEXT("BehaviorTreeDifGraphsToolTip", "Select Graph to Diff").ToString())
+			.Text(LOCTEXT("BehaviorTreeDifGraphsToolTip", "Select Graph to Diff"))
 		];
 
 	this->ChildSlot
@@ -125,7 +126,7 @@ void SBehaviorTreeDiff::Construct( const FArguments& InArgs )
 						.Content()
 						[
 							SNew(STextBlock)
-							.Text(LOCTEXT("DifBehaviorTreeDefaults", "Default Diff").ToString())
+							.Text(LOCTEXT("DifBehaviorTreeDefaults", "Default Diff"))
 						]
 					]
 					+SVerticalBox::Slot()
@@ -390,11 +391,11 @@ void SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GeneratePanel(UEdGraph* Graph, U
 		.HAlign(HAlign_Center)
 		.VAlign(VAlign_Center)
 		[
-			SNew(STextBlock).Text( LOCTEXT("BTDifPanelNoGraphTip", "Graph does not exist in this revision").ToString())
+			SNew(STextBlock).Text( LOCTEXT("BTDifPanelNoGraphTip", "Graph does not exist in this revision"))
 		];
 
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>( "PropertyEditor" );
-	const FDetailsViewArgs DetailsViewArgs( false, false, true, true, false );
+	const FDetailsViewArgs DetailsViewArgs( false, false, true, FDetailsViewArgs::ObjectsUseNameArea, false );
 	DetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	DetailsView->SetObject( NULL );
 	DetailsView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateRaw(this, &SBehaviorTreeDiff::FBehaviorTreeDiffPanel::IsPropertyVisible));
@@ -406,7 +407,7 @@ void SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GeneratePanel(UEdGraph* Graph, U
 		InEvents.OnSelectionChanged = SGraphEditor::FOnSelectionChanged::CreateRaw(this, &SBehaviorTreeDiff::FBehaviorTreeDiffPanel::OnSelectionChanged);
 
 		FGraphAppearanceInfo AppearanceInfo;
-		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_BehaviorDif", "DIFF").ToString();
+		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_BehaviorDif", "DIFF");
 
 		if (!GraphEditorCommands.IsValid())
 		{
@@ -457,31 +458,54 @@ void SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GeneratePanel(UEdGraph* Graph, U
 	GraphEditorBorder->SetContent(Widget.ToSharedRef());
 }
 
-FString SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GetTitle() const
+FText SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GetTitle() const
 {
-	FString Title = LOCTEXT("CurrentRevision", "Current Revision").ToString();
+	FText Title = LOCTEXT("CurrentRevision", "Current Revision");
 
 	// if this isn't the current working version being displayed
-	if (RevisionInfo.Revision >= 0)
+	if (!RevisionInfo.Revision.IsEmpty())
 	{
-		FString DateString = RevisionInfo.Date.ToString(TEXT("%m/%d/%Y"));
+		// Don't use grouping on the revision or CL numbers to match how Perforce displays them
+		static const FNumberFormattingOptions RevisionFormatOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false);
+
+		const FText DateText = FText::AsDate(RevisionInfo.Date, EDateTimeStyle::Short);
+		const FText RevisionText = FText::FromString(RevisionInfo.Revision);
+		const FText ChangelistText = FText::AsNumber(RevisionInfo.Changelist, &RevisionFormatOptions);
+
 		if (bShowAssetName)
 		{
 			FString AssetName = BehaviorTree->GetName();
-			FText LocalizedFormat = LOCTEXT("NamedRevisionDiff", "%s - Revision %i, CL %i, %s");
-			Title = FString::Printf(*LocalizedFormat.ToString(), *AssetName, RevisionInfo.Revision, RevisionInfo.Changelist, *DateString);
+			if(ISourceControlModule::Get().GetProvider().UsesChangelists())
+			{
+				FText LocalizedFormat = LOCTEXT("NamedRevisionDiffFmt", "{0} - Revision {1}, CL {2}, {3}");
+				Title = FText::Format(LocalizedFormat, FText::FromString(AssetName), RevisionText, ChangelistText, DateText);
+			}
+			else
+			{
+				FText LocalizedFormat = LOCTEXT("NamedRevisionDiffFmt", "{0} - Revision {1}, {2}");
+				Title = FText::Format(LocalizedFormat, FText::FromString(AssetName), RevisionText, DateText);
+			}
 		}
 		else
 		{
-			FText LocalizedFormat = LOCTEXT("PreviousRevisionDif", "Revision %i, CL %i, %s");
-			Title = FString::Printf(*LocalizedFormat.ToString(), RevisionInfo.Revision, RevisionInfo.Changelist, *DateString);
+			if(ISourceControlModule::Get().GetProvider().UsesChangelists())
+			{
+				FText LocalizedFormat = LOCTEXT("PreviousRevisionDifFmt", "Revision {0}, CL {1}, {2}");
+				Title = FText::Format(LocalizedFormat, RevisionText, ChangelistText, DateText);
+			}
+			else
+			{
+				FText LocalizedFormat = LOCTEXT("PreviousRevisionDifFmt", "Revision {0}, {2}");
+				Title = FText::Format(LocalizedFormat, RevisionText, DateText);
+			}
 		}
 	}
 	else if (bShowAssetName)
 	{
 		FString AssetName = BehaviorTree->GetName();
-		FText LocalizedFormat = LOCTEXT("NamedCurrentRevision", "%s - Current Revision");
-		Title = FString::Printf(*LocalizedFormat.ToString(), *AssetName);
+		FText LocalizedFormat = LOCTEXT("NamedCurrentRevisionFmt", "{0} - Current Revision");
+		Title = FText::Format(LocalizedFormat, FText::FromString(AssetName));
 	}
 
 	return Title;

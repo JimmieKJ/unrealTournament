@@ -94,14 +94,7 @@ FText FWindowsErrorReport::DiagnoseReport() const
 
 	if (!CrashDebugHelper->CreateMinidumpDiagnosticReport(ReportDirectory / DumpFilename))
 	{
-		if ( FRocketSupport::IsRocket() )
-		{
-			return LOCTEXT("NoDebuggingSymbolsRocket", "We apologize for the inconvenience.\nPlease send this crash report to help improve our software.");
-		}
-		else
-		{
-			return LOCTEXT("NoDebuggingSymbols", "You do not have any debugging symbols required to display the callstack for this crash.");
-		}
+		return LOCTEXT("NoDebuggingSymbols", "You do not have any debugging symbols required to display the callstack for this crash.");
 	}
 
 	// Don't write a Diagnostics.txt to disk in UE4 release build. It will be displayed in the UI but not sent to the server.
@@ -123,11 +116,12 @@ FString FWindowsErrorReport::FindMostRecentErrorReport()
 
 	auto DirectoryModifiedTime = FDateTime::MinValue();
 	FString ReportDirectory;
-	auto ReportFinder = MakeDirectoryVisitor([&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) {
+	auto ReportFinder = MakeDirectoryVisitor([&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) 
+	{
 		if (bIsDirectory)
 		{
 			auto TimeStamp = PlatformFile.GetTimeStamp(FilenameOrDirectory);
-			if (TimeStamp > DirectoryModifiedTime)
+			if (TimeStamp > DirectoryModifiedTime && FCString::Strstr( FilenameOrDirectory, TEXT("UE4-") ) )
 			{
 				ReportDirectory = FilenameOrDirectory;
 				DirectoryModifiedTime = TimeStamp;
@@ -138,10 +132,7 @@ FString FWindowsErrorReport::FindMostRecentErrorReport()
 
 	TCHAR LocalAppDataPath[MAX_PATH];
 	SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, NULL, 0, LocalAppDataPath);
-
-	PlatformFile.IterateDirectory(
-		*(FString(LocalAppDataPath) / TEXT("Microsoft/Windows/WER/ReportQueue")),
-		ReportFinder);
+	PlatformFile.IterateDirectory( *(FString(LocalAppDataPath) / TEXT("Microsoft/Windows/WER/ReportQueue")), ReportFinder);
 
 	return ReportDirectory;
 }

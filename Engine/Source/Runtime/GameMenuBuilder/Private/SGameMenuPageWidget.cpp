@@ -282,9 +282,9 @@ EVisibility SGameMenuPageWidget::GetMenuTitleVisibility() const
 	return CurrentMenuTitle.IsEmpty() || bMenuHidden == true ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
-FString SGameMenuPageWidget::GetMenuTitle() const 
+FText SGameMenuPageWidget::GetMenuTitle() const 
 {
-	return CurrentMenuTitle.ToString();
+	return CurrentMenuTitle;
 }
 
 void SGameMenuPageWidget::SetCurrentMenu(TSharedPtr< class FGameMenuPage > InMenu)

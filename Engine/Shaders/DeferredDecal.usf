@@ -22,8 +22,7 @@ float4x4 ScreenToDecal;
 float4x4 DecalToWorld;
 // from component to clip space (for decal frustum)
 float4x4 FrustumComponentToClip;
-// fade alpha from screen size fading
-float FadeAlpha;
+
 
 void StencilDecalMaskMain(
 	FScreenVertexOutput Input,
@@ -155,8 +154,6 @@ void MainPS(
 
 	// Z fade
 	Opacity *= saturate( 4 - 4 * abs( DecalVector.z * 2 - 1 ) );
-
-	Opacity *= FadeAlpha;
 
 	// RETURN_COLOR not needed unless writing to SceneColor
 	OutTarget0 = float4(Color, Opacity);

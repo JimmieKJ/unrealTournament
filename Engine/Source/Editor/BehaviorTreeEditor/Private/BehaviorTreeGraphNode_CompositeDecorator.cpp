@@ -195,6 +195,19 @@ void UBehaviorTreeGraphNode_CompositeDecorator::OnInnerGraphChanged()
 	}
 }
 
+int32 UBehaviorTreeGraphNode_CompositeDecorator::SpawnMissingNodes(const TArray<class UBTDecorator*>& NodeInstances, const TArray<struct FBTDecoratorLogic>& Operations, int32 StartIndex)
+{
+	int32 FirstIdxOutside = StartIndex + 1;
+	
+	UBehaviorTreeDecoratorGraph* MyGraph = Cast<UBehaviorTreeDecoratorGraph>(BoundGraph);
+	if (MyGraph)
+	{
+		FirstIdxOutside = MyGraph->SpawnMissingNodes(NodeInstances, Operations, StartIndex);
+	}
+
+	return FirstIdxOutside;
+}
+
 void UBehaviorTreeGraphNode_CompositeDecorator::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);

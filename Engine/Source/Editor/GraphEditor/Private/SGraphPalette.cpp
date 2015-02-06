@@ -25,7 +25,7 @@ void SGraphPaletteItem::Construct(const FArguments& InArgs, FCreateWidgetForActi
 	const FSlateBrush* IconBrush = FEditorStyle::GetBrush(TEXT("NoBrush"));
 	FSlateColor IconColor = FSlateColor::UseForeground();
 	FString ToolTip = GraphAction->TooltipDescription;
-	FString IconToolTip = ToolTip;
+	FText IconToolTip = FText::FromString(ToolTip);
 	bool bIsReadOnly = false;
 
 	TSharedRef<SWidget> IconWidget = CreateIconWidget( IconToolTip, IconBrush, IconColor );
@@ -93,7 +93,7 @@ FReply SGraphPaletteItem::OnMouseButtonDown( const FGeometry& MyGeometry, const 
 	return FReply::Unhandled();
 }
 
-TSharedRef<SWidget> SGraphPaletteItem::CreateIconWidget(const FString& IconToolTip, const FSlateBrush* IconBrush, const FSlateColor& IconColor)
+TSharedRef<SWidget> SGraphPaletteItem::CreateIconWidget(const FText& IconToolTip, const FSlateBrush* IconBrush, const FSlateColor& IconColor)
 {
 	return SNew(SImage)
 		.ToolTipText(IconToolTip)
@@ -101,9 +101,9 @@ TSharedRef<SWidget> SGraphPaletteItem::CreateIconWidget(const FString& IconToolT
 		.ColorAndOpacity(IconColor);
 }
 
-TSharedRef<SWidget> SGraphPaletteItem::CreateIconWidget(const FString& IconToolTip, const FSlateBrush* IconBrush, const FSlateColor& IconColor, const FString& DocLink, const FString& DocExcerpt)
+TSharedRef<SWidget> SGraphPaletteItem::CreateIconWidget(const FText& IconToolTip, const FSlateBrush* IconBrush, const FSlateColor& IconColor, const FString& DocLink, const FString& DocExcerpt)
 {
-	TSharedPtr<SToolTip> ToolTipWidget = IDocumentation::Get()->CreateToolTip(FText::FromString(IconToolTip), NULL, DocLink, DocExcerpt);
+	TSharedPtr<SToolTip> ToolTipWidget = IDocumentation::Get()->CreateToolTip(IconToolTip, NULL, DocLink, DocExcerpt);
 
 	return SNew(SImage)
 		.ToolTip(ToolTipWidget)
@@ -160,9 +160,9 @@ FText SGraphPaletteItem::GetDisplayText() const
 	return ActionPtr.Pin()->MenuDescription;
 }
 
-FString SGraphPaletteItem::GetItemTooltip() const
+FText SGraphPaletteItem::GetItemTooltip() const
 {
-	return ActionPtr.Pin()->MenuDescription.ToString();
+	return ActionPtr.Pin()->MenuDescription;
 }
 
 

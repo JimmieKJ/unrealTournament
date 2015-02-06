@@ -98,7 +98,6 @@ public:
 	virtual EValidatorResult IsValid(const FName& Name, bool bOriginal) override;
 	// End FNameValidatorInterface
 
-protected:
 	// This class is a base class for anything that just needs to validate a string is unique
 	FStringSetNameValidator(const FString& InExistingName)
 		: ExistingName(InExistingName)

@@ -107,6 +107,10 @@ public:
 
 	// Find instances of a Custom event node
 	TSharedPtr< FUICommandInfo > FindInstancesOfCustomEvent;
+
+	// Zoom in and out on the graph editor
+	TSharedPtr< FUICommandInfo > ZoomIn;
+	TSharedPtr< FUICommandInfo > ZoomOut;
 };
 
 class GRAPHEDITOR_API FGraphEditorCommands

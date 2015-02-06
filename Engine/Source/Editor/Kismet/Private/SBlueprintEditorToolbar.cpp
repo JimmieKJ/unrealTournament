@@ -239,7 +239,7 @@ static void OnDiffRevisionPicked(FRevisionInfo const& RevisionInfo, TWeakObjectP
 			{
 				TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> Revision = SourceControlState->GetHistoryItem(HistoryIndex);
 				check(Revision.IsValid());
-				if (Revision->GetRevisionNumber() == RevisionInfo.Revision)
+				if (Revision->GetRevision() == RevisionInfo.Revision)
 				{
 					// Get the revision of this package from source control
 					FString PreviousTempPkgName;
@@ -282,8 +282,8 @@ static void OnDiffRevisionPicked(FRevisionInfo const& RevisionInfo, TWeakObjectP
 							if (PreviousAsset != NULL)
 							{
 								FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
-								FRevisionInfo OldRevision = { Revision->GetRevisionNumber(), Revision->GetCheckInIdentifier(), Revision->GetDate() };
-								FRevisionInfo CurrentRevision = { -1, Revision->GetCheckInIdentifier(), Revision->GetDate() };
+								FRevisionInfo OldRevision = { Revision->GetRevision(), Revision->GetCheckInIdentifier(), Revision->GetDate() };
+								FRevisionInfo CurrentRevision = { TEXT(""), Revision->GetCheckInIdentifier(), Revision->GetDate() };
 								AssetToolsModule.Get().DiffAssets(PreviousAsset, BlueprintObj.Get(), OldRevision, CurrentRevision);
 							}
 						}
@@ -341,9 +341,11 @@ void FFullBlueprintEditorCommands::RegisterCommands()
 	UI_COMMAND(SaveOnCompile_Always, "Always", "Sets the save-on-compile option to 'Always', meaning that your Blueprints will be saved whenever they ar compiled (even if there were errors)", EUserInterfaceActionType::RadioButton, FInputGesture());
 
 	UI_COMMAND(SwitchToScriptingMode, "Graph", "Switches to Graph Editing Mode", EUserInterfaceActionType::ToggleButton, FInputGesture());
-	UI_COMMAND(SwitchToBlueprintDefaultsMode, "Defaults", "Switches to Blueprint Defaults Mode", EUserInterfaceActionType::ToggleButton, FInputGesture());
+	UI_COMMAND(SwitchToBlueprintDefaultsMode, "Defaults", "Switches to Class Defaults Mode", EUserInterfaceActionType::ToggleButton, FInputGesture());
 	UI_COMMAND(SwitchToComponentsMode, "Components", "Switches to Components Mode", EUserInterfaceActionType::ToggleButton, FInputGesture());
-	UI_COMMAND(EditGlobalOptions, "Blueprint Props", "Edit Blueprint Options", EUserInterfaceActionType::Button, FInputGesture());
+
+	UI_COMMAND(EditGlobalOptions, "Class Settings", "Edit Class Settings (Previously known as Blueprint Props)", EUserInterfaceActionType::ToggleButton, FInputGesture());
+	UI_COMMAND(EditClassDefaults, "Class Defaults", "Edit the initial values of your class.", EUserInterfaceActionType::ToggleButton, FInputGesture());
 
 	UI_COMMAND(JumpToErrorNode, "Jump to Error Node", "When enabled, then the Blueprint will snap focus to nodes producing an error during compilation", EUserInterfaceActionType::ToggleButton, FInputGesture());
 }
@@ -400,13 +402,16 @@ static void BlueprintEditorToolbarImpl::MakeCompileDeveloperSubMenu(FMenuBuilder
 
 void FBlueprintEditorToolbar::AddBlueprintEditorModesToolbar(TSharedPtr<FExtender> Extender)
 {
-	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = BlueprintEditor.Pin();
+	if ( !GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor )
+	{
+		TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = BlueprintEditor.Pin();
 
-	Extender->AddToolBarExtension(
-		"Asset",
-		EExtensionHook::After,
-		BlueprintEditorPtr->GetToolkitCommands(),
-		FToolBarExtensionDelegate::CreateSP( this, &FBlueprintEditorToolbar::FillBlueprintEditorModesToolbar ) );
+		Extender->AddToolBarExtension(
+			"Asset",
+			EExtensionHook::After,
+			BlueprintEditorPtr->GetToolkitCommands(),
+			FToolBarExtensionDelegate::CreateSP(this, &FBlueprintEditorToolbar::FillBlueprintEditorModesToolbar));
+	}
 }
 
 void FBlueprintEditorToolbar::AddBlueprintGlobalOptionsToolbar(TSharedPtr<FExtender> Extender)
@@ -502,6 +507,11 @@ void FBlueprintEditorToolbar::FillBlueprintGlobalOptionsToolbar(FToolBarBuilder&
 	if(BlueprintObj != NULL)
 	{
 		ToolbarBuilder.AddToolBarButton(Commands.EditGlobalOptions);
+
+		if ( GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor )
+		{
+			ToolbarBuilder.AddToolBarButton(Commands.EditClassDefaults);
+		}
 	}
 	
 	ToolbarBuilder.EndSection();
@@ -676,7 +686,7 @@ TArray< TSharedPtr< SWidget> > FBlueprintEditorToolbar::GenerateToolbarWidgets(c
 			.OnSetActiveMode(ActiveModeSetter)
 			.CanBeSelected(BlueprintObj ? FBlueprintEditorUtils::DoesSupportDefaults(BlueprintObj) : false)
 			.ToolTip(IDocumentation::Get()->CreateToolTip(
-				LOCTEXT("BlueprintDefaultsModeButtonTooltip", "Switch to Blueprint Defaults Mode"),
+				LOCTEXT("BlueprintDefaultsModeButtonTooltip", "Switch to Class Defaults Mode"),
 				NULL,
 				TEXT("Shared/Editors/BlueprintEditor"),
 				TEXT("DefaultsMode")))

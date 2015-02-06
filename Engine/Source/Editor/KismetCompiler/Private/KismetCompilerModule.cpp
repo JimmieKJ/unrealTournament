@@ -15,6 +15,9 @@
 #include "UserDefinedStructureCompilerUtils.h"
 
 DEFINE_LOG_CATEGORY(LogK2Compiler);
+DECLARE_CYCLE_STAT(TEXT("Compile Time"), EKismetCompilerStats_CompileTime, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Compile Skeleton Class"), EKismetCompilerStats_CompileSkeletonClass, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Compile Generated Class"), EKismetCompilerStats_CompileGeneratedClass, STATGROUP_KismetCompiler);
 
 IMPLEMENT_MODULE( FKismet2CompilerModule, KismetCompiler );
 
@@ -112,9 +115,9 @@ void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const
 		Compiler->PreCompile(Blueprint);
 	}
 
-	if ((CompileOptions.CompileType != EKismetCompileType::BytecodeOnly) && (CompileOptions.CompileType != EKismetCompileType::Cpp))
+	if (CompileOptions.CompileType != EKismetCompileType::Cpp)
 	{
-		BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Compile Skeleton Class"));
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_CompileSkeletonClass);
 
 		FBlueprintCompileReinstancer SkeletonReinstancer(Blueprint->SkeletonGeneratedClass);
 
@@ -128,7 +131,7 @@ void FKismet2CompilerModule::CompileBlueprint(class UBlueprint* Blueprint, const
 	// If this was a full compile, take appropriate actions depending on the success of failure of the compile
 	if( CompileOptions.IsGeneratedClassCompileType() )
 	{
-		BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Compile Generated Class"));
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_CompileGeneratedClass);
 
 		// Perform the full compile
 		CompileBlueprintInner(Blueprint, CompileOptions, Results, ObjLoaded);

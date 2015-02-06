@@ -7,11 +7,38 @@
 #include "IOSRuntimeSettings.h"
 
 //////////////////////////////////////////////////////////////////////////
+// FProvision structure
+class FProvision
+{
+public:
+	FString Name;
+	FString FileName;
+	FString Status;
+	bool bDistribution;
+	bool bSelected;
+};
+typedef TSharedPtr<class FProvision> ProvisionPtr;
+
+//////////////////////////////////////////////////////////////////////////
+// FCertificate structure
+class FCertificate
+{
+public:
+	FString Name;
+	FString Status;
+	FString Expires;
+	bool bSelected;
+};
+typedef TSharedPtr<class FCertificate> CertificatePtr;
+
+//////////////////////////////////////////////////////////////////////////
 // FIOSTargetSettingsCustomization
 
 class FIOSTargetSettingsCustomization : public IDetailCustomization
 {
 public:
+	~FIOSTargetSettingsCustomization();
+
 	// Makes a new instance of this detail layout class for a specific detail view requesting it
 	static TSharedRef<IDetailCustomization> MakeInstance();
 
@@ -36,8 +63,23 @@ private:
 
 	bool bProvisionInstalled;
 	bool bCertificateInstalled;
+	bool bShowAllProvisions;
+	bool bShowAllCertificates;
 
 	TSharedPtr<FMonitoredProcess> IPPProcess;
+	FDelegateHandle TickerHandle;
+	TArray<ProvisionPtr> ProvisionList;
+	TArray<ProvisionPtr> FilteredProvisionList;
+	TSharedPtr<SListView<ProvisionPtr> > ProvisionListView;
+	TSharedPtr<SWidgetSwitcher > ProvisionInfoSwitcher;
+	TArray<CertificatePtr> CertificateList;
+	TArray<CertificatePtr> FilteredCertificateList;
+	TSharedPtr<SListView<CertificatePtr> > CertificateListView;
+	TSharedPtr<SWidgetSwitcher > CertificateInfoSwitcher;
+
+	FString SelectedProvision;
+	FString SelectedFile;
+	FString SelectedCert;
 
 private:
 	FIOSTargetSettingsCustomization();
@@ -51,9 +93,6 @@ private:
 
 	// Copies the setup files for the platform into the project
 	void CopySetupFilesIntoProject();
-
-	// Called when a property that is really stored in the plist is modified
-	void OnPlistPropertyModified();
 
 	// Builds an image row
 	void BuildImageRow(class IDetailLayoutBuilder& DetailLayout, class IDetailCategoryBuilder& Category, const struct FPlatformIconInfo& Info, const FVector2D& MaxDisplaySize);
@@ -73,9 +112,27 @@ private:
 	// Get the image to display for the certificate status
 	const FSlateBrush* GetCertificateStatus() const;
 
+	// find the installed certificates and provisions
+	void FindRequiredFiles();
+
 	// Update the provision status
 	void UpdateStatus();
 
 	// status tick delay
 	bool UpdateStatusDelegate(float delay);
+
+	// handle provision list generate row
+	TSharedRef<ITableRow> HandleProvisionListGenerateRow( ProvisionPtr Provision, const TSharedRef<STableViewBase>& OwnerTable );
+
+	// handle certificate list generate row
+	TSharedRef<ITableRow> HandleCertificateListGenerateRow( CertificatePtr Certificate, const TSharedRef<STableViewBase>& OwnerTable );
+
+	// handle which set of provisions to view
+	void HandleAllProvisionsHyperlinkNavigate( bool AllProvisions );
+
+	// handle which set of provisions to view
+	void HandleAllCertificatesHyperlinkNavigate( bool AllCertificates );
+
+	// filter the lists based on the settings
+	void FilterLists();
 };

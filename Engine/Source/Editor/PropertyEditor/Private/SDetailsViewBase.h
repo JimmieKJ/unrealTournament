@@ -379,6 +379,9 @@ protected:
 	/** Called when the list of currently differing properties changes */
 	virtual void UpdatePropertiesWhitelist(const TSet<FPropertyPath> InWhitelistedProperties) override { CurrentFilter.WhitelistedProperties = InWhitelistedProperties; }
 
+	virtual TSharedPtr<SWidget> GetNameAreaWidget() override;
+	virtual TSharedPtr<SWidget> GetFilterAreaWidget() override;
+
 	/** 
 	 * Hides or shows properties based on the passed in filter text
 	 * 
@@ -399,6 +402,8 @@ protected:
 	FCustomDetailLayoutMap InstancedClassToDetailLayoutMap;
 	/** The current detail layout based on selection */
 	TSharedPtr<class FDetailLayoutBuilderImpl> DetailLayout;
+	/** Row for searching and view options */
+	TSharedPtr<SHorizontalBox>  FilterRow;
 	/** Search box */
 	TSharedPtr<SWidget> SearchBox;
 	/** Customization class instances currently active in this view */

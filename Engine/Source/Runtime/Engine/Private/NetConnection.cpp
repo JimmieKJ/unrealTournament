@@ -57,8 +57,6 @@ UNetConnection::UNetConnection(const FObjectInitializer& ObjectInitializer)
 ,	InPacketId			( -1 )
 ,	OutPacketId			( 0 ) // must be initialized as OutAckPacketId + 1 so loss of first packet can be detected
 ,	OutAckPacketId		( -1 )
-,	PartialPacketId		( 0 )
-,	LastPartialPacketId	( -1 )
 ,	LastPingAck			( 0.f )
 ,	LastPingAckPacketId	( -1 )
 ,	ClientWorldPackageName( NAME_None )
@@ -116,7 +114,9 @@ void UNetConnection::InitBase(UNetDriver* InDriver,class FSocket* InSocket, cons
 	}
 
 	// Create package map.
-	PackageMap = new( this )UPackageMapClient( FObjectInitializer(), this, Driver->GuidCache );
+	auto PackageMapClient = NewObject<UPackageMapClient>(this);
+	PackageMapClient->Initialize(this, Driver->GuidCache);
+	PackageMap = PackageMapClient;
 
 	// Create the voice channel
 	CreateChannel(CHTYPE_Voice, true, VOICE_CHANNEL_INDEX);
@@ -163,7 +163,9 @@ void UNetConnection::InitConnection(UNetDriver* InDriver, EConnectionState InSta
 	}
 
 	// Create package map.
-	PackageMap = new( this )UPackageMapClient( FObjectInitializer(), this, Driver->GuidCache );
+	auto PackageMapClient = NewObject<UPackageMapClient>(this);
+	PackageMapClient->Initialize(this, Driver->GuidCache);
+	PackageMap = PackageMapClient;
 }
 
 void UNetConnection::Serialize( FArchive& Ar )
@@ -640,6 +642,12 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 	if( PacketId > InPacketId )
 	{
 		const int32 PacketsLost = PacketId - InPacketId - 1;
+		
+		if ( PacketsLost > 10 )
+		{
+			UE_LOG( LogNetTraffic, Warning, TEXT( "High single frame packet loss: %i" ), PacketsLost );
+		}
+
 		InPacketsLost += PacketsLost;
 		Driver->InPacketsLost += PacketsLost;
 		InPacketId = PacketId;
@@ -809,19 +817,8 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			} 
 			else if ( Bunch.bPartial )
 			{
-				// If this is a partial bunch, use the last processed partial sequence to read the new partial sequence
-				Bunch.ChSequence = MakeRelative( Reader.ReadInt( MAX_CHSEQUENCE ), LastPartialPacketId, MAX_CHSEQUENCE );
-				if ( Bunch.ChSequence > LastPartialPacketId )
-				{
-					LastPartialPacketId = Bunch.ChSequence;
-				}
-				else
-				{
-					// Well behaved clients should never hit this, since we've already thrown out packets that were older
-					// Since PartialPacketId should evolve in sync with PacketId, this should be impossible unless the 
-					// client is misbehaving...
-					UE_LOG( LogNetTraffic, Error, TEXT( "UNetConnection::ReceivedPacket: Invalid partial packet id." ) );
-				}
+				// If this is an unreliable partial bunch, we simply use packet sequence since we already have it
+				Bunch.ChSequence = PacketId;
 			}
 			else
 			{
@@ -974,12 +971,6 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 					}
 					continue;
 				}
-			}
-
-			if( Bunch.bOpen && !Bunch.bPartial )
-			{
-				Channel->OpenAcked = 1;
-				Channel->OpenPacketId = FPacketIdRange(PacketId);
 			}
 
 			// Dispatch the raw, unsequenced bunch to the channel.
@@ -1150,15 +1141,18 @@ int32 UNetConnection::SendRawBunch( FOutBunch& Bunch, bool InAllowMerge )
 	Header.WriteBit( Bunch.bHasGUIDs );
 	Header.WriteBit( Bunch.bHasMustBeMappedGUIDs );
 	Header.WriteBit( Bunch.bPartial );
-	if (Bunch.bReliable || Bunch.bPartial)
+
+	if ( Bunch.bReliable )
 	{
 		Header.WriteIntWrapped(Bunch.ChSequence, MAX_CHSEQUENCE);
-		if (Bunch.bPartial)
-		{
-			Header.WriteBit( Bunch.bPartialInitial );
-			Header.WriteBit( Bunch.bPartialFinal );
-		}
 	}
+
+	if (Bunch.bPartial)
+	{
+		Header.WriteBit( Bunch.bPartialInitial );
+		Header.WriteBit( Bunch.bPartialFinal );
+	}
+
 	if (Bunch.bReliable || Bunch.bOpen)
 	{
 		Header.WriteIntWrapped(Bunch.ChType, CHTYPE_MAX);

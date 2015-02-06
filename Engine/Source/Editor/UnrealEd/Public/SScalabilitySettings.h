@@ -36,7 +36,7 @@ private:
 	float GetResolutionScale() const;
 
 	// Callback to retrieve current resolution scale as a display string
-	FString GetResolutionScaleString() const;
+	FText GetResolutionScaleString() const;
 
 	// Makes a button widget for the group quality levels
 	TSharedRef<SWidget> MakeButtonWidget(const FText& InName, const TCHAR* InGroupName, int32 InQualityLevel, const FText& InToolTip);

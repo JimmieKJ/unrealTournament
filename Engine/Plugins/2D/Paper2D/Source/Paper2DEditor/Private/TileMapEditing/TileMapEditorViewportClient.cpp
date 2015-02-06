@@ -25,6 +25,7 @@ FTileMapEditorViewportClient::FTileMapEditorViewportClient(TWeakPtr<FTileMapEdit
 	check(TileMapEditorPtr.IsValid() && TileMapEditorViewportPtr.IsValid());
 
 	PreviewScene = &OwnedPreviewScene;
+	((FAssetEditorModeTools*)ModeTools)->SetPreviewScene(PreviewScene);
 
 	SetRealtime(true);
 
@@ -33,6 +34,8 @@ FTileMapEditorViewportClient::FTileMapEditorViewportClient(TWeakPtr<FTileMapEdit
 	bManipulationDirtiedSomething = false;
 	ScopedTransaction = nullptr;
 
+	DrawHelper.bDrawGrid = false;
+	DrawHelper.bDrawPivot = false;
 	bShowPivot = true;
 
 	bDeferZoomToTileMap = true;
@@ -142,6 +145,18 @@ void FTileMapEditorViewportClient::Tick(float DeltaSeconds)
 	if (!GIntraFrameDebuggingGameThread)
 	{
 		OwnedPreviewScene.GetWorld()->Tick(LEVELTICK_All, DeltaSeconds);
+	}
+}
+
+FLinearColor FTileMapEditorViewportClient::GetBackgroundColor() const
+{
+	if (UPaperTileMap* TileMap = RenderTileMapComponent->TileMap)
+	{
+		return TileMap->BackgroundColor;
+	}
+	else
+	{
+		return FEditorViewportClient::GetBackgroundColor();
 	}
 }
 

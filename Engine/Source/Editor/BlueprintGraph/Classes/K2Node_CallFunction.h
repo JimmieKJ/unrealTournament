@@ -192,6 +192,11 @@ private:
 	 */
 	void GeneratePinTooltip(UEdGraphPin& Pin) const;
 
+	/**
+	 * Connect Execute and Then pins for functions, which became pure.
+	 */
+	bool ReconnectPureExecPins(TArray<UEdGraphPin*>& OldPins);
+
 protected:
 	/** Helper function to ensure function is called in our context */
 	virtual void EnsureFunctionIsInBlueprint();

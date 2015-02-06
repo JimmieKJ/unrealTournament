@@ -49,19 +49,35 @@ static void PropagateTransformPropertyChange(UObject* InObject, UProperty* InPro
 	check(InObject != nullptr);
 	check(InProperty != nullptr);
 
-	TArray<UObject*> ArchetypeInstances;
 	TSet<USceneComponent*> UpdatedComponents;
-	FComponentEditorUtils::GetArchetypeInstances(InObject, ArchetypeInstances);
-	for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
+	if (InObject->HasAnyFlags(RF_ClassDefaultObject | RF_DefaultSubObject))
 	{
-		USceneComponent* InstancedSceneComponent = FComponentEditorUtils::GetSceneComponent(ArchetypeInstances[InstanceIndex], InObject);
-		if(InstancedSceneComponent != nullptr && !UpdatedComponents.Contains(InstancedSceneComponent))
+		TArray<UObject*> ArchetypeInstances;
+		FComponentEditorUtils::GetArchetypeInstances(InObject, ArchetypeInstances);
+		for (int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
 		{
-			FComponentEditorUtils::PropagateTransformPropertyChange(InstancedSceneComponent, InProperty, OldValue, NewValue, UpdatedComponents);
+			USceneComponent* InstancedSceneComponent = FComponentEditorUtils::GetSceneComponent(ArchetypeInstances[InstanceIndex], InObject);
+			if (InstancedSceneComponent != nullptr && !UpdatedComponents.Contains(InstancedSceneComponent))
+			{
+				FComponentEditorUtils::PropagateTransformPropertyChange(InstancedSceneComponent, InProperty, OldValue, NewValue, UpdatedComponents);
+			}
+		}
+	}
+
+	if (InObject->HasAnyFlags(RF_ArchetypeObject))
+	{
+		TArray<UObject*> ArchetypeInstances;
+		InObject->GetArchetypeInstances(ArchetypeInstances);
+		for (int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
+		{
+			USceneComponent* InstancedSceneComponent = FComponentEditorUtils::GetSceneComponent(ArchetypeInstances[InstanceIndex], InObject);
+			if (InstancedSceneComponent != nullptr && InstancedSceneComponent->HasAnyFlags(RF_InheritableComponentTemplate) && !UpdatedComponents.Contains(InstancedSceneComponent))
+			{
+				FComponentEditorUtils::PropagateTransformPropertyChange(InstancedSceneComponent, InProperty, OldValue, NewValue, UpdatedComponents);
+			}
 		}
 	}
 }
-
 
 FComponentTransformDetails::FComponentTransformDetails( const TArray< TWeakObjectPtr<UObject> >& InSelectedObjects, const FSelectedActorInfo& InSelectedActorInfo, IDetailLayoutBuilder& DetailBuilder )
 	: SelectedActorInfo( InSelectedActorInfo )
@@ -634,10 +650,9 @@ void FComponentTransformDetails::OnToggleAbsoluteLocation( bool bEnable )
 				RootComponent->bAbsoluteLocation = !RootComponent->bAbsoluteLocation;
 
 				FPropertyChangedEvent PropertyChangedEvent( AbsoluteLocationProperty );
-				Object->PostEditChangeProperty( PropertyChangedEvent );
+				Object->PostEditChangeProperty(PropertyChangedEvent);
 
 				// If this is a default object or subobject, propagate the change out to any current instances of this object
-				if(Object->HasAnyFlags(RF_ClassDefaultObject|RF_DefaultSubObject))
 				{
 					uint32 NewValue = RootComponent->bAbsoluteLocation;
 					uint32 OldValue = !NewValue;
@@ -700,10 +715,9 @@ void FComponentTransformDetails::OnToggleAbsoluteRotation( bool bEnable )
 				RootComponent->bAbsoluteRotation = !RootComponent->bAbsoluteRotation;
 
 				FPropertyChangedEvent PropertyChangedEvent( AbsoluteRotationProperty );
-				Object->PostEditChangeProperty( PropertyChangedEvent );
+				Object->PostEditChangeProperty(PropertyChangedEvent);
 
 				// If this is a default object or subobject, propagate the change out to any current instances of this object
-				if(Object->HasAnyFlags(RF_ClassDefaultObject|RF_DefaultSubObject))
 				{
 					uint32 NewValue = RootComponent->bAbsoluteRotation;
 					uint32 OldValue = !NewValue;
@@ -765,10 +779,9 @@ void FComponentTransformDetails::OnToggleAbsoluteScale( bool bEnable )
 				RootComponent->bAbsoluteScale = !RootComponent->bAbsoluteScale;
 
 				FPropertyChangedEvent PropertyChangedEvent( AbsoluteScaleProperty );
-				Object->PostEditChangeProperty( PropertyChangedEvent );
+				Object->PostEditChangeProperty(PropertyChangedEvent);
 
 				// If this is a default object or subobject, propagate the change out to any current instances of this object
-				if(Object->HasAnyFlags(RF_ClassDefaultObject|RF_DefaultSubObject))
 				{
 					uint32 NewValue = RootComponent->bAbsoluteScale;
 					uint32 OldValue = !NewValue;
@@ -791,14 +804,26 @@ void FComponentTransformDetails::OnToggleAbsoluteScale( bool bEnable )
 
 }
 
+struct FGetRootComponentArchetype
+{
+	static USceneComponent* Get(UObject* Object)
+	{
+		auto RootComponent = Object ? FComponentEditorUtils::GetSceneComponent(Object) : nullptr;
+		return RootComponent ? Cast<USceneComponent>(RootComponent->GetArchetype()) : nullptr;
+	}
+};
+
 FReply FComponentTransformDetails::OnLocationResetClicked()
 {
 	const FText TransactionName = LOCTEXT("ResetLocation", "Reset Location");
 	FScopedTransaction Transaction(TransactionName);
 
-	OnSetLocation(0.f, ETextCommit::Default, 0);
-	OnSetLocation(0.f, ETextCommit::Default, 1);
-	OnSetLocation(0.f, ETextCommit::Default, 2);
+	const USceneComponent* Archetype = FGetRootComponentArchetype::Get(SelectedObjects[0].Get());
+	const FVector Data = Archetype ? Archetype->RelativeLocation : FVector();
+
+	OnSetLocation(Data[0], ETextCommit::Default, 0);
+	OnSetLocation(Data[1], ETextCommit::Default, 1);
+	OnSetLocation(Data[2], ETextCommit::Default, 2);
 
 	return FReply::Handled();
 }
@@ -808,9 +833,12 @@ FReply FComponentTransformDetails::OnRotationResetClicked()
 	const FText TransactionName = LOCTEXT("ResetRotation", "Reset Rotation");
 	FScopedTransaction Transaction(TransactionName);
 
-	OnSetRotation(0.f, true, 0);
-	OnSetRotation(0.f, true, 1);
-	OnSetRotation(0.f, true, 2);
+	const USceneComponent* Archetype = FGetRootComponentArchetype::Get(SelectedObjects[0].Get());
+	const FRotator Data = Archetype ? Archetype->RelativeRotation : FRotator();
+
+	OnSetRotation(Data.Roll, true, 0);
+	OnSetRotation(Data.Pitch, true, 1);
+	OnSetRotation(Data.Yaw, true, 2);
 
 	return FReply::Handled();
 }
@@ -820,9 +848,12 @@ FReply FComponentTransformDetails::OnScaleResetClicked()
 	const FText TransactionName = LOCTEXT("ResetScale", "Reset Scale");
 	FScopedTransaction Transaction(TransactionName);
 
-	ScaleObject(1.f, 0, false, TransactionName);
-	ScaleObject(1.f, 1, false, TransactionName);
-	ScaleObject(1.f, 2, false, TransactionName);
+	const USceneComponent* Archetype = FGetRootComponentArchetype::Get(SelectedObjects[0].Get());
+	const FVector Data = Archetype ? Archetype->RelativeScale3D : FVector();
+
+	ScaleObject(Data[0], 0, false, TransactionName);
+	ScaleObject(Data[1], 1, false, TransactionName);
+	ScaleObject(Data[2], 2, false, TransactionName);
 
 	return FReply::Handled();
 }
@@ -904,7 +935,7 @@ void FComponentTransformDetails::CacheTransform()
 			if( RootComponent )
 			{
 				Loc = RootComponent->RelativeLocation;
-				Rot = (bEditingRotationInUI && !Object->HasAnyFlags(RF_ClassDefaultObject|RF_DefaultSubObject)) ? ObjectToRelativeRotationMap.FindOrAdd(Object) : RootComponent->RelativeRotation;
+				Rot = (bEditingRotationInUI && !Object->HasAnyFlags(RF_ClassDefaultObject | RF_DefaultSubObject)) ? ObjectToRelativeRotationMap.FindOrAdd(Object) : RootComponent->RelativeRotation;
 				Scale = RootComponent->RelativeScale3D;
 
 				if( ObjectIndex == 0 )
@@ -1020,10 +1051,7 @@ void FComponentTransformDetails::OnSetLocation( float NewValue, ETextCommit::Typ
 					Object->PostEditChangeProperty( PropertyChangedEvent );
 
 					// If this is a default object or subobject, propagate the change out to any current instances of this object
-					if(Object->HasAnyFlags(RF_ClassDefaultObject|RF_DefaultSubObject))
-					{
-						PropagateTransformPropertyChange(Object, RelativeLocationProperty, OldRelativeLocation, RelativeLocation);
-					}
+					PropagateTransformPropertyChange(Object, RelativeLocationProperty, OldRelativeLocation, RelativeLocation);
 
 					if( NotifyHook )
 					{
@@ -1136,10 +1164,7 @@ void FComponentTransformDetails::OnSetRotation( float NewValue, bool bCommitted,
 						}
 
 						// If this is a default object or subobject, propagate the change out to any current instances of this object
-						if(bIsEditingTemplateObject)
-						{
-							PropagateTransformPropertyChange(Object, RelativeRotationProperty, OldRelativeRotation, RelativeRotation);
-						}
+						PropagateTransformPropertyChange(Object, RelativeRotationProperty, OldRelativeRotation, RelativeRotation);
 
 						FPropertyChangedEvent PropertyChangedEvent( RelativeRotationProperty, !bCommitted && bEditingRotationInUI ? EPropertyChangeType::Interactive : EPropertyChangeType::ValueSet );
 
@@ -1390,10 +1415,7 @@ void FComponentTransformDetails::ScaleObject( float NewValue, int32 Axis, bool b
 					}
 
 					// If this is a default object or subobject, propagate the change out to any current instances of this object
-					if(Object->HasAnyFlags(RF_ClassDefaultObject|RF_DefaultSubObject))
-					{
-						PropagateTransformPropertyChange(Object, RelativeScale3DProperty, OldRelativeScale, RelativeScale);
-					}
+					PropagateTransformPropertyChange(Object, RelativeScale3DProperty, OldRelativeScale, RelativeScale);
 
 					if( NotifyHook )
 					{

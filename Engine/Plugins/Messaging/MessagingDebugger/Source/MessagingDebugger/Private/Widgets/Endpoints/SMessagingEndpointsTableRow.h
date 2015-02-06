@@ -77,7 +77,7 @@ public:
 					[
 						SNew(STextBlock)
 							.HighlightText(HighlightText)
-							.Text(EndpointInfo->Name.ToString())
+							.Text(FText::FromName(EndpointInfo->Name))
 					];
 		}
 		else if (ColumnName == "Messages")
@@ -113,15 +113,15 @@ public:
 private:
 
 	/** Gets the text for the Messages column. */
-	FString HandleMessagesText() const
+	FText HandleMessagesText() const
 	{
-		return FString::Printf(TEXT("%i"), EndpointInfo->ReceivedMessages.Num() + EndpointInfo->SentMessages.Num());
+		return FText::AsNumber(EndpointInfo->ReceivedMessages.Num() + EndpointInfo->SentMessages.Num());
 	}
 
 	/** Gets the tooltip text for the Messages column. */
-	FString HandleMessagesTooltipText() const
+	FText HandleMessagesTooltipText() const
 	{
-		return FString::Printf(TEXT("In: %i\nOut: %i"), EndpointInfo->ReceivedMessages.Num(), EndpointInfo->SentMessages.Num());
+		return FText::Format(LOCTEXT("MessagesTooltipTextFmt", "In: {0}\nOut: {1}"), FText::AsNumber(EndpointInfo->ReceivedMessages.Num()), FText::AsNumber(EndpointInfo->SentMessages.Num()));
 	}
 
 	/** Handles changing the checked state of the visibility check box. */

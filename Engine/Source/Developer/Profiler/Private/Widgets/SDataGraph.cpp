@@ -120,9 +120,9 @@ protected:
 		return FReply::Handled();
 	}
 
-	FString SummaryInformation_GetSummary() const
+	FText SummaryInformation_GetSummary() const
 	{
-		FString SummaryText = LOCTEXT("DataGraphSummary_Warning", "Not implemented yet").ToString();
+		FText SummaryText = LOCTEXT("DataGraphSummary_Warning", "Not implemented yet");
 		const bool bCanDisplayData = GraphDescription.CombinedGraphDataSource->CanBeDisplayedAsIndexBased() && ParentWidget->GetViewMode() == EDataGraphViewModes::Index;
 
 		const uint32 FrameIndex = OnGetMouseFrameIndex.IsBound() ? (uint32)OnGetMouseFrameIndex.Execute() : 0;
@@ -134,21 +134,24 @@ protected:
 			const EProfilerSampleTypes::Type UnitType = (*GraphDataSource)->GetSampleType();
 			const FProfilerAggregatedStat& Aggregated = *(*GraphDataSource)->GetAggregatedStat();
 
-			SummaryText = FString::Printf( TEXT("%4.2f - "), SampleValue );
-			SummaryText+= Aggregated.ToString();
+			static const FNumberFormattingOptions SampleValueFormattingOptions = FNumberFormattingOptions()
+				.SetMinimumFractionalDigits(2)
+				.SetMaximumFractionalDigits(2);
+
+			SummaryText = FText::Format(LOCTEXT("DataGraphSummary_SummaryFmt", "{0} - {1}"), FText::AsNumber(SampleValue, &SampleValueFormattingOptions), FText::FromString(Aggregated.ToString()));
 		}
 
 		return SummaryText;
 	}
 
-	FString SummaryInformation_GetGroupName() const
+	FText SummaryInformation_GetGroupName() const
 	{
-		return FString::Printf( TEXT("(%s)"), *GraphDescription.CombinedGraphDataSource->GetGroupName() );
+		return FText::Format(LOCTEXT("DataGraphSummary_GroupNameFmt", "({0})"), FText::FromString(GraphDescription.CombinedGraphDataSource->GetGroupName()));
 	}
 
-	FString SummaryInformation_GetStatName() const
+	FText SummaryInformation_GetStatName() const
 	{
-		return FProfilerHelper::ShortenName( GraphDescription.CombinedGraphDataSource->GetStatName(), 32 );
+		return FText::FromString(FProfilerHelper::ShortenName( GraphDescription.CombinedGraphDataSource->GetStatName(), 32 ));
 	}
 
 private:

@@ -35,7 +35,7 @@ TSharedRef< SWidget > SEventItem::GenerateWidgetForColumn( const FName& ColumnNa
 		.AutoWidth()
 		[
 			SNew( STextBlock )
-			.Text( EventName )
+			.Text( FText::FromString(EventName) )
 		];
 	}
 	else if( ColumnName == SEventsTree::NAME_DurationColumn )
@@ -47,7 +47,7 @@ TSharedRef< SWidget > SEventItem::GenerateWidgetForColumn( const FName& ColumnNa
 	{
 		return
 		SNew( STextBlock )
-		. Text(FString::Printf( *LOCTEXT("UnsupportedColumn", "Unsupported Column: %s").ToString(), *(ColumnName.ToString()) ) );
+		. Text(FText::Format( LOCTEXT("UnsupportedColumnFmt", "Unsupported Column: {0}"), FText::FromName(ColumnName) ) );
 	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION

@@ -30,6 +30,7 @@
 #include "Editor/Kismet/Public/FindInBlueprintManager.h"
 
 #include "BlueprintEditor.h"
+#include "BlueprintEditorSettings.h"
 #include "Editor/UnrealEd/Public/Kismet2/Kismet2NameValidators.h"
 
 #include "DefaultValueHelper.h"
@@ -45,9 +46,14 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 
+#include "Engine/InheritableComponentHandler.h"
 #define LOCTEXT_NAMESPACE "Blueprint"
 
 DEFINE_LOG_CATEGORY(LogBlueprintDebug);
+
+DECLARE_CYCLE_STAT(TEXT("Notify Blueprint Changed"), EKismetCompilerStats_NotifyBlueprintChanged, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Mark Blueprint as Structurally Modified"), EKismetCompilerStats_MarkBlueprintasStructurallyModified, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Refresh External DependencyNodes"), EKismetCompilerStats_RefreshExternalDependencyNodes, STATGROUP_KismetCompiler);
 
 FBlueprintEditorUtils::FFixLevelScriptActorBindingsEvent FBlueprintEditorUtils::FixLevelScriptActorBindingsEvent;
 
@@ -318,7 +324,7 @@ void FBlueprintEditorUtils::RefreshAllNodes(UBlueprint* Blueprint)
 
 void FBlueprintEditorUtils::RefreshExternalBlueprintDependencyNodes(UBlueprint* Blueprint, UStruct* RefreshOnlyChild)
 {
-	BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Refresh External Dependency Nodes"));
+	BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_RefreshExternalDependencyNodes);
 
 	if (!Blueprint || !Blueprint->HasAllFlags(RF_LoadCompleted))
 	{
@@ -426,6 +432,19 @@ void FBlueprintEditorUtils::PreloadConstructionScript(UBlueprint* Blueprint)
 		for(int32 NodeIndex = 0; NodeIndex < RootNodes.Num(); ++NodeIndex)
 		{
 			RootNodes[NodeIndex]->PreloadChain();
+		}
+	}
+
+	auto SimpleConstructionScript = Blueprint ? Blueprint->SimpleConstructionScript : nullptr;
+	if (SimpleConstructionScript)
+	{
+		auto AllNodes = SimpleConstructionScript->GetAllNodes();
+		for (auto SCSNode : AllNodes)
+		{
+			if (SCSNode)
+			{
+				SCSNode->ValidateGuid();
+			}
 		}
 	}
 }
@@ -1134,6 +1153,21 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		// Make sure the simple construction script is loaded, since the outer hierarchy isn't compatible with PreloadMembers past the root node
 		FBlueprintEditorUtils::PreloadConstructionScript(Blueprint);
 
+		// Preload Overriden Components
+		if (Blueprint->InheritableComponentHandler)
+		{
+			if (Blueprint->InheritableComponentHandler->HasAllFlags(RF_NeedLoad))
+			{
+				auto Linker = Blueprint->InheritableComponentHandler->GetLinker();
+				if (Linker)
+				{
+					Linker->Preload(Blueprint->InheritableComponentHandler);
+				}
+			}
+
+			Blueprint->InheritableComponentHandler->PreloadAllTempates();
+		}
+
 		// Purge any NULL graphs
 		FBlueprintEditorUtils::PurgeNullGraphs(Blueprint);
 
@@ -1152,7 +1186,10 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 			FEditoronlyBlueprintHelper::ChangeBlueprint(Blueprint);
 		}
 
-		if( bHasCode )
+		const bool bDataOnlyClassThatMustBeRecompiled = !bHasCode && !bIsMacro
+			&& (!ClassToRegenerate || (Blueprint->ParentClass != ClassToRegenerate->GetSuperClass()));
+
+		if (bHasCode || bDataOnlyClassThatMustBeRecompiled)
 		{
 			// Make sure parent function calls are up to date
 			FBlueprintEditorUtils::ConformCallsToParentFunctions(Blueprint);
@@ -1173,6 +1210,23 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		{
 			// Just refresh all nodes in macro blueprints, but don't recompil
 			FBlueprintEditorUtils::RefreshAllNodes(Blueprint);
+
+			if (ClassToRegenerate != nullptr)
+			{
+				UClass* OldSuperClass = ClassToRegenerate->GetSuperClass();
+				if ((OldSuperClass != nullptr) && OldSuperClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+				{
+					UClass* NewSuperClass = OldSuperClass->GetAuthoritativeClass();
+					ensure(NewSuperClass == Blueprint->ParentClass);
+
+					// in case the macro's super class was re-instanced (it 
+					// would have re-parented this to a REINST_ class), for non-
+					// macro blueprints this would normally be reset in 
+					// CompileBlueprint (but since we don't compile macros, we 
+					// need to fix this up here)
+					ClassToRegenerate->SetSuperStruct(NewSuperClass);
+				}
+			}
 		}
 		else
 		{
@@ -1196,14 +1250,6 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 			// Flag data only blueprints as being up-to-date
 			Blueprint->Status = BS_UpToDate;
 		}
-
-#if WITH_EDITOR
-		// Do not want to run this code without the editor present nor when running commandlets.
-		if(GEditor && GIsEditor && !IsRunningCommandlet())
-		{
-			FFindInBlueprintSearchManager::Get().AddOrUpdateBlueprintSearchMetadata(Blueprint);
-		}
-#endif
 
 		if (ReplaceBlueprintWithClass)
 		{
@@ -1232,7 +1278,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 			Package->FindExportsInMemoryFirst(true);
 		}
 
-		bRegenerated = bHasCode;
+		bRegenerated = bHasCode || bDataOnlyClassThatMustBeRecompiled;
 
 		if (!FKismetEditorUtilities::IsClassABlueprintSkeleton(ClassToRegenerate))
 		{
@@ -1400,7 +1446,7 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint)
 	{
 		check(Blueprint->GeneratedClass != NULL);
 		{
-			// Grab the old CDO, which contains the blueprint defaults
+			// Grab the old CDO, which contains the class defaults
 			UClass* OldBPGCAsClass = Blueprint->GeneratedClass;
 			UBlueprintGeneratedClass* OldBPGC = (UBlueprintGeneratedClass*)(OldBPGCAsClass);
 			UObject* OldCDO = OldBPGC->GetDefaultObject();
@@ -1409,6 +1455,9 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint)
 			// Grab the old class templates, which needs to be moved to the new class
 			USimpleConstructionScript* SCSRootNode = Blueprint->SimpleConstructionScript;
 			Blueprint->SimpleConstructionScript = NULL;
+
+			UInheritableComponentHandler* InheritableComponentHandler = Blueprint->InheritableComponentHandler;
+			Blueprint->InheritableComponentHandler = NULL;
 
 			TArray<UActorComponent*> Templates = Blueprint->ComponentTemplates;
 			Blueprint->ComponentTemplates.Empty();
@@ -1492,9 +1541,19 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint)
 				OldToNewMap.Add(OldTimeline, NewTimeline);
 			}
 
+			if (InheritableComponentHandler)
+			{
+				NewBPGC->InheritableComponentHandler = Cast<UInheritableComponentHandler>(StaticDuplicateObject(InheritableComponentHandler, NewBPGC, *InheritableComponentHandler->GetName()));
+				if (NewBPGC->InheritableComponentHandler)
+				{
+					NewBPGC->InheritableComponentHandler->UpdateOwnerClass(NewBPGC);
+				}
+			}
+
 			Blueprint->SimpleConstructionScript = NewBPGC->SimpleConstructionScript;
 			Blueprint->ComponentTemplates = NewBPGC->ComponentTemplates;
 			Blueprint->Timelines = NewBPGC->Timelines;
+			Blueprint->InheritableComponentHandler = NewBPGC->InheritableComponentHandler;
 
 			Compiler.CompileBlueprint(Blueprint, CompileOptions, Results);
 
@@ -1601,7 +1660,7 @@ void FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(UBlueprint* Blue
 		FCompilerResultsLog Results;
 		Results.bLogInfoOnly = Blueprint->bIsRegeneratingOnLoad;
 
-		BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Mark Blueprint as Structurally Modified"));
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_MarkBlueprintasStructurallyModified);
 
 		TArray<UEdGraph*> AllGraphs;
 		Blueprint->GetAllGraphs(AllGraphs);
@@ -1629,7 +1688,8 @@ void FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(UBlueprint* Blue
 		}
 		UpdateDelegatesInBlueprint(Blueprint);
 
-		{ BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Notify Blueprint Changed"));
+		{
+			BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_NotifyBlueprintChanged);
 
 			// Notify any interested parties that the blueprint has changed
 			Blueprint->BroadcastChanged();
@@ -2382,6 +2442,15 @@ bool FBlueprintEditorUtils::IsDataOnlyBlueprint(const UBlueprint* Blueprint)
 		return false;
 	}
 
+	static const FBoolConfigValueHelper EnableInheritableComponents(TEXT("Kismet"), TEXT("bEnableInheritableComponents"), GEngineIni);
+	if (EnableInheritableComponents)
+	{
+		if (Blueprint->InheritableComponentHandler && !Blueprint->InheritableComponentHandler->IsEmpty())
+		{
+			return false;
+		}
+	}
+
 	return true;
 }
 
@@ -2429,6 +2498,16 @@ bool FBlueprintEditorUtils::IsLevelScriptBlueprint(const UBlueprint* Blueprint)
 	return (Blueprint->BlueprintType == BPTYPE_LevelScript);
 }
 
+bool FBlueprintEditorUtils::IsAnonymousBlueprintClass(const UClass* Class)
+{
+	return (Class->GetOutermost()->ContainsMap());
+}
+
+ULevel* FBlueprintEditorUtils::GetLevelFromBlueprint(const UBlueprint* Blueprint)
+{
+	return Cast<ULevel>(Blueprint->GetOuter());
+}
+
 bool FBlueprintEditorUtils::SupportsConstructionScript(const UBlueprint* Blueprint)
 {
 	return(	!FBlueprintEditorUtils::IsInterfaceBlueprint(Blueprint) && 
@@ -2437,6 +2516,22 @@ bool FBlueprintEditorUtils::SupportsConstructionScript(const UBlueprint* Bluepri
 			FBlueprintEditorUtils::IsActorBased(Blueprint)) &&
 			!(Blueprint->BlueprintType == BPTYPE_MacroLibrary) &&
 			!(Blueprint->BlueprintType == BPTYPE_FunctionLibrary);
+}
+
+bool FBlueprintEditorUtils::CanClassGenerateEvents(const UClass* InClass)
+{
+	if( InClass )
+	{
+		for( TFieldIterator<UMulticastDelegateProperty> PropertyIt( InClass, EFieldIteratorFlags::IncludeSuper ); PropertyIt; ++PropertyIt )
+		{
+			UProperty* Property = *PropertyIt;
+			if( !Property->HasAnyPropertyFlags( CPF_Parm ) && Property->HasAllPropertyFlags( CPF_BlueprintAssignable ))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 UEdGraph* FBlueprintEditorUtils::FindUserConstructionScript(const UBlueprint* Blueprint)
@@ -3439,7 +3534,24 @@ void FBlueprintEditorUtils::RenameComponentMemberVariable(UBlueprint* Blueprint,
 	if (!NewName.IsEqual(Node->VariableName, ENameCase::CaseSensitive))
 	{
 		Blueprint->Modify();
-		
+
+		// Rename Inheritable Component Templates
+		{
+			const FComponentKey Key(Node);
+			TArray<UBlueprint*> Dependents;
+			GetDependentBlueprints(Blueprint, Dependents);
+			for (auto DepBP : Dependents)
+			{
+				auto InheritableComponentHandler = DepBP ? DepBP->GetInheritableComponentHandler(false) : nullptr;
+				if (InheritableComponentHandler && InheritableComponentHandler->GetOverridenComponentTemplate(Key))
+				{
+					InheritableComponentHandler->Modify();
+					InheritableComponentHandler->RenameTemplate(Key, NewName);
+					InheritableComponentHandler->MarkPackageDirty();
+				}
+			}
+		}
+
 		// Update the name
 		const FName OldName = Node->VariableName;
 		Node->Modify();
@@ -5253,7 +5365,7 @@ void FBlueprintEditorUtils::UpdateRootComponentReference(UBlueprint* Blueprint)
 				if(ParentSceneRootComponent != NULL)
 				{
 					// Search for a scene component with the same name in the Blueprint CDO's Components list
-					TArray<USceneComponent*> SceneComponents;
+					TInlineComponentArray<USceneComponent*> SceneComponents;
 					BlueprintActorCDO->GetComponents(SceneComponents);
 					for(int i = 0; i < SceneComponents.Num(); ++i)
 					{
@@ -5543,6 +5655,39 @@ int32 FBlueprintEditorUtils::FindNumReferencesToActorFromLevelScript(ULevelScrip
 	return RefCount;
 }
 
+void FBlueprintEditorUtils::ReplaceAllActorRefrences(ULevelScriptBlueprint* InLevelScriptBlueprint, AActor* InOldActor, AActor* InNewActor)
+{
+	InLevelScriptBlueprint->Modify();
+	FBlueprintEditorUtils::MarkBlueprintAsModified(InLevelScriptBlueprint);
+
+	// Literal nodes are the common "get" type nodes and need to be updated with the new object reference
+	TArray< UK2Node_Literal* > LiteralNodes;
+	FBlueprintEditorUtils::GetAllNodesOfClass(InLevelScriptBlueprint, LiteralNodes);
+
+	for( UK2Node_Literal* LiteralNode : LiteralNodes )
+	{
+		if(LiteralNode->GetObjectRef() == InOldActor)
+		{
+			LiteralNode->Modify();
+			LiteralNode->SetObjectRef(InNewActor);
+			LiteralNode->ReconstructNode();
+		}
+	}
+
+	// Actor Bound Events reference the actors as well and need to be updated
+	TArray< UK2Node_ActorBoundEvent* > ActorEventNodes;
+	FBlueprintEditorUtils::GetAllNodesOfClass(InLevelScriptBlueprint, ActorEventNodes);
+
+	for( UK2Node_ActorBoundEvent* ActorEventNode : ActorEventNodes )
+	{
+		if(ActorEventNode->GetReferencedLevelActor() == InOldActor)
+		{
+			ActorEventNode->Modify();
+			ActorEventNode->EventOwner = InNewActor;
+			ActorEventNode->ReconstructNode();
+		}
+	}
+}
 
 void  FBlueprintEditorUtils::ModifyActorReferencedGraphNodes(ULevelScriptBlueprint* LevelScriptBlueprint, const AActor* InActor)
 {
@@ -5940,6 +6085,7 @@ TSharedRef<SWidget> FBlueprintEditorUtils::ConstructBlueprintParentClassPicker( 
 	bool bIsActor = false;
 	bool bIsAnimBlueprint = false;
 	bool bIsLevelScriptActor = false;
+	bool bIsComponentBlueprint = false;
 	TArray<UClass*> BlueprintClasses;
 	for( auto BlueprintIter = Blueprints.CreateConstIterator(); (!bIsActor && !bIsAnimBlueprint) && BlueprintIter; ++BlueprintIter )
 	{
@@ -5947,6 +6093,7 @@ TSharedRef<SWidget> FBlueprintEditorUtils::ConstructBlueprintParentClassPicker( 
 		bIsActor |= Blueprint->ParentClass->IsChildOf( AActor::StaticClass() );
 		bIsAnimBlueprint |= Blueprint->IsA(UAnimBlueprint::StaticClass());
 		bIsLevelScriptActor |= Blueprint->ParentClass->IsChildOf( ALevelScriptActor::StaticClass() );
+		bIsComponentBlueprint |= Blueprint->ParentClass->IsChildOf( UActorComponent::StaticClass() );
 		BlueprintClasses.Add(Blueprint->GeneratedClass);
 	}
 
@@ -5956,7 +6103,7 @@ TSharedRef<SWidget> FBlueprintEditorUtils::ConstructBlueprintParentClassPicker( 
 
 	TSharedPtr<FBlueprintReparentFilter> Filter = MakeShareable(new FBlueprintReparentFilter);
 	Options.ClassFilter = Filter;
-	Options.ViewerTitleString = LOCTEXT("ReparentBblueprint", "Reparent blueprint").ToString();
+	Options.ViewerTitleString = LOCTEXT("ReparentBlueprint", "Reparent blueprint");
 
 	// Only allow parenting to base blueprints.
 	Options.bIsBlueprintBaseOnly = true;
@@ -5995,6 +6142,10 @@ TSharedRef<SWidget> FBlueprintEditorUtils::ConstructBlueprintParentClassPicker( 
 	{
 		// If it's an anim blueprint, do not allow conversion to non anim
 		Filter->AllowedChildrenOfClasses.Add( UAnimInstance::StaticClass() );
+	}
+	else if(bIsComponentBlueprint)
+	{
+		Filter->AllowedChildrenOfClasses.Add( UActorComponent::StaticClass() );
 	}
 	else
 	{
@@ -6099,7 +6250,7 @@ TSharedRef<SWidget> FBlueprintEditorUtils::ConstructBlueprintInterfaceClassPicke
 
 	TSharedPtr<FBlueprintInterfaceFilter> Filter = MakeShareable(new FBlueprintInterfaceFilter);
 	Options.ClassFilter = Filter;
-	Options.ViewerTitleString = LOCTEXT("ImplementInterfaceBlueprint", "Implement Interface").ToString();
+	Options.ViewerTitleString = LOCTEXT("ImplementInterfaceBlueprint", "Implement Interface");
 
 	for( auto BlueprintIter = Blueprints.CreateConstIterator(); BlueprintIter; ++BlueprintIter )
 	{
@@ -6717,6 +6868,11 @@ bool FBlueprintEditorUtils::IsPaletteActionReadOnly(TSharedPtr<FEdGraphSchemaAct
 
 		bIsReadOnly = (AssociatedNode == NULL) || (!AssociatedNode->bCanRenameNode);	
 	}
+	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2InputAction::StaticGetTypeId())
+	{
+		bIsReadOnly = true;
+	}
+
 
 	return bIsReadOnly;
 }
@@ -7009,6 +7165,36 @@ void FBlueprintEditorUtils::PostSetupObjectPinType(UBlueprint* InBlueprint, FBPV
 			// bridge multiple levels and different levels might not have the actor that the default is referencing).
 			InOutVarDesc.PropertyFlags |= CPF_DisableEditOnTemplate;
 		}
+	}
+}
+
+FText FBlueprintEditorUtils::GetFriendlyClassDisplayName(const UClass* Class)
+{
+	if (Class != nullptr)
+	{
+		return Class->GetDisplayNameText();
+	}
+	else
+	{
+		return LOCTEXT("ClassIsNull", "None");
+	}
+}
+
+FString FBlueprintEditorUtils::GetClassNameWithoutSuffix(const UClass* Class)
+{
+	if (Class != nullptr)
+	{
+		FString Result = Class->GetName();
+		if (Class->ClassGeneratedBy != nullptr)
+		{
+			Result.RemoveFromEnd(TEXT("_C"), ESearchCase::CaseSensitive);
+		}
+
+		return Result;
+	}
+	else
+	{
+		return LOCTEXT("ClassIsNull", "None").ToString();
 	}
 }
 

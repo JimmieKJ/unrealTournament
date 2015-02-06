@@ -75,29 +75,21 @@ void UTileMapActorFactory::PostCreateBlueprint(UObject* Asset, AActor* CDO)
 
 bool UTileMapActorFactory::CanCreateActorFrom(const FAssetData& AssetData, FText& OutErrorMsg)
 {
-	if (GetDefault<UPaperRuntimeSettings>()->bEnableTileMapEditing)
+	if (AssetData.IsValid())
 	{
-		if (AssetData.IsValid())
+		UClass* AssetClass = AssetData.GetClass();
+		if ((AssetClass != nullptr) && (AssetClass->IsChildOf(UPaperTileMap::StaticClass()) || AssetClass->IsChildOf(UPaperTileSet::StaticClass())))
 		{
-			UClass* AssetClass = AssetData.GetClass();
-			if ((AssetClass != nullptr) && (AssetClass->IsChildOf(UPaperTileMap::StaticClass()) || AssetClass->IsChildOf(UPaperTileSet::StaticClass())))
-			{
-				return true;
-			}
-			else
-			{
-				OutErrorMsg = NSLOCTEXT("Paper2D", "CanCreateActorFrom_NoTileMap", "No tile map was specified.");
-				return false;
-			}
+			return true;
 		}
 		else
 		{
-			return true;
+			OutErrorMsg = NSLOCTEXT("Paper2D", "CanCreateActorFrom_NoTileMap", "No tile map was specified.");
+			return false;
 		}
 	}
 	else
 	{
-		OutErrorMsg = NSLOCTEXT("Paper2D", "CanCreateActorFrom_Disabled", "Tile map support is disabled in the Paper2D settings.");
-		return false;
+		return true;
 	}
 }

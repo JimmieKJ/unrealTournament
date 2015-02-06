@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#ifndef __PACKAGERESTORE_H__
-#define __PACKAGERESTORE_H__
+#pragma once
 
 #include "FileHelpers.h"
 
@@ -22,5 +21,3 @@ namespace PackageRestore
 	 */
 	FEditorFileUtils::EPromptReturnCode PromptToRestorePackages(const TMap<FString, FString>& PackagesToRestore, TArray<FString>* OutFailedPackages = nullptr);
 }
-
-#endif // __PACKAGERESTORE_H__

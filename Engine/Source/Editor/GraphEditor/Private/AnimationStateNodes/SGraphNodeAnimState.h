@@ -32,7 +32,7 @@ public:
 protected:
 	FSlateColor GetBorderBackgroundColor() const;
 
-	virtual FString GetPreviewCornerText() const;
+	virtual FText GetPreviewCornerText() const;
 	virtual const FSlateBrush* GetNameIcon() const;
 };
 
@@ -49,6 +49,6 @@ public:
 	virtual void GetNodeInfoPopups(FNodeInfoContext* Context, TArray<FGraphInformationPopupInfo>& Popups) const override;
 	// End of SNodePanel::SNode interface
 protected:
-	virtual FString GetPreviewCornerText() const override;
+	virtual FText GetPreviewCornerText() const override;
 	virtual const FSlateBrush* GetNameIcon() const override;
 };

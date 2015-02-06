@@ -42,7 +42,7 @@ void SSessionBrowser::Construct( const FArguments& InArgs, ISessionManagerRef In
 						SAssignNew(SessionComboBox, SComboBox<ISessionInfoPtr>)
 							.ContentPadding(FMargin(6.0f, 2.0f))
 							.OptionsSource(&SessionList)
-							.ToolTipText(LOCTEXT("SessionComboBoxToolTip", "Select the game session to interact with.").ToString())
+							.ToolTipText(LOCTEXT("SessionComboBoxToolTip", "Select the game session to interact with."))
 							.OnGenerateWidget(this, &SSessionBrowser::HandleSessionComboBoxGenerateWidget)
 							.OnSelectionChanged(this, &SSessionBrowser::HandleSessionComboBoxSelectionChanged)
 							[
@@ -78,7 +78,7 @@ void SSessionBrowser::Construct( const FArguments& InArgs, ISessionManagerRef In
 							.ContentPadding(FMargin(6.0f, 2.0f))
 							.IsEnabled(this, &SSessionBrowser::HandleTerminateSessionButtonIsEnabled)
 							.OnClicked(this, &SSessionBrowser::HandleTerminateSessionButtonClicked)
-							.ToolTipText(LOCTEXT("TerminateButtonTooltip", "Shuts down all game instances that are part of this session.").ToString())
+							.ToolTipText(LOCTEXT("TerminateButtonTooltip", "Shuts down all game instances that are part of this session."))
 							[
 								SNew(SHorizontalBox)
 
@@ -97,7 +97,7 @@ void SSessionBrowser::Construct( const FArguments& InArgs, ISessionManagerRef In
 									[
 										SNew(STextBlock)
 											.TextStyle(FEditorStyle::Get(), "SessionBrowser.Terminate.Font")
-											.Text(LOCTEXT("TerminateSessionButtonLabel", "Terminate Session").ToString())
+											.Text(LOCTEXT("TerminateSessionButtonLabel", "Terminate Session"))
 									]
 							]
 					]
@@ -226,7 +226,7 @@ TSharedRef<SWidget> SSessionBrowser::HandleSessionComboBoxGenerateWidget( ISessi
 				.HAlign(HAlign_Left)
 				[
 					SNew(STextBlock)
-						.Text(SessionInfo->GetSessionOwner())
+						.Text(FText::FromString(SessionInfo->GetSessionOwner()))
 				]
 
 			+ SHorizontalBox::Slot()
@@ -284,7 +284,7 @@ TSharedRef<ITableRow> SSessionBrowser::HandleSessionListViewGenerateRow( ISessio
 {
 	return SNew(SSessionBrowserSessionListRow, OwnerTable)
 		.SessionInfo(Item)
-		.ToolTipText(LOCTEXT("SessionToolTipSessionId", "Session ID: ").ToString() + Item->GetSessionId().ToString(EGuidFormats::DigitsWithHyphensInBraces));
+		.ToolTipText(FText::Format(LOCTEXT("SessionToolTipSessionIdFmt", "Session ID: {0}"), FText::FromString(Item->GetSessionId().ToString(EGuidFormats::DigitsWithHyphensInBraces))));
 }
 
 

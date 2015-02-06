@@ -205,12 +205,6 @@ public:
 		LastMousePosition = FVector2D(LandscapeX, LandscapeY);
 	}
 
-	virtual bool InputKey(FEditorViewportClient* InViewportClient, FViewport* InViewport, FKey InKey, EInputEvent InEvent) override
-	{
-		bool bUpdate = false;
-		return bUpdate;
-	}
-
 	virtual FLandscapeBrushData ApplyBrush(const TArray<FLandscapeToolMousePosition>& InMousePositions) override
 	{
 		ULandscapeInfo* LandscapeInfo = EdMode->CurrentToolTarget.LandscapeInfo.Get();
@@ -433,13 +427,6 @@ public:
 		LastMousePosition = FVector2D(LandscapeX, LandscapeY);
 	}
 
-	virtual bool InputKey(FEditorViewportClient* InViewportClient, FViewport* InViewport, FKey InKey, EInputEvent InEvent) override
-	{
-		bool bUpdate = false;
-
-		return bUpdate;
-	}
-
 	virtual FLandscapeBrushData ApplyBrush(const TArray<FLandscapeToolMousePosition>& MousePositions) override
 	{
 		// Selection Brush only works for 
@@ -548,6 +535,17 @@ public:
 
 	virtual ELandscapeBrushType GetBrushType() override { return ELandscapeBrushType::Gizmo; }
 
+	virtual void EnterBrush() override
+	{
+		// Make sure gizmo actor is selected
+		ALandscapeGizmoActiveActor* Gizmo = EdMode->CurrentGizmoActor.Get();
+		if (Gizmo)
+		{
+			GEditor->SelectNone(false, true);
+			GEditor->SelectActor(Gizmo, true, false, true);
+		}
+	}
+
 	virtual void LeaveBrush() override
 	{
 		for (TSet<ULandscapeComponent*>::TIterator It(BrushMaterialComponents); It; ++It)
@@ -636,10 +634,25 @@ public:
 	{
 	}
 
-	virtual bool InputKey(FEditorViewportClient* InViewportClient, FViewport* InViewport, FKey InKey, EInputEvent InEvent) override
+	virtual TOptional<bool> InputKey(FEditorViewportClient* InViewportClient, FViewport* InViewport, FKey InKey, EInputEvent InEvent) override
 	{
-		bool bUpdate = false;
-		return bUpdate;
+
+		if (InKey == EKeys::LeftMouseButton && InEvent == IE_Pressed)
+		{
+			int32 HitX = InViewport->GetMouseX();
+			int32 HitY = InViewport->GetMouseY();
+			HHitProxy* HitProxy = InViewport->GetHitProxy(HitX, HitY);
+
+			HActor* ActorHitProxy = HitProxyCast<HActor>(HitProxy);
+			if (ActorHitProxy && ActorHitProxy->Actor->IsA<ALandscapeGizmoActor>())
+			{
+				// don't treat clicks on a landscape gizmo as a tool invocation
+				return TOptional<bool>(false);
+			}
+		}
+
+		// default behaviour
+		return TOptional<bool>();
 	}
 
 	virtual FLandscapeBrushData ApplyBrush(const TArray<FLandscapeToolMousePosition>& MousePositions) override

@@ -278,6 +278,8 @@ FString FEndPhysics2DTickFunction::DiagnosticMessage()
 TMap< UWorld*, TSharedPtr<FPhysicsScene2D> > FPhysicsIntegration2D::WorldMappings;
 FWorldDelegates::FWorldInitializationEvent::FDelegate FPhysicsIntegration2D::OnWorldCreatedDelegate;
 FWorldDelegates::FWorldEvent::FDelegate FPhysicsIntegration2D::OnWorldDestroyedDelegate;
+FDelegateHandle FPhysicsIntegration2D::OnWorldCreatedDelegateHandle;
+FDelegateHandle FPhysicsIntegration2D::OnWorldDestroyedDelegateHandle;
 
 void FPhysicsIntegration2D::OnWorldCreated(UWorld* UnrealWorld, const UWorld::InitializationValues IVS)
 {
@@ -294,17 +296,17 @@ void FPhysicsIntegration2D::OnWorldDestroyed(UWorld* UnrealWorld)
 
 void FPhysicsIntegration2D::InitializePhysics()
 {
-	OnWorldCreatedDelegate = FWorldDelegates::FWorldInitializationEvent::FDelegate::CreateStatic(&FPhysicsIntegration2D::OnWorldCreated);
+	OnWorldCreatedDelegate   = FWorldDelegates::FWorldInitializationEvent::FDelegate::CreateStatic(&FPhysicsIntegration2D::OnWorldCreated);
 	OnWorldDestroyedDelegate = FWorldDelegates::FWorldEvent::FDelegate::CreateStatic(&FPhysicsIntegration2D::OnWorldDestroyed);
 
-	FWorldDelegates::OnPreWorldInitialization.Add(OnWorldCreatedDelegate);
-	FWorldDelegates::OnPreWorldFinishDestroy.Add(OnWorldDestroyedDelegate);
+	OnWorldCreatedDelegateHandle   = FWorldDelegates::OnPreWorldInitialization.Add(OnWorldCreatedDelegate);
+	OnWorldDestroyedDelegateHandle = FWorldDelegates::OnPreWorldFinishDestroy .Add(OnWorldDestroyedDelegate);
 }
 
 void FPhysicsIntegration2D::ShutdownPhysics()
 {
-	FWorldDelegates::OnPreWorldInitialization.Remove(OnWorldCreatedDelegate);
-	FWorldDelegates::OnPreWorldFinishDestroy.Remove(OnWorldDestroyedDelegate);
+	FWorldDelegates::OnPreWorldInitialization.Remove(OnWorldCreatedDelegateHandle);
+	FWorldDelegates::OnPreWorldFinishDestroy .Remove(OnWorldDestroyedDelegateHandle);
 
 	check(WorldMappings.Num() == 0);
 }

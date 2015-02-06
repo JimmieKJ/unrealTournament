@@ -19,7 +19,7 @@ public:
 	void GetDesiredWidth( float& OutMinDesiredWidth, float& OutMaxDesiredWidth );
 
 private:
-	FString GetValueAsString() const;
+	FText GetValueAsString() const;
 
 	/** @return True if the property can be edited */
 	bool CanEdit() const;

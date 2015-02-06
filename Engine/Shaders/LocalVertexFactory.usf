@@ -35,7 +35,7 @@ float4 InstancingFadeOutParams;
 	// Required for CPU emulation of Instancing
 	float4 CPUInstanceShadowMapBias;
 	float3x4 CPUInstanceTransform;
-	float3x4 CPUInstanceInverseTransform;
+	float4 CPUInstanceLightmapUVBias;
 #endif	// USE_INSTANCING_EMULATED
 
 #else // USE_INSTANCING
@@ -115,10 +115,7 @@ struct FVertexFactoryInput
 	float4 InstanceTransform1 : ATTRIBUTE9;
 	float4 InstanceTransform2 : ATTRIBUTE10;
 	float4 InstanceTransform3 : ATTRIBUTE11;
-	float4 InstanceInverseTransform1 : ATTRIBUTE12;
-	float4 InstanceInverseTransform2 : ATTRIBUTE13;
-	float4 InstanceInverseTransform3 : ATTRIBUTE14;
-	// note, the per-instance lightmap bias is stored in the W of InverseTransform1 and 2 and per-instance random in 3.
+	float4 InstanceLightmapUVBias : ATTRIBUTE12; /* per-instance random in Z */
 #else
 
 #endif //USE_INSTANCING && !USE_INSTANCING_EMULATED
@@ -168,15 +165,6 @@ float4x4 GetInstanceTransform(FPositionOnlyVertexFactoryInput Input)
 	return float4x4(Input.InstanceTransform1, Input.InstanceTransform2, Input.InstanceTransform3, float4(0, 0, 0, 1));
 	#else
 	return float4x4(CPUInstanceTransform[0], CPUInstanceTransform[1], CPUInstanceTransform[2], float4(0,0,0,1));
-#endif	// !USE_INSTANCING_EMULATED
-}
-
-float3x3 GetInstanceInverseTransform(FVertexFactoryInput Input)
-{
-	#if !USE_INSTANCING_EMULATED
-	return float3x3(Input.InstanceInverseTransform1.xyz, Input.InstanceInverseTransform2.xyz, Input.InstanceInverseTransform3.xyz);
-	#else
-	return float3x3(CPUInstanceInverseTransform[0].xyz, CPUInstanceInverseTransform[1].xyz, CPUInstanceInverseTransform[2].xyz);
 #endif	// !USE_INSTANCING_EMULATED
 }
 
@@ -261,7 +249,6 @@ FMaterialVertexParameters GetMaterialVertexParameters( FVertexFactoryInput Input
 
 #if USE_INSTANCING
 	Result.InstanceLocalToWorld = mul(transpose(GetInstanceTransform(Input)), Primitive.LocalToWorld);
-	Result.InstanceWorldToLocal = mul(float3x3(Primitive.WorldToLocal[0].xyz,Primitive.WorldToLocal[1].xyz,Primitive.WorldToLocal[2].xyz), transpose(GetInstanceInverseTransform(Input)));
 	Result.InstanceLocalPosition = Input.Position.xyz;
 	Result.PerInstanceParams = Intermediates.PerInstanceParams;
 #endif	// USE_INSTANCING
@@ -463,10 +450,10 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float SelectedValue = trunc(GetInstanceShadowMapBias(Input).z * (1.0 / 256.0));
 	// InstancingFadeOutParams.z,w are RenderSelected and RenderDeselected respectively.
 	#if !USE_INSTANCING_EMULATED
-		Intermediates.PerInstanceParams.x = Input.InstanceInverseTransform3.w;
+		Intermediates.PerInstanceParams.x = Input.InstanceLightmapUVBias.z;
 		float3 InstanceLocation = TransformLocalToWorld(float3(Input.InstanceTransform1.w, Input.InstanceTransform2.w, Input.InstanceTransform3.w)).xyz;
 	#else
-		Intermediates.PerInstanceParams.x = CPUInstanceInverseTransform[2].w;
+		Intermediates.PerInstanceParams.x = CPUInstanceLightmapUVBias.z;
 		float3 InstanceLocation = TransformLocalToWorld(float3(CPUInstanceTransform[0].w, CPUInstanceTransform[1].w, CPUInstanceTransform[2].w)).xyz;
 	#endif // !USE_INSTANCING_EMULATED
 	Intermediates.PerInstanceParams.y = 1.0 - saturate((length(InstanceLocation + View.PreViewTranslation.xyz) - InstancingFadeOutParams.x) * InstancingFadeOutParams.y);
@@ -541,11 +528,11 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 
 	#if USE_INSTANCING
 		#if !USE_INSTANCING_EMULATED
-		float2 InstanceLightMapBias = float2(Input.InstanceInverseTransform1.w, Input.InstanceInverseTransform2.w);
+		float2 InstanceLightmapUVBias = Input.InstanceLightmapUVBias.xy;
 		#else
-		float2 InstanceLightMapBias = float2(CPUInstanceInverseTransform[1].w, CPUInstanceInverseTransform[2].w);
+		float2 InstanceLightmapUVBias = CPUInstanceLightmapUVBias.xy;
 		#endif // !USE_INSTANCING_EMULATED
-		LightMapCoordinate = Input.LightMapCoordinate * LightMapCoordinateScaleBias.xy + InstanceLightMapBias;
+		LightMapCoordinate = Input.LightMapCoordinate * LightMapCoordinateScaleBias.xy + InstanceLightmapUVBias;
 	#else
 		LightMapCoordinate = Input.LightMapCoordinate * LightMapCoordinateScaleBias.xy + LightMapCoordinateScaleBias.zw;
 	#endif
@@ -628,7 +615,7 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 			Result.TexCoords[CoordinateIndex] = Interpolants.InterpolantsVSToPS.TexCoords[CoordinateIndex/2].xy;
 			if(CoordinateIndex + 1 < NUM_MATERIAL_TEXCOORDS)
 			{
-				Result.TexCoords[CoordinateIndex + 1] = Interpolants.InterpolantsVSToPS.TexCoords[CoordinateIndex/2].wz;
+				Result.TexCoords[CoordinateIndex + 1] = Interpolants.InterpolantsVSToPS.TexCoords[CoordinateIndex/2].zw;
 			}
 		}
 	#endif	// NUM_MATERIAL_TEXCOORDS

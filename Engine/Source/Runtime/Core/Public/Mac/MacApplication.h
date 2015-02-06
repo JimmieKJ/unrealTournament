@@ -110,8 +110,14 @@ public:
 
 	const TArray<TSharedRef<FMacWindow>>& GetAllWindows() const { return Windows; }
 
+
 	void CloseQueuedWindows();
 
+	/** Queues a window for text layout invalidation when safe */
+	void InvalidateTextLayout( FCocoaWindow* Window );
+
+	/** Invalidates all queued windows requiring text layout changes */
+	void InvalidateTextLayouts();
 private:
 	enum FMacApplicationEventTypes
 	{
@@ -182,6 +188,8 @@ private:
 	NSUInteger CurrentModifierFlags;
 
 	TArray<FCocoaWindow*> WindowsToClose;
+
+	TArray<FCocoaWindow*> WindowsRequiringTextInvalidation;
 
 	TSharedPtr<FMacTextInputMethodSystem> TextInputMethodSystem;
 

@@ -834,6 +834,7 @@ static void ParseHistoryResults(const FP4RecordSet& InRecords, const TArray<FPer
 				TSharedRef<FPerforceSourceControlRevision, ESPMode::ThreadSafe> Revision = MakeShareable( new FPerforceSourceControlRevision() );
 				Revision->FileName = LocalFileName;
 				Revision->RevisionNumber = FCString::Atoi(*RevisionNumber);
+				Revision->Revision = RevisionNumber;
 				Revision->ChangelistNumber = FCString::Atoi(*ChangelistNumber);
 				Revision->Description = Description;
 				Revision->UserName = UserName;

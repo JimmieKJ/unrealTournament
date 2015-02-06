@@ -171,6 +171,13 @@ public:
 
 		FFilePlatformRequest() { }
 
+
+		FFilePlatformRequest( const FName& InFileName, const FName& InPlatformName ) : Filename( InFileName )
+		{
+			Platformnames.Add( InPlatformName );
+		}
+
+
 		FFilePlatformRequest( const FName& InFilename, const TArray<FName>& InPlatformname ) : Filename( InFilename )
 		{
 			Platformnames = InPlatformname;
@@ -616,6 +623,25 @@ private:
 	TAutoPtr<class FSandboxPlatformFile> SandboxFile;
 	bool bIsSavingPackage; // used to stop recursive mark package dirty functions
 
+	// data about the current package being processed
+	struct FReentryData
+	{
+		FName FileName;
+		bool bBeginCacheFinished;
+		int BeginCacheCount;
+
+		FReentryData() : FileName(NAME_None), bBeginCacheFinished(false), BeginCacheCount(0)
+		{ }
+
+		void Reset( const FName& InFilename )
+		{
+			FileName = InFilename;
+			bBeginCacheFinished = false;
+			BeginCacheCount = 0;
+		}
+	};
+
+	FReentryData CurrentReentryData;
 
 	FThreadSafeQueue<struct FRecompileRequest*> RecompileRequests;
 	FFilenameQueue CookRequests; // list of requested files
@@ -625,27 +651,24 @@ private:
 	FString GetCachedPackageFilename( const FName& PackageName ) const;
 	FString GetCachedStandardPackageFilename( const FName& PackageName ) const;
 	FName GetCachedStandardPackageFileFName( const FName& PackageName ) const;
-	FString GetCachedPackageFilename( UPackage* Package ) const;
-	FString GetCachedStandardPackageFilename( UPackage* Package ) const;
-	FName GetCachedStandardPackageFileFName( UPackage* Package ) const;
-	const FString& GetCachedSandboxFilename( UPackage* Package, TAutoPtr<class FSandboxPlatformFile>& SandboxFile ) const;
+	FString GetCachedPackageFilename( const UPackage* Package ) const;
+	FString GetCachedStandardPackageFilename( const UPackage* Package ) const;
+	FName GetCachedStandardPackageFileFName( const UPackage* Package ) const;
+	const FString& GetCachedSandboxFilename( const UPackage* Package, TAutoPtr<class FSandboxPlatformFile>& SandboxFile ) const;
 	const FCachedPackageFilename& Cache(const FName& PackageName) const;
 	void ClearPackageFilenameCache() const;
+	bool ClearPackageFilenameCacheForPackage( const UPackage* Package ) const;
+	bool ClearPackageFilenameCacheForPackage( const FName& PackageName ) const;
 
 	// declared mutable as it's used to cache package filename strings and I don't want to declare all functions using it as non const
 	// used by GetCached * Filename functions
 	mutable TMap<FName, FCachedPackageFilename> PackageFilenameCache; // filename cache (only process the string operations once)
-
 
 	// declared mutable as it's used purely as a cache and don't want to have to declare all the functions as non const just because of this cache
 	// used by IniSettingsOutOfDate and GetCurrentIniStrings 
 	mutable TMap<FName, TArray<FString>> CachedIniVersionStringsMap;
 
 public:
-
-	// void WarmCookedPackages(const FString& AssetRegistryPath, const TArray<FName>& TargetPlatformNames);
-
-	
 
 	enum ECookOnTheSideResult
 	{
@@ -768,7 +791,13 @@ public:
 
 	uint32 NumConnections() const;
 
-	
+	/**
+	 * Is this cooker running in the editor
+	 *
+	 * @return true if we are running in the editor
+	 */
+	bool IsCookingInEditor() const;
+
 	/**
 	 * Is this cooker running in real time mode (where it needs to respect the timeslice) 
 	 * 
@@ -803,6 +832,7 @@ public:
 	void OnObjectModified( UObject *ObjectMoving );
 	void OnObjectPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
 	void OnObjectUpdated( UObject *Object );
+	void OnObjectSaved( UObject *ObjectSaved );
 
 	/**
 	 * Marks a package as dirty for cook
@@ -874,6 +904,16 @@ private:
 	 * @return If the package should be cooked
 	 */
 	bool ShouldCook(const FString& InFileName, const FName& InPlatformName);
+
+	/**
+	 * Initialize the sandbox 
+	 */
+	void InitializeSandbox();
+
+	/**
+	 * Clean up the sandbox
+	 */
+	void TermSandbox();
 
 	/**
 	 * GetDependencies
@@ -1023,7 +1063,10 @@ private:
 	FString GetOutputDirectoryOverride() const;
 
 	/** Cleans sandbox folders for all target platforms */
-	void CleanSandbox(const TArray<ITargetPlatform*>& Platforms);
+	void CleanSandbox( const bool bIterative );
+
+	/** Populate the cooked packages list from the on disk content using time stamps and dependencies to figure out if they are ok */
+	void PopulateCookedPackagesFromDisk( const TArray<ITargetPlatform*>& Platforms );
 
 	/** Generates asset registry */
 	void GenerateAssetRegistry(const TArray<ITargetPlatform*>& Platforms);

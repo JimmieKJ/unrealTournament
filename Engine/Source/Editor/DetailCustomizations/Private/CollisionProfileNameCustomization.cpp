@@ -70,7 +70,7 @@ TSharedRef<SWidget> FCollisionProfileNameCustomization::OnGenerateWidget(TShared
 {
 	return
 		SNew(STextBlock)
-		.Text(InItem->ToString())
+		.Text(FText::FromName(*InItem))
 		.Font(IDetailLayoutBuilder::GetDetailFont());
 }
 
@@ -148,19 +148,19 @@ void FCollisionProfileNameCustomization::GetPropertyAsName(FName& OutName) const
 }
 
 
-FString FCollisionProfileNameCustomization::GetProfileComboBoxContent() const
+FText FCollisionProfileNameCustomization::GetProfileComboBoxContent() const
 {
 	TSharedPtr<FName> SelectedName = GetSelectedName();
 	if (SelectedName.IsValid())
 	{
-		return (*SelectedName->ToString());
+		return FText::FromName(*SelectedName);
 	}
 
-	return TEXT("Invalid");
+	return LOCTEXT("Invalid", "Invalid");
 }
 
 
-FString FCollisionProfileNameCustomization::GetProfileComboBoxToolTip() const
+FText FCollisionProfileNameCustomization::GetProfileComboBoxToolTip() const
 {
 	UCollisionProfile* CollisionProfile = UCollisionProfile::Get();
 	check(CollisionProfile);
@@ -171,10 +171,10 @@ FString FCollisionProfileNameCustomization::GetProfileComboBoxToolTip() const
 	FCollisionResponseTemplate ProfileTemplate;
 	if (CollisionProfile->GetProfileTemplate(ProfileName, ProfileTemplate))
 	{
-		return ProfileTemplate.HelpMessage;
+		return FText::FromString(ProfileTemplate.HelpMessage);
 	}
 
-	return TEXT("Invalid");
+	return LOCTEXT("Invalid", "Invalid");
 }
 
 

@@ -1745,7 +1745,7 @@ public:
 	}
 	virtual void Serialize( const TCHAR* InData, ELogVerbosity::Type Verbosity, const class FName& Category ) override
 	{
-		*this += (TCHAR*)InData;
+		FString::operator+=((TCHAR*)InData);
 		if(bAutoEmitLineTerminator)
 		{
 			*this += LINE_TERMINATOR;
@@ -1797,6 +1797,11 @@ public:
 	#endif
 
 #endif
+	// Make += operator virtual.
+	virtual FString& operator+=(const FString& Other)
+	{
+		return FString::operator+=(Other);
+	}
 };
 
 //
@@ -1813,25 +1818,48 @@ public:
 	,	LineCount(0)
 	{}
 
-	virtual void Serialize( const TCHAR* InData, ELogVerbosity::Type Verbosity, const class FName& Category ) override
+	virtual void Serialize(const TCHAR* InData, ELogVerbosity::Type Verbosity, const class FName& Category) override
 	{
 		Super::Serialize(InData, Verbosity, Category);
 		int32 TermLength = FCString::Strlen(LINE_TERMINATOR);
-		for(;;)
+		for (;;)
 		{
 			InData = FCString::Strstr(InData, LINE_TERMINATOR);
-			if( !InData )
+			if (!InData)
 			{
 				break;
 			}
 			LineCount++;
 			InData += TermLength;
-		} while(InData);
+		} while (InData);
 
-		if(bAutoEmitLineTerminator)
+		if (bAutoEmitLineTerminator)
 		{
 			LineCount++;
 		}
+	}
+
+	/**
+	 * Appends other FStringOutputDeviceCountLines object to this one.
+	 */
+	virtual FStringOutputDeviceCountLines& operator+=(const FStringOutputDeviceCountLines& Other)
+	{
+		FString::operator+=(Other);
+
+		LineCount += Other.GetLineCount();
+
+		return *this;
+	}
+
+	/**
+	 * Appends other FString (as well as it's specializations like FStringOutputDevice)
+	 * object to this.
+	 */
+	virtual FString& operator+=(const FString& Other) override
+	{
+		Log(Other);
+
+		return *this;
 	}
 
 	int32 GetLineCount() const

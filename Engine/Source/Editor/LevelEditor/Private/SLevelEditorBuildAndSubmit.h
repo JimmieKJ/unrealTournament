@@ -94,4 +94,7 @@ private:
 
 	/** Set by OnShowHideExtraPackagesSection() - keeps track of the visibility or the additional packages list */
 	bool bIsExtraPackagesSectionExpanded;
+
+	/** Handle to the registered OnSourceControlStateChanged delegate */
+	FDelegateHandle OnSourceControlStateChangedDelegateHandle;
 };

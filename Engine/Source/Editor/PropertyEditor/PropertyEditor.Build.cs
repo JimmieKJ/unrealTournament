@@ -37,6 +37,9 @@ public class PropertyEditor : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"MainFrame",
+                "AssetRegistry",
+                "AssetTools",
+                "ContentBrowser"
 			}
 		);
 
@@ -59,6 +62,7 @@ public class PropertyEditor : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
                 "AssetRegistry",
+                "AssetTools",
 				"ContentBrowser",
 				"Documentation",
 				"MainFrame",

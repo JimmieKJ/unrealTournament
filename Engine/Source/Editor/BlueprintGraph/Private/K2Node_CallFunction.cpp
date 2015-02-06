@@ -443,15 +443,10 @@ FString UK2Node_CallFunction::GetFunctionContextString() const
 		{
 			TrueSelfClass = CurrentSelfClass->GetAuthoritativeClass();
 		}
-		FString TargetString = (TrueSelfClass != NULL) ? TrueSelfClass->GetName() : TEXT("None");
 
-		// This action won't be necessary once the new name convention is used.
-		if(TargetString.EndsWith(TEXT("_C")))
-		{
-			TargetString = TargetString.LeftChop(2);
-		}
+		const FText TargetText = FBlueprintEditorUtils::GetFriendlyClassDisplayName(TrueSelfClass);
 
-		ContextString = FString(TEXT("\n")) + FString::Printf(*LOCTEXT("CallFunctionOnDifferentContext", "Target is %s").ToString(), *TargetString);
+		ContextString = FText::Format(LOCTEXT("CallFunctionOnDifferentContext", "\nTarget is {0}"), TargetText).ToString();
 	}
 
 	return ContextString;
@@ -509,10 +504,13 @@ void UK2Node_CallFunction::AllocateDefaultPins()
 			// class (the blueprint has not be compiled with it yet), so let's 
 			// check the skeleton class as well, see if we can pull pin data 
 			// from there...
-			UBlueprint* FunctionBlueprint = CastChecked<UBlueprint>(BpClassOwner->ClassGeneratedBy);
-			if (UFunction* SkelFunction = FindField<UFunction>(FunctionBlueprint->SkeletonGeneratedClass, FunctionReference.GetMemberName()))
+			UBlueprint* FunctionBlueprint = CastChecked<UBlueprint>(BpClassOwner->ClassGeneratedBy, ECastCheckedType::NullAllowed);
+			if (FunctionBlueprint)
 			{
-				Function = SkelFunction;
+				if (UFunction* SkelFunction = FindField<UFunction>(FunctionBlueprint->SkeletonGeneratedClass, FunctionReference.GetMemberName()))
+				{
+					Function = SkelFunction;
+				}
 			}
 		}
 	}
@@ -602,6 +600,9 @@ void UK2Node_CallFunction::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin
 	// END TEMP
 
 	Super::ReallocatePinsDuringReconstruction(OldPins);
+
+	// Connect Execute and Then pins for functions, which became pure.
+	ReconnectPureExecPins(OldPins);
 }
 
 UEdGraphPin* UK2Node_CallFunction::CreateSelfPin(const UFunction* Function)
@@ -622,7 +623,10 @@ UEdGraphPin* UK2Node_CallFunction::CreateSelfPin(const UFunction* Function)
 	// that represent the same type)... this here could lead to a compiler 
 	// warning (the GeneratedClass could not have the function yet), but in
 	// that, the user would be reminded to compile the other blueprint
-	FunctionClass = FunctionClass->GetAuthoritativeClass();
+	if (FunctionClass->ClassGeneratedBy)
+	{
+		FunctionClass = FunctionClass->GetAuthoritativeClass();
+	}
 
 	UEdGraphPin* SelfPin = NULL;
 	if (FunctionClass == GetBlueprint()->GeneratedClass)
@@ -2026,6 +2030,53 @@ FName UK2Node_CallFunction::GetCornerIcon() const
 FName UK2Node_CallFunction::GetPaletteIcon(FLinearColor& OutColor) const
 {
 	return GetPaletteIconForFunction(GetTargetFunction(), OutColor);
+}
+
+bool UK2Node_CallFunction::ReconnectPureExecPins(TArray<UEdGraphPin*>& OldPins)
+{
+	if (bIsPureFunc)
+	{
+		// look for an old exec pin
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		UEdGraphPin* PinExec = nullptr;
+		for (int32 PinIdx = 0; PinIdx < OldPins.Num(); PinIdx++)
+		{
+			if (OldPins[PinIdx]->PinName == K2Schema->PN_Execute)
+			{
+				PinExec = OldPins[PinIdx];
+				break;
+			}
+		}
+		if (PinExec)
+		{
+			// look for old then pin
+			UEdGraphPin* PinThen = nullptr;
+			for (int32 PinIdx = 0; PinIdx < OldPins.Num(); PinIdx++)
+			{
+				if (OldPins[PinIdx]->PinName == K2Schema->PN_Then)
+				{
+					PinThen = OldPins[PinIdx];
+					break;
+				}
+			}
+			if (PinThen)
+			{
+				// reconnect all incoming links to old exec pin to the far end of the old then pin.
+				if (PinThen->LinkedTo.Num() > 0)
+				{
+					UEdGraphPin* PinThenLinked = PinThen->LinkedTo[0];
+					while (PinExec->LinkedTo.Num() > 0)
+					{
+						UEdGraphPin* PinExecLinked = PinExec->LinkedTo[0];
+						PinExecLinked->BreakLinkTo(PinExec);
+						PinExecLinked->MakeLinkTo(PinThenLinked);
+					}
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 FText UK2Node_CallFunction::GetToolTipHeading() const

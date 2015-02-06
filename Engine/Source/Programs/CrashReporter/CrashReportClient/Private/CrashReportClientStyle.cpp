@@ -25,6 +25,7 @@ void FCrashReportClientStyle::Shutdown()
 }
 
 #define TTF_FONT(RelativePath, ...) FSlateFontInfo(ContentFromEngine(TEXT(RelativePath), TEXT(".ttf")), __VA_ARGS__)
+#define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(Style.RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
 
 namespace
 {
@@ -59,6 +60,19 @@ TSharedRef< FSlateStyleSet > FCrashReportClientStyle::Create()
 	Style.Set(TEXT("Status"), FTextBlockStyle(DefaultText)
 		.SetColorAndOpacity(FSlateColor::UseSubduedForeground())
 	);
+
+	const FVector2D Icon16x16( 16.0f, 16.0f );
+	FSlateBrush* GenericWhiteBox = new IMAGE_BRUSH( "Old/White", Icon16x16 );
+
+	// SEditableTextBox defaults...
+	const FEditableTextBoxStyle NormalEditableTextBoxStyle = FEditableTextBoxStyle()
+		.SetBackgroundImageNormal( *GenericWhiteBox )
+		.SetBackgroundImageHovered( *GenericWhiteBox )
+		.SetBackgroundImageFocused( *GenericWhiteBox )
+		.SetBackgroundImageReadOnly( *GenericWhiteBox );
+	{
+		Style.Set( "NormalEditableTextBox", NormalEditableTextBoxStyle );
+	}
 
 	return StyleRef;
 }

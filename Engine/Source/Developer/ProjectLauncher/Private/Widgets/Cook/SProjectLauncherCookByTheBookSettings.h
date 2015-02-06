@@ -65,7 +65,7 @@ private:
 	void HandleCookConfigurationSelectorConfigurationSelected( EBuildConfigurations::Type );
 
 	/** Handles getting the content text of the cooker build configuration selector. */
-	FString HandleCookConfigurationSelectorText( ) const;
+	FText HandleCookConfigurationSelectorText( ) const;
 
 	/** Handles check state changes of the 'Incremental' check box. */
 	void HandleIncrementalCheckBoxCheckStateChanged( ECheckBoxState NewState );

@@ -990,8 +990,9 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
 			}
 			else
 			{
+				// Avoid divide by zero in the projection matrix calculation by clamping FOV
 				ProjectionData.ProjectionMatrix = FReversedZPerspectiveMatrix( 
-					ViewInfo.FOV * (float)PI / 360.0f,
+					FMath::Max(0.001f, ViewInfo.FOV) * (float)PI / 360.0f,
 					ViewInfo.AspectRatio,
 					1.0f,
 					GNearClippingPlane );
@@ -999,7 +1000,8 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
 		}
 		else 
 		{
-			float MatrixFOV = ViewInfo.FOV * (float)PI / 360.0f;
+			// Avoid divide by zero in the projection matrix calculation by clamping FOV
+			float MatrixFOV = FMath::Max(0.001f, ViewInfo.FOV) * (float)PI / 360.0f;
 			float XAxisMultiplier;
 			float YAxisMultiplier;
 
@@ -1221,7 +1223,7 @@ bool ULocalPlayer::HandleListPawnComponentsCommand( const TCHAR* Cmd, FOutputDev
 		APawn *Pawn = *It;	
 		UE_LOG(LogPlayerManagement, Log, TEXT("Components for pawn: %s (collision component: %s)"),*Pawn->GetName(),*Pawn->GetRootComponent()->GetName());
 
-		TArray<UActorComponent*> Components;
+		TInlineComponentArray<UActorComponent*> Components;
 		Pawn->GetComponents(Components);
 
 		for (int32 CompIdx = 0; CompIdx < Components.Num(); CompIdx++)

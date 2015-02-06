@@ -1115,7 +1115,7 @@ void UNavigationPath::BeginDestroy()
 {
 	if (SharedPath.IsValid())
 	{
-		SharedPath->RemoveObserver(PathObserver);
+		SharedPath->RemoveObserver(PathObserverDelegateHandle);
 	}
 	Super::BeginDestroy();
 }
@@ -1171,11 +1171,11 @@ void UNavigationPath::EnableDebugDrawing(bool bShouldDrawDebugData, FLinearColor
 	bDebugDrawingEnabled = bShouldDrawDebugData;
 	if (bShouldDrawDebugData)
 	{
-		UDebugDrawService::Register(TEXT("Navigation"), FDebugDrawDelegate::CreateUObject(this, &UNavigationPath::DrawDebug));
+		DrawDebugDelegateHandle = UDebugDrawService::Register(TEXT("Navigation"), FDebugDrawDelegate::CreateUObject(this, &UNavigationPath::DrawDebug));
 	}
 	else
 	{
-		UDebugDrawService::Unregister(FDebugDrawDelegate::CreateUObject(this, &UNavigationPath::DrawDebug));
+		UDebugDrawService::Unregister(DrawDebugDelegateHandle);
 	}
 }
 
@@ -1227,12 +1227,12 @@ void UNavigationPath::SetPath(FNavPathSharedPtr NewSharedPath)
 	{
 		if (SharedPath.IsValid())
 		{
-			SharedPath->RemoveObserver(PathObserver);
+			SharedPath->RemoveObserver(PathObserverDelegateHandle);
 		}
 		SharedPath = NewSharedPath;
 		if (NewPath != NULL)
 		{
-			NewPath->AddObserver(PathObserver);
+			PathObserverDelegateHandle = NewPath->AddObserver(PathObserver);
 
 			if (RecalculateOnInvalidation != ENavigationOptionFlag::Default)
 			{

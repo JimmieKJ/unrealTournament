@@ -498,12 +498,6 @@ id<MTLDevice> GMetalDevice = nil;
  */
 - (BOOL)shouldAutorotate
 {
-	NSUInteger orient = [[UIApplication sharedApplication] supportedInterfaceOrientationsForWindow: [IOSAppDelegate GetDelegate].Window];
-	if (orient == UIInterfaceOrientationMaskPortrait || orient == UIInterfaceOrientationMaskPortraitUpsideDown
-		|| orient == UIInterfaceOrientationMaskLandscapeLeft || orient == UIInterfaceOrientationMaskLandscapeRight)
-	{
-		return NO;
-	}
 	return YES;
 }
 

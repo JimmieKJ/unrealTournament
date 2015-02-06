@@ -8,6 +8,7 @@
 	#include "ISlate3DRenderer.h"
 #endif // !UE_SERVER
 #include "DynamicMeshBuilder.h"
+#include "Scalability.h"
 
 class SVirtualWindow : public SWindow
 {
@@ -54,8 +55,6 @@ public:
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
 	{
 		const FMatrix& LocalToWorld = GetLocalToWorld();
-	
-		FDynamicMeshBuilder MeshBuilder;
 
 		if( RenderTarget )
 		{
@@ -71,6 +70,8 @@ public:
 
 				for ( int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++ )
 				{
+					FDynamicMeshBuilder MeshBuilder;
+
 					if ( VisibilityMap & ( 1 << ViewIndex ) )
 					{
 						VertexIndices[0] = MeshBuilder.AddVertex(FVector(U, V, 0), FVector2D(0, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), FColor::White);
@@ -434,9 +435,9 @@ void UWidgetComponent::OnUnregister()
 	Super::OnUnregister();
 }
 
-void UWidgetComponent::DestroyComponent()
+void UWidgetComponent::DestroyComponent(bool bPromoteChildren/*= false*/)
 {
-	Super::DestroyComponent();
+	Super::DestroyComponent(bPromoteChildren);
 
 	Renderer.Reset();
 
@@ -533,6 +534,17 @@ void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 					if ( bProjected )
 					{
 						Widget->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+						
+						// If the user has configured a resolution quality we need to multiply
+						// the pixels by the resolution quality to arrive at the true position in
+						// the viewport, as the rendered image will be stretched to fill whatever
+						// size the viewport is at.
+						Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
+						float QualityScale = ( ScalabilityQuality.ResolutionQuality / 100.0f );
+
+						Widget->SetDesiredSizeInViewport(DrawSize);
+						Widget->SetPositionInViewport(ScreenLocation / QualityScale);
+						Widget->SetAlignmentInViewport(Pivot);
 					}
 					else
 					{
@@ -541,12 +553,8 @@ void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 
 					if ( !Widget->IsInViewport() )
 					{
-						Widget->AddToViewport();
+						Widget->AddToViewport(ZOrder);
 					}
-
-					Widget->SetDesiredSizeInViewport(DrawSize);
-					Widget->SetPositionInViewport(ScreenLocation);
-					Widget->SetAlignmentInViewport(Pivot);
 				}
 			}
 			else if ( Widget->IsInViewport() )
@@ -560,18 +568,19 @@ void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 #endif // !UE_SERVER
 }
 
-class FWidgetComponentInstanceData : public FComponentInstanceDataBase
+class FWidgetComponentInstanceData : public FSceneComponentInstanceData
 {
 public:
 	FWidgetComponentInstanceData( const UWidgetComponent* SourceComponent )
-		: FComponentInstanceDataBase(SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
 		, WidgetClass ( SourceComponent->GetWidgetClass() )
 		, RenderTarget( SourceComponent->GetRenderTarget() )
 	{}
 
-	virtual bool MatchesComponent( const UActorComponent* Component ) const override
+	virtual void ApplyToComponent(UActorComponent* Component) override
 	{
-		return (CastChecked<UWidgetComponent>(Component)->GetWidgetClass() == WidgetClass && FComponentInstanceDataBase::MatchesComponent(Component));
+		FSceneComponentInstanceData::ApplyToComponent(Component);
+		CastChecked<UWidgetComponent>(Component)->ApplyComponentInstanceData(this);
 	}
 
 public:
@@ -590,13 +599,17 @@ FComponentInstanceDataBase* UWidgetComponent::GetComponentInstanceData() const
 	return new FWidgetComponentInstanceData( this );
 }
 
-void UWidgetComponent::ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData)
+void UWidgetComponent::ApplyComponentInstanceData(FWidgetComponentInstanceData* WidgetInstanceData)
 {
-	check(ComponentInstanceData);
+	check(WidgetInstanceData);
 
 	// Note: ApplyComponentInstanceData is called while the component is registered so the rendering thread is already using this component
 	// That means all component state that is modified here must be mirrored on the scene proxy, which will be recreated to receive the changes later due to MarkRenderStateDirty.
-	FWidgetComponentInstanceData* WidgetInstanceData  = static_cast<FWidgetComponentInstanceData*>(ComponentInstanceData);
+
+	if (GetWidgetClass() != WidgetClass)
+	{
+		return;
+	}
 
 	RenderTarget = WidgetInstanceData->RenderTarget;
 	if( MaterialInstance )

@@ -1,18 +1,18 @@
 Availability:NoPublish
-Title:Class Blueprints: Editor Overview
+Title:Blueprint Classes: Editor Overview
 Crumbs:
 Description: The contents of all introductory tutorials for Unreal Engine 4
 
 [EXCERPT:Stage1]
 [VAR:StageTitle]
-Class Blueprint Walkthrough
+Blueprint Class Walkthrough
 [/VAR]
 
-You have opened a Class Blueprint. 
+You have opened a Blueprint Class. 
 
 The Blueprint Editor adapts to the type of Blueprint you are editing. This tutorial will walk you through the interface elements available to you when you edit Level Blueprints.
 
-[Read more about Class Blueprints.](DOCLINK:Engine/Blueprints/UserGuide/Types/ClassBlueprint)
+[Read more about Blueprint Classes.](DOCLINK:Engine/Blueprints/UserGuide/Types/ClassBlueprint)
 
 
 
@@ -24,7 +24,7 @@ The Blueprint Editor adapts to the type of Blueprint you are editing. This tutor
 [VAR:StageTitle]
 Defaults Mode
 [/VAR]
-When working with Class Blueprints, there are three modes available in the Blueprint Editor. To switch between the modes, use the buttons on the right side of the Toolbar.
+When working with Blueprint Classes, there are three modes available in the Blueprint Editor. To switch between the modes, use the buttons on the right side of the Toolbar.
 
 This button switches the Blueprint Editor to Defaults Mode. 
 
@@ -39,7 +39,7 @@ This button switches the Blueprint Editor to Defaults Mode.
 Defaults
 [/VAR]
 
-The Blueprint Defaults or Defaults mode displays all of the properties of the Blueprint. The values set for these properties in the Defaults mode will be used when new instances of the Blueprint are created.
+The Class Defaults or Defaults mode displays all of the properties of the Blueprint. The values set for these properties in the Defaults mode will be used when new instances of the Blueprint are created.
 
 [Read more about Defaults mode.](DOCLINK:Engine/Blueprints/Editor/Modes/Defaults/DefaultsTab)
 
@@ -266,9 +266,9 @@ The Compile button highlighted here will compile your Blueprint, and will displa
 Complete
 [/VAR]
 
-You have now completed the Class Blueprint's Editor Overview.
+You have now completed the Blueprint Class's Editor Overview.
 
-To get started with your Class Blueprint, just close the tutorial window. If you are interested in reading more about Blueprints, click the link below.
+To get started with your Blueprint Class, just close the tutorial window. If you are interested in reading more about Blueprints, click the link below.
 
 [Blueprints](DOCLINK:Engine/Blueprints)
 [/EXCERPT:Stage20]

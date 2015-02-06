@@ -64,7 +64,7 @@ struct FAsyncPackage : public FGCObject
 		// This is to ensure that there is no one trying to subscribe to a already loaded package
 		check(!bLoadHasFinished && !bLoadHasFailed);
 		
-		CompletionCallbacks.AddUnique(Callback);
+		CompletionCallbacks.Add(Callback);
 	}
 
 	/**

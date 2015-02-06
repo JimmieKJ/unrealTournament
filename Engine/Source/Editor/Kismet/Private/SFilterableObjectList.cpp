@@ -28,9 +28,9 @@ EVisibility SFilterableObjectList::GetFilterStatusVisibility() const
 	return IsFilterActive() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-FString SFilterableObjectList::GetFilterStatusText() const
+FText SFilterableObjectList::GetFilterStatusText() const
 {
-	return FString::Printf(TEXT("Showing %d of %d"), FilteredObjectList.Num(), LoadedObjectList.Num());
+	return FText::Format(LOCTEXT("FilterStatus_ShowingXOfYFmt", "Showing {0} of {1}"), FText::AsNumber(FilteredObjectList.Num()), FText::AsNumber(LoadedObjectList.Num()));
 }
 
 FString SFilterableObjectList::GetSearchableText(UObject* Object)
@@ -78,7 +78,7 @@ void SFilterableObjectList::InternalConstruct()
 				.FillWidth(1)
 			[
 				SAssignNew(FilterTextBoxWidget, SSearchBox)
-					.ToolTipText( LOCTEXT("SearchBox_ToolTip", "Type words to search for").ToString() )
+					.ToolTipText( LOCTEXT("SearchBox_ToolTip", "Type words to search for") )
 					.OnTextChanged( this, &SFilterableObjectList::OnFilterTextChanged )
 			]
 
@@ -89,7 +89,7 @@ void SFilterableObjectList::InternalConstruct()
 				.VAlign(VAlign_Center)
 			[
 				SNew(SButton)
-				.ToolTipText( LOCTEXT("Refresh_ToolTip", "Search for new entries").ToString() )
+				.ToolTipText( LOCTEXT("Refresh_ToolTip", "Search for new entries") )
 				.OnClicked( this, &SFilterableObjectList::OnRefreshButtonClicked )
 				[
 					SNew(SImage)
@@ -126,7 +126,7 @@ SFilterableObjectList::FListRow SFilterableObjectList::GenerateRowForObject(UObj
 {
 	return
 		FListRow(
-			SNew(STextBlock).Text(InData->GetName()),
+			SNew(STextBlock).Text(FText::FromString(InData->GetName())),
 			FOnDragDetected()
 		);
 }

@@ -3,6 +3,7 @@
 #pragma once
 #include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
 #include "AI/Navigation/NavigationTypes.h"
+#include "AI/NavDataGenerator.h"
 #include "GameFramework/Actor.h"
 #include "UniquePtr.h"
 #include "NavigationData.generated.h"
@@ -97,13 +98,18 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 	{
 		return ObserverDelegate;
 	}
-	FORCEINLINE void AddObserver(FPathObserverDelegate::FDelegate& NewObserver)
+	FORCEINLINE FDelegateHandle AddObserver(FPathObserverDelegate::FDelegate& NewObserver)
 	{
-		ObserverDelegate.Add(NewObserver);
+		return ObserverDelegate.Add(NewObserver);
 	}
+	DELEGATE_DEPRECATED("This RemoveObserver overload has been deprecated - please pass the handle returned from AddObserver instead.")
 	FORCEINLINE void RemoveObserver(FPathObserverDelegate::FDelegate& ObserverToRemove)
 	{
-		ObserverDelegate.Remove(ObserverToRemove);
+		ObserverDelegate.DEPRECATED_Remove(ObserverToRemove);
+	}
+	FORCEINLINE void RemoveObserver(FDelegateHandle HandleOfObserverToRemove)
+	{
+		ObserverDelegate.Remove(HandleOfObserverToRemove);
 	}
 
 	FORCEINLINE void MarkReady()
@@ -408,8 +414,6 @@ class ENGINE_API ANavigationData : public AActor
 	//----------------------------------------------------------------------//
 	// Life cycle                                                                
 	//----------------------------------------------------------------------//
-	/** Dtor */
-	virtual ~ANavigationData();
 
 	// Begin UObject/AActor Interface
 	virtual void PostInitProperties() override;
@@ -418,7 +422,7 @@ class ENGINE_API ANavigationData : public AActor
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
-	virtual void Destroyed() override;
+	virtual void BeginDestroy() override;
 	// End UObject Interface
 		
 	virtual void CleanUp();

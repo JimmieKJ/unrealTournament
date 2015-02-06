@@ -123,7 +123,7 @@ void ULightComponentBase::UpdateLightSpriteTexture()
 		SpriteComponent->SetSprite(GetEditorSprite());
 
 		float SpriteScale = GetEditorSpriteScale();
-		SpriteComponent->RelativeScale3D = FVector(SpriteScale);
+		SpriteComponent->SetRelativeScale3D(FVector(SpriteScale));
 	}
 }
 
@@ -168,29 +168,20 @@ bool ULightComponentBase::HasStaticShadowing() const
 	return Owner && (Mobility != EComponentMobility::Movable);
 }
 
+#if WITH_EDITOR
 void ULightComponentBase::OnRegister()
 {
 	Super::OnRegister();
 
-#if WITH_EDITOR
-	if (SpriteComponent == NULL && GetOwner() && !GetWorld()->IsGameWorld())
+	if (SpriteComponent)
 	{
-		SpriteComponent = ConstructObject<UBillboardComponent>(UBillboardComponent::StaticClass(), GetOwner(), NAME_None, RF_Transactional | RF_TextExportTransient);
-
-		SpriteComponent->AttachTo(this);
-		SpriteComponent->AlwaysLoadOnClient = false;
-		SpriteComponent->AlwaysLoadOnServer = false;
 		SpriteComponent->SpriteInfo.Category = TEXT("Lighting");
 		SpriteComponent->SpriteInfo.DisplayName = NSLOCTEXT("SpriteCategory", "Lighting", "Lighting");
-		SpriteComponent->bCreatedByConstructionScript = bCreatedByConstructionScript;
-		SpriteComponent->bIsScreenSizeScaled = true;
-
-		SpriteComponent->RegisterComponent();
 
 		UpdateLightSpriteTexture();
 	}
-#endif
 }
+#endif
 
 bool ULightComponentBase::ShouldCollideWhenPlacing() const
 {
@@ -299,6 +290,9 @@ ULightComponentBase::ULightComponentBase(const FObjectInitializer& ObjectInitial
 	CastStaticShadows = true;
 	CastDynamicShadows = true;
 	bPrecomputedLightingIsValid = true;
+#if WITH_EDITORONLY_DATA
+	bVisualizeComponent = true;
+#endif
 }
 
 /**
@@ -572,7 +566,7 @@ void ULightComponent::UpdateLightSpriteTexture()
 			UTexture2D* SpriteTexture = NULL;
 			SpriteTexture = LoadObject<UTexture2D>(NULL, TEXT("/Engine/EditorResources/LightIcons/S_LightError.S_LightError"));
 			SpriteComponent->SetSprite(SpriteTexture);
-			SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
+			SpriteComponent->SetRelativeScale3D(FVector(0.5f));
 		}
 		else
 		{
@@ -863,27 +857,23 @@ void ULightComponent::InvalidateLightingCacheInner(bool bRecreateLightGuids)
 }
 
 /** Used to store lightmap data during RerunConstructionScripts */
-class FPrecomputedLightInstanceData : public FComponentInstanceDataBase
+class FPrecomputedLightInstanceData : public FSceneComponentInstanceData
 {
 public:
 	FPrecomputedLightInstanceData(const ULightComponent* SourceComponent)
-		: FComponentInstanceDataBase(SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
 		, Transform(SourceComponent->ComponentToWorld)
 		, LightGuid(SourceComponent->LightGuid)
 		, ShadowMapChannel(SourceComponent->ShadowMapChannel)
 		, PreviewShadowMapChannel(SourceComponent->PreviewShadowMapChannel)
 		, bPrecomputedLightingIsValid(SourceComponent->bPrecomputedLightingIsValid)
 	{}
-			
-	virtual ~FPrecomputedLightInstanceData()
-	{}
 
-	// Begin FComponentInstanceDataBase interface
-	virtual bool MatchesComponent(const UActorComponent* Component) const override
+	virtual void ApplyToComponent(UActorComponent* Component) override
 	{
-		return Transform.Equals(CastChecked<ULightComponent>(Component)->ComponentToWorld);
+		FSceneComponentInstanceData::ApplyToComponent(Component);
+		CastChecked<ULightComponent>(Component)->ApplyComponentInstanceData(this);
 	}
-	// End FComponentInstanceDataBase interface
 
 	FTransform Transform;
 	FGuid LightGuid;
@@ -904,10 +894,14 @@ FComponentInstanceDataBase* ULightComponent::GetComponentInstanceData() const
 	return new FPrecomputedLightInstanceData(this);
 }
 
-void ULightComponent::ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData)
+void ULightComponent::ApplyComponentInstanceData(FPrecomputedLightInstanceData* LightMapData)
 {
-	check(ComponentInstanceData);
-	FPrecomputedLightInstanceData* LightMapData  = static_cast<FPrecomputedLightInstanceData*>(ComponentInstanceData);
+	check(LightMapData);
+
+	if (!LightMapData->Transform.Equals(ComponentToWorld))
+	{
+		return;
+	}
 
 	LightGuid = LightMapData->LightGuid;
 	ShadowMapChannel = LightMapData->ShadowMapChannel;

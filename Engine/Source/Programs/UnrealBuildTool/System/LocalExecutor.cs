@@ -390,7 +390,7 @@ namespace UnrealBuildTool
 
 			Dictionary<Action, ActionThread> ActionThreadDictionary = new Dictionary<Action, ActionThread>();
             int JobNumber = 1;
-			using(ProgressWriter ProgressWriter = new ProgressWriter("Compiling source code...", false))
+			using(ProgressWriter ProgressWriter = new ProgressWriter("Compiling C++ source code...", false))
 			{
 				int ProgressValue = 0;
 				while(true)

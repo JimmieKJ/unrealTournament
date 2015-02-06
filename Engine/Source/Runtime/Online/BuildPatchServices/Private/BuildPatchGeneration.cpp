@@ -9,6 +9,12 @@
 
 #if WITH_BUILDPATCHGENERATION
 
+FFileAttributes::FFileAttributes()
+	: bReadOnly(false)
+	, bCompressed(false)
+	, bUnixExecutable(false)
+{}
+
 /**
  * Creates a 32bit hash value from a FSHAHashData. This is so that a TMap can be keyed
  * using a FSHAHashData
@@ -983,6 +989,61 @@ static void AddCustomFieldsToBuildManifest(const TMap<FString, FVariant>& Custom
 	}
 }
 
+static void AddFileAttributesToBuildManifest(const FString& AttributesList, FBuildPatchAppManifestRef BuildManifest, TMap<FString, FFileAttributes>& FileAttributesMap)
+{
+	GLog->Logf(TEXT("Parsing file attributes list:-"));
+	checkf(AttributesList.Len() > 0, TEXT("Attributes File List was empty file"));
+	const TCHAR Quote = TEXT('\"');
+	const TCHAR EOFile = TEXT('\0');
+	const TCHAR EOLine = TEXT('\n');
+
+	const TCHAR* CharPtr = *AttributesList;
+	while (*CharPtr != EOFile)
+	{
+		// Parse filename
+		while (*CharPtr != Quote && *CharPtr != EOFile){ ++CharPtr; }
+		if (*CharPtr == EOFile)
+		{
+			break;
+		}
+		const TCHAR* FilenameStart = ++CharPtr;
+		while (*CharPtr != Quote && *CharPtr != EOFile && *CharPtr != EOLine){ ++CharPtr; }
+		checkf(*CharPtr != EOFile, TEXT("Attributes File List: Unexpected end of file before next quote! Pos:%d"), CharPtr - *AttributesList);
+		checkf(*CharPtr != EOLine, TEXT("Attributes File List: Unexpected end of line before next quote! Pos:%d"), CharPtr - *AttributesList);
+		const TCHAR* FilenameEnd = CharPtr++;
+		// Parse keywords
+		while (*CharPtr != Quote && *CharPtr != EOFile && *CharPtr != EOLine){ ++CharPtr; }
+		checkf(*CharPtr != Quote, TEXT("Attributes File List: Unexpected Quote before end of keywords! Pos:%d"), CharPtr - *AttributesList);
+		const TCHAR* EndOfLine = CharPtr;
+		// Grab info
+		FString Filename = FString(FilenameEnd - FilenameStart, FilenameStart).Replace(TEXT("\\"), TEXT("/"));
+		FString Keywords(EndOfLine - FilenameEnd, FilenameEnd);
+		FFileAttributes FileAttributes;
+		GLog->Logf(TEXT("    %s"), *Filename);
+		if (Keywords.Contains(TEXT("readonly")))
+		{
+			FileAttributes.bReadOnly = true;
+			GLog->Logf(TEXT("        readonly"), *Filename);
+		}
+		if (Keywords.Contains(TEXT("compressed")))
+		{
+			FileAttributes.bCompressed = true;
+			GLog->Logf(TEXT("        compressed"), *Filename);
+		}
+		if (Keywords.Contains(TEXT("executable")))
+		{
+			FileAttributes.bUnixExecutable = true;
+			GLog->Logf(TEXT("        executable"), *Filename);
+		}
+		if (!(FileAttributes.bReadOnly || FileAttributes.bCompressed || FileAttributes.bUnixExecutable))
+		{
+			GLog->Logf(TEXT("        none"), *Filename);
+		}
+		FileAttributesMap.Add(MoveTemp(Filename), FileAttributes);
+	}
+
+}
+
 /* FBuildDataGenerator implementation
 *****************************************************************************/
 bool FBuildDataGenerator::GenerateChunksManifestFromDirectory( const FBuildPatchSettings& Settings )
@@ -1002,6 +1063,22 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory( const FBuildPatch
 
 	// Setup custom fields
 	AddCustomFieldsToBuildManifest(Settings.CustomFields, BuildManifest);
+
+	// Setup File Attributes
+	FString AttributesList;
+	TMap<FString, FFileAttributes> FileAttributesMap;
+	if (Settings.AttributeListFile.Len() > 0)
+	{
+		FFileHelper::LoadFileToString(AttributesList, *Settings.AttributeListFile);
+		if (!AttributesList.IsEmpty())
+		{
+			AddFileAttributesToBuildManifest(AttributesList, BuildManifest, FileAttributesMap);
+		}
+		else
+		{
+			GLog->Logf(TEXT("WARNING: Attributes list file empty"));
+		}
+	}
 
 	// Reset chunk inventory
 	ExistingChunksEnumerated = false;
@@ -1167,6 +1244,28 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory( const FBuildPatch
 
 	// Fill out lookups
 	BuildManifest->InitLookups();
+
+	// Fill out the file attributes
+	for (const auto& Entry : FileAttributesMap)
+	{
+		const FString& Filename = Entry.Key;
+		const FFileAttributes& Attributes = Entry.Value;
+		if (BuildManifest->FileManifestLookup.Contains(Filename))
+		{
+			FFileManifestData& FileManifest = *BuildManifest->FileManifestLookup[Filename];
+			FileManifest.bIsReadOnly = Attributes.bReadOnly;
+			FileManifest.bIsCompressed = Attributes.bCompressed;
+			// Only overwrite unix exe if true
+			if (Attributes.bUnixExecutable)
+			{
+				FileManifest.bIsUnixExecutable = Attributes.bUnixExecutable;
+			}
+		}
+		else
+		{
+			GLog->Logf(TEXT("File Attributes: File not in build %s"), *Filename);
+		}
+	}
 
 	// Save manifest into the cloud directory
 	FString BaseFilename = FBuildPatchServicesModule::GetCloudDirectory() / FDefaultValueHelper::RemoveWhitespaces(BuildManifest->Data->AppName + BuildManifest->Data->BuildVersion);
@@ -1789,35 +1888,52 @@ bool FBuildDataGenerator::CompareDataToChunk( const FString& ChunkFilePath, uint
 
 void FBuildDataGenerator::StripIgnoredFiles( TArray< FString >& AllFiles, const FString& DepotDirectory, const FString& IgnoreListFile )
 {
+	struct FRemoveMatchingStrings
+	{ 
+		const TSet<FString>& IgnoreList;
+		FRemoveMatchingStrings( const TSet<FString>& IgnoreList )
+			: IgnoreList(IgnoreList) {}
+
+		bool operator()(const FString& RemovalCandidate) const
+		{
+			const bool bRemove = IgnoreList.Contains(RemovalCandidate);
+			if (bRemove)
+			{
+				GLog->Logf(TEXT("    - %s"), *RemovalCandidate);
+			}
+			return bRemove;
+		}
+	};
+
+	GLog->Logf(TEXT("Stripping ignorable files"));
 	const int32 OriginalNumFiles = AllFiles.Num();
 	FString IgnoreFileList = TEXT( "" );
 	FFileHelper::LoadFileToString( IgnoreFileList, *IgnoreListFile );
 	TArray< FString > IgnoreFiles;
 	IgnoreFileList.ParseIntoArray( &IgnoreFiles, TEXT( "\r\n" ), true );
-	struct FRemoveMatchingStrings
-	{ 
-		const FString* MatchingString;
-		FRemoveMatchingStrings( const FString* InMatch )
-			: MatchingString(InMatch) {}
 
-		bool operator()(const FString& RemovalCandidate) const
-		{
-			FString PathA = RemovalCandidate;
-			FString PathB = *MatchingString;
-			FPaths::NormalizeFilename( PathA );
-			FPaths::NormalizeFilename( PathB );
-			return PathA == PathB;
-		}
-	};
-
-	for( int32 IgnoreIdx = 0; IgnoreIdx < IgnoreFiles.Num(); ++IgnoreIdx )
+	// Normalize all paths first
+	for (FString& Filename : AllFiles)
 	{
-		const FString& IgnoreFile = IgnoreFiles[IgnoreIdx];
-		const FString FullIgnorePath = DepotDirectory / IgnoreFile;
-		AllFiles.RemoveAll( FRemoveMatchingStrings( &FullIgnorePath ) );
+		FPaths::NormalizeFilename(Filename);
 	}
+	for (FString& Filename : IgnoreFiles)
+	{
+		Filename = DepotDirectory / Filename;
+		FPaths::NormalizeFilename(Filename);
+	}
+
+
+	// Convert ignore list to set
+	TSet<FString> IgnoreSet(MoveTemp(IgnoreFiles));
+
+	// Filter file list
+	FRemoveMatchingStrings FileFilter(IgnoreSet);
+	AllFiles.RemoveAll(FileFilter);
+
 	const int32 NewNumFiles = AllFiles.Num();
 	GLog->Logf( TEXT( "Stripped %d ignorable file(s)" ), ( OriginalNumFiles - NewNumFiles ) );
 }
 
 #endif //WITH_BUILDPATCHGENERATION
+

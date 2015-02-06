@@ -255,7 +255,7 @@ public:
 				.AutoHeight()
 				[
 					SNew(STextBlock)
-					.Text(LOCTEXT("HeaderPath", "Header Path").ToString())
+					.Text(LOCTEXT("HeaderPath", "Header Path"))
 				]
 				+ SVerticalBox::Slot()
 				.Padding(4.0f)
@@ -272,7 +272,7 @@ public:
 				.AutoHeight()
 				[
 					SNew(STextBlock)
-					.Text(LOCTEXT("SourcePath", "Source Path").ToString())
+					.Text(LOCTEXT("SourcePath", "Source Path"))
 				]
 				+ SVerticalBox::Slot()
 				.Padding(4.0f)

@@ -39,7 +39,7 @@ struct FTimerUnifiedDelegate
 		}
 		else if (FuncDynDelegate.IsBound())
 		{
-			FuncDynDelegate.ProcessDelegate<UObject>(NULL);
+			FuncDynDelegate.ProcessDelegate<UObject>(nullptr);
 		}
 	}
 
@@ -66,11 +66,6 @@ struct FTimerUnifiedDelegate
 	{
 		FuncDelegate.Unbind();
 		FuncDynDelegate.Unbind();
-	}
-
-	inline bool operator==(const FTimerUnifiedDelegate& Other) const
-	{
-		return ( FuncDelegate.IsBound() && (FuncDelegate == Other.FuncDelegate) ) || ( FuncDynDelegate.IsBound() && (FuncDynDelegate == Other.FuncDynDelegate) );
 	}
 };
 
@@ -200,49 +195,53 @@ public:
 	 * @param InbLoop				true to keep firing at Rate intervals, false to fire only once.
 	 * @param InFirstDelay			The time for the first iteration of a looping timer. If < 0.f inRate will be used.
 	 */
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of SetTimer is deprecated, please pass a FTimerHandle as the first argument.")
 	FORCEINLINE void SetTimer(UserClass* InObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr InTimerMethod, float InRate, bool InbLoop = false, float InFirstDelay = -1.f)
 	{
-		SetTimer( FTimerDelegate::CreateUObject(InObj, InTimerMethod), InRate, InbLoop, InFirstDelay );
+		DEPRECATED_InternalSetTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(InObj, InTimerMethod) ), InRate, InbLoop, InFirstDelay );
 	}
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of SetTimer is deprecated, please pass a FTimerHandle as the first argument.")
 	FORCEINLINE void SetTimer(UserClass* InObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr InTimerMethod, float InRate, bool InbLoop = false, float InFirstDelay = -1.f)
 	{
-		SetTimer( FTimerDelegate::CreateUObject(InObj, InTimerMethod), InRate, InbLoop, InFirstDelay );
+		DEPRECATED_InternalSetTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(InObj, InTimerMethod) ), InRate, InbLoop, InFirstDelay );
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of SetTimer is deprecated, please pass a FTimerHandle as the first argument.")
 	FORCEINLINE void SetTimer(FTimerDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay = -1.f)
 	{
-		InternalSetTimer( FTimerUnifiedDelegate(InDelegate), InRate, InbLoop, InFirstDelay );
+		DEPRECATED_InternalSetTimer( FTimerUnifiedDelegate(InDelegate), InRate, InbLoop, InFirstDelay );
 	}
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of SetTimer is deprecated, please pass a FTimerHandle as the first argument.")
 	FORCEINLINE void SetTimer(FTimerDynamicDelegate const& InDynDelegate, float InRate, bool InbLoop, float InFirstDelay = -1.f)
 	{
-		InternalSetTimer( FTimerUnifiedDelegate(InDynDelegate), InRate, InbLoop, InFirstDelay );
+		DEPRECATED_InternalSetTimer( FTimerUnifiedDelegate(InDynDelegate), InRate, InbLoop, InFirstDelay );
 	}
 
 	/**
-	* Sets a timer to call the given native function at a set interval.  If a timer is already set
-	* for this delegate, it will update the current timer to the new parameters and reset its
-	* elapsed time to 0.
-	*
-	* @param InOutHandle			Handle to identify this timer. If it is invalid when passed in it will be made into a valid handle.
-	* @param InObj					Object to call the timer function on.
-	* @param InTimerMethod			Method to call when timer fires.
-	* @param InRate					The amount of time between set and firing.  If <= 0.f, clears existing timers.
-	* @param InbLoop				true to keep firing at Rate intervals, false to fire only once.
-	* @param InFirstDelay			The time for the first iteration of a looping timer. If < 0.f inRate will be used.
-	*/
+	 * Sets a timer to call the given native function at a set interval.  If a timer is already set
+	 * for this delegate, it will update the current timer to the new parameters and reset its
+	 * elapsed time to 0.
+	 *
+	 * @param InOutHandle			Handle to identify this timer. If it is invalid when passed in it will be made into a valid handle.
+	 * @param InObj					Object to call the timer function on.
+	 * @param InTimerMethod			Method to call when timer fires.
+	 * @param InRate					The amount of time between set and firing.  If <= 0.f, clears existing timers.
+	 * @param InbLoop				true to keep firing at Rate intervals, false to fire only once.
+	 * @param InFirstDelay			The time for the first iteration of a looping timer. If < 0.f inRate will be used.
+	 */
 	template< class UserClass >
 	FORCEINLINE void SetTimer(FTimerHandle& InOutHandle, UserClass* InObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr InTimerMethod, float InRate, bool InbLoop = false, float InFirstDelay = -1.f)
 	{
-		SetTimer(InOutHandle, FTimerDelegate::CreateUObject(InObj, InTimerMethod), InRate, InbLoop, InFirstDelay);
+		InternalSetTimer(InOutHandle, FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(InObj, InTimerMethod) ), InRate, InbLoop, InFirstDelay);
 	}
 	template< class UserClass >
 	FORCEINLINE void SetTimer(FTimerHandle& InOutHandle, UserClass* InObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr InTimerMethod, float InRate, bool InbLoop = false, float InFirstDelay = -1.f)
 	{
-		SetTimer(InOutHandle, FTimerDelegate::CreateUObject(InObj, InTimerMethod), InRate, InbLoop, InFirstDelay);
+		InternalSetTimer(InOutHandle, FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(InObj, InTimerMethod) ), InRate, InbLoop, InFirstDelay);
 	}
 
 	/** Version that takes any generic delegate. */
@@ -262,20 +261,20 @@ public:
 	}
 
 	/**
-	* Sets a timer to call the given native function on the next tick.
-	*
-	* @param inObj					Object to call the timer function on.
-	* @param inTimerMethod			Method to call when timer fires.
-	*/
+	 * Sets a timer to call the given native function on the next tick.
+	 *
+	 * @param inObj					Object to call the timer function on.
+	 * @param inTimerMethod			Method to call when timer fires.
+	 */
 	template< class UserClass >
 	FORCEINLINE void SetTimerForNextTick(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod)
 	{
-		SetTimerForNextTick(FTimerDelegate::CreateUObject(inObj, inTimerMethod));
+		InternalSetTimerForNextTick(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
 	}
 	template< class UserClass >
 	FORCEINLINE void SetTimerForNextTick(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod)
 	{
-		SetTimerForNextTick(FTimerDelegate::CreateUObject(inObj, inTimerMethod));
+		InternalSetTimerForNextTick(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
 	}
 
 	/** Version that takes any generic delegate. */
@@ -296,29 +295,33 @@ public:
 	 * @param inObj			Object to call the timer function on.
 	 * @param inTimerMethod Method to call when timer fires
 	 */
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of ClearTimer is deprecated, use ClearTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void ClearTimer( UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod)
 	{
-		ClearTimer( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		DEPRECATED_InternalClearTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
 	}
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of ClearTimer is deprecated, use ClearTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void ClearTimer( UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod)
 	{
-		ClearTimer( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		DEPRECATED_InternalClearTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of ClearTimer is deprecated, use ClearTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void ClearTimer(FTimerDelegate const& InDelegate)
 	{
-		InternalClearTimer( FTimerUnifiedDelegate(InDelegate) );
+		DEPRECATED_InternalClearTimer( FTimerUnifiedDelegate(InDelegate) );
 	}
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of ClearTimer is deprecated, use ClearTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void ClearTimer(FTimerDynamicDelegate const& InDynDelegate)
 	{
-		InternalClearTimer( FTimerUnifiedDelegate(InDynDelegate) );
+		DEPRECATED_InternalClearTimer( FTimerUnifiedDelegate(InDynDelegate) );
 	}
 	/** Version that takes a handle */
-	FORCEINLINE void ClearTimer(FTimerHandle const& InHandle)
+	FORCEINLINE void ClearTimer(FTimerHandle InHandle)
 	{
 		InternalClearTimer(InHandle);
 	}
@@ -339,33 +342,41 @@ public:
 	 * @param inObj				Object to call the timer function on.
 	 * @param inTimerMethod		Method to call when timer fires.
 	 */
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of PauseTimer is deprecated, use PauseTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void PauseTimer(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod)
 	{
-		PauseTimer( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		int32 TimerIdx;
+		FTimerData const* TimerToPause = DEPRECATED_FindTimer(FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ), &TimerIdx);
+		InternalPauseTimer(TimerToPause, TimerIdx);
 	}
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of PauseTimer is deprecated, use PauseTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void PauseTimer(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod)
 	{
-		PauseTimer( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		int32 TimerIdx;
+		FTimerData const* TimerToPause = DEPRECATED_FindTimer(FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ), &TimerIdx);
+		InternalPauseTimer(TimerToPause, TimerIdx);
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of PauseTimer is deprecated, use PauseTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void PauseTimer(FTimerDelegate const& InDelegate)
 	{
 		int32 TimerIdx;
-		FTimerData const* TimerToPause = FindTimer(FTimerUnifiedDelegate(InDelegate), &TimerIdx);
+		FTimerData const* TimerToPause = DEPRECATED_FindTimer(FTimerUnifiedDelegate(InDelegate), &TimerIdx);
 		InternalPauseTimer(TimerToPause, TimerIdx);
 	}
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of PauseTimer is deprecated, use PauseTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void PauseTimer(FTimerDynamicDelegate const& InDynDelegate)
 	{
 		int32 TimerIdx;
-		FTimerData const* TimerToPause = FindTimer(FTimerUnifiedDelegate(InDynDelegate), &TimerIdx);
+		FTimerData const* TimerToPause = DEPRECATED_FindTimer(FTimerUnifiedDelegate(InDynDelegate), &TimerIdx);
 		InternalPauseTimer(TimerToPause, TimerIdx);
 	}
 	/** Version that takes a handle */
-	FORCEINLINE void PauseTimer(FTimerHandle const& InHandle)
+	FORCEINLINE void PauseTimer(FTimerHandle InHandle)
 	{
 		int32 TimerIdx;
 		FTimerData const* TimerToPause = FindTimer(InHandle, &TimerIdx);
@@ -378,31 +389,37 @@ public:
 	 * @param inObj				Object to call the timer function on.
 	 * @param inTimerMethod		Method to call when timer fires.
 	 */
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of UnPauseTimer is deprecated, use UnPauseTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void UnPauseTimer(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod)
 	{
-		UnPauseTimer( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		int32 TimerIdx = DEPRECATED_FindTimerInList( PausedTimerList, FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		InternalUnPauseTimer(TimerIdx);
 	}
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of UnPauseTimer is deprecated, use UnPauseTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void UnPauseTimer(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod)
 	{
-		UnPauseTimer( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		int32 TimerIdx = DEPRECATED_FindTimerInList( PausedTimerList, FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		InternalUnPauseTimer(TimerIdx);
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of UnPauseTimer is deprecated, use UnPauseTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void UnPauseTimer(FTimerDelegate const& InDelegate)
 	{
-		int32 TimerIdx = FindTimerInList( PausedTimerList, FTimerUnifiedDelegate(InDelegate) );
+		int32 TimerIdx = DEPRECATED_FindTimerInList( PausedTimerList, FTimerUnifiedDelegate(InDelegate) );
 		InternalUnPauseTimer(TimerIdx);
 	}
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of UnPauseTimer is deprecated, use UnPauseTimer(FTimerHandle InHandle) instead.")
 	FORCEINLINE void UnPauseTimer(FTimerDynamicDelegate const& InDynDelegate)
 	{
-		int32 TimerIdx = FindTimerInList( PausedTimerList, FTimerUnifiedDelegate(InDynDelegate) );
+		int32 TimerIdx = DEPRECATED_FindTimerInList( PausedTimerList, FTimerUnifiedDelegate(InDynDelegate) );
 		InternalUnPauseTimer(TimerIdx);
 	}
 	/** Version that takes a handle */
-	FORCEINLINE void UnPauseTimer(FTimerHandle const& InHandle)
+	FORCEINLINE void UnPauseTimer(FTimerHandle InHandle)
 	{
 		int32 TimerIdx = FindTimerInList(PausedTimerList, InHandle);
 		InternalUnPauseTimer(TimerIdx);
@@ -415,34 +432,40 @@ public:
 	 * @param inTimerMethod Method to call when timer fires.
 	 * @return				The current rate or -1.f if timer does not exist.
 	 */
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of GetTimerRate is deprecated, use GetTimerRate(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerRate(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return GetTimerRate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		return InternalGetTimerRate(TimerData);
 	}
 
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of GetTimerRate is deprecated, use GetTimerRate(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerRate(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return GetTimerRate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		return InternalGetTimerRate(TimerData);
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of GetTimerRate is deprecated, use GetTimerRate(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerRate(FTimerDelegate const& InDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer( FTimerUnifiedDelegate(InDelegate) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate(InDelegate) );
 		return InternalGetTimerRate(TimerData);
 	}
 
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of GetTimerRate is deprecated, use GetTimerRate(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerRate(FTimerDynamicDelegate const& InDynDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer( FTimerUnifiedDelegate(InDynDelegate) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate(InDynDelegate) );
 		return InternalGetTimerRate(TimerData);
 	}
 
 	/** Version that takes a handle */
-	FORCEINLINE float GetTimerRate(FTimerHandle const& InHandle) const
+	FORCEINLINE float GetTimerRate(FTimerHandle InHandle) const
 	{
 		FTimerData const* const TimerData = FindTimer(InHandle);
 		return InternalGetTimerRate(TimerData);
@@ -455,37 +478,43 @@ public:
 	 * @param inTimerMethod Method binding for query.
 	 * @return				true if the timer matching the given criteria exists and is active, false otherwise.
 	 */
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of IsTimerActive is deprecated, use IsTimerActive(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerActive(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return IsTimerActive( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		return TimerData && TimerData->Status != ETimerStatus::Paused;
 	}
 		
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of IsTimerActive is deprecated, use IsTimerActive(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerActive(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return IsTimerActive( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		return TimerData && TimerData->Status != ETimerStatus::Paused;
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of IsTimerActive is deprecated, use IsTimerActive(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerActive(FTimerDelegate const& InDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer( FTimerUnifiedDelegate(InDelegate) );
-		return ( (TimerData != NULL) && (TimerData->Status != ETimerStatus::Paused) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate(InDelegate) );
+		return TimerData && TimerData->Status != ETimerStatus::Paused;
 	}
 
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of IsTimerActive is deprecated, use IsTimerActive(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerActive(FTimerDynamicDelegate const& InDynDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer( FTimerUnifiedDelegate(InDynDelegate) );
-		return ( (TimerData != NULL) && (TimerData->Status != ETimerStatus::Paused) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate(InDynDelegate) );
+		return TimerData && TimerData->Status != ETimerStatus::Paused;
 	}
 
 	/** Version that takes a handle */
-	FORCEINLINE bool IsTimerActive(FTimerHandle const& InHandle) const
+	FORCEINLINE bool IsTimerActive(FTimerHandle InHandle) const
 	{
 		FTimerData const* const TimerData = FindTimer( InHandle );
-		return ( (TimerData != NULL) && (TimerData->Status != ETimerStatus::Paused) );
+		return TimerData && TimerData->Status != ETimerStatus::Paused;
 	}
 
 	/**
@@ -496,36 +525,42 @@ public:
 	* @return				true if the timer matching the given criteria exists and is paused, false otherwise.
 	*/
 	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of IsTimerPaused is deprecated, use IsTimerPaused(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerPaused(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return IsTimerPaused(FTimerDelegate::CreateUObject(inObj, inTimerMethod));
+		FTimerData const* const TimerData = DEPRECATED_FindTimer(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
+		return TimerData && TimerData->Status == ETimerStatus::Paused;
 	}
 
 	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of IsTimerPaused is deprecated, use IsTimerPaused(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerPaused(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod)  const
 	{
-		return IsTimerPaused(FTimerDelegate::CreateUObject(inObj, inTimerMethod));
+		FTimerData const* const TimerData = DEPRECATED_FindTimer(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
+		return TimerData && TimerData->Status == ETimerStatus::Paused;
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of IsTimerPaused is deprecated, use IsTimerPaused(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerPaused(FTimerDelegate const& InDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer(FTimerUnifiedDelegate(InDelegate));
-		return ((TimerData != NULL) && (TimerData->Status == ETimerStatus::Paused));
+		FTimerData const* const TimerData = DEPRECATED_FindTimer(FTimerUnifiedDelegate(InDelegate));
+		return TimerData && TimerData->Status == ETimerStatus::Paused;
 	}
 
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of IsTimerPaused is deprecated, use IsTimerPaused(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerPaused(FTimerDynamicDelegate const& InDynDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer(FTimerUnifiedDelegate(InDynDelegate));
-		return ((TimerData != NULL) && (TimerData->Status == ETimerStatus::Paused));
+		FTimerData const* const TimerData = DEPRECATED_FindTimer(FTimerUnifiedDelegate(InDynDelegate));
+		return TimerData && TimerData->Status == ETimerStatus::Paused;
 	}
 
 	/** Version that takes a handle */
-	FORCEINLINE bool IsTimerPaused(FTimerHandle const& InHandle)
+	FORCEINLINE bool IsTimerPaused(FTimerHandle InHandle)
 	{
 		FTimerData const* const TimerData = FindTimer(InHandle);
-		return ((TimerData != NULL) && (TimerData->Status == ETimerStatus::Paused));
+		return TimerData && TimerData->Status == ETimerStatus::Paused;
 	}
 
 	/**
@@ -536,36 +571,42 @@ public:
 	* @return				true if the timer matching the given criteria exists and is paused, false otherwise.
 	*/
 	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of IsTimerPending is deprecated, use IsTimerPending(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerPending(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return IsTimerPending(FTimerDelegate::CreateUObject(inObj, inTimerMethod));
+		FTimerData const* const TimerData = DEPRECATED_FindTimer(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
+		return TimerData && TimerData->Status == ETimerStatus::Pending;
 	}
 
 	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of IsTimerPending is deprecated, use IsTimerPending(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerPending(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod)  const
 	{
-		return IsTimerPending(FTimerDelegate::CreateUObject(inObj, inTimerMethod));
+		FTimerData const* const TimerData = DEPRECATED_FindTimer(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod)));
+		return TimerData && TimerData->Status == ETimerStatus::Pending;
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of IsTimerPending is deprecated, use IsTimerPending(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerPending(FTimerDelegate const& InDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer(FTimerUnifiedDelegate(InDelegate));
-		return ((TimerData != NULL) && (TimerData->Status == ETimerStatus::Pending));
+		FTimerData const* const TimerData = DEPRECATED_FindTimer(FTimerUnifiedDelegate(InDelegate));
+		return TimerData && TimerData->Status == ETimerStatus::Pending;
 	}
 
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of IsTimerPending is deprecated, use IsTimerPending(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool IsTimerPending(FTimerDynamicDelegate const& InDynDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer(FTimerUnifiedDelegate(InDynDelegate));
-		return ((TimerData != NULL) && (TimerData->Status == ETimerStatus::Pending));
+		FTimerData const* const TimerData = DEPRECATED_FindTimer(FTimerUnifiedDelegate(InDynDelegate));
+		return TimerData && TimerData->Status == ETimerStatus::Pending;
 	}
 
 	/** Version that takes a handle */
-	FORCEINLINE bool IsTimerPending(FTimerHandle const& InHandle)
+	FORCEINLINE bool IsTimerPending(FTimerHandle InHandle)
 	{
 		FTimerData const* const TimerData = FindTimer(InHandle);
-		return ((TimerData != NULL) && (TimerData->Status == ETimerStatus::Pending));
+		return TimerData && TimerData->Status == ETimerStatus::Pending;
 	}
 
 	/**
@@ -576,34 +617,38 @@ public:
 	* @return				true if the timer matching the given criteria exists, false otherwise.
 	*/
 	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of TimerExists is deprecated, use TimerExists(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool TimerExists(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return TimerExists(FTimerDelegate::CreateUObject(inObj, inTimerMethod));
+		return DEPRECATED_FindTimer(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod))) != nullptr;
 	}
 
 	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of TimerExists is deprecated, use TimerExists(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool TimerExists(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return TimerExists(FTimerDelegate::CreateUObject(inObj, inTimerMethod));
+		return DEPRECATED_FindTimer(FTimerUnifiedDelegate(FTimerDelegate::CreateUObject(inObj, inTimerMethod))) != nullptr;
 	}
 
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of TimerExists is deprecated, use TimerExists(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool TimerExists(FTimerDelegate const& InDelegate) const
 	{
-		return FindTimer(FTimerUnifiedDelegate(InDelegate)) != NULL;
+		return DEPRECATED_FindTimer(FTimerUnifiedDelegate(InDelegate)) != nullptr;
 		
 	}
 
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of TimerExists is deprecated, use TimerExists(FTimerHandle InHandle) instead.")
 	FORCEINLINE bool TimerExists(FTimerDynamicDelegate const& InDynDelegate) const
 	{
-		return FindTimer(FTimerUnifiedDelegate(InDynDelegate)) != NULL;
+		return DEPRECATED_FindTimer(FTimerUnifiedDelegate(InDynDelegate)) != nullptr;
 	}
 
 	/** Version that takes a handle */
-	FORCEINLINE bool TimerExists(FTimerHandle const& InHandle)
+	FORCEINLINE bool TimerExists(FTimerHandle InHandle)
 	{
-		return FindTimer(InHandle) != NULL;
+		return FindTimer(InHandle) != nullptr;
 	}
 
 	/**
@@ -613,31 +658,37 @@ public:
 	 * @param inTimerMethod Method to call when timer fires
 	 * @return				The current time elapsed or -1.f if timer does not exist.
 	 */
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of GetTimerElapsed is deprecated, use GetTimerElapsed(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerElapsed(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return GetTimerElapsed( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		return InternalGetTimerElapsed(TimerData);
 	}
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of GetTimerElapsed is deprecated, use GetTimerElapsed(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerElapsed(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return GetTimerElapsed( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		return InternalGetTimerElapsed(TimerData);
 	}
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of GetTimerElapsed is deprecated, use GetTimerElapsed(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerElapsed(FTimerDelegate const& InDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer( FTimerUnifiedDelegate(InDelegate) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate(InDelegate) );
 		return InternalGetTimerElapsed(TimerData);
 	}
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of GetTimerElapsed is deprecated, use GetTimerElapsed(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerElapsed(FTimerDynamicDelegate const& InDynDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer( FTimerUnifiedDelegate(InDynDelegate) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate(InDynDelegate) );
 		return InternalGetTimerElapsed(TimerData);
 	}
 
 	/** Version that takes a handle */
-	FORCEINLINE float GetTimerElapsed(FTimerHandle const& InHandle) const
+	FORCEINLINE float GetTimerElapsed(FTimerHandle InHandle) const
 	{
 		FTimerData const* const TimerData = FindTimer(InHandle);
 		return InternalGetTimerElapsed(TimerData);
@@ -650,30 +701,36 @@ public:
 	 * @param inTimerMethod Method to call when timer fires.
 	 * @return				The current time remaining, or -1.f if timer does not exist
 	 */
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of GetTimerRemaining is deprecated, use GetTimerRemaining(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerRemaining(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return GetTimerRemaining( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		return InternalGetTimerRemaining(TimerData);
 	}
-	template< class UserClass >	
+	template< class UserClass >
+	DELEGATE_DEPRECATED("This overload of GetTimerRemaining is deprecated, use GetTimerRemaining(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerRemaining(UserClass* inObj, typename FTimerDelegate::TUObjectMethodDelegate_Const< UserClass >::FMethodPtr inTimerMethod) const
 	{
-		return GetTimerRemaining( FTimerDelegate::CreateUObject(inObj, inTimerMethod) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate( FTimerDelegate::CreateUObject(inObj, inTimerMethod) ) );
+		return InternalGetTimerRemaining(TimerData);
 	}
 	/** Version that takes any generic delegate. */
+	DELEGATE_DEPRECATED("This overload of GetTimerRemaining is deprecated, use GetTimerRemaining(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerRemaining(FTimerDelegate const& InDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer( FTimerUnifiedDelegate(InDelegate) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate(InDelegate) );
 		return InternalGetTimerRemaining(TimerData);
 	}
 	/** Version that takes a dynamic delegate (e.g. for UFunctions). */
+	DELEGATE_DEPRECATED("This overload of GetTimerRemaining is deprecated, use GetTimerRemaining(FTimerHandle InHandle) instead.")
 	FORCEINLINE float GetTimerRemaining(FTimerDynamicDelegate const& InDynDelegate) const
 	{
-		FTimerData const* const TimerData = FindTimer( FTimerUnifiedDelegate(InDynDelegate) );
+		FTimerData const* const TimerData = DEPRECATED_FindTimer( FTimerUnifiedDelegate(InDynDelegate) );
 		return InternalGetTimerRemaining(TimerData);
 	}
 	/** Version that takes a handle */
-	FORCEINLINE float GetTimerRemaining(FTimerHandle const& InHandle) const
+	FORCEINLINE float GetTimerRemaining(FTimerHandle InHandle) const
 	{
 		FTimerData const* const TimerData = FindTimer(InHandle);
 		return InternalGetTimerRemaining(TimerData);
@@ -685,19 +742,30 @@ public:
 		return (LastTickedFrame == GFrameCounter);
 	}
 
+	/**
+	 * Finds a handle to a timer bound to a particular dynamic delegate.
+	 * This function is intended to be used only by the K2 system.
+	 *
+	 * @param  InDynamicDelegate  The dynamic delegate to search for.
+	 *
+	 * @return A handle to the found timer - !IsValid() if no such timer was found.
+	 */
+	FTimerHandle K2_FindDynamicTimerHandle(FTimerDynamicDelegate InDynamicDelegate) const;
+
 private:
 
-	void InternalSetTimer( FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
+	void DEPRECATED_InternalSetTimer( FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
 	void InternalSetTimer( FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
 	void InternalSetTimer( FTimerData& NewTimerData, float InRate, bool InbLoop, float InFirstDelay );
 	void InternalSetTimerForNextTick( FTimerUnifiedDelegate const& InDelegate );
-	void InternalClearTimer( FTimerUnifiedDelegate const& InDelegate );
+	void DEPRECATED_InternalClearTimer( FTimerUnifiedDelegate const& InDelegate );
 	void InternalClearTimer( FTimerHandle const& InDelegate );
+	void InternalClearTimer( int32 TimerIdx, ETimerStatus::Type TimerStatus );
 	void InternalClearAllTimers( void const* Object );
 
 	/** Will find a timer in the active, paused, or pending list. */
-	FTimerData const* FindTimer( FTimerUnifiedDelegate const& InDelegate, int32* OutTimerIndex=NULL ) const;
-	FTimerData const* FindTimer( FTimerHandle const& InHandle, int32* OutTimerIndex = NULL ) const;
+	FTimerData const* DEPRECATED_FindTimer( FTimerUnifiedDelegate const& InDelegate, int32* OutTimerIndex=nullptr ) const;
+	FTimerData const* FindTimer( FTimerHandle const& InHandle, int32* OutTimerIndex = nullptr ) const;
 
 	void InternalPauseTimer( FTimerData const* TimerToPause, int32 TimerIdx );
 	void InternalUnPauseTimer( int32 PausedTimerIdx );
@@ -707,7 +775,7 @@ private:
 	float InternalGetTimerRemaining( FTimerData const* const TimerData ) const;
 
 	/** Will find the given timer in the given TArray and return its index. */ 
-	int32 FindTimerInList( const TArray<FTimerData> &SearchArray, FTimerUnifiedDelegate const& InDelegate ) const;
+	int32 DEPRECATED_FindTimerInList( const TArray<FTimerData> &SearchArray, FTimerUnifiedDelegate const& InDelegate ) const;
 	int32 FindTimerInList( const TArray<FTimerData> &SearchArray, FTimerHandle const& InHandle ) const;
 
 	/** Heap of actively running timers. */

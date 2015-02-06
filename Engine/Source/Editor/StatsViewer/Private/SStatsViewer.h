@@ -87,7 +87,7 @@ private:
 	bool AreStatsDisplayed( TSharedRef< class IStatsPage > StatsPage ) const;
 
 	/** Get the label for the filter combo button */
-	FString OnGetFilterComboButtonLabel() const;
+	FText OnGetFilterComboButtonLabel() const;
 
 	/** 
 	 * Set the currently displayed object set 

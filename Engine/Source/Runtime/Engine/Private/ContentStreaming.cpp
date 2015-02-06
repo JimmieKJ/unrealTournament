@@ -2596,7 +2596,7 @@ void FStreamingManagerTexture::BoostTextures( AActor* Actor, float BoostFactor )
 		TArray<UTexture*> Textures;
 		Textures.Empty( 32 );
 
-		TArray<UPrimitiveComponent*> Components;
+		TInlineComponentArray<UPrimitiveComponent*> Components;
 		Actor->GetComponents(Components);
 
 		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
@@ -2859,7 +2859,7 @@ void FStreamingManagerTexture::NotifyActorSpawned( AActor* Actor )
 {
 	if ( bUseDynamicStreaming )
 	{
-		TArray<UPrimitiveComponent*> Components;
+		TInlineComponentArray<UPrimitiveComponent*> Components;
 		Actor->GetComponents(Components);
 
 		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
@@ -2876,7 +2876,7 @@ void FStreamingManagerTexture::NotifyActorSpawned( AActor* Actor )
 /** Called when a spawned primitive is deleted. */
 void FStreamingManagerTexture::NotifyActorDestroyed( AActor* Actor )
 {
-	TArray<UPrimitiveComponent*> Components;
+	TInlineComponentArray<UPrimitiveComponent*> Components;
 	Actor->GetComponents(Components);
 
 	for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)

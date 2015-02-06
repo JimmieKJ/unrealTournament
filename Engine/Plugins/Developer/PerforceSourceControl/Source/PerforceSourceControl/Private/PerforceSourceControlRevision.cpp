@@ -216,6 +216,11 @@ int32 FPerforceSourceControlRevision::GetRevisionNumber() const
 	return RevisionNumber;
 }
 
+const FString& FPerforceSourceControlRevision::GetRevision() const
+{
+	return Revision;
+}
+
 const FString& FPerforceSourceControlRevision::GetDescription() const
 {
 	return Description;

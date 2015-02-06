@@ -50,7 +50,7 @@ class IAndroidDeviceDetection
 public:
 	virtual const TMap<FString,FAndroidDeviceInfo>& GetDeviceMap() = 0;
 	virtual FCriticalSection* GetDeviceMapLock() = 0;
-
+	virtual void UpdateADBPath() = 0;
 protected:
 
 	/**

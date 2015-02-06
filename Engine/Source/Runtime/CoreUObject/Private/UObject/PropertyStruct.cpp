@@ -4,6 +4,28 @@
 #include "Archive.h"
 #include "PropertyHelper.h"
 
+static inline void PreloadInnerStructMembers(UStructProperty* StructProperty)
+{
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	uint32 PropagatedLoadFlags = 0;
+	if (ULinkerLoad* Linker = StructProperty->GetLinker())
+	{
+		PropagatedLoadFlags |= (Linker->LoadFlags & LOAD_DeferDependencyLoads);
+	}
+
+	if (UScriptStruct* Struct = StructProperty->Struct)
+	{
+		if (ULinkerLoad* StructLinker = Struct->GetLinker())
+		{
+			TGuardValue<uint32> LoadFlagGuard(StructLinker->LoadFlags, StructLinker->LoadFlags | PropagatedLoadFlags);
+			Struct->RecursivelyPreload();
+		}
+	}
+#else // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	StructProperty->Struct->RecursivelyPreload();
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+}
+
 /*-----------------------------------------------------------------------------
 	UStructProperty.
 -----------------------------------------------------------------------------*/
@@ -41,7 +63,7 @@ void UStructProperty::LinkInternal(FArchive& Ar)
 	{
 		Struct = GetFallbackStruct();
 	}
-	Struct->RecursivelyPreload();
+	PreloadInnerStructMembers(this);
 	
 	ElementSize = Align(Struct->PropertiesSize, Struct->GetMinAlignment());
 	if (Struct->StructFlags & STRUCT_IsPlainOldData) // if there is nothing to construct or the struct is known to be memcpy-able, then allow memcpy
@@ -184,7 +206,7 @@ void UStructProperty::Serialize( FArchive& Ar )
 #endif // WITH_EDITOR
 	if (Struct)
 	{
-		Struct->RecursivelyPreload();
+		PreloadInnerStructMembers(this);
 	}
 	else
 	{

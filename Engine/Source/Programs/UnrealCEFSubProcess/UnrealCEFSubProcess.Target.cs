@@ -17,6 +17,7 @@ public class UnrealCEFSubProcessTarget : TargetRules
 
 	public override bool GetSupportedPlatforms(ref List<UnrealTargetPlatform> OutPlatforms)
 	{
+		OutPlatforms.Add(UnrealTargetPlatform.Win32);
 		OutPlatforms.Add(UnrealTargetPlatform.Win64);
 		OutPlatforms.Add(UnrealTargetPlatform.Mac);
 		OutPlatforms.Add(UnrealTargetPlatform.Linux);

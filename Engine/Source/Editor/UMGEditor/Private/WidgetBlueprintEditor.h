@@ -115,6 +115,10 @@ public:
 
 	float GetHoveredWidgetTime() const;
 
+	void AddPostDesignerLayoutAction(TFunction<void()> Action);
+
+	TArray< TFunction<void()> >& GetQueuedDesignerActions();
+
 public:
 	/** Fires whenever the selected set of widgets changing */
 	FOnSelectedWidgetsChanged OnSelectedWidgetsChanging;
@@ -149,7 +153,7 @@ private:
 
 private:
 	/** Called whenever the blueprint is structurally changed. */
-	virtual void OnBlueprintChanged(UBlueprint* InBlueprint) override;
+	virtual void OnBlueprintChangedImpl(UBlueprint* InBlueprint, bool bIsJustBeingCompiled = false ) override;
 
 	/** Called when objects need to be swapped out for new versions, like after a blueprint recompile. */
 	void OnObjectsReplaced(const TMap<UObject*, UObject*>& ReplacementMap);
@@ -211,4 +215,6 @@ private:
 
 	/**  */
 	bool bIsRealTime;
+
+	TArray< TFunction<void()> > QueuedDesignerActions;
 };

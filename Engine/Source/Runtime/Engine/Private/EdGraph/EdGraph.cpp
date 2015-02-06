@@ -106,14 +106,19 @@ const UEdGraphSchema* UEdGraph::GetSchema() const
 	return GetDefault<UEdGraphSchema>(Schema);
 }
 
-void UEdGraph::AddOnGraphChangedHandler( const FOnGraphChanged::FDelegate& InHandler )
+FDelegateHandle UEdGraph::AddOnGraphChangedHandler( const FOnGraphChanged::FDelegate& InHandler )
 {
-	OnGraphChanged.Add( InHandler );
+	return OnGraphChanged.Add( InHandler );
 }
 
 void UEdGraph::RemoveOnGraphChangedHandler( const FOnGraphChanged::FDelegate& InHandler )
 {
-	OnGraphChanged.Remove( InHandler );
+	OnGraphChanged.DEPRECATED_Remove( InHandler );
+}
+
+void UEdGraph::RemoveOnGraphChangedHandler( FDelegateHandle Handle )
+{
+	OnGraphChanged.Remove( Handle );
 }
 
 UEdGraphNode* UEdGraph::CreateNode( TSubclassOf<UEdGraphNode> NewNodeClass, bool bSelectNewNode/* = true*/ )
@@ -257,17 +262,26 @@ void UEdGraph::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEve
 #endif
 }
 
-void UEdGraph::AddPropertyChangedNotifier(const FOnPropertyChanged::FDelegate& InDelegate )
+FDelegateHandle UEdGraph::AddPropertyChangedNotifier(const FOnPropertyChanged::FDelegate& InDelegate )
 {
 #if WITH_EDITORONLY_DATA
-	PropertyChangedNotifiers.Add(InDelegate);
+	return PropertyChangedNotifiers.Add(InDelegate);
+#else
+	return FDelegateHandle();
 #endif
 }
 
 void UEdGraph::RemovePropertyChangedNotifier(const FOnPropertyChanged::FDelegate& InDelegate )
 {
 #if WITH_EDITORONLY_DATA
-	PropertyChangedNotifiers.Remove(InDelegate);
+	PropertyChangedNotifiers.DEPRECATED_Remove(InDelegate);
+#endif
+}
+
+void UEdGraph::RemovePropertyChangedNotifier(FDelegateHandle Handle )
+{
+#if WITH_EDITORONLY_DATA
+	PropertyChangedNotifiers.Remove(Handle);
 #endif
 }
 #endif	//WITH_EDITOR

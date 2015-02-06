@@ -75,7 +75,7 @@ public:
 	 *
 	 * @param	InContent	The widget to use as content for the border
 	 */
-	void SetContent( const TSharedRef< SWidget >& InContent );
+	virtual void SetContent( TSharedRef< SWidget > InContent );
 
 	/**
 	 * Gets the content for this border

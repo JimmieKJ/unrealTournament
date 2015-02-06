@@ -23,7 +23,7 @@ private:
 	void InitKeyFromProperty();
 	void OnKeyComboChange(int32 Index);
 	TSharedRef<SWidget> OnGetKeyContent() const;
-	FString GetCurrentKeyDesc() const;
+	FText GetCurrentKeyDesc() const;
 	bool IsEditingEnabled() const;
 
 	TSharedPtr<IPropertyHandle> MyStructProperty;

@@ -53,7 +53,7 @@ void SRealtimeProfilerTimeline::Construct( const FArguments& InArgs )
 			.FillWidth( 1 )
 			.HAlign( HAlign_Fill )
 			[
-				SAssignNew( ZoomLabel, STextBlock ).Text( TAttribute<FString>( SharedThis( this ), &SRealtimeProfilerTimeline::GetZoomLabel ) )
+				SAssignNew( ZoomLabel, STextBlock ).Text( this, &SRealtimeProfilerTimeline::GetZoomLabel )
 			]
 			+SHorizontalBox::Slot()
 			.Padding( 2 )
@@ -101,9 +101,12 @@ void SRealtimeProfilerTimeline::ScrollBar_OnUserScrolled( float InScrollOffsetFr
 	}
 }
 
-FString SRealtimeProfilerTimeline::GetZoomLabel() const
+FText SRealtimeProfilerTimeline::GetZoomLabel() const
 {
-	return FString::Printf( TEXT( "%s %.2fx" ), *NSLOCTEXT("TaskGraph", "ZoomLabel", "Zoom").ToString(), GetZoom() );
+	static const FNumberFormattingOptions ZoomFormatOptions = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(2)
+		.SetMaximumFractionalDigits(2);
+	return FText::Format( NSLOCTEXT("TaskGraph", "ZoomLabelFmt", "Zoom: {0}x"), FText::AsNumber(GetZoom(), &ZoomFormatOptions) );
 }
 
 float SRealtimeProfilerTimeline::GetZoomValue() const

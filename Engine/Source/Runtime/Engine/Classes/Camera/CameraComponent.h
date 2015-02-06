@@ -54,6 +54,7 @@ class UCameraComponent : public USceneComponent
 	ENGINE_API virtual void OnUnregister() override;
 	ENGINE_API virtual void PostLoad() override;
 #if WITH_EDITOR
+	ENGINE_API virtual void OnComponentDestroyed() override;
 	ENGINE_API virtual void CheckForErrors() override;
 	// End of UActorComponent interface
 

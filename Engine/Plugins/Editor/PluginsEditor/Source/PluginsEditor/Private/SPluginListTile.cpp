@@ -101,7 +101,7 @@ void SPluginListTile::Construct( const FArguments& Args, const TSharedRef<SPlugi
 				.Padding(2.0f, 0.0f, 0.0f, 0.0f)
 				[
 					SNew(STextBlock)
-						.Text(Item->PluginStatus.CreatedBy)
+						.Text(FText::FromString(Item->PluginStatus.CreatedBy))
 				];
 		}
 		else
@@ -171,7 +171,7 @@ void SPluginListTile::Construct( const FArguments& Args, const TSharedRef<SPlugi
 										.Padding(PaddingAmount)
 										[
 											SNew(STextBlock)
-												.Text(Item->PluginStatus.FriendlyName)
+												.Text(FText::FromString(Item->PluginStatus.FriendlyName))
 												.HighlightText_Raw(&Owner->GetOwner().GetPluginTextFilter(), &FPluginTextFilter::GetRawFilterText)
 												.TextStyle(FPluginStyle::Get(), "PluginTile.NameText")
 										]
@@ -217,7 +217,7 @@ void SPluginListTile::Construct( const FArguments& Args, const TSharedRef<SPlugi
 													.Padding( 0.0f, 0.0f, 2.0f, 0.0f )	// Extra padding from the right edge
 													[
 														SNew(STextBlock)
-															.Text(Item->PluginStatus.VersionName)
+															.Text(FText::FromString(Item->PluginStatus.VersionName))
 															.TextStyle(FPluginStyle::Get(), "PluginTile.VersionNumberText")
 													]
 											]
@@ -232,7 +232,7 @@ void SPluginListTile::Construct( const FArguments& Args, const TSharedRef<SPlugi
 											.Padding( PaddingAmount )
 											[
 												SNew(STextBlock)
-													.Text(Item->PluginStatus.Description)
+													.Text(FText::FromString(Item->PluginStatus.Description))
 													.AutoWrapText(true)
 											]
 

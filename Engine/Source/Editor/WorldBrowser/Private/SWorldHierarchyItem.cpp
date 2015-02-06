@@ -198,9 +198,9 @@ TSharedRef< SWidget > SWorldHierarchyItem::GenerateWidgetForColumn( const FName&
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-FString SWorldHierarchyItem::GetLevelDisplayNameText() const
+FText SWorldHierarchyItem::GetLevelDisplayNameText() const
 {
-	return LevelModel->GetDisplayName();
+	return FText::FromString(LevelModel->GetDisplayName());
 }
 
 bool SWorldHierarchyItem::IsSaveEnabled() const
@@ -483,29 +483,29 @@ const FSlateBrush* SWorldHierarchyItem::GetLevelLockBrush() const
 	}
 }
 
-FString SWorldHierarchyItem::GetLevelLockToolTip() const
+FText SWorldHierarchyItem::GetLevelLockToolTip() const
 {
 	//Non-Persistent
 	if (GEngine && GEngine->bLockReadOnlyLevels)
 	{
 		if (LevelModel->IsFileReadOnly())
 		{
-			return LOCTEXT("ReadOnly_LockButtonToolTip", "Read-Only levels are locked!").ToString();
+			return LOCTEXT("ReadOnly_LockButtonToolTip", "Read-Only levels are locked!");
 		}
 	}
 
-	return LOCTEXT("LockButtonToolTip", "Toggle Level Lock").ToString();
+	return LOCTEXT("LockButtonToolTip", "Toggle Level Lock");
 }
 
-FString SWorldHierarchyItem::GetSCCStateTooltip() const
+FText SWorldHierarchyItem::GetSCCStateTooltip() const
 {
 	FSourceControlStatePtr SourceControlState = ISourceControlModule::Get().GetProvider().GetState(LevelModel->GetPackageFileName(), EStateCacheUsage::Use);
 	if(SourceControlState.IsValid())
 	{
-		return SourceControlState->GetDisplayTooltip().ToString();
+		return SourceControlState->GetDisplayTooltip();
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 const FSlateBrush* SWorldHierarchyItem::GetSCCStateImage() const

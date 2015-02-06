@@ -81,11 +81,11 @@ namespace iPhonePackager
 			string plistFile = Config.EngineBuildDirectory + "/UE4Game-Info.plist";
 			if (!string.IsNullOrEmpty(Config.ProjectFile))
 			{
-				plistFile = Path.GetDirectoryName(Config.ProjectFile) + "/Build/IOS/Info.plist";
+				plistFile = Path.GetDirectoryName(Config.ProjectFile) + "/Intermediate/IOS/" + Path.GetFileNameWithoutExtension(Config.ProjectFile) + "-Info.plist";
+
 				if (!File.Exists(plistFile))
 				{
-					plistFile = Path.GetDirectoryName(Config.ProjectFile) + "/Build/IOS/" + Path.GetFileNameWithoutExtension(Config.ProjectFile) + "-Info.plist";
-
+					plistFile = Config.IntermediateDirectory + "/UE4Game-Info.plist";
 					if (!File.Exists(plistFile))
 					{
 						plistFile = Config.EngineBuildDirectory + "/UE4Game-Info.plist";
@@ -209,6 +209,175 @@ namespace iPhonePackager
 			if ((Line != null) && !String.IsNullOrEmpty (Line.Data)) {
 				CertToolData += Line.Data + "\n";
 			}
+		}
+
+		/// <summary>
+		/// Finds all valid installed certificates
+		/// </summary>
+		public static void FindCertificates()
+		{
+			if (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX)
+			{
+				// run certtool y to get the currently installed certificates
+				CertToolData = "";
+				Process CertTool = new Process();
+				CertTool.StartInfo.FileName = "/usr/bin/security";
+				CertTool.StartInfo.UseShellExecute = false;
+				CertTool.StartInfo.Arguments = "find-certificate -a -c \"iPhone\" -p";
+				CertTool.StartInfo.RedirectStandardOutput = true;
+				CertTool.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedCertToolProcessCall);
+				CertTool.Start();
+				CertTool.BeginOutputReadLine();
+				CertTool.WaitForExit();
+				if (CertTool.ExitCode == 0)
+				{
+					string header = "-----BEGIN CERTIFICATE-----\n";
+					string footer = "-----END CERTIFICATE-----";
+					int start = CertToolData.IndexOf(header);
+					while (start != -1)
+					{
+						start += header.Length;
+						int end = CertToolData.IndexOf(footer, start);
+						string base64 = CertToolData.Substring(start, (end - start));
+						byte[] certData = Convert.FromBase64String(base64);
+						X509Certificate2 cert = new X509Certificate2(certData);
+						//@TODO: Pretty sure the certificate information from the library is in local time, not UTC and this works as expected, but it should be verified!
+						DateTime EffectiveDate = cert.NotBefore;
+						DateTime ExpirationDate = cert.NotAfter;
+						DateTime Now = DateTime.Now;
+						string Subject = cert.Subject;
+						int SubjStart = Subject.IndexOf("CN=") + 3;
+						int SubjEnd = Subject.IndexOf(",", SubjStart);
+						cert.FriendlyName = Subject.Substring(SubjStart, (SubjEnd - SubjStart));
+						bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
+						Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", cert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", cert.GetEffectiveDateString(), cert.GetExpirationDateString());
+
+						start = CertToolData.IndexOf(header, start);
+					}
+				}
+			}
+			else
+			{
+				// Open the personal certificate store on this machine
+				X509Store Store = new X509Store();
+				Store.Open(OpenFlags.ReadOnly);
+
+				// Try finding all certificates that match either iPhone Developer or iPhone Distribution
+				X509Certificate2Collection FoundCerts = Store.Certificates.Find(X509FindType.FindBySubjectName, "iPhone Developer", false);
+
+				foreach (X509Certificate2 TestCert in FoundCerts)
+				{
+					//@TODO: Pretty sure the certificate information from the library is in local time, not UTC and this works as expected, but it should be verified!
+					DateTime EffectiveDate = TestCert.NotBefore;
+					DateTime ExpirationDate = TestCert.NotAfter;
+					DateTime Now = DateTime.Now;
+
+					bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
+					Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", TestCert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", TestCert.GetEffectiveDateString(), TestCert.GetExpirationDateString());
+				}
+
+				FoundCerts = Store.Certificates.Find(X509FindType.FindBySubjectName, "iPhone Distribution", false);
+
+				foreach (X509Certificate2 TestCert in FoundCerts)
+				{
+					//@TODO: Pretty sure the certificate information from the library is in local time, not UTC and this works as expected, but it should be verified!
+					DateTime EffectiveDate = TestCert.NotBefore;
+					DateTime ExpirationDate = TestCert.NotAfter;
+					DateTime Now = DateTime.Now;
+
+					bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
+					Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", TestCert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", TestCert.GetEffectiveDateString(), TestCert.GetExpirationDateString());
+				}
+
+				Store.Close();
+			}
+		}
+
+		/// <summary>
+		/// Finds all valid installed provisions
+		/// </summary>
+		public static void FindProvisions(string CFBundleIdentifier)
+		{
+			// cache the provision library
+			string SelectedProvision = "";
+			string SelectedCert = "";
+			string SelectedFile = "";
+			int FoundName = -1;
+			Dictionary<string, MobileProvision> ProvisionLibrary = new Dictionary<string, MobileProvision>();
+			foreach (string Provision in Directory.EnumerateFiles(Config.ProvisionDirectory, "*.mobileprovision"))
+			{
+				MobileProvision p = MobileProvisionParser.ParseFile(Provision);
+
+				DateTime EffectiveDate = p.CreationDate;
+				DateTime ExpirationDate = p.ExpirationDate;
+				DateTime Now = DateTime.Now;
+
+				bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
+				bool bValid = false;
+				X509Certificate2 Cert = FindCertificate(p);
+				if (Cert != null)
+				{
+					bValid = (Cert.NotBefore < Now) && (Cert.NotAfter > Now);
+				}
+				bool bPassesNameCheck = p.ApplicationIdentifier.Substring(p.ApplicationIdentifierPrefix.Length+1) == CFBundleIdentifier;
+				bool bPassesCompanyCheck = false;
+				bool bPassesWildCardCheck = false;
+				if (p.ApplicationIdentifier.Contains("*"))
+				{
+					string CompanyName = p.ApplicationIdentifier.Substring(p.ApplicationIdentifierPrefix.Length + 1);
+					if (CompanyName != "*")
+					{
+						CompanyName = CompanyName.Substring(0, CompanyName.LastIndexOf("."));
+						bPassesCompanyCheck = CFBundleIdentifier.StartsWith(CompanyName);
+					}
+					else
+					{
+						bPassesWildCardCheck = true;
+					}
+				}
+				bool bDistribution = ((p.ProvisionedDeviceIDs.Count == 0) && !p.bDebug);
+				string Validity = "VALID";
+				if (!bPassesNameCheck && !bPassesWildCardCheck && !bPassesCompanyCheck)
+				{
+					Validity = "NO_MATCH";
+				}
+				else
+				{
+					if (!bValid)
+					{
+						Validity = "NO_CERT";
+					}
+					else if (!bCertTimeIsValid)
+					{
+						Validity = "EXPIRED";
+					}
+				}
+				if ((string.IsNullOrWhiteSpace(SelectedProvision) || FoundName < 2) && Validity == "VALID" && !bDistribution)
+				{
+					int Prev = FoundName;
+					if (bPassesNameCheck)
+					{
+						FoundName = 2;
+					}
+					else if (bPassesCompanyCheck && FoundName < 1)
+					{
+						FoundName = 1;
+					}
+					else if (bPassesWildCardCheck && FoundName == -1)
+					{
+						FoundName = 0;
+					}
+					if (FoundName != Prev)
+					{
+						SelectedProvision = p.ProvisionName;
+						SelectedFile = Path.GetFileName(Provision);
+						SelectedCert = Cert.FriendlyName;
+					}
+				}
+				Program.LogVerbose("PROVISION-File:{0},Name:{1},Validity:{2},StartDate:{3},EndDate:{4},Type:{5}", Path.GetFileName(Provision), p.ProvisionName, Validity, EffectiveDate.ToString(), ExpirationDate.ToString(), bDistribution ? "DISTRIBUTION" : "DEVELOPMENT");
+			}
+
+			Program.LogVerbose("MATCHED-Provision:{0},File:{1},Cert:{2}", SelectedProvision, SelectedFile, SelectedCert);
 		}
 
 		/// <summary>
@@ -725,7 +894,7 @@ namespace iPhonePackager
 				}
 				byte[] Data = OutputExeStream.ToArray();
 				Data.CopyTo(FinalExeData, (long)CurrentStreamOffset);
-				CurrentStreamOffset += DesiredExecutableLength;
+				CurrentStreamOffset += (ulong)Data.Length;
 
 				// increment the architecture index
 				ArchIndex++;

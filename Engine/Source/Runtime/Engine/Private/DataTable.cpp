@@ -207,6 +207,15 @@ void UDataTable::FinishDestroy()
 	}
 }
 
+#if WITH_EDITORONLY_DATA
+void UDataTable::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), ImportPath, FAssetRegistryTag::TT_Hidden) );
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+#endif
+
 void UDataTable::EmptyTable()
 {
 	UScriptStruct* LoadUsingStruct = RowStruct;

@@ -127,7 +127,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetShortEventName() )
+								.Text( FText::FromString(EventSample->GetShortEventName()) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -162,7 +162,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::InclusiveTimeMS) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::InclusiveTimeMS)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 						// ([_InclusiveTimePct] % of the caller)
@@ -186,7 +186,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::AvgInclusiveTimePerCallMS) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::AvgInclusiveTimePerCallMS)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -206,7 +206,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::ThreadPct) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadPct)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -222,7 +222,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::FramePct) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::FramePct)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -242,7 +242,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::MinInclusiveTimeMS) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::MinInclusiveTimeMS)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 						// [_MaxInclusiveTimeMS] ms
@@ -250,7 +250,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::MaxInclusiveTimeMS) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::MaxInclusiveTimeMS)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 						// [_AvgInclusiveTimeMS] ms
@@ -258,7 +258,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::AvgInclusiveTimeMS) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::AvgInclusiveTimeMS)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -278,7 +278,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::ExclusiveTimeMS) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ExclusiveTimeMS)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 						// ([_ExclusiveTimePct] % of this call's inc time)
@@ -306,7 +306,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::NumCallsPerFrame) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::NumCallsPerFrame)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -323,7 +323,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::AvgNumCallsPerFrame) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::AvgNumCallsPerFrame)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -343,7 +343,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::ThreadDurationMS) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadDurationMS)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -360,7 +360,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::FrameDurationMS) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::FrameDurationMS)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 
@@ -378,7 +378,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 							.Padding( 2.0f )
 							[
 								SNew(STextBlock)
-								.Text( EventSample->GetFormattedValue(EEventPropertyIndex::ThreadToFramePct) )
+								.Text( FText::FromString(EventSample->GetFormattedValue(EEventPropertyIndex::ThreadToFramePct)) )
 								.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 							]
 					]
@@ -405,7 +405,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text( ParentName )
+				.Text( FText::FromString(ParentName) )
 				.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Caption") )
 			];
 
@@ -421,7 +421,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 		.AutoWidth()
 		[
 			SNew(STextBlock)
-			.Text( EventSample->GetShortEventName() )
+			.Text( FText::FromString(EventSample->GetShortEventName()) )
 			.TextStyle( FEditorStyle::Get(), TEXT("Profiler.CaptionBold") )
 		];
 
@@ -471,7 +471,7 @@ TSharedPtr<SToolTip> SEventGraphTooltip::GetTableCellTooltip( const FEventGraphS
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text( ChildrenNames )
+				.Text( FText::FromString(ChildrenNames) )
 				.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Caption") )
 			];
 	}

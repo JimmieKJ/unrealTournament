@@ -6,7 +6,7 @@
 struct FHistoryData
 {
 	/** History Description */
-	FString HistoryDesc;
+	FText HistoryDesc;
 
 	/** The base set of filters on the asset view which includes selected paths and collections */
 	FSourcesData SourcesData;
@@ -53,10 +53,10 @@ public:
 	bool CanGoBack() const;
 
 	/** Gets the description of the previous history entry */
-	FString GetBackDesc() const;
+	FText GetBackDesc() const;
 
 	/** Gets the description of the next history entry */
-	FString GetForwardDesc() const;
+	FText GetForwardDesc() const;
 
 	/**
 	 * Populates a list of menu items that can be added to a context menu

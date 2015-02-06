@@ -10,6 +10,8 @@
 class FRCPassPostProcessCompositeEditorPrimitives : public TRenderingCompositePassBase<1, 1>
 {
 public:
+	FRCPassPostProcessCompositeEditorPrimitives(bool bInDeferredBasePass) : bDeferredBasePass(bInDeferredBasePass) {}
+
 	// interface FRenderingCompositePass ---------
 	virtual void Process(FRenderingCompositePassContext& Context);
 	virtual void Release() override { delete this; }
@@ -21,6 +23,9 @@ private:
 	 *
 	 * @param View	The view to draw in
 	 */
+	template <typename TBasePass>
 	void RenderPrimitivesToComposite(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+
+	bool bDeferredBasePass;
 };
 

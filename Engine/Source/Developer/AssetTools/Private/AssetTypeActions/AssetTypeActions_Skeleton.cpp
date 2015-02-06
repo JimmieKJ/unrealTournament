@@ -193,7 +193,7 @@ public:
 			.IsChecked( this, &SCreateRigDlg::IsCheckboxChecked, ButtonId )
 			.OnCheckStateChanged( this, &SCreateRigDlg::OnCheckboxChanged, ButtonId )
 			[
-				SNew(STextBlock).Text(Label)
+				SNew(STextBlock).Text(FText::FromString(Label))
 			];
 	}
 

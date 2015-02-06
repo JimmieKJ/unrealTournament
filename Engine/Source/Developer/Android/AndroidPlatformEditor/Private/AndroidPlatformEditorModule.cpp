@@ -2,6 +2,7 @@
 
 #include "AndroidPlatformEditorPrivatePCH.h"
 #include "AndroidTargetSettingsCustomization.h"
+#include "AndroidSDKSettingsCustomization.h"
 #include "ModuleInterface.h"
 #include "ISettingsModule.h"
 #include "ModuleManager.h"
@@ -27,6 +28,11 @@ class FAndroidPlatformEditorModule
 			FOnGetDetailCustomizationInstance::CreateStatic(&FAndroidTargetSettingsCustomization::MakeInstance)
 		);
 
+		PropertyModule.RegisterCustomClassLayout(
+			UAndroidSDKSettings::StaticClass()->GetFName(),
+			FOnGetDetailCustomizationInstance::CreateStatic(&FAndroidSDKSettingsCustomization::MakeInstance)
+			);
+
 		PropertyModule.NotifyCustomizationModuleChanged();
 
 		// register settings
@@ -36,10 +42,24 @@ class FAndroidPlatformEditorModule
 		{
 			SettingsModule->RegisterSettings("Project", "Platforms", "Android",
 				LOCTEXT("RuntimeSettingsName", "Android"),
-				LOCTEXT("RuntimeSettingsDescription", "Settings and resources for Android platforms"),
+				LOCTEXT("RuntimeSettingsDescription", "Project settings for Android apps"),
 				GetMutableDefault<UAndroidRuntimeSettings>()
 			);
+
+ 			SettingsModule->RegisterSettings("Project", "Platforms", "AndroidSDK",
+ 				LOCTEXT("SDKSettingsName", "Android SDK"),
+ 				LOCTEXT("SDKSettingsDescription", "Settings for Android SDK (for all projects)"),
+ 				GetMutableDefault<UAndroidSDKSettings>()
+			);
 		}
+
+		// Force the SDK settings into a sane state initially so we can make use of them
+		auto &TargetPlatformManagerModule = FModuleManager::LoadModuleChecked<ITargetPlatformManagerModule>("TargetPlatform");
+		UAndroidSDKSettings * settings = GetMutableDefault<UAndroidSDKSettings>();
+		settings->SetTargetModule(&TargetPlatformManagerModule);
+		auto &AndroidDeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection");
+		settings->SetDeviceDetection(AndroidDeviceDetection.GetAndroidDeviceDetection());
+		settings->UpdateTargetModulePaths();
 	}
 
 	virtual void ShutdownModule() override
@@ -49,6 +69,7 @@ class FAndroidPlatformEditorModule
 		if (SettingsModule != nullptr)
 		{
 			SettingsModule->UnregisterSettings("Project", "Platforms", "Android");
+			SettingsModule->UnregisterSettings("Project", "Platforms", "AndroidSDK");
 		}
 	}
 };

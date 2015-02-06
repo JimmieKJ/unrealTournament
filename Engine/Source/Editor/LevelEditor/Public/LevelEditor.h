@@ -183,6 +183,9 @@ public:
 	 */
 	virtual void BroadcastMapChanged( UWorld* World, EMapChangeType::Type MapChangeType );
 
+	/** Called when an edit command is executed on one or more components in the world */
+	virtual void BroadcastComponentsEdited();
+
 	/** Called when actor selection changes */
 	DECLARE_EVENT_OneParam( FLevelEditorModule, FActorSelectionChangedEvent, const TArray<UObject*>& );
 	virtual FActorSelectionChangedEvent& OnActorSelectionChanged() { return ActorSelectionChangedEvent; }
@@ -195,6 +198,10 @@ public:
 	DECLARE_EVENT_TwoParams( FLevelEditorModule, FMapChangedEvent, UWorld*, EMapChangeType::Type );
 	virtual FMapChangedEvent& OnMapChanged() { return MapChangedEvent; }
 
+	/** Called when an edit command is executed on components in the world */
+	DECLARE_EVENT(FLevelEditorModule, FComponentsEditedEvent);
+	virtual FComponentsEditedEvent& OnComponentsEdited() { return ComponentsEditedEvent; }
+
 	/** Delegates to be called to extend the level viewport menus */
 	DECLARE_DELEGATE_RetVal_OneParam( TSharedRef<FExtender>, FLevelEditorMenuExtender, const TSharedRef<FUICommandList>);
 	DECLARE_DELEGATE_RetVal_TwoParams( TSharedRef<FExtender>, FLevelViewportMenuExtender_SelectedObjects, const TSharedRef<FUICommandList>, const TArray<UObject*>);
@@ -205,7 +212,8 @@ public:
 	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarViewMenuExtenders() {return LevelEditorToolbarViewMenuExtenders;}
 	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarBuildMenuExtenders() {return LevelEditorToolbarBuildMenuExtenders;}
 	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarCompileMenuExtenders() {return LevelEditorToolbarCompileMenuExtenders;}
-	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarCreateMenuExtenders() {return LevelEditorToolbarCreateMenuExtenders;}
+	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarSourceControlMenuExtenders() { return LevelEditorToolbarSourceControlMenuExtenders; }
+	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarCreateMenuExtenders() { return LevelEditorToolbarCreateMenuExtenders; }
 	
 	/** Gets the extensibility managers for outside entities to extend static mesh editor's menus and toolbars */
 	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() {return MenuExtensibilityManager;}
@@ -222,9 +230,6 @@ public:
 	/** Called when a high res screenshot is requested. */
 	DECLARE_EVENT( FLevelEditorModule, FTakeHighResScreenShotsEvent );
 	virtual FTakeHighResScreenShotsEvent& OnTakeHighResScreenShots() { return TakeHighResScreenShotsEvent; }
-
-	/** Determines whether the level editor can be recompiled on the fly. */
-	inline bool CanBeRecompiled() const { return bCanBeRecompiled; }
 
 private:
 	/**
@@ -266,6 +271,9 @@ private:
 	/** Multicast delegate executed when viewports should be redrawn */
 	FRedrawLevelEditingViewportsEvent RedrawLevelEditingViewportsEvent;
 
+	/** Multicast delegate executed after components are edited in the world */
+	FComponentsEditedEvent ComponentsEditedEvent;
+
 	/** Multicast delegate executed when viewports should be redrawn */
 	FTakeHighResScreenShotsEvent TakeHighResScreenShotsEvent;
 
@@ -279,6 +287,7 @@ private:
 	TArray<FLevelEditorMenuExtender> LevelEditorToolbarViewMenuExtenders;
 	TArray<FLevelEditorMenuExtender> LevelEditorToolbarBuildMenuExtenders;
 	TArray<FLevelEditorMenuExtender> LevelEditorToolbarCompileMenuExtenders;
+	TArray<FLevelEditorMenuExtender> LevelEditorToolbarSourceControlMenuExtenders;
 	TArray<FLevelEditorMenuExtender> LevelEditorToolbarCreateMenuExtenders;
 
 	/* Pointer to the current level Editor instance */
@@ -289,9 +298,6 @@ private:
 
 	/* Holds the Editor's tab manager */
 	TSharedPtr<FTabManager> LevelEditorTabManager;
-
-	/* Whether we have source for the level editor, and it can be recompiled. */
-	bool bCanBeRecompiled;
 };
 
 #endif // __LevelEditor_h__

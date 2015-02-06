@@ -66,6 +66,8 @@ public:
 	const FString& GetTag() const;
 	/** Gets the value of the node */
 	const FString& GetContent() const;
+	/** Sets the new value of the node */
+	void SetContent(const FString& InContent);
 
 	/**
 	 * Gets all of the attributes in this node

@@ -748,6 +748,21 @@ const TCHAR* FWindowsPlatformProcess::UserDir()
 	return *WindowsUserDir;
 }
 
+const TCHAR* FWindowsPlatformProcess::UserTempDir()
+{
+	static FString WindowsUserTempDir;
+	if( !WindowsUserTempDir.Len() )
+	{
+		TCHAR TempPath[MAX_PATH];
+		ZeroMemory(TempPath, sizeof(TCHAR) * MAX_PATH);
+
+		::GetTempPath(MAX_PATH, TempPath);
+
+		WindowsUserTempDir = FString(TempPath).Replace(TEXT("\\"), TEXT("/"));
+	}
+	return *WindowsUserTempDir;
+}
+
 const TCHAR* FWindowsPlatformProcess::UserSettingsDir()
 {
 	static FString WindowsUserSettingsDir;

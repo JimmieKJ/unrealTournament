@@ -85,7 +85,7 @@ void FNiagaraEditor::InitNiagaraEditor( const EToolkitMode::Type Mode, const TSh
 	);
 
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	const FDetailsViewArgs DetailsViewArgs(false, false, true, false, true, this);
+	const FDetailsViewArgs DetailsViewArgs(false, false, true, FDetailsViewArgs::HideNameArea, true, this);
 	NiagaraDetailsView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
 
 	const bool bCreateDefaultStandaloneMenu = true;
@@ -147,7 +147,7 @@ TSharedRef<SGraphEditor> FNiagaraEditor::CreateGraphEditorWidget(UEdGraph* InGra
 
 	// Create the appearance info
 	FGraphAppearanceInfo AppearanceInfo;
-	AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText", "NIAGARA").ToString();
+	AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText", "NIAGARA");
 
 	SGraphEditor::FGraphEditorEvents InEvents;
 	InEvents.OnSelectionChanged = SGraphEditor::FOnSelectionChanged::CreateSP(this, &FNiagaraEditor::OnSelectedNodesChanged);

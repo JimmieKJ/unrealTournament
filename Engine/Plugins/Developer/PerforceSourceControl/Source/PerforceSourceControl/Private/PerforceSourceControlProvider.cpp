@@ -212,7 +212,17 @@ void FPerforceSourceControlProvider::RegisterSourceControlStateChanged( const FS
 
 void FPerforceSourceControlProvider::UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
 {
-	OnSourceControlStateChanged.Remove( SourceControlStateChanged );
+	OnSourceControlStateChanged.DEPRECATED_Remove( SourceControlStateChanged );
+}
+
+FDelegateHandle FPerforceSourceControlProvider::RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
+{
+	return OnSourceControlStateChanged.Add( SourceControlStateChanged );
+}
+
+void FPerforceSourceControlProvider::UnregisterSourceControlStateChanged_Handle( FDelegateHandle Handle )
+{
+	OnSourceControlStateChanged.Remove( Handle );
 }
 
 ECommandResult::Type FPerforceSourceControlProvider::Execute( const TSharedRef<ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TArray<FString>& InFiles, EConcurrency::Type InConcurrency, const FSourceControlOperationComplete& InOperationCompleteDelegate )
@@ -286,6 +296,11 @@ void FPerforceSourceControlProvider::CancelOperation( const TSharedRef<ISourceCo
 }
 
 bool FPerforceSourceControlProvider::UsesLocalReadOnlyState() const
+{
+	return true;
+}
+
+bool FPerforceSourceControlProvider::UsesChangelists() const
 {
 	return true;
 }

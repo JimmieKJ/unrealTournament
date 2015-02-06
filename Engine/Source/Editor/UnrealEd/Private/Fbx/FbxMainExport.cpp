@@ -1093,10 +1093,10 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 
 		if( bExportComponents )
 		{
-			TArray<UMeshComponent*> MeshComponents;
+			TInlineComponentArray<UMeshComponent*> MeshComponents;
 			Actor->GetComponents(MeshComponents);
 
-			TArray<UActorComponent*> ComponentsToExport;
+			TInlineComponentArray<UActorComponent*> ComponentsToExport;
 			for( int32 ComponentIndex = 0; ComponentIndex < MeshComponents.Num(); ++ComponentIndex )
 			{
 				UMeshComponent* Component = MeshComponents[ComponentIndex];

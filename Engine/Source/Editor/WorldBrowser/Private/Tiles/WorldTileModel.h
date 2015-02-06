@@ -163,8 +163,8 @@ private:
 	/** Fixup invalid streaming objects inside level */
 	void FixupStreamingObjects();
 
-	/** Handle case when level which is based on landscape was moved or changed visibility  */
-	void FixLandscapeSectionsOffset();
+	/** When level with landscape is moved we need to update internal landscape coordinates to match landscape component grid  */
+	void UpdateLandscapeSectionsOffset(FIntPoint LevelOffset);
 	
 	/** Handler for LevelBoundsActorUpdated event */
 	void OnLevelBoundsActorUpdated();

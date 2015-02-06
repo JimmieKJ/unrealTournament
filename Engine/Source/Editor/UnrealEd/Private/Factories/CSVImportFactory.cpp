@@ -269,7 +269,7 @@ public:
 	TSharedRef<SWidget> MakeImportTypeItemWidget( TSharedPtr<ECSVImportType> Type )
 	{
 		return	SNew(STextBlock)
-				.Text(GetImportTypeText(Type));
+				.Text(FText::FromString(GetImportTypeText(Type)));
 	}
 
 	/** Called to create a widget for each struct */
@@ -277,7 +277,7 @@ public:
 	{
 		check( Struct != NULL );
 		return	SNew(STextBlock)
-				.Text(Struct->GetName());
+				.Text(FText::FromString(Struct->GetName()));
 	}
 
 	FString GetCurveTypeText (CurveInterpModePtr InterpMode) const
@@ -305,7 +305,7 @@ public:
 	TSharedRef<SWidget> MakeCurveTypeWidget( CurveInterpModePtr InterpMode )
 	{
 		FString Label = GetCurveTypeText(InterpMode);
-		return SNew(STextBlock) .Text( Label );
+		return SNew(STextBlock) .Text( FText::FromString(Label) );
 	}
 
 	/** Called when 'OK' button is pressed */
@@ -336,29 +336,29 @@ public:
 		return FReply::Handled();
 	}
 
-	FString GetSelectedItemText() const
+	FText GetSelectedItemText() const
 	{
 		TSharedPtr<ECSVImportType> SelectedType = ImportTypeCombo->GetSelectedItem();
 
 		return (SelectedType.IsValid())
-			? GetImportTypeText(SelectedType)
-			: FString();
+			? FText::FromString(GetImportTypeText(SelectedType))
+			: FText::GetEmpty();
 	}
 
-	FString GetSelectedRowOptionText() const
+	FText GetSelectedRowOptionText() const
 	{
 		UScriptStruct* SelectedScript = RowStructCombo->GetSelectedItem();
 		return (SelectedScript)
-			? SelectedScript->GetName()
-			: FString();
+			? FText::FromString(SelectedScript->GetName())
+			: FText::GetEmpty();
 	}
 
-	FString GetSelectedCurveTypeText() const
+	FText GetSelectedCurveTypeText() const
 	{
 		CurveInterpModePtr CurveModePtr = CurveInterpCombo->GetSelectedItem();
 		return (CurveModePtr.IsValid())
-			? GetCurveTypeText(CurveModePtr)
-			: FString();
+			? FText::FromString(GetCurveTypeText(CurveModePtr))
+			: FText::GetEmpty();
 	}
 };
 
@@ -637,6 +637,11 @@ EReimportResult::Type UReimportDataTableFactory::Reimport( UObject* Obj )
 	return Result;
 }
 
+int32 UReimportDataTableFactory::GetPriority() const
+{
+	return ImportPriority;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 //
 UReimportCurveTableFactory::UReimportCurveTableFactory(const FObjectInitializer& ObjectInitializer)
@@ -673,6 +678,11 @@ EReimportResult::Type UReimportCurveTableFactory::Reimport( UObject* Obj )
 	return EReimportResult::Failed;
 }
 
+int32 UReimportCurveTableFactory::GetPriority() const
+{
+	return ImportPriority;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 //
 UReimportCurveFactory::UReimportCurveFactory(const FObjectInitializer& ObjectInitializer)
@@ -707,6 +717,11 @@ EReimportResult::Type UReimportCurveFactory::Reimport( UObject* Obj )
 		return UCSVImportFactory::ReimportCSV(Obj) ? EReimportResult::Succeeded : EReimportResult::Failed;
 	}
 	return EReimportResult::Failed;
+}
+
+int32 UReimportCurveFactory::GetPriority() const
+{
+	return ImportPriority;
 }
 
 

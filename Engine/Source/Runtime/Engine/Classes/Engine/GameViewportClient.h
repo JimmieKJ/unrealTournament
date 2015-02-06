@@ -9,8 +9,6 @@
 #include "DebugDisplayProperty.h"
 #include "TitleSafeZone.h"
 #include "GameViewportDelegates.h"
-#include "SlateBasics.h"
-
 #include "GameViewportClient.generated.h"
 
 
@@ -590,10 +588,7 @@ public:
 		return bHideCursorDuringCapture;
 	}
 
-	virtual TOptional<EPopupMethod> OnQueryPopupMethod() const override
-	{
-		return EPopupMethod::UseCurrentWindow;
-	}
+	virtual TOptional<EPopupMethod> OnQueryPopupMethod() const override;
 
 private:
 	/**
@@ -699,6 +694,9 @@ private:
 
 	/** Whether or not the cursor is hidden when the viewport captures the mouse */
 	bool bHideCursorDuringCapture;
+
+	/** Handle to the registered ShowCollisionOnSpawnedActors delegate */
+	FDelegateHandle ShowCollisionOnSpawnedActorsDelegateHandle;
 };
 
 

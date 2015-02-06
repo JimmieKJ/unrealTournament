@@ -32,6 +32,8 @@ public:
 
 	virtual FFeedbackContext* GetNativeFeedbackContext() override;
 
+	virtual FString GetUserTempPath() override;
+
 private:
 	bool GetLauncherPath(FString& OutLauncherPath);
 	bool GetLauncherInstallerPath(FString& OutInstallerPath);

@@ -281,25 +281,7 @@ TSharedRef<SDockTab> FSpriteEditor::SpawnTab_Viewport(const FSpawnTabArgs& Args)
 	return SNew(SDockTab)
 		.Label(LOCTEXT("ViewportTab_Title", "Viewport"))
 		[
-			SNew(SOverlay)
-
-			// The sprite editor viewport
-			+SOverlay::Slot()
-			[
-				ViewportPtr.ToSharedRef()
-			]
-
-			// Bottom-right corner text indicating the preview nature of the sprite editor
-			+SOverlay::Slot()
-			.Padding(10)
-			.VAlign(VAlign_Bottom)
-			.HAlign(HAlign_Right)
-			[
-				SNew(STextBlock)
-				.Visibility( EVisibility::HitTestInvisible )
-				.TextStyle( FEditorStyle::Get(), "Graph.CornerText" )
-				.Text(LOCTEXT("SpriteEditorViewportExperimentalWarning", "Early access preview"))
-			]
+			ViewportPtr.ToSharedRef()
 		];
 }
 

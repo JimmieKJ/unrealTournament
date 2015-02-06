@@ -122,6 +122,18 @@ SIZE_T UAnimSequence::GetResourceSize(EResourceSizeMode::Type Mode)
 	return ResourceSize;
 }
 
+void UAnimSequence::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+#if WITH_EDITORONLY_DATA
+	if (AssetImportData)
+	{
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+	}
+#endif
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+
 int32 UAnimSequence::GetApproxRawSize() const
 {
 	int32 Total = sizeof(FRawAnimSequenceTrack) * RawAnimationData.Num();
@@ -469,26 +481,27 @@ void UAnimSequence::PostLoad()
 }
 
 #if WITH_EDITOR
-void UAnimSequence::VerifyTrackMap()
+void UAnimSequence::VerifyTrackMap(USkeleton* MySkeleton)
 {
-	USkeleton* MySkeleton = GetSkeleton();
-	if(AnimationTrackNames.Num() != TrackToSkeletonMapTable.Num() && MySkeleton!=NULL)
+	USkeleton* UseSkeleton = (MySkeleton)? MySkeleton: GetSkeleton();
+
+	if(AnimationTrackNames.Num() != TrackToSkeletonMapTable.Num() && UseSkeleton!=NULL)
 	{
 		UE_LOG(LogAnimation, Warning, TEXT("RESAVE ANIMATION NEEDED(%s): Fixing track names."), *GetName());
 
-		const TArray<FBoneNode>& BoneTree = MySkeleton->GetBoneTree();
+		const TArray<FBoneNode>& BoneTree = UseSkeleton->GetBoneTree();
 		AnimationTrackNames.Empty();
 		AnimationTrackNames.AddUninitialized(TrackToSkeletonMapTable.Num());
 		for(int32 I=0; I<TrackToSkeletonMapTable.Num(); ++I)
 		{
 			const FTrackToSkeletonMap& TrackMap = TrackToSkeletonMapTable[I];
-			AnimationTrackNames[I] = MySkeleton->GetReferenceSkeleton().GetBoneName(TrackMap.BoneTreeIndex);
+			AnimationTrackNames[I] = UseSkeleton->GetReferenceSkeleton().GetBoneName(TrackMap.BoneTreeIndex);
 		}
 	}
-	else if (MySkeleton != NULL)
+	else if (UseSkeleton != NULL)
 	{
 		int32 NumTracks = AnimationTrackNames.Num();
-		int32 NumSkeletonBone = MySkeleton->GetReferenceSkeleton().GetNum();
+		int32 NumSkeletonBone = UseSkeleton->GetReferenceSkeleton().GetNum();
 
 		bool bNeedsFixing = false;
 		// verify all tracks are still valid
@@ -509,10 +522,10 @@ void UAnimSequence::VerifyTrackMap()
 		{
 			UE_LOG(LogAnimation, Warning, TEXT("RESAVE ANIMATION NEEDED(%s): Fixing track index."), *GetName());
 
-			const TArray<FBoneNode>& BoneTree = MySkeleton->GetBoneTree();
+			const TArray<FBoneNode>& BoneTree = UseSkeleton->GetBoneTree();
 			for(int32 I=NumTracks-1; I>=0; --I)
 			{
-				int32 BoneTreeIndex = MySkeleton->GetReferenceSkeleton().FindBoneIndex(AnimationTrackNames[I]);
+				int32 BoneTreeIndex = UseSkeleton->GetReferenceSkeleton().FindBoneIndex(AnimationTrackNames[I]);
 				if (BoneTreeIndex == INDEX_NONE)
 				{
 					RemoveTrack(I);
@@ -805,8 +818,8 @@ FTransform UAnimSequence::ExtractRootMotionFromRange(float StartTrackPosition, f
 
 	// Transform to Component Space Rotation (inverse root transform from first frame)
 	const FTransform RootToComponentRot = FTransform(InitialTransform.GetRotation().Inverse());
-	StartTransform = StartTransform * RootToComponentRot;
-	EndTransform = EndTransform * RootToComponentRot;
+	StartTransform = RootToComponentRot * StartTransform;
+	EndTransform = RootToComponentRot * EndTransform;
 
 	return EndTransform.GetRelativeTransform(StartTransform);
 }
@@ -2305,6 +2318,10 @@ void UAnimSequence::RemapTracksToNewSkeleton( USkeleton* NewSkeleton, bool bConv
 		// I have to set this here in order for compression
 		// that has to happen outside of this after Skeleton changes
 		SetSkeleton(NewSkeleton);
+	}
+	else
+	{
+		VerifyTrackMap(NewSkeleton);
 	}
 
 	PostProcessSequence();

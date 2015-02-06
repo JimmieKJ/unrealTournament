@@ -1739,6 +1739,7 @@ void FMatinee::OnContextGroupRenameCommitted(const FText& InText, ETextCommit::T
 		UInterpTrackDirector* DirTrack = DirGroup->GetDirectorTrack();
 		if(DirTrack)
 		{
+			DirTrack->Modify();
 			for(int32 i=0; i<DirTrack->CutTrack.Num(); i++)
 			{
 				FDirectorTrackCut& Cut = DirTrack->CutTrack[i];

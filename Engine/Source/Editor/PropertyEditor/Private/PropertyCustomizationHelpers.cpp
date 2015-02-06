@@ -241,7 +241,7 @@ namespace PropertyCustomizationHelpers
 	{
 		return 
 			SNew( SPropertyEditorInteractiveActorPicker )
-			.ToolTipText( LOCTEXT( "PickButtonLabel", "Pick Actor from scene").ToString() )
+			.ToolTipText( LOCTEXT( "PickButtonLabel", "Pick Actor from scene") )
 			.OnGetAllowedClasses( OnGetAllowedClasses )
 			.OnShouldFilterActor( OnShouldFilterActor )
 			.OnActorSelected( OnActorSelectedFromPicker );

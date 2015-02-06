@@ -58,7 +58,6 @@ public:
 	{
 		SSSParams.Bind(ParameterMap, TEXT("SSSParams"));
 		SSProfilesTexture.Bind(ParameterMap, TEXT("SSProfilesTexture"));
-		SSProfilesTextureSampler.Bind(ParameterMap, TEXT("SSProfilesTextureSampler"));
 	}
 
 	void SetParameters(FRHICommandList& RHICmdList, const FPixelShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context) const
@@ -96,21 +95,19 @@ public:
 
 			const FSceneRenderTargetItem& Item = PooledRT->GetRenderTargetItem();
 
-			SetTextureParameter(Context.RHICmdList, ShaderRHI, SSProfilesTexture, SSProfilesTextureSampler, TStaticSamplerState<SF_Point, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI(), Item.ShaderResourceTexture);
+			SetTextureParameter(Context.RHICmdList, ShaderRHI, SSProfilesTexture, Item.ShaderResourceTexture);
 		}
 	}
 
 	friend FArchive& operator<<(FArchive& Ar,FSubsurfaceParameters& P)
 	{
-		Ar << P.SSSParams << P.SSProfilesTexture << P.SSProfilesTextureSampler;
-
+		Ar << P.SSSParams << P.SSProfilesTexture;
 		return Ar;
 	}
 
 private:
 	FShaderParameter SSSParams;
 	FShaderResourceParameter SSProfilesTexture;
-	FShaderResourceParameter SSProfilesTextureSampler;
 };
 
 // ---------------------------------------------
@@ -435,8 +432,9 @@ static bool DoSpecularCorrection()
 
 /**
  * Encapsulates the post processing subsurface scattering pixel shader.
+ * @param SampleSet 0:low, 1:med, 2:high
  */
-template <uint32 RecombineMethod>
+template <uint32 RecombineMethod, uint32 SampleSet>
 class FPostProcessSubsurfaceExtractSpecularPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessSubsurfaceExtractSpecularPS, Global);
@@ -450,6 +448,7 @@ class FPostProcessSubsurfaceExtractSpecularPS : public FGlobalShader
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("SSS_RECOMBINE_METHOD"), RecombineMethod);
+		OutEnvironment.SetDefine(TEXT("SSS_SAMPLESET"), SampleSet);
 	}
 
 	/** Default constructor. */
@@ -500,24 +499,53 @@ public:
 };
 
 // #define avoids a lot of code duplication
-#define VARIATION1(A) typedef FPostProcessSubsurfaceExtractSpecularPS<A> FPostProcessSubsurfaceExtractSpecularPS##A; \
-	IMPLEMENT_SHADER_TYPE2(FPostProcessSubsurfaceExtractSpecularPS##A, SF_Pixel);
-VARIATION1(0) VARIATION1(1)
+#define VARIATION1(A)		VARIATION2(A,0)			VARIATION2(A,1)			VARIATION2(A,2)
+#define VARIATION2(A, B) typedef FPostProcessSubsurfaceExtractSpecularPS<A, B> FPostProcessSubsurfaceExtractSpecularPS##A##B; \
+	IMPLEMENT_SHADER_TYPE2(FPostProcessSubsurfaceExtractSpecularPS##A##B, SF_Pixel);
+	VARIATION1(0) VARIATION1(1)
 #undef VARIATION1
+#undef VARIATION2
 
 
-
+// @param SampleSet 0:low, 1:med, 2:high
 template <uint32 RecombineMethod>
-void SetSubsurfaceExtractSpecular(const FRenderingCompositePassContext& Context)
+void SetSubsurfaceExtractSpecular(const FRenderingCompositePassContext& Context, uint32 SampleSet)
 {
 	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-	TShaderMapRef<FPostProcessSubsurfaceExtractSpecularPS<RecombineMethod> > PixelShader(Context.GetShaderMap());
 
-	static FGlobalBoundShaderState BoundShaderState;
+	switch(SampleSet)
+	{
+		case 0:
+			{
+				TShaderMapRef<FPostProcessSubsurfaceExtractSpecularPS<RecombineMethod, 0> > PixelShader(Context.GetShaderMap());
+				static FGlobalBoundShaderState BoundShaderState;
 
-	SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				PixelShader->SetParameters(Context);
+				break;
+			}
+		case 1:
+			{
+				TShaderMapRef<FPostProcessSubsurfaceExtractSpecularPS<RecombineMethod, 1> > PixelShader(Context.GetShaderMap());
+				static FGlobalBoundShaderState BoundShaderState;
 
-	PixelShader->SetParameters(Context);
+				SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				PixelShader->SetParameters(Context);
+				break;
+			}
+		case 2:
+			{
+				TShaderMapRef<FPostProcessSubsurfaceExtractSpecularPS<RecombineMethod, 2> > PixelShader(Context.GetShaderMap());
+				static FGlobalBoundShaderState BoundShaderState;
+
+				SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				PixelShader->SetParameters(Context);
+				break;
+			} 
+		default:
+			check(0);
+	}
+
 	VertexShader->SetParameters(Context);
 }
 
@@ -561,13 +589,15 @@ void FRCPassPostProcessSubsurfaceExtractSpecular::Process(FRenderingCompositePas
 
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, SubsurfacePass, TEXT("SubsurfacePassExtractSpecular#%d"), (int32)bDoSpecularCorrection);
 
+	uint32 SampleSet = FMath::Clamp(CVarSSSSampleSet.GetValueOnRenderThread(), 0, 2);
+
 	if(bDoSpecularCorrection)
 	{
-		SetSubsurfaceExtractSpecular<1>(Context);
+		SetSubsurfaceExtractSpecular<1>(Context, SampleSet);
 	}
 	else
 	{
-		SetSubsurfaceExtractSpecular<0>(Context);
+		SetSubsurfaceExtractSpecular<0>(Context, SampleSet);
 	}
 
 	DrawRectangle(
@@ -762,7 +792,7 @@ public:
 	}
 };
 
-	// #define avoids a lot of code duplication
+// #define avoids a lot of code duplication
 #define VARIATION1(A)		VARIATION2(A,0)			VARIATION2(A,1)			VARIATION2(A,2)
 #define VARIATION2(A, B) typedef TPostProcessSubsurfacePS<A, B> TPostProcessSubsurfacePS##A##B; \
 	IMPLEMENT_SHADER_TYPE2(TPostProcessSubsurfacePS##A##B, SF_Pixel);

@@ -91,19 +91,16 @@ FText UPaperTiledImporterFactory::GetToolTip() const
 
 bool UPaperTiledImporterFactory::FactoryCanImport(const FString& Filename)
 {
-	if (GetDefault<UPaperRuntimeSettings>()->bEnableTileMapEditing)
+	FString FileContent;
+	if (FFileHelper::LoadFileToString(/*out*/ FileContent, *Filename))
 	{
-		FString FileContent;
-		if (FFileHelper::LoadFileToString(/*out*/ FileContent, *Filename))
+		TSharedPtr<FJsonObject> DescriptorObject = ParseJSON(FileContent, FString(), /*bSilent=*/ true);
+		if (DescriptorObject.IsValid())
 		{
-			TSharedPtr<FJsonObject> DescriptorObject = ParseJSON(FileContent, FString(), /*bSilent=*/ true);
-			if (DescriptorObject.IsValid())
-			{
-				FTileMapFromTiled GlobalInfo;
-				ParseGlobalInfoFromJSON(DescriptorObject, /*out*/ GlobalInfo, FString(), /*bSilent=*/ true);
+			FTileMapFromTiled GlobalInfo;
+			ParseGlobalInfoFromJSON(DescriptorObject, /*out*/ GlobalInfo, FString(), /*bSilent=*/ true);
 
-				return GlobalInfo.IsValid();
-			}
+			return GlobalInfo.IsValid();
 		}
 	}
 
@@ -131,10 +128,7 @@ UObject* UPaperTiledImporterFactory::FactoryCreateText(UClass* InClass, UObject*
  	const FString NameForErrors(InName.ToString());
  	const FString FileContent(BufferEnd - Buffer, Buffer);
  	TSharedPtr<FJsonObject> DescriptorObject = ParseJSON(FileContent, NameForErrors);
-// 
-// 	TSet<FName> FrameNames;
-// 	TArray<FSpriteFrame> ParsedFrames;
-// 
+
  	UPaperTileMap* Result = nullptr;
  
 	FTileMapFromTiled GlobalInfo;
@@ -240,6 +234,11 @@ UObject* UPaperTiledImporterFactory::FactoryCreateText(UClass* InClass, UObject*
 			}
 		}
 
+		if (GlobalInfo.CreatedTileSetAssets.Num() > 0)
+		{
+			// Bind our selected tile set to the first tile set that was imported so something is already picked
+			Result->SelectedTileSet = GlobalInfo.CreatedTileSetAssets[0];
+		}
 
 		// Create the layers
 		for (const FTileLayerFromTiled& LayerData : GlobalInfo.Layers)
@@ -371,6 +370,11 @@ EReimportResult::Type UPaperTiledImporterFactory::Reimport(UObject* Obj)
 	return EReimportResult::Failed;
 }
 
+int32 UPaperTiledImporterFactory::GetPriority() const
+{
+	return ImportPriority;
+}
+
 
 UObject* UPaperTiledImporterFactory::CreateNewAsset(UClass* AssetClass, const FString& TargetPath, const FString& DesiredName, EObjectFlags Flags)
 {
@@ -421,7 +425,7 @@ void UPaperTiledImporterFactory::ParseGlobalInfoFromJSON(TSharedPtr<FJsonObject>
 {
 	bool bSuccessfullyParsed = true;
 
-	// Parse all of the integer fields
+	// Parse all of the required integer fields
 	FRequiredIntField IntFields[] = {
 		FRequiredIntField( OutParsedInfo.FileVersion, TEXT("version") ),
 		FRequiredIntField( OutParsedInfo.Width, TEXT("width") ),
@@ -430,6 +434,15 @@ void UPaperTiledImporterFactory::ParseGlobalInfoFromJSON(TSharedPtr<FJsonObject>
 		FRequiredIntField( OutParsedInfo.TileHeight, TEXT("tileheight") )
 	};
 	bSuccessfullyParsed = bSuccessfullyParsed && ParseIntegerFields(IntFields, ARRAY_COUNT(IntFields), Tree, NameForErrors, bSilent);
+
+	// Parse hexsidelength if present
+	FRequiredIntField OptionalIntFields[] = {
+		FRequiredIntField(OutParsedInfo.HexSideLength, TEXT("hexsidelength"), 0)
+	};
+	ParseIntegerFields(OptionalIntFields, ARRAY_COUNT(OptionalIntFields), Tree, NameForErrors, /*bSilent=*/ true);
+
+	//@TODO:
+	// Parse staggeraxis and staggerindex (currently not supported by the renderer anyways)
 
 	// Parse the orientation
 	const FString OrientationModeStr = FPaperJSONHelpers::ReadString(Tree, TEXT("orientation"), TEXT(""));
@@ -445,9 +458,13 @@ void UPaperTiledImporterFactory::ParseGlobalInfoFromJSON(TSharedPtr<FJsonObject>
 	{
 		OutParsedInfo.Orientation = ETiledOrientation::Staggered;
 	}
+	else if (OrientationModeStr == TEXT("hexagonal"))
+	{
+		OutParsedInfo.Orientation = ETiledOrientation::Hexagonal;
+	}
 	else
 	{
-		TILED_IMPORT_ERROR(TEXT("Failed to parse '%s'.  Invalid value for '%s' (%s but expected 'orthogonal' or 'isometric')"), *NameForErrors, TEXT("orientation"), *OrientationModeStr);
+		TILED_IMPORT_ERROR(TEXT("Failed to parse '%s'.  Invalid value for '%s' (%s but expected 'orthogonal', 'isometric', 'staggered', or 'hexagonal')"), *NameForErrors, TEXT("orientation"), *OrientationModeStr);
 		bSuccessfullyParsed = false;
 		OutParsedInfo.Orientation = ETiledOrientation::Unknown;
 	}
@@ -463,6 +480,7 @@ FTileMapFromTiled::FTileMapFromTiled()
 	, TileWidth(0)
 	, TileHeight(0)
 	, Orientation(ETiledOrientation::Unknown)
+	, HexSideLength(0)
 {
 }
 
@@ -506,6 +524,8 @@ ETileMapProjectionMode::Type FTileMapFromTiled::GetOrientationType() const
 		return ETileMapProjectionMode::IsometricDiamond;
 	case ETiledOrientation::Staggered:
 		return ETileMapProjectionMode::IsometricStaggered;
+	case ETiledOrientation::Hexagonal:
+		return ETileMapProjectionMode::HexagonalStaggered;
 	case ETiledOrientation::Orthogonal:
 	default:
 		return ETileMapProjectionMode::Orthogonal;

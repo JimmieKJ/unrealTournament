@@ -67,6 +67,7 @@ public:
 	virtual void FocusWindow(UObject* ObjectToFocusOn = NULL) override;
 	virtual bool CloseWindow() override;
 	virtual bool IsPrimaryEditor() const override { return true; };
+	virtual void InvokeTab(const struct FTabId& TabId) override;
 
 	/**
 	 * Fills in the supplied menu with commands for working with this asset file
@@ -238,6 +239,9 @@ protected:
 
 	/** Controls our internal layout */
 	TSharedPtr<FTabManager> TabManager;
+
+	/** Whether only dirty assets should be prompted about on save - otherwise all edited assets will be prompted to the user for save/check-out */
+	bool bCheckDirtyOnAssetSave;
 
 private:
 	/** The toolkit standalone host; may be NULL */

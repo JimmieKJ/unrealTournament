@@ -72,6 +72,9 @@ private:
 	/** Called to retrieve the text that should be highlighted on assets */
 	FText GetHighlightedText() const;
 
+	/** Called to work out whether the import button should be enabled */
+	bool IsImportEnabled() const;
+
 	/** Called to retrieve the text that should be in the import tooltip */
 	FText GetImportTooltipText() const;
 
@@ -120,6 +123,9 @@ private:
 	/** Handler for when the path view requests an asset creation */
 	void NewAssetRequested(const FString& SelectedPath, TWeakObjectPtr<UClass> FactoryClass);
 
+	/** Handler for when the path view requests a class creation */
+	void NewClassRequested(const FString& SelectedPath);
+
 	/** Handler for when the path context menu requests a folder creation */
 	void NewFolderRequested(const FString& SelectedPath);
 
@@ -149,11 +155,14 @@ private:
 	/** Gets the content for the path picker combo button */
 	TSharedRef<SWidget> GetPathPickerContent();
 
-	/** Handle creating a context menu to generate a new asset */
-	TSharedRef<SWidget> MakeCreateAssetContextMenu();
+	/** Handle creating a context menu for the "Add New" button */
+	TSharedRef<SWidget> MakeAddNewContextMenu(bool bShowGetContent, bool bShowImport);
 
-	/** Gets the tool tip for the new asset button */
-	FString GetNewAssetToolTipText() const;
+	/** Called to work out whether the import button should be enabled */
+	bool IsAddNewEnabled() const;
+
+	/** Gets the tool tip for the "Add New" button */
+	FText GetAddNewToolTipText() const;
 
 	/** Makes the filters menu */
 	TSharedRef<SWidget> MakeAddFilterMenu();
@@ -164,11 +173,14 @@ private:
 	/** Imports a new piece of content. */
 	FReply HandleImportClicked();
 
+	/** Imports a new piece of content to a specific path. */
+	void ImportAsset(const FString& InPath);
+
 	/** Saves dirty content. */
 	FReply OnSaveClicked();
 
 	/** Opens the add content dialog. */
-	FReply OnAddContentClicked();
+	void OnAddContentRequested();
 
 	/** Handler for when the selection set in the asset view has changed. */
 	void OnAssetSelectionChanged(const FAssetData& SelectedAsset);
@@ -237,10 +249,10 @@ private:
 	bool CanExecuteDirectoryUp() const;
 
 	/** Gets the tool tip text for the history back button */
-	FString GetHistoryBackTooltip() const;
+	FText GetHistoryBackTooltip() const;
 
 	/** Gets the tool tip text for the history forward button */
-	FString GetHistoryForwardTooltip() const;
+	FText GetHistoryForwardTooltip() const;
 
 	/** Gets the tool tip text for the directory up button */
 	FText GetDirectoryUpTooltip() const;
@@ -262,9 +274,6 @@ private:
 
 	/** Returns true if currently filtering by a source */
 	bool IsFilteredBySource() const;
-
-	/** Returns true if a real asset path is selected (i.e \Engine\* or \Game\*) */
-	bool IsAssetPathSelected() const;
 
 	/** Handler for when the context menu or asset view requests to find assets in the asset tree */
 	void OnFindInAssetTreeRequested(const TArray<FAssetData>& AssetsToFind);
@@ -311,6 +320,17 @@ private:
 	/** Bind our UI commands */
 	void BindCommands();
 
+	/** Adds menu extensions to the asset view */
+	void ExtendAssetViewMenu( FMenuBuilder& MenuBuilder );
+
+	/** Enables or disables collections from being shown */
+	void ToggleShowCollections();
+
+	/** @return Whether or not we are showing collections */
+	bool IsShowingCollections() const;
+
+	/** Gets the visibility of the collection view */
+	EVisibility GetCollectionViewVisibility() const;
 private:
 
 	/** The tab that contains this browser */

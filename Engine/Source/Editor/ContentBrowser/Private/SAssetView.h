@@ -310,6 +310,9 @@ private:
 	/** Handler for when an asset's property has changed */
 	void OnObjectPropertyChanged(UObject* Asset, FPropertyChangedEvent& PropertyChangedEvent);
 
+	/** Called when the class hierarchy is updated due to the available modules changing */
+	void OnClassHierarchyUpdated();
+
 	/** Handler for when any frontend filters have been changed */
 	void OnFrontendFiltersChanged();
 
@@ -463,7 +466,7 @@ private:
 	FReply EndThumbnailEditModeClicked();
 
 	/** Gets the text for the asset count label */
-	FString GetAssetCountText() const;
+	FText GetAssetCountText() const;
 
 	/** Gets the visibility of the Thumbnail Edit Mode label */
 	EVisibility GetEditModeLabelVisibility() const;

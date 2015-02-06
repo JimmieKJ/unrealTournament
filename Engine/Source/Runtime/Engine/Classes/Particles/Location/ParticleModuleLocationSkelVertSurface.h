@@ -136,7 +136,7 @@ class UParticleModuleLocationSkelVertSurface : public UParticleModuleLocationBas
 	 *	
 	 *	@return	bool					true if successful, false if not
 	 */
-	bool GetParticleLocation(FParticleEmitterInstance* Owner, USkeletalMeshComponent* InSkelMeshComponent, int32 InPrimaryVertexIndex, FVector& OutPosition, FQuat* OutRotation, bool bSpawning = false);
+	bool GetParticleLocation(FParticleEmitterInstance* Owner, USkeletalMeshComponent* InSkelMeshComponent, int32 InPrimaryVertexIndex, FVector& OutPosition, FQuat& OutRotation, bool bSpawning = false);
 
 	/**
 	 *  Check to see if the vert is influenced by a bone on our approved list.

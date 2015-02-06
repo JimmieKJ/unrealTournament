@@ -282,12 +282,12 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override void AddFilesToManifest(ref FileManifest Manifest, UEBuildBinary Binary)
+		public override void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary)
 		{
 			if (BuildConfiguration.bCreateStubIPA)
 			{
 				string StubFile = Path.Combine (Path.GetDirectoryName (Binary.Config.OutputFilePath), Path.GetFileNameWithoutExtension (Binary.Config.OutputFilePath) + ".stub");
-				Manifest.AddFileName (StubFile);
+				Manifest.AddBuildProduct(StubFile);
 			}
 		}
 
@@ -1297,6 +1297,13 @@ namespace UnrealBuildTool
 				// Generate the stub
 				if (BuildConfiguration.bCreateStubIPA || bUseDangerouslyFastMode)
 				{
+					// ensure the plist, entitlements, and provision files are properly copied
+					var DeployHandler = UEBuildDeploy.GetBuildDeploy(Target.Platform);
+					if (DeployHandler != null)
+					{
+						DeployHandler.PrepTargetForDeployment(Target);
+					}
+
 					if (!bUseDangerouslyFastMode)
 					{
 						// generate the dummy project so signing works

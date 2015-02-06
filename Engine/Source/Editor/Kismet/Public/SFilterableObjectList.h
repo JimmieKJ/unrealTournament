@@ -52,7 +52,7 @@ protected:
 	void OnFilterTextChanged(const FText& InFilterText);
 
 	EVisibility GetFilterStatusVisibility() const;
-	FString GetFilterStatusText() const;
+	FText GetFilterStatusText() const;
 
 	bool IsFilterActive() const;
 	void ReapplyFilter();

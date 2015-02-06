@@ -194,7 +194,7 @@ public:
 			.IsChecked( this, &SDlgMergeSkeleton::IsCheckboxChecked, ButtonId )
 			.OnCheckStateChanged( this, &SDlgMergeSkeleton::OnCheckboxChanged, ButtonId )
 			[
-				SNew(STextBlock).Text(Label)
+				SNew(STextBlock).Text(FText::FromString(Label))
 			];
 	}
 

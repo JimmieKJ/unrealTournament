@@ -36,15 +36,15 @@ public:
 		return (GetObjectToObserve() != NULL) ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
-	virtual FString GetAssetDisplayName() const
+	virtual FText GetAssetDisplayName() const
 	{
 		if (UObject* Object = GetObjectToObserve())
 		{
-			return Object->GetName();
+			return FText::FromString(Object->GetName());
 		}
 		else
 		{
-			return FString();
+			return FText::GetEmpty();
 		}
 	}
 

@@ -114,6 +114,18 @@ TArray<IAssetEditorInstance*> FAssetEditorManager::FindEditorsForAsset(UObject* 
 	return AssetEditors;
 }
 
+
+void FAssetEditorManager::CloseAllEditorsForAsset(UObject* Asset)
+{
+	TArray<IAssetEditorInstance*> EditorInstances = FindEditorsForAsset(Asset);
+
+	for( auto EditorIter : EditorInstances )
+	{
+		EditorIter->CloseWindow();
+	}
+}
+
+
 void FAssetEditorManager::CloseOtherEditors( UObject* Asset, IAssetEditorInstance* OnlyEditor)
 {
 	TArray<UObject*> AllAssets;

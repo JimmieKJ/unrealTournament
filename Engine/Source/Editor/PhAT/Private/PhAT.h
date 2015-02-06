@@ -68,7 +68,7 @@ public:
 	TSharedPtr<SWidget> BuildMenuWidgetBone();
 	TSharedRef<SWidget> BuildStaticMeshAssetPicker();
 	TSharedRef<SWidget> BuildHierarchyFilterMenu();
-	FString GetHierarchyFilter() const;
+	FText GetHierarchyFilter() const;
 
 	/** IToolkit interface */
 	virtual FName GetToolkitFName() const override;

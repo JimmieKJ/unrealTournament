@@ -21,7 +21,7 @@ const FName FPersonaTabs::SkeletonTreeViewID("SkeletonTreeView");		//@TODO: Name
 const FName FPersonaTabs::RetargetManagerID("RetargetManager");
 // Anim Blueprint params
 // Explorer
-// Blueprint Defaults
+// Class Defaults
 const FName FPersonaTabs::AnimBlueprintDefaultsEditorID("AnimBlueprintDefaultsEditor");
 
 const FName FPersonaTabs::AnimBlueprintParentPlayerEditorID("AnimBlueprintParentPlayerEditor");
@@ -262,7 +262,7 @@ FAnimBlueprintDefaultsEditorSummoner::FAnimBlueprintDefaultsEditorSummoner(TShar
 	CurrentMode = EAnimBlueprintEditorMode::PreviewMode;
 
 	ViewMenuDescription = LOCTEXT("AnimBlueprintDefaultsView", "Defaults");
-	ViewMenuTooltip = LOCTEXT("AnimBlueprintDefaultsView_ToolTip", "Shows the animation blueprint defaults/preview editor view");
+	ViewMenuTooltip = LOCTEXT("AnimBlueprintDefaultsView_ToolTip", "Shows the animation class defaults/preview editor view");
 }
 
 TSharedRef<SWidget> FAnimBlueprintDefaultsEditorSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
@@ -307,7 +307,7 @@ TSharedRef<SWidget> FAnimBlueprintDefaultsEditorSummoner::CreateTabBody(const FW
 						.Style(FEditorStyle::Get(), "RadioButton")
 						.IsChecked( this, &FAnimBlueprintDefaultsEditorSummoner::IsChecked, EAnimBlueprintEditorMode::DefaultsMode )
 						.OnCheckStateChanged( this, &FAnimBlueprintDefaultsEditorSummoner::OnCheckedChanged, EAnimBlueprintEditorMode::DefaultsMode )
-						.ToolTip(IDocumentation::Get()->CreateToolTip(	LOCTEXT("AnimBlueprintPropertyEditorDefaultMode", "Switch to editing the blueprint property defaults"),
+						.ToolTip(IDocumentation::Get()->CreateToolTip(	LOCTEXT("AnimBlueprintPropertyEditorDefaultMode", "Switch to editing the class defaults"),
 																		NULL,
 																		TEXT("Shared/Editors/Persona"),
 																		TEXT("AnimBlueprintPropertyEditorDefaultMode")))

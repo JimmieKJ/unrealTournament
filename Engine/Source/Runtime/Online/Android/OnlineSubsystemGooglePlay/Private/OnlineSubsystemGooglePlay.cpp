@@ -4,6 +4,7 @@
 
 #include "OnlineSubsystemGooglePlayPrivatePCH.h"
 #include "AndroidApplication.h"
+#include "Android/AndroidJNI.h"
 #include "OnlineAsyncTaskManagerGooglePlay.h"
 #include "OnlineAsyncTaskGooglePlayLogin.h"
 
@@ -13,6 +14,7 @@
 #include "gpg/android_platform_configuration.h"
 #include "gpg/builder.h"
 #include "gpg/debug.h"
+#include "gpg/android_support.h"
 
 using namespace gpg;
 
@@ -104,6 +106,9 @@ IOnlineAchievementsPtr FOnlineSubsystemGooglePlay::GetAchievementsInterface() co
 	return AchievementsInterface;
 }
 
+static bool WaitForLostFocus = false;
+static bool WaitingForLogin = false;
+
 bool FOnlineSubsystemGooglePlay::Init() 
 {
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FOnlineSubsystemAndroid::Init"));
@@ -134,6 +139,11 @@ bool FOnlineSubsystemGooglePlay::Init()
 	CurrentLoginTask = new FOnlineAsyncTaskGooglePlayLogin(this, 0);
 	QueueAsyncTask(CurrentLoginTask);
 
+	WaitingForLogin = true;
+	WaitForLostFocus = false;
+
+	FJavaWrapper::OnActivityResultDelegate.AddRaw(this, &FOnlineSubsystemGooglePlay::OnActivityResult);
+
 	// Create() returns a std::unqiue_ptr, but we convert it to a TUniquePtr.
 	GameServicesPtr.Reset( GameServices::Builder()
 		.SetDefaultOnLog(LogLevel::VERBOSE)
@@ -142,8 +152,32 @@ bool FOnlineSubsystemGooglePlay::Init()
 		})
 		.SetOnAuthActionFinished([this](AuthOperation Op, AuthStatus Status) {
 			OnAuthActionFinished(Op, Status);
+
+			if (Op == AuthOperation::SIGN_IN)
+			{
+				if (Status != AuthStatus::VALID)
+				{
+					WaitForLostFocus = true;
+				}
+				WaitingForLogin = false;
+			}
 		})
 		.Create(PlatformConfiguration).release() );
+
+	// Wait for GooglePlay to complete login task
+	while (WaitingForLogin)
+	{
+		FPlatformProcess::Sleep(0.01f);
+	}
+	if (WaitForLostFocus)
+	{
+		extern bool WaitForAndroidLoseFocusEvent(double TimeoutSeconds);
+		if (!WaitForAndroidLoseFocusEvent(3.0))
+		{
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("FOnlineSubsystemAndroid::Init - timed out"));
+			OnAuthActionFinished(AuthOperation::SIGN_IN, AuthStatus::ERROR_NOT_AUTHORIZED);
+		}
+	}
 
 	return true;
 }
@@ -162,6 +196,8 @@ bool FOnlineSubsystemGooglePlay::Tick(float DeltaTime)
 bool FOnlineSubsystemGooglePlay::Shutdown() 
 {
 	UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemAndroid::Shutdown()"));
+
+	FJavaWrapper::OnActivityResultDelegate.RemoveRaw(this, &FOnlineSubsystemGooglePlay::OnActivityResult);
 
 #define DESTRUCT_INTERFACE(Interface) \
 	if (Interface.IsValid()) \
@@ -251,4 +287,10 @@ std::string FOnlineSubsystemGooglePlay::ConvertFStringToStdString(const FString&
 	FPlatformString::Convert(Converted.GetData(), DestLen, *InString, SrcLen);
 
 	return std::string(Converted.GetData());
+}
+
+void FOnlineSubsystemGooglePlay::OnActivityResult(JNIEnv *env, jobject thiz, jobject activity, jint requestCode, jint resultCode, jobject data)
+{
+	// Pass the result on to google play - otherwise, some callbacks for the turn based system do not get called.
+	AndroidSupport::OnActivityResult(env, activity, requestCode, resultCode, data);
 }

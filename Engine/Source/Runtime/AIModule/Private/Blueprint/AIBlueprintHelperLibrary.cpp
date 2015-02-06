@@ -97,7 +97,7 @@ UAIAsyncTaskBlueprintProxy* UAIBlueprintHelperLibrary::CreateMoveToProxyObject(U
 
 		if (bValidQuery)
 		{
-			const FAIRequestID RequestID = AIController->RequestPathAndMove(Query, NULL, AcceptanceRadius, bStopOnOverlap, NULL);
+			const FAIRequestID RequestID = AIController->RequestPathAndMove(Query, TargetActor, AcceptanceRadius, bStopOnOverlap, NULL);
 			if (RequestID.IsValid())
 			{
 				MyObj->AIController = AIController;
@@ -106,7 +106,7 @@ UAIAsyncTaskBlueprintProxy* UAIBlueprintHelperLibrary::CreateMoveToProxyObject(U
 			}
 			else
 			{
-				World->GetTimerManager().SetTimer(MyObj, &UAIAsyncTaskBlueprintProxy::OnNoPath, 0.1f, false);
+				World->GetTimerManager().SetTimer(MyObj->TimerHandle_OnNoPath, MyObj, &UAIAsyncTaskBlueprintProxy::OnNoPath, 0.1f, false);
 			}
 		}
 	}
@@ -149,6 +149,16 @@ APawn* UAIBlueprintHelperLibrary::SpawnAIFromClass(UObject* WorldContextObject, 
 	}
 
 	return NewPawn;
+}
+
+AAIController* UAIBlueprintHelperLibrary::GetAIController(AActor* ControlledActor)
+{
+	APawn* AsPawn = Cast<APawn>(ControlledActor);
+	if (AsPawn != nullptr)
+	{
+		return Cast<AAIController>(AsPawn->GetController());
+	}
+	return Cast<AAIController>(ControlledActor);
 }
 
 UBlackboardComponent* UAIBlueprintHelperLibrary::GetBlackboard(AActor* Target)

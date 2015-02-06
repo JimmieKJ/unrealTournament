@@ -17,7 +17,7 @@ void SLayersViewRow::Construct(const FArguments& InArgs, TSharedRef< FLayerViewM
 
 SLayersViewRow::~SLayersViewRow()
 {
-	ViewModel->OnRenamedRequest().RemoveSP(InlineTextBlock.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+	ViewModel->OnRenamedRequest().Remove(EnterEditingModeDelegateHandle);
 }
 
 TSharedRef< SWidget > SLayersViewRow::GenerateWidgetForColumn(const FName& ColumnID)
@@ -52,7 +52,7 @@ TSharedRef< SWidget > SLayersViewRow::GenerateWidgetForColumn(const FName& Colum
 			]
 		;
 
-		ViewModel->OnRenamedRequest().AddSP(InlineTextBlock.Get(), &SInlineEditableTextBlock::EnterEditingMode);
+		EnterEditingModeDelegateHandle = ViewModel->OnRenamedRequest().AddSP(InlineTextBlock.Get(), &SInlineEditableTextBlock::EnterEditingMode);
 	}
 	else if (ColumnID == LayersView::ColumnID_Visibility)
 	{

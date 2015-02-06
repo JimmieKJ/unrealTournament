@@ -30,7 +30,7 @@ bool UBlueprintThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 		// Try to find any visible primitive components in the native class' CDO
 		AActor* CDO = Blueprint->GeneratedClass->GetDefaultObject<AActor>();
 
-		TArray<UActorComponent*> Components;
+		TInlineComponentArray<UActorComponent*> Components;
 		CDO->GetComponents(Components);
 
 		for (auto CompIt = Components.CreateConstIterator(); CompIt; ++CompIt)

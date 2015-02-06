@@ -29,5 +29,5 @@ public:
 protected:
 	FSlateColor GetBorderBackgroundColor() const;
 
-	FString GetPreviewCornerText() const;
+	FText GetPreviewCornerText() const;
 };

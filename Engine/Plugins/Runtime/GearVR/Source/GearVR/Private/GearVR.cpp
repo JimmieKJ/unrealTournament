@@ -97,6 +97,7 @@ void FGearVR::PreInit()
 	if (++NumCalls == 2)
 	{
 		ovr_OnLoad(GJavaVM);
+		ovr_Init();
 	}
 }
 
@@ -577,6 +578,10 @@ bool FGearVR::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 			UTF8_TO_TCHAR(__DATE__), UTF8_TO_TCHAR(__TIME__));
 		return true;
 	}
+	else if (FParse::Command(&Cmd, TEXT("OVRGLOBALMENU")))
+	{
+		ovr_StartPackageActivity(OvrMobile, PUI_CLASS_NAME, PUI_GLOBAL_MENU);
+	}
 
 	return false;
 }
@@ -933,6 +938,7 @@ FGearVR::FGearVR()
 	, SavedScrPerc(100.f)
 	, bOverrideScreenPercentage(false)
 	, ScreenPercentage(100.f)
+	, IdealScreenPercentage(100.0f)
 	, bAllowFinishCurrentFrame(false)
 	, InterpupillaryDistance(OVR_DEFAULT_IPD)
 	, WorldToMetersScale(100.f)

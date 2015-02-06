@@ -46,13 +46,7 @@ static void FillInstanceRenderData(const FInstancedStaticMeshInstanceData& Insta
 	RenderData[2] = FVector4(Instance.Transform.M[0][1], Instance.Transform.M[1][1], Instance.Transform.M[2][1], Instance.Transform.M[3][1]);
 	RenderData[3] = FVector4(Instance.Transform.M[0][2], Instance.Transform.M[1][2], Instance.Transform.M[2][2], Instance.Transform.M[3][2]);
 
-	// Instance -> local rotation matrix (3x3)
-	// hide the offset (bias) of the lightmap and the per-instance random id in the matrix's w
-	const FMatrix Inverse = Instance.Transform;
-
-	RenderData[4] = FVector4(Inverse.M[0][0], Inverse.M[1][0], Inverse.M[2][0], Instance.LightmapUVBias.X);
-	RenderData[5] = FVector4(Inverse.M[0][1], Inverse.M[1][1], Inverse.M[2][1], Instance.LightmapUVBias.Y);
-	RenderData[6] = FVector4(Inverse.M[0][2], Inverse.M[1][2], Inverse.M[2][2], RandomInstanceID);
+	RenderData[4] = FVector4(Instance.LightmapUVBias.X, Instance.LightmapUVBias.Y, RandomInstanceID, 0);
 }
 
 /**
@@ -127,11 +121,8 @@ void FStaticMeshInstanceBuffer::Init(UInstancedStaticMeshComponent* InComponent,
 			RenderData[1] = FVector4(0, 0, 0, 0);
 			RenderData[2] = FVector4(0, 0, 0, 0);
 			RenderData[3] = FVector4(0, 0, 0, 0);
-			
-			// inverse is identity
-			RenderData[4] = FVector4(1, 0, 0, 0);
-			RenderData[5] = FVector4(0, 1, 0, 0);
-			RenderData[6] = FVector4(0, 0, 1, 0);
+		
+			RenderData[4] = FVector4(0, 0, 0, 0);
 		}
 	}
 }
@@ -307,9 +298,7 @@ void FInstancedStaticMeshVertexFactory::InitRHI()
 		Elements.Add(AccessStreamComponent(Data.InstancedTransformComponent[0],9));
 		Elements.Add(AccessStreamComponent(Data.InstancedTransformComponent[1],10));
 		Elements.Add(AccessStreamComponent(Data.InstancedTransformComponent[2],11));
-		Elements.Add(AccessStreamComponent(Data.InstancedInverseTransformComponent[0],12));
-		Elements.Add(AccessStreamComponent(Data.InstancedInverseTransformComponent[1],13));
-		Elements.Add(AccessStreamComponent(Data.InstancedInverseTransformComponent[2],14));
+		Elements.Add(AccessStreamComponent(Data.InstancedLightmapUVBiasComponent, 12));
 	}
 
 	// we don't need per-vertex shadow or lightmap rendering
@@ -465,17 +454,14 @@ void FInstancedStaticMeshRenderData::InitStaticMeshVertexFactories(
 				CurInstanceBufferOffset += sizeof(float) * 4;
 			}
 
-			for (int32 MatrixRow = 0; MatrixRow < 3; MatrixRow++)
-			{
-				Data.InstancedInverseTransformComponent[MatrixRow] = FVertexStreamComponent(
-					&InstancedRenderData->InstanceBuffer,
-					CurInstanceBufferOffset, 
-					InstancedRenderData->InstanceBuffer.GetStride(),
-					VET_Float4,
-					true
-					);
-				CurInstanceBufferOffset += sizeof(float) * 4;
-			}
+			Data.InstancedLightmapUVBiasComponent = FVertexStreamComponent(
+				&InstancedRenderData->InstanceBuffer,
+				CurInstanceBufferOffset, 
+				InstancedRenderData->InstanceBuffer.GetStride(),
+				VET_Float4,
+				true
+				);
+			CurInstanceBufferOffset += sizeof(float) * 4;
 		}
 
 		// Assign to the vertex factory for this LOD.
@@ -673,19 +659,20 @@ UInstancedStaticMeshComponent::UInstancedStaticMeshComponent(const FObjectInitia
 
 #if WITH_EDITOR
 /** Helper class used to preserve lighting/selection state across blueprint reinstancing */
-class FInstancedStaticMeshComponentInstanceData : public FComponentInstanceDataBase
+class FInstancedStaticMeshComponentInstanceData : public FSceneComponentInstanceData
 {
 public:
 	FInstancedStaticMeshComponentInstanceData(const UInstancedStaticMeshComponent& InComponent)
-		: FComponentInstanceDataBase(&InComponent)
+		: FSceneComponentInstanceData(&InComponent)
 		, StaticMesh(InComponent.StaticMesh)
 		, bHasCachedStaticLighting(false)
 	{
 	}
 
-	virtual bool MatchesComponent(const UActorComponent* Component) const override
+	virtual void ApplyToComponent(UActorComponent* Component) override
 	{
-		return (CastChecked<UStaticMeshComponent>(Component)->StaticMesh == StaticMesh && FComponentInstanceDataBase::MatchesComponent(Component));
+		FSceneComponentInstanceData::ApplyToComponent(Component);
+		CastChecked<UInstancedStaticMeshComponent>(Component)->ApplyComponentInstanceData(this);
 	}
 
 	/** Used to store lightmap data during RerunConstructionScripts */
@@ -724,36 +711,37 @@ FName UInstancedStaticMeshComponent::GetComponentInstanceDataType() const
 FComponentInstanceDataBase* UInstancedStaticMeshComponent::GetComponentInstanceData() const
 {
 #if WITH_EDITOR
-	FInstancedStaticMeshComponentInstanceData* InstanceData = nullptr;
+	FComponentInstanceDataBase* InstanceData = nullptr;
+	FInstancedStaticMeshComponentInstanceData* StaticMeshInstanceData = nullptr;
 
 	// Don't back up static lighting if there isn't any
 	if (bHasCachedStaticLighting || SelectedInstances.Num() > 0)
 	{
-		InstanceData = new FInstancedStaticMeshComponentInstanceData(*this);
+		InstanceData = StaticMeshInstanceData = new FInstancedStaticMeshComponentInstanceData(*this);	
 	}
 
 	// Don't back up static lighting if there isn't any
 	if (bHasCachedStaticLighting)
 	{
 		// Fill in info (copied from UStaticMeshComponent::GetComponentInstanceData)
-		InstanceData->bHasCachedStaticLighting = true;
-		InstanceData->CachedStaticLighting.Transform = ComponentToWorld;
-		InstanceData->CachedStaticLighting.IrrelevantLights = IrrelevantLights;
-		InstanceData->CachedStaticLighting.LODDataLightMap.Empty(LODData.Num());
+		StaticMeshInstanceData->bHasCachedStaticLighting = true;
+		StaticMeshInstanceData->CachedStaticLighting.Transform = ComponentToWorld;
+		StaticMeshInstanceData->CachedStaticLighting.IrrelevantLights = IrrelevantLights;
+		StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap.Empty(LODData.Num());
 		for (const FStaticMeshComponentLODInfo& LODDataEntry : LODData)
 		{
-			InstanceData->CachedStaticLighting.LODDataLightMap.Add(LODDataEntry.LightMap);
-			InstanceData->CachedStaticLighting.LODDataShadowMap.Add(LODDataEntry.ShadowMap);
+			StaticMeshInstanceData->CachedStaticLighting.LODDataLightMap.Add(LODDataEntry.LightMap);
+			StaticMeshInstanceData->CachedStaticLighting.LODDataShadowMap.Add(LODDataEntry.ShadowMap);
 		}
 
 		// Back up per-instance lightmap/shadowmap info
-		InstanceData->PerInstanceSMData = PerInstanceSMData;
+		StaticMeshInstanceData->PerInstanceSMData = PerInstanceSMData;
 	}
 
 	// Back up instance selection
 	if (SelectedInstances.Num() > 0)
 	{
-		InstanceData->SelectedInstances = SelectedInstances;
+		StaticMeshInstanceData->SelectedInstances = SelectedInstances;
 	}
 
 	return InstanceData;
@@ -762,12 +750,15 @@ FComponentInstanceDataBase* UInstancedStaticMeshComponent::GetComponentInstanceD
 #endif
 }
 
-void UInstancedStaticMeshComponent::ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData)
+void UInstancedStaticMeshComponent::ApplyComponentInstanceData(FInstancedStaticMeshComponentInstanceData* InstancedMeshData)
 {
 #if WITH_EDITOR
-	check(ComponentInstanceData);
+	check(InstancedMeshData);
 
-	FInstancedStaticMeshComponentInstanceData* InstancedMeshData  = static_cast<FInstancedStaticMeshComponentInstanceData*>(ComponentInstanceData);
+	if (StaticMesh != InstancedMeshData->StaticMesh)
+	{
+		return;
+	}
 
 	// See if data matches current state
 	if (InstancedMeshData->bHasCachedStaticLighting)
@@ -1591,7 +1582,7 @@ void FInstancedStaticMeshVertexFactoryShaderParameters::SetMesh( FRHICommandList
 			auto* InstanceStream = ((const FInstancingUserData::FInstanceStream*)InstancingData->RenderData->InstanceBuffer.GetRawData()) + BatchElement.UserIndex;
 			SetShaderValue(RHICmdList, VS, CPUInstanceShadowMapBias, InstanceStream->InstanceShadowmapUVBias);
 			SetShaderValueArray(RHICmdList, VS, CPUInstanceTransform, InstanceStream->InstanceTransform, 3);
-			SetShaderValueArray(RHICmdList, VS, CPUInstanceInverseTransform, InstanceStream->InstanceInverseTransform, 3);
+			SetShaderValue(RHICmdList, VS, CPUInstanceLightmapUVBias, InstanceStream->InstanceLightmapUVBias);
 		}
 	}
 }

@@ -27,7 +27,7 @@ struct FNavAgentProperties;
  *
  * @see https://docs.unrealengine.com/latest/INT/Gameplay/Framework/Pawn/
  */
-UCLASS(abstract, config=Game, BlueprintType, Blueprintable, hidecategories=(Navigation))
+UCLASS(config=Game, BlueprintType, Blueprintable, hideCategories=(Navigation), meta=(ShortTooltip="A Pawn is an actor that can be 'possessed' and receieve input from a controller."))
 class ENGINE_API APawn : public AActor, public INavAgentInterface
 {
 	GENERATED_BODY()
@@ -245,7 +245,7 @@ public:
 	virtual void UpdateNavigationRelevance() {}
 
 	// Begin INavAgentInterface Interface
-	virtual const FNavAgentProperties& GetNavAgentProperties() const override;
+	virtual const FNavAgentProperties& GetNavAgentPropertiesRef() const override;
 	/** Basically retrieved pawn's location on navmesh */
 	UFUNCTION(BlueprintCallable, Category="Pawn")
 	virtual FVector GetNavAgentLocation() const override { return GetActorLocation() - FVector(0.f, 0.f, BaseEyeHeight); }

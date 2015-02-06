@@ -87,13 +87,13 @@ void FScriptBlueprintCompiler::CreateClassVariablesFromBlueprint()
 
 void FScriptBlueprintCompiler::CreateScriptContextProperty()
 {
-	// The only case we don't need a script context is if the script class derives form UScriptComponent
+	// The only case we don't need a script context is if the script class derives form UScriptPluginComponent
 	UClass* ContextClass = nullptr;
 	if (Blueprint->ParentClass->IsChildOf(AActor::StaticClass()))
 	{
 		ContextClass = UScriptContextComponent::StaticClass();
 	}
-	else if (!Blueprint->ParentClass->IsChildOf(UScriptComponent::StaticClass()))
+	else if (!Blueprint->ParentClass->IsChildOf(UScriptPluginComponent::StaticClass()))
 	{
 		ContextClass = UScriptContext::StaticClass();
 	}
@@ -110,7 +110,7 @@ void FScriptBlueprintCompiler::CreateFunctionList()
 {
 	Super::CreateFunctionList();
 
-	if (!Blueprint->ParentClass->IsChildOf(UScriptComponent::StaticClass()))
+	if (!Blueprint->ParentClass->IsChildOf(UScriptPluginComponent::StaticClass()))
 	{
 		for (auto& Field : ScriptDefinedFields)
 		{
@@ -173,7 +173,7 @@ void FScriptBlueprintCompiler::FinishCompilingClass(UClass* Class)
 	ScriptClass->ByteCode = Blueprint->ByteCode;
 
 	// Allow Blueprint Components to be used in Blueprints
-	if (Blueprint->ParentClass->IsChildOf(UScriptComponent::StaticClass()) && Class != Blueprint->SkeletonGeneratedClass)
+	if (Blueprint->ParentClass->IsChildOf(UScriptPluginComponent::StaticClass()) && Class != Blueprint->SkeletonGeneratedClass)
 	{
 		Class->SetMetaData(TEXT("BlueprintSpawnableComponent"), TEXT("true"));
 	}

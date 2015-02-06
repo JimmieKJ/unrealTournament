@@ -22,6 +22,7 @@ class UBehaviorTreeGraph : public UEdGraph
 	void UpdateAsset(EDebuggerFlags DebuggerFlags, bool bBumpVersion = true);
 	void UpdateAbortHighlight(struct FAbortDrawHelper& Mode0, struct FAbortDrawHelper& Mode1);
 	void CreateBTFromGraph(class UBehaviorTreeGraphNode* RootEdNode);
+	void SpawnMissingNodes();
 	void RemoveOrphanedNodes();
 	void UpdatePinConnectionTypes();
 	void UpdateDeprecatedNodes();
@@ -33,6 +34,8 @@ class UBehaviorTreeGraph : public UEdGraph
 
 	void LockUpdates();
 	void UnlockUpdates();
+
+	void AutoArrange();
 
 protected:
 

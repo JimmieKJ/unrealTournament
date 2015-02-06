@@ -6,6 +6,8 @@
 #include "TemplateCategory.h"
 #include "SourceCodeNavigation.h"
 
+#include "MainFrame.h"
+
 IMPLEMENT_MODULE( FGameProjectGenerationModule, GameProjectGeneration );
 DEFINE_LOG_CATEGORY(LogGameProjectGeneration);
 
@@ -49,16 +51,20 @@ TSharedRef<class SWidget> FGameProjectGenerationModule::CreateGameProjectDialog(
 }
 
 
-TSharedRef<class SWidget> FGameProjectGenerationModule::CreateNewClassDialog(class UClass* InClass)
+TSharedRef<class SWidget> FGameProjectGenerationModule::CreateNewClassDialog(const UClass* InClass)
 {
 	return SNew(SNewClassDialog).Class(InClass);
 }
 
-
-void FGameProjectGenerationModule::OpenAddCodeToProjectDialog()
+void FGameProjectGenerationModule::OpenAddCodeToProjectDialog(const FAddToProjectConfig& Config)
 {
-	GameProjectUtils::OpenAddCodeToProjectDialog();
+	GameProjectUtils::OpenAddToProjectDialog(Config, EClassDomain::Native);
 	AddCodeToProjectDialogOpenedEvent.Broadcast();
+}
+
+void FGameProjectGenerationModule::OpenAddBlueprintToProjectDialog(const FAddToProjectConfig& Config)
+{
+	GameProjectUtils::OpenAddToProjectDialog(Config, EClassDomain::Blueprint);
 }
 
 void FGameProjectGenerationModule::TryMakeProjectFileWriteable(const FString& ProjectFile)
@@ -104,6 +110,16 @@ FString FGameProjectGenerationModule::DetermineModuleIncludePath(const FModuleCo
 TArray<FModuleContextInfo> FGameProjectGenerationModule::GetCurrentProjectModules()
 {
 	return GameProjectUtils::GetCurrentProjectModules();
+}
+
+bool FGameProjectGenerationModule::IsValidBaseClassForCreation(const UClass* InClass, const FModuleContextInfo& InModuleInfo)
+{
+	return GameProjectUtils::IsValidBaseClassForCreation(InClass, InModuleInfo);
+}
+
+bool FGameProjectGenerationModule::IsValidBaseClassForCreation(const UClass* InClass, const TArray<FModuleContextInfo>& InModuleInfoArray)
+{
+	return GameProjectUtils::IsValidBaseClassForCreation(InClass, InModuleInfoArray);
 }
 
 void FGameProjectGenerationModule::GetProjectSourceDirectoryInfo(int32& OutNumFiles, int64& OutDirectorySize)

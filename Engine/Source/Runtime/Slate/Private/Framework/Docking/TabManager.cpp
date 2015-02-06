@@ -920,7 +920,11 @@ TSharedRef<SDockTab> FTabManager::InvokeTab_Internal( const FTabId& TabId )
 
 		if ( ExistingTab.IsValid() )
 		{
-			DrawAttention( ExistingTab.ToSharedRef() );
+			if ( !ExistingTab->IsActive() )
+			{
+				// Draw attention to this tab if it didn't already have focus
+				DrawAttention( ExistingTab.ToSharedRef() );
+			}
 			return ExistingTab.ToSharedRef();
 		}
 	}
@@ -1561,18 +1565,23 @@ const TSharedRef<FGlobalTabmanager>& FGlobalTabmanager::Get()
 	return Instance;
 }
 
-void FGlobalTabmanager::OnActiveTabChanged_Subscribe( const FOnActiveTabChanged::FDelegate& InDelegate )
+FDelegateHandle FGlobalTabmanager::OnActiveTabChanged_Subscribe( const FOnActiveTabChanged::FDelegate& InDelegate )
 {
-	OnActiveTabChanged.Add( InDelegate );
+	return OnActiveTabChanged.Add( InDelegate );
 }
 
 
 
 void FGlobalTabmanager::OnActiveTabChanged_Unsubscribe( const FOnActiveTabChanged::FDelegate& InDelegate )
 {
-	OnActiveTabChanged.Remove( InDelegate );
+	OnActiveTabChanged.DEPRECATED_Remove( InDelegate );
 }
 
+
+void FGlobalTabmanager::OnActiveTabChanged_Unsubscribe( FDelegateHandle Handle )
+{
+	OnActiveTabChanged.Remove( Handle );
+}
 
 
 TSharedPtr<class SDockTab> FGlobalTabmanager::GetActiveTab() const

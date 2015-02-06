@@ -118,6 +118,8 @@ bool FOpenGLES2::bRequiresDontEmitPrecisionForTextureSamplers = false;
 /* Some android platforms require textureCubeLod to be used some require textureCubeLodEXT however they either inconsistently or don't use the GL_TextureCubeLodEXT extension definition */
 bool FOpenGLES2::bRequiresTextureCubeLodEXTToTextureCubeLodDefine = false;
 
+/* Some android platforms do not support the GL_OES_standard_derivatives extension */
+bool FOpenGLES2::bSupportsStandardDerivativesExtension = false;
 
 bool FOpenGLES2::SupportsDisjointTimeQueries()
 {
@@ -183,6 +185,11 @@ void FOpenGLES2::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsTextureStorageEXT = ExtensionsString.Contains(TEXT("GL_EXT_texture_storage"));
 	bSupportsCopyTextureLevels = bSupportsTextureStorageEXT && ExtensionsString.Contains(TEXT("GL_APPLE_copy_texture_levels"));
 	bSupportsTextureNPOT = ExtensionsString.Contains(TEXT("GL_OES_texture_npot")) || ExtensionsString.Contains(TEXT("GL_ARB_texture_non_power_of_two"));
+	bSupportsStandardDerivativesExtension = ExtensionsString.Contains(TEXT("GL_OES_standard_derivatives"));
+	if (!bSupportsStandardDerivativesExtension)
+	{
+		UE_LOG(LogRHI, Warning, TEXT("GL_OES_standard_derivatives not supported. There may be rendering errors if materials depend on dFdx, dFdy, or fwidth."));
+	}
 
 	// Report shader precision
 	int Range[2];

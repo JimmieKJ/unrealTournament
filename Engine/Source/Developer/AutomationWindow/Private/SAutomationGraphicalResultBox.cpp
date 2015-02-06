@@ -182,7 +182,7 @@ void SAutomationGraphicalResultBox::CreateWidgets()
 					+SVerticalBox::Slot()
 					[
 						SNew(STextBlock)
-						.Text(DeviceIt->InstanceName)
+						.Text(FText::FromString(DeviceIt->InstanceName))
 					]
 					+SVerticalBox::Slot()
 					[

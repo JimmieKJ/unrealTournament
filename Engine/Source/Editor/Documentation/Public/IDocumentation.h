@@ -131,6 +131,30 @@ private:
 	FParserConfiguration() {}
 };
 
+
+struct FDocumentationSourceInfo
+{
+public:
+	FString Source;
+	FString Medium;
+	FString Campaign;
+
+	FDocumentationSourceInfo() {};
+	FDocumentationSourceInfo(FString const& InCampaign) 
+		: Source(TEXT("editor")), Medium(TEXT("docs")), Campaign(InCampaign)
+	{};
+	FDocumentationSourceInfo(FString const& InSource, FString const& InMedium, FString const& InCampaign)
+		: Source(InSource), Medium(InMedium), Campaign(InCampaign)
+	{}
+
+	/** Returns true if there is NO valid source info in the struct, false otherwise. */
+	bool IsEmpty() const
+	{
+		return Campaign.IsEmpty() && Source.IsEmpty() && Medium.IsEmpty();
+	}
+};
+
+
 class IDocumentation
 {
 public:
@@ -148,15 +172,15 @@ public:
 
 public:
 
-	virtual bool OpenHome() const = 0;
+	virtual bool OpenHome(FDocumentationSourceInfo Source = FDocumentationSourceInfo()) const = 0;
 
-	virtual bool OpenHome(const FCultureRef& Culture) const = 0;
+	virtual bool OpenHome(const FCultureRef& Culture, FDocumentationSourceInfo Source = FDocumentationSourceInfo()) const = 0;
 
 	virtual bool OpenAPIHome() const = 0;
 
-	virtual bool Open( const FString& Link ) const = 0;
+	virtual bool Open(const FString& Link, FDocumentationSourceInfo Source = FDocumentationSourceInfo()) const = 0;
 
-	virtual bool Open(const FString& Link, const FCultureRef& Culture) const = 0;
+	virtual bool Open(const FString& Link, const FCultureRef& Culture, FDocumentationSourceInfo Source = FDocumentationSourceInfo()) const = 0;
 
 	virtual TSharedRef< class SWidget > CreateAnchor( const TAttribute<FString>& Link, const FString& PreviewLink = FString(), const FString& PreviewExcerptName = FString() ) const = 0;
 
@@ -167,4 +191,6 @@ public:
 	virtual bool PageExists(const FString& Link, const FCultureRef& Culture) const = 0;
 
 	virtual TSharedRef< class SToolTip > CreateToolTip( const TAttribute<FText>& Text, const TSharedPtr<SWidget>& OverrideContent, const FString& Link, const FString& ExcerptName ) const = 0;
+
+	virtual TSharedRef< class SToolTip > CreateToolTip(const TAttribute<FText>& Text, const TSharedRef<SWidget>& OverrideContent, const TSharedPtr<class SVerticalBox>& DocVerticalBox, const FString& Link, const FString& ExcerptName) const = 0;
 };

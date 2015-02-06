@@ -59,6 +59,13 @@ void SWizard::Construct( const FArguments& InArgs )
 
 		+ SVerticalBox::Slot()
 			.AutoHeight()
+			.Padding(0)
+			[
+				InArgs._PageFooter.Widget
+			]
+
+		+ SVerticalBox::Slot()
+			.AutoHeight()
 			.HAlign(HAlign_Right)
 			.Padding(0.0f, 10.0f, 0.0f, 0.0f)
 			[
@@ -195,7 +202,8 @@ void SWizard::Construct( const FArguments& InArgs )
 			];
 	}
 
-	WidgetSwitcher->SetActiveWidgetIndex(InArgs._InitialPageIndex.Get());
+	WidgetSwitcher->SetActiveWidgetIndex(INDEX_NONE);
+	ShowPage(InArgs._InitialPageIndex.Get());
 }
 
 

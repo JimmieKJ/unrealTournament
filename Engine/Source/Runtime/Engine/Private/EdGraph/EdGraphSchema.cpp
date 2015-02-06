@@ -489,10 +489,10 @@ FPinConnectionResponse UEdGraphSchema::CopyPinLinks(UEdGraphPin& CopyFromPin, UE
 	return FinalResponse;
 }
 
-FString UEdGraphSchema::GetPinDisplayName(const UEdGraphPin* Pin) const
+FText UEdGraphSchema::GetPinDisplayName(const UEdGraphPin* Pin) const
 {
 	check(Pin != NULL);
-	return !Pin->PinFriendlyName.IsEmpty() ? Pin->PinFriendlyName.ToString() : Pin->PinName;
+	return !Pin->PinFriendlyName.IsEmpty() ? Pin->PinFriendlyName : FText::FromString(Pin->PinName);
 }
 
 void UEdGraphSchema::ConstructBasicPinTooltip(UEdGraphPin const& Pin, FText const& PinDescription, FString& TooltipOut) const

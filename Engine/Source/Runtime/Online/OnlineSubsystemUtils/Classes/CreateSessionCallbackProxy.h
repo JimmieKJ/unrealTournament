@@ -41,6 +41,10 @@ private:
 	// The delegate executed by the online subsystem
 	FOnStartSessionCompleteDelegate StartCompleteDelegate;
 
+	// Handles to the registered delegates above
+	FDelegateHandle CreateCompleteDelegateHandle;
+	FDelegateHandle StartCompleteDelegateHandle;
+
 	// Number of public connections
 	int NumPublicConnections;
 

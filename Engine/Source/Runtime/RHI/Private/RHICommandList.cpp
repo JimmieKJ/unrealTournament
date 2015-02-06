@@ -81,6 +81,7 @@ struct FRHICommandStat : public FRHICommand<FRHICommandStat>
 	}
 };
 
+bool FRHICommandListImmediate::bFlushedGlobal = false;
 void FRHICommandListImmediate::SetCurrentStat(TStatId Stat)
 {
 	new (AllocCommand<FRHICommandStat>()) FRHICommandStat(Stat);

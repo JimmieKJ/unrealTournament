@@ -95,7 +95,7 @@ private:
 	FText GetExternalCurveName( ) const;
 
 	/** Get the current external curve path*/
-	FString GetExternalCurvePath( ) const;
+	FText GetExternalCurvePath( ) const;
 
 	/** Function to replace internal curve with an external curve*/
 	void SwitchToExternalCurve(UCurveBase* AssetCurvePtr);

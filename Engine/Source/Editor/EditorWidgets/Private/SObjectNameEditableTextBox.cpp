@@ -131,38 +131,38 @@ FText SObjectNameEditableTextBox::GetNameText() const
 	return FText::FromString(Result);
 }
 
-FString SObjectNameEditableTextBox::GetNameTooltipText() const
+FText SObjectNameEditableTextBox::GetNameTooltipText() const
 {
-	FString Result;
+	FText Result = FText::GetEmpty();
 
 	if (Objects.Num() == 0)
 	{
-		Result = LOCTEXT("EditableActorLabel_NoObjectsTooltip", "Nothing selected").ToString();
+		Result = LOCTEXT("EditableActorLabel_NoObjectsTooltip", "Nothing selected");
 	}
 	else if (Objects.Num() == 1 && Objects[0].IsValid())
 	{
 		if (CanEditNameText())
 		{
-			Result = FString::Printf(*LOCTEXT("EditableActorLabel_ActorTooltip", "Rename the selected %s").ToString(), *Objects[0].Get()->GetClass()->GetName());
+			Result = FText::Format(LOCTEXT("EditableActorLabel_ActorTooltipFmt", "Rename the selected {0}"), FText::FromString(Objects[0].Get()->GetClass()->GetName()));
 		}
 		else if (Objects[0].Get()->IsA(AActor::StaticClass()))
 		{
-			Result = LOCTEXT("EditableActorLabel_NoEditActorTooltip", "Can't rename selected actor (its label isn't editable)").ToString();
+			Result = LOCTEXT("EditableActorLabel_NoEditActorTooltip", "Can't rename selected actor (its label isn't editable)");
 		}
 		else
 		{
-			Result = LOCTEXT("EditableActorLabel_NoEditObjectTooltip", "Can't rename selected object (only actors can have editable labels)").ToString();
+			Result = LOCTEXT("EditableActorLabel_NoEditObjectTooltip", "Can't rename selected object (only actors can have editable labels)");
 		}
 	}
 	else if (Objects.Num() > 1)
 	{
 		if (CanEditNameText())
 		{
-			Result = LOCTEXT("EditableActorLabel_MultiActorTooltip", "Rename multiple selected actors at once").ToString();
+			Result = LOCTEXT("EditableActorLabel_MultiActorTooltip", "Rename multiple selected actors at once");
 		}
 		else
 		{
-			Result = LOCTEXT("EditableActorLabel_NoEditMultiObjectTooltip", "Can't rename selected objects (one or more aren't actors with editable labels)").ToString();
+			Result = LOCTEXT("EditableActorLabel_NoEditMultiObjectTooltip", "Can't rename selected objects (one or more aren't actors with editable labels)");
 		}
 	}
 

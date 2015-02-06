@@ -347,6 +347,31 @@ public:
 		}
 		return true;
 	}
+
+	/**
+	 * Merges another cache file into this one.
+	 * @return true on success
+	 */
+	void MergeCache(FPakFileDerivedDataBackend* OtherPak)
+	{
+		// Get all the existing keys
+		TArray<FString> KeyNames;
+		OtherPak->CacheItems.GenerateKeyArray(KeyNames);
+		UE_LOG(LogDerivedDataCache, Display, TEXT("Found %d entries."), KeyNames.Num());
+
+		// Copy them all to the new cache
+		TArray<uint8> Buffer;
+		for(int32 Idx = 0; Idx < KeyNames.Num(); Idx++)
+		{
+			Buffer.Reset();
+
+			UE_LOG(LogDerivedDataCache, Display, TEXT("[%d/%d] Reading %s..."), Idx + 1, KeyNames.Num(), *KeyNames[Idx]);
+			OtherPak->GetCachedData(*KeyNames[Idx], Buffer);
+
+			UE_LOG(LogDerivedDataCache, Display, TEXT("[%d/%d] Writing %d bytes..."), Idx + 1, KeyNames.Num(), Buffer.Num());
+			PutCachedData(*KeyNames[Idx], Buffer, false);
+		}
+	}
 	
 	const FString& GetFilename() const
 	{

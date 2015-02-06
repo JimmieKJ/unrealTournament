@@ -877,7 +877,7 @@ void FModuleManager::UnloadOrAbandonModuleWithCallback( const FName InModuleName
 	}
 	else
 	{
-		Ar.Logf( TEXT( "Modile being reloaded does not support dynamic unloading -- abandoning existing loaded module so that we can load the recompiled version!" ) );
+		Ar.Logf( TEXT( "Module being reloaded does not support dynamic unloading -- abandoning existing loaded module so that we can load the recompiled version!" ) );
 		AbandonModule( InModuleName );
 	}
 }

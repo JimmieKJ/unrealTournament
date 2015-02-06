@@ -433,7 +433,7 @@ void UPathFollowingComponent::SetMovementComponent(UNavMovementComponent* MoveCo
 
 	if (MoveComp != NULL)
 	{
-		const FNavAgentProperties& NavAgentProps = MoveComp->GetNavAgentProperties();
+		const FNavAgentProperties& NavAgentProps = MoveComp->GetNavAgentPropertiesRef();
 		MyDefaultAcceptanceRadius = NavAgentProps.AgentRadius;
 		MoveComp->PathFollowingComp = this;
 
@@ -612,6 +612,13 @@ int32 UPathFollowingComponent::OptimizeSegmentVisibility(int32 StartIndex)
 	const ANavigationData* NavData = Path.IsValid() ? Path->GetNavigationDataUsed() : NULL;
 	if (NavData == NULL || MyAI == NULL)
 	{
+		return StartIndex + 1;
+	}
+
+	const bool bIsDirect = (Path->CastPath<FAbstractNavigationPath>() != NULL);
+	if (bIsDirect)
+	{
+		// can't optimize anything without real corridor
 		return StartIndex + 1;
 	}
 
@@ -881,10 +888,16 @@ bool UPathFollowingComponent::HasReachedCurrentTarget(const FVector& CurrentLoca
 	}
 
 	// or standing at target position
-	// don't use acceptance radius here, it has to be exact for moving near corners
+	// don't use acceptance radius here, it has to be exact for moving near corners (2D test < 5% of agent radius)
 	const float GoalRadius = 0.0f;
 	const float GoalHalfHeight = 0.0f;
-	return HasReachedInternal(CurrentTarget, GoalRadius, GoalHalfHeight, CurrentLocation, CurrentAcceptanceRadius, /*bSuccessOnRadiusOverlap=*/false);
+	const float OrgAgentRadiusPct = MinAgentRadiusPct;
+	((UPathFollowingComponent*)this)->MinAgentRadiusPct = 0.05f;
+
+	const bool bReached = HasReachedInternal(CurrentTarget, GoalRadius, GoalHalfHeight, CurrentLocation, CurrentAcceptanceRadius, /*bSuccessOnRadiusOverlap=*/true);
+
+	((UPathFollowingComponent*)this)->MinAgentRadiusPct = OrgAgentRadiusPct;
+	return bReached;
 }
 
 bool UPathFollowingComponent::HasReachedInternal(const FVector& Goal, float GoalRadius, float GoalHalfHeight, const FVector& AgentLocation, float RadiusThreshold, bool bSuccessOnRadiusOverlap) const
@@ -932,8 +945,8 @@ void UPathFollowingComponent::DebugReachTest(float& CurrentDot, float& CurrentDi
 
 	float GoalRadius = 0.0f;
 	float GoalHalfHeight = 0.0f;
-	bool bUseAgentRadius = false;
 	float RadiusThreshold = 0.0f;
+	float AgentRadiusPct = 0.05f;
 
 	FVector AgentLocation = MovementComp->GetActorFeetLocation();
 	FVector GoalLocation = GetCurrentTargetLocation();
@@ -942,7 +955,7 @@ void UPathFollowingComponent::DebugReachTest(float& CurrentDot, float& CurrentDi
 	if (bFollowingLastSegment)
 	{
 		GoalLocation = Path->GetPathPoints()[Path->GetPathPoints().Num() - 1].Location;
-		bUseAgentRadius = bStopOnOverlap;
+		AgentRadiusPct = MinAgentRadiusPct;
 
 		// take goal's current location, unless path is partial
 		if (DestinationActor.IsValid() && !Path->IsPartial())
@@ -972,7 +985,7 @@ void UPathFollowingComponent::DebugReachTest(float& CurrentDot, float& CurrentDi
 	MovingAgent->GetSimpleCollisionCylinder(AgentRadius, AgentHalfHeight);
 
 	CurrentDistance = ToGoal.Size2D();
-	const float UseRadius = FMath::Max(RadiusThreshold, GoalRadius + (bUseAgentRadius ? AgentRadius * MinAgentRadiusPct : 0.0f));
+	const float UseRadius = FMath::Max(RadiusThreshold, GoalRadius + (AgentRadius * AgentRadiusPct));
 	bDistanceFailed = (CurrentDistance > UseRadius) ? 1 : 0;
 
 	CurrentHeight = FMath::Abs(ToGoal.Z);

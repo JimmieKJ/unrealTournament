@@ -3,6 +3,7 @@
 #include "MovieSceneCoreTypesPCH.h"
 #include "MovieSceneColorTrackInstance.h"
 #include "MovieSceneCommonHelpers.h"
+#include "SlateCore.h"
 
 
 FMovieSceneColorTrackInstance::FMovieSceneColorTrackInstance( UMovieSceneColorTrack& InColorTrack )

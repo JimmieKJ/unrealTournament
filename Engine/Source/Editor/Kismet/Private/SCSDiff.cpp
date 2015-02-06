@@ -5,6 +5,7 @@
 #include "SKismetInspector.h"
 #include "SSCSEditor.h"
 #include "BlueprintEditorUtils.h"
+#include "IDetailsView.h"
 
 #include <vector>
 
@@ -16,7 +17,7 @@ FSCSDiff::FSCSDiff(const UBlueprint* InBlueprint)
 		return;
 	}
 
-	TSharedRef<SKismetInspector> Inspector = SNew(SKismetInspector)
+	Inspector = SNew(SKismetInspector)
 		.HideNameArea(true)
 		.ViewIdentifier(FName("BlueprintInspector"))
 		.IsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateStatic([] { return false; }));
@@ -25,11 +26,16 @@ FSCSDiff::FSCSDiff(const UBlueprint* InBlueprint)
 		.Orientation(Orient_Vertical)
 		+ SSplitter::Slot()
 		[
-			SAssignNew(SCSEditor, SSCSEditor, TSharedPtr<FBlueprintEditor>(), InBlueprint->SimpleConstructionScript, const_cast<UBlueprint*>(InBlueprint), Inspector)
+			SAssignNew(SCSEditor, SSCSEditor)
+				.ActorContext(InBlueprint->GeneratedClass->GetDefaultObject<AActor>())
+				.AllowEditing(false)
+				.HideComponentClassCombo(true)
+				.OnSelectionUpdated(SSCSEditor::FOnSelectionUpdated::CreateRaw(this, &FSCSDiff::OnSCSEditorUpdateSelectionFromNodes))
+				.OnHighlightPropertyInDetailsView(SSCSEditor::FOnHighlightPropertyInDetailsView::CreateRaw(this, &FSCSDiff::OnSCSEditorHighlightPropertyInDetailsView))
 		]
 		+ SSplitter::Slot()
 		[
-			Inspector
+			Inspector.ToSharedRef()
 		];
 }
 
@@ -67,14 +73,44 @@ TArray< FSCSResolvedIdentifier > FSCSDiff::GetDisplayedHierarchy() const
 
 	if( SCSEditor.IsValid() )
 	{
-		for (int32 Iter = 0; Iter != SCSEditor->RootNodes.Num(); ++Iter)
+		const TArray<FSCSEditorTreeNodePtrType>& RootNodes = SCSEditor->GetRootComponentNodes();
+		for (int32 Iter = 0; Iter != RootNodes.Num(); ++Iter)
 		{
 			TArray< int32 > TreeAddress;
 			TreeAddress.Push(Iter);
-			GetDisplayedHierarchyRecursive(TreeAddress, *SCSEditor->RootNodes[Iter], Ret);
+			GetDisplayedHierarchyRecursive(TreeAddress, *RootNodes[Iter], Ret);
 		}
 	}
 
 	return Ret;
 }
 
+void FSCSDiff::OnSCSEditorUpdateSelectionFromNodes(const TArray<FSCSEditorTreeNodePtrType>& SelectedNodes)
+{
+	FText InspectorTitle = FText::GetEmpty();
+	TArray<UObject*> InspectorObjects;
+	InspectorObjects.Empty(SelectedNodes.Num());
+	for (auto NodeIt = SelectedNodes.CreateConstIterator(); NodeIt; ++NodeIt)
+	{
+		auto NodePtr = *NodeIt;
+		if(NodePtr.IsValid() && NodePtr->CanEditDefaults())
+		{
+			InspectorTitle = FText::FromString(NodePtr->GetDisplayString());
+			InspectorObjects.Add(NodePtr->GetComponentTemplate());
+		}
+	}
+
+	if( Inspector.IsValid() )
+	{
+		SKismetInspector::FShowDetailsOptions Options(InspectorTitle, true);
+		Inspector->ShowDetailsForObjects(InspectorObjects, Options);
+	}
+}
+
+void FSCSDiff::OnSCSEditorHighlightPropertyInDetailsView(const FPropertyPath& InPropertyPath)
+{
+	if( Inspector.IsValid() )
+	{
+		Inspector->GetPropertyView()->HighlightProperty(InPropertyPath);
+	}
+}

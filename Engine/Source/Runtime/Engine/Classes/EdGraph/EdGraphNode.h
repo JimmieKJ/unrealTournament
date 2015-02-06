@@ -190,10 +190,10 @@ public:
 	virtual bool AllowSplitPins() const { return false; }
 
 	/** Gets the overridden name for the specified pin, if any */
-	virtual FString GetPinNameOverride(const UEdGraphPin& Pin) const { return FString(TEXT("")); }
+	virtual FText GetPinNameOverride(const UEdGraphPin& Pin) const { return FText::GetEmpty(); }
 
 	/** Gets the display name for a pin */
-	virtual FString GetPinDisplayName(const UEdGraphPin* Pin) const;
+	virtual FText GetPinDisplayName(const UEdGraphPin* Pin) const;
 
 	/**
 	 * Fetch the hover text for a pin when the graph is being edited.
@@ -403,6 +403,9 @@ public:
 
 	// called when this node is being renamed after a successful name validation
 	virtual void OnRenameNode(const FString& NewName) {}
+
+	// called to replace this nodes comment text
+	virtual void OnUpdateCommentText( const FString& NewComment );
 
 	/** Return whether to draw this node as a comment node */
 	virtual bool ShouldDrawNodeAsComment() const { return false; }

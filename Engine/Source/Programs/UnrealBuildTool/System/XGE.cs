@@ -478,7 +478,7 @@ namespace UnrealBuildTool
 		 */
 		public static ExecutionResult ExecuteTaskFileWithProgressMarkup(string TaskFilePath, int NumActions, DataReceivedEventHandler OutputEventHandler)
 		{
-			using (ProgressWriter Writer = new ProgressWriter("Compiling source files...", false))
+			using (ProgressWriter Writer = new ProgressWriter("Compiling C++ source files...", false))
 			{
 				int NumCompletedActions = 0;
 

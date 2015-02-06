@@ -104,7 +104,7 @@ public:
 
 	TSharedRef<class SWidget> OnGetDebuggerActorsMenu();
 	void OnDebuggerActorSelected(TWeakObjectPtr<UBehaviorTreeComponent> InstanceToDebug);
-	FString GetDebuggerActorDesc() const;
+	FText GetDebuggerActorDesc() const;
 	FGraphAppearanceInfo GetGraphAppearance() const;
 	bool InEditingMode(bool bGraphIsEditable) const;
 
@@ -322,6 +322,12 @@ private:
 
 	/** Whether the current selection is inherited, stored here so it can be accessed by our details customization */
 	bool bIsCurrentBlackboardEntryInherited;
+
+	/** Handle to the registered OnPackageSave delegate */
+	FDelegateHandle OnPackageSavedDelegateHandle;
+
+	/** Handle to the registered OnClassListUpdated delegate */
+	FDelegateHandle OnClassListUpdatedDelegateHandle;
 
 public:
 	/** Modes in mode switcher */

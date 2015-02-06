@@ -43,6 +43,12 @@ protected:
 	UPROPERTY()
 	uint32 bSelfContext_DEPRECATED:1;
 
+	/**
+	 * Remap a reference from one variable to another, if this variable is of class type 'MatchInVariableClass', and if linked to anything that is a child of 'RemapIfLinkedToClass'.
+	 * Only intended for versioned fixup where redirects can't be applied.
+	 */
+	bool RemapRestrictedLinkReference(FName OldVariableName, FName NewVariableName, const UClass* MatchInVariableClass, const UClass* RemapIfLinkedToClass, bool bLogWarning);
+
 public:
 	// Begin UObject interface
 	virtual void Serialize(FArchive& Ar) override;

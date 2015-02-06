@@ -553,5 +553,5 @@ TSharedRef< ITableRow > SReferenceTree::OnGenerateRowForReferenceTree( FReferenc
 	return
 		SNew( SReferenceTreeRow, OwnerTable )
 		.Item( Item )
-		.ToolTipText( Item->Object->GetFullName() );
+		.ToolTipText( FText::FromString(Item->Object->GetFullName()) );
 }

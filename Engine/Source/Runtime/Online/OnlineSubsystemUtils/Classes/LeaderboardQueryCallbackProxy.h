@@ -43,6 +43,9 @@ private:
 	/** Delegate called when a leaderboard has been successfully read */
 	FOnLeaderboardReadCompleteDelegate LeaderboardReadCompleteDelegate;
 
+	/** LeaderboardReadComplete delegate handle */
+	FDelegateHandle LeaderboardReadCompleteDelegateHandle;
+
 	/** The leaderboard read request */
 	TSharedPtr<class FOnlineLeaderboardRead, ESPMode::ThreadSafe> ReadObject;
 
@@ -58,4 +61,6 @@ private:
 	// Did the read succeed?
 	bool bSavedWasSuccessful;
 	int32 SavedValue;
+
+	FTimerHandle OnStatsRead_DelayedTimerHandle;
 };

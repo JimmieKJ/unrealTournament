@@ -21,7 +21,7 @@ protected:
 	TSharedPtr<IPropertyHandle> ModeProp;
 	bool bIsRotation;
 
-	FString GetShortDescription() const;
+	FText GetShortDescription() const;
 	EVisibility GetTwoPointsVisibility() const;
 	EVisibility GetRotationVisibility() const;
 	void OnModeChanged();

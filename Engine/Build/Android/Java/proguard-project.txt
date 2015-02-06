@@ -19,7 +19,7 @@
 -keep class * extends android.media.MediaPlayer {
    public *;
 }
--keep public class com.epicgames.ue4.MessageBox01 {
+-keep class com.epicgames.ue4.MessageBox01 {
    public *;
 }
 

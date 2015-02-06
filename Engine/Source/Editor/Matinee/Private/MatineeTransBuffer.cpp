@@ -7,10 +7,6 @@
 /*-----------------------------------------------------------------------------
 	UMatineeTransBuffer / FMatineeTransaction
 -----------------------------------------------------------------------------*/
-UMatineeTransBuffer::UMatineeTransBuffer(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
 
 void UMatineeTransBuffer::BeginSpecial(const FText& Description)
 {

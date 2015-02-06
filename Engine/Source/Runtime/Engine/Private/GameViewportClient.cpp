@@ -2195,6 +2195,11 @@ bool UGameViewportClient::HandleShowCommand( const TCHAR* Cmd, FOutputDevice& Ar
 	return true;
 }
 
+TOptional<EPopupMethod> UGameViewportClient::OnQueryPopupMethod() const
+{
+	return EPopupMethod::UseCurrentWindow;
+}
+
 void UGameViewportClient::ToggleShowCollision()
 {
 	// special case: for the Engine.Collision flag, we need to un-hide any primitive components that collide so their collision geometry gets rendered
@@ -2203,13 +2208,13 @@ void UGameViewportClient::ToggleShowCollision()
 	if (bIsShowingCollision)
 	{
 		NumViewportsShowingCollision++;
-		GetWorld()->AddOnActorSpawnedHandler(FOnActorSpawned::FDelegate::CreateUObject(this, &UGameViewportClient::ShowCollisionOnSpawnedActors));
+		ShowCollisionOnSpawnedActorsDelegateHandle = GetWorld()->AddOnActorSpawnedHandler(FOnActorSpawned::FDelegate::CreateUObject(this, &UGameViewportClient::ShowCollisionOnSpawnedActors));
 	}
 	else
 	{
 		NumViewportsShowingCollision--;
 		check(NumViewportsShowingCollision >= 0);
-		GetWorld()->RemoveOnActorSpawnedHandler(FOnActorSpawned::FDelegate::CreateUObject(this, &UGameViewportClient::ShowCollisionOnSpawnedActors));
+		GetWorld()->RemoveOnActorSpawnedHandler(ShowCollisionOnSpawnedActorsDelegateHandle);
 	}
 
 	CollisionComponentVisibilityMap& Mapping = GetCollisionComponentVisibilityMap();
@@ -2274,7 +2279,7 @@ void UGameViewportClient::ShowCollisionOnSpawnedActors(AActor* Actor)
 {
 	CollisionComponentVisibilityMap& Mapping = GetCollisionComponentVisibilityMap();
 
-	TArray<UPrimitiveComponent*> Components;
+	TInlineComponentArray<UPrimitiveComponent*> Components;
 	check(Actor != nullptr);
 	Actor->GetComponents(Components);
 

@@ -156,7 +156,7 @@ const FSlateBrush* SAboutScreen::GetFacebookButtonBrush() const
 
 FReply SAboutScreen::OnUE4ButtonClicked()
 {
-	IDocumentation::Get()->OpenHome();
+	IDocumentation::Get()->OpenHome(FDocumentationSourceInfo(TEXT("logo_docs")));
 	return FReply::Handled();
 }
 

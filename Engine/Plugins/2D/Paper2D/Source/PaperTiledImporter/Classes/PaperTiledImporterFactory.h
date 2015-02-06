@@ -13,7 +13,8 @@ namespace ETiledOrientation
 		Unknown,
 		Orthogonal,
 		Isometric,
-		Staggered
+		Staggered,
+		Hexagonal
 	};
 }
 
@@ -33,6 +34,7 @@ class UPaperTiledImporterFactory : public UFactory, public FReimportHandler
 	virtual bool CanReimport(UObject* Obj, TArray<FString>& OutFilenames) override;
 	virtual void SetReimportPaths(UObject* Obj, const TArray<FString>& NewReimportPaths) override;
 	virtual EReimportResult::Type Reimport(UObject* Obj) override;
+	virtual int32 GetPriority() const override;
 	// End of FReimportHandler interface
 
 protected:
@@ -115,6 +117,8 @@ struct FTileMapFromTiled
 	int32 TileHeight;
 
 	ETiledOrientation::Type Orientation;
+
+	int32 HexSideLength;
 
 	TArray<FTileSetFromTiled> TileSets;
 	TArray<UPaperTileSet*> CreatedTileSetAssets;

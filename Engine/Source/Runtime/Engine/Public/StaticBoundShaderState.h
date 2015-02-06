@@ -4,8 +4,7 @@
 	StaticBoundShaderState.h: Static bound shader state definitions.
 =============================================================================*/
 
-#ifndef __STATICBOUNDSHADERSTATE_H__
-#define __STATICBOUNDSHADERSTATE_H__
+#pragma once
 
 #include "RenderResource.h"
 #include "Shader.h"
@@ -113,5 +112,3 @@ ENGINE_API void SetGlobalBoundShaderState(
 	FShader* PixelShader,
 	FShader* GeometryShader = nullptr
 	);
-
-#endif

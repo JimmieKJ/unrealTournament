@@ -9,7 +9,6 @@ public class LevelEditor : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"AssetTools",
-				"Kismet",
 				"MainFrame",
                 "PlacementMode",
 				"ReferenceViewer",
@@ -41,6 +40,7 @@ public class LevelEditor : ModuleRules
 				"MessageLog",
 				"NewsFeed",
                 "SourceControl",
+                "SourceControlWindows",
                 "StatsViewer",
 				"UnrealEd", 
 				"RenderCore",
@@ -54,7 +54,8 @@ public class LevelEditor : ModuleRules
 				"EngineSettings",
 				"PropertyEditor",
 				"WebBrowser",
-                "Persona"
+                "Persona",
+                "Kismet",
 			}
 		);
 

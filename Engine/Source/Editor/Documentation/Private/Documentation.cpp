@@ -27,14 +27,14 @@ FDocumentation::~FDocumentation()
 
 }
 
-bool FDocumentation::OpenHome() const
+bool FDocumentation::OpenHome(FDocumentationSourceInfo Source) const
 {
-	return Open( TEXT("%ROOT%") );
+	return Open( TEXT("%ROOT%"), Source );
 }
 
-bool FDocumentation::OpenHome(const FCultureRef& Culture) const
+bool FDocumentation::OpenHome(const FCultureRef& Culture, FDocumentationSourceInfo Source) const
 {
-	return Open(TEXT("%ROOT%"), Culture);
+	return Open(TEXT("%ROOT%"), Culture, Source);
 }
 
 bool FDocumentation::OpenAPIHome() const
@@ -53,7 +53,7 @@ bool FDocumentation::OpenAPIHome() const
 	}
 }
 
-bool FDocumentation::Open( const FString& Link ) const
+bool FDocumentation::Open(const FString& Link, FDocumentationSourceInfo Source) const
 {
 	FString DocumentationUrl;
 
@@ -83,17 +83,16 @@ bool FDocumentation::Open( const FString& Link ) const
 		FString OnDiskPath = FDocumentationLink::ToFilePath(Link);
 		if (IFileManager::Get().FileSize(*OnDiskPath) != INDEX_NONE)
 		{
-			DocumentationUrl = FDocumentationLink::ToFileUrl(Link);
+			DocumentationUrl = FDocumentationLink::ToFileUrl(Link, Source);
 		}
 	}
 
-	
 	
 	if (DocumentationUrl.IsEmpty())
 	{
 		// When opening a doc website we always request the most ideal culture for our documentation.
 		// The DNS will redirect us if necessary.
-		DocumentationUrl = FDocumentationLink::ToUrl(Link);
+		DocumentationUrl = FDocumentationLink::ToUrl(Link, Source);
 	}
 
 	if (!DocumentationUrl.IsEmpty())
@@ -109,7 +108,7 @@ bool FDocumentation::Open( const FString& Link ) const
 	return !DocumentationUrl.IsEmpty();
 }
 
-bool FDocumentation::Open(const FString& Link, const FCultureRef& Culture) const
+bool FDocumentation::Open(const FString& Link, const FCultureRef& Culture, FDocumentationSourceInfo Source) const
 {
 	FString DocumentationUrl;
 
@@ -118,13 +117,13 @@ bool FDocumentation::Open(const FString& Link, const FCultureRef& Culture) const
 		FString OnDiskPath = FDocumentationLink::ToFilePath(Link, Culture);
 		if (IFileManager::Get().FileSize(*OnDiskPath) != INDEX_NONE)
 		{
-			DocumentationUrl = FDocumentationLink::ToFileUrl(Link, Culture);
+			DocumentationUrl = FDocumentationLink::ToFileUrl(Link, Culture, Source);
 		}
 	}
 
 	if (DocumentationUrl.IsEmpty())
 	{
-		DocumentationUrl = FDocumentationLink::ToUrl(Link, Culture);
+		DocumentationUrl = FDocumentationLink::ToUrl(Link, Culture, Source);
 	}
 
 	if (!DocumentationUrl.IsEmpty())
@@ -195,7 +194,7 @@ bool FDocumentation::PageExists(const FString& Link, const FCultureRef& Culture)
 	return FPaths::FileExists(SourcePath);
 }
 
-TSharedRef< class SToolTip > FDocumentation::CreateToolTip( const TAttribute<FText>& Text, const TSharedPtr<SWidget>& OverrideContent, const FString& Link, const FString& ExcerptName ) const
+TSharedRef< class SToolTip > FDocumentation::CreateToolTip(const TAttribute<FText>& Text, const TSharedPtr<SWidget>& OverrideContent, const FString& Link, const FString& ExcerptName) const
 {
 	TSharedPtr< SDocumentationToolTip > DocToolTip;
 
@@ -223,8 +222,43 @@ TSharedRef< class SToolTip > FDocumentation::CreateToolTip( const TAttribute<FTe
 	
 	return SNew( SToolTip )
 		.IsInteractive( DocToolTip.ToSharedRef(), &SDocumentationToolTip::IsInteractive )
+
+		// Emulate text-only tool-tip styling that SToolTip uses when no custom content is supplied.  We want documentation tool-tips to 
+		// be styled just like text-only tool-tips
+		.BorderImage( FCoreStyle::Get().GetBrush("ToolTip.BrightBackground") )
+		.TextMargin(FMargin(11.0f))
 		[
 			DocToolTip.ToSharedRef()
+		];
+}
+
+TSharedRef< class SToolTip > FDocumentation::CreateToolTip(const TAttribute<FText>& Text, const TSharedRef<SWidget>& OverrideContent, const TSharedPtr<SVerticalBox>& DocVerticalBox, const FString& Link, const FString& ExcerptName) const
+{
+	TSharedRef<SDocumentationToolTip> DocToolTip =
+		SNew(SDocumentationToolTip)
+		.Text(Text)
+		.DocumentationLink(Link)
+		.ExcerptName(ExcerptName)
+		.AddDocumentation(false)
+		.DocumentationMargin(7)
+		[
+			OverrideContent
+		];
+
+	if (DocVerticalBox.IsValid())
+	{
+		DocToolTip->AddDocumentation(DocVerticalBox);
+	}
+
+	return SNew(SToolTip)
+		.IsInteractive(DocToolTip, &SDocumentationToolTip::IsInteractive)
+
+		// Emulate text-only tool-tip styling that SToolTip uses when no custom content is supplied.  We want documentation tool-tips to 
+		// be styled just like text-only tool-tips
+		.BorderImage( FCoreStyle::Get().GetBrush("ToolTip.BrightBackground") )
+		.TextMargin(FMargin(11.0f))
+		[
+			DocToolTip
 		];
 }
 

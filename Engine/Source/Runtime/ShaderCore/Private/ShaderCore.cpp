@@ -56,7 +56,7 @@ public:
 			HashState.GetHash(&GGlobalShaderMapHash.Hash[0]);
 		}
 
-		IConsoleManager::Get().RegisterConsoleVariableSink(FConsoleCommandDelegate::CreateStatic(&UpdateShaderDevelopmentMode));
+		IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateStatic(&UpdateShaderDevelopmentMode));
 	}
 };
 

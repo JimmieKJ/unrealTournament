@@ -174,7 +174,7 @@ void SSkeletonCompareWidget::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Fill)
 				[
 					SNew(STextBlock)
-					.Text(Object->GetFullName())
+					.Text(FText::FromString(Object->GetFullName()))
 				]
 			]
 

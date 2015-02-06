@@ -2003,8 +2003,8 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				MeshOuter->FullyLoad();
 				MeshOuter->Modify();
 			}
-					
-			UStaticMesh* StaticMesh = new(MeshOuter, *LandscapeMeshAssetName, RF_Public|RF_Standalone) UStaticMesh(FObjectInitializer());
+
+			auto StaticMesh = NewNamedObject<UStaticMesh>(MeshOuter, *LandscapeMeshAssetName, RF_Public | RF_Standalone);
 			StaticMesh->InitResources();
 			{
 				FString OutputPath = StaticMesh->GetPathName();

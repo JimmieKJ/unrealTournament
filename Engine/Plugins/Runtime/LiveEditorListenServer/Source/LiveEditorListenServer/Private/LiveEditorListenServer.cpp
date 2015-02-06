@@ -76,9 +76,9 @@ namespace nLiveEditorListenServer
 					//FString ComponentName = ComponentPropertyName.LeftChop(SplitIndex);
 					ComponentPropertyName = ComponentPropertyName.RightChop(SplitIndex+1);
 
-					TArray<UActorComponent*> ActorComponents;
+					TInlineComponentArray<UActorComponent*> ActorComponents;
 					AsActor->GetComponents(ActorComponents);
-					for ( TArray<UActorComponent*>::TIterator ComponentIt(ActorComponents); ComponentIt && !Prop; ++ComponentIt )
+					for ( auto ComponentIt = ActorComponents.CreateIterator(); ComponentIt && !Prop; ++ComponentIt )
 					{
 						UActorComponent *Component = *ComponentIt;
 						check( Component != NULL );

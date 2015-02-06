@@ -113,7 +113,7 @@ protected:
 							[
 								MakeMapMenu(PropertyHandle)
 							]
-							.ToolTipText(LOCTEXT("AvailableMapsButtonTooltip", "Pick from the list of available maps").ToString())
+							.ToolTipText(LOCTEXT("AvailableMapsButtonTooltip", "Pick from the list of available maps"))
 					]
 			];
 	}

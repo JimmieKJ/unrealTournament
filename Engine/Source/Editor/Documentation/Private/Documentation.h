@@ -13,15 +13,15 @@ public:
 
 	virtual ~FDocumentation();
 
-	virtual bool OpenHome() const override;
+	virtual bool OpenHome(FDocumentationSourceInfo Source = FDocumentationSourceInfo()) const override;
 
-	virtual bool OpenHome(const FCultureRef& Culture) const override;
+	virtual bool OpenHome(const FCultureRef& Culture, FDocumentationSourceInfo Source = FDocumentationSourceInfo()) const override;
 
 	virtual bool OpenAPIHome() const override;
 
-	virtual bool Open( const FString& Link ) const override;
+	virtual bool Open( const FString& Link, FDocumentationSourceInfo Source = FDocumentationSourceInfo() ) const override;
 
-	virtual bool Open(const FString& Link, const FCultureRef& Culture) const override;
+	virtual bool Open( const FString& Link, const FCultureRef& Culture, FDocumentationSourceInfo Source = FDocumentationSourceInfo() ) const override;
 
 	virtual TSharedRef< SWidget > CreateAnchor( const TAttribute<FString>& Link, const FString& PreviewLink = FString(), const FString& PreviewExcerptName = FString() ) const override;
 
@@ -32,6 +32,8 @@ public:
 	virtual bool PageExists(const FString& Link, const FCultureRef& Culture) const override;
 
 	virtual TSharedRef< class SToolTip > CreateToolTip( const TAttribute<FText>& Text, const TSharedPtr<SWidget>& OverrideContent, const FString& Link, const FString& ExcerptName ) const override;
+	
+	virtual TSharedRef< class SToolTip > CreateToolTip(const TAttribute<FText>& Text, const TSharedRef<SWidget>& OverrideContent, const TSharedPtr<SVerticalBox>& DocVerticalBox, const FString& Link, const FString& ExcerptName) const override;
 
 private:
 

@@ -787,18 +787,24 @@ FTextureResource* UTexture2D::CreateResource()
 		}
 	}
 
+	const EPixelFormat PixelFormat = GetPixelFormat();
 	const bool bIncompatibleTexture = (NumMips == 0);
 	const bool bTextureTooLarge = FMath::Max(GetSizeX(), GetSizeY()) > (int32)GetMax2DTextureDimension();
 	// Too large textures with full mip chains are OK as we load up to max supported mip.
 	const bool bNotSupportedByRHI = NumMips == 1 && bTextureTooLarge;
+	const bool bFormatNotSupported = !(GPixelFormats[PixelFormat].Supported);
 
-	if (bIncompatibleTexture || bNotSupportedByRHI)
+	if (bIncompatibleTexture || bNotSupportedByRHI || bFormatNotSupported)
 	{
 		// Handle unsupported/corrupted/incompatible textures :(
 		ResidentMips	= 0;
 		RequestedMips	= 0;
 
-		if (bNotSupportedByRHI)
+		if (bFormatNotSupported)
+		{
+			UE_LOG(LogTexture, Error, TEXT("%s is %s which is not supported."), *GetFullName(), GPixelFormats[PixelFormat].Name);
+		}
+		else if (bNotSupportedByRHI)
 		{
 			UE_LOG(LogTexture, Warning, TEXT("%s cannot be created, exceeds this rhi's maximum dimension (%d) and has no mip chain to fall back on."), *GetFullName(), GetMax2DTextureDimension());
 		}

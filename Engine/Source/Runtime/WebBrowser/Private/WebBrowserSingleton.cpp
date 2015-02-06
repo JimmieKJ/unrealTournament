@@ -42,8 +42,13 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 
 	// Specify path to resources
 #if PLATFORM_WINDOWS
+	#if PLATFORM_64BITS
 	FString ResourcesPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/CEF3/Win64/Resources")));
 	FString LocalesPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/CEF3/Win64/Resources/locales")));
+	#else
+	FString ResourcesPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/CEF3/Win32/Resources")));
+	FString LocalesPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/CEF3/Win32/Resources/locales")));
+	#endif
 #elif PLATFORM_MAC
 	FString ResourcesPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/CEF3/Mac/Chromium Embedded Framework.framework/Resources")));
 #elif PLATFORM_LINUX // @todo Linux
@@ -57,7 +62,11 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 
 	// Specify path to sub process exe
 #if PLATFORM_WINDOWS
+	#if PLATFORM_64BITS
 	FString SubProcessPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/Win64/UnrealCEFSubProcess.exe")));
+	#else
+	FString SubProcessPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/Win32/UnrealCEFSubProcess.exe")));
+	#endif
 #elif PLATFORM_MAC
 	FString SubProcessPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/Mac/UnrealCEFSubProcess.app/Contents/MacOS/UnrealCEFSubProcess")));
 #else // @todo Linux

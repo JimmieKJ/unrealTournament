@@ -146,7 +146,7 @@ void FPhysicsConstraintComponentDetails::CustomizeDetails( IDetailLayoutBuilder&
 						.OnCheckStateChanged( this, &FPhysicsConstraintComponentDetails::OnLimitRadioChanged, CurProperty, LinearLimitEnum[0] )
 						.ToolTipText(LinearLimitOptionTooltips[0])
 						[
-							SNew(STextBlock).Text(*LinearLimitOptionNames[0].Get())
+							SNew(STextBlock).Text(FText::FromString(*LinearLimitOptionNames[0].Get()))
 						]						
 					]
 					+SVerticalBox::Slot()
@@ -159,7 +159,7 @@ void FPhysicsConstraintComponentDetails::CustomizeDetails( IDetailLayoutBuilder&
 							.OnCheckStateChanged( this, &FPhysicsConstraintComponentDetails::OnLimitRadioChanged, CurProperty, LinearLimitEnum[1] )
 							.ToolTipText(LinearLimitOptionTooltips[1])
 							[
-								SNew(STextBlock).Text(*LinearLimitOptionNames[1].Get())
+								SNew(STextBlock).Text(FText::FromString(*LinearLimitOptionNames[1].Get()))
 							]
 						]
 					+SVerticalBox::Slot()
@@ -172,7 +172,7 @@ void FPhysicsConstraintComponentDetails::CustomizeDetails( IDetailLayoutBuilder&
 							.OnCheckStateChanged( this, &FPhysicsConstraintComponentDetails::OnLimitRadioChanged, CurProperty, LinearLimitEnum[2] )
 							.ToolTipText(LinearLimitOptionTooltips[2])
 							[
-								SNew(STextBlock).Text(*LinearLimitOptionNames[2].Get())
+								SNew(STextBlock).Text(FText::FromString(*LinearLimitOptionNames[2].Get()))
 							]
 						]
 				];
@@ -239,7 +239,7 @@ void FPhysicsConstraintComponentDetails::CustomizeDetails( IDetailLayoutBuilder&
 						.OnCheckStateChanged( this, &FPhysicsConstraintComponentDetails::OnLimitRadioChanged, CurProperty, AngularLimitEnum[0] )
 						.ToolTipText(AngularLimitOptionTooltips[0])
 						[
-							SNew(STextBlock).Text(*AngularLimitOptionNames[0].Get())
+							SNew(STextBlock).Text(FText::FromString(*AngularLimitOptionNames[0].Get()))
 						]						
 					]
 					+SVerticalBox::Slot()
@@ -252,7 +252,7 @@ void FPhysicsConstraintComponentDetails::CustomizeDetails( IDetailLayoutBuilder&
 							.OnCheckStateChanged( this, &FPhysicsConstraintComponentDetails::OnLimitRadioChanged, CurProperty, AngularLimitEnum[1] )
 							.ToolTipText(AngularLimitOptionTooltips[1])
 							[
-								SNew(STextBlock).Text(*AngularLimitOptionNames[1].Get())
+								SNew(STextBlock).Text(FText::FromString(*AngularLimitOptionNames[1].Get()))
 							]
 						]
 					+SVerticalBox::Slot()
@@ -265,7 +265,7 @@ void FPhysicsConstraintComponentDetails::CustomizeDetails( IDetailLayoutBuilder&
 							.OnCheckStateChanged( this, &FPhysicsConstraintComponentDetails::OnLimitRadioChanged, CurProperty, AngularLimitEnum[2] )
 							.ToolTipText(AngularLimitOptionTooltips[2])
 							[
-								SNew(STextBlock).Text(*AngularLimitOptionNames[2].Get())
+								SNew(STextBlock).Text(FText::FromString(*AngularLimitOptionNames[2].Get()))
 							]
 						]
 				];

@@ -76,8 +76,8 @@ namespace AutomationTool
 			Log("Copied UBT manifest to {0}", OutFile);
 
 
-			FileManifest Manifest = ReadManifest(ManifestName);
-			foreach (string Item in Manifest.FileManifestItems)
+			UnrealBuildTool.BuildManifest Manifest = ReadManifest(ManifestName);
+			foreach (string Item in Manifest.BuildProducts)
 			{
 				PrepareBuildProduct(Item);
 			}
@@ -89,8 +89,8 @@ namespace AutomationTool
 			{
 				throw new AutomationException("BUILD FAILED UBT Manifest {0} does not exist.", ManifestName);
 			}
-			FileManifest Manifest = ReadManifest(ManifestName);
-			foreach (string Item in Manifest.FileManifestItems)
+			UnrealBuildTool.BuildManifest Manifest = ReadManifest(ManifestName);
+			foreach (string Item in Manifest.BuildProducts)
 			{
 				if (!FileExists_NoExceptions(Item))
 				{
@@ -130,7 +130,7 @@ namespace AutomationTool
 
 		public class XGEItem
 		{
-			public FileManifest Manifest;
+			public UnrealBuildTool.BuildManifest Manifest;
 			public string CommandLine;
 			public UnrealBuildTool.UnrealTargetPlatform Platform;
 			public string Config;
@@ -140,7 +140,7 @@ namespace AutomationTool
 			public string OutputCaption;
 		}
 
-		XGEItem XGEPrepareBuildWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform Platform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, string InAddArgs = "", bool ForceUnity = false)
+		XGEItem XGEPrepareBuildWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform Platform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, string InAddArgs = "", bool ForceUnity = false, Dictionary<string, string> EnvVars = null)
 		{
 			string AddArgs = "";
 			if (string.IsNullOrEmpty(UprojectPath) == false)
@@ -184,7 +184,7 @@ namespace AutomationTool
 
 			ClearExportedXGEXML();
 
-			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: Platform.ToString(), Config: Config, AdditionalArgs: "-generatemanifest -nobuilduht -xgeexport" + AddArgs);
+			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: Platform.ToString(), Config: Config, AdditionalArgs: "-generatemanifest -nobuilduht -xgeexport" + AddArgs, EnvVars: EnvVars);
 
 			PrepareManifest(UBTManifest);
 
@@ -229,7 +229,7 @@ namespace AutomationTool
 			// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
 			Platform.Platforms[Item.Platform].PostBuildTarget(this, Item.ProjectName, Item.UProjectPath, Item.Config);
 
-			foreach (string ManifestItem in Item.Manifest.FileManifestItems)
+			foreach (string ManifestItem in Item.Manifest.BuildProducts)
 			{
 				if (!FileExists_NoExceptions(ManifestItem))
 				{
@@ -239,15 +239,15 @@ namespace AutomationTool
 			}
 		}
 
-		void XGEDeleteBuildProducts(FileManifest Manifest)
+		void XGEDeleteBuildProducts(UnrealBuildTool.BuildManifest Manifest)
 		{
-			foreach (string Item in Manifest.FileManifestItems)
+			foreach (string Item in Manifest.BuildProducts)
 			{
 				DeleteFile(Item);
 			}
 		}
 
-		void CleanWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform Platform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, string InAddArgs = "", bool ForceUnity = false)
+		void CleanWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform Platform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, string InAddArgs = "", bool ForceUnity = false, Dictionary<string, string> EnvVars = null)
 		{
 			string AddArgs = "";
 			if (string.IsNullOrEmpty(UprojectPath) == false)
@@ -278,10 +278,10 @@ namespace AutomationTool
 
 			PrepareUBT();
 
-			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: Platform.ToString(), Config: Config, AdditionalArgs: "-clean" + AddArgs);
+			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: Platform.ToString(), Config: Config, AdditionalArgs: "-clean" + AddArgs, EnvVars: EnvVars);
 		}
 
-		void BuildWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform TargetPlatform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, bool ForceFlushMac = false, bool DisableXGE = false, string InAddArgs = "", bool ForceUnity = false)
+		void BuildWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform TargetPlatform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, bool ForceFlushMac = false, bool DisableXGE = false, string InAddArgs = "", bool ForceUnity = false, Dictionary<string, string> EnvVars = null)
 		{
 			string AddArgs = "";
 			if (string.IsNullOrEmpty(UprojectPath) == false)
@@ -336,12 +336,12 @@ namespace AutomationTool
 
 				DeleteFile(UBTManifest);
 
-				RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: "-generatemanifest" + AddArgs);
+				RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: "-generatemanifest" + AddArgs, EnvVars: EnvVars);
 
 				PrepareManifest(UBTManifest);
 			}
 
-			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: AddArgs);
+			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: AddArgs, EnvVars: EnvVars);
 
 			// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
 			Platform.Platforms[TargetPlatform].PostBuildTarget(this, string.IsNullOrEmpty(ProjectName) ? TargetName : ProjectName, UprojectPath, Config);
@@ -1122,6 +1122,11 @@ namespace AutomationTool
 
 		public bool CanUseXGE(UnrealBuildTool.UnrealTargetPlatform Platform)
 		{
+			if (!UnrealBuildTool.UEBuildPlatform.BuildPlatformDictionary.ContainsKey(Platform))
+			{
+				return false;
+			}
+
 			return UnrealBuildTool.UEBuildPlatform.GetBuildPlatform(Platform).CanUseXGE();
 		}
 
@@ -1149,8 +1154,13 @@ namespace AutomationTool
 		/// <param name="InDeleteBuildProducts">if specified, determines if the build products will be deleted before building. If not specified -clean parameter will be used,</param>
 		/// <param name="InUpdateVersionFiles">True if the version files are to be updated </param>
 		/// <param name="InForceNoXGE">If true will force XGE off</param>
-		public void Build(BuildAgenda Agenda, bool? InDeleteBuildProducts = null, bool InUpdateVersionFiles = true, bool InForceNoXGE = false, bool InForceNonUnity = false, bool InForceUnity = false)
+		public void Build(BuildAgenda Agenda, bool? InDeleteBuildProducts = null, bool InUpdateVersionFiles = true, bool InForceNoXGE = false, bool InForceNonUnity = false, bool InForceUnity = false, Dictionary<UnrealBuildTool.UnrealTargetPlatform, Dictionary<string, string>> PlatformEnvVars = null)
 		{
+			if (GlobalCommandLine.NoCodeProject)
+			{
+				throw new AutomationException("Building is not supported when -nocodeproject flag is provided.");
+			}
+
 			if (!CmdEnv.HasCapabilityToCompile)
 			{
 				throw new AutomationException("You are attempting to compile on a machine that does not have a supported compiler!");

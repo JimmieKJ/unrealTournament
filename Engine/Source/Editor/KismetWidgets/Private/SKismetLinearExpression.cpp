@@ -254,7 +254,7 @@ TSharedRef<SWidget> SKismetLinearExpression::MakePinWidget(const UEdGraphPin* Pi
 		// Input pins with no links are displayed as their literals
 		return SNew(STextBlock)
 			.TextStyle( FEditorStyle::Get(), TEXT("KismetExpression.LiteralValue") )
-			.Text(Pin->GetDefaultAsString());
+			.Text(FText::FromString(Pin->GetDefaultAsString()));
 	}
 	else
 	{

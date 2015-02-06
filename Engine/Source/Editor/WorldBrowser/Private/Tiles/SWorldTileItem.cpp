@@ -435,21 +435,21 @@ FReply SWorldTileItem::OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, c
 	return FReply::Handled();
 }
 
-FString SWorldTileItem::GetLevelNameText() const
+FText SWorldTileItem::GetLevelNameText() const
 {
-	return TileModel->GetDisplayName();
+	return FText::FromString(TileModel->GetDisplayName());
 }
 
 FText SWorldTileItem::GetPositionText() const
 {
 	FIntPoint Position = TileModel->GetRelativeLevelPosition();
-	return FText::FromString(FString::Printf(TEXT("%d, %d"), Position.X, Position.Y));
+	return FText::Format(LOCTEXT("PositionXYFmt", "{0}, {1}"), FText::AsNumber(Position.X), FText::AsNumber(Position.Y));
 }
 
 FText SWorldTileItem::GetBoundsExtentText() const
 {
 	FVector2D Size = TileModel->GetLevelSize2D();
-	return FText::FromString(FString::Printf(TEXT("%d, %d"), FMath::RoundToInt(Size.X*0.5f), FMath::RoundToInt(Size.Y*0.5f)));
+	return FText::Format(LOCTEXT("PositionXYFmt", "{0}, {1}"), FText::AsNumber(FMath::RoundToInt(Size.X*0.5f)), FText::AsNumber(FMath::RoundToInt(Size.Y*0.5f)));
 }
 
 FText SWorldTileItem::GetLevelLayerNameText() const

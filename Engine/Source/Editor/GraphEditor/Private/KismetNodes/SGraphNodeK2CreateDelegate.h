@@ -23,7 +23,7 @@ public:
 	virtual void CreateBelowWidgetControls(TSharedPtr<SVerticalBox> MainBox) override;
 
 protected:
-	FString GetCurrentFunctionDescription() const;
+	FText GetCurrentFunctionDescription() const;
 	TSharedRef<ITableRow> HandleGenerateRowFunction(TSharedPtr<FFunctionItemData> FunctionItemData, const TSharedRef<STableViewBase>& OwnerTable);
 	void OnFunctionSelected(TSharedPtr<FFunctionItemData> FunctionItemData, ESelectInfo::Type SelectInfo);
 };

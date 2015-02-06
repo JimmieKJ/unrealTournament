@@ -35,4 +35,6 @@ class UAbilityTask_WaitAbilityCommit : public UAbilityTask
 protected:
 
 	virtual void OnDestroy(bool AbilityEnded) override;
+
+	FDelegateHandle OnAbilityCommitDelegateHandle;
 };

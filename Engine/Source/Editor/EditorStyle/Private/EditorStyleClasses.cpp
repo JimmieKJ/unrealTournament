@@ -17,6 +17,14 @@ UEditorStyleSettings::UEditorStyleSettings( const FObjectInitializer& ObjectInit
 	LogTimestampMode = ELogTimes::None;
 }
 
+FLinearColor UEditorStyleSettings::GetSubduedSelectionColor() const
+{
+	FLinearColor SubduedSelectionColor = SelectionColor.LinearRGBToHSV();
+	SubduedSelectionColor.G *= 0.55f;		// take the saturation 
+	SubduedSelectionColor.B *= 0.8f;		// and brightness down
+
+	return SubduedSelectionColor.HSVToLinearRGB();
+}
 
 #if WITH_EDITOR
 

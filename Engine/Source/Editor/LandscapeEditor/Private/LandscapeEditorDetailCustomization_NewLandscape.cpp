@@ -331,7 +331,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::CustomizeDetails(IDetailL
 		[
 			SNew(STextBlock)
 			.Font(DetailBuilder.GetDetailFont())
-			.Text(FString().AppendChar(0xD7)) // Multiply sign
+			.Text(FText::FromString(FString().AppendChar(0xD7))) // Multiply sign
 		]
 		+ SHorizontalBox::Slot()
 		.FillWidth(1)
@@ -390,7 +390,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::CustomizeDetails(IDetailL
 		[
 			SNew(STextBlock)
 			.Font(DetailBuilder.GetDetailFont())
-			.Text(FString().AppendChar(0xD7)) // Multiply sign
+			.Text(FText::FromString(FString().AppendChar(0xD7))) // Multiply sign
 		]
 		+ SHorizontalBox::Slot()
 		.FillWidth(1)

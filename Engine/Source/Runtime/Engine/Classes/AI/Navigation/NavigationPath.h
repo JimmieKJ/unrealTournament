@@ -32,10 +32,13 @@ private:
 	uint32 bDebugDrawingEnabled : 1;
 	FColor DebugDrawingColor;
 
+	FDelegateHandle DrawDebugDelegateHandle;
+
 protected:
 	FNavPathSharedPtr SharedPath;
 
 	FNavigationPath::FPathObserverDelegate::FDelegate PathObserver;
+	FDelegateHandle PathObserverDelegateHandle;
 
 public:
 

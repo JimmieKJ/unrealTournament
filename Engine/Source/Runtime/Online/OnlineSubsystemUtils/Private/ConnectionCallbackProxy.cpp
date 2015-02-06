@@ -36,7 +36,7 @@ void UConnectionCallbackProxy::Activate()
 
 			if (!OnlineIdentity->OnLoginCompleteDelegates[ControllerId].IsBoundToObject(this))
 			{
-				OnlineIdentity->AddOnLoginCompleteDelegate(ControllerId, OnLoginCompleteDelegate);
+				OnLoginCompleteDelegateHandle = OnlineIdentity->AddOnLoginCompleteDelegate_Handle(ControllerId, OnLoginCompleteDelegate);
 				OnlineIdentity->Login(ControllerId, FOnlineAccountCredentials()); /// Probably need to supply real creds here somehow... doesn't apply for all imple however.
 			}
 			else
@@ -67,7 +67,7 @@ void UConnectionCallbackProxy::OnLoginCompleted(int32 LocalUserNum, bool bWasSuc
 		IOnlineIdentityPtr OnlineIdentity = Helper.OnlineSub->GetIdentityInterface();
 		if (OnlineIdentity.IsValid())
 		{
-			OnlineIdentity->ClearOnLoginCompleteDelegate(LocalUserNum, OnLoginCompleteDelegate);
+			OnlineIdentity->ClearOnLoginCompleteDelegate_Handle(LocalUserNum, OnLoginCompleteDelegateHandle);
 		}
 	}
 

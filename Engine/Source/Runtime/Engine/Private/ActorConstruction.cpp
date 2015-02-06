@@ -51,7 +51,7 @@ namespace
 		/** Called before UCS execution has started for the given Actor */
 		void PreProcessComponents(const AActor* InActor)
 		{
-			TArray<UActorComponent*> ActorComponents;
+			TInlineComponentArray<UActorComponent*> ActorComponents;
 			InActor->GetComponents(ActorComponents);
 			for (auto CompIt = ActorComponents.CreateConstIterator(); CompIt; ++CompIt)
 			{
@@ -181,7 +181,7 @@ void AActor::ResetPropertiesForConstruction()
 void AActor::DestroyConstructedComponents()
 {
 	// Remove all existing components
-	TArray<UActorComponent*> PreviouslyAttachedComponents;
+	TInlineComponentArray<UActorComponent*> PreviouslyAttachedComponents;
 	GetComponents(PreviouslyAttachedComponents);
 	for (int32 i = 0; i < PreviouslyAttachedComponents.Num(); i++)
 	{
@@ -189,7 +189,7 @@ void AActor::DestroyConstructedComponents()
 		if (Component)
 		{
 			bool bDestroyComponent = false;
-			if (Component->bCreatedByConstructionScript)
+			if (Component->IsCreatedByConstructionScript())
 			{
 				bDestroyComponent = true;
 			}
@@ -198,7 +198,7 @@ void AActor::DestroyConstructedComponents()
 				UActorComponent* OuterComponent = Component->GetTypedOuter<UActorComponent>();
 				while (OuterComponent)
 				{
-					if (OuterComponent->bCreatedByConstructionScript)
+					if (OuterComponent->IsCreatedByConstructionScript())
 					{
 						bDestroyComponent = true;
 						break;
@@ -219,7 +219,7 @@ void AActor::DestroyConstructedComponents()
 				// Rename component to avoid naming conflicts in the case where we rerun the SCS and name the new components the same way.
 				FName const NewBaseName( *(FString::Printf(TEXT("TRASH_%s"), *Component->GetClass()->GetName())) );
 				FName const NewObjectName = MakeUniqueObjectName(this, GetClass(), NewBaseName);
-				Component->Rename(*NewObjectName.ToString(), this, REN_ForceNoResetLoaders);
+				Component->Rename(*NewObjectName.ToString(), this, REN_ForceNoResetLoaders|REN_DontCreateRedirectors);
 			}
 		}
 	}
@@ -331,7 +331,7 @@ void AActor::RerunConstructionScripts()
 			{
 				USceneComponent* EachRoot = AttachedActor->GetRootComponent();
 				// If the component we are attached to is about to go away...
-				if (EachRoot && EachRoot->AttachParent && EachRoot->AttachParent->bCreatedByConstructionScript)
+				if (EachRoot && EachRoot->AttachParent && EachRoot->AttachParent->IsCreatedByConstructionScript())
 				{
 					// Save info about actor to reattach
 					FAttachedActorInfo Info;
@@ -350,7 +350,7 @@ void AActor::RerunConstructionScripts()
 		if (bUseRootComponentProperties && RootComponent != nullptr)
 		{
 			// Do not need to detach if root component is not going away
-			if (RootComponent->AttachParent != NULL && RootComponent->bCreatedByConstructionScript)
+			if (RootComponent->AttachParent != NULL && RootComponent->IsCreatedByConstructionScript())
 			{
 				Parent = RootComponent->AttachParent->GetOwner();
 				// Root component should never be attached to another component in the same actor!
@@ -503,7 +503,7 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 			{
 				UBillboardComponent* BillboardComponent = NewObject<UBillboardComponent>(this);
 				BillboardComponent->SetFlags(RF_Transactional);
-				BillboardComponent->bCreatedByConstructionScript = true;
+				BillboardComponent->CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
 #if WITH_EDITOR
 				BillboardComponent->Sprite = (UTexture2D*)(StaticLoadObject(UTexture2D::StaticClass(), NULL, TEXT("/Engine/EditorResources/BadBlueprintSprite.BadBlueprintSprite"), NULL, LOAD_None, NULL));
 #endif
@@ -537,7 +537,7 @@ void AActor::ProcessUserConstructionScript()
 void AActor::FinishAndRegisterComponent(UActorComponent* Component)
 {
 	Component->RegisterComponent();
-	SerializedComponents.Add(Component);
+	BlueprintCreatedComponents.Add(Component);
 }
 
 UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, const FString& InName)
@@ -545,14 +545,44 @@ UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, 
 	UActorComponent* NewActorComp = NULL;
 	if(Template != NULL)
 	{
+		// If there is a Component with this name already (almost certainly because it is an Instance component), we need to rename it out of the way
+		if (!InName.IsEmpty())
+		{
+			UObject* ConflictingObject = FindObjectFast<UObject>(this, *InName);
+			if (ConflictingObject && ConflictingObject->IsA<UActorComponent>() && CastChecked<UActorComponent>(ConflictingObject)->CreationMethod == EComponentCreationMethod::Instance)
+			{		
+				// Try and pick a good name
+				FString ConflictingObjectName = ConflictingObject->GetName();
+				int32 CharIndex = ConflictingObjectName.Len()-1;
+				while (FChar::IsDigit(ConflictingObjectName[CharIndex]))
+				{
+					--CharIndex;
+				}
+				int32 Counter = 0;
+				if (CharIndex < ConflictingObjectName.Len()-1)
+				{
+					Counter = FCString::Atoi(*ConflictingObjectName.RightChop(CharIndex+1));
+					ConflictingObjectName = ConflictingObjectName.Left(CharIndex+1);
+				}
+				FString NewObjectName;
+				do
+				{
+					NewObjectName = ConflictingObjectName + FString::FromInt(++Counter);
+					
+				} while (FindObjectFast<UObject>(this, *NewObjectName) != nullptr);
+
+				ConflictingObject->Rename(*NewObjectName, this);
+			}
+		}
+
 		// Note we aren't copying the the RF_ArchetypeObject flag. Also note the result is non-transactional by default.
-		NewActorComp = (UActorComponent*)StaticDuplicateObject(Template, this, *InName, RF_AllFlags & ~(RF_ArchetypeObject|RF_Transactional|RF_WasLoaded) );
+		NewActorComp = (UActorComponent*)StaticDuplicateObject(Template, this, *InName, RF_AllFlags & ~(RF_ArchetypeObject|RF_Transactional|RF_WasLoaded|RF_Public|RF_InheritableComponentTemplate) );
 		//NewActorComp = ConstructObject<UActorComponent>(Template->GetClass(), this, *InName, RF_NoFlags, Template);
 
-		NewActorComp->bCreatedByConstructionScript = true;
+		NewActorComp->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 
 		// Need to do this so component gets saved - Components array is not serialized
-		SerializedComponents.Add(NewActorComp);
+		BlueprintCreatedComponents.Add(NewActorComp);
 	}
 	return NewActorComp;
 }
@@ -574,7 +604,10 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 	UActorComponent* NewActorComp = CreateComponentFromTemplate(Template);
 	if(NewActorComp != nullptr)
 	{
-		// Keep track of the new component during UCS execution
+		// Call function to notify component it has been created
+		NewActorComp->OnComponentCreated();
+
+		// Keep track of the new component during UCS execution. This also does a temporary mobility swap during UCS execution in order to allow attachment and other things to succeed within that context.
 		FUCSComponentManager::Get().AddComponent(this, NewActorComp);
 
 		// The user has the option of doing attachment manually where they have complete control or via the automatic rule
@@ -596,9 +629,6 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 
 			NewSceneComp->SetRelativeTransform(RelativeTransform);
 		}
-
-		// Call function to notify component it has been created
-		NewActorComp->OnComponentCreated();
 
 		// Register component, which will create physics/rendering state, now component is in correct position
 		NewActorComp->RegisterComponent();

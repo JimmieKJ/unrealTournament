@@ -77,7 +77,7 @@ public:
 	// End ISceneOutlinerColumn Implementation
 	//////////////////////////////////////////////////////////////////////////
 
-	FString GetTextForItem( const TWeakPtr<ITreeItem> TreeItem ) const;
+	FText GetTextForItem( const TWeakPtr<ITreeItem> TreeItem ) const;
 
 private:
 

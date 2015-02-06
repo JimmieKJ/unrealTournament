@@ -102,9 +102,7 @@ protected:
 	uint32 ReceiveObserverDeactivatedImplementations : 2;
 
 	/** set if ReceiveConditionCheck is implemented by blueprint */
-	uint32 ReceiveConditionCheckImplementations : 2;
-
-	FOnBlackboardChange BBKeyObserver;
+	uint32 PerformConditionCheckImplementations : 2;
 
 	bool CalculateRawConditionValueImpl(UBehaviorTreeComponent& OwnerComp) const;
 	
@@ -148,7 +146,7 @@ protected:
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual bool ReceiveConditionCheck(AActor* OwnerActor);
+	virtual bool PerformConditionCheck(AActor* OwnerActor);
 
 	/** Alternative AI version of ReceiveTick
 	 *	@see ReceiveTick for more details
@@ -190,7 +188,7 @@ protected:
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent, Category = AI)
-	virtual bool ReceiveConditionCheckAI(AAIController* OwnerController, APawn* ControlledPawn);
+	virtual bool PerformConditionCheckAI(AAIController* OwnerController, APawn* ControlledPawn);
 		
 	/** check if decorator is part of currently active branch */
 	UFUNCTION(BlueprintCallable, Category="AI|BehaviorTree")
@@ -202,5 +200,17 @@ protected:
 
 	friend FBehaviorBlueprintDetails;
 
-	FORCEINLINE bool GetNeedsTickForConditionChecking() const { return ReceiveConditionCheckImplementations != 0 && (bIsObservingBB == false || bCheckConditionOnlyBlackBoardChanges == false); }
+	FORCEINLINE bool GetNeedsTickForConditionChecking() const { return PerformConditionCheckImplementations != 0 && (bIsObservingBB == false || bCheckConditionOnlyBlackBoardChanges == false); }
+
+	//----------------------------------------------------------------------//
+	// DEPRECATED
+	//----------------------------------------------------------------------//
+	/** finishes condition check */
+	DEPRECATED(4.7, "This function is deprecated. To implement your condition checking implement PerformConditionCheck or PerformConditionCheckAI function in your Blueprint.")
+	UFUNCTION(BlueprintCallable, Category = "AI|BehaviorTree", meta = (DeprecatedFunction, DeprecationMessage = "To implement your condition checking implement PerformConditionCheck or PerformConditionCheckAI function in your Blueprint."))
+	void FinishConditionCheck(bool bAllowExecution);
+
+	DEPRECATED(4.7, "This function is deprecated. To implement your condition checking implement PerformConditionCheck or PerformConditionCheckAI function in your Blueprint.")
+	UFUNCTION(BlueprintImplementableEvent, meta = (DeprecatedFunction, DeprecationMessage = "To implement your condition checking implement PerformConditionCheck or PerformConditionCheckAI function in your Blueprint."))
+	virtual void ReceiveConditionCheck(AActor* OwnerActor);
 };

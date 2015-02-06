@@ -245,9 +245,9 @@ CORE_API class ITargetPlatformManagerModule& GetTargetPlatformManagerRef();
 -----------------------------------------------------------------------------*/
 
 /**
- * Check to see if this executable is running as dedicated server
- * UT is hacked so that it can run as dedicated with -server
- */
+* Check to see if this executable is running as dedicated server
+* UT is hacked so that it can run as dedicated with -server
+*/
 FORCEINLINE bool IsRunningDedicatedServer()
 {
 	if (FPlatformProperties::IsServerOnly())

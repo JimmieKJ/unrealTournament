@@ -90,6 +90,8 @@ FSpriteEditorViewportClient::FSpriteEditorViewportClient(TWeakPtr<FSpriteEditor>
 
 	bIsMarqueeTracking = false;
 
+	DrawHelper.bDrawGrid = false;
+
 	EngineShowFlags.DisableAdvancedFeatures();
 	EngineShowFlags.CompositeEditorPrimitives = true;
 
@@ -1390,6 +1392,11 @@ FMatrix FSpriteEditorViewportClient::GetWidgetCoordSystem() const
 ECoordSystem FSpriteEditorViewportClient::GetWidgetCoordSystemSpace() const
 {
 	return COORD_World;
+}
+
+FLinearColor FSpriteEditorViewportClient::GetBackgroundColor() const
+{
+	return FEditorViewportClient::GetBackgroundColor();
 }
 
 void FSpriteEditorViewportClient::BeginTransaction(const FText& SessionName)

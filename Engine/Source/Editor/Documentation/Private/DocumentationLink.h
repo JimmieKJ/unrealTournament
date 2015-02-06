@@ -32,20 +32,23 @@ public:
 		return Url;
 	}
 
-	static FString ToUrl(const FString& Link)
+	static FString ToUrl(const FString& Link, FDocumentationSourceInfo const& Source)
 	{
-		return ToUrl(Link, FInternationalization::Get().GetCurrentCulture());
+		return ToUrl(Link, FInternationalization::Get().GetCurrentCulture(), Source);
 	}
 
-	static FString ToUrl(const FString& Link, const FCultureRef& Culture)
+	static FString ToUrl(const FString& Link, const FCultureRef& Culture, FDocumentationSourceInfo const& Source)
 	{
 		FString Path;
 		FString Anchor;
-		SplitLink( Link, Path, Anchor );
+		FString QueryString;
+		SplitLink(Link, Path, QueryString, Anchor);
 
 		const FString PartialPath = FString::Printf(TEXT("%s%s/index.html"), *(Culture->GetUnrealLegacyThreeLetterISOLanguageName()), *Path);
 		
-		return GetUrlRoot() + PartialPath + Anchor;
+		AddSourceInfoToQueryString(QueryString, Source);
+
+		return GetUrlRoot() + PartialPath + QueryString + Anchor;
 	}
 
 	static FString ToFilePath( const FString& Link )
@@ -74,13 +77,14 @@ public:
 	{
 		FString Path;
 		FString Anchor;
-		SplitLink(Link, Path, Anchor);
+		FString QueryString;
+		SplitLink(Link, Path, QueryString, Anchor);
 
 		const FString PartialPath = FString::Printf(TEXT("%s%s/index.html"), *(Culture->GetUnrealLegacyThreeLetterISOLanguageName()), *Path);
 		return FString::Printf(TEXT("%sDocumentation/HTML/%s"), *FPaths::ConvertRelativePathToFull(FPaths::EngineDir()), *PartialPath);
 	}
 
-	static FString ToFileUrl( const FString& Link )
+	static FString ToFileUrl(const FString& Link, FDocumentationSourceInfo const& SourceInfo)
 	{
 		FInternationalization& I18N = FInternationalization::Get();
 
@@ -100,16 +104,19 @@ public:
 			}
 		}
 
-		return ToFileUrl(Link, Culture);
+		return ToFileUrl(Link, Culture, SourceInfo);
 	}
 
-	static FString ToFileUrl(const FString& Link, const FCultureRef& Culture)
+	static FString ToFileUrl(const FString& Link, const FCultureRef& Culture, FDocumentationSourceInfo const& SourceInfo)
 	{
 		FString Path;
 		FString Anchor;
-		SplitLink(Link, Path, Anchor);
+		FString QueryString;
+		SplitLink(Link, Path, QueryString, Anchor);
 
-		return FString::Printf(TEXT("file:///%s%s"), *ToFilePath(Link, Culture), *Anchor);
+		AddSourceInfoToQueryString(QueryString, SourceInfo);
+
+		return FString::Printf(TEXT("file:///%s%s%s"), *ToFilePath(Link, Culture), *QueryString, *Anchor);
 	}
 
 	static FString ToSourcePath(const FString& Link)
@@ -138,7 +145,8 @@ public:
 	{
 		FString Path;
 		FString Anchor;
-		SplitLink( Link, Path, Anchor );
+		FString QueryString;
+		SplitLink(Link, Path, QueryString, Anchor);
 
 		const FString FullDirectoryPath = FPaths::EngineDir() + TEXT( "Documentation/Source" ) + Path + "/";
 
@@ -157,7 +165,23 @@ public:
 		return FString::Printf(TEXT("%s%s.%s.udn"), *FullDirectoryPath, *Category, *(Culture->GetUnrealLegacyThreeLetterISOLanguageName()));
 	}
 
-	static void SplitLink( const FString& Link, /*OUT*/ FString& Path, /*OUT*/ FString& Anchor )
+private:
+	static void AddSourceInfoToQueryString(FString& QueryString, FDocumentationSourceInfo const& Info)
+	{
+		if (Info.IsEmpty() == false)
+		{
+			if (QueryString.IsEmpty())
+			{
+				QueryString = FString::Printf(TEXT("?utm_source=%s&utm_medium=%s&utm_campaign=%s"), *Info.Source, *Info.Medium, *Info.Campaign);
+			}
+			else
+			{
+				QueryString = FString::Printf(TEXT("%s&utm_source=%s&utm_medium=%s&utm_campaign=%s"), *QueryString, *Info.Source, *Info.Medium, *Info.Campaign);
+			}
+		}
+	}
+	
+	static void SplitLink( const FString& Link, /*OUT*/ FString& Path, /*OUT*/ FString& QueryString, /*OUT*/ FString& Anchor )
 	{
 		FString CleanedLink = Link;
 		CleanedLink.Trim();
@@ -167,15 +191,18 @@ public:
 		{
 			Path.Empty();
 			Anchor.Empty();
+			QueryString.Empty();
 		}
 		else
 		{
-			if ( !CleanedLink.Split( TEXT("#"), &Path, &Anchor ) )
+			FString PathAndQueryString;
+			if ( !CleanedLink.Split( TEXT("#"), &PathAndQueryString, &Anchor ) )
 			{
-				Path = CleanedLink;
+				PathAndQueryString = CleanedLink;
 			}
 			else if ( !Anchor.IsEmpty() )
 			{
+				// ensure leading #
 				Anchor = FString( TEXT("#") ) + Anchor;
 			}
 
@@ -184,14 +211,25 @@ public:
 				Anchor = Anchor.Left( Anchor.Len() - 1 );
 			}
 
-			if ( Path.EndsWith( TEXT("/") ) )
+			if ( PathAndQueryString.EndsWith( TEXT("/") ) )
 			{
-				Path = Path.Left( Path.Len() - 1 );
+				PathAndQueryString = PathAndQueryString.Left(PathAndQueryString.Len() - 1);
 			}
 
-			if ( !Path.IsEmpty() && !Path.StartsWith( TEXT("/") ) )
+			if ( !PathAndQueryString.IsEmpty() && !PathAndQueryString.StartsWith( TEXT("/") ) )
 			{
-				Path = FString( TEXT("/") ) + Path;
+				PathAndQueryString = FString(TEXT("/")) + PathAndQueryString;
+			}
+
+			// split path and query string
+			if (!PathAndQueryString.Split(TEXT("?"), &Path, &QueryString))
+			{
+				Path = PathAndQueryString;
+			}
+			else if (!QueryString.IsEmpty())
+			{
+				// ensure leading ?
+				QueryString = FString(TEXT("?")) + QueryString;
 			}
 		}
 	}

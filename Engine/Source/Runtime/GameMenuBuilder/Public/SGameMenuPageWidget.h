@@ -253,7 +253,7 @@ protected:
 	FString GetOptionText(TSharedPtr<class FGameMenuItem> MenuItem) const;
 
 	/** Gets current menu title string. */
-	FString GetMenuTitle() const; 
+	FText GetMenuTitle() const; 
 
 	/** Gets the menu title visibility based on if the title text is empty. */
 	EVisibility GetMenuTitleVisibility() const;

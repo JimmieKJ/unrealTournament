@@ -91,4 +91,9 @@ EReimportResult::Type UReimportSpeedTreeFactory::Reimport(UObject* Obj)
 	return EReimportResult::Failed;
 }
 
+int32 UReimportSpeedTreeFactory::GetPriority() const
+{
+	return ImportPriority;
+}
+
 #undef LOCTEXT_NAMESPACE

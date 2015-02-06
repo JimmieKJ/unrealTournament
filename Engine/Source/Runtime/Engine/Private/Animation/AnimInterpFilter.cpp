@@ -216,6 +216,6 @@ float FFIRFilterTimeBased::CalculateFilteredOutput()
 // 		return SumInputs;
 // 	}
 
-	return SumInputs/SumCoefficient;
+	return (SumCoefficient>0.f)?SumInputs/SumCoefficient : 0.f;
 }
 

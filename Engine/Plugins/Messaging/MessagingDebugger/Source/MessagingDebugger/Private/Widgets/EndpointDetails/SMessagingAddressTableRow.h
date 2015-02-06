@@ -46,6 +46,10 @@ public:
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
 	{
+		static const FNumberFormattingOptions TimeRegisteredFormattingOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(5)
+			.SetMaximumFractionalDigits(5);
+
 		if (ColumnName == "Address")
 		{
 			return SNew(SBox)
@@ -53,7 +57,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text(AddressInfo->Address.ToString())
+						.Text(FText::FromString(AddressInfo->Address.ToString()))
 				];
 		}
 		else if (ColumnName == "TimeRegistered")
@@ -63,7 +67,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text(FString::Printf(TEXT("%.5f"), AddressInfo->TimeRegistered - GStartTime))
+						.Text(FText::AsNumber(AddressInfo->TimeRegistered - GStartTime, &TimeRegisteredFormattingOptions))
 				];
 		}
 		else if (ColumnName == "TimeUnregistered")
@@ -73,7 +77,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text((AddressInfo->TimeUnregistered > 0.0) ? FString::Printf(TEXT("%.5f"), AddressInfo->TimeUnregistered - GStartTime) : TEXT("Never"))
+						.Text((AddressInfo->TimeUnregistered > 0.0) ? FText::AsNumber(AddressInfo->TimeUnregistered - GStartTime, &TimeRegisteredFormattingOptions) : LOCTEXT("Never", "Never"))
 				];
 		}
 

@@ -158,7 +158,7 @@ static FString GetClassDisplayName(const UObject* Object)
 	return (Object) ? Object->GetName() : "None";
 }
 
-FString SPropertyEditorClass::GetDisplayValueAsString() const
+FText SPropertyEditorClass::GetDisplayValueAsString() const
 {
 	if(PropertyEditor.IsValid())
 	{
@@ -167,13 +167,13 @@ FString SPropertyEditorClass::GetDisplayValueAsString() const
 
 		if(Result == FPropertyAccess::Success && ObjectValue != NULL)
 		{
-			return GetClassDisplayName(ObjectValue);
+			return FText::FromString(GetClassDisplayName(ObjectValue));
 		}
 
-		return FPaths::GetBaseFilename(PropertyEditor->GetValueAsString());
+		return FText::FromString(FPaths::GetBaseFilename(PropertyEditor->GetValueAsString()));
 	}
 
-	return GetClassDisplayName(SelectedClass.Get());
+	return FText::FromString(GetClassDisplayName(SelectedClass.Get()));
 }
 
 TSharedRef<SWidget> SPropertyEditorClass::GenerateClassPicker()

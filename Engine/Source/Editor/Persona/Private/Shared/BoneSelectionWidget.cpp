@@ -102,7 +102,7 @@ TSharedRef<ITableRow> SBoneSelectionWidget::MakeTreeRowWidget(TSharedPtr<FBoneNa
 		[
 			SNew(STextBlock)
 			.HighlightText(FilterText)
-				.Text(InInfo->BoneName.ToString())
+			.Text(FText::FromName(InInfo->BoneName))
 		];
 }
 
@@ -190,17 +190,17 @@ void SBoneSelectionWidget::OnSelectionChanged(TSharedPtr<FBoneNameInfo> BoneInfo
 	BonePickerButton->SetIsOpen(false);
 }
 
-FString SBoneSelectionWidget::GetCurrentBoneName() const
+FText SBoneSelectionWidget::GetCurrentBoneName() const
 {
 	if(OnGetSelectedBone.IsBound())
 	{
 		FName Name = OnGetSelectedBone.Execute();
 
-		return Name.ToString();
+		return FText::FromName(Name);
 	}
 
 	// @todo implement default solution?
-	return TEXT("");
+	return FText::GetEmpty();
 }
 #undef LOCTEXT_NAMESPACE
 

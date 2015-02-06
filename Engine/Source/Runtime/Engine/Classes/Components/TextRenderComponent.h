@@ -38,7 +38,7 @@ class ENGINE_API UTextRenderComponent : public UPrimitiveComponent
 	GENERATED_UCLASS_BODY()
 
 	/** Text content, can be multi line using <br> as line separator */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Text)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Text, meta=(MultiLine=true))
 	FString Text;
 
 	/** Text material */

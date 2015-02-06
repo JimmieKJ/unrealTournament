@@ -231,17 +231,17 @@ FString UEdGraphPin::GetDefaultAsString() const
 
 FText UEdGraphPin::GetDisplayName() const
 {
-	FString StrName;
+	FText DisplayName = FText::GetEmpty();
 	auto Schema = GetSchema();
 	if (Schema)
 	{
-		StrName = Schema->GetPinDisplayName(this);
+		DisplayName = Schema->GetPinDisplayName(this);
 	}
 	else
 	{
-		StrName = (!PinFriendlyName.IsEmpty()) ? PinFriendlyName.ToString() : PinName;
+		DisplayName = (!PinFriendlyName.IsEmpty()) ? PinFriendlyName : FText::FromString(PinName);
 	}
-	return FText::FromString(StrName);
+	return DisplayName;
 }
 
 const FString UEdGraphPin::GetLinkInfoString( const FString& InFunctionName, const FString& InInfoData, const UEdGraphPin* InToPin ) const

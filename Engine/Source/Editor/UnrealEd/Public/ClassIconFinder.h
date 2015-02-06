@@ -30,7 +30,7 @@ public:
 	/** Find the small icon name to use for the supplied class */
 	UNREALED_API static FName FindIconNameForClass(const UClass* InClass, const FName& InDefaultName = FName() );
 
-	/** Find the small icon to use for the supplied class */
+	/** Find the large thumbnail name to use for the supplied class */
 	UNREALED_API static const FSlateBrush* FindThumbnailForClass(const UClass* InClass, const FName& InDefaultName = FName() );
 
 	/** Find the large thumbnail name to use for the supplied class */

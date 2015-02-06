@@ -26,7 +26,7 @@ public:
 				// Make a read only text box so that copy still works
 				SNew( SEditableTextBox )
 				.Text( InPropertyEditor, &FPropertyEditor::GetValueAsText )
-				.ToolTipText( InPropertyEditor, &FPropertyEditor::GetValueAsString )
+				.ToolTipText( InPropertyEditor, &FPropertyEditor::GetValueAsText )
 				.Font( InArgs._Font )
 				.IsReadOnly( true )
 			];

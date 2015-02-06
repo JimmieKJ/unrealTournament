@@ -217,38 +217,74 @@ template< class T, class U > FORCEINLINE const T* CastChecked( const U      * Sr
 	DECLARE_CAST_BY_FLAG_FWD(ClassName) \
 	DECLARE_CAST_BY_FLAG_CAST(ClassName)
 
-DECLARE_CAST_BY_FLAG(UField)
-DECLARE_CAST_BY_FLAG(UEnum)
-DECLARE_CAST_BY_FLAG(UStruct)
-DECLARE_CAST_BY_FLAG(UScriptStruct)
-DECLARE_CAST_BY_FLAG(UClass)
-DECLARE_CAST_BY_FLAG(UProperty)
-DECLARE_CAST_BY_FLAG(UObjectPropertyBase)
-DECLARE_CAST_BY_FLAG(UObjectProperty)
-DECLARE_CAST_BY_FLAG(UWeakObjectProperty)
-DECLARE_CAST_BY_FLAG(ULazyObjectProperty)
-DECLARE_CAST_BY_FLAG(UAssetObjectProperty)
-DECLARE_CAST_BY_FLAG(UAssetClassProperty)
-DECLARE_CAST_BY_FLAG(UBoolProperty)
-DECLARE_CAST_BY_FLAG(UFunction)
-DECLARE_CAST_BY_FLAG(UStructProperty)
-DECLARE_CAST_BY_FLAG(UByteProperty)
-DECLARE_CAST_BY_FLAG(UIntProperty)
-DECLARE_CAST_BY_FLAG(UFloatProperty)
-DECLARE_CAST_BY_FLAG(UDoubleProperty)
-DECLARE_CAST_BY_FLAG(UClassProperty)
-DECLARE_CAST_BY_FLAG(UInterfaceProperty)
-DECLARE_CAST_BY_FLAG(UNameProperty)
-DECLARE_CAST_BY_FLAG(UStrProperty)
-DECLARE_CAST_BY_FLAG(UTextProperty)
-DECLARE_CAST_BY_FLAG(UArrayProperty)
-DECLARE_CAST_BY_FLAG(UDelegateProperty)
-DECLARE_CAST_BY_FLAG(UMulticastDelegateProperty)
+#define FINISH_DECLARING_CAST_FLAGS // intentionally defined to do nothing.
+
+// Define a macro that declares all the cast flags.
+// This allows us to reuse these declarations elsewhere to define other properties for these classes.
+#define DECLARE_ALL_CAST_FLAGS \
+DECLARE_CAST_BY_FLAG(UField)							\
+DECLARE_CAST_BY_FLAG(UEnum)								\
+DECLARE_CAST_BY_FLAG(UStruct)							\
+DECLARE_CAST_BY_FLAG(UScriptStruct)						\
+DECLARE_CAST_BY_FLAG(UClass)							\
+DECLARE_CAST_BY_FLAG(UProperty)							\
+DECLARE_CAST_BY_FLAG(UObjectPropertyBase)				\
+DECLARE_CAST_BY_FLAG(UObjectProperty)					\
+DECLARE_CAST_BY_FLAG(UWeakObjectProperty)				\
+DECLARE_CAST_BY_FLAG(ULazyObjectProperty)				\
+DECLARE_CAST_BY_FLAG(UAssetObjectProperty)				\
+DECLARE_CAST_BY_FLAG(UAssetClassProperty)				\
+DECLARE_CAST_BY_FLAG(UBoolProperty)						\
+DECLARE_CAST_BY_FLAG(UFunction)							\
+DECLARE_CAST_BY_FLAG(UStructProperty)					\
+DECLARE_CAST_BY_FLAG(UByteProperty)						\
+DECLARE_CAST_BY_FLAG(UIntProperty)						\
+DECLARE_CAST_BY_FLAG(UFloatProperty)					\
+DECLARE_CAST_BY_FLAG(UDoubleProperty)					\
+DECLARE_CAST_BY_FLAG(UClassProperty)					\
+DECLARE_CAST_BY_FLAG(UInterfaceProperty)				\
+DECLARE_CAST_BY_FLAG(UNameProperty)						\
+DECLARE_CAST_BY_FLAG(UStrProperty)						\
+DECLARE_CAST_BY_FLAG(UTextProperty)						\
+DECLARE_CAST_BY_FLAG(UArrayProperty)					\
+DECLARE_CAST_BY_FLAG(UDelegateProperty)					\
+DECLARE_CAST_BY_FLAG(UMulticastDelegateProperty)		\
+DECLARE_CAST_BY_FLAG(UPackage)							\
+DECLARE_CAST_BY_FLAG(ULevel)							\
+DECLARE_CAST_BY_FLAG(AActor)							\
+DECLARE_CAST_BY_FLAG(APlayerController)					\
+DECLARE_CAST_BY_FLAG(APawn)								\
+DECLARE_CAST_BY_FLAG(USceneComponent)					\
+DECLARE_CAST_BY_FLAG(UPrimitiveComponent)				\
+DECLARE_CAST_BY_FLAG(USkinnedMeshComponent)				\
+DECLARE_CAST_BY_FLAG(USkeletalMeshComponent)			\
+DECLARE_CAST_BY_FLAG(UBlueprint)						\
+FINISH_DECLARING_CAST_FLAGS		// This is here to hopefully remind people to include the "\" in all declarations above, especially when copy/pasting the final line.
+
+// Now actually declare the flags
+DECLARE_ALL_CAST_FLAGS
 
 #undef DECLARE_CAST_BY_FLAG
-#undef DECLARE_CAST_BY_FLAG_CASTCHECKED
 #undef DECLARE_CAST_BY_FLAG_CAST
 #undef DECLARE_CAST_BY_FLAG_FWD
+
+
+#if HACK_HEADER_GENERATOR
+// Singleton class to get the cast flag for a given class name.
+struct COREUOBJECT_API ClassCastFlagMap
+{
+	static ClassCastFlagMap& Get();
+
+	// Get Mapped name -> cast flag. Returns CASTCLASS_None if name is not found.
+	EClassCastFlags GetCastFlag(const FString& ClassName) const;
+
+private:
+	ClassCastFlagMap();
+	TMap<FString, EClassCastFlags> CastFlagMap;
+};
+#endif // HACK_HEADER_GENERATOR
+
+
 
 namespace UE4Casts_Private
 {

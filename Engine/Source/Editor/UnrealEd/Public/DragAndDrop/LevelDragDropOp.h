@@ -46,7 +46,7 @@ public:
 				.AutoWidth()
 					[
 						SNew(STextBlock) 
-						.Text( LevelName )
+						.Text( FText::FromString(LevelName) )
 					]
 			];
 	}

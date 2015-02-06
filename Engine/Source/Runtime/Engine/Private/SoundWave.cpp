@@ -125,7 +125,10 @@ FString USoundWave::GetDesc()
 void USoundWave::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
 	Super::GetAssetRegistryTags(OutTags);
-
+	
+#if WITH_EDITORONLY_DATA
+	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+#endif
 	// GetCompressedDataSize could technically modify this->CompressedFormatData therefore it is not const, however this information
 	// is very useful in the asset registry so we will allow GetCompressedDataSize to be modified if the formats do not exist
 	USoundWave* MutableThis = const_cast<USoundWave*>(this);

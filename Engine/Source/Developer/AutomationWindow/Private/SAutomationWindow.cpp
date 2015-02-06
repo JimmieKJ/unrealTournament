@@ -832,7 +832,7 @@ void SAutomationWindow::HandlePresetTextCommited( const FText& CommittedText, ET
 
 		TArray<FString> EnabledTests;
 		AutomationController->GetEnabledTestNames(EnabledTests);
-		AutomationPresetPtr NewPreset = TestPresetManager->AddNewPreset(CommittedText.ToString(),EnabledTests);
+		AutomationPresetPtr NewPreset = TestPresetManager->AddNewPreset(CommittedText,EnabledTests);
 		PresetComboBox->SetSelectedItem(NewPreset);
 		SelectedPreset = NewPreset;
 
@@ -911,15 +911,15 @@ FReply SAutomationWindow::HandleRemovePresetClicked()
 	return FReply::Handled();
 }
 
-FString SAutomationWindow::GetPresetComboText() const
+FText SAutomationWindow::GetPresetComboText() const
 {
 	if( SelectedPreset.IsValid() )
 	{
-		return *SelectedPreset->GetPresetName();
+		return SelectedPreset->GetPresetName();
 	}
 	else
 	{
-		return LOCTEXT("AutomationPresetComboLabel", "<Select A Preset>").ToString();
+		return LOCTEXT("AutomationPresetComboLabel", "<Select A Preset>");
 	}
 }
 
@@ -1403,29 +1403,29 @@ TSharedRef<ITableRow> SAutomationWindow::OnGenerateWidgetForLog(TSharedPtr<FAuto
 			[
 				SNew(STextBlock)
 				.TextStyle( FEditorStyle::Get(), Message->Style )
-				.Text(FString::Printf(TEXT("%s"), *Message->Text))
+				.Text(FText::FromString(Message->Text))
 			]
 		];
 }
 
 
-FString SAutomationWindow::OnGetNumEnabledTestsString() const
+FText SAutomationWindow::OnGetNumEnabledTestsString() const
 {
 	int32 NumPasses = AutomationController->GetNumPasses();
 	if( NumPasses > 1 )
 	{
-		return FString::Printf(TEXT("%d x%d"), AutomationController->GetEnabledTestsNum(),NumPasses);
+		return FText::Format(LOCTEXT("NumEnabledTestsFmt", "{0} x{1}"), FText::AsNumber(AutomationController->GetEnabledTestsNum()), FText::AsNumber(NumPasses));
 	}
 	else
 	{
-		return FString::Printf(TEXT("%d"), AutomationController->GetEnabledTestsNum());
+		return FText::AsNumber(AutomationController->GetEnabledTestsNum());
 	}
 }
 
 
-FString SAutomationWindow::OnGetNumDevicesInClusterString(const int32 ClusterIndex) const
+FText SAutomationWindow::OnGetNumDevicesInClusterString(const int32 ClusterIndex) const
 {
-	return FString::Printf(TEXT("%d"), AutomationController->GetNumDevicesInCluster(ClusterIndex));
+	return FText::AsNumber(AutomationController->GetNumDevicesInCluster(ClusterIndex));
 }
 
 
@@ -1729,15 +1729,15 @@ const FSlateBrush* SAutomationWindow::GetRunAutomationIcon() const
 }
 
 
-FString SAutomationWindow::GetRunAutomationLabel() const
+FText SAutomationWindow::GetRunAutomationLabel() const
 {
 	if( AutomationControllerState == EAutomationControllerModuleState::Running )
 	{
-		return LOCTEXT( "RunStopTestsLabel", "Stop Tests" ).ToString();
+		return LOCTEXT( "RunStopTestsLabel", "Stop Tests" );
 	}
 	else
 	{
-		return LOCTEXT( "RunStartTestsLabel", "Start Tests" ).ToString();
+		return LOCTEXT( "RunStartTestsLabel", "Start Tests" );
 	}
 }
 

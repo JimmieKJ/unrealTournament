@@ -46,6 +46,7 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 
 		//@todo - use memstack
 		TMap<FName, int32> ActorNameToStencilIndex;
+		TMap<const FPrimitiveSceneProxy*, int32> IndividuallySelectedProxies;
 		ActorNameToStencilIndex.Add(NAME_BSP, 1);
 
 		Context.RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
@@ -56,13 +57,30 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 			const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
 			const FPrimitiveSceneProxy* PrimitiveSceneProxy = MeshBatchAndRelevance.PrimitiveSceneProxy;
 
+#if WITH_EDITOR
+			// Selected actors should be subdued if any component is individually selected
+			bool bActorSelectionColorIsSubdued = View.bHasSelectedComponents;
+#else
+			bool bActorSelectionColorIsSubdued = false;
+#endif
 			if (PrimitiveSceneProxy->IsSelected() && MeshBatchAndRelevance.Mesh->bUseSelectionOutline)
 			{
-				const int32* AssignedStencilIndexPtr = ActorNameToStencilIndex.Find(PrimitiveSceneProxy->GetOwnerName());
+				const int32* AssignedStencilIndexPtr = PrimitiveSceneProxy->IsIndividuallySelected() ? IndividuallySelectedProxies.Find( PrimitiveSceneProxy ) : ActorNameToStencilIndex.Find(PrimitiveSceneProxy->GetOwnerName());
 
 				if (!AssignedStencilIndexPtr)
 				{
-					AssignedStencilIndexPtr = &ActorNameToStencilIndex.Add(PrimitiveSceneProxy->GetOwnerName(), ActorNameToStencilIndex.Num() + 1);
+					if( PrimitiveSceneProxy->IsIndividuallySelected() )
+					{
+						// Any component that is individually selected should have a stencil value of < 128 so that it can have a unique color.  We offset the value by 2 because 0 means no selection and 1 is for bsp
+						int32 StencilValue = IndividuallySelectedProxies.Num() % 126 + 2;
+						AssignedStencilIndexPtr = &IndividuallySelectedProxies.Add(PrimitiveSceneProxy, StencilValue);
+					}
+					else
+					{
+						// If we are subduing actor color highlight then use the top level bits to indicate that to the shader.  
+						int32 StencilValue = bActorSelectionColorIsSubdued ? ActorNameToStencilIndex.Num() % 128 + 128 : ActorNameToStencilIndex.Num() % 126 + 2;
+						AssignedStencilIndexPtr = &ActorNameToStencilIndex.Add(PrimitiveSceneProxy->GetOwnerName(), StencilValue);
+					}
 				}
 
 				// This is a reversed Z depth surface, using CF_GreaterEqual.
@@ -160,6 +178,7 @@ public:
 	FPostProcessPassParameters PostprocessParameter;
 	FDeferredPixelShaderParameters DeferredParameters;
 	FShaderParameter OutlineColor;
+	FShaderParameter SubduedOutlineColor;
 	FShaderParameter BSPSelectionIntensity;
 	FShaderResourceParameter PostprocessInput1MS;
 	FShaderResourceParameter EditorPrimitivesStencil;
@@ -172,6 +191,7 @@ public:
 		PostprocessParameter.Bind(Initializer.ParameterMap);
 		DeferredParameters.Bind(Initializer.ParameterMap);
 		OutlineColor.Bind(Initializer.ParameterMap, TEXT("OutlineColor"));
+		SubduedOutlineColor.Bind(Initializer.ParameterMap, TEXT("SubduedOutlineColor"));
 		BSPSelectionIntensity.Bind(Initializer.ParameterMap, TEXT("BSPSelectionIntensity"));
 		PostprocessInput1MS.Bind(Initializer.ParameterMap, TEXT("PostprocessInput1MS"));
 		EditorRenderParams.Bind(Initializer.ParameterMap, TEXT("EditorRenderParams"));
@@ -233,11 +253,12 @@ public:
 
 #if WITH_EDITOR
 		{
-			FLinearColor Value = Context.View.SelectionOutlineColor;
+			FLinearColor OutlineColorValue = Context.View.SelectionOutlineColor;
+			FLinearColor SubduedOutlineColorValue = Context.View.SubduedSelectionOutlineColor;
+			OutlineColorValue.A = GEngine->SelectionHighlightIntensity;
 
-			Value.A = GEngine->SelectionHighlightIntensity;
-
-			SetShaderValue(Context.RHICmdList, ShaderRHI, OutlineColor, Value);
+			SetShaderValue(Context.RHICmdList, ShaderRHI, OutlineColor, OutlineColorValue);
+			SetShaderValue(Context.RHICmdList, ShaderRHI, SubduedOutlineColor, SubduedOutlineColorValue);
 			SetShaderValue(Context.RHICmdList, ShaderRHI, BSPSelectionIntensity, GEngine->BSPSelectionHighlightIntensity);
 		}
 #else
@@ -263,7 +284,7 @@ public:
 	virtual bool Serialize(FArchive& Ar)
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << OutlineColor << BSPSelectionIntensity << DeferredParameters << PostprocessInput1MS << EditorPrimitivesStencil << EditorRenderParams;
+		Ar << PostprocessParameter << OutlineColor << SubduedOutlineColor << BSPSelectionIntensity << DeferredParameters << PostprocessInput1MS << EditorPrimitivesStencil << EditorRenderParams;
 		return bShaderHasOutdatedParameters;
 	}
 

@@ -47,10 +47,10 @@ public:
 		return FReply::Handled();
 	}
 
-	FString GetConnectionInfo() const
+	FText GetConnectionInfo() const
 	{
 		check( ConnectionInfo.IsValid() );
-		return *ConnectionInfo.Get();
+		return FText::FromString(*ConnectionInfo.Get());
 	}
 
 private:

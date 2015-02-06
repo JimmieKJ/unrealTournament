@@ -297,6 +297,8 @@ class DynamicMulticastDelegateName : public FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(T
 
 /*********************************************************************************************************************/
 
+#define DELEGATE_DEPRECATED(message) DEPRECATED(4.7, message)
+
 // We define this as a guard to prevent DelegateSignatureImpl.inl being included outside of this file
 #define __Delegate_h__
 #define FUNC_INCLUDING_INLINE_IMPL

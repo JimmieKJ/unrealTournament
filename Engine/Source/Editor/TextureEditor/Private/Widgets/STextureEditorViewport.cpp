@@ -56,11 +56,11 @@ void STextureEditorViewport::Construct( const FArguments& InArgs, const TSharedR
 		ZoomMenuBuilder.AddMenuEntry(LOCTEXT("ZoomFitAction", "Scale To Fit"), LOCTEXT("ZoomFillActionHint", "Scale the texture to fit the viewport."), FSlateIcon(), ZoomFitAction, NAME_None, EUserInterfaceActionType::ToggleButton);
 	}
 
-	FString TextureName;
+	FText TextureName = FText::GetEmpty();
 	
 	if (InToolkit->GetTexture() != nullptr)
 	{
-		TextureName = InToolkit->GetTexture()->GetFName().ToString();
+		TextureName = FText::FromName(InToolkit->GetTexture()->GetFName());
 	}
 
 	this->ChildSlot

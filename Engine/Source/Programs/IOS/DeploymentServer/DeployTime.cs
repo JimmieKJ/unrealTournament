@@ -333,7 +333,7 @@ namespace DeploymentServer
 					return bResult;
 				}
 
-				return false;
+				return true;
             });
         }
 
@@ -345,7 +345,7 @@ namespace DeploymentServer
 			// Transfer to all connected devices
 			return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
 			{
-				bool bResult = false;
+				bool bResult = true;
 				if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId)
 				{
 					bResult = Device.TryCopy(BundleIdentifier, Manifest);
@@ -359,7 +359,7 @@ namespace DeploymentServer
         {
             return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
             {
-				bool bResult = false;
+				bool bResult = true;
 				if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId)
 				{
 					string SafeDeviceName = MobileDeviceInstance.SanitizePathNoFilename(Device.DeviceName);
@@ -382,7 +382,7 @@ namespace DeploymentServer
 		{
 			return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
 			{
-				bool bResult = false;
+				bool bResult = true;
 				if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId)
 				{
 					bResult = Device.TryBackup(BundleIdentifier, DestionationFiles);

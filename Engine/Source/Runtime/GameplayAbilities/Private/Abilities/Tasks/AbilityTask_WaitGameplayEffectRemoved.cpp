@@ -37,7 +37,7 @@ void UAbilityTask_WaitGameplayEffectRemoved::Activate()
 		FOnActiveGameplayEffectRemoved* DelPtr = EffectOwningAbilitySystemComponent->OnGameplayEffectRemovedDelegate(Handle);
 		if (DelPtr)
 		{
-			DelPtr->AddUObject(this, &UAbilityTask_WaitGameplayEffectRemoved::OnGameplayEffectRemoved);
+			OnGameplayEffectRemovedDelegateHandle = DelPtr->AddUObject(this, &UAbilityTask_WaitGameplayEffectRemoved::OnGameplayEffectRemoved);
 			Registered = true;
 		}
 	}
@@ -57,7 +57,7 @@ void UAbilityTask_WaitGameplayEffectRemoved::OnDestroy(bool AbilityIsEnding)
 		FOnActiveGameplayEffectRemoved* DelPtr = EffectOwningAbilitySystemComponent->OnGameplayEffectRemovedDelegate(Handle);
 		if (DelPtr)
 		{
-			DelPtr->RemoveUObject(this, &UAbilityTask_WaitGameplayEffectRemoved::OnGameplayEffectRemoved);
+			DelPtr->Remove(OnGameplayEffectRemovedDelegateHandle);
 		}
 	}
 

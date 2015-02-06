@@ -57,6 +57,9 @@ public:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 private:
+	/** Used by OnDragEnter, OnDragOver, and OnDrop to check and update the validity of the drag operation */
+	bool ValidateDragDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) const;
+
 	/** Handles verifying name changes */
 	bool VerifyNameChanged(const FText& InName, FText& OutError) const;
 
@@ -78,6 +81,9 @@ private:
 	/** Returns the text of the folder name */
 	FText GetNameText() const;
 
+	/** Returns the text to use for the folder tooltip */
+	FText GetToolTipText() const;
+
 	/** Returns the image for the border around this item. Used for drag/drop operations */
 	const FSlateBrush* GetBorderImage() const;
 
@@ -88,6 +94,13 @@ private:
 	EVisibility GetStaticTextVisibility() const;
 
 private:
+	enum class EFolderType : uint8
+	{
+		Normal,
+		Code,
+		Developer,
+	};
+
 	/** The data for this item */
 	TWeakPtr<FTreeItem> TreeItem;
 
@@ -118,16 +131,21 @@ private:
 	/** Brushes for the different folder states */
 	const FSlateBrush* FolderOpenBrush;
 	const FSlateBrush* FolderClosedBrush;
+	const FSlateBrush* FolderOpenCodeBrush;
+	const FSlateBrush* FolderClosedCodeBrush;
 	const FSlateBrush* FolderDeveloperBrush;
 
 	/** True when a drag is over this item with a valid operation for drop */
 	bool bDraggedOver;
 
-	/** True when this item represents a folder which is in the developer folder or is the developer folder itself */
-	bool bDeveloperFolder;
+	/** What type of stuff does this folder hold */
+	EFolderType FolderType;
 
 	/** Widget to display the name of the asset item and allows for renaming */
 	TSharedPtr< SInlineEditableTextBlock > InlineRenameWidget;
+
+	/** Handle to the registered EnterEditingMode delegate. */
+	FDelegateHandle EnterEditingModeDelegateHandle;
 };
 
 /** A single item in the collection list. */
@@ -231,4 +249,7 @@ private:
 
 	/** Widget to display the name of the collection item and allows for renaming */
 	TSharedPtr< SInlineEditableTextBlock > InlineRenameWidget;
+
+	/** Handle to the registered EnterEditingMode delegate. */
+	FDelegateHandle EnterEditingModeDelegateHandle;
 };

@@ -164,27 +164,27 @@ struct FVisualizeRTWidget : public SCompoundWidget, public FReferenceToRenderer
 					SNew( SVerticalBox )
 					+SVerticalBox::Slot()
 					[
-						SNew(STextBlock).Text(FString(TEXT("TODO: R G B A")))
+						SNew(STextBlock).Text(FText::FromString(TEXT("TODO: R G B A")))
 					]
 					+SVerticalBox::Slot()
 					[
-						SNew(STextBlock).Text(FString(TEXT("TODO: Mip")))
+						SNew(STextBlock).Text(FText::FromString(TEXT("TODO: Mip")))
 					]
 					+SVerticalBox::Slot()
 					[
-						SNew(STextBlock).Text(FString(TEXT("TODO: Face")))
+						SNew(STextBlock).Text(FText::FromString(TEXT("TODO: Face")))
 					]
 					+SVerticalBox::Slot()
 					[
-						SNew(STextBlock).Text(FString(TEXT("TODO: Luminance")))
+						SNew(STextBlock).Text(FText::FromString(TEXT("TODO: Luminance")))
 					]
 					+SVerticalBox::Slot()
 					[
-						SNew(STextBlock).Text(FString(TEXT("TODO: Color Multiplier")))
+						SNew(STextBlock).Text(FText::FromString(TEXT("TODO: Color Multiplier")))
 					]
 					+SVerticalBox::Slot()
 					[
-						SNew(STextBlock).Text(FString(TEXT("TODO: Alpha Multiplier")))
+						SNew(STextBlock).Text(FText::FromString(TEXT("TODO: Alpha Multiplier")))
 					]
 				]
 				+ SSplitter::Slot().Value(4)
@@ -267,42 +267,42 @@ struct FVisualizeRTWidget : public SCompoundWidget, public FReferenceToRenderer
 
 		TSharedRef<SWidget> GenerateWidgetForColumn( const FName& Column )
 		{
-			FString Label;
+			FText Label;
 			if ( Column == ColumnName )
 			{
-				Label = Info->Name;
+				Label = FText::FromString(Info->Name);
 			}
 			else if ( Column == ColumnWidth )
 			{
-				Label = Info->Width;
+				Label = FText::FromString(Info->Width);
 			}
 			else if ( Column == ColumnDepth )
 			{
-				Label = Info->Depth;
+				Label = FText::FromString(Info->Depth);
 			}
 			else if ( Column == ColumnHeight )
 			{
-				Label = Info->Height;
+				Label = FText::FromString(Info->Height);
 			}
 			else if ( Column == ColumnFormat )
 			{
-				Label = Info->Format;
+				Label = FText::FromString(Info->Format);
 			}
 			else if ( Column == ColumnDimensions )
 			{
-				Label = Info->Dimensions;
+				Label = FText::FromString(Info->Dimensions);
 			}
 			else if ( Column == ColumnSize )
 			{
-				Label = Info->Size;
+				Label = FText::FromString(Info->Size);
 			}
 			else if ( Column == ColumnType )
 			{
-				Label = Info->Type;
+				Label = FText::FromString(Info->Type);
 			}
 			else if ( Column == ColumnNumber )
 			{
-				Label = Info->Number;
+				Label = FText::FromString(Info->Number);
 			}
 
 			if (!Label.IsEmpty())

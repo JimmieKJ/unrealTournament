@@ -142,7 +142,7 @@ TSharedRef< SWidget > SRetargetSourceListRow::GenerateWidgetForColumn( const FNa
 			.VAlign( VAlign_Center )
 			[
 				SNew( STextBlock )
-				.Text( Item->GetReferenceMeshName() )
+				.Text( FText::FromString(Item->GetReferenceMeshName()) )
 				.HighlightText( RetargetSourceWindow->GetFilterText() )
 			];
 	}
@@ -173,7 +173,7 @@ void SRetargetSourceWindow::Construct(const FArguments& InArgs)
 		PersonaPtr.Pin()->RegisterOnPostUndo(FPersona::FOnPostUndo::CreateSP( this, &SRetargetSourceWindow::PostUndo ) );
 	}
 
-	FString SkeletonName = Skeleton ? Skeleton->GetName() : LOCTEXT( "RetargetSourceMeshNameLabel", "No Skeleton Present" ).ToString();
+	FText SkeletonName = Skeleton ? FText::FromString(Skeleton->GetName()) : LOCTEXT( "RetargetSourceMeshNameLabel", "No Skeleton Present" );
 
 	ChildSlot
 	[

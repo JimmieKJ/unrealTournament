@@ -60,7 +60,7 @@ void FTestSharingInterface::RequestPermissionsToSharePosts()
 
 	for (int32 PlayerIndex = 0; PlayerIndex < MAX_LOCAL_PLAYERS; PlayerIndex++)
 	{
-		SharingInterface->AddOnRequestNewPublishPermissionsCompleteDelegate(PlayerIndex, RequestPermissionsToPostToFeedDelegate);
+		RequestPermissionsToPostToFeedDelegateHandles.Add(PlayerIndex, SharingInterface->AddOnRequestNewPublishPermissionsCompleteDelegate_Handle(PlayerIndex, RequestPermissionsToPostToFeedDelegate));
 		SharingInterface->RequestNewPublishPermissions(PlayerIndex, PublishPermissions, TestStatusUpdate.PostPrivacy);
 	}
 }
@@ -69,7 +69,8 @@ void FTestSharingInterface::RequestPermissionsToSharePosts()
 void FTestSharingInterface::OnStatusPostingPermissionsUpdated(int32 LocalUserNum, bool bWasSuccessful)
 {
 	UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface::OnStatusPostingPermissionsUpdated() - %d"), bWasSuccessful);
-	SharingInterface->ClearOnRequestNewPublishPermissionsCompleteDelegate(LocalUserNum, RequestPermissionsToPostToFeedDelegate);
+	SharingInterface->ClearOnRequestNewPublishPermissionsCompleteDelegate_Handle(LocalUserNum, RequestPermissionsToPostToFeedDelegateHandles.FindRef(LocalUserNum));
+	RequestPermissionsToPostToFeedDelegateHandles.Remove(LocalUserNum);
 
 	if( ++ResponsesReceived == MAX_LOCAL_PLAYERS )
 	{
@@ -87,7 +88,7 @@ void FTestSharingInterface::SharePost()
 
 	for (int32 PlayerIndex = 0; PlayerIndex < MAX_LOCAL_PLAYERS; PlayerIndex++)
 	{
-		SharingInterface->AddOnSharePostCompleteDelegate(PlayerIndex, OnPostSharedDelegate);
+		OnPostSharedDelegateHandles.Add(PlayerIndex, SharingInterface->AddOnSharePostCompleteDelegate_Handle(PlayerIndex, OnPostSharedDelegate));
 		SharingInterface->ShareStatusUpdate(PlayerIndex, TestStatusUpdate);
 	}
 }
@@ -97,7 +98,8 @@ void FTestSharingInterface::OnPostShared(int32 LocalPlayer, bool bWasSuccessful)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("FTestSharingInterface::OnPostShared[PlayerIdx:%i - Successful:%i]"), LocalPlayer, bWasSuccessful);
 
-	SharingInterface->ClearOnSharePostCompleteDelegate(LocalPlayer, OnPostSharedDelegate);
+	SharingInterface->ClearOnSharePostCompleteDelegate_Handle(LocalPlayer, OnPostSharedDelegateHandles.FindRef(LocalPlayer));
+	OnPostSharedDelegateHandles.Remove(LocalPlayer);
 	if( ++ResponsesReceived == MAX_LOCAL_PLAYERS )
 	{
 		RequestPermissionsToReadNewsFeed();
@@ -117,7 +119,7 @@ void FTestSharingInterface::RequestPermissionsToReadNewsFeed()
 
 	for (int32 PlayerIndex = 0; PlayerIndex < MAX_LOCAL_PLAYERS; PlayerIndex++)
 	{
-		SharingInterface->AddOnRequestNewReadPermissionsCompleteDelegate(PlayerIndex, RequestPermissionsToReadFeedDelegate);
+		RequestPermissionsToReadFeedDelegateHandles.Add(PlayerIndex, SharingInterface->AddOnRequestNewReadPermissionsCompleteDelegate_Handle(PlayerIndex, RequestPermissionsToReadFeedDelegate));
 		SharingInterface->RequestNewReadPermissions(PlayerIndex, ReadPermissions);
 	}
 }
@@ -126,7 +128,8 @@ void FTestSharingInterface::RequestPermissionsToReadNewsFeed()
 void FTestSharingInterface::OnReadFeedPermissionsUpdated(int32 LocalUserNum, bool bWasSuccessful)
 {
 	UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface::OnReadFeedPermissionsUpdated() - %d"), bWasSuccessful);
-	SharingInterface->ClearOnRequestNewReadPermissionsCompleteDelegate(LocalUserNum, RequestPermissionsToReadFeedDelegate);
+	SharingInterface->ClearOnRequestNewReadPermissionsCompleteDelegate_Handle(LocalUserNum, RequestPermissionsToReadFeedDelegateHandles.FindRef(LocalUserNum));
+	RequestPermissionsToReadFeedDelegateHandles.Remove(LocalUserNum);
 
 	if( ++ResponsesReceived == MAX_LOCAL_PLAYERS )
 	{
@@ -144,7 +147,7 @@ void FTestSharingInterface::ReadNewsFeed()
 
 	for (int32 PlayerIndex = 0; PlayerIndex < MAX_LOCAL_PLAYERS; PlayerIndex++)
 	{
-		SharingInterface->AddOnReadNewsFeedCompleteDelegate(PlayerIndex, OnNewsFeedReadDelegate);
+		OnNewsFeedReadDelegateHandles.Add(PlayerIndex, SharingInterface->AddOnReadNewsFeedCompleteDelegate_Handle(PlayerIndex, OnNewsFeedReadDelegate));
 		SharingInterface->ReadNewsFeed(PlayerIndex);
 	}
 }
@@ -173,7 +176,7 @@ void FTestSharingInterface::OnNewsFeedRead(int32 LocalPlayer, bool bWasSuccessfu
 		}
 	}
 
-	SharingInterface->ClearOnReadNewsFeedCompleteDelegate(LocalPlayer, OnNewsFeedReadDelegate);
+	SharingInterface->ClearOnReadNewsFeedCompleteDelegate_Handle(LocalPlayer, OnNewsFeedReadDelegateHandles.FindRef(LocalPlayer));
 	if( ++ResponsesReceived == MAX_LOCAL_PLAYERS )
 	{
 		UE_LOG(LogOnline, Display, TEXT("FTestSharingInterface TESTS COMPLETED"), LocalPlayer, bWasSuccessful);

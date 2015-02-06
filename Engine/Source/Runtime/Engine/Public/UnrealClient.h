@@ -60,7 +60,7 @@ public:
 	* @param InRect - source rect of the image to capture
 	* @return True if the read succeeded.
 	*/
-	ENGINE_API bool ReadPixels(TArray< FColor >& OutImageData,FReadSurfaceDataFlags InFlags = FReadSurfaceDataFlags(), FIntRect InRect = FIntRect(0, 0, 0, 0) );
+	ENGINE_API bool ReadPixels(TArray< FColor >& OutImageData,FReadSurfaceDataFlags InFlags = FReadSurfaceDataFlags(RCM_UNorm, CubeFace_MAX), FIntRect InRect = FIntRect(0, 0, 0, 0) );
 
 	/**
 	* Reads the viewport's displayed pixels into a preallocated color buffer.
@@ -68,7 +68,7 @@ public:
 	* @param InSrcRect InSrcRect not specified means the whole rect
 	* @return True if the read succeeded.
 	*/
-	ENGINE_API bool ReadPixelsPtr(FColor* OutImageBytes, FReadSurfaceDataFlags InFlags = FReadSurfaceDataFlags(), FIntRect InSrcRect = FIntRect(0, 0, 0, 0));
+	ENGINE_API bool ReadPixelsPtr(FColor* OutImageBytes, FReadSurfaceDataFlags InFlags = FReadSurfaceDataFlags(RCM_UNorm, CubeFace_MAX), FIntRect InSrcRect = FIntRect(0, 0, 0, 0));
 
 	/**
 	 * Reads the viewport's displayed pixels into the given color buffer.

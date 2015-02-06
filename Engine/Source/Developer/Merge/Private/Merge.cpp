@@ -25,7 +25,7 @@ static void DisplayErrorMessage( const FText& ErrorMessage )
 
 static FRevisionInfo GetRevisionInfo(ISourceControlRevision const& FromRevision)
 {
-	FRevisionInfo Ret = { FromRevision.GetRevisionNumber(), FromRevision.GetCheckInIdentifier(), FromRevision.GetDate() };
+	FRevisionInfo Ret = { FromRevision.GetRevision(), FromRevision.GetCheckInIdentifier(), FromRevision.GetDate() };
 	return Ret;
 }
 

@@ -132,7 +132,7 @@ class ENGINE_API UMaterialExpression : public UObject
 	class UMaterialFunction* Function;
 
 	/** A description that level designers can add (shows in the material editor UI). */
-	UPROPERTY(EditAnywhere, Category=MaterialExpression)
+	UPROPERTY(EditAnywhere, Category=MaterialExpression, meta=(MultiLine=true))
 	FString Desc;
 
 	/** Color of the expression's border outline. */

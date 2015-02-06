@@ -206,9 +206,9 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
 
-FString SDeviceProfileCreateProfilePanel::SetProfileTypeComboBoxContent() const
+FText SDeviceProfileCreateProfilePanel::SetProfileTypeComboBoxContent() const
 {
-	return SelectedDeviceProfileType.IsValid() ? *SelectedDeviceProfileType : LOCTEXT("SelectType", "Choose a device profile type...").ToString();
+	return SelectedDeviceProfileType.IsValid() ? FText::FromString(*SelectedDeviceProfileType) : LOCTEXT("SelectType", "Choose a device profile type...");
 }
 
 
@@ -242,7 +242,7 @@ TSharedRef<SWidget> SDeviceProfileCreateProfilePanel::HandleProfileTypeComboBoxG
 	.Padding(DeviceProfileCreateProfileUIConstants::ListElementPadding)
 	[
 		SNew(STextBlock)
-		.Text(*InItem)
+		.Text(FText::FromString(*InItem))
 	];
 }
 
@@ -260,9 +260,9 @@ void SDeviceProfileCreateProfilePanel::HandleBaseProfileSelectionChanged( UDevic
 }
 
 
-FString SDeviceProfileCreateProfilePanel::SetBaseProfileComboBoxContent() const
+FText SDeviceProfileCreateProfilePanel::SetBaseProfileComboBoxContent() const
 {
-	return SelectedDeviceProfileParent.IsValid() ? SelectedDeviceProfileParent->GetName() : LOCTEXT("SelectParent", "Copy properties from...").ToString();
+	return SelectedDeviceProfileParent.IsValid() ? FText::FromString(SelectedDeviceProfileParent->GetName()) : LOCTEXT("SelectParent", "Copy properties from...");
 }
 
 
@@ -272,7 +272,7 @@ TSharedRef<SWidget> SDeviceProfileCreateProfilePanel::HandleBaseComboBoxGenerate
 	.Padding(DeviceProfileCreateProfileUIConstants::ListElementPadding)
 	[
 		SNew(STextBlock)
-		.Text(InItem->GetName())
+		.Text(FText::FromString(InItem->GetName()))
 	];
 }
 

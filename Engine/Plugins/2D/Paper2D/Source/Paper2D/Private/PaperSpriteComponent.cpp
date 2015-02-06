@@ -133,6 +133,19 @@ bool UPaperSpriteComponent::HasAnySockets() const
 	return false;
 }
 
+bool UPaperSpriteComponent::DoesSocketExist(FName InSocketName) const
+{
+	if (SourceSprite != nullptr)
+	{
+		if (FPaperSpriteSocket* Socket = SourceSprite->FindSocket(InSocketName))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 FTransform UPaperSpriteComponent::GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace) const
 {
 	if (SourceSprite != nullptr)

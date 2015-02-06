@@ -488,7 +488,7 @@ UPackage* CreatePackage( UObject* InOuter, const TCHAR* PackageName )
 			}
 			else
 			{
-				Result = new( InOuter, NewPackageName, RF_Public )UPackage(FObjectInitializer());
+				Result = NewNamedObject<UPackage>(InOuter, NewPackageName, RF_Public);
 			}
 		}
 	}
@@ -869,7 +869,19 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 
 		SlowTask.EnterProgressFrame(30);
 
-		if( !(LoadFlags & LOAD_Verify) )
+		uint32 DoNotLoadExportsFlags = LOAD_Verify;
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+		// if this linker already has the DeferDependencyLoads flag, then we're
+		// already loading it earlier up the load chain (don't let it invoke any
+		// deeper loads that may introduce a circular dependency)
+		if ((Linker->LoadFlags & LOAD_DeferDependencyLoads))
+		{
+			DoNotLoadExportsFlags |= LOAD_DeferDependencyLoads;
+		}
+		// @TODO: what of cases where DeferDependencyLoads was specified, but not already set on the Linker?
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
+		if ((LoadFlags & DoNotLoadExportsFlags) == 0)
 		{
 			// Make sure we pass the property that's currently being serialized by the linker that owns the import 
 			// that triggered this LoadPackage call
@@ -1353,6 +1365,14 @@ UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, 
 	{
 		Parameters.DestName = FName(DestName, FNAME_Add, true);
 	}
+	else if (SourceObject->GetOuter() != DestOuter)
+	{
+		// try to keep the object name consistent if possible
+		if (FindObjectFast<UObject>(DestOuter, SourceObject->GetFName()) == nullptr)
+		{
+			Parameters.DestName = SourceObject->GetFName();
+		}
+	}
 
 	if ( DestClass == NULL )
 	{
@@ -1708,7 +1728,7 @@ UObject* StaticAllocateObject
 				TEXT("Objects have the same fully qualified name but different paths.\n")
 				TEXT("\tNew Object: %s %s.%s\n")
 				TEXT("\tExisting Object: %s"),
-				*InClass->GetName(), InOuter ? *InOuter->GetPathName() : TEXT(""), *InName.GetPlainNameString(),
+				*InClass->GetName(), InOuter ? *InOuter->GetPathName() : TEXT(""), *InName.ToString(),
 				*Obj->GetFullName());
 		}
 	}
@@ -1846,6 +1866,16 @@ void UObject::PostInitProperties()
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
 	GetClass()->CreatePersistentUberGraphFrame(this);
 #endif
+}
+
+UObject::UObject()
+{
+	FObjectInitializer* ObjectInitializerPtr = FTlsObjectInitializers::Top();
+	UE_CLOG(!ObjectInitializerPtr, LogUObjectGlobals, Fatal, TEXT("%s is not being constructed with either NewObject, NewNamedObject or ConstructObject."), *GetName());
+	FObjectInitializer& ObjectInitializer = *ObjectInitializerPtr;
+	check(!ObjectInitializer.Obj || ObjectInitializer.Obj == this);
+	const_cast<FObjectInitializer&>(ObjectInitializer).Obj = this;
+	const_cast<FObjectInitializer&>(ObjectInitializer).FinalizeSubobjectClassInitialization();
 }
 
 UObject::UObject(const FObjectInitializer& ObjectInitializer)
@@ -2184,10 +2214,16 @@ UObject* StaticConstructObject
 	const bool bIsNativeFromCDO = InClass->HasAnyClassFlags(CLASS_Native | CLASS_Intrinsic) && 
 		(
 			!InTemplate || 
-			(InName != NAME_None && InTemplate == UObject::GetArchetypeFromRequiredInfo(InClass, InOuter, InName, !!(InFlags & RF_ClassDefaultObject)))
-		);
-	bool bRecycledSubobject = false;
-	Result = StaticAllocateObject(InClass, InOuter, InName, InFlags, bIsNativeFromCDO, &bRecycledSubobject);
+			(InName != NAME_None && InTemplate == UObject::GetArchetypeFromRequiredInfo(InClass, InOuter, InName, InFlags))
+		);	
+#if WITH_HOT_RELOAD
+	// Do not recycle subobjects when performing hot-reload as they may contain old property values.
+	const bool bCanRecycleSubobjects = bIsNativeFromCDO && !GIsHotReload;
+#else
+	const bool bCanRecycleSubobjects = bIsNativeFromCDO;
+#endif
+	bool bRecycledSubobject = false;	
+	Result = StaticAllocateObject(InClass, InOuter, InName, InFlags, bCanRecycleSubobjects, &bRecycledSubobject);
 	check(Result != NULL);
 	// Don't call the constructor on recycled subobjects, they haven't been destroyed.
 	if (!bRecycledSubobject)
@@ -2209,6 +2245,12 @@ UObject* StaticConstructObject
 void FObjectInitializer::AssertIfInConstructor(UObject* Outer, const TCHAR* ErrorMessage)
 {
 	UE_CLOG(GIsInConstructor && Outer == GConstructedObject, LogUObjectGlobals, Fatal, TEXT("%s"), ErrorMessage);
+}
+
+FObjectInitializer& FObjectInitializer::Get()
+{
+	UE_CLOG(!GIsInConstructor, LogUObjectGlobals, Fatal, TEXT("FObjectInitializer::Get() can only be used inside of UObject-derived class constructor."));
+	return FTlsObjectInitializers::TopChecked();
 }
 
 /**

@@ -756,7 +756,7 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 				AActor* CurrentActor = Volume->OverrideVisibleActors[ActorIndex];
 				if (CurrentActor)
 				{
-					TArray<UPrimitiveComponent*> Components;
+					TInlineComponentArray<UPrimitiveComponent*> Components;
 					CurrentActor->GetComponents(Components);
 
 					for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
@@ -775,7 +775,7 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 				AActor* RemoveActor = Volume->OverrideInvisibleActors[RemoveActorIndex];
 				if (RemoveActor)
 				{
-					TArray<UPrimitiveComponent*> Components;
+					TInlineComponentArray<UPrimitiveComponent*> Components;
 					RemoveActor->GetComponents(Components);
 
 					for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
@@ -799,7 +799,7 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 						AActor* RemoveActor = Level->Actors[RemoveActorIndex];
 						if (RemoveActor)
 						{
-							TArray<UPrimitiveComponent*> PrimitiveComponents;
+							TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
 							RemoveActor->GetComponents(PrimitiveComponents);
 
 							for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ComponentIndex++)
@@ -2131,7 +2131,7 @@ void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& In
 	{
 		for (FSelectedActorIterator It(World); It; ++It)
 		{
-			TArray<UPrimitiveComponent*> Components;
+			TInlineComponentArray<UPrimitiveComponent*> Components;
 			It->GetComponents(Components);
 
 			for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)

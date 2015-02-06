@@ -212,7 +212,7 @@ bool UDemoNetDriver::InitConnect( FNetworkNotify* InNotify, const FURL& ConnectU
 	GetWorld()->DemoNetDriver = NULL;
 	SetWorld( NULL );
 
-	UDemoPendingNetGame * NewPendingNetGame = new UDemoPendingNetGame( FObjectInitializer() );
+	auto NewPendingNetGame = NewObject<UDemoPendingNetGame>();
 
 	NewPendingNetGame->DemoNetDriver = this;
 

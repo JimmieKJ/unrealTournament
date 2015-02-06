@@ -2,10 +2,12 @@
 
 #pragma once
 
-class FAssetPathDragDropOp : public FDragDropOperation
+#include "DecoratedDragDropOp.h"
+
+class FAssetPathDragDropOp : public FDecoratedDragDropOp
 {
 public:
-	DRAG_DROP_OPERATOR_TYPE(FAssetPathDragDropOp, FDragDropOperation)
+	DRAG_DROP_OPERATOR_TYPE(FAssetPathDragDropOp, FDecoratedDragDropOp)
 
 	/** Data for the asset this item represents */
 	TArray<FString> PathNames;
@@ -22,36 +24,66 @@ public:
 	}
 	
 public:
+	FText GetDecoratorText() const
+	{
+		if ( CurrentHoverText.IsEmpty() )
+		{
+			FString Text = PathNames.Num() > 0 ? PathNames[0] : TEXT("");
+
+			if ( PathNames.Num() > 1 )
+			{
+				Text += TEXT(" ");
+				Text += FString::Printf(*NSLOCTEXT("ContentBrowser", "FolderDescription", "and %d other(s)").ToString(), PathNames.Num() - 1);
+			}
+
+			return FText::FromString(Text);
+		}
+		
+		return CurrentHoverText;
+	}
+
 	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override
 	{
-		FString Text = PathNames.Num() > 0 ? PathNames[0] : TEXT("");
-
-		if ( PathNames.Num() > 1 )
-		{
-			Text += TEXT(" ");
-			Text += FString::Printf(*NSLOCTEXT("ContentBrowser", "FolderDescription", "and %d other(s)").ToString(), PathNames.Num() - 1);
-		}
-
-		return
+		return 
 			SNew(SBorder)
-			.BorderImage( FEditorStyle::GetBrush("Menu.Background") )
+			.BorderImage(FEditorStyle::GetBrush("ContentBrowser.AssetDragDropTooltipBackground"))
 			.Content()
 			[
 				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
+
+				// Left slot is folder icon
+				+ SHorizontalBox::Slot()
 				.AutoWidth()
-				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
 				[
 					SNew(SImage)
-					.Image( FEditorStyle::GetBrush("ContentBrowser.AssetTreeFolderClosed") )
+					.Image(FEditorStyle::GetBrush("ContentBrowser.AssetTreeFolderClosed"))
 				]
-				+SHorizontalBox::Slot()
+
+				// Right slot is for tooltip
+				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				.VAlign(VAlign_Center)
 				[
-					SNew(STextBlock) 
-					.Text( FText::FromString(Text) )
+					SNew(SHorizontalBox)
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(3.0f)
+					.VAlign(VAlign_Center)
+					[
+						SNew(SImage) 
+						.Image(this, &FAssetPathDragDropOp::GetIcon)
+					]
+
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(0,0,3,0)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock) 
+						.Text(this, &FAssetPathDragDropOp::GetDecoratorText)
+					]
 				]
 			];
 	}

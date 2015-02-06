@@ -71,7 +71,7 @@ void FEditorUtilityInstanceDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 			ActionsCategory.AddCustomRow( FText::FromString(PlacedActorCDO->HelpText) )
 			[
 				SNew(STextBlock)
-				.Text(PlacedActorCDO->HelpText)
+				.Text(FText::FromString(PlacedActorCDO->HelpText))
 			];
 		}
 		
@@ -81,7 +81,7 @@ void FEditorUtilityInstanceDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 			ActionsCategory.AddCustomRow( FText::FromString(GlobalBlutilityCDO->HelpText) )
 			[
 				SNew(STextBlock)
-				.Text(GlobalBlutilityCDO->HelpText)
+				.Text(FText::FromString(GlobalBlutilityCDO->HelpText))
 			];
 		}
 
@@ -101,10 +101,10 @@ void FEditorUtilityInstanceDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 				const FText ButtonCaption = FText::FromString(FName::NameToDisplayString(*Function->GetName(), false));
 
 				//@TODO: Expose the code in UK2Node_CallFunction::GetUserFacingFunctionName / etc...
-				FString Tooltip = Function->GetToolTipText().ToString();
+				FText Tooltip = Function->GetToolTipText();
 				if (Tooltip.IsEmpty())
 				{
-					Tooltip = Function->GetName();
+					Tooltip = FText::FromString(Function->GetName());
 				}
 
 				TWeakObjectPtr<UFunction> WeakFunctionPtr(Function);

@@ -25,20 +25,14 @@ private:
 	void BuildAppManifestSection(IDetailLayoutBuilder& DetailLayout);
 	void BuildIconSection(IDetailLayoutBuilder& DetailLayout);
 
-	// Navigates to the manifest in the explorer or finder
-	FReply OpenManifestFolder();
+	// Navigates to the build files in the explorer or finder
+	FReply OpenBuildFolder();
 
 	// Copies the setup files for the platform into the project
 	void CopySetupFilesIntoProject();
 
 	// Copies the strings.xml file for the platform into the project
 	void CopyGooglePlayAppIDFileIntoProject();
-
-	// Called when the orientation is modified
-	void OnOrientationModified();
-
-	// Called when the depth preference is modified
-	void OnDepthBufferPreferenceModified();
 
 	// Called when the app id is modified
 	void OnAppIDModified();
@@ -49,14 +43,8 @@ private:
 	const FString EngineAndroidPath;
 	const FString GameAndroidPath;
 
-	const FString EngineManifestPath;
-	const FString GameManifestPath;
-	
 	const FString EngineGooglePlayAppIDPath;
 	const FString GameGooglePlayAppIDPath;
-
-	const FString EngineSigningConfigPath;
-	const FString GameSigningConfigPath;
 
 	const FString EngineProguardPath;
 	const FString GameProguardPath;
@@ -72,11 +60,5 @@ private:
 	// Is the App ID string writable?
 	TAttribute<bool> SetupForGooglePlayAttribute;
 
-	// Converts an orientation enum to the associated string value
-	static FString OrientationToString(const EAndroidScreenOrientation::Type Orientation);
-
-	// Converts an depth preference enum to the associated string value
-	static FString DepthBufferPreferenceToString(const EAndroidDepthBufferPreference::Type DepthBufferPreference);
-
-	IDetailLayoutBuilder* SavedLayoutBuilder;
+ 	IDetailLayoutBuilder* SavedLayoutBuilder;
 };

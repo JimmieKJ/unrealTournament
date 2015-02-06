@@ -95,23 +95,6 @@ public:
 public:
 
 	/**
-	 * Compares this UI action to another for equality.
-	 *
-	 * @param Other The other action to compare to.
-	 * @return true if both actions are equal, false otherwise.
-	 */
-	bool operator==( const FUIAction& Other ) const
-	{
-		return
-			(ExecuteAction == Other.ExecuteAction) &&
-			(CanExecuteAction == Other.CanExecuteAction) &&
-			(IsCheckedDelegate == Other.IsCheckedDelegate) &&
-			(IsActionVisibleDelegate == Other.IsActionVisibleDelegate);
-	}
-
-public:
-
-	/**
 	 * Checks to see if its currently safe to execute this action.
 	 *
 	 * @return	True if this action can be executed and we should reflect that state visually in the UI

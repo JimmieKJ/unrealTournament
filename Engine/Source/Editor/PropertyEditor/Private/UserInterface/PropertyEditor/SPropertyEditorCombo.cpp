@@ -80,7 +80,7 @@ void SPropertyEditorCombo::Construct( const FArguments& InArgs, const TSharedRef
 		.OnSelectionChanged( this, &SPropertyEditorCombo::OnComboSelectionChanged )
 		.OnComboBoxOpening( this, &SPropertyEditorCombo::OnComboOpening )
 		.VisibleText( this, &SPropertyEditorCombo::GetDisplayValueAsString )
-		.ToolTipText( InPropertyEditor, &FPropertyEditor::GetValueAsString );
+		.ToolTipText( InPropertyEditor, &FPropertyEditor::GetValueAsText );
 
 	ChildSlot
 	[

@@ -172,10 +172,10 @@ bool UK2Node_Knot::ShouldOverridePinNames() const
 	return true;
 }
 
-FString UK2Node_Knot::GetPinNameOverride(const UEdGraphPin& Pin) const
+FText UK2Node_Knot::GetPinNameOverride(const UEdGraphPin& Pin) const
 {
 	// Keep the pin size tiny
-	return FString();
+	return FText::GetEmpty();
 }
 
 void UK2Node_Knot::OnRenameNode(const FString& NewName)

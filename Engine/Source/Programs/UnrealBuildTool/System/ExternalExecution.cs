@@ -359,7 +359,10 @@ namespace UnrealBuildTool
 				var TestDirectory = (FileSystemInfo)new DirectoryInfo(GeneratedCodeDirectory);
 				if( TestDirectory.Exists )
 				{
-					// Grab our special "Timestamp" file that we saved after the last set of headers were generated
+					// Grab our special "Timestamp" file that we saved after the last set of headers were generated.  This file
+					// actually contains the list of source files which contained UObjects, so that we can compare to see if any
+					// UObject source files were deleted (or no longer contain UObjects), which means we need to run UHT even
+					// if no other source files were outdated
 					string TimestampFile = Path.Combine( GeneratedCodeDirectory, @"Timestamp" );
 					var SavedTimestampFileInfo = (FileSystemInfo)new FileInfo(TimestampFile);
 					if (SavedTimestampFileInfo.Exists)
@@ -374,6 +377,29 @@ namespace UnrealBuildTool
 							AllUObjectHeaders.AddRange( Module.PublicUObjectClassesHeaders );
 							AllUObjectHeaders.AddRange( Module.PublicUObjectHeaders );
 							AllUObjectHeaders.AddRange( Module.PrivateUObjectHeaders );
+
+							// Load up the old timestamp file and check to see if anything has changed
+							{
+								var UObjectFilesFromPreviousRun = File.ReadAllLines( TimestampFile );
+								if( AllUObjectHeaders.Count == UObjectFilesFromPreviousRun.Length )
+								{
+									for( int FileIndex = 0; FileIndex < AllUObjectHeaders.Count; ++FileIndex )
+									{
+										if( !UObjectFilesFromPreviousRun[ FileIndex ].Equals( AllUObjectHeaders[ FileIndex ].AbsolutePath, StringComparison.InvariantCultureIgnoreCase ) )
+										{
+											bIsOutOfDate = true;
+											Log.TraceVerbose( "UnrealHeaderTool needs to run because the set of UObject source files in module {0} has changed", Module.ModuleName );
+											break;
+										}
+									}
+								}
+ 								else
+								{
+									bIsOutOfDate = true;
+									Log.TraceVerbose( "UnrealHeaderTool needs to run because there are a different number of UObject source files in module {0}", Module.ModuleName );
+								}
+							}
+
 							foreach( var HeaderFile in AllUObjectHeaders )
 							{
 								var HeaderFileTimestamp = HeaderFile.Info.LastWriteTime;
@@ -381,46 +407,30 @@ namespace UnrealBuildTool
 								// Has the source header changed since we last generated headers successfully?
 								if( SavedTimestamp.CompareTo( HeaderFileTimestamp ) < 0 )
 								{
+									Log.TraceVerbose( "UnrealHeaderTool needs to run because SavedTimestamp is older than HeaderFileTimestamp (" + HeaderFile.AbsolutePath + ") for module {0}", Module.ModuleName );
 									bIsOutOfDate = true;
 									break;
-								}
-
-								// When we're running in assembler mode, outdatedness cannot be inferred by checking the directory timestamp
-								// of the source headers.  We don't care if source files were added or removed in this mode, because we're only
-								// able to process the known UObject headers that are in the Makefile.  If UObject header files are added/removed,
-								// we expect the user to re-run GenerateProjectFiles which will force UBTMakefile outdatedness.
-								// @todo fastubt: Possibly, we should never be doing this check these days.
-								if( UnrealBuildTool.IsGatheringBuild || !UnrealBuildTool.IsAssemblingBuild )
-								{
-									// Also check the timestamp on the directory the source file is in.  If the directory timestamp has
-									// changed, new source files may have been added or deleted.  We don't know whether the new/deleted
-									// files were actually UObject headers, but because we don't know all of the files we processed
-									// in the previous run, we need to assume our generated code is out of date if the directory timestamp
-									// is newer.
-									var HeaderDirectoryTimestamp = new DirectoryInfo( Path.GetDirectoryName( HeaderFile.AbsolutePath ) ).LastWriteTime;
-									if( SavedTimestamp.CompareTo( HeaderDirectoryTimestamp) < 0 )
-									{
-										bIsOutOfDate = true;
-										break;
-									}
 								}
 							}
 						}
 						else
 						{
 							// Generated code is older UnrealHeaderTool.exe or CoreUObject headers.  Out of date!
+							Log.TraceVerbose( "UnrealHeaderTool needs to run because UnrealHeaderTool.exe or CoreUObject headers are newer than SavedTimestamp for module {0}", Module.ModuleName );
 							bIsOutOfDate = true;
 						}
 					}
 					else
 					{
 						// Timestamp file was missing (possibly deleted/cleaned), so headers are out of date
+						Log.TraceVerbose( "UnrealHeaderTool needs to run because UHT Timestamp file did not exist for module {0}", Module.ModuleName );
 						bIsOutOfDate = true;
 					}
 				}
 				else
 				{
 					// Generated code directory is missing entirely!
+					Log.TraceVerbose( "UnrealHeaderTool needs to run because no generated code directory was found for module {0}", Module.ModuleName );
 					bIsOutOfDate = true;
 				}
 
@@ -479,12 +489,15 @@ namespace UnrealBuildTool
 							GeneratedCodeDirectoryInfo.Create();
 						}
 
-						if(File.Exists(TimestampFile))
+						// Save all of the UObject files to a timestamp file.  We'll load these on the next run to see if any new
+						// files with UObject classes were deleted, so that we'll know to run UHT even if the timestamps of all
+						// of the other source files were unchanged
 						{
-							File.Delete(TimestampFile);
-						}
-						using (File.Create(TimestampFile))
-						{
+							var AllUObjectFiles = new List<string>();
+							AllUObjectFiles.AddRange( Module.PublicUObjectClassesHeaders.ConvertAll( Item => Item.AbsolutePath ) );
+							AllUObjectFiles.AddRange( Module.PublicUObjectHeaders.ConvertAll( Item => Item.AbsolutePath ) );
+							AllUObjectFiles.AddRange( Module.PrivateUObjectHeaders.ConvertAll( Item => Item.AbsolutePath ) );
+							ResponseFile.Create( TimestampFile, AllUObjectFiles );
 						}
 					}
 				}
@@ -531,7 +544,7 @@ namespace UnrealBuildTool
 		 */
 		public static bool ExecuteHeaderToolIfNecessary( UEBuildTarget Target, CPPEnvironment GlobalCompileEnvironment, List<UHTModuleInfo> UObjectModules, string ModuleInfoFileName, ref ECompilationResult UHTResult )
 		{
-			using (ProgressWriter Progress = new ProgressWriter("Generating headers...", false))
+			using (ProgressWriter Progress = new ProgressWriter("Generating code...", false))
 			{
 				// We never want to try to execute the header tool when we're already trying to build it!
 				var bIsBuildingUHT = Target.GetTargetName().Equals( "UnrealHeaderTool", StringComparison.InvariantCultureIgnoreCase );

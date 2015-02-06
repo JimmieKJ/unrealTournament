@@ -446,7 +446,7 @@ void SLevelViewport::OnDragEnter( const FGeometry& MyGeometry, const FDragDropEv
 		{
 			if ( HandleDragObjects(MyGeometry, DragDropEvent) )
 			{
-				if ( HandlePlaceDraggedObjects(DragDropEvent, /*bCreateDropPreview=*/true) )
+				if ( HandlePlaceDraggedObjects(MyGeometry, DragDropEvent, /*bCreateDropPreview=*/true) )
 				{
 					DragDropEvent.GetOperation()->SetDecoratorVisibility(false);
 				}
@@ -462,8 +462,9 @@ void SLevelViewport::OnDragLeave( const FDragDropEvent& DragDropEvent )
 	if ( LevelViewportClient->HasDropPreviewActors() )
 	{
 		LevelViewportClient->DestroyDropPreviewActors();
-		DragDropEvent.GetOperation()->SetDecoratorVisibility(true);
 	}
+
+	DragDropEvent.GetOperation()->SetDecoratorVisibility(true);
 }
 
 bool SLevelViewport::HandleDragObjects(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
@@ -586,7 +587,7 @@ FReply SLevelViewport::OnDragOver( const FGeometry& MyGeometry, const FDragDropE
 	return FReply::Unhandled();
 }
 
-bool SLevelViewport::HandlePlaceDraggedObjects(const FDragDropEvent& DragDropEvent, bool bCreateDropPreview)
+bool SLevelViewport::HandlePlaceDraggedObjects(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, bool bCreateDropPreview)
 {
 	bool bAllAssetWereLoaded = false;
 	bool bValidDrop = false;
@@ -594,6 +595,12 @@ bool SLevelViewport::HandlePlaceDraggedObjects(const FDragDropEvent& DragDropEve
 
 	TSharedPtr< FDragDropOperation > Operation = DragDropEvent.GetOperation();
 	if (!Operation.IsValid())
+	{
+		return false;
+	}
+
+	// Don't handle the placement if we couldn't handle the drag
+	if (!HandleDragObjects(MyGeometry, DragDropEvent))
 	{
 		return false;
 	}
@@ -801,7 +808,7 @@ FReply SLevelViewport::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent
 
 	if (CurrentLevel && !FLevelUtils::IsLevelLocked(CurrentLevel))
 	{
-		return HandlePlaceDraggedObjects(DragDropEvent, /*bCreateDropPreview=*/false) ? FReply::Handled() : FReply::Unhandled();
+		return HandlePlaceDraggedObjects(MyGeometry, DragDropEvent, /*bCreateDropPreview=*/false) ? FReply::Handled() : FReply::Unhandled();
 	}
 	else
 	{
@@ -823,7 +830,7 @@ void SLevelViewport::Tick( const FGeometry& AllottedGeometry, const double InCur
 
 	// When we have focus we update the 'Allow Throttling' option in slate to be disabled so that interactions in the
 	// viewport with Slate widgets that are part of the game, don't throttle.
-	if ( bPIEContainsFocus != bContainsFocus )
+	if ( GEditor->PlayWorld != nullptr && bPIEContainsFocus != bContainsFocus )
 	{
 		// We can arrive at this point before creating throttling manager (which registers the cvar), so create it explicitly.
 		static const FSlateThrottleManager & ThrottleManager = FSlateThrottleManager::Get();
@@ -2489,7 +2496,7 @@ private:
 	FSlateColor GetBorderColorAndOpacity() const;
 
 	/** @return Gets the name of the preview actor.*/
-	FString OnReadText() const;
+	FText OnReadText() const;
 
 	/** @return Gets the Width of the preview viewport.*/
 	FOptionalSize OnReadWidth() const;
@@ -2804,15 +2811,15 @@ FSlateColor SActorPreview::GetBorderColorAndOpacity() const
 	return Color;
 }
 
-FString SActorPreview::OnReadText() const
+FText SActorPreview::OnReadText() const
 {
 	if( PreviewActorPtr.IsValid() )
 	{
-		return PreviewActorPtr.Get()->GetActorLabel();
+		return FText::FromString(PreviewActorPtr.Get()->GetActorLabel());
 	}
 	else
 	{
-		return TEXT("");
+		return FText::GetEmpty();
 	}
 }
 
@@ -3154,33 +3161,37 @@ FText SLevelViewport::GetCurrentLevelText( bool bDrawOnlyLabel ) const
 	FText LabelName;
 	FText CurrentLevelName;
 
-	if( (&GetLevelViewportClient() == GCurrentLevelEditingViewportClient) && GetWorld() && GetWorld()->GetCurrentLevel() != NULL )
+	
+	if( ActiveViewport.IsValid() && (&GetLevelViewportClient() == GCurrentLevelEditingViewportClient) && GetWorld() && GetWorld()->GetCurrentLevel() != nullptr )
 	{
-		if( bDrawOnlyLabel )
+		if( ActiveViewport->GetPlayInEditorIsSimulate() || !ActiveViewport->GetClient()->GetWorld()->IsGameWorld() )
 		{
-			LabelName = LOCTEXT("CurrentLevelLabel", "Level:");
-		}
-		else
-		{
-			// Get the level name (without the number at the end)
-			FText ActualLevelName = FText::FromString( FPackageName::GetShortFName( GetWorld()->GetCurrentLevel()->GetOutermost()->GetFName() ).GetPlainNameString() );
-
-			if( GetWorld()->GetCurrentLevel() == GetWorld()->PersistentLevel )
+			if(bDrawOnlyLabel)
 			{
-				FFormatNamedArguments Args;
-				Args.Add( TEXT("ActualLevelName"), ActualLevelName );
-				CurrentLevelName = FText::Format( LOCTEXT("LevelName", "{0} (Persistent)"), ActualLevelName );
+				LabelName = LOCTEXT("CurrentLevelLabel", "Level:");
 			}
 			else
 			{
-				CurrentLevelName = ActualLevelName;
+				// Get the level name (without the number at the end)
+				FText ActualLevelName = FText::FromString(FPackageName::GetShortFName(GetWorld()->GetCurrentLevel()->GetOutermost()->GetFName()).GetPlainNameString());
+
+				if(GetWorld()->GetCurrentLevel() == GetWorld()->PersistentLevel)
+				{
+					FFormatNamedArguments Args;
+					Args.Add(TEXT("ActualLevelName"), ActualLevelName);
+					CurrentLevelName = FText::Format(LOCTEXT("LevelName", "{0} (Persistent)"), ActualLevelName);
+				}
+				else
+				{
+					CurrentLevelName = ActualLevelName;
+				}
+			}
+
+			if(bDrawOnlyLabel)
+			{
+				return LabelName;
 			}
 		}
-	}
-
-	if( bDrawOnlyLabel )
-	{
-		return LabelName;
 	}
 
 	return CurrentLevelName;

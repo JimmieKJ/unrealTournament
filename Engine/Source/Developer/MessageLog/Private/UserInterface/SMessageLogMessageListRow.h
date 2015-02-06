@@ -85,7 +85,7 @@ private:
 #if WITH_EDITOR
 	void HandleDocsHyperlinkNavigate( FString DocumentationLink )
 	{
-		IDocumentation::Get()->Open(DocumentationLink);
+		IDocumentation::Get()->Open(DocumentationLink, FDocumentationSourceInfo(TEXT("msg_log")));
 	}
 
 	void HandleTutorialHyperlinkNavigate( FString TutorialAssetName )

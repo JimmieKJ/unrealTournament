@@ -35,4 +35,6 @@ public:
 	TWeakObjectPtr<AAIController> AIController;
 	FAIRequestID MoveRequestId;
 	TWeakObjectPtr<UWorld> MyWorld;
+
+	FTimerHandle TimerHandle_OnNoPath;
 };

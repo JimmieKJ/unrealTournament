@@ -230,7 +230,14 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 
 		if (PropertyThatChanged->GetName()==TEXT("bEnableWorldComposition"))
 		{
-			EnabledWorldComposition(bEnableWorldComposition);
+			if (UWorldComposition::EnableWorldCompositionEvent.IsBound())
+			{
+				bEnableWorldComposition = UWorldComposition::EnableWorldCompositionEvent.Execute(GetWorld(), bEnableWorldComposition);
+			}
+			else
+			{
+				bEnableWorldComposition = false;
+			}
 		}
 	}
 
@@ -260,38 +267,6 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-}
-
-void AWorldSettings::EnabledWorldComposition(bool bEnable)
-{
-	bEnableWorldComposition = false;
-
-	if (!bEnable)
-	{
-		if (GetWorld()->WorldComposition != nullptr)
-		{
-			GetWorld()->WorldComposition = nullptr;
-			GetWorld()->StreamingLevels.Empty();
-			GetWorld()->FlushLevelStreaming();
-
-			UWorldComposition::OnWorldCompositionDestroyed.Broadcast(GetWorld());
-		}
-	}
-	else
-	{
-		FString RootPackageName = GetOutermost()->GetName();
-
-		if (GetWorld()->WorldComposition == nullptr && FPackageName::DoesPackageExist(RootPackageName))
-		{
-			GetWorld()->StreamingLevels.Empty();
-			GetWorld()->FlushLevelStreaming();
-			GetWorld()->WorldComposition = ConstructObject<UWorldComposition>(UWorldComposition::StaticClass(), GetWorld());
-			
-			bEnableWorldComposition = true;
-
-			UWorldComposition::OnWorldCompositionCreated.Broadcast(GetWorld());
-		}
-	}
 }
 
 #endif // WITH_EDITOR

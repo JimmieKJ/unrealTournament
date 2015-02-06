@@ -1419,10 +1419,16 @@ void SBlendSpaceEditor::UpdateBlendParameters()
 		ParameterYName = TEXT("Y");
 	}
 
-	ParameterX_Min->SetText(FString::Printf(TEXT("%s[%0.2f]"), *ParameterXName, BlendParamX.Min));
-	ParameterX_Max->SetText(FString::Printf(TEXT("%s[%0.2f]"), *ParameterXName, BlendParamX.Max));
-	ParameterY_Min->SetText(FString::Printf(TEXT("%s\n[%0.2f]"), *ParameterYName, BlendParamY.Min));
-	ParameterY_Max->SetText(FString::Printf(TEXT("%s\n[%0.2f]"), *ParameterYName, BlendParamY.Max));
+	static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(2)
+		.SetMaximumFractionalDigits(2);
+	static const FText XMinMaxFmt = FText::FromString(TEXT("{0}[{1}]"));
+	static const FText YMinMaxFmt = FText::FromString(TEXT("{0}\n[{1}]"));
+
+	ParameterX_Min->SetText(FText::Format(XMinMaxFmt, FText::FromString(ParameterXName), FText::AsNumber(BlendParamX.Min, &FormatOptions)));
+	ParameterX_Max->SetText(FText::Format(XMinMaxFmt, FText::FromString(ParameterXName), FText::AsNumber(BlendParamX.Max, &FormatOptions)));
+	ParameterY_Min->SetText(FText::Format(YMinMaxFmt, FText::FromString(ParameterYName), FText::AsNumber(BlendParamY.Min, &FormatOptions)));
+	ParameterY_Max->SetText(FText::Format(YMinMaxFmt, FText::FromString(ParameterYName), FText::AsNumber(BlendParamY.Max, &FormatOptions)));
 
 	BlendSpaceWidget->ResampleData();
 }

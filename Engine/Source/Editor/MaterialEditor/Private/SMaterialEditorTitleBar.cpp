@@ -70,7 +70,7 @@ TSharedRef<ITableRow> SMaterialEditorTitleBar::MakeMaterialInfoWidget(TSharedPtr
 				SNew(STextBlock)
 				.ColorAndOpacity(TextColor)
 				.Font(FSlateFontInfo( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), FontSize ))
-				.Text( Text )
+				.Text(FText::FromString(Text))
 			];
 	}
 }

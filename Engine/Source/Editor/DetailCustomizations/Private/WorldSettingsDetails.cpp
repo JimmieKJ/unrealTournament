@@ -145,6 +145,9 @@ TSharedRef<ITableRow> FLightmapCustomNodeBuilder::MakeLightMapListViewWidget(TSh
 	UObject* LightMapObject = FindObject<UObject>(NULL, *LightMapItem->ObjectPath);
 	FAssetData LightMapAssetData(LightMapObject);
 
+	FAssetThumbnailConfig ThumbnailConfig;
+	ThumbnailConfig.bAllowFadeIn = true;
+
 	return SNew( STableRow<TSharedPtr<FLightmapItem>>, OwnerTable )
 		.Style(FEditorStyle::Get(), "ContentBrowser.AssetListView.TableRow")
 		[
@@ -164,7 +167,7 @@ TSharedRef<ITableRow> FLightmapCustomNodeBuilder::MakeLightMapListViewWidget(TSh
 					.Padding(ThumbnailBoxPadding)
 					.BorderImage( FEditorStyle::GetBrush("ContentBrowser.ThumbnailShadow") )
 					[
-						LightMapItem->Thumbnail->MakeThumbnailWidget(true)
+						LightMapItem->Thumbnail->MakeThumbnailWidget(ThumbnailConfig)
 					]
 				]
 			]

@@ -31,10 +31,13 @@ struct FIniFilename
 	FString Filename;
 	/** If true this ini file is required to generate the output ini. */
 	bool bRequired;
+	/** Used as ID for looking up an INI Hierarchy */
+	FString CacheKey;
 
-	FIniFilename(const FString& InFilename, bool InIsRequired)
+	FIniFilename(const FString& InFilename, bool InIsRequired, FString InCacheKey=FString(TEXT("")))
 		: Filename(InFilename)
 		, bRequired(InIsRequired) 
+		, CacheKey(InCacheKey)
 	{}
 };
 
@@ -49,6 +52,7 @@ struct FConfigCommandlineOverride
 
 
 // One config file.
+
 class FConfigFile : public TMap<FString,FConfigSection>
 {
 public:
@@ -62,6 +66,9 @@ public:
 
 	/** The untainted config file which contains the coalesced base/default options. I.e. No Saved/ options*/
 	FConfigFile* SourceConfigFile;
+
+	/** Key to the cache to speed up ini parsing */
+	FString CacheKey;
 
 #if !UE_BUILD_SHIPPING
 	/** The collection of overrides which stemmed from the commandline */
@@ -151,12 +158,20 @@ private:
  */
 DECLARE_DELEGATE_TwoParams(FKeyValueSink, const TCHAR*, const TCHAR*);
 
+enum class EConfigCacheType : uint8
+{
+	// this type of config cache will write its files to disk during Flush (i.e. GConfig)
+	DiskBacked,
+	// this type of config cache is temporary and will never write to disk (only load from disk)
+	Temporary,
+};
+
 // Set of all cached config files.
 class CORE_API FConfigCacheIni : public TMap<FString,FConfigFile>
 {
 public:
 	// Basic functions.
-	FConfigCacheIni();
+	FConfigCacheIni(EConfigCacheType Type);
 	virtual ~FConfigCacheIni();
 
 	/**
@@ -503,8 +518,9 @@ public:
 	 * @param bIsBaseIniName true if IniName is a Base name, which can be overridden on commandline, etc.
 	 * @param Platform The platform to use for Base ini names, NULL means to use the current platform
 	 * @param GameName The game to use for Base ini names, NULL means to use the current
+	 * @param bForceReload force reload the ini file from disk this is required if you make changes to the ini file not using the config system as the hierarchy cache will not be updated in this case
 	 */
-	static void LoadLocalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, bool bIsBaseIniName, const TCHAR* Platform=NULL, const TCHAR* GameName=NULL);
+	static void LoadLocalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, bool bIsBaseIniName, const TCHAR* Platform=NULL, const TCHAR* GameName=NULL, const bool bForceReload=false);
 
 	/**
 	 * Load an ini file directly into an FConfigFile from the specified config folders, and nothing is written to GConfig or disk. 
@@ -518,8 +534,9 @@ public:
 	 * @param bGenerateDestIni true if IniName is a Base name, which can be overridden on commandline, etc.
 	 * @param Platform The platform to use for Base ini names
 	 * @param GameName The game to use for Base ini names
+	 * @param bForceReload force reload the ini file from disk this is required if you make changes to the ini file not using the config system as the hierarchy cache will not be updated in this case
 	 */
-	static void LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, const TCHAR* EngineConfigDir, const TCHAR* SourceConfigDir, bool bGenerateDestIni, const TCHAR* Platform=NULL, const TCHAR* GameName=NULL);
+	static void LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, const TCHAR* EngineConfigDir, const TCHAR* SourceConfigDir, bool bGenerateDestIni, const TCHAR* Platform=NULL, const TCHAR* GameName=NULL, const bool bForceReload=false);
 
 	/**
 	 * Needs to be called after GConfig is set and LoadCoalescedFile was called.
@@ -534,6 +551,9 @@ private:
 
 	/** true after the base .ini files have been loaded, and GConfig is generally "ready for use" */
 	bool bIsReadyForUse;
+	
+	/** The type of the cache (basically, do we call Flush in the destructor) */
+	EConfigCacheType Type;
 };
 
 /**

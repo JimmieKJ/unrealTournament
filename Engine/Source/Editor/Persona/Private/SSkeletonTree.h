@@ -173,7 +173,7 @@ private:
 	FLinearColor GetBoneTextColor( UDebugSkelMeshComponent* PreviewComponent ) const;
 
 	/** Function that returns the current tooltip for this bone, depending on how it's used by the mesh */
-	FString GetBoneToolTip();
+	FText GetBoneToolTip();
 
 	/** The actual bone data that we create Slate widgets to display */
 	FName BoneName;
@@ -182,7 +182,7 @@ private:
 	TSharedRef< SWidget > CreateBoneTranslationRetargetingModeMenu();
 
 	/** Get Title for Bone Translation Retargeting Mode menu. */
-	FString GetTranslationRetargetingModeMenuTitle() const;
+	FText GetTranslationRetargetingModeMenuTitle() const;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -267,7 +267,7 @@ protected:
 	void OnCommitSocketName( const FText& InText, ETextCommit::Type CommitInfo );
 
 	/** Function that returns the current tooltip for this socket */
-	FString GetSocketToolTip();
+	FText GetSocketToolTip();
 
 	/** Pointer to the socket */
 	USkeletalMeshSocket*	SocketData;
@@ -526,10 +526,10 @@ private:
 	bool IsSocketFilter( ESocketFilter::Type InSocketFilter ) const;
 
 	/** Returns the current text for the bone filter button - "All", "Mesh" or "Weighted" */
-	FString GetBoneFilterMenuTitle() const;
+	FText GetBoneFilterMenuTitle() const;
 
 	/** Returns the current text for the socket filter button - "All", "Mesh" or "Skeleton" */
-	FString GetSocketFilterMenuTitle() const;
+	FText GetSocketFilterMenuTitle() const;
 
 	/** We can only add sockets in Active, Skeleton or All mode (otherwise they just disappear) */
 	bool IsAddingSocketsAllowed() const;

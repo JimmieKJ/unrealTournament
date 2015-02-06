@@ -299,24 +299,53 @@ public:
 		if(FileHandle)
 		{
 			fclose(FileHandle);
-			struct utimbuf Times;
-			Times.actime = 0;
-			Times.modtime = 0;
-			int Result = utime(TestFilePathChar, &Times);
-			Supported = -1 != Result;
-			unlink(TestFilePathChar);
-		}
 
+			// get file times
+			struct stat FileInfo;
+			if (stat(TestFilePathChar, &FileInfo) == -1)
+			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Unable to get file stamp for file ('%s')"), TestFilePathChar);
+			}
+			else
+			{
+				struct utimbuf Times;
+			    Times.actime = 0;
+			    Times.modtime = 0;
+				int Result = utime(TestFilePathChar, &Times);
+				Supported = -1 != Result;
+				unlink(TestFilePathChar);
+
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("UTime failed for local caching supported test, with error code %d\n"), Result);
+			}
+			
+		}
+		else
+		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Failed to create file for Local cache file test\n"), Supported);
+		}
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Is Local Caching Supported? %d\n"), Supported);
 	}
 
 	bool Supported;
 };
 
-bool FAndroidMisc::SupportsLocalCaching()
+bool SupportsUTime()
 {
 	static FTestUtime Test;
 	return Test.Supported;
+}
+
+
+bool FAndroidMisc::SupportsLocalCaching()
+{
+	return true;
+
+	/*if ( SupportsUTime() )
+	{
+		return true;
+	}*/
+
+
 }
 
 /**

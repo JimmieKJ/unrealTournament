@@ -94,6 +94,7 @@ public:
 		: UserObject(InUserObject)
 		, MethodPtr(InMethodPtr)
 		DELEGATE_COMMA_PAYLOAD_INITIALIZER_LIST
+		, Handle(FDelegateHandle::GenerateNewHandle)
 	{
 		// NOTE: Shared pointer delegates are allowed to have a null incoming object pointer.  Weak pointers can expire,
 		//       an it is possible for a copy of a delegate instance to end up with a null pointer.
@@ -140,7 +141,7 @@ public:
 
 	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy() override
 	{
-		return Create(UserObject.Pin(), MethodPtr DELEGATE_COMMA_PAYLOAD_PASSIN);
+		return new SP_METHOD_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -160,6 +161,11 @@ public:
 		checkSlow(MethodPtr != nullptr);
 
 		return (MutableUserObject->*MethodPtr)(DELEGATE_PARAM_PASSTHRU_COMMA_PAYLOAD_PASSIN);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 #if FUNC_IS_VOID
@@ -257,6 +263,9 @@ private:
 
 	// Payload member variables, if any.
 	FUNC_PAYLOAD_MEMBERS
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 
@@ -284,6 +293,7 @@ public:
 		: UserObject(InUserObject)
 		, MethodPtr(InMethodPtr)
 		DELEGATE_COMMA_PAYLOAD_INITIALIZER_LIST
+		, Handle(FDelegateHandle::GenerateNewHandle)
 	{
 		// Non-expirable delegates must always have a non-null object pointer on creation (otherwise they could never execute.)
 		check(InUserObject != nullptr && MethodPtr != nullptr);
@@ -331,7 +341,7 @@ public:
 
 	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy( ) override
 	{
-		return Create(UserObject, MethodPtr DELEGATE_COMMA_PAYLOAD_PASSIN);
+		return new RAW_METHOD_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -347,6 +357,11 @@ public:
 		checkSlow(MethodPtr != nullptr);
 
 		return (MutableUserObject->*MethodPtr)(DELEGATE_PARAM_PASSTHRU_COMMA_PAYLOAD_PASSIN);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 #if FUNC_IS_VOID
@@ -421,6 +436,9 @@ private:
 
 	// Payload member variables (if any).
 	FUNC_PAYLOAD_MEMBERS
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 
@@ -448,6 +466,7 @@ public:
 		: UserObject(InUserObject)
 		, MethodPtr(InMethodPtr)
 		DELEGATE_COMMA_PAYLOAD_INITIALIZER_LIST
+		, Handle(FDelegateHandle::GenerateNewHandle)
 	{
 		// NOTE: UObject delegates are allowed to have a null incoming object pointer.  UObject weak pointers can expire,
 		//       an it is possible for a copy of a delegate instance to end up with a null pointer.
@@ -499,7 +518,7 @@ public:
 
 	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy( ) override
 	{
-		return Create(UserObject.Get(), MethodPtr DELEGATE_COMMA_PAYLOAD_PASSIN);
+		return new UOBJECT_METHOD_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -518,6 +537,11 @@ public:
 		checkSlow(MethodPtr != nullptr);
 
 		return (MutableUserObject->*MethodPtr)(DELEGATE_PARAM_PASSTHRU_COMMA_PAYLOAD_PASSIN);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 #if FUNC_IS_VOID
@@ -594,6 +618,9 @@ private:
 
 	// Payload member variables (if any).
 	FUNC_PAYLOAD_MEMBERS
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 #if !FUNC_IS_CONST
@@ -623,6 +650,7 @@ public:
 	STATIC_DELEGATE_INSTANCE_CLASS( FFuncPtr InStaticFuncPtr DELEGATE_COMMA_PAYLOAD_LIST )
 		: StaticFuncPtr(InStaticFuncPtr)
 		DELEGATE_COMMA_PAYLOAD_INITIALIZER_LIST
+		, Handle(FDelegateHandle::GenerateNewHandle)
 	{
 		check(StaticFuncPtr != nullptr);
 	}
@@ -669,7 +697,7 @@ public:
 
 	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy( ) override
 	{
-		return Create(StaticFuncPtr DELEGATE_COMMA_PAYLOAD_PASSIN);
+		return new STATIC_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -678,6 +706,11 @@ public:
 		checkSlow(StaticFuncPtr != nullptr);
 
 		return StaticFuncPtr(DELEGATE_PARAM_PASSTHRU_COMMA_PAYLOAD_PASSIN);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 #if FUNC_IS_VOID
@@ -725,6 +758,9 @@ private:
 
 	// Payload member variables, if any.
 	FUNC_PAYLOAD_MEMBERS
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 
@@ -746,12 +782,14 @@ public:
 	FUNCTOR_DELEGATE_INSTANCE_CLASS(const FunctorType& InFunctor DELEGATE_COMMA_PAYLOAD_LIST)
 		: Functor(InFunctor)
 		DELEGATE_COMMA_PAYLOAD_INITIALIZER_LIST
+		, Handle(FDelegateHandle::GenerateNewHandle)
 	{
 	}
 
 	FUNCTOR_DELEGATE_INSTANCE_CLASS(FunctorType&& InFunctor DELEGATE_COMMA_PAYLOAD_LIST)
-	: Functor(MoveTemp(InFunctor))
-	DELEGATE_COMMA_PAYLOAD_INITIALIZER_LIST
+		: Functor(MoveTemp(InFunctor))
+		DELEGATE_COMMA_PAYLOAD_INITIALIZER_LIST
+		, Handle(FDelegateHandle::GenerateNewHandle)
 	{
 	}
 
@@ -802,12 +840,17 @@ public:
 
 	virtual DELEGATE_INSTANCE_INTERFACE_CLASS<FUNC_TEMPLATE_ARGS>* CreateCopy() override
 	{
-		return Create(Functor DELEGATE_COMMA_PAYLOAD_PASSIN);
+		return new FUNCTOR_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute(FUNC_PARAM_LIST) const override
 	{
 		return Functor(DELEGATE_PARAM_PASSTHRU_COMMA_PAYLOAD_PASSIN);
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 #if FUNC_IS_VOID
@@ -847,6 +890,9 @@ private:
 
 	// Payload member variables, if any.
 	FUNC_PAYLOAD_MEMBERS
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 /**
@@ -883,6 +929,7 @@ public:
 		: FunctionName(InFunctionName)
 		, UserObjectPtr(InUserObject)
 		DELEGATE_COMMA_PAYLOAD_INITIALIZER_LIST
+		, Handle(FDelegateHandle::GenerateNewHandle)
 	{
 		check(InFunctionName != NAME_None);
 		
@@ -937,7 +984,7 @@ public:
 
 	virtual DELEGATE_INSTANCE_INTERFACE_CLASS* CreateCopy( ) override
 	{
-		return Create(UserObjectPtr.Get(), GetFunctionName() DELEGATE_COMMA_PAYLOAD_PASSIN);
+		return new UFUNCTION_DELEGATE_INSTANCE_CLASS(*this);
 	}
 
 	virtual RetValType Execute( FUNC_PARAM_LIST ) const override
@@ -950,6 +997,11 @@ public:
 #if !FUNC_IS_VOID
 		return Parms.Result;
 #endif
+	}
+
+	virtual FDelegateHandle GetHandle() const override
+	{
+		return Handle;
 	}
 
 #if FUNC_IS_VOID
@@ -1004,6 +1056,9 @@ public:
 
 	// Payload member variables, if any.
 	FUNC_PAYLOAD_MEMBERS
+
+	// The handle of this delegate
+	FDelegateHandle Handle;
 };
 
 #endif // FUNC_IS_CONST

@@ -48,6 +48,11 @@ using namespace UnFbx;
 
 UTexture* UnFbx::FFbxImporter::ImportTexture( FbxFileTexture* FbxTexture, bool bSetupAsNormalMap )
 {
+	if( !FbxTexture )
+	{
+		return nullptr;
+	}
+	
 	// create an unreal texture asset
 	UTexture* UnrealTexture = NULL;
 	FString Filename1 = ANSI_TO_TCHAR(FbxTexture->GetFileName());
@@ -111,7 +116,7 @@ UTexture* UnFbx::FFbxImporter::ImportTexture( FbxFileTexture* FbxTexture, bool b
 	{
 		UE_LOG(LogFbxMaterialImport, Verbose, TEXT("Loading texture file %s"),*Filename);
 		const uint8* PtrTexture = DataBinary.GetData();
-		UTextureFactory* TextureFact = new UTextureFactory(FObjectInitializer());
+		auto TextureFact = NewObject<UTextureFactory>();
 		TextureFact->AddToRoot();
 
 		// save texture settings if texture exist
@@ -429,7 +434,7 @@ void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, 
 	
 
 	// create an unreal material asset
-	UMaterialFactoryNew* MaterialFactory = new UMaterialFactoryNew(FObjectInitializer());
+	auto MaterialFactory = NewObject<UMaterialFactoryNew>();
 	
 	UMaterial* UnrealMaterial = (UMaterial*)MaterialFactory->FactoryCreateNew(
 		UMaterial::StaticClass(), Package, *MaterialFullName, RF_Standalone|RF_Public, NULL, GWarn );

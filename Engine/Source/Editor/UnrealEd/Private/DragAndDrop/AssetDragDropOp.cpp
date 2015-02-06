@@ -120,6 +120,7 @@ TSharedPtr<SWidget> FAssetDragDropOp::GetDefaultDecorator() const
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					.Padding(3.0f)
+					.VAlign(VAlign_Center)
 					[
 						SNew(SImage) 
 						.Image(this, &FAssetDragDropOp::GetIcon)

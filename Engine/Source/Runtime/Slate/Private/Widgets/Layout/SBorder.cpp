@@ -47,7 +47,7 @@ void SBorder::Construct( const SBorder::FArguments& InArgs )
  *
  * @param	InContent	The widget to use as content for the border
  */
-void SBorder::SetContent( const TSharedRef< SWidget >& InContent )
+void SBorder::SetContent( TSharedRef< SWidget > InContent )
 {
 	ChildSlot
 	[

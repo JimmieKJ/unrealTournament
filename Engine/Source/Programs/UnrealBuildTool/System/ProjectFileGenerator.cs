@@ -116,10 +116,6 @@ namespace UnrealBuildTool
 		/// Optional list of platforms to generate projects for
 		readonly List<UnrealTargetPlatform> ProjectPlatforms = new List<UnrealTargetPlatform>();
 
-		/// Whether engine module projects should be included in single-game projects, or Rocket projects.  This is useful if you want to be able to
-		/// quickly locate engine header files using VAX, for example.  But it clutters up the solution file.
-		protected bool bAlwaysIncludeEngineModules = false;
-
 		/// When bGeneratingGameProjectFiles=true, this is the game name we're generating projects for
 		protected string GameProjectName = null;
 
@@ -145,6 +141,9 @@ namespace UnrealBuildTool
 		/// True if all documentation languages should be included in generated projects, otherwise only "INT" will be included
 		bool bAllDocumentationLanguages = false;
 
+		/// True if we should include engine source in the generated solution
+		protected bool IncludeEngineSource = true;
+
 		/// True if shader source files should be included in the generated projects
 		bool IncludeShaderSource = true;
 
@@ -159,6 +158,9 @@ namespace UnrealBuildTool
 
         /// True if we should include template files (.template files) in the generated project
         bool IncludeTemplateFiles = true;
+
+		/// True if we should include program projects in the generated solution
+		protected bool IncludeEnginePrograms = true;
 
 		/// True if we should reflect "Source" sub-directories on disk in the master project as master project directories.
 		/// This arguably adds some visual clutter to the master project, but is truer to the on-disk file organization.
@@ -197,6 +199,15 @@ namespace UnrealBuildTool
 		/// Maps all module names that were included in generated project files, to actual project file objects.
 		/// @todo projectfiles: Nasty global static list.  This is only really used for IntelliSense, and to avoid extra folder searches for projects we've already cached source files for.
 		public static readonly Dictionary<string, ProjectFile> ModuleToProjectFileMap = new Dictionary<string, ProjectFile>( StringComparer.InvariantCultureIgnoreCase );
+
+		/// When generating IntelliSense data, we may want to only generate data for a specific project file, even if other targets make use of modules
+		/// in this project file.  This is useful to prevent unusual or hacky global definitions from Programs affecting the Editor/Engine modules.  We
+		/// always want the most common and useful definitions to be set when working with solutions with many modules.
+		public static ProjectFile OnlyGenerateIntelliSenseDataForProject
+		{
+			get;
+			private set;
+		}
 
 	
 		/// File extension for project files we'll be generating (e.g. ".vcxproj")
@@ -281,12 +292,6 @@ namespace UnrealBuildTool
 					}
 				}
 				IntermediateProjectFilesPath = Path.Combine(MasterProjectRelativePath, "Intermediate", "ProjectFiles");
-
-				IncludeDocumentation = false;
-				IncludeBuildSystemFiles = false;
-				IncludeShaderSource = true;
-				IncludeTemplateFiles = false;
-				IncludeConfigFiles = true;
 			}
 			else if( bGeneratingRocketProjectFiles )
 			{
@@ -307,12 +312,6 @@ namespace UnrealBuildTool
 				{
 					throw new BuildException("Directory '{0}' is missing 'Source' folder.", MasterProjectRelativePath);
 				}
-
-				IncludeDocumentation = false;
-				IncludeBuildSystemFiles = false;
-				IncludeShaderSource = false;
-				IncludeTemplateFiles = false;
-				IncludeConfigFiles = true;
 			}
 
 			// Modify the name if specific platforms were given
@@ -368,12 +367,6 @@ namespace UnrealBuildTool
 			}
 			RulesCompiler.SetAssemblyNameAndGameFolders( AssemblyName, AssemblyGameFolders );
 
-			MasterProjectFolder ProgramsFolder = RootFolder;
-			if( ( !bGeneratingGameProjectFiles && !bGeneratingRocketProjectFiles ) || bAlwaysIncludeEngineModules )
-			{
-				ProgramsFolder = RootFolder.AddSubFolder( "Programs" );
-			}
-
 			ProjectFile EngineProject = null;
 			Dictionary<string, ProjectFile> GameProjects = null;
 			Dictionary<string, ProjectFile> ProgramProjects = null;
@@ -392,8 +385,21 @@ namespace UnrealBuildTool
 				}
 
 				// Place projects into root level solution folders
-				if( ( !bGeneratingGameProjectFiles && !bGeneratingRocketProjectFiles ) || bAlwaysIncludeEngineModules )
+				if( IncludeEngineSource )
 				{
+					// If we're still missing an engine project because we don't have any targets for it, make one up.
+					if( EngineProject == null )
+					{
+						string ProjectFilePath = Path.Combine(IntermediateProjectFilesPath, "UE4" + ProjectFileExtension);
+
+						bool bAlreadyExisted;
+						EngineProject = FindOrAddProject(Utils.MakePathRelativeTo(ProjectFilePath, MasterProjectRelativePath), true, out bAlreadyExisted);
+
+						EngineProject.IsForeignProject = false;
+						EngineProject.IsGeneratedProject = true;
+						EngineProject.IsStubProject = true;
+					}
+
 					if( EngineProject != null )
 					{
 						RootFolder.AddSubFolder( "Engine" ).ChildProjects.Add( EngineProject );
@@ -402,8 +408,11 @@ namespace UnrealBuildTool
 						if( IncludeConfigFiles )
 						{
 							AddEngineConfigFiles( EngineProject );
-							AddUnrealHeaderToolConfigFiles(EngineProject);
-							AddUBTConfigFilesToEngineProject(EngineProject);
+							if( IncludeEnginePrograms )
+							{
+								AddUnrealHeaderToolConfigFiles(EngineProject);
+								AddUBTConfigFilesToEngineProject(EngineProject);
+							}
 						}
 
 						// Engine localization files
@@ -454,7 +463,7 @@ namespace UnrealBuildTool
 
 					foreach( var CurProgramProject in ProgramProjects.Values )
 					{
-						ProgramsFolder.ChildProjects.Add( CurProgramProject );
+						RootFolder.AddSubFolder( "Programs" ).ChildProjects.Add( CurProgramProject );
 					}
 
 					// Add all of the config files for generated program targets
@@ -470,14 +479,13 @@ namespace UnrealBuildTool
 			AddProjectsForAllModules(AllGameProjects, ProgramProjects, AllModuleFiles, bGatherThirdPartySource);
 
 			{
-				if( !bGeneratingRocketProjectFiles )
+				if( IncludeEnginePrograms )
 				{
+					MasterProjectFolder ProgramsFolder = RootFolder.AddSubFolder( "Programs" );
+
 					// Add UnrealBuildTool to the master project
 					AddUnrealBuildToolProject( ProgramsFolder );
-				}
 
-				if( ( !bGeneratingGameProjectFiles && !bGeneratingRocketProjectFiles ) || bAlwaysIncludeEngineModules )
-				{
 					// Add AutomationTool to the master project
 					ProgramsFolder.ChildProjects.Add(AddSimpleCSharpProject("AutomationTool", bShouldBuildForAllSolutionTargets: true, bForceDevelopmentConfiguration: true));
 
@@ -519,16 +527,21 @@ namespace UnrealBuildTool
 				{
 					// Figure out which targets we need about IntelliSense for.  We only need to worry about targets for projects
 					// that we're actually generating in this session.
-					List<string> IntelliSenseTargetFiles = new List<string>();
+					var IntelliSenseTargetFiles = new List<Tuple<ProjectFile, string>>();
 					{
 						// Engine targets
-						if( EngineProject != null )
+						if( EngineProject != null && !bGeneratingRocketProjectFiles )
 						{
 							foreach( var ProjectTarget in EngineProject.ProjectTargets )
 							{
 								if( !String.IsNullOrEmpty( ProjectTarget.TargetFilePath ) )
 								{
-									IntelliSenseTargetFiles.Add( ProjectTarget.TargetFilePath );
+									// Only bother with the editor target.  We want to make sure that definitions are setup to be as inclusive as possible
+									// for good quality IntelliSense.  For example, we want WITH_EDITORONLY_DATA=1, so using the editor targets works well.
+									if( ProjectTarget.TargetRules.Type == TargetRules.TargetType.Editor )
+									{ 
+										IntelliSenseTargetFiles.Add( Tuple.Create(EngineProject, ProjectTarget.TargetFilePath) );
+									}
 								}
 							}
 						}
@@ -540,7 +553,7 @@ namespace UnrealBuildTool
 							{
 								if( !String.IsNullOrEmpty( ProjectTarget.TargetFilePath ) )
 								{
-									IntelliSenseTargetFiles.Add( ProjectTarget.TargetFilePath );
+									IntelliSenseTargetFiles.Add( Tuple.Create( ProgramProject, ProjectTarget.TargetFilePath ) );
 								}
 							}
 						}
@@ -552,7 +565,12 @@ namespace UnrealBuildTool
 							{
 								if( !String.IsNullOrEmpty( ProjectTarget.TargetFilePath ) )
 								{
-									IntelliSenseTargetFiles.Add( ProjectTarget.TargetFilePath );
+									// Only bother with the editor target.  We want to make sure that definitions are setup to be as inclusive as possible
+									// for good quality IntelliSense.  For example, we want WITH_EDITORONLY_DATA=1, so using the editor targets works well.
+									if( ProjectTarget.TargetRules.Type == TargetRules.TargetType.Editor )
+									{ 
+										IntelliSenseTargetFiles.Add( Tuple.Create( GameProject, ProjectTarget.TargetFilePath ) );
+									}
 								}
 							}
 						}
@@ -624,6 +642,7 @@ namespace UnrealBuildTool
 		/// <param name="IncludeAllPlatforms">True if all platforms should be included</param>
 		protected virtual void ConfigureProjectFileGeneration( String[] Arguments, ref bool IncludeAllPlatforms )
 		{
+			bool bAlwaysIncludeEngineModules = false;
 			foreach( var CurArgument in Arguments )
 			{
 				if( CurArgument.StartsWith( "-" ) )
@@ -687,13 +706,11 @@ namespace UnrealBuildTool
 						
 						case "-GAME":
 							// Generates project files for a single game
-							// @todo rocketprojects: Needs documentation
 							bGeneratingGameProjectFiles = true;
 							break;
 
 						case "-ENGINE":
 							// Forces engine modules and targets to be included in game-specific project files
-							// @todo rocketprojects: Needs documentation
 							bAlwaysIncludeEngineModules = true;
 							break;
 
@@ -734,15 +751,7 @@ namespace UnrealBuildTool
 			}
 
 
-			if( bGeneratingGameProjectFiles )
-			{
-				GameProjectName = Path.GetFileNameWithoutExtension(UnrealBuildTool.GetUProjectFile());
-					if (String.IsNullOrEmpty(GameProjectName))
-					{
-					throw new BuildException("A valid game project was not found in the specified location (" + UnrealBuildTool.GetUProjectPath() + ")");
-					}
-			}
-			else if( bGeneratingRocketProjectFiles )
+			if( bGeneratingRocketProjectFiles )
 			{
 				// We expected a project path to be passed in
 				if (!UnrealBuildTool.HasUProjectFile())
@@ -756,6 +765,30 @@ namespace UnrealBuildTool
 				{
 					throw new BuildException("A valid Rocket game project was not found in the specified location (" + UnrealBuildTool.GetUProjectPath() + ")");
 				}
+
+				IncludeEngineSource = true;
+				IncludeDocumentation = false;
+				IncludeBuildSystemFiles = false;
+				IncludeShaderSource = false;
+				IncludeTemplateFiles = false;
+				IncludeConfigFiles = true;
+				IncludeEnginePrograms = false;
+			}
+			else if( bGeneratingGameProjectFiles )
+			{
+				GameProjectName = Path.GetFileNameWithoutExtension(UnrealBuildTool.GetUProjectFile());
+				if (String.IsNullOrEmpty(GameProjectName))
+				{
+					throw new BuildException("A valid game project was not found in the specified location (" + UnrealBuildTool.GetUProjectPath() + ")");
+				}
+
+				IncludeEngineSource = bAlwaysIncludeEngineModules;
+				IncludeDocumentation = false;
+				IncludeBuildSystemFiles = false;
+				IncludeShaderSource = true;
+				IncludeTemplateFiles = false;
+				IncludeConfigFiles = true;
+				IncludeEnginePrograms = bAlwaysIncludeEngineModules;
 			}
 			else
 			{
@@ -1279,7 +1312,7 @@ namespace UnrealBuildTool
 		/// <param name="Arguments">Incoming command-line arguments to UBT</param>
 		/// <param name="TargetFiles">Target files</param>
 		/// <return>Whether the process was successful or not</return>
-		private bool GenerateIntelliSenseData( String[] Arguments, List<string> TargetFiles )
+		private bool GenerateIntelliSenseData( String[] Arguments, List<Tuple<ProjectFile, string>> TargetFiles )
 		{
 			var bSuccess = true;
 			if( ShouldGenerateIntelliSenseData() && TargetFiles.Count > 0 )
@@ -1289,8 +1322,10 @@ namespace UnrealBuildTool
 				{
 					for(int TargetIndex = 0; TargetIndex < TargetFiles.Count; ++TargetIndex)
 					{
-						var CurTarget = TargetFiles[ TargetIndex ];
-						var TargetName = Utils.GetFilenameWithoutAnyExtensions( CurTarget );	// Twice, to remove both extensions from *.Target.cs file
+						var TargetProjectFile = TargetFiles[ TargetIndex ].Item1;
+						var CurTarget = TargetFiles[ TargetIndex ].Item2;
+
+						var TargetName = Utils.GetFilenameWithoutAnyExtensions( CurTarget );
 
 						Log.TraceVerbose( "Found target: " + TargetName );
 
@@ -1302,7 +1337,14 @@ namespace UnrealBuildTool
 						// projects from being able to do the same. Capture the state beforehand, and reset if after running UBT. 
 						bool bHasProjectFile = UnrealBuildTool.HasUProjectFile();
 
+						// We only want to update definitions and include paths for modules that are part of this target's project file.
+						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = TargetProjectFile;
+
+						// Run UnrealBuildTool, pretending to build this target but instead only gathering data for IntelliSense (include paths and definitions).
+						// No actual compiling or linking will happen because we early out using the ProjectFileGenerator.bGenerateProjectFiles global
 						bSuccess = UnrealBuildTool.RunUBT( ArgumentsCopy ) == ECompilationResult.Succeeded;
+						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = null;
+
 						if( !bSuccess )
 						{
 							break;
@@ -1445,13 +1487,10 @@ namespace UnrealBuildTool
 				{
 					if( IsEngineModule )
 					{
-						if( bAlwaysIncludeEngineModules )
+						if( IncludeEngineSource )
 						{
-							if( bGeneratingRocketProjectFiles )
-							{
-								// This is an engine module, so strip out private code from the Rocket projects.  Rocket users only need public headers to compile
-								IncludePrivateSourceCode = false;
-							}
+							// This is an engine module, so strip out private code from the Rocket projects.  Rocket users only need public headers to compile
+							IncludePrivateSourceCode &= !bGeneratingRocketProjectFiles;
 						}
 						else
 						{
@@ -1584,16 +1623,13 @@ namespace UnrealBuildTool
 				}
 
 				bool WantProjectFileForTarget = true;
-				if( bGeneratingGameProjectFiles || bGeneratingRocketProjectFiles )
+				if(TargetFileRelativeToEngineDirectory.StartsWith(Path.Combine("Source", "Programs"), StringComparison.InvariantCultureIgnoreCase))
 				{
-					if( IsEngineTarget )
-					{
-						if( !bAlwaysIncludeEngineModules )
-						{
-							// We were asked to exclude engine modules from the generated projects
-							WantProjectFileForTarget = false;
-						}
-					}
+					WantProjectFileForTarget = IncludeEnginePrograms;
+				}
+				else if(TargetFileRelativeToEngineDirectory.StartsWith(Path.Combine("Source"), StringComparison.InvariantCultureIgnoreCase))
+				{
+					WantProjectFileForTarget = IncludeEngineSource;
 				}
 
 				if (WantProjectFileForTarget)
@@ -1954,17 +1990,17 @@ namespace UnrealBuildTool
 		/// </summary>
 		protected virtual bool WriteProjectFileManifest()
 		{
-			FileManifest Manifest = new FileManifest();
+			BuildManifest Manifest = new BuildManifest();
 			foreach( var CurProject in GeneratedProjectFiles )
 			{
 				foreach( var SourceFile in CurProject.SourceFiles )
 				{
-					Manifest.AddFileName( SourceFile.FilePath );
+					Manifest.AddBuildProduct( SourceFile.FilePath );
 				}
 			}
 
 			string ManifestName = Path.Combine( ProjectFileGenerator.IntermediateProjectFilesPath, "UE4SourceFiles.xml" );
-			Utils.WriteClass<FileManifest>( Manifest, ManifestName, "" );
+			Utils.WriteClass<BuildManifest>( Manifest, ManifestName, "" );
 			return true;
 		}
 

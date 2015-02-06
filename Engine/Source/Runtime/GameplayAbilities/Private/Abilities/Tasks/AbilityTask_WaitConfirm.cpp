@@ -30,7 +30,7 @@ void UAbilityTask_WaitConfirm::Activate()
 		{
 			// Register delegate so that when we are confirmed by the server, we call OnConfirmCallback	
 			
-			Ability->OnConfirmDelegate.AddUObject(this, &UAbilityTask_WaitConfirm::OnConfirmCallback);
+			OnConfirmCallbackDelegateHandle = Ability->OnConfirmDelegate.AddUObject(this, &UAbilityTask_WaitConfirm::OnConfirmCallback);
 			RegisteredCallback = true;
 		}
 		else
@@ -45,7 +45,7 @@ void UAbilityTask_WaitConfirm::OnDestroy(bool AbilityEnded)
 {
 	if (RegisteredCallback && Ability.IsValid())
 	{
-		Ability->OnConfirmDelegate.RemoveUObject(this, &UAbilityTask_WaitConfirm::OnConfirmCallback);
+		Ability->OnConfirmDelegate.Remove(OnConfirmCallbackDelegateHandle);
 	}
 
 	Super::OnDestroy(AbilityEnded);

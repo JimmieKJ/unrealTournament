@@ -184,6 +184,11 @@ bool FXCodeSourceCodeAccessor::OpenSourceFiles(const TArray<FString>& AbsoluteSo
 	return true;
 }
 
+bool FXCodeSourceCodeAccessor::AddSourceFiles(const TArray<FString>& AbsoluteSourcePaths, const TArray<FString>& AvailableModules)
+{
+	return false;
+}
+
 bool FXCodeSourceCodeAccessor::SaveAllOpenDocuments() const
 {
 	bool ExecutionSucceeded = false;

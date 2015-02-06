@@ -912,21 +912,26 @@ FReply SGraphNode_BehaviorTree::OnDrop( const FGeometry& MyGeometry, const FDrag
 	return SGraphNode::OnDrop(MyGeometry, DragDropEvent);
 }
 
-FString	SGraphNode_BehaviorTree::GetDescription() const
+FText SGraphNode_BehaviorTree::GetDescription() const
 {
 	UBehaviorTreeGraphNode* StateNode = CastChecked<UBehaviorTreeGraphNode>(GraphNode);
-	return StateNode->GetDescription();
+	return FText::FromString(StateNode->GetDescription());
 }
 
-FString SGraphNode_BehaviorTree::GetPinTooltip(UEdGraphPin* GraphPinObj) const
+FText SGraphNode_BehaviorTree::GetPinTooltip(UEdGraphPin* GraphPinObj) const
 {
-	FString HoverText;
+	FText HoverText = FText::GetEmpty();
 
 	check(GraphPinObj != nullptr);
 	UEdGraphNode* GraphNode = GraphPinObj->GetOwningNode();
 	if (GraphNode != nullptr)
 	{
-		GraphNode->GetPinHoverText(*GraphPinObj, /*out*/ HoverText);
+		FString HoverStr;
+		GraphNode->GetPinHoverText(*GraphPinObj, /*out*/HoverStr);
+		if (!HoverStr.IsEmpty())
+		{
+			HoverText = FText::FromString(HoverStr);
+		}
 	}
 
 	return HoverText;
@@ -1016,7 +1021,7 @@ TSharedPtr<SToolTip> SGraphNode_BehaviorTree::GetComplexTooltip()
 					// Create the tooltip graph preview, make sure to disable state overlays to
 					// prevent the PIE / read-only borders from obscuring the graph
 					SNew(SGraphPreviewer, DecoratorNode->GetBoundGraph())
-					.CornerOverlayText(LOCTEXT("CompositeDecoratorOverlayText", "Composite Decorator").ToString())
+					.CornerOverlayText(LOCTEXT("CompositeDecoratorOverlayText", "Composite Decorator"))
 					.ShowGraphStateOverlay(false)
 				]
 				+SOverlay::Slot()
@@ -1043,7 +1048,7 @@ TSharedPtr<SToolTip> SGraphNode_BehaviorTree::GetComplexTooltip()
 						// Create the tooltip graph preview, make sure to disable state overlays to
 						// prevent the PIE / read-only borders from obscuring the graph
 						SNew(SGraphPreviewer, RunBehavior->GetSubtreeAsset()->BTGraph)
-						.CornerOverlayText(LOCTEXT("RunBehaviorOverlayText", "Run Behavior").ToString())
+						.CornerOverlayText(LOCTEXT("RunBehaviorOverlayText", "Run Behavior"))
 						.ShowGraphStateOverlay(false)
 					]
 					+SOverlay::Slot()

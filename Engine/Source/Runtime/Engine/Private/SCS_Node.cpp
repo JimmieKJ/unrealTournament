@@ -8,6 +8,7 @@
 #endif
 #include "Engine/SCS_Node.h"
 #include "Engine/SimpleConstructionScript.h"
+#include "Engine/InheritableComponentHandler.h"
 
 //////////////////////////////////////////////////////////////////////////
 // USCS_Node
@@ -30,10 +31,28 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 	check(Actor != nullptr);
 	check((ParentComponent != nullptr && !ParentComponent->IsPendingKill()) || (RootTransform != nullptr)); // must specify either a parent component or a world transform
 
+	UActorComponent* OverridenComponentTemplate = nullptr;
+	static const FBoolConfigValueHelper EnableInheritableComponents(TEXT("Kismet"), TEXT("bEnableInheritableComponents"), GEngineIni);
+	if (EnableInheritableComponents)
+	{
+		const FComponentKey ComponentKey(this);
+		auto ActualBPGC = Cast<UBlueprintGeneratedClass>(Actor->GetClass());
+		while (!OverridenComponentTemplate && ActualBPGC)
+		{
+			if (ActualBPGC->InheritableComponentHandler)
+			{
+				OverridenComponentTemplate = ActualBPGC->InheritableComponentHandler->GetOverridenComponentTemplate(ComponentKey);
+			}
+			ActualBPGC = Cast<UBlueprintGeneratedClass>(ActualBPGC->GetSuperClass());
+		}
+	}
+	UActorComponent* ActualComponentTemplate = OverridenComponentTemplate ? OverridenComponentTemplate : ComponentTemplate;
+
 	// Create a new component instance based on the template
-	UActorComponent* NewActorComp = Actor->CreateComponentFromTemplate(ComponentTemplate, VariableName.ToString());
+	UActorComponent* NewActorComp = Actor->CreateComponentFromTemplate(ActualComponentTemplate, VariableName.ToString());
 	if(NewActorComp != nullptr)
 	{
+		NewActorComp->CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
 		// SCS created components are net addressable
 		NewActorComp->SetNetAddressable();
 
@@ -168,6 +187,11 @@ void USCS_Node::PreloadChain()
 	if( HasAnyFlags(RF_NeedLoad) )
 	{
 		GetLinker()->Preload(this);
+	}
+
+	if (ComponentTemplate && ComponentTemplate->HasAnyFlags(RF_NeedLoad))
+	{
+		ComponentTemplate->GetLinker()->Preload(ComponentTemplate);
 	}
 
 	for( TArray<USCS_Node*>::TIterator ChildIt(ChildNodes); ChildIt; ++ChildIt )
@@ -317,7 +341,7 @@ USceneComponent* USCS_Node::GetParentComponentTemplate(UBlueprint* InBlueprint) 
 			if(CDO != NULL)
 			{
 				// Find the component template in the CDO that matches the specified name
-				TArray<USceneComponent*> Components;
+				TInlineComponentArray<USceneComponent*> Components;
 				CDO->GetComponents(Components);
 
 				for(auto CompIt = Components.CreateIterator(); CompIt; ++CompIt)
@@ -365,23 +389,6 @@ USceneComponent* USCS_Node::GetParentComponentTemplate(UBlueprint* InBlueprint) 
 	}
 
 	return ParentComponentTemplate;
-}
-
-bool USCS_Node::IsValidVariableNameString(const FString& InString)
-{
-	// First test to make sure the string is not empty and does not equate to the DefaultSceneRoot node name
-	bool bIsValid = !InString.IsEmpty() && !InString.Equals(USimpleConstructionScript::DefaultSceneRootVariableName.ToString());
-	if(bIsValid && ComponentTemplate != NULL)
-	{
-		// Next test to make sure the string doesn't conflict with the format that MakeUniqueObjectName() generates
-		FString MakeUniqueObjectNamePrefix = FString::Printf(TEXT("%s_"), *ComponentTemplate->GetClass()->GetName());
-		if(InString.StartsWith(MakeUniqueObjectNamePrefix))
-		{
-			bIsValid = !InString.Replace(*MakeUniqueObjectNamePrefix, TEXT("")).IsNumeric();
-		}
-	}
-
-	return bIsValid;
 }
 
 void USCS_Node::GenerateListOfExistingNames( TArray<FName>& CurrentNames ) const
@@ -446,18 +453,52 @@ FName USCS_Node::GenerateNewComponentName( TArray<FName>& CurrentNames, FName De
 			}
 			else
 			{
-				ComponentName = ComponentTemplate->GetClass()->GetName().Replace(TEXT("Component"), TEXT(""));
+				const UClass* ComponentClass = ComponentTemplate->GetClass();
+				ComponentName = ComponentClass->GetName();
+
+				if (!ComponentClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
+				{
+					ComponentName.RemoveFromEnd(TEXT("Component"));
+				}
+				else
+				{
+					ComponentName.RemoveFromEnd("_C");
+				}
 			}
 			
+			NewName = *ComponentName;
 			int32 Counter = 1;
-			do
+			while (CurrentNames.Contains(NewName))
 			{
 				NewName = FName(*( FString::Printf(TEXT("%s%d"), *ComponentName, Counter++) ));		
 			} 
-			while( CurrentNames.Contains(NewName) );
 		}
 	}
 	return NewName;
+}
+
+void USCS_Node::PostLoad()
+{
+	Super::PostLoad();
+
+	ValidateGuid();
+}
+
+void USCS_Node::ValidateGuid()
+{
+	// Backward compatibility:
+	// The guid for the node should be always the same (event when it's not saved). 
+	// The guid is created in an deterministic way using persistent name.
+	if (!VariableGuid.IsValid() && (VariableName != NAME_None))
+	{
+		const FString HashString = VariableName.ToString();
+		ensure(HashString.Len());
+
+		const uint32 BufferLength = HashString.Len() * sizeof(HashString[0]);
+		uint32 HashBuffer[5];
+		FSHA1::HashBuffer(*HashString, BufferLength, reinterpret_cast<uint8*>(HashBuffer));
+		VariableGuid = FGuid(HashBuffer[1], HashBuffer[2], HashBuffer[3], HashBuffer[4]);
+	}
 }
 
 #endif

@@ -10,6 +10,7 @@
 #include "GraphEditor.h"
 #include "EditorUndoClient.h"
 #include "Engine/UserDefinedEnum.h"
+#include "PreviewScene.h"
 #include "Developer/Merge/Public/Merge.h" // for FOnMergeResolved
 
 class USCS_Node;
@@ -50,6 +51,7 @@ public:
 	FSelectionDetailsSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+	virtual TSharedRef<SDockTab> SpawnTab(const FWorkflowTabSpawnInfo& Info) const override;
 
 	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override
 	{
@@ -152,7 +154,7 @@ public:
 	// End of FGCObject interface
 
 	// IBlueprintEditor interface
-	virtual void RefreshEditors() override;
+	virtual void RefreshEditors(ERefreshBlueprintEditorReason::Type Reason = ERefreshBlueprintEditorReason::UnknownReason) override;
 	virtual void JumpToHyperlink(const UObject* ObjectReference, bool bRequestRename = false) override;
 	virtual void SummonSearchUI(bool bSetFindWithinBlueprint, FString NewSearchTerms = FString(), bool bSelectFirstResult = false) override;
 	virtual TArray<TSharedPtr<class FSCSEditorTreeNode> > GetSelectedSCSEditorTreeNodes() const override;
@@ -198,7 +200,32 @@ public:
 	TSharedRef<class SSCSEditor> GetSCSEditor() const {return SCSEditor.ToSharedRef();}
 	TSharedPtr<class SSCSEditorViewport> GetSCSViewport() const {return SCSViewport;}
 	TSharedPtr<class SMyBlueprint> GetMyBlueprintWidget() const {return MyBlueprintWidget;}
+
+	/**
+	 * Provides access to the preview actor.
+	 */
 	AActor* GetPreviewActor() const;
+
+	/**
+	 * Provides access to the preview scene.
+	 */
+	FPreviewScene* GetPreviewScene()
+	{
+		return &PreviewScene;
+	}
+
+	/**
+	* Creates/updates the preview actor for the given blueprint.
+	*
+	* @param InBlueprint			The Blueprint to create or update the preview for.
+	* @param bInForceFullUpdate	Force a full update to respawn actors.
+	*/
+	void UpdatePreviewActor(UBlueprint* InBlueprint, bool bInForceFullUpdate = false);
+
+	/**
+	* Destroy the Blueprint preview.
+	*/
+	void DestroyPreview();
 
 	TSharedPtr<class FBlueprintEditorToolbar> GetToolbarBuilder() {return Toolbar;}
 
@@ -286,7 +313,7 @@ public:
 	EVisibility GetParentClassNameVisibility() const;
 
 	/** Returns our PIE Status - SIMULATING / SERVER / CLIENT */
-	FString GetPIEStatus() const;
+	FText GetPIEStatus() const;
 
 	/**
 	 * Util for finding a glyph for a graph
@@ -358,6 +385,15 @@ public:
 	/** Refresh the preview viewport to reflect changes in the SCS */
 	void UpdateSCSPreview(bool bUpdateNow = false);
 
+	/** Delegate invoked when the SCS editor needs to obtain the Actor context for editing */
+	AActor* GetSCSEditorActorContext() const;
+
+	/** Delegate invoked when the selection is changed in the SCS editor widget */
+	void OnSelectionUpdated(const TArray<TSharedPtr<class FSCSEditorTreeNode>>& SelectedNodes);
+
+	/** Delegate invoked when an item is double clicked in the SCS editor widget */
+	void OnComponentDoubleClicked(TSharedPtr<class FSCSEditorTreeNode> Node);
+
 	/** Pin visibility accessors */
 	void SetPinVisibility(SGraphEditor::EPinVisibility Visibility);
 	bool GetPinVisibility(SGraphEditor::EPinVisibility Visibility) const { return PinVisibility == Visibility; }
@@ -402,24 +438,21 @@ public:
 	{
 		return NewDocument_IsVisibleForType(GraphType) ? EVisibility::Visible : EVisibility::Collapsed;
 	}
-	
-	/** Clear selection across all editors */
-	void ClearSelectionInAllEditors();
+
+	static FName SelectionState_MyBlueprint;
+	static FName SelectionState_Components;
+	static FName SelectionState_Graph;
+	static FName SelectionState_ClassSettings;
+	static FName SelectionState_ClassDefaults;
 	
 	/** Gets or sets the flag for context sensitivity in the graph action menu */
-	bool& GetIsContextSensitive() {return bIsActionMenuContextSensitive;}
-
-	/** Selection state, because all selection in this editor is mutually exclusive */
-	enum ESelectionState
-	{
-		NoSelection,
-		MyBlueprint,
-		GraphPanel,
-		BlueprintProps,
-	};
+	bool& GetIsContextSensitive() { return bIsActionMenuContextSensitive; }
 
 	/** Gets the UI selection state of this editor */
-	ESelectionState& GetUISelectionState() {return CurrentUISelection;}
+	FName GetUISelectionState() const { return CurrentUISelection; }
+	void SetUISelectionState(FName SelectionOwner);
+
+	virtual void ClearSelectionStateFor(FName SelectionOwner);
 
 	/** Find all instances of the selected custom event. */
 	void OnFindInstancesCustomEvent();
@@ -434,12 +467,6 @@ public:
 	 * @param	InTargetPin The pin on which to base the variable.
 	 */
 	void DoPromoteToVariable( UBlueprint* InBlueprint, UEdGraphPin* InTargetPin );		
-
-	/**
-	 * Checks for events in the argument class
-	 * @param InClass	The class to check for events.
-	 */
-	static bool CanClassGenerateEvents( UClass* InClass );
 
 	/** Called when node is spawned by keymap */
 	void OnNodeSpawnedByKeymap();
@@ -492,7 +519,7 @@ public:
 	void OnNodeTitleCommitted(const FText& NewText, ETextCommit::Type CommitInfo, UEdGraphNode* NodeBeingChanged);
 
 	/** Called by a graph title bar to get any extra information the editor would like to display */
-	virtual FString GetGraphDecorationString(UEdGraph* InGraph) const;
+	virtual FText GetGraphDecorationString(UEdGraph* InGraph) const;
 
 	/** Checks to see if the provided graph is contained within the current blueprint */
 	bool IsGraphInCurrentBlueprint(UEdGraph* InGraph) const;
@@ -503,6 +530,9 @@ public:
 protected:
 	/** Called during initialization of the blueprint editor to register any application modes. */
 	virtual void RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated = false);
+
+	// Updates the selected object used by the stand lone defaults editor widget.
+	void RefreshStandAloneDefaultsEditor();
 	
 	// Zooming to fit the entire graph
 	void ZoomToWindow_Clicked();
@@ -536,8 +566,17 @@ protected:
 	/** Called to start a quick find (focus the search box in the explorer tab) */
 	void FindInBlueprint_Clicked();
 
-	/** Edit Blueprint global options */
+	// Is the main details panel currently showing 'Global options' (e.g., class metadata)?
+	bool IsDetailsPanelEditingGlobalOptions() const;
+
+	/** Edit the class settings aka Blueprint global options */
 	void EditGlobalOptions_Clicked();
+
+	// Is the main details panel currently showing 'Class defaults' (Note: Has nothing to do with the standalone class defaults panel)?
+	bool IsDetailsPanelEditingClassDefaults() const;
+
+	/** Edit the class defaults */
+	void EditClassDefaults_Clicked();
 
 	/** Called to undo the last action */
 	void UndoGraphAction();
@@ -567,13 +606,15 @@ protected:
 	void OnGraphActionMenuClosed(bool bActionExecuted, bool bContextSensitiveChecked, bool bGraphPinContext);
 
 	/** Called when the Blueprint we are editing has changed */
-	virtual void OnBlueprintChanged(UBlueprint* InBlueprint);
+	virtual void OnBlueprintChangedImpl(UBlueprint* InBlueprint, bool bIsJustBeingCompiled = false);
+
+	/** Called when the Blueprint we are editing has changed, forwards to impl */
+	void OnBlueprintChanged(UBlueprint* InBlueprint) { return OnBlueprintChangedImpl(InBlueprint); }
+
+	void OnBlueprintCompiled(UBlueprint* InBlueprint);
 
 	/** Handles the unloading of Blueprints (by closing the editor, if it operating on the Blueprint being unloaded)*/
 	void OnBlueprintUnloaded(UBlueprint* InBlueprint);
-
-	/** Get title for Inspector 2 tab*/
-	virtual FString GetDefaultEditorTitle();
 
 	//@TODO: Should the breakpoint/watch modification operations be whole-blueprint, or current-graph?
 
@@ -818,9 +859,6 @@ protected:
 	/** Callback when properties have finished being handled */
 	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
 
-	/** the string to show for edit defaults*/
-	static FString DefaultEditString();
-
 	/** On starting to rename node */
 	void OnRenameNode();
 	bool CanRenameNodes() const;
@@ -863,6 +901,9 @@ private:
 
 	/** Function to check whether the give graph is a subgraph */
 	static bool IsASubGraph( const class UEdGraph* GraphPtr );
+
+	/** Creates the SCSEditor tree component view and the SCS Viewport. */
+	void CreateSCSEditors();
 
 	/** Callback when a token is clicked on in the compiler results log */
 	void OnLogTokenClicked(const TSharedRef<class IMessageToken>& Token);
@@ -984,10 +1025,16 @@ protected:
 	bool bIsActionMenuContextSensitive;
 	
 	/** The current UI selection state of this editor */
-	ESelectionState CurrentUISelection;
+	FName CurrentUISelection;
 
 	/** Whether we are already in the process of closing this editor */
 	bool bEditorMarkedAsClosed;
+
+	/** Blueprint preview scene */
+	FPreviewScene PreviewScene;
+
+	/** The preview actor representing the current preview */
+	mutable TWeakObjectPtr<AActor> PreviewActorPtr;
 
 public:
 	// Tries to open the specified graph and bring it's document to the front (note: this can return NULL)
@@ -1061,6 +1108,9 @@ private:
 	UEdGraph* HasOpenActionMenu;
 	/** Used to nicely fade instruction text, when the context menu is opened. */
 	float InstructionsFadeCountdown;
+
+	/** Handle to the registered OnActiveTabChanged delegate */
+	FDelegateHandle OnActiveTabChangedDelegateHandle;
 };
 
 #undef LOCTEXT_NAMESPACE

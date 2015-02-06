@@ -92,7 +92,7 @@ float DetermineOptimalSpacing( float InPixelsPerInput, uint32 MinTick, float Min
 }
 
 
-FSequencerTimeSliderController::FSequencerTimeSliderController(const FVisualLoggerTimeSliderArgs& InArgs)
+FVisualLoggerTimeSliderController::FVisualLoggerTimeSliderController(const FVisualLoggerTimeSliderArgs& InArgs)
 	: TimeSliderArgs( InArgs )
 	, DistanceDragged( 0.0f )
 	, bDraggingScrubber( false )
@@ -126,7 +126,7 @@ struct FDrawTickArgs
 	
 };
 
-void FSequencerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDrawElements, const struct FScrubRangeToScreen& RangeToScreen, FDrawTickArgs& InArgs ) const
+void FVisualLoggerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDrawElements, const struct FScrubRangeToScreen& RangeToScreen, FDrawTickArgs& InArgs ) const
 {
 	const float Spacing = DetermineOptimalSpacing( RangeToScreen.PixelsPerInput, ScrubConstants::MinPixelsPerDisplayTick, ScrubConstants::MinDisplayTickSpacing );
 
@@ -224,7 +224,7 @@ void FSequencerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDraw
 }
 
 
-int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
+int32 FVisualLoggerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 	const bool bEnabled = bParentEnabled;
 	const ESlateDrawEffect::Type DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
@@ -305,7 +305,7 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 	return LayerId;
 }
 
-FReply FSequencerTimeSliderController::OnMouseButtonDown( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FVisualLoggerTimeSliderController::OnMouseButtonDown( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	bool bHandleLeftMouseButton = MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton;
 	bool bHandleRightMouseButton = MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && TimeSliderArgs.AllowZoom;
@@ -330,7 +330,7 @@ FReply FSequencerTimeSliderController::OnMouseButtonDown( TSharedRef<SWidget> Wi
 	return FReply::Unhandled();
 }
 
-FReply FSequencerTimeSliderController::OnMouseButtonUp( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FVisualLoggerTimeSliderController::OnMouseButtonUp( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	bool bHandleLeftMouseButton = MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && WidgetOwner->HasMouseCapture();
 	bool bHandleRightMouseButton = MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && WidgetOwner->HasMouseCapture() && TimeSliderArgs.AllowZoom ;
@@ -371,7 +371,7 @@ FReply FSequencerTimeSliderController::OnMouseButtonUp( TSharedRef<SWidget> Widg
 	return FReply::Unhandled();
 }
 
-FReply FSequencerTimeSliderController::OnMouseMove( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FVisualLoggerTimeSliderController::OnMouseMove( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	if ( WidgetOwner->HasMouseCapture() )
 	{
@@ -449,7 +449,7 @@ FReply FSequencerTimeSliderController::OnMouseMove( TSharedRef<SWidget> WidgetOw
 				FVector2D CursorPos = MyGeometry.AbsoluteToLocal( MouseEvent.GetLastScreenSpacePosition() );
 				float NewValue = RangeToScreen.LocalXToInput( CursorPos.X );
 
-				CommitScrubPosition( NewValue, /*bIsScrubbing=*/true );
+				CommitScrubPosition(NewValue, /*bIsScrubbing=*/true);
 			}
 		}
 		return FReply::Handled();
@@ -458,7 +458,7 @@ FReply FSequencerTimeSliderController::OnMouseMove( TSharedRef<SWidget> WidgetOw
 	return FReply::Unhandled();
 }
 
-void FSequencerTimeSliderController::CommitScrubPosition( float NewValue, bool bIsScrubbing )
+void FVisualLoggerTimeSliderController::CommitScrubPosition( float NewValue, bool bIsScrubbing )
 {
 	// Manage the scrub position ourselves if its not bound to a delegate
 	if ( !TimeSliderArgs.ScrubPosition.IsBound() )
@@ -469,13 +469,13 @@ void FSequencerTimeSliderController::CommitScrubPosition( float NewValue, bool b
 	TimeSliderArgs.OnScrubPositionChanged.ExecuteIfBound( NewValue, bIsScrubbing );
 }
 
-void FSequencerTimeSliderController::SetExternalScrollbar(TSharedRef<SScrollBar> InScrollbar) 
+void FVisualLoggerTimeSliderController::SetExternalScrollbar(TSharedRef<SScrollBar> InScrollbar) 
 { 
 	Scrollbar = InScrollbar;
-	Scrollbar->SetOnUserScrolled(FOnUserScrolled::CreateRaw(this, &FSequencerTimeSliderController::HorizontalScrollBar_OnUserScrolled)); 
+	Scrollbar->SetOnUserScrolled(FOnUserScrolled::CreateRaw(this, &FVisualLoggerTimeSliderController::HorizontalScrollBar_OnUserScrolled)); 
 };
 
-void FSequencerTimeSliderController::HorizontalScrollBar_OnUserScrolled(float ScrollOffset)
+void FVisualLoggerTimeSliderController::HorizontalScrollBar_OnUserScrolled(float ScrollOffset)
 {
 	if (!TimeSliderArgs.ViewRange.IsBound())
 	{
@@ -492,11 +492,11 @@ void FSequencerTimeSliderController::HorizontalScrollBar_OnUserScrolled(float Sc
 
 		float InOffsetFraction = NewViewOutputMin / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
 		float InThumbSizeFraction = (NewViewOutputMax - NewViewOutputMin) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
-		Scrollbar->SetState(InOffsetFraction, InThumbSizeFraction);
+			Scrollbar->SetState(InOffsetFraction, InThumbSizeFraction);
+		}
 	}
-}
 
-void FSequencerTimeSliderController::SetTimeRange(float NewViewOutputMin, float NewViewOutputMax)
+void FVisualLoggerTimeSliderController::SetTimeRange(float NewViewOutputMin, float NewViewOutputMax)
 {
 	TimeSliderArgs.ViewRange.Set(TRange<float>(NewViewOutputMin, NewViewOutputMax));
 
@@ -508,7 +508,7 @@ void FSequencerTimeSliderController::SetTimeRange(float NewViewOutputMin, float 
 	Scrollbar->SetState(InOffsetFraction, InThumbSizeFraction);
 }
 
-FReply FSequencerTimeSliderController::OnMouseWheel( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FVisualLoggerTimeSliderController::OnMouseWheel( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	FReply ReturnValue = FReply::Unhandled();;
 
@@ -578,7 +578,7 @@ FReply FSequencerTimeSliderController::OnMouseWheel( TSharedRef<SWidget> WidgetO
 	return ReturnValue;
 }
 
-int32 FSequencerTimeSliderController::OnPaintSectionView( const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bEnabled, bool bDisplayTickLines, bool bDisplayScrubPosition  ) const
+int32 FVisualLoggerTimeSliderController::OnPaintSectionView( const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, bool bEnabled, bool bDisplayTickLines, bool bDisplayScrubPosition  ) const
 {
 	const ESlateDrawEffect::Type DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 

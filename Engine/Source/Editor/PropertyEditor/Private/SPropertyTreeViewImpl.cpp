@@ -512,7 +512,7 @@ void SPropertyTreeViewImpl::RestoreColumnWidths()
 
 void SPropertyTreeViewImpl::EnqueueDeferredAction( FSimpleDelegate& DeferredAction )
 {
-	DeferredActions.AddUnique( DeferredAction );
+	DeferredActions.Add( DeferredAction );
 }
 
 void SPropertyTreeViewImpl::SetFromExistingTree( TSharedPtr<FObjectPropertyNode> RootNode, TSharedPtr<FPropertyNode> PropertyToView )

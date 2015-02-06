@@ -29,7 +29,7 @@ void UInAppPurchaseCallbackProxy::Trigger(APlayerController* PlayerController, c
 
 				// Register the completion callback
 				InAppPurchaseCompleteDelegate = FOnInAppPurchaseCompleteDelegate::CreateUObject(this, &UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete);
-				StoreInterface->AddOnInAppPurchaseCompleteDelegate(InAppPurchaseCompleteDelegate);
+				InAppPurchaseCompleteDelegateHandle = StoreInterface->AddOnInAppPurchaseCompleteDelegate_Handle(InAppPurchaseCompleteDelegate);
 
 				// Set-up, and trigger the transaction through the store interface
 				PurchaseRequest = MakeShareable(new FOnlineInAppPurchaseTransaction());
@@ -67,7 +67,7 @@ void UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete(EInAppPurchaseState::T
 	{
 		// Use a local timer handle as we don't need to store it for later but we don't need to look for something to clear
 		FTimerHandle TimerHandle;
-		World->GetTimerManager().SetTimer(this, &UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete_Delayed, 0.001f, false);
+		World->GetTimerManager().SetTimer(OnInAppPurchaseComplete_DelayedTimerHandle, this, &UInAppPurchaseCallbackProxy::OnInAppPurchaseComplete_Delayed, 0.001f, false);
     }
     else
     {
@@ -108,7 +108,7 @@ void UInAppPurchaseCallbackProxy::RemoveDelegate()
 			IOnlineStorePtr InAppPurchases = OnlineSub->GetStoreInterface();
 			if (InAppPurchases.IsValid())
 			{
-				InAppPurchases->ClearOnInAppPurchaseCompleteDelegate(InAppPurchaseCompleteDelegate);
+				InAppPurchases->ClearOnInAppPurchaseCompleteDelegate_Handle(InAppPurchaseCompleteDelegateHandle);
 			}
 		}
 	}

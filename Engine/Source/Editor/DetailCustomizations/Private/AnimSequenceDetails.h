@@ -39,12 +39,13 @@ private:
 
 	TSharedRef<SWidget> MakeRetargetSourceComboWidget( TSharedPtr<FString> InItem );
 	void OnRetargetSourceChanged( TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo  );
-	FString GetRetargetSourceComboBoxContent() const;
-	FString GetRetargetSourceComboBoxToolTip() const;
+	FText GetRetargetSourceComboBoxContent() const;
+	FText GetRetargetSourceComboBoxToolTip() const;
 	void OnRetargetSourceComboOpening();
 	TSharedPtr<FString> GetRetargetSourceString(FName RetargetSourceName) const;
 
 	USkeleton::FOnRetargetSourceChanged OnDelegateRetargetSourceChanged;
+	FDelegateHandle OnDelegateRetargetSourceChangedDelegateHandle;
 	void RegisterRetargetSourceChanged();
 	void DelegateRetargetSourceChanged();
 };

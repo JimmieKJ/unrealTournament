@@ -174,4 +174,10 @@ private:
 
 	/** Holds a delegate to be invoked for client pings */
 	FTickerDelegate PingDelegate;
+
+	/** Handle to the registered PingDelegate */
+	FDelegateHandle PingDelegateHandle;
+
+	/** Handle to the registered HandleNewFrame delegate */
+	FDelegateHandle HandleNewFrameDelegateHandle;
 };

@@ -407,7 +407,11 @@ public:
 
 	virtual bool IsCookingIncrementally( ) const override
 	{
-		return CookIncremental;
+		if ( CookMode != ELauncherProfileCookModes::DoNotCook )
+		{
+			return CookIncremental;
+		}
+		return false;
 	}
 
 	virtual bool IsCookingUnversioned( ) const override
@@ -714,14 +718,14 @@ public:
 	{
 		if(DeployedDeviceGroup.IsValid())
 		{
-			DeployedDeviceGroup->OnDeviceAdded().RemoveRaw(this, &FLauncherProfile::OnLauncherDeviceGroupDeviceAdded);
-			DeployedDeviceGroup->OnDeviceRemoved().RemoveRaw(this, &FLauncherProfile::OnLauncherDeviceGroupDeviceRemove);
+			DeployedDeviceGroup->OnDeviceAdded().Remove(OnLauncherDeviceGroupDeviceAddedDelegateHandle);
+			DeployedDeviceGroup->OnDeviceRemoved().Remove(OnLauncherDeviceGroupDeviceRemoveDelegateHandle);
 		}
 		DeployedDeviceGroup = DeviceGroup;
 		if (DeployedDeviceGroup.IsValid())
 		{
-			DeployedDeviceGroup->OnDeviceAdded().AddRaw(this, &FLauncherProfile::OnLauncherDeviceGroupDeviceAdded);
-			DeployedDeviceGroup->OnDeviceRemoved().AddRaw(this, &FLauncherProfile::OnLauncherDeviceGroupDeviceRemove);
+			OnLauncherDeviceGroupDeviceAddedDelegateHandle   = DeployedDeviceGroup->OnDeviceAdded().AddRaw(this, &FLauncherProfile::OnLauncherDeviceGroupDeviceAdded);
+			OnLauncherDeviceGroupDeviceRemoveDelegateHandle  = DeployedDeviceGroup->OnDeviceRemoved().AddRaw(this, &FLauncherProfile::OnLauncherDeviceGroupDeviceRemove);
 			DeployedDeviceGroupId = DeployedDeviceGroup->GetId();
 		}
 		else
@@ -1006,7 +1010,7 @@ protected:
 		}
 
 		// Launch: when launching, all devices that the build is launched on must have content cooked for their platform
-		if ((LaunchMode != ELauncherProfileLaunchModes::DoNotLaunch) && (CookMode != ELauncherProfileCookModes::OnTheFly))
+		if ((LaunchMode != ELauncherProfileLaunchModes::DoNotLaunch) && (CookMode != ELauncherProfileCookModes::OnTheFly || CookMode != ELauncherProfileCookModes::OnTheFlyInEditor))
 		{
 			// @todo ensure that launched devices have cooked content
 		}
@@ -1145,6 +1149,10 @@ private:
 
 	// Holds the device group to deploy to.
 	ILauncherDeviceGroupPtr DeployedDeviceGroup;
+
+	// Delegate handles for registered DeployedDeviceGroup event handlers.
+	FDelegateHandle OnLauncherDeviceGroupDeviceAddedDelegateHandle;
+	FDelegateHandle OnLauncherDeviceGroupDeviceRemoveDelegateHandle;
 
 	// Holds the identifier of the deployed device group.
 	FGuid DeployedDeviceGroupId;

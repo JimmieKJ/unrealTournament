@@ -254,7 +254,7 @@ void STimelineBar::SnapScrubPosition(int32 NewItemIndex)
 	}
 }
 
-void STimelineBar::Construct(const FArguments& InArgs, TSharedPtr<FSequencerTimeSliderController> InTimeSliderController, TSharedPtr<STimeline> InTimelineOwner)
+void STimelineBar::Construct(const FArguments& InArgs, TSharedPtr<FVisualLoggerTimeSliderController> InTimeSliderController, TSharedPtr<STimeline> InTimelineOwner)
 {
 	VisualLoggerInterface = InArgs._VisualLoggerInterface.Get();
 

@@ -171,18 +171,20 @@ private:
 		{
 			EntriesWidget->AddSlot()
 			.AutoHeight()
-			.Padding(FriendStyle.ComboItemPadding)
+			.Padding(FMargin(0, 0, 0, 1))
 			[
 				SAssignNew(DropdownItemButtons[Idx], SButton)
-				.ButtonStyle(&FriendStyle.ComboItemButtonStyle)
-				.ContentPadding(FriendStyle.ComboItemContentPadding)
+				.ButtonStyle(&FriendStyle.FriendListItemButtonStyle)
+				.ContentPadding(FMargin(8, 2, 8, 2))
 				.IsEnabled(DropdownItemsRef[Idx].bIsEnabled)
 				.OnClicked(this, &SFriendsAndChatComboButton::OnDropdownButtonClicked, Idx)
 				[
 					SNew(STextBlock)
 					.Text(DropdownItemsRef[Idx].EntryText)
-					.TextStyle(&FriendStyle.ComboItemTextStyle)
+					.Font(FriendStyle.FriendsFontStyleSmallBold)
 					.ColorAndOpacity(this, &SFriendsAndChatComboButton::GetTextColor, Idx)
+					.ShadowOffset(FVector2D(0, 1))
+					.ShadowColorAndOpacity(FColor(35, 14, 12))
 				]
 			];
 		}
@@ -242,7 +244,7 @@ private:
 		.VAlign(VAlign_Fill)
 		[
 			SNew(SBox)
-			.Padding(FriendStyle.ComboMenuPadding)
+			.Padding(FMargin(8, 8, 8, 8))
 			[
 				EntriesWidget.ToSharedRef()
 			]
@@ -254,9 +256,9 @@ private:
 	{
 		if (DropdownItemButtons.IsValidIndex(Idx) && DropdownItemButtons[Idx].IsValid() && DropdownItemButtons[Idx]->IsHovered())
 		{
-			return FSlateColor(FriendStyle.ComboItemTextColorHovered);
+			return FSlateColor(FColor::White);
 		}
-		return FSlateColor(FriendStyle.ComboItemTextColorNormal);
+		return FSlateColor(FColor(255, 246, 235));
 	}
 
 	/** Called when user clicks item from the dropdown. Calls OnItemClickedDelegate and potentially closes the menu. */

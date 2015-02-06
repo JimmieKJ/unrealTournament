@@ -116,6 +116,81 @@ bool FDirectoryWatcherLinux::UnregisterDirectoryChangedCallback(const FString& D
 	return false;
 }
 
+bool FDirectoryWatcherLinux::RegisterDirectoryChangedCallback_Handle( const FString& Directory, const FDirectoryChanged& InDelegate, FDelegateHandle& OutHandle )
+{
+#if WITH_DIRECTORY_WATCHER
+	
+	FDirectoryWatchRequestLinux** RequestPtr = RequestMap.Find(Directory);
+	FDirectoryWatchRequestLinux* Request = NULL;
+
+	if (RequestPtr)
+	{
+		// There should be no NULL entries in the map
+		check (*RequestPtr);
+
+		Request = *RequestPtr;
+	}
+	else
+	{
+		Request = new FDirectoryWatchRequestLinux();
+		NumRequests++;
+
+		// Begin reading directory changes
+		if (!Request->Init(Directory))
+		{
+			UE_LOG(LogDirectoryWatcher, Warning, TEXT("Failed to begin reading directory changes for %s."), *Directory);
+			delete Request;
+			NumRequests--;
+			return false;
+		}
+
+		RequestMap.Add(Directory, Request);
+	}
+
+	OutHandle = Request->AddDelegate(InDelegate);
+
+	return true;
+
+#else
+	
+	return false;
+	
+#endif // WITH_DIRECTORY_WATCHER
+}
+
+bool FDirectoryWatcherLinux::UnregisterDirectoryChangedCallback_Handle(const FString& Directory, FDelegateHandle InHandle)
+{
+#if WITH_DIRECTORY_WATCHER
+	FDirectoryWatchRequestLinux** RequestPtr = RequestMap.Find(Directory);
+
+	if (RequestPtr)
+	{
+		// There should be no NULL entries in the map
+		check (*RequestPtr);
+
+		FDirectoryWatchRequestLinux* Request = *RequestPtr;
+
+		if (Request->RemoveDelegate(InHandle))
+		{
+			if (!Request->HasDelegates())
+			{
+				// Remove from the active map and add to the pending delete list
+				RequestMap.Remove(Directory);
+				RequestsPendingDelete.AddUnique(Request);
+
+				// Signal to end the watch which will mark this request for deletion
+				Request->EndWatchRequest();
+			}
+
+			return true;
+		}
+
+	}
+#endif // WITH_DIRECTORY_WATCHER
+
+	return false;
+}
+
 void FDirectoryWatcherLinux::Tick(float DeltaSeconds)
 {
 #if WITH_DIRECTORY_WATCHER

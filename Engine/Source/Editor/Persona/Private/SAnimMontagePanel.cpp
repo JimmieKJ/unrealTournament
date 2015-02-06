@@ -185,7 +185,7 @@ void SAnimMontagePanel::Update()
 						.OnComboBoxOpening(this, &SAnimMontagePanel::OnSlotListOpening, SlotAnimIdx)
 						.InitiallySelectedItem(ComboItem)
 						.ContentPadding(2)
-						.ToolTipText(*ComboItem)
+						.ToolTipText(FText::FromString(*ComboItem))
 					]
 
 					+ SVerticalBox::Slot()

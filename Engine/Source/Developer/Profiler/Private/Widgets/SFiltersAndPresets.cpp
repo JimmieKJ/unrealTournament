@@ -119,7 +119,7 @@ protected:
 		[
 			SNew(STextBlock)
 			.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
-			.Text( InstanceName )
+			.Text( FText::FromString(InstanceName) )
 		];
 
 		AddSeparator( Grid, RowPos );
@@ -194,7 +194,7 @@ protected:
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text( EProfilerSampleTypes::ToDescription(SampleType) )
+				.Text( FText::FromString(EProfilerSampleTypes::ToDescription(SampleType)) )
 				.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 			]
 		];
@@ -413,7 +413,7 @@ public:
 			.Padding( FMargin( 2.0f, 0.0f ) )
 			[
 				SNew( STextBlock )
-				.Text( this, &SGroupAndStatTableRow::GetText/*EventPtr->_StatName.ToString()*/ )
+				.Text( this, &SGroupAndStatTableRow::GetText )
 				.HighlightText( InArgs._HighlightText )
 				.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 				.ColorAndOpacity( this, &SGroupAndStatTableRow::GetColorAndOpacity )
@@ -486,9 +486,9 @@ protected:
 	/**
 	 * @return a text which describes this table row, refers to both groups and stats
 	 */
-	FString GetText() const
+	FText GetText() const
 	{
-		FString Text;
+		FText Text = FText::GetEmpty();
 
 		if( GroupOrStatNode->IsGroup() )
 		{
@@ -506,12 +506,19 @@ protected:
 				}
 			}
 
-			Text = FString::Printf( TEXT("%s (%i) (%i)"), *GroupOrStatNode->GetName().GetPlainNameString(), GroupOrStatNode->GetChildren().Num(), NumDisplayedStats );
+			Text = FText::Format(LOCTEXT("GroupAndStat_GroupNodeTextFmt", "{0} ({1}) ({2})"), FText::FromName(GroupOrStatNode->GetName()), FText::AsNumber(GroupOrStatNode->GetChildren().Num()), FText::AsNumber(NumDisplayedStats));
 		}
 		else
 		{
-			const bool bIsStatTracked = FProfilerManager::Get()->IsStatTracked( GroupOrStatNode->GetStatID() ); 
-			Text = FString::Printf( TEXT("%s %s"), *GroupOrStatNode->GetName().GetPlainNameString(), bIsStatTracked ? TEXT(" *") : TEXT("") );
+			const bool bIsStatTracked = FProfilerManager::Get()->IsStatTracked( GroupOrStatNode->GetStatID() );
+			if(bIsStatTracked)
+			{
+				Text = FText::Format(LOCTEXT("GroupAndStat_GroupNodeTrackedTextFmt", "{0}*"), FText::FromName(GroupOrStatNode->GetName()));
+			}
+			else
+			{
+				Text = FText::FromName(GroupOrStatNode->GetName());
+			}
 		}
 
 		return Text;
@@ -614,7 +621,7 @@ void SFiltersAndPresets::Construct( const FArguments& InArgs )
 					.HintText( LOCTEXT("SearchBoxHint", "Search stats or groups") )
 					.OnTextChanged( this, &SFiltersAndPresets::SearchBox_OnTextChanged )
 					.IsEnabled( this, &SFiltersAndPresets::SearchBox_IsEnabled )
-					.ToolTipText( LOCTEXT("FilterSearchHint", "Type here to search stats or group").ToString() )
+					.ToolTipText( LOCTEXT("FilterSearchHint", "Type here to search stats or group") )
 				]
 
 				// Group by and Sort By
@@ -630,7 +637,7 @@ void SFiltersAndPresets::Construct( const FArguments& InArgs )
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text( LOCTEXT("GroupByText", "Group by").ToString() )
+						.Text( LOCTEXT("GroupByText", "Group by") )
 					]
 
 					+SHorizontalBox::Slot()
@@ -662,7 +669,7 @@ void SFiltersAndPresets::Construct( const FArguments& InArgs )
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text( LOCTEXT("SortByText", "Sort by").ToString() )
+						.Text( LOCTEXT("SortByText", "Sort by") )
 					]
 
 					+SHorizontalBox::Slot()
@@ -1044,7 +1051,7 @@ TSharedRef<SWidget> SFiltersAndPresets::GetToggleButtonForStatType( const EProfi
 		.Padding( 2.0f )
 		.OnCheckStateChanged( this, &SFiltersAndPresets::FilterByStatType_OnCheckStateChanged, StatType )
 		.IsChecked( this, &SFiltersAndPresets::FilterByStatType_IsChecked, StatType )
-		.ToolTipText( EProfilerSampleTypes::ToDescription( StatType ) )
+		.ToolTipText( FText::FromString(EProfilerSampleTypes::ToDescription( StatType )) )
 		[
 			SNew(SHorizontalBox)
 
@@ -1061,7 +1068,7 @@ TSharedRef<SWidget> SFiltersAndPresets::GetToggleButtonForStatType( const EProfi
 				.VAlign( VAlign_Center )
 				[
 					SNew( STextBlock )
-						.Text( EProfilerSampleTypes::ToName( StatType ) )
+						.Text( FText::FromString(EProfilerSampleTypes::ToName( StatType )) )
 						.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Caption") )
 				]
 		];

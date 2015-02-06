@@ -64,6 +64,7 @@ ActorFactory.cpp:
 #include "Engine/Polys.h"
 #include "Components/VectorFieldComponent.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Kismet2/ComponentEditorUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogActorFactory, Log, All);
 
@@ -326,6 +327,55 @@ FQuat UActorFactoryStaticMesh::AlignObjectToSurfaceNormal(const FVector& InSurfa
 }
 
 /*-----------------------------------------------------------------------------
+UActorFactoryBasicShape
+-----------------------------------------------------------------------------*/
+
+const FName UActorFactoryBasicShape::BasicCube("/Engine/BasicShapes/Cube.Cube");
+const FName UActorFactoryBasicShape::BasicSphere("/Engine/BasicShapes/Sphere.Sphere");
+const FName UActorFactoryBasicShape::BasicCylinder("/Engine/BasicShapes/Cylinder.Cylinder");
+const FName UActorFactoryBasicShape::BasicCone("/Engine/BasicShapes/Cone.Cone");
+
+UActorFactoryBasicShape::UActorFactoryBasicShape(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	DisplayName = LOCTEXT("UActorFactoryBasicShapeDisplayName", "Basic Shape");
+	NewActorClass = AStaticMeshActor::StaticClass();
+	bUseSurfaceOrientation = true;
+}
+
+bool UActorFactoryBasicShape::CanCreateActorFrom( const FAssetData& AssetData, FText& OutErrorMsg )
+{
+	if(AssetData.IsValid() && (AssetData.ObjectPath == BasicCube || AssetData.ObjectPath == BasicSphere || AssetData.ObjectPath == BasicCone || AssetData.ObjectPath == BasicCylinder ) )
+	{
+		return true;
+	}
+
+	return false;
+}
+
+void UActorFactoryBasicShape::PostSpawnActor(UObject* Asset, AActor* NewActor)
+{
+	// Change properties
+	UStaticMesh* StaticMesh = CastChecked<UStaticMesh>(Asset);
+	GEditor->SetActorLabelUnique(NewActor, StaticMesh->GetName());
+
+	AStaticMeshActor* StaticMeshActor = CastChecked<AStaticMeshActor>(NewActor);
+	UStaticMeshComponent* StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
+
+	if( StaticMeshComponent )
+	{
+		StaticMeshComponent->UnregisterComponent();
+
+		StaticMeshComponent->StaticMesh = StaticMesh;
+		StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->RenderData->DerivedDataKey;
+		StaticMeshComponent->SetMaterial(0, LoadObject<UMaterial>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")));
+		// Init Component
+		StaticMeshComponent->RegisterComponent();
+	}
+}
+
+
+/*-----------------------------------------------------------------------------
 UActorFactoryDeferredDecal
 -----------------------------------------------------------------------------*/
 UActorFactoryDeferredDecal::UActorFactoryDeferredDecal(const FObjectInitializer& ObjectInitializer)
@@ -405,7 +455,7 @@ void UActorFactoryDeferredDecal::PostSpawnActor(UObject* Asset, AActor* NewActor
 		GEditor->SetActorLabelUnique(NewActor, Material->GetName());
 
 		// Change properties
-		TArray<UDecalComponent*> DecalComponents;
+		TInlineComponentArray<UDecalComponent*> DecalComponents;
 		NewActor->GetComponents(DecalComponents);
 
 		UDecalComponent* DecalComponent = NULL;
@@ -437,7 +487,7 @@ void UActorFactoryDeferredDecal::PostCreateBlueprint( UObject* Asset, AActor* CD
 
 		if (Material != NULL)
 		{
-			TArray<UDecalComponent*> DecalComponents;
+			TInlineComponentArray<UDecalComponent*> DecalComponents;
 			CDO->GetComponents(DecalComponents);
 
 			UDecalComponent* DecalComponent = NULL;
@@ -1112,6 +1162,114 @@ UActorFactoryCameraActor::UActorFactoryCameraActor(const FObjectInitializer& Obj
 	NewActorClass = ACameraActor::StaticClass();
 }
 
+static UBillboardComponent* CreateEditorOnlyBillboardComponent(AActor* ActorOwner, USceneComponent* AttachParent)
+{
+	// Create a new billboard component to serve as a visualization of the actor until there is another primitive component
+	UBillboardComponent* BillboardComponent = ConstructObject<UBillboardComponent>(UBillboardComponent::StaticClass(), ActorOwner, NAME_None, RF_Transactional);
+
+	BillboardComponent->Sprite = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EditorResources/EmptyActor.EmptyActor"));
+	BillboardComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
+	BillboardComponent->Mobility = EComponentMobility::Movable;
+	BillboardComponent->AlwaysLoadOnClient = false;
+	BillboardComponent->AlwaysLoadOnServer = false;
+
+	BillboardComponent->AttachTo(AttachParent);
+
+	return BillboardComponent;
+}
+
+/*-----------------------------------------------------------------------------
+UActorFactoryEmptyActor
+-----------------------------------------------------------------------------*/
+UActorFactoryEmptyActor::UActorFactoryEmptyActor(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	DisplayName = LOCTEXT("ActorFactoryEmptyActorDisplayName", "Empty Actor");
+	NewActorClass = AActor::StaticClass();
+}
+
+bool UActorFactoryEmptyActor::CanCreateActorFrom( const FAssetData& AssetData, FText& OutErrorMsg )
+{
+	return GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing ? AssetData.ObjectPath == FName(*AActor::StaticClass()->GetPathName()) : false;
+}
+
+AActor* UActorFactoryEmptyActor::SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name )
+{
+	AActor* NewActor = nullptr;
+	if(GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing) 
+	{
+		// Spawn a temporary actor for dragging around
+		NewActor = Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name);
+
+		USceneComponent* RootComponent = ConstructObject<USceneComponent>(USceneComponent::StaticClass(), NewActor, USceneComponent::GetDefaultSceneRootVariableName(), RF_Transactional);
+		RootComponent->Mobility = EComponentMobility::Movable;
+		RootComponent->bVisualizeComponent = true;
+		RootComponent->SetWorldLocationAndRotation(Location, Rotation);
+
+		NewActor->SetRootComponent(RootComponent);
+		NewActor->AddInstanceComponent(RootComponent);
+
+		RootComponent->RegisterComponent();
+	}
+
+	return NewActor;
+}
+
+
+
+/*-----------------------------------------------------------------------------
+UActorFactoryCharacter
+-----------------------------------------------------------------------------*/
+UActorFactoryCharacter::UActorFactoryCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	DisplayName = LOCTEXT("ActorFactoryCharacterDisplayName", "Empty Character");
+	NewActorClass = ACharacter::StaticClass();
+}
+
+bool UActorFactoryCharacter::CanCreateActorFrom(const FAssetData& AssetData, FText& OutErrorMsg)
+{
+	return GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing ? AssetData.ObjectPath == FName(*ACharacter::StaticClass()->GetPathName()) : false;
+}
+
+AActor* UActorFactoryCharacter::SpawnActor(UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name)
+{
+	AActor* NewActor = nullptr;
+	if(GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing)
+	{
+			NewActor = Super::SpawnActor( Asset, InLevel, Location, Rotation, ObjectFlags, Name );
+		}
+
+	return NewActor;
+}
+
+
+/*-----------------------------------------------------------------------------
+UActorFactoryPawn
+-----------------------------------------------------------------------------*/
+UActorFactoryPawn::UActorFactoryPawn(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	DisplayName = LOCTEXT("ActorFactoryPawnDisplayName", "Empty Pawn");
+	NewActorClass = APawn::StaticClass();
+}
+
+bool UActorFactoryPawn::CanCreateActorFrom(const FAssetData& AssetData, FText& OutErrorMsg)
+{
+	return GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing ? AssetData.ObjectPath == FName(*APawn::StaticClass()->GetPathName()) : false;
+}
+
+AActor* UActorFactoryPawn::SpawnActor(UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name)
+{
+	AActor* NewActor = nullptr;
+	if(GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing)
+	{
+		NewActor = Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name);
+	}
+
+	return NewActor;
+}
+
 /*-----------------------------------------------------------------------------
 UActorFactoryAmbientSound
 -----------------------------------------------------------------------------*/
@@ -1664,8 +1822,9 @@ void CreateBrushForVolumeActor( AVolume* NewActor, UBrushBuilder* BrushBuilder )
 		NewActor->PreEditChange(NULL);
 
 		NewActor->PolyFlags = 0;
-		NewActor->Brush = new( NewActor, NAME_None, RF_Transactional )UModel(FObjectInitializer(), NULL, true );
-		NewActor->Brush->Polys = new( NewActor->Brush, NAME_None, RF_Transactional )UPolys(FObjectInitializer());
+		NewActor->Brush = NewNamedObject<UModel>(NewActor, NAME_None, RF_Transactional);
+		NewActor->Brush->Initialize(nullptr, true);
+		NewActor->Brush->Polys = NewNamedObject<UPolys>(NewActor->Brush, NAME_None, RF_Transactional);
 		NewActor->GetBrushComponent()->Brush = NewActor->Brush;
 		if(BrushBuilder != nullptr)
 		{

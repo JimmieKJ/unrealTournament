@@ -74,39 +74,39 @@ bool FTestCloudInterface::Tick( float DeltaTime )
 		case 1:
 			// Write out N files for the user of various sizes/names and enumerate
 			// @todo: make the file count configurable on a per-platform basis, since different platforms have different file count limits
-			WriteNUserCloudFiles(*UserId, FString(TEXT("UserCloud.bin")), 15, OnWriteUserCloudFileCompleteDelegate);
+			OnWriteUserCloudFileCompleteDelegateHandle = WriteNUserCloudFiles(*UserId, FString(TEXT("UserCloud.bin")), 15, OnWriteUserCloudFileCompleteDelegate);
 			break;
 		case 2:
 			// Read in N files for the user and enumerate
-			ReadEnumeratedUserFiles(OnReadEnumeratedUserFilesCompleteDelegate);
+			OnReadEnumeratedUserFilesCompleteDelegateHandle = ReadEnumeratedUserFiles(OnReadEnumeratedUserFilesCompleteDelegate);
 			break;
 		case 3: 
 			// Forget the N files for the user and enumerate (should still remain locally)
-			DeleteEnumeratedUserFiles(true, false, OnDeleteEnumeratedUserFilesCompleteDelegate);
+			OnDeleteEnumeratedUserFilesCompleteDelegateHandle = DeleteEnumeratedUserFiles(true, false, OnDeleteEnumeratedUserFilesCompleteDelegate);
 			break;
 		case 4:
 			// Delete the N files for the user and enumerate (should be removed permanently)
-			DeleteEnumeratedUserFiles(false, true, OnDeleteEnumeratedUserFilesCompleteDelegate);
+			OnDeleteEnumeratedUserFilesCompleteDelegateHandle = DeleteEnumeratedUserFiles(false, true, OnDeleteEnumeratedUserFilesCompleteDelegate);
 			break;
 		case 5:
 			// Write out N files for the user and share with the cloud and enumerate
-			WriteNSharedCloudFiles(*UserId, FString(TEXT("SharedCloud.bin")), 15, OnWriteSharedCloudFileCompleteDelegate);
+			OnWriteSharedCloudFileCompleteDelegateHandle = WriteNSharedCloudFiles(*UserId, FString(TEXT("SharedCloud.bin")), 15, OnWriteSharedCloudFileCompleteDelegate);
 			break;
 		case 6:
 			// Read in N files given the shared handles that this user generated
-			ReadEnumeratedSharedFiles(false, OnReadEnumerateSharedFileCompleteDelegate);
+			OnReadEnumerateSharedFileCompleteDelegateHandle = ReadEnumeratedSharedFiles(false, OnReadEnumerateSharedFileCompleteDelegate);
 			break;
 		case 7:
 			// Delete, marking all the files as only forgotten
-			DeleteEnumeratedUserFiles(true, false, OnDeleteEnumeratedUserFilesCompleteDelegate);
+			OnDeleteEnumeratedUserFilesCompleteDelegateHandle = DeleteEnumeratedUserFiles(true, false, OnDeleteEnumeratedUserFilesCompleteDelegate);
 			break;
 		case 8:
 			// Try to read in the N random files from their shared handles
-			ReadEnumeratedSharedFiles(true, OnReadEnumerateSharedFileCompleteDelegate);
+			OnReadEnumerateSharedFileCompleteDelegateHandle = ReadEnumeratedSharedFiles(true, OnReadEnumerateSharedFileCompleteDelegate);
 			break;
 		case 9:
 			// Delete, marking all the files for permanent removal
-			DeleteEnumeratedUserFiles(true, true, OnDeleteEnumeratedUserFilesCompleteDelegate);
+			OnDeleteEnumeratedUserFilesCompleteDelegateHandle = DeleteEnumeratedUserFiles(true, true, OnDeleteEnumeratedUserFilesCompleteDelegate);
 			break;	
 		case 10:
 			bOverallSuccess = bOverallSuccess && Cleanup();
@@ -140,7 +140,7 @@ bool FTestCloudInterface::Cleanup()
 
 void FTestCloudInterface::EnumerateUserFiles()
 {
-	UserCloud->AddOnEnumerateUserFilesCompleteDelegate(EnumerationDelegate);
+	EnumerationDelegateHandle = UserCloud->AddOnEnumerateUserFilesCompleteDelegate_Handle(EnumerationDelegate);
 	UserCloud->EnumerateUserFiles(*UserId);
 }
 
@@ -152,7 +152,7 @@ void FTestCloudInterface::OnEnumerateUserFilesComplete(bool bWasSuccessful, cons
 
 	TArray<FCloudFileHeader> UserFiles;
 	UserCloud->GetUserFileList(InUserId, UserFiles);
-	UserCloud->ClearOnEnumerateUserFilesCompleteDelegate(EnumerationDelegate);
+	UserCloud->ClearOnEnumerateUserFilesCompleteDelegate_Handle(EnumerationDelegateHandle);
 
 	for (int32 Idx=0; Idx<UserFiles.Num(); Idx++)
 	{
@@ -174,7 +174,7 @@ void FTestCloudInterface::WriteRandomFile(TArray<uint8>& Buffer, int32 Size)
 	}
 }
 
-void FTestCloudInterface::WriteNUserCloudFiles(const FUniqueNetId& InUserId, const FString& FileNameBase, int32 FileCount, FOnWriteUserFileCompleteDelegate& Delegate)
+FDelegateHandle FTestCloudInterface::WriteNUserCloudFiles(const FUniqueNetId& InUserId, const FString& FileNameBase, int32 FileCount, FOnWriteUserFileCompleteDelegate& Delegate)
 {
 	UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
 	UE_LOG(LogOnline, Log, TEXT("Writing %d files to the cloud for user %s"), FileCount, *InUserId.ToDebugString());
@@ -182,7 +182,7 @@ void FTestCloudInterface::WriteNUserCloudFiles(const FUniqueNetId& InUserId, con
 	FString FileName(FileNameBase);
 
 	WriteUserCloudFileCount = FileCount;
-	UserCloud->AddOnWriteUserFileCompleteDelegate(Delegate);
+	FDelegateHandle Result = UserCloud->AddOnWriteUserFileCompleteDelegate_Handle(Delegate);
 
 	TArray<uint8> DummyData;
 	for (int32 FileIdx=0; FileIdx<FileCount; FileIdx++)
@@ -192,9 +192,11 @@ void FTestCloudInterface::WriteNUserCloudFiles(const FUniqueNetId& InUserId, con
 		WriteRandomFile(DummyData, FMath::TruncToInt(FMath::FRandRange(256, 1024)));
 		UserCloud->WriteUserFile(InUserId, FString::Printf(TEXT("%s%d.%s"), *FPaths::GetBaseFilename(FileName), FileIdx, *FPaths::GetExtension(FileName)), DummyData);
 	}
+
+	return Result;
 }
 
-void FTestCloudInterface::WriteNSharedCloudFiles(const FUniqueNetId& InUserId, const FString& FileNameBase, int32 FileCount, FOnWriteSharedFileCompleteDelegate& Delegate)
+FDelegateHandle FTestCloudInterface::WriteNSharedCloudFiles(const FUniqueNetId& InUserId, const FString& FileNameBase, int32 FileCount, FOnWriteSharedFileCompleteDelegate& Delegate)
 {
 	UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
 	UE_LOG(LogOnline, Log, TEXT("Writing %d files to the cloud and sharing for user %s"), FileCount, *InUserId.ToDebugString());
@@ -202,7 +204,7 @@ void FTestCloudInterface::WriteNSharedCloudFiles(const FUniqueNetId& InUserId, c
 	FString FileName(FileNameBase);
 
 	WriteSharedCloudFileCount = FileCount;
-	SharedCloud->AddOnWriteSharedFileCompleteDelegate(Delegate);
+	FDelegateHandle Result = SharedCloud->AddOnWriteSharedFileCompleteDelegate_Handle(Delegate);
 
 	TArray<uint8> DummyData;
 	for (int32 FileIdx=0; FileIdx<FileCount; FileIdx++)
@@ -210,6 +212,8 @@ void FTestCloudInterface::WriteNSharedCloudFiles(const FUniqueNetId& InUserId, c
 		WriteRandomFile(DummyData, FMath::TruncToInt(FMath::FRandRange(1024, 100*1024)));
 		SharedCloud->WriteSharedFile(InUserId, FString::Printf(TEXT("%s%d.%s"), *FPaths::GetBaseFilename(FileName), FileIdx, *FPaths::GetExtension(FileName)), DummyData);
 	}
+
+	return Result;
 }
 
 void FTestCloudInterface::OnWriteUserCloudFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
@@ -224,13 +228,13 @@ void FTestCloudInterface::OnWriteUserCloudFileComplete(bool bWasSuccessful, cons
 	{
 		UE_LOG(LogOnline, Log, TEXT("Write %d User Files Complete!"), NumWrittenCount);
 		UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
-		UserCloud->ClearOnWriteUserFileCompleteDelegate(OnWriteUserCloudFileCompleteDelegate);
+		UserCloud->ClearOnWriteUserFileCompleteDelegate_Handle(OnWriteUserCloudFileCompleteDelegateHandle);
 		NumWrittenCount = 0;
 		EnumerateUserFiles();
 	}
 }
 
-void FTestCloudInterface::ReadEnumeratedUserFiles(FOnReadUserFileCompleteDelegate& Delegate)
+FDelegateHandle FTestCloudInterface::ReadEnumeratedUserFiles(FOnReadUserFileCompleteDelegate& Delegate)
 {
 	TArray<FCloudFileHeader> UserFiles;
 	UserCloud->GetUserFileList(*UserId, UserFiles);
@@ -239,9 +243,11 @@ void FTestCloudInterface::ReadEnumeratedUserFiles(FOnReadUserFileCompleteDelegat
 
 	UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
 	UE_LOG(LogOnline, Log, TEXT("Reading %d enumerated files for user %s"), ReadUserFileCount, *UserId->ToDebugString());
+
+	FDelegateHandle Result;
 	if (ReadUserFileCount > 0)
 	{
-		UserCloud->AddOnReadUserFileCompleteDelegate(Delegate);
+		Result = UserCloud->AddOnReadUserFileCompleteDelegate_Handle(Delegate);
 		for (int32 Idx=0; Idx < ReadUserFileCount; Idx++)
 		{
 			UE_LOG(LogOnline, Log, TEXT("\tFileName:%s Size:%d"), *UserFiles[Idx].FileName, UserFiles[Idx].FileSize);
@@ -252,6 +258,8 @@ void FTestCloudInterface::ReadEnumeratedUserFiles(FOnReadUserFileCompleteDelegat
 	{
 		EnumerateUserFiles();
 	}
+
+	return Result;
 }
 
 void FTestCloudInterface::OnReadEnumeratedUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
@@ -275,13 +283,13 @@ void FTestCloudInterface::OnReadEnumeratedUserFilesComplete(bool bWasSuccessful,
 	{
 		UE_LOG(LogOnline, Log, TEXT("Read %d User Files Complete!"), NumReadCount);
 		UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
-		UserCloud->ClearOnReadUserFileCompleteDelegate(OnReadEnumeratedUserFilesCompleteDelegate);
+		UserCloud->ClearOnReadUserFileCompleteDelegate_Handle(OnReadEnumeratedUserFilesCompleteDelegateHandle);
 		NumReadCount = 0;
 		EnumerateUserFiles();
 	}
 }
 
-void FTestCloudInterface::DeleteEnumeratedUserFiles(bool bCloudDelete, bool bLocalDelete, FOnDeleteUserFileCompleteDelegate& Delegate)
+FDelegateHandle FTestCloudInterface::DeleteEnumeratedUserFiles(bool bCloudDelete, bool bLocalDelete, FOnDeleteUserFileCompleteDelegate& Delegate)
 {
 	TArray<FCloudFileHeader> UserFiles;
 	UserCloud->GetUserFileList(*UserId, UserFiles);
@@ -290,9 +298,10 @@ void FTestCloudInterface::DeleteEnumeratedUserFiles(bool bCloudDelete, bool bLoc
 
 	UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
 	UE_LOG(LogOnline, Log, TEXT("Deleting %d files from the cloud for user %s CLOUD: %s LOCAL: %s"), DeleteUserFileCount, *UserId->ToDebugString(), bCloudDelete ? TEXT("true") : TEXT("false"), bLocalDelete ? TEXT("true") : TEXT("false"));
+	FDelegateHandle Result;
 	if (DeleteUserFileCount > 0)
 	{
-		UserCloud->AddOnDeleteUserFileCompleteDelegate(Delegate);
+		Result = UserCloud->AddOnDeleteUserFileCompleteDelegate_Handle(Delegate);
 		for (int32 Idx=0; Idx < DeleteUserFileCount; Idx++)
 		{
 			UE_LOG(LogOnline, Log, TEXT("\tFileName:%s Size:%d"), *UserFiles[Idx].FileName, UserFiles[Idx].FileSize);
@@ -303,6 +312,8 @@ void FTestCloudInterface::DeleteEnumeratedUserFiles(bool bCloudDelete, bool bLoc
 	{
 		EnumerateUserFiles();
 	}
+
+	return Result;
 }
 
 void FTestCloudInterface::OnDeleteEnumeratedUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
@@ -316,7 +327,7 @@ void FTestCloudInterface::OnDeleteEnumeratedUserFilesComplete(bool bWasSuccessfu
 	{
 		UE_LOG(LogOnline, Log, TEXT("Delete %d User Files Complete!"), NumDeletedCount);
 		UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
-		UserCloud->ClearOnDeleteUserFileCompleteDelegate(OnDeleteEnumeratedUserFilesCompleteDelegate);
+		UserCloud->ClearOnDeleteUserFileCompleteDelegate_Handle(OnDeleteEnumeratedUserFilesCompleteDelegateHandle);
 		NumDeletedCount = 0;
 		EnumerateUserFiles();
 	}
@@ -335,14 +346,14 @@ void FTestCloudInterface::OnWriteSharedCloudFileComplete(bool bWasSuccessful, co
 	{
 		UE_LOG(LogOnline, Log, TEXT("Write %d Shared Files Complete!"), NumWrittenCount);
 		UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
-		SharedCloud->ClearOnWriteSharedFileCompleteDelegate(OnWriteSharedCloudFileCompleteDelegate);
+		SharedCloud->ClearOnWriteSharedFileCompleteDelegate_Handle(OnWriteSharedCloudFileCompleteDelegateHandle);
 		NumWrittenCount = 0;
 		// Enumeration will put the newly shared files into this user's list
 		EnumerateUserFiles();
 	}
 }
 
-void FTestCloudInterface::ReadEnumeratedSharedFiles(bool bUseRandom, FOnReadSharedFileCompleteDelegate& Delegate)
+FDelegateHandle FTestCloudInterface::ReadEnumeratedSharedFiles(bool bUseRandom, FOnReadSharedFileCompleteDelegate& Delegate)
 {
 	if (bUseRandom)
 	{
@@ -355,9 +366,11 @@ void FTestCloudInterface::ReadEnumeratedSharedFiles(bool bUseRandom, FOnReadShar
 	
 	UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
 	UE_LOG(LogOnline, Log, TEXT("Reading %d enumerated shared files"), ReadSharedFileCount);
+
+	FDelegateHandle Result;
 	if (ReadSharedFileCount > 0)
 	{
-		SharedCloud->AddOnReadSharedFileCompleteDelegate(Delegate);
+		Result = SharedCloud->AddOnReadSharedFileCompleteDelegate_Handle(Delegate);
 		for (int32 Idx=0; Idx < ReadSharedFileCount; Idx++)
 		{
 			if (bUseRandom)
@@ -376,6 +389,8 @@ void FTestCloudInterface::ReadEnumeratedSharedFiles(bool bUseRandom, FOnReadShar
 	{
 		EnumerateUserFiles();
 	}
+
+	return Result;
 }
 
 void FTestCloudInterface::OnReadEnumeratedSharedFileCompleteDelegate(bool bWasSuccessful, const FSharedContentHandle& SharedHandle)
@@ -389,7 +404,7 @@ void FTestCloudInterface::OnReadEnumeratedSharedFileCompleteDelegate(bool bWasSu
 	{
 		UE_LOG(LogOnline, Log, TEXT("Read %d Shared Files Complete!"), NumReadCount);
 		UE_LOG(LogOnline, Log, TEXT("------------------------------------------------"));
-		SharedCloud->ClearOnReadSharedFileCompleteDelegate(OnReadEnumerateSharedFileCompleteDelegate);
+		SharedCloud->ClearOnReadSharedFileCompleteDelegate_Handle(OnReadEnumerateSharedFileCompleteDelegateHandle);
 		NumReadCount = 0;
 		EnumerateUserFiles();
 	}

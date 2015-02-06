@@ -61,7 +61,7 @@ class SPropertyNameColumnHeader : public SColumnHeader
 				.Padding( FMargin( 2, 0, 2, 0 ) )
 				[
 					SNew( STextBlock )
-					.Text( PropertyName )
+					.Text( FText::FromString(PropertyName) )
 					.ColorAndOpacity(FLinearColor(1.0f, 1.0f, 1.0f))
 				]
 			];

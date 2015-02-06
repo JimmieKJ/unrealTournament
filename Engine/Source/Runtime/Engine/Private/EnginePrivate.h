@@ -95,3 +95,5 @@ EnginePrivate.h: Unreal engine private header file.
 #include "EngineUtils.h"
 #include "InstancedFoliage.h"				// Instanced foliage.
 #include "TimerManager.h"					// Game play timers
+#include "SlateCore.h"
+#include "SlateBasics.h"

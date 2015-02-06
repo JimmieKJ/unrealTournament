@@ -31,7 +31,6 @@ public:
 	virtual ISourceControlProvider& GetProvider() const override;
 	virtual void SetProvider( const FName& InName ) override;
 	virtual void ShowLoginDialog(const FSourceControlLoginClosed& InOnSourceControlLoginClosed, ELoginWindowMode::Type InLoginWindowMode, EOnLoginWindowStartup::Type InOnLoginWindowStartup = EOnLoginWindowStartup::ResetProviderToNone) override;
-	virtual TSharedPtr<class SWidget> CreateStatusWidget() const override;
 	virtual bool GetUseGlobalSettings() const override;
 	virtual void SetUseGlobalSettings(bool bIsUseGlobalSettings) override;
 

@@ -437,7 +437,7 @@ void FBodyInstanceCustomization::CreateCustomCollisionSetup( TSharedRef<class IP
 				.Content()
 				[
 					SNew(STextBlock)
-					.Text(DisplayName)
+					.Text(FText::FromString(DisplayName))
 					.Font( IDetailLayoutBuilder::GetDetailFont() )
 				]
 			]
@@ -532,7 +532,7 @@ void FBodyInstanceCustomization::CreateCustomCollisionSetup( TSharedRef<class IP
 				.Content()
 				[
 					SNew(STextBlock)
-					.Text(DisplayName)
+					.Text(FText::FromString(DisplayName))
 					.Font( IDetailLayoutBuilder::GetDetailFont() )
 				]
 			]
@@ -604,7 +604,7 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 TSharedRef<SWidget> FBodyInstanceCustomization::MakeObjectTypeComboWidget( TSharedPtr<FString> InItem )
 {
-	return SNew(STextBlock) .Text( *InItem ) .Font( IDetailLayoutBuilder::GetDetailFont() );
+	return SNew(STextBlock) .Text( FText::FromString(*InItem) ) .Font( IDetailLayoutBuilder::GetDetailFont() );
 }
 
 void FBodyInstanceCustomization::OnObjectTypeChanged( TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo  )
@@ -627,15 +627,15 @@ void FBodyInstanceCustomization::OnObjectTypeChanged( TSharedPtr<FString> NewSel
 	}
 }
 
-FString FBodyInstanceCustomization::GetObjectTypeComboBoxContent() const
+FText FBodyInstanceCustomization::GetObjectTypeComboBoxContent() const
 {
 	FName ObjectTypeName;
 	if (ObjectTypeHandle->GetValue(ObjectTypeName) == FPropertyAccess::Result::MultipleValues)
 	{
-		return TEXT("Multiple Values");
+		return LOCTEXT("MultipleValues", "Multiple Values");
 	}
 
-	return *ObjectTypeComboBox.Get()->GetSelectedItem().Get();
+	return FText::FromString(*ObjectTypeComboBox.Get()->GetSelectedItem().Get());
 }
 
 TSharedRef<SWidget> FBodyInstanceCustomization::MakeCollisionProfileComboWidget(TSharedPtr<FString> InItem)
@@ -650,7 +650,7 @@ TSharedRef<SWidget> FBodyInstanceCustomization::MakeCollisionProfileComboWidget(
 
 	return
 		SNew(STextBlock)
-		.Text(*InItem)
+		.Text(FText::FromString(*InItem))
 		.ToolTipText(FText::FromString(ProfileMessage))
 		.Font(IDetailLayoutBuilder::GetDetailFont());
 }
@@ -812,18 +812,18 @@ EVisibility FBodyInstanceCustomization::ShouldShowCustomCollisionSetup() const
 	return EVisibility::Visible;//return (bDisplayAdvancedCollisionSettings)? EVisibility::Visible : EVisibility::Hidden;
 }
 
-FString FBodyInstanceCustomization::GetCollisionProfileComboBoxContent() const
+FText FBodyInstanceCustomization::GetCollisionProfileComboBoxContent() const
 {
 	FName ProfileName;
 	if (CollisionProfileNameHandle->GetValue(ProfileName) == FPropertyAccess::Result::MultipleValues)
 	{
-		return TEXT("Multiple Values");
+		return LOCTEXT("MultipleValues", "Multiple Values");
 	}
 
-	return (*GetProfileString(ProfileName).Get());
+	return FText::FromString(*GetProfileString(ProfileName).Get());
 }
 
-FString FBodyInstanceCustomization::GetCollisionProfileComboBoxToolTip() const
+FText FBodyInstanceCustomization::GetCollisionProfileComboBoxToolTip() const
 {
 	FName ProfileName;
 	if (CollisionProfileNameHandle->GetValue(ProfileName) == FPropertyAccess::Result::Success)
@@ -831,11 +831,12 @@ FString FBodyInstanceCustomization::GetCollisionProfileComboBoxToolTip() const
 		FCollisionResponseTemplate ProfileData;
 		if ( CollisionProfile->GetProfileTemplate(ProfileName, ProfileData) )
 		{
-			return ProfileData.HelpMessage;
+			return FText::FromString(ProfileData.HelpMessage);
 		}
+		return FText::GetEmpty();
 	}
 
-	return TEXT("Multiple Values");
+	return LOCTEXT("MultipleValues", "Multiple Values");
 }
 
 void FBodyInstanceCustomization::OnCollisionChannelChanged(ECheckBoxState InNewValue, int32 ValidIndex, ECollisionResponse InCollisionResponse)

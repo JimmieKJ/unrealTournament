@@ -87,6 +87,11 @@ public:
 	void RefreshAssetActions(UObject* const AssetObject);
 
 	/**
+	 * Updates all component related actions
+	 */
+	void RefreshComponentActions();
+
+	/**
 	 * Finds the database entry for the specified class and wipes it. The entry 
 	 * won't be rebuilt, unless RefreshAssetActions() is explicitly called after.
 	 * 
@@ -126,6 +131,10 @@ private:
 	 */
 	void RegisterAllNodeActions(FBlueprintActionDatabaseRegistrar& Registrar);
 
+	/**
+	 * This exists only because we need a pointer to associate our delegates with
+	 */
+	void OnBlueprintChanged( UBlueprint* );
 private:
 	/** 
 	 * A map of associated node-spawners for each class/asset. A spawner that 
@@ -153,4 +162,10 @@ private:
 	/** */
 	FOnDatabaseEntryUpdated EntryRefreshDelegate;
 	FOnDatabaseEntryUpdated EntryRemovedDelegate;
+
+	/** Handle to the registered OnBlueprintChanged delegate. */
+	FDelegateHandle OnBlueprintChangedDelegateHandle;
+
+	/** Pointer to the shared list of currently existing component types */
+	const TArray<struct FComponentTypeEntry>* ComponentTypes;
 };

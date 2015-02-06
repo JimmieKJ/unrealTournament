@@ -77,7 +77,7 @@ void SMatineeRecorder::Construct(const FArguments& InArgs)
 				[
 					SAssignNew( RecordButton, SButton )
 					.OnClicked( this, &SMatineeRecorder::ToggleRecord )
-					.ToolTipText( LOCTEXT("StartStopRecording", "Start/Stop Recording").ToString() )
+					.ToolTipText( LOCTEXT("StartStopRecording", "Start/Stop Recording") )
 					[
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
@@ -95,7 +95,7 @@ void SMatineeRecorder::Construct(const FArguments& InArgs)
 					SAssignNew( CameraModeComboBox, STextComboBox )
 					.OptionsSource( &CameraModeOptions )
 					.OnSelectionChanged( this, &SMatineeRecorder::SelectCameraMode )
-					.ToolTipText( LOCTEXT("ChangeCameraMode", "Change Camera Mode").ToString() )
+					.ToolTipText( LOCTEXT("ChangeCameraMode", "Change Camera Mode") )
 					.InitiallySelectedItem( CameraModeOptions[ 0 ] )
 				]
 			]

@@ -16,7 +16,7 @@ class UMaterialExpressionComment : public UMaterialExpression
 	UPROPERTY()
 	int32 SizeY;
 
-	UPROPERTY(EditAnywhere, Category=MaterialExpressionComment)
+	UPROPERTY(EditAnywhere, Category=MaterialExpressionComment, meta=(MultiLine=true))
 	FString Text;
 
 	/** Color to style comment with */

@@ -56,7 +56,8 @@ namespace AutomationTool
         Error_NoApkSuitableForArchitecture = 55,
         Error_LauncherFailed = 100,
 		Error_UATLaunchFailure = 101,
-        Error_FailedToDeleteStagingDirectory = 102,
+		Error_FailedToDeleteStagingDirectory = 102,
+		Error_MissingExecutable = 103,
 	};
 
 	public class ErrorReporter

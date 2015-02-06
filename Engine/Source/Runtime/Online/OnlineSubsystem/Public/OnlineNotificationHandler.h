@@ -43,11 +43,6 @@ struct FOnlineNotificationBinding
 	/** Delegate to call when this binding is activated */
 	FHandleOnlineNotificationSignature NotificationDelegate;
 
-	bool operator==(const FOnlineNotificationBinding& Other) const
-	{
-		return NotificationDelegate == Other.NotificationDelegate;
-	}
-
 	FOnlineNotificationBinding()
 	{}
 
@@ -80,10 +75,18 @@ public:
 	// SYSTEM NOTIFICATION BINDINGS
 
 	/** Add a notification binding for a type */
+	DELEGATE_DEPRECATED("AddSystemNotificationBinding is deprecated because it relies on deprecated delegate comparison to ignore multiple registrations, instead use AddSystemNotificationBinding_Handle and avoid multiple registrations.")
 	void AddSystemNotificationBinding(FString NotificationType, const FOnlineNotificationBinding& NewBinding);
 
+	/** Add a notification binding for a type */
+	FDelegateHandle AddSystemNotificationBinding_Handle(FString NotificationType, const FOnlineNotificationBinding& NewBinding);
+
 	/** Remove the notification handler for a type */
-	void RemoveSystemNotificationBinding(FString NotificationType, const FOnlineNotificationBinding& NewBinding);
+	DELEGATE_DEPRECATED("This overload of RemoveSystemNotificationBinding is deprecated, instead use RemoveSystemNotificationBinding passing the result of AddSystemNotificationBinding_Handle.")
+	void RemoveSystemNotificationBinding(FString NotificationType, const FOnlineNotificationBinding& RemoveBinding);
+
+	/** Remove the notification handler for a type */
+	void RemoveSystemNotificationBinding(FString NotificationType, FDelegateHandle RemoveHandle);
 
 	/** Resets all system notification handlers */
 	void ResetSystemNotificationBindings();
@@ -91,10 +94,18 @@ public:
 	// PLAYER NOTIFICATION BINDINGS
 
 	/** Add a notification binding for a type */
+	DELEGATE_DEPRECATED("AddPlayerNotificationBinding is deprecated because it relies on deprecated delegate comparison to ignore multiple registrations, instead use AddPlayerNotificationBinding_Handle and avoid multiple registrations.")
 	void AddPlayerNotificationBinding(const FUniqueNetId& PlayerId, FString NotificationType, const FOnlineNotificationBinding& NewBinding);
 
+	/** Add a notification binding for a type */
+	FDelegateHandle AddPlayerNotificationBinding_Handle(const FUniqueNetId& PlayerId, FString NotificationType, const FOnlineNotificationBinding& NewBinding);
+
 	/** Remove the player notification handler for a type */
-	void RemovePlayerNotificationBinding(const FUniqueNetId& PlayerId, FString NotificationType, const FOnlineNotificationBinding& NewBinding);
+	DELEGATE_DEPRECATED("This overload of RemovePlayerNotificationBinding is deprecated, instead use RemovePlayerNotificationBinding passing the result of AddPlayerNotificationBinding_Handle.")
+	void RemovePlayerNotificationBinding(const FUniqueNetId& PlayerId, FString NotificationType, const FOnlineNotificationBinding& RemoveBinding);
+
+	/** Remove the player notification handler for a type */
+	void RemovePlayerNotificationBinding(const FUniqueNetId& PlayerId, FString NotificationType, FDelegateHandle RemoveHandle);
 
 	/** Resets a player's notification handlers */
 	void ResetPlayerNotificationBindings(const FUniqueNetId& PlayerId);

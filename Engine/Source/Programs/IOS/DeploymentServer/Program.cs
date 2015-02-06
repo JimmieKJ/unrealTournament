@@ -14,6 +14,49 @@ namespace DeploymentServer
 {
 	internal class CoreFoundation
 	{
+		static public CoreFoundationImpl CoreImpl;
+
+		static CoreFoundation()
+		{
+			if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix)
+			{
+				CoreImpl = new CoreFoundationOSX();
+			}
+			else
+			{
+				CoreImpl = new CoreFoundationWin32();
+			}
+		}
+
+		public static int RunLoopRunInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
+		{
+			return CoreImpl.RunLoopInMode(mode, seconds, returnAfterSourceHandled);
+		}
+
+		public static IntPtr kCFRunLoopDefaultMode()
+		{
+			return CoreImpl.DefaultMode();
+		}
+	};
+
+	internal interface CoreFoundationImpl
+	{
+		int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled);
+		IntPtr DefaultMode();
+	}
+
+	internal class CoreFoundationOSX : CoreFoundationImpl
+	{
+		public int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
+		{
+			return CFRunLoopRunInMode(mode, seconds, returnAfterSourceHandled);
+		}
+
+		public IntPtr DefaultMode()
+		{
+			return kCFRunLoopDefaultMode;
+		}
+
 		[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
 		public extern static IntPtr CFStringCreateWithCString(IntPtr allocator, string value, int encoding);
 
@@ -32,9 +75,41 @@ namespace DeploymentServer
 		public static IntPtr kCFRunLoopDefaultMode = CFStringCreateWithCString(IntPtr.Zero, "kCFRunLoopDefaultMode", 0);
 	}
 
-    class Program
+	internal class CoreFoundationWin32 : CoreFoundationImpl
+	{
+		public int RunLoopInMode(IntPtr mode, double seconds, int returnAfterSourceHandled)
+		{
+			return CFRunLoopRunInMode(mode, seconds, returnAfterSourceHandled);
+		}
+
+		public IntPtr DefaultMode()
+		{
+			return kCFRunLoopDefaultMode;
+		}
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static IntPtr CFStringCreateWithCString(IntPtr allocator, string value, int encoding);
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static void CFRunLoopRun();
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static IntPtr CFRunLoopGetMain();
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static IntPtr CFRunLoopGetCurrent();
+
+		[DllImport("CoreFoundation.dll")]
+		public extern static int CFRunLoopRunInMode(IntPtr mode, double seconds, int returnAfterSourceHandled);
+
+		public static IntPtr kCFRunLoopDefaultMode = CFStringCreateWithCString(IntPtr.Zero, "kCFRunLoopDefaultMode", 0);
+	}
+
+	class Program
     {
-        static void Main(string[] args)
+		static int ExitCode = 0;
+
+        static int Main(string[] args)
         {
             if ((args.Length == 2) && (args[0].Equals("-iphonepackager")))
             {
@@ -61,35 +136,27 @@ namespace DeploymentServer
             }
             else
             {
-				// Run directly by some intrepid explorer
-				Console.WriteLine ("Note: This program should only be started by iPhonePackager");
-				Console.WriteLine ("  This program cannot be used on it's own.");
-
 				// Parse the command
 				if (ParseCommand(args))
 				{
 					Deployer = new DeploymentImplementation();
 					bool bCommandComplete = false;
-					if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix)
-					{
-						System.Threading.Thread enumerateLoop = new System.Threading.Thread(delegate()
-						{
-							RunCommand();
-							bCommandComplete = true;
-						});
-						enumerateLoop.Start();
-						while (!bCommandComplete)
-						{
-							CoreFoundation.CFRunLoopRunInMode(CoreFoundation.kCFRunLoopDefaultMode, 1.0, 0);
-						}
-					}
-					else
+					System.Threading.Thread enumerateLoop = new System.Threading.Thread(delegate()
 					{
 						RunCommand();
+						bCommandComplete = true;
+					});
+					enumerateLoop.Start();
+					while (!bCommandComplete)
+					{
+						CoreFoundation.RunLoopRunInMode(CoreFoundation.kCFRunLoopDefaultMode(), 1.0, 0);
 					}
 				}
                 Console.WriteLine("Exiting.");
             }
+
+			Environment.ExitCode = Program.ExitCode;
+			return Program.ExitCode;
         }
 
 		private static string Command = "";
@@ -178,20 +245,28 @@ namespace DeploymentServer
 			{
 				Deployer.DeviceId = Device;
 			}
+
+			bool bResult = true;
 			switch (Command)
 			{
 				case "backup":
-					Deployer.BackupFiles(Bundle, FileList.ToArray());
+					bResult = Deployer.BackupFiles(Bundle, FileList.ToArray());
 					break;
 
 				case "deploy":
-					Deployer.InstallFilesOnDevice(Bundle, Manifest);
+					bResult = Deployer.InstallFilesOnDevice(Bundle, Manifest);
 					break;
 
 				case "install":
-					Deployer.InstallIPAOnDevice(ipaPath);
+					bResult = Deployer.InstallIPAOnDevice(ipaPath);
+					break;
+
+				case "enumerate":
+					Deployer.EnumerateConnectedDevices();
 					break;
 			}
+
+			Program.ExitCode = bResult ? 0 : 1;
 		}
     }
 }

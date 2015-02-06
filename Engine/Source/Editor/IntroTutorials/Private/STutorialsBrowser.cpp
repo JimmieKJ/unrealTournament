@@ -166,6 +166,10 @@ public:
 		return Title;
 	}
 
+	int32 GetSortOrder() const override
+	{
+		return Category.SortOrder;
+	}
 
 	FText GetTitleText() const override
 	{
@@ -174,7 +178,7 @@ public:
 
 	bool SortAgainst(TSharedRef<ITutorialListEntry> OtherEntry) const override
 	{
-		return GetTitleString() < OtherEntry->GetTitleString();
+		return (GetSortOrder() == OtherEntry->GetSortOrder()) ? (GetTitleString() > OtherEntry->GetTitleString()) : (GetSortOrder() < OtherEntry->GetSortOrder());
 	}
 
 	void AddSubCategory(TSharedPtr<FTutorialListEntry_Category> InSubCategory)
@@ -388,9 +392,14 @@ public:
 		return Tutorial->Title.ToString();
 	}
 
+	int32 GetSortOrder() const override
+	{
+		return Tutorial->SortOrder;
+	}
+
 	bool SortAgainst(TSharedRef<ITutorialListEntry> OtherEntry) const override
 	{
-		return GetTitleString() < OtherEntry->GetTitleString();
+		return (GetSortOrder() == OtherEntry->GetSortOrder()) ? (GetTitleString() > OtherEntry->GetTitleString()) : (GetSortOrder() < OtherEntry->GetSortOrder());
 	}
 
 	FReply OnClicked(bool bRestart) const
@@ -685,9 +694,16 @@ void STutorialsBrowser::RebuildTutorials(TSharedPtr<FTutorialListEntry_Category>
 {
 	TArray<TSharedPtr<FTutorialListEntry_Tutorial>> Tutorials;
 
-	// rebuild tutorials
+	//Ensure that tutorials are loaded into the asset registry before making a list of them.
 	FAssetRegistryModule& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	bool IsStillLoading = AssetRegistry.Get().IsLoadingAssets();
+	if (IsStillLoading)
+	{
+		//This can happen if you close the editor with the tutorials browser open, then restart the editor so that the browser opens immediately.
+		return;
+	}
 
+	// rebuild tutorials
 	FARFilter Filter;
 	Filter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
 	Filter.bRecursiveClasses = true;
@@ -812,15 +828,23 @@ bool STutorialsBrowser::IsBackButtonEnabled() const
 
 void STutorialsBrowser::OnTutorialSelected(UEditorTutorial* InTutorial, bool bRestart)
 {
-	if( FEngineAnalytics::IsAvailable() && InTutorial != nullptr )
+	if (InTutorial != nullptr)
 	{
-		TArray<FAnalyticsEventAttribute> EventAttributes;
-		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("Restarted"), bRestart));
-		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("TutorialAsset"), FIntroTutorials::AnalyticsEventNameFromTutorial(InTutorial)));
+		if (FEngineAnalytics::IsAvailable())
+		{
+			TArray<FAnalyticsEventAttribute> EventAttributes;
+			EventAttributes.Add(FAnalyticsEventAttribute(TEXT("Restarted"), bRestart));
+			EventAttributes.Add(FAnalyticsEventAttribute(TEXT("TutorialAsset"), FIntroTutorials::AnalyticsEventNameFromTutorial(InTutorial)));
 
-		FEngineAnalytics::GetProvider().RecordEvent( TEXT("Rocket.Tutorials.LaunchedFromBrowser"), EventAttributes );
+			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Rocket.Tutorials.LaunchedFromBrowser"), EventAttributes);
+		}
+		//Close the tutorial browser so it doesn't get in the way of the actual tutorial.
+		if (OnLaunchTutorial.IsBound())
+		{
+			FIntroTutorials& IntroTutorials = FModuleManager::GetModuleChecked<FIntroTutorials>(TEXT("IntroTutorials"));
+			IntroTutorials.DismissTutorialBrowser();
+		}
 	}
-
 	OnLaunchTutorial.ExecuteIfBound(InTutorial, bRestart, ParentWindow, FSimpleDelegate(), FSimpleDelegate());
 }
 

@@ -6,7 +6,7 @@ public class Slate : ModuleRules
 {
 	public Slate(TargetInfo Target)
 	{
-//		SharedPCHHeaderFile = "Runtime/Slate/Public/Slate.h";
+		SharedPCHHeaderFile = "Runtime/Slate/Public/SlateBasics.h";
 
 		PublicDependencyModuleNames.AddRange(
 			new string[] { 

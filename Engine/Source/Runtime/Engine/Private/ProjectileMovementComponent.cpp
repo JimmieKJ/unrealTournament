@@ -80,9 +80,9 @@ void UProjectileMovementComponent::InitializeComponent()
 
 		UpdateComponentVelocity();
 		
-		if (UpdatedComponent && UpdatedComponent->IsSimulatingPhysics())
+		if (UpdatedPrimitive && UpdatedPrimitive->IsSimulatingPhysics())
 		{
-			UpdatedComponent->SetPhysicsLinearVelocity(Velocity);
+			UpdatedPrimitive->SetPhysicsLinearVelocity(Velocity);
 		}
 	}
 }

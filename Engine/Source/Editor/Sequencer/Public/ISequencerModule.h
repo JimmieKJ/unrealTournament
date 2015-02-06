@@ -64,6 +64,7 @@ public:
 	 *
 	 * @param InOnCreateTrackEditor	Delegate to register
 	 */
+	DELEGATE_DEPRECATED("This function is deprecated - please replace any usage with RegisterTrackEditor_Handle.")
 	virtual void RegisterTrackEditor( FOnCreateTrackEditor InOnCreateTrackEditor ) = 0;
 
 	/** 
@@ -71,6 +72,23 @@ public:
 	 *
 	 * @param InOnCreateTrackEditor	Delegate to unregister
 	 */
+	DELEGATE_DEPRECATED("This function is deprecated - please replace any usage with UnRegisterTrackEditor_Handle, passing the result of RegisterTrackEditor_Handle.")
 	virtual void UnRegisterTrackEditor( FOnCreateTrackEditor InOnCreateTrackEditor ) = 0;
+
+	/** 
+	 * Registers a delegate that will create an editor for a track in each sequencer 
+	 *
+	 * @param InOnCreateTrackEditor	Delegate to register
+	 *
+	 * @return A handle to the newly-added delegate.
+	 */
+	virtual FDelegateHandle RegisterTrackEditor_Handle( FOnCreateTrackEditor InOnCreateTrackEditor ) = 0;
+
+	/** 
+	 * Unregisters a previously registered delegate for creating a track editor
+	 *
+	 * @param InHandle	Handle to the delegate to unregister
+	 */
+	virtual void UnRegisterTrackEditor_Handle( FDelegateHandle InHandle ) = 0;
 };
 

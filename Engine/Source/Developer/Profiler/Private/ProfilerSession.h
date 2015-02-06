@@ -1214,6 +1214,9 @@ protected:
 	/** The delegate to be invoked when this profiler session instance ticks. */
 	FTickerDelegate OnTick;
 
+	/** Handle to the registered OnTick. */
+	FDelegateHandle OnTickHandle;
+
 	/** The data provider which holds all the collected profiler samples. */
 	IDataProviderRef DataProvider;
 

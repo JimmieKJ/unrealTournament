@@ -20,6 +20,8 @@ extern FString GFilePathBase;
 extern FString GFontPathBase;
 extern bool GOBBinAPK;
 
+FOnActivityResult FJavaWrapper::OnActivityResultDelegate;
+
 //////////////////////////////////////////////////////////////////////////
 
 #if UE_BUILD_SHIPPING
@@ -510,10 +512,6 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* InJavaVM, void* InReserved)
 	Env->ReleaseStringUTFChars(pathString, nativePathString);
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Path found as '%s'\n"), *GFilePathBase);
 
-	// Next we check to see if the OBB file is in the APK
-	jmethodID isOBBInAPKMethod = Env->GetStaticMethodID(FJavaWrapper::GameActivityClassID, "isOBBInAPK", "()Z");
-	GOBBinAPK = (bool)Env->CallStaticBooleanMethod(FJavaWrapper::GameActivityClassID, isOBBInAPKMethod, nullptr);
-
 	// Get the system font directory
 	jstring fontPath = (jstring)Env->CallStaticObjectMethod(FJavaWrapper::GameActivityClassID, FJavaWrapper::AndroidThunkJava_GetFontDirectory);
 	const char * nativeFontPathString = Env->GetStringUTFChars(fontPath, 0);
@@ -550,6 +548,13 @@ extern "C" void Java_com_epicgames_ue4_GameActivity_nativeSetGlobalActivity(JNIE
 		// @todo split GooglePlay, this needs to be passed in to this function
 		FJavaWrapper::GoogleServicesThis = FJavaWrapper::GameActivityThis;
 		// FJavaWrapper::GoogleServicesThis = jenv->NewGlobalRef(googleServices);
+
+		bool bIsOptional = false;
+		FJavaWrapper::GameActivityClassID = FJavaWrapper::FindClass(jenv, "com/epicgames/ue4/GameActivity", bIsOptional);
+
+		// Next we check to see if the OBB file is in the APK
+		jmethodID isOBBInAPKMethod = jenv->GetStaticMethodID(FJavaWrapper::GameActivityClassID, "isOBBInAPK", "()Z");
+		GOBBinAPK = (bool)jenv->CallStaticBooleanMethod(FJavaWrapper::GameActivityClassID, isOBBInAPKMethod, nullptr);
 	}
 }
 
@@ -561,4 +566,9 @@ extern "C" bool Java_com_epicgames_ue4_GameActivity_nativeIsShippingBuild(JNIEnv
 #else
 	return JNI_FALSE;
 #endif
+}
+
+extern "C" void Java_com_epicgames_ue4_GameActivity_nativeOnActivityResult(JNIEnv* jenv, jobject thiz, jobject activity, jint requestCode, jint resultCode, jobject data)
+{
+	FJavaWrapper::OnActivityResultDelegate.Broadcast(jenv, thiz, activity, requestCode, resultCode, data);
 }

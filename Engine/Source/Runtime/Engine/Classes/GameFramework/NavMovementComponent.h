@@ -79,9 +79,9 @@ public:
 	virtual bool CanStopPathFollowing() const;
 
 	/** @returns the NavAgentProps(const) */
-	FORCEINLINE const FNavAgentProperties& GetNavAgentProperties() const { return NavAgentProps; }
+	FORCEINLINE const FNavAgentProperties& GetNavAgentPropertiesRef() const { return NavAgentProps; }
 	/** @returns the NavAgentProps */
-	FORCEINLINE FNavAgentProperties& GetNavAgentProperties() { return NavAgentProps; }
+	FORCEINLINE FNavAgentProperties& GetNavAgentPropertiesRef() { return NavAgentProps; }
 
 	/** Resets runtime movement state to character's movement capabilities */
 	void ResetMoveState() { MovementState = NavAgentProps; }
@@ -130,6 +130,15 @@ public:
 	/** @return true if currently flying (moving through a non-fluid volume without resting on the ground) */
 	UFUNCTION(BlueprintCallable, Category="AI|Components|NavMovement")
 	virtual bool IsFlying() const;
+
+	//----------------------------------------------------------------------//
+	// DEPRECATED
+	//----------------------------------------------------------------------//
+public:
+	DEPRECATED(4.7, "This function is deprecated. Please use GetNavAgentPropertiesRef instead.")
+	const FNavAgentProperties* GetNavAgentProperties() const;
+	DEPRECATED(4.7, "This function is deprecated. Please use GetNavAgentPropertiesRef instead.")
+	FNavAgentProperties* GetNavAgentProperties();
 };
 
 

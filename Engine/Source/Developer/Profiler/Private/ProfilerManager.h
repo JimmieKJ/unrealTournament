@@ -588,6 +588,9 @@ protected:
 	/** The delegate to be invoked when this profiler manager ticks. */
 	FTickerDelegate OnTick;
 
+	/** Handle to the registered OnTick. */
+	FDelegateHandle OnTickHandle;
+
 	/** A weak pointer to the profiler window. */
 	TWeakPtr<class SProfilerWindow> ProfilerWindow;
 

@@ -127,11 +127,14 @@ protected:
 			GetMutableDefault<UInputSettings>()
 		);
 
-		// navigation system
+		// navigation system's class can be game specific so we need to find appropriate CDO
+		UNavigationSystem* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
+			? GetMutableDefault<UNavigationSystem>(GEngine->NavigationSystemClass)
+			: GetMutableDefault<UNavigationSystem>();
 		SettingsModule.RegisterSettings("Project", "Engine", "NavigationSystem",
 			LOCTEXT("NavigationSystemSettingsName", "Navigation System"),
 			LOCTEXT("NavigationSystemSettingsDescription", "Settings for the navigation system."),
-			GetMutableDefault<UNavigationSystem>()
+			NavSysCDO
 		);
 
 		// navigation mesh

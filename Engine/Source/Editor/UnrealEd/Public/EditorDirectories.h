@@ -19,6 +19,7 @@ namespace ELastDirectory
 		WORLD_ROOT,
 		LEVEL,
 		PROJECT,
+		NEW_ASSET,
 		MAX
 	};
 };

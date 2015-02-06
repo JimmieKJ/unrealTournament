@@ -206,54 +206,54 @@ private:
 	TSharedRef<SWidget> HandleColumnNameComboBoxGenarateWidget(TSharedPtr<FString> Item)
 	{
 		return SNew(STextBlock)
-			.Text(*Item);
+			.Text(FText::FromString(*Item));
 	}
 
 	/** Return the representation of the the row names to display */
 	TSharedRef<SWidget> HandleRowContentsComboBoxGenarateWidget(TSharedPtr<FString> Item)
 	{
 		return SNew(STextBlock)
-			.Text(*Item);
+			.Text(FText::FromString(*Item));
 	}
 	
 	/** Display the current column selection */
-	FString GetColumnNameComboBoxContentText() const
+	FText GetColumnNameComboBoxContentText() const
 	{
-		FString ColumnName = LOCTEXT("MultipleValues", "Multiple Values").ToString();
-		const FPropertyAccess::Result ColumnResult = ColumnNamePropertyHandle->GetValue(ColumnName);
+		FString ColumnNameValue;
+		const FPropertyAccess::Result ColumnResult = ColumnNamePropertyHandle->GetValue(ColumnNameValue);
 		if (ColumnResult != FPropertyAccess::MultipleValues)
 		{
 			TSharedPtr<FString> SelectedColumnName = ColumnNameComboBox->GetSelectedItem();
 			if (SelectedColumnName.IsValid())
 			{
-				ColumnName = *SelectedColumnName;
+				return FText::FromString(*SelectedColumnName);
 			}
 			else
 			{
-				ColumnName = LOCTEXT("DataTable_None", "None").ToString();
+				return LOCTEXT("DataTable_None", "None");
 			}
 		}
-		return ColumnName;
+		return LOCTEXT("MultipleValues", "Multiple Values");
 	}
 
 	/** Display the current row selection */
-	FString GetRowContentsComboBoxContentText() const
+	FText GetRowContentsComboBoxContentText() const
 	{
-		FString RowContains = LOCTEXT("MultipleValues", "Multiple Values").ToString();
-		const FPropertyAccess::Result RowResult = RowContentsPropertyHandle->GetValue(RowContains);
+		FString RowContainsValue;
+		const FPropertyAccess::Result RowResult = RowContentsPropertyHandle->GetValue(RowContainsValue);
 		if (RowResult != FPropertyAccess::MultipleValues)
 		{
 			TSharedPtr<FString> SelectedRowContents = RowContentsComboBox->GetSelectedItem();
 			if (SelectedRowContents.IsValid())
 			{
-				RowContains = *SelectedRowContents;
+				return FText::FromString(*SelectedRowContents);
 			}
 			else
 			{
-				RowContains = LOCTEXT("DataTable_None", "None").ToString();
+				return LOCTEXT("DataTable_None", "None");
 			}
 		}
-		return RowContains;
+		return LOCTEXT("MultipleValues", "Multiple Values");
 	}
 
 	/** Delegate to refresh the drop down when the datatable changes */

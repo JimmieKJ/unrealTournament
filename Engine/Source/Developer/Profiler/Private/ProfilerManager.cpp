@@ -100,7 +100,7 @@ void FProfilerManager::PostConstructor()
 {
 	// Register tick functions.
 	OnTick = FTickerDelegate::CreateSP( this, &FProfilerManager::Tick );
-	FTicker::GetCoreTicker().AddTicker( OnTick );
+	OnTickHandle = FTicker::GetCoreTicker().AddTicker( OnTick );
 
 	// Create profiler client.
 	ProfilerClient = FModuleManager::GetModuleChecked<IProfilerClientModule>("ProfilerClient").CreateProfilerClient();
@@ -143,7 +143,7 @@ FProfilerManager::~FProfilerManager()
 	FProfilerCommands::Unregister();
 
 	// Unregister tick function.
-	FTicker::GetCoreTicker().RemoveTicker( OnTick );
+	FTicker::GetCoreTicker().RemoveTicker( OnTickHandle );
 
 	// Remove ourselves from the profiler client.
 	if( ProfilerClient.IsValid() )

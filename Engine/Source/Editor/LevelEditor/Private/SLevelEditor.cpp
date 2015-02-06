@@ -13,7 +13,6 @@
 #include "AssetSelection.h"
 #include "LevelEditorContextMenu.h"
 #include "LevelEditorToolBar.h"
-#include "ScopedTransaction.h"
 #include "SLevelEditorToolBox.h"
 #include "SLevelEditorModeContent.h"
 #include "SLevelEditorBuildAndSubmit.h"
@@ -27,17 +26,17 @@
 #include "Toolkits/ToolkitManager.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
-#include "LevelEditorGenericDetails.h"
 #include "Editor/MainFrame/Public/MainFrame.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "Editor/Sequencer/Public/ISequencerModule.h"
 #include "Editor/StatsViewer/Public/StatsViewerModule.h"
-#include "Editor/UMGEditor/Public/UMGEditorModule.h"
 #include "EditorModes.h"
 #include "IDocumentation.h"
 #include "NewsFeed.h"
 #include "TutorialMetaData.h"
 #include "SDockTab.h"
+#include "SActorDetails.h"
+
 
 
 static const FName LevelEditorBuildAndSubmitTab("LevelEditorBuildAndSubmit");
@@ -95,8 +94,8 @@ void SLevelEditor::BindCommands()
 		FExecuteAction::CreateStatic< TWeakPtr< SLevelEditor > >( &FLevelEditorActionCallbacks::OpenLevelBlueprint, SharedThis( this ) ) );
 	
 	LevelEditorCommands->MapAction(
-		Actions.CreateClassBlueprint,
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CreateClassBlueprint ) );
+		Actions.CreateBlueprintClass,
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CreateBlueprintClass ) );
 
 	LevelEditorCommands->MapAction(
 		Actions.OpenContentBrowser,
@@ -143,6 +142,10 @@ void SLevelEditor::Initialize( const TSharedRef<SDockTab>& OwnerTab, const TShar
 	// Bind the level editor tab's label to the currently loaded level name string in the main frame
 	OwnerTab->SetLabel( TAttribute<FText>( this, &SLevelEditor::GetTabTitle) );
 
+	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked< FLevelEditorModule >(LevelEditorModuleName);
+
+	LevelEditorModule.OnActorSelectionChanged().AddSP(this, &SLevelEditor::OnActorSelectionChanged);
+
 	TSharedRef<SWidget> Widget2 = RestoreContentArea( OwnerTab, OwnerWindow );
 	TSharedRef<SWidget> Widget1 = FLevelEditorMenu::MakeLevelEditorMenu( LevelEditorCommands, SharedThis(this) );
 
@@ -173,6 +176,16 @@ void SLevelEditor::Initialize( const TSharedRef<SDockTab>& OwnerTab, const TShar
 			]
 #endif
 		]
+
+#if PLATFORM_MAC
+		// Without the in-window menu bar, we need some space between the tab bar and tab contents
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew( SBox )
+			.HeightOverride( 1.0f )
+		]
+#endif
 
 		+SVerticalBox::Slot()
 		.FillHeight( 1.0f )
@@ -486,35 +499,15 @@ TSharedRef<FTabManager> SLevelEditor::GetTabManager() const
 	return LevelEditorTabManager.ToSharedRef();
 }
 
-// @todo Slate TEMP to support both detail views
-static TSharedRef<SDockTab> SummonDetailsPanel( FName TabIdentifier )
+
+
+TSharedRef<SDockTab> SLevelEditor::SummonDetailsPanel( FName TabIdentifier, TSharedPtr<FExtender> ActorMenuExtender )
 {
-	struct Local
-	{
-		static bool IsPropertyVisible( const FPropertyAndParent& PropertyAndParent )
-		{
-			// For details views in the level editor all properties are the instanced versions
-			if (PropertyAndParent.Property.HasAllPropertyFlags(CPF_DisableEditOnInstance))
-			{
-				return false;
-			}
-
-			return true;
-		}
-	};
-
-	FPropertyEditorModule& PropPlugin = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	const FDetailsViewArgs DetailsViewArgs( true, true, true, false, false, GUnrealEd, false, TabIdentifier );
-	TSharedRef<IDetailsView> DetailsView = PropPlugin.CreateDetailView( DetailsViewArgs );
-
-	DetailsView->SetIsPropertyVisibleDelegate( FIsPropertyVisible::CreateStatic( &Local::IsPropertyVisible ) );
-
-	// Set up a delegate to call to add generic details to the view
-	DetailsView->SetGenericLayoutDetailsDelegate( FOnGetDetailCustomizationInstance::CreateStatic( &FLevelEditorGenericDetails::MakeInstance ) );
+	TSharedPtr<SActorDetails> ActorDetails;
 
 	FText Label = NSLOCTEXT( "LevelEditor", "DetailsTabTitle", "Details" );
 
-	return SNew( SDockTab )
+	TSharedRef<SDockTab> DocTab = SNew(SDockTab)
 		.Icon( FEditorStyle::GetBrush( "LevelEditor.Tabs.Details" ) )
 		.Label( Label )
 		.ToolTip( IDocumentation::Get()->CreateToolTip( Label, nullptr, "Shared/LevelEditor", "DetailsTab" ) )
@@ -522,11 +515,15 @@ static TSharedRef<SDockTab> SummonDetailsPanel( FName TabIdentifier )
 			SNew( SBox )
 			.AddMetaData<FTutorialMetaData>(FTutorialMetaData(TEXT("ActorDetails"), TEXT("LevelEditorSelectionDetails")))
 			[
-				DetailsView
+				SAssignNew( ActorDetails, SActorDetails, TabIdentifier )
+					.ActorMenuExtender(ActorMenuExtender)
 			]
 		];
-}
 
+	AllActorDetailPanels.Add( ActorDetails );
+
+	return DocTab;
+}
 /** Method to call when a tab needs to be spawned by the FLayoutService */
 TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Args, FName TabIdentifier, FString InitializationPayload )
 {
@@ -555,7 +552,7 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 			[
 				SNew(SHorizontalBox)
 				.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("LevelToolbar")))
-				+ SHorizontalBox::Slot()
+				+SHorizontalBox::Slot()
 				.FillWidth(1)
 				.VAlign(VAlign_Bottom)
 				.HAlign(HAlign_Left)
@@ -567,7 +564,20 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 	}
 	else if( TabIdentifier == TEXT("LevelEditorSelectionDetails") || TabIdentifier == TEXT("LevelEditorSelectionDetails2") || TabIdentifier == TEXT("LevelEditorSelectionDetails3") || TabIdentifier == TEXT("LevelEditorSelectionDetails4") )
 	{
-		TSharedRef<SDockTab> DetailsPanel = SummonDetailsPanel( TabIdentifier );
+		TWeakPtr<SLevelEditor> WeakLevelEditor = SharedThis(this);
+		TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender);
+		MenuExtender->AddMenuExtension(
+			"MainSection", EExtensionHook::Before, GetLevelEditorActions(),
+			FMenuExtensionDelegate::CreateStatic([](FMenuBuilder& MenuBuilder, TWeakPtr<SLevelEditor> InWeakLevelEditor){
+				// Only extend the menu if we have actors selected
+				if (GEditor->GetSelectedActors()->Num())
+				{
+					FLevelEditorContextMenu::FillMenu(MenuBuilder, InWeakLevelEditor, LevelEditorMenuContext::NonViewport, TSharedPtr<FExtender>());
+				}
+			}, WeakLevelEditor)
+		);
+
+		TSharedRef<SDockTab> DetailsPanel = SummonDetailsPanel( TabIdentifier, MenuExtender );
 		GUnrealEd->UpdateFloatingPropertyWindows();
 		return DetailsPanel;
 	}
@@ -625,14 +635,13 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 		}
 
 
-		FText Label = NSLOCTEXT( "LevelEditor", "SceneOutlinerTabTitle", "Scene Outliner" );
+		FText Label = NSLOCTEXT( "LevelEditor", "SceneOutlinerTabTitle", "World Outliner" );
 
 		FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::Get().LoadModuleChecked<FSceneOutlinerModule>( "SceneOutliner" );
 		return SNew( SDockTab )
 			.Icon( FEditorStyle::GetBrush( "LevelEditor.Tabs.Outliner" ) )
 			.Label( Label )
 			.ToolTip( IDocumentation::Get()->CreateToolTip( Label, nullptr, "Shared/LevelEditor", "SceneOutlinerTab" ) )
-			.ContentPadding( 5 )
 			[
 				SNew(SBorder)
 				.Padding(4)
@@ -728,7 +737,6 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 		return SNew( SDockTab )
 			.Icon( FEditorStyle::GetBrush( "LevelEditor.Tabs.StatsViewer" ) )
 			.Label( NSLOCTEXT("LevelEditor", "StatsViewerTabTitle", "Statistics") )
-			.ContentPadding( 5 )
 			[
 				StatsViewerModule.CreateStatsViewer()					
 			];
@@ -736,7 +744,7 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 	else if ( TabIdentifier == "WorldSettingsTab" )
 	{
 		FPropertyEditorModule& PropPlugin = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		FDetailsViewArgs DetailsViewArgs( false, false, true, false, false, GUnrealEd );
+		FDetailsViewArgs DetailsViewArgs( false, false, true, FDetailsViewArgs::HideNameArea, false, GUnrealEd );
 		DetailsViewArgs.bShowActorLabel = false;
 
 		WorldSettingsView = PropPlugin.CreateDetailView( DetailsViewArgs );
@@ -1000,8 +1008,8 @@ TSharedRef<SWidget> SLevelEditor::RestoreContentArea( const TSharedRef<SDockTab>
 		{
 			const FSlateIcon OutlinerIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Outliner");
 		    LevelEditorTabManager->RegisterTabSpawner( "LevelEditorSceneOutliner", FOnSpawnTab::CreateSP<SLevelEditor, FName, FString>(this, &SLevelEditor::SpawnLevelEditorTab, FName("LevelEditorSceneOutliner"), FString()) )
-				.SetDisplayName(NSLOCTEXT("LevelEditorTabs", "LevelEditorSceneOutliner", "Scene Outliner"))
-				.SetTooltipText(NSLOCTEXT("LevelEditorTabs", "LevelEditorSceneOutlinerTooltipText", "Open the Scene Outliner tab, which provides a searchable and filterable list of all actors in the scene."))
+				.SetDisplayName(NSLOCTEXT("LevelEditorTabs", "LevelEditorSceneOutliner", "World Outliner"))
+				.SetTooltipText(NSLOCTEXT("LevelEditorTabs", "LevelEditorSceneOutlinerTooltipText", "Open the World Outliner tab, which provides a searchable and filterable list of all actors in the world."))
 				.SetGroup( MenuStructure.GetLevelEditorCategory() )	
 				.SetIcon( OutlinerIcon );	
 		}
@@ -1010,7 +1018,7 @@ TSharedRef<SWidget> SLevelEditor::RestoreContentArea( const TSharedRef<SDockTab>
 			const FSlateIcon LayersIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Layers");
 			LevelEditorTabManager->RegisterTabSpawner( "LevelEditorLayerBrowser", FOnSpawnTab::CreateSP<SLevelEditor, FName, FString>(this, &SLevelEditor::SpawnLevelEditorTab, FName("LevelEditorLayerBrowser"), FString()) )
 				.SetDisplayName(NSLOCTEXT("LevelEditorTabs", "LevelEditorLayerBrowser", "Layers"))
-				.SetTooltipText(NSLOCTEXT("LevelEditorTabs", "LevelEditorLayerBrowserTooltipText", "Open the Layers tab. Use this to manage which actors in the scene belong to which layers."))
+				.SetTooltipText(NSLOCTEXT("LevelEditorTabs", "LevelEditorLayerBrowserTooltipText", "Open the Layers tab. Use this to manage which actors in the world belong to which layers."))
 				.SetGroup( MenuStructure.GetLevelEditorCategory() )
 				.SetIcon( LayersIcon );
 		}
@@ -1081,75 +1089,74 @@ TSharedRef<SWidget> SLevelEditor::RestoreContentArea( const TSharedRef<SDockTab>
 		->AddArea
 		(
 			FTabManager::NewPrimaryArea()
-			->SetOrientation( Orient_Vertical )
+			->SetOrientation( Orient_Horizontal )
 			->Split
 			(
 				FTabManager::NewSplitter()
-				->SetOrientation( Orient_Horizontal )
+				->SetOrientation( Orient_Vertical )
+				->SetSizeCoefficient( 1 )
 				->Split
 				(
 					FTabManager::NewSplitter()
-					->SetSizeCoefficient( 0.2f )
-					->SetOrientation(Orient_Vertical)
+					->SetSizeCoefficient( .75f )
+					->SetOrientation(Orient_Horizontal)
 					->Split
 					(
 						FTabManager::NewStack()
-						->SetSizeCoefficient( 0.45f )
+						->SetSizeCoefficient( 0.3f )
 						->AddTab( "LevelEditorToolBox", ETabState::OpenedTab )
 					)
 					->Split
 					(
-						FTabManager::NewStack()->AddTab("ContentBrowserTab1", ETabState::OpenedTab)
+						FTabManager::NewSplitter()
+						->SetOrientation(Orient_Vertical)
+						->SetSizeCoefficient( 1.15f )
+						->Split
+						(
+							FTabManager::NewStack()
+							->SetHideTabWell(true)
+							->AddTab("LevelEditorToolBar", ETabState::OpenedTab)
+						)
+						->Split
+						(
+							FTabManager::NewStack()
+							->SetHideTabWell(true)
+							->SetSizeCoefficient( 1.0f )
+							->AddTab("LevelEditorViewport", ETabState::OpenedTab)
+						)
 					)
 				)
 				->Split
 				(
-					FTabManager::NewSplitter()
-					->SetSizeCoefficient( 0.60f )
-					->SetOrientation(Orient_Vertical)
-					->Split
-					(
-						FTabManager::NewStack()
-						->SetHideTabWell(true)
-						->AddTab( "LevelEditorToolBar", ETabState::OpenedTab )
-					)
-					->Split
-					(
-						FTabManager::NewStack()
-						->SetHideTabWell(true)
-						->SetSizeCoefficient(0.75f)
-						->AddTab( "LevelEditorViewport", ETabState::OpenedTab )
-					)
-					->Split
-					(
-						FTabManager::NewStack()
-						->SetSizeCoefficient(0.25f)
-						->AddTab( "OutputLog", ETabState::ClosedTab )
-					)
-				)
-				->Split
-				(
-					FTabManager::NewSplitter()
-					->SetSizeCoefficient( 0.2f )
-					->SetOrientation(Orient_Vertical)
-					->Split
-					(
-						FTabManager::NewStack()
-						->SetSizeCoefficient(0.4f)
-						->AddTab("LevelEditorSceneOutliner", ETabState::OpenedTab)
-						->AddTab("LevelEditorLayerBrowser", ETabState::ClosedTab)	
-					)
-					->Split
-					(
-						FTabManager::NewStack()
-						->AddTab("LevelEditorSelectionDetails", ETabState::OpenedTab)
-						->AddTab("WorldSettingsTab", ETabState::ClosedTab)
-						->SetForegroundTab(FName("LevelEditorSelectionDetails"))
-					)
+					FTabManager::NewStack()
+					->SetSizeCoefficient(.4)
+					->AddTab("ContentBrowserTab1", ETabState::OpenedTab)
+					->AddTab("OutputLog", ETabState::ClosedTab)
 				)
 			)
-		)
-	);
+			->Split
+			(
+				FTabManager::NewSplitter()
+				->SetSizeCoefficient(0.25f)
+				->SetOrientation(Orient_Vertical)
+				->Split
+				(
+					FTabManager::NewStack()
+					->SetSizeCoefficient(0.4f)
+					->AddTab("LevelEditorSceneOutliner", ETabState::OpenedTab)
+					->AddTab("LevelEditorLayerBrowser", ETabState::ClosedTab)
+
+				)
+				->Split
+				(
+					FTabManager::NewStack()
+					->AddTab("LevelEditorSelectionDetails", ETabState::OpenedTab)
+					->AddTab("WorldSettingsTab", ETabState::ClosedTab)
+					->SetForegroundTab(FName("LevelEditorSelectionDetails"))
+				)
+			)
+			
+		));
 	
 
 	return LevelEditorTabManager->RestoreFrom( Layout, OwnerWindow ).ToSharedRef();
@@ -1425,5 +1432,21 @@ void SLevelEditor::HandleEditorMapChange( uint32 MapChangeFlags )
 	if (WorldSettingsView.IsValid())
 	{
 		WorldSettingsView->SetObject(GetWorld()->GetWorldSettings(), true);
+	}
+}
+
+void SLevelEditor::OnActorSelectionChanged( const TArray<UObject*>& NewSelection )
+{
+	for( auto It = AllActorDetailPanels.CreateIterator(); It; ++It )
+	{
+		TSharedPtr<SActorDetails> ActorDetails = It->Pin();
+		if( ActorDetails.IsValid() )
+		{
+			ActorDetails->SetObjects( NewSelection );
+		}
+		else
+		{
+			// remove stray entries here
+		}
 	}
 }

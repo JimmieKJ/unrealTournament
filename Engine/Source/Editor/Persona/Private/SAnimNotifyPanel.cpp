@@ -3065,7 +3065,7 @@ void SAnimNotifyPanel::Construct(const FArguments& InArgs)
 	];
 
 	OnPropertyChangedHandle = FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate::CreateSP(this, &SAnimNotifyPanel::OnPropertyChanged);
-	FCoreUObjectDelegates::OnObjectPropertyChanged.Add(OnPropertyChangedHandle);
+	OnPropertyChangedHandleDelegateHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.Add(OnPropertyChangedHandle);
 
 	// Base notify classes used to search asset data for children.
 	NotifyClassNames.Add(TEXT("Class'/Script/Engine.AnimNotify'"));
@@ -3086,7 +3086,7 @@ SAnimNotifyPanel::~SAnimNotifyPanel()
 		PersonaPtr.Pin()->UnregisterOnGenericDelete(this);
 	}
 
-	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandle);
+	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandleDelegateHandle);
 }
 
 FReply SAnimNotifyPanel::InsertTrack(int32 TrackIndexToInsert)

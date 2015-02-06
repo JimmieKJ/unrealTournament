@@ -311,7 +311,7 @@ void UBehaviorTreeGraphNode::DiffProperties(UStruct* Struct, void* DataA, void* 
 		{
 			if(Results)
 			{
-				Diff.DisplayString = FString::Printf(*LOCTEXT("DIF_NodeProperty", "Property Changed: %s ").ToString(), *Prop->GetName());
+				Diff.DisplayString = FText::Format(LOCTEXT("DIF_NodePropertyFmt", "Property Changed: {0} "), FText::FromString(Prop->GetName()));
 				Results.Add(Diff);
 			}
 		}
@@ -324,7 +324,7 @@ void UBehaviorTreeGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Re
 	Diff.Diff = EDiffType::NODE_PROPERTY;
 	Diff.Node1 = this;
 	Diff.Node2 = OtherNode;
-	Diff.ToolTip =  FString::Printf(*LOCTEXT("DIF_NodePropertyToolTip", "A Property of the node has changed").ToString());
+	Diff.ToolTip = LOCTEXT("DIF_NodePropertyToolTip", "A Property of the node has changed");
 	Diff.DisplayColor = FLinearColor(0.25f,0.71f,0.85f);
 	
 	UBehaviorTreeGraphNode* ThisBehaviorTreeNode = Cast<UBehaviorTreeGraphNode>(this);

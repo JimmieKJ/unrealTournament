@@ -208,8 +208,7 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 
 	/** 
 	 * Enables tools for composing a tiled world. 
-	 * Level has to be saved to enable this option.
-	 * Warning: Enabling this option will remove all streaming levels from your persistent level.
+	 * Level has to be saved and all sub-levels removed before enabling this option.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World)
 	uint32 bEnableWorldComposition:1;
@@ -458,8 +457,5 @@ private:
 	HIDE_ACTOR_TRANSFORM_FUNCTIONS();
 
 	virtual void Serialize( FArchive& Ar ) override;
-
-	/** Toggles world composition mode */
-	void EnabledWorldComposition(bool bEnable);
 };
 

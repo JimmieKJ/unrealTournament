@@ -48,35 +48,41 @@ void SAssetDiscoveryIndicator::Construct( const FArguments& InArgs )
 
 	ChildSlot
 	[
-		SNew(SBorder)
-		.BorderImage( FEditorStyle::GetBrush("Menu.Background") )
-		.BorderBackgroundColor(this, &SAssetDiscoveryIndicator::GetBorderBackgroundColor)
-		.ColorAndOpacity(this, &SAssetDiscoveryIndicator::GetIndicatorColorAndOpacity)
-		.DesiredSizeScale(this, &SAssetDiscoveryIndicator::GetIndicatorDesiredSizeScale)
-		.Visibility(this, &SAssetDiscoveryIndicator::GetIndicatorVisibility)
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
 		.Padding(InArgs._Padding)
 		.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
 		[
-			SNew(SVerticalBox)
-
-			// Text
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0, 4)
+			SNew(SBorder)
+			.BorderImage( FEditorStyle::GetBrush("Menu.Background") )
+			.BorderBackgroundColor(this, &SAssetDiscoveryIndicator::GetBorderBackgroundColor)
+			.ColorAndOpacity(this, &SAssetDiscoveryIndicator::GetIndicatorColorAndOpacity)
+			.DesiredSizeScale(this, &SAssetDiscoveryIndicator::GetIndicatorDesiredSizeScale)
+			.Visibility(this, &SAssetDiscoveryIndicator::GetIndicatorVisibility)
+			.VAlign(VAlign_Center)
 			[
-				SNew(STextBlock)
-				.Font( FEditorStyle::GetFontStyle("AssetDiscoveryIndicator.DiscovertingAssetsFont") )
-				.Text( NSLOCTEXT("AssetDiscoveryIndicator", "DiscoveringAssets", "Discovering Assets").ToString() )
-			]
+				SNew(SVerticalBox)
 
-			// Progress bar
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0, 4)
-			[
-				SNew(SProgressBar)
-				.Percent( this, &SAssetDiscoveryIndicator::GetProgress )
+				// Text
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(12, 4)
+				[
+					SNew(STextBlock)
+					.Font( FEditorStyle::GetFontStyle("AssetDiscoveryIndicator.DiscovertingAssetsFont") )
+					.Text( NSLOCTEXT("AssetDiscoveryIndicator", "DiscoveringAssets", "Discovering Assets") )
+					.AutoWrapText(true)
+					.Justification(ETextJustify::Center)
+				]
+
+				// Progress bar
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(12, 4)
+				[
+					SNew(SProgressBar)
+					.Percent( this, &SAssetDiscoveryIndicator::GetProgress )
+				]
 			]
 		]
 	];

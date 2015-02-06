@@ -36,4 +36,5 @@ protected:
 
 	virtual void OnDestroy(bool AbilityEnded) override;
 
+	FDelegateHandle OnAbilityActivateDelegateHandle;
 };

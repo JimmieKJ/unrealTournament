@@ -109,11 +109,7 @@
 #endif
 
 #ifndef USING_TESSELLATION
-#define USING_TESSELLATION							0
-#endif
-
-#ifndef OPENGL
-#define OPENGL											0
+#define USING_TESSELLATION								0
 #endif
 
 #define PC_D3D											SM5_PROFILE

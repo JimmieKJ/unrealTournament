@@ -101,10 +101,8 @@ void FSlateEditorStyle::FStyle::SyncSettings()
 		SetColor( SelectionColor_Pressed_LinearRef, Settings->PressedSelectionColor );
 
 		// The subdued selection color is derived from the selection color
-		auto SubduedSelectionColor = Settings->SelectionColor.LinearRGBToHSV();
-		SubduedSelectionColor.G *= 0.55f;		// take the saturation 
-		SubduedSelectionColor.B *= 0.8f;		// and brightness down
-		SetColor( SelectionColor_Subdued_LinearRef, SubduedSelectionColor.HSVToLinearRGB() );
+		auto SubduedSelectionColor = Settings->GetSubduedSelectionColor();
+		SetColor( SelectionColor_Subdued_LinearRef, SubduedSelectionColor );
 
 		// Also sync the colors used by FCoreStyle, as FEditorStyle isn't yet being used as an override everywhere
 		FCoreStyle::SetSelectorColor( Settings->KeyboardFocusColor );
@@ -183,6 +181,11 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	{
 		Set( "RichTextBlock.TextHighlight", FTextBlockStyle(NormalText)
 			.SetColorAndOpacity( FLinearColor( 1.0f, 1.0f, 1.0f ) ) );
+		Set( "RichTextBlock.Bold", FTextBlockStyle(NormalText)
+			.SetFont( TTF_CORE_FONT("Fonts/Roboto-Bold", 10 )) );
+		Set( "RichTextBlock.BoldHighlight", FTextBlockStyle(NormalText)
+			.SetFont( TTF_CORE_FONT("Fonts/Roboto-Bold", 10 ))
+			.SetColorAndOpacity( FLinearColor( 1.0f, 1.0f, 1.0f ) ) );
 
 		Set( "TextBlock.HighlightShape",  new BOX_BRUSH( "Common/TextBlockHighlightShape", FMargin(3.f/8.f) ));
 		Set( "TextBlock.HighlighColor", FLinearColor( 0.02f, 0.3f, 0.0f ) );
@@ -211,6 +214,9 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	Set( "WhiteBrush", new FSlateColorBrush(FLinearColor::White) );
 
 	Set( "PlainBorder", new BORDER_BRUSH( "Common/PlainBorder", 2.f/8.f) );
+
+	Set( "WideDash.Horizontal", new IMAGE_BRUSH("Common/WideDash_Horizontal", FVector2D(22, 4), FLinearColor::White, ESlateBrushTileType::Horizontal));
+	Set( "WideDash.Vertical", new IMAGE_BRUSH("Common/WideDash_Vertical", FVector2D(4, 22), FLinearColor::White, ESlateBrushTileType::Vertical));
 
 	// Debug Colors
 	Set( "MultiboxHookColor", FLinearColor(0.f, 1.f, 0.f, 1.f) );
@@ -317,6 +323,14 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetHovered(BOX_BRUSH( "Common/RoundedSelection_16x", 4.0f/16.0f, SelectionColor ))
 			.SetPressed(BOX_BRUSH( "Common/RoundedSelection_16x", 4.0f/16.0f, SelectionColor_Pressed ))
 		);
+
+		//FSlateColorBrush(FLinearColor::White)
+
+		Set("RoundButton", FButtonStyle(Button)
+			.SetNormal(BOX_BRUSH("Common/RoundedSelection_16x", 4.0f / 16.0f, FLinearColor(1, 1, 1, 0.1f)))
+			.SetHovered(BOX_BRUSH("Common/RoundedSelection_16x", 4.0f / 16.0f, SelectionColor))
+			.SetPressed(BOX_BRUSH("Common/RoundedSelection_16x", 4.0f / 16.0f, SelectionColor_Pressed))
+			);
 
 		/* Create a checkbox style for "ToggleButton" ... */
 		const FCheckBoxStyle ToggleButtonStyle = FCheckBoxStyle()
@@ -616,6 +630,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetUnderlineStyle(EditBPHyperlinkButton)
 			.SetTextStyle(NormalText)
 			.SetPadding(FMargin(0.0f));
+
 		Set("EditBPHyperlink", EditBPHyperlink);
 
 		// Visible on hover hyper link
@@ -718,11 +733,45 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetTopShadowBrush( IMAGE_BRUSH( "Common/ScrollBoxShadowTop", FVector2D(64,8) ) )
 			.SetBottomShadowBrush( IMAGE_BRUSH( "Common/ScrollBoxShadowBottom", FVector2D(64,8) ) )
 			);
-	}
+	}//
+
+
+	NormalTableRowStyle = FTableRowStyle()
+		.SetEvenRowBackgroundBrush(FSlateNoResource())
+		.SetEvenRowBackgroundHoveredBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 0.1f)))
+		.SetOddRowBackgroundBrush(FSlateNoResource())
+		.SetOddRowBackgroundHoveredBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 0.1f)))
+		.SetSelectorFocusedBrush(BORDER_BRUSH("Common/Selector", FMargin(4.f / 16.f), SelectorColor))
+		.SetActiveBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, SelectionColor))
+		.SetActiveHoveredBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, SelectionColor))
+		.SetInactiveBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, SelectionColor_Inactive))
+		.SetInactiveHoveredBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, SelectionColor_Inactive))
+		.SetTextColor(DefaultForeground)
+		.SetSelectedTextColor(InvertedForeground);
 
 	// Lists, Trees
 	{
 		Set( "TableView.Row", FTableRowStyle( NormalTableRowStyle) );
+		Set( "TableView.DarkRow",FTableRowStyle( NormalTableRowStyle)
+			.SetEvenRowBackgroundBrush(IMAGE_BRUSH("PropertyView/DetailCategoryMiddle", FVector2D(16, 16)))
+			.SetEvenRowBackgroundHoveredBrush(IMAGE_BRUSH("PropertyView/DetailCategoryMiddle_Hovered", FVector2D(16, 16)))
+			.SetOddRowBackgroundBrush(IMAGE_BRUSH("PropertyView/DetailCategoryMiddle", FVector2D(16, 16)))
+			.SetOddRowBackgroundHoveredBrush(IMAGE_BRUSH("PropertyView/DetailCategoryMiddle_Hovered", FVector2D(16, 16)))
+			.SetSelectorFocusedBrush(BORDER_BRUSH("Common/Selector", FMargin(4.f / 16.f), SelectorColor))
+			.SetActiveBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, SelectionColor))
+			.SetActiveHoveredBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, SelectionColor))
+			.SetInactiveBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, SelectionColor_Inactive))
+			.SetInactiveHoveredBrush(IMAGE_BRUSH("Common/Selection", Icon8x8, SelectionColor_Inactive))
+		);
+		Set("TableView.NoHoverTableRow", FTableRowStyle(NormalTableRowStyle)
+			.SetEvenRowBackgroundHoveredBrush(FSlateNoResource())
+			.SetOddRowBackgroundHoveredBrush(FSlateNoResource())
+			.SetActiveHoveredBrush(FSlateNoResource())
+			.SetInactiveHoveredBrush(FSlateNoResource())
+			);
+
+
+
 		Set( "TreeArrow_Collapsed", new IMAGE_BRUSH( "Common/TreeArrow_Collapsed", Icon10x10, DefaultForeground ) );
 		Set( "TreeArrow_Collapsed_Hovered", new IMAGE_BRUSH( "Common/TreeArrow_Collapsed_Hovered", Icon10x10, DefaultForeground ) );
 		Set( "TreeArrow_Expanded", new IMAGE_BRUSH( "Common/TreeArrow_Expanded", Icon10x10, DefaultForeground ) );
@@ -796,8 +845,6 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetForegroundColor( InvertedForeground )
 			);
 	}
-
-	Set( "ToolTip.Background", new BOX_BRUSH( "Old/ToolTip_Background", FMargin(8.0f/64.0f) ) );
 
 	// Throbber
 	{
@@ -1590,7 +1637,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetShadowOffset( FVector2D::ZeroVector )
 		);
 
-		Set( "GameProjectDialog.ErrorLabelBorder", new FSlateColorBrush( FLinearColor(0.2, 0, 0) ) );
+		Set( "GameProjectDialog.ErrorLabelBorder", new FSlateColorBrush( FLinearColor(0.2f, 0.f, 0.f, 0.7f) ) );
 		Set( "GameProjectDialog.ErrorLabelCloseButton", new IMAGE_BRUSH( "Icons/Cross_12x", Icon12x12 ) );
 
 		Set( "GameProjectDialog.TemplateListView.TableRow", FTableRowStyle()
@@ -1674,7 +1721,7 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Regular", 10 ) )
 		 );
 	
-		Set( "NewClassDialog.ErrorLabelBorder", new FSlateColorBrush( FLinearColor(0.2, 0, 0) ) );
+		Set( "NewClassDialog.ErrorLabelBorder", new FSlateColorBrush( FLinearColor(0.2f, 0.f, 0.f, 0.7f) ) );
 		Set( "NewClassDialog.ErrorLabelCloseButton", new IMAGE_BRUSH( "Icons/Cross_12x", Icon12x12 ) );
 
 		Set( "NewClassDialog.ParentClassListView.TableRow", FTableRowStyle()
@@ -2470,27 +2517,47 @@ void FSlateEditorStyle::FStyle::SetupDockingStyles()
 void FSlateEditorStyle::FStyle::SetupTutorialStyles()
 {
 	// Documentation tooltip defaults
+	const FSlateColor HyperlinkColor( FLinearColor( 0.1f, 0.1f, 0.5f ) );
 	{
-		const FTextBlockStyle DocumentationTooltipText = FTextBlockStyle(NormalText)
-			.SetFont(TTF_CORE_FONT("Fonts/Roboto-Regular", 8));
+		const FTextBlockStyle DocumentationTooltipText = FTextBlockStyle( NormalText )
+			.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Regular", 9 ) )
+			.SetColorAndOpacity( FLinearColor::Black );
 		Set("Documentation.SDocumentationTooltip", FTextBlockStyle(DocumentationTooltipText));
+
+		const FTextBlockStyle DocumentationTooltipTextSubdued = FTextBlockStyle( NormalText )
+			.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Regular", 8 ) )
+			.SetColorAndOpacity( FLinearColor( 0.1f, 0.1f, 0.1f ) );
+		Set("Documentation.SDocumentationTooltipSubdued", FTextBlockStyle(DocumentationTooltipTextSubdued));
+
+		const FTextBlockStyle DocumentationTooltipHyperlinkText = FTextBlockStyle( NormalText )
+			.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Regular", 8 ) )
+			.SetColorAndOpacity( HyperlinkColor );
+		Set("Documentation.SDocumentationTooltipHyperlinkText", FTextBlockStyle(DocumentationTooltipHyperlinkText));
+
+		const FButtonStyle DocumentationTooltipHyperlinkButton = FButtonStyle()
+				.SetNormal(BORDER_BRUSH( "Old/HyperlinkDotted", FMargin(0,0,0,3/16.0f), HyperlinkColor ) )
+				.SetPressed(FSlateNoResource())
+				.SetHovered(BORDER_BRUSH( "Old/HyperlinkUnderline", FMargin(0,0,0,3/16.0f), HyperlinkColor ) );
+		Set("Documentation.SDocumentationTooltipHyperlinkButton", FButtonStyle(DocumentationTooltipHyperlinkButton));
 	}
 
 
 	// Documentation defaults
 	const FTextBlockStyle DocumentationText = FTextBlockStyle(NormalText)
+		.SetColorAndOpacity( FLinearColor::Black )
 		.SetFont(TTF_CORE_FONT( "Fonts/Roboto-Regular", 11 ));
 
 	const FTextBlockStyle DocumentationHyperlinkText = FTextBlockStyle(DocumentationText)
-		.SetColorAndOpacity(FLinearColor::Blue);
+		.SetColorAndOpacity( HyperlinkColor );
 
 	const FTextBlockStyle DocumentationHeaderText = FTextBlockStyle(NormalText)
+		.SetColorAndOpacity( FLinearColor::Black )
 		.SetFont(TTF_FONT("Fonts/Roboto-Black", 32));
 
 	const FButtonStyle DocumentationHyperlinkButton = FButtonStyle()
-			.SetNormal(BORDER_BRUSH( "Old/HyperlinkDotted", FMargin(0,0,0,3/16.0f), FSlateColor::UseForeground()))
+			.SetNormal(BORDER_BRUSH( "Old/HyperlinkDotted", FMargin(0,0,0,3/16.0f), HyperlinkColor ) )
 			.SetPressed(FSlateNoResource())
-			.SetHovered(BORDER_BRUSH( "Old/HyperlinkUnderline", FMargin(0,0,0,3/16.0f), FSlateColor::UseForeground()));
+			.SetHovered(BORDER_BRUSH( "Old/HyperlinkUnderline", FMargin(0,0,0,3/16.0f), HyperlinkColor ) );
 
 	// Documentation
 	{
@@ -2605,6 +2672,7 @@ void FSlateEditorStyle::FStyle::SetupTutorialStyles()
 		Set( "Tutorials.Browser.DefaultCategoryIcon", new IMAGE_BRUSH( "Tutorials/DefaultCategoryIcon_40x", FVector2D(40.0f, 40.0f), FLinearColor::White ) );
 
 		Set( "Tutorials.Browser.BackButton.Image", new IMAGE_BRUSH( "Tutorials/BrowserBack", FVector2D(32.0f, 32.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) );
+		Set( "Tutorials.Browser.PlayButton.Image", new IMAGE_BRUSH( "Tutorials/BrowserPlay", FVector2D(32.0f, 32.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) );
 		Set( "Tutorials.Browser.RestartButton", new IMAGE_BRUSH( "Tutorials/BrowserRestart", FVector2D(16.0f, 16.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ) );
 
 		Set( "Tutorials.Browser.Completed", new IMAGE_BRUSH( "Tutorials/TutorialCompleted", Icon32x32 ) );
@@ -2973,6 +3041,24 @@ void FSlateEditorStyle::FStyle::SetupPropertyEditorStyles()
 		Set( "PropertyWindow.WindowBorder", new BOX_BRUSH( "Common/GroupBorder", FMargin(4.0f/16.0f) ) );
 		Set( "DetailsView.NameChangeCommitted", new BOX_BRUSH( "Common/EditableTextSelectionBackground", FMargin(4.f/16.f) ) );
 		Set( "DetailsView.HyperlinkStyle", FTextBlockStyle(NormalText) .SetFont( TTF_CORE_FONT( "Fonts/Roboto-Regular", 8 ) ) );
+
+		FTextBlockStyle BPWarningMessageTextStyle = FTextBlockStyle(NormalText) .SetFont(TTF_CORE_FONT("Fonts/Roboto-Regular", 8));
+		FTextBlockStyle BPWarningMessageHyperlinkTextStyle = FTextBlockStyle(BPWarningMessageTextStyle).SetColorAndOpacity(FLinearColor(0.25f, 0.5f, 1.0f));
+
+		FButtonStyle EditBPHyperlinkButton = FButtonStyle()
+			.SetNormal(BORDER_BRUSH("Old/HyperlinkDotted", FMargin(0, 0, 0, 3 / 16.0f), FLinearColor(0.25f, 0.5f, 1.0f)))
+			.SetPressed(FSlateNoResource())
+			.SetHovered(BORDER_BRUSH("Old/HyperlinkUnderline", FMargin(0, 0, 0, 3 / 16.0f), FLinearColor(0.25f, 0.5f, 1.0f)));
+
+		FHyperlinkStyle BPWarningMessageHyperlinkStyle = FHyperlinkStyle()
+			.SetUnderlineStyle(EditBPHyperlinkButton)
+			.SetTextStyle(BPWarningMessageHyperlinkTextStyle)
+			.SetPadding(FMargin(0.0f));
+
+		Set("DetailsView.BPMessageHyperlinkStyle", BPWarningMessageHyperlinkStyle);
+		Set("DetailsView.BPMessageTextStyle", BPWarningMessageTextStyle);
+
+
 		Set( "DetailsView.GroupSection", new BOX_BRUSH( "Common/RoundedSelection_16x", FMargin(4.0f/16.0f) ) );
 
 		Set( "DetailsView.PulldownArrow.Down", new IMAGE_BRUSH( "PropertyView/AdvancedButton_Down", FVector2D(10,8) ) );
@@ -3237,7 +3323,8 @@ void FSlateEditorStyle::FStyle::SetupGraphEditorStyles()
 		Set( "Graph.Node.CommentFont", TTF_CORE_FONT( "Fonts/Roboto-Regular", 10 ) );
 		Set( "Graph.Node.Comment.BubbleOffset", FMargin(8,0,0,0) );
 		Set( "Graph.Node.Comment.PinIconPadding", FMargin(0,2,0,0) );
-		Set( "Graph.Node.Comment.BubblePadding", FMargin(4,4) );
+		Set( "Graph.Node.Comment.BubblePadding", FVector2D(3,3) );
+		Set( "Graph.Node.Comment.BubbleWidgetMargin", FMargin(4,4) );
 
 		const FCheckBoxStyle CommentTitleButton = FCheckBoxStyle()
 			.SetCheckBoxType( ESlateCheckBoxType::CheckBox )
@@ -3825,12 +3912,6 @@ void FSlateEditorStyle::FStyle::SetupGraphEditorStyles()
 			}
 		}
 
-		// SCSEditor
-		Set("SCSEditor.NewComponentIcon", new IMAGE_BRUSH("Icons/icon_Blueprint_SpawnActor_16x", Icon16x16));
-
-		Set("SCSEditor.ToggleComponentEditing" , new IMAGE_BRUSH( "Icons/icon_translate_40x", Icon40x40) );
-		Set("SCSEditor.ToggleComponentEditing.Small" , new IMAGE_BRUSH( "Icons/icon_translate_40x", Icon20x20) );
-
 		// Timeline Editor
 		{
 			Set( "TimelineEditor.AddFloatTrack", new IMAGE_BRUSH( "Icons/icon_TrackAddFloat_36x24px", Icon36x24, FLinearColor::Black ) );
@@ -3840,6 +3921,69 @@ void FSlateEditorStyle::FStyle::SetupGraphEditorStyles()
 			Set( "TimelineEditor.AddCurveAssetTrack", new IMAGE_BRUSH( "Icons/icon_TrackAddCurve_36x24px", Icon36x24, FLinearColor::Black ) );
 			Set( "TimelineEditor.DeleteTrack", new IMAGE_BRUSH( "Icons/icon_TrackDelete_36x24px", Icon36x24, FLinearColor::Black ) );
 		}
+	}
+
+	// SCSEditor
+	{
+		Set("SCSEditor.ToggleComponentEditing", new IMAGE_BRUSH("Icons/icon_translate_40x", Icon40x40));
+		Set("SCSEditor.ToggleComponentEditing.Small", new IMAGE_BRUSH("Icons/icon_translate_40x", Icon20x20));
+		Set("SCSEditor.TileViewTooltip.NonContentBorder", new BOX_BRUSH("/Docking/TabContentArea", FMargin(4 / 16.0f)));
+
+		Set("SCSEditor.PromoteToBlueprintIcon", new IMAGE_BRUSH("Icons/AssetIcons/Blueprint_16x", Icon16x16));
+
+		Set("SCSEditor.TopBar.Font", FTextBlockStyle(NormalText)
+			.SetFont(TTF_CORE_FONT("Fonts/Roboto-Bold", 10))
+			.SetColorAndOpacity(FLinearColor(1.0f, 1.0f, 1.0f))
+			.SetHighlightColor(FLinearColor(1.0f, 1.0f, 1.0f))
+			.SetShadowOffset(FVector2D(1, 1))
+			.SetShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.9f)));
+
+		Set("SCSEditor.TreePanel", new BOX_BRUSH("Common/GroupBorder_FlatTop", FMargin(4.0f / 16.0f)));
+
+		//
+
+		Set("SCSEditor.ComponentTooltip.Title",
+			FTextBlockStyle(NormalText)
+			.SetFont(TTF_CORE_FONT("Fonts/Roboto-Regular", 12))
+			.SetColorAndOpacity(FLinearColor::Black)
+			);
+
+		Set("SCSEditor.ComponentTooltip.Label",
+			FTextBlockStyle(NormalText)
+			.SetColorAndOpacity(FLinearColor(0.075f, 0.075f, 0.075f))
+			.SetShadowOffset(FVector2D(1.0f, 1.0f))
+			.SetShadowColorAndOpacity(FLinearColor(0.8f, 0.8f, 0.8f))
+		);
+		Set("SCSEditor.ComponentTooltip.ImportantLabel",
+			FTextBlockStyle(NormalText)
+			.SetColorAndOpacity(FLinearColor(0.05f, 0.05f, 0.05f))
+			.SetShadowOffset(FVector2D(1.0f, 1.0f))
+			.SetShadowColorAndOpacity(FLinearColor(0.8f, 0.8f, 0.8f))
+		);
+
+
+		Set("SCSEditor.ComponentTooltip.Value", 
+			FTextBlockStyle(NormalText)
+			.SetFont(TTF_CORE_FONT("Fonts/Roboto-Bold", 10))
+			.SetColorAndOpacity(FLinearColor(0.0f, 0.0f, 0.0f))
+			.SetShadowOffset(FVector2D(1.0f, 1.0f))
+			.SetShadowColorAndOpacity(FLinearColor(0.8f, 0.8f, 0.8f))
+		);
+		Set("SCSEditor.ComponentTooltip.ImportantValue",
+			FTextBlockStyle(NormalText)
+			.SetFont(TTF_CORE_FONT("Fonts/Roboto-Bold", 10))
+			.SetColorAndOpacity(FLinearColor(0.3f, 0.0f, 0.0f))
+			.SetShadowOffset(FVector2D(1.0f, 1.0f))
+			.SetShadowColorAndOpacity(FLinearColor(0.8f, 0.8f, 0.8f))
+		);
+
+		Set("SCSEditor.ComponentTooltip.ClassDescription",
+			FTextBlockStyle(NormalText)
+			.SetFont(TTF_CORE_FONT("Fonts/Roboto-Italic", 10))
+			.SetColorAndOpacity(FLinearColor(0.1f, 0.1f, 0.1f))
+			.SetShadowOffset(FVector2D(1.0f, 1.0f))
+			.SetShadowColorAndOpacity(FLinearColor(0.8f, 0.8f, 0.8f))
+		);
 	}
 
 	// Notify editor
@@ -3958,7 +4102,18 @@ void FSlateEditorStyle::FStyle::SetupLevelEditorStyle()
 		Set( "LevelEditor.Recompile", new IMAGE_BRUSH( "Icons/icon_compile_40x", Icon40x40 ) );
 		Set( "LevelEditor.Recompile.Small", new IMAGE_BRUSH( "Icons/icon_compile_40x", Icon20x20 ) );
 
-		Set( "LevelEditor.ViewOptions", new IMAGE_BRUSH( "Icons/icon_view_40x", Icon40x40 ) );
+		Set("LevelEditor.SourceControl", new IMAGE_BRUSH("Icons/icon_source_control_40x", Icon40x40));
+		Set("LevelEditor.SourceControl.Small", new IMAGE_BRUSH("Icons/icon_source_control_40x", Icon20x20));
+		Set("LevelEditor.SourceControl.On", new IMAGE_BRUSH("Icons/icon_source_control_40x_on", Icon40x40));
+		Set("LevelEditor.SourceControl.On.Small", new IMAGE_BRUSH("Icons/icon_source_control_40x_on", Icon20x20));
+		Set("LevelEditor.SourceControl.Off", new IMAGE_BRUSH("Icons/icon_source_control_40x_off", Icon40x40));
+		Set("LevelEditor.SourceControl.Off.Small", new IMAGE_BRUSH("Icons/icon_source_control_40x_off", Icon20x20));
+		Set("LevelEditor.SourceControl.Unknown", new IMAGE_BRUSH("Icons/icon_source_control_40x_unknown", Icon40x40));
+		Set("LevelEditor.SourceControl.Unknown.Small", new IMAGE_BRUSH("Icons/icon_source_control_40x_unknown", Icon20x20));
+		Set("LevelEditor.SourceControl.Problem", new IMAGE_BRUSH("Icons/icon_source_control_40x_problem", Icon40x40));
+		Set("LevelEditor.SourceControl.Problem.Small", new IMAGE_BRUSH("Icons/icon_source_control_40x_problem", Icon20x20));
+
+		Set("LevelEditor.ViewOptions", new IMAGE_BRUSH("Icons/icon_view_40x", Icon40x40));
 		Set( "LevelEditor.ViewOptions.Small", new IMAGE_BRUSH( "Icons/icon_view_40x", Icon20x20 ) );
 
 		Set( "LevelEditor.GameSettings", new IMAGE_BRUSH( "Icons/icon_game_settings_40x", Icon40x40 ) );
@@ -4506,6 +4661,9 @@ void FSlateEditorStyle::FStyle::SetupPersonaStyle()
 		Set( "FullBlueprintEditor.EditGlobalOptions", new IMAGE_BRUSH( "Icons/icon_Blueprint_Options_40px", Icon40x40));
 		Set( "FullBlueprintEditor.EditGlobalOptions.Small", new IMAGE_BRUSH( "Icons/icon_Blueprint_Options_40px", Icon20x20));
 
+		Set("FullBlueprintEditor.EditClassDefaults", new IMAGE_BRUSH("Icons/icon_BlueprintEditor_Defaults_40x", Icon40x40));
+		Set("FullBlueprintEditor.EditClassDefaults.Small", new IMAGE_BRUSH("Icons/icon_BlueprintEditor_Defaults_40x", Icon20x20));
+
 		Set( "BlueprintEditor.Details.DeleteButton", new IMAGE_BRUSH( "/Icons/GenericDelete_Black", Icon16x16 ) );
 
 		Set( "BlueprintEditor.Details.ArgUpButton", new IMAGE_BRUSH( "/Icons/icon_FunctionArgUp", Icon16x16 ) );
@@ -4748,23 +4906,14 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 	{
 		Set("ClassIcon.Emitter", new IMAGE_BRUSH("Icons/ActorIcons/Emitter_16x", Icon16x16));
 		Set("ClassIcon.Light", new IMAGE_BRUSH("Icons/ActorIcons/LightActor_16x", Icon16x16));
-		Set("ClassIcon.MatineeActor", new IMAGE_BRUSH("Icons/ActorIcons/MatineeActor_16x", Icon16x16));
 		Set("ClassIcon.Brush", new IMAGE_BRUSH("Icons/ActorIcons/Brush_16x", Icon16x16));
 		Set("ClassIcon.BrushAdditive", new IMAGE_BRUSH("Icons/ActorIcons/Brush_Add_16x", Icon16x16));
 		Set("ClassIcon.BrushSubtractive", new IMAGE_BRUSH("Icons/ActorIcons/Brush_Subtract_16x", Icon16x16));
 		Set("ClassIcon.Volume", new IMAGE_BRUSH("Icons/ActorIcons/Volume_16x", Icon16x16));
-		Set("ClassIcon.SkeletalPhysicsActor", new IMAGE_BRUSH("Icons/ActorIcons/SkeletalPhysicsActor_16x", Icon16x16));
 		Set("ClassIcon.GroupActor", new IMAGE_BRUSH("Icons/ActorIcons/GroupActor_16x", Icon16x16));
 		Set("ClassIcon.VectorFieldVolume", new IMAGE_BRUSH("Icons/ActorIcons/VectorFieldVolume_16x", Icon16x16));
 		Set("ClassIcon.Deleted", new IMAGE_BRUSH("Icons/ActorIcons/DeletedActor_16px", Icon16x16));
 		Set("ClassIcon.DestructibleActor", new IMAGE_BRUSH("Icons/ActorIcons/Destructable_16px", Icon16x16));
-		Set("ClassIcon.DefaultPawn", new IMAGE_BRUSH("Icons/ActorIcons/DefaultPawn_16px", Icon16x16));
-		Set("ClassIcon.Pawn", new IMAGE_BRUSH("Icons/ActorIcons/Pawn_16px", Icon16x16));
-		Set("ClassIcon.Note", new IMAGE_BRUSH("Icons/ActorIcons/Note_16px", Icon16x16));
-		Set("ClassIcon.Character", new IMAGE_BRUSH("Icons/ActorIcons/Character_16px", Icon16x16));
-		Set("ClassIcon.DocumentationActor", new IMAGE_BRUSH("Icons/ActorIcons/DocumentationActor_16x", Icon16x16));
-
-		Set("ClassIcon.BlueprintActorBase", new IMAGE_BRUSH("Icons/AssetIcons/Blueprint_16x", Icon16x16));
 		Set("ClassIcon.StaticMeshActor", new IMAGE_BRUSH("Icons/AssetIcons/StaticMesh_16x", Icon16x16));
 		Set("ClassIcon.SkeletalMeshActor", new IMAGE_BRUSH("Icons/AssetIcons/SkeletalMesh_16x", Icon16x16));
 
@@ -4802,11 +4951,15 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 		Set("ClassIcon.TextRenderComponent", new IMAGE_BRUSH("Icons/AssetIcons/TextRenderActor_16x", Icon16x16));
 		Set("ClassIcon.TimelineComponent", new IMAGE_BRUSH("Icons/ActorIcons/TimelineComponent_16px", Icon16x16));
 		Set("ClassIcon.ChildActorComponent", new IMAGE_BRUSH("Icons/ActorIcons/ChildActorComponent_16px", Icon16x16));
+		Set("ClassIcon.ProjectileMovementComponent", new IMAGE_BRUSH("Icons/ActorIcons/ProjectileMovementComponent_16px", Icon16x16));
+		Set("ClassIcon.RotatingMovementComponent", new IMAGE_BRUSH("Icons/ActorIcons/RotatingMovementComponent_16px", Icon16x16));
+		Set("ClassIcon.SpringArmComponent", new IMAGE_BRUSH("Icons/ActorIcons/SpringArmComponent_16px", Icon16x16));
 		Set("ClassIcon.ComponentMobilityStaticPip", new IMAGE_BRUSH("Icons/ActorIcons/ComponentMobilityStationary_7x16px", Icon7x16, FLinearColor(0.f, 0.f, 0.f, 0.f)));
 		Set("ClassIcon.ComponentMobilityStationaryPip", new IMAGE_BRUSH("Icons/ActorIcons/ComponentMobilityStationary_7x16px", Icon7x16));
 		Set("ClassIcon.ComponentMobilityMovablePip", new IMAGE_BRUSH("Icons/ActorIcons/ComponentMobilityMovable_7x16px", Icon7x16));
 		Set("ClassIcon.MovableMobilityIcon", new IMAGE_BRUSH("Icons/ActorIcons/Light_Movable_16x", Icon16x16));
 		Set("ClassIcon.StationaryMobilityIcon", new IMAGE_BRUSH("Icons/ActorIcons/Light_Adjustable_16x", Icon16x16));
+		Set("ClassIcon.ComponentMobilityHeaderIcon", new IMAGE_BRUSH("Icons/ActorIcons/ComponentMobilityHeader_7x16", Icon7x16));
 		Set("ClassIcon.ComponentMobilityHeaderIcon", new IMAGE_BRUSH("Icons/ActorIcons/ComponentMobilityHeader_7x16", Icon7x16));
 
 		//@TODO: PAPER2D: Defined here until it is possible to define these in a plugin
@@ -4815,6 +4968,8 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			Set("ClassIcon.PaperTerrainComponent", new IMAGE_BRUSH("Icons/ActorIcons/Paper2DTerrainActor_16x", Icon16x16));
 
 			Set("ClassIcon.PaperTileMapActor", new IMAGE_BRUSH("Icons/ActorIcons/Paper2DTileMapActor_16x", Icon16x16));
+			Set("ClassIcon.PaperTileMapComponent", new IMAGE_BRUSH("Icons/AssetIcons/Paper2DTileMapComponent_16x", Icon16x16));
+			Set("ClassThumbnail.PaperTileMapComponent", new IMAGE_BRUSH("Icons/AssetIcons/Paper2DTileMapComponent_64x", Icon64x64));
 
 			Set("ClassIcon.PaperSpriteActor", new IMAGE_BRUSH("Icons/AssetIcons/Paper2DSprite_16x", Icon16x16));
 			Set("ClassIcon.PaperSpriteComponent", new IMAGE_BRUSH("Icons/AssetIcons/Paper2DSprite_16x", Icon16x16));
@@ -4829,6 +4984,15 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			Set("ClassIcon.PaperSpriteAtlas", new IMAGE_BRUSH("Icons/AssetIcons/Paper2DSpriteAtlasGroup_16x", Icon16x16));
 			Set("ClassThumbnail.PaperSpriteAtlas", new IMAGE_BRUSH("Icons/AssetIcons/Paper2DSpriteAtlasGroup_64x", Icon64x64));
 
+			Set("ClassIcon.PaperCharacter", new IMAGE_BRUSH("Icons/AssetIcons/PaperCharacter_16x", Icon16x16));
+			Set("ClassThumbnail.PaperCharacter", new IMAGE_BRUSH("Icons/AssetIcons/PaperCharacter_64x", Icon64x64));
+
+			Set("ClassIcon.PaperTileMap", new IMAGE_BRUSH("Icons/AssetIcons/TileMap_16x", Icon16x16));
+			Set("ClassThumbnail.PaperTileMap", new IMAGE_BRUSH("Icons/AssetIcons/TileMap_64x", Icon64x64));
+
+			Set("ClassIcon.PaperTileSet", new IMAGE_BRUSH("Icons/AssetIcons/TileMap_16x", Icon16x16));
+			Set("ClassThumbnail.PaperTileSet", new IMAGE_BRUSH("Icons/AssetIcons/TileMap_64x", Icon64x64));
+
 			// ClassIcon and ClassThumbnail for tile sets and/or terrain materials?  Might not be needed/feasible due to them being a UDataAsset
 			//Set("ClassIcon.PaperTerrainMaterial", new IMAGE_BRUSH("Icons/AssetIcons/Paper2DSpriteAtlasGroup_16x", Icon16x16));
 			//Set("ClassThumbnail.PaperTerrainMaterial", new IMAGE_BRUSH("Icons/AssetIcons/Paper2DSpriteAtlasGroup_64x", Icon64x64));
@@ -4842,6 +5006,9 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 		// Asset Type Classes
 		const TCHAR* AssetTypes[] = {
 
+			TEXT("Actor"),
+			TEXT("ActorComponent"),
+			TEXT("AIController"),
 			TEXT("AimOffsetBlendSpace"),
 			TEXT("AimOffsetBlendSpace1D"),
 			TEXT("AmbientSound"),
@@ -4863,23 +5030,34 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("BoxReflectionCapture"),
 			TEXT("ButtonStyleAsset"),
 			TEXT("CableActor"),
+			TEXT("CableComponent"),
 			TEXT("CameraActor"),
 			TEXT("CameraAnim"),
 			TEXT("CameraBlockingVolume"),
+			TEXT("Character"),
 			TEXT("Class"),
 			TEXT("CullDistanceVolume"),
 			TEXT("CurveBase"),
 			TEXT("DataAsset"),
+			TEXT("DataTable"),
 			TEXT("DecalActor"),
 			TEXT("Default"),
+			TEXT("DefaultPawn"),
+			TEXT("DialogueWave"),
+			TEXT("DialogueVoice"),
 			TEXT("DirectionalLight"),
 			TEXT("DirectionalLightMovable"),
 			TEXT("DirectionalLightStatic"),
 			TEXT("DirectionalLightStationary"),
 			TEXT("DocumentationActor"),
+			TEXT("EditorTutorial"),
+			TEXT("EnvQuery"),
 			TEXT("ExponentialHeightFog"),
 			TEXT("Font"),
 			TEXT("ForceFeedbackEffect"),
+			TEXT("GameMode"),
+			TEXT("GameState"),
+			TEXT("HUD"),
 			TEXT("InterpData"),
 			TEXT("KillZVolume"),
 			TEXT("Landscape"),
@@ -4904,25 +5082,33 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("Note"),
 			TEXT("ObjectLibrary"),
 			TEXT("PainCausingVolume"),
-			TEXT("PaperCharacter"),
 			TEXT("ParticleSystem"),
+			TEXT("Pawn"),
 			TEXT("PhysicalMaterial"),
+			TEXT("PhysicsAsset"),
 			TEXT("PhysicsConstraintActor"),
+			TEXT("PhysicsConstraintComponent"),
 			TEXT("PhysicsThruster"),
+			TEXT("PhysicsThrusterComponent"),
 			TEXT("PhysicsVolume"),
 			TEXT("PlaneReflectionCapture"),
+			TEXT("PlayerController"),
 			TEXT("PlayerStart"),
 			TEXT("PointLight"),
 			TEXT("PostProcessVolume"),
 			TEXT("PrecomputedVisibilityOverrideVolume"),
 			TEXT("PrecomputedVisibilityVolume"),
 			TEXT("RadialForceActor"),
+			TEXT("RadialForceComponent"),
 			TEXT("ReflectionCapture"),
 			TEXT("ReverbEffect"),
 			TEXT("SceneCapture2D"),
 			TEXT("SceneCaptureCube"),
+			TEXT("SceneComponent"),
 			TEXT("SkyLight"),
+			TEXT("SkyLightComponent"),
 			TEXT("SkeletalMesh"),
+			TEXT("Skeleton"),
 			TEXT("SlateBrushAsset"),
 			TEXT("SlateWidgetStyleAsset"),
 			TEXT("SoundAttenuation"),
@@ -4935,6 +5121,7 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("SpotLightStatic"),
 			TEXT("SpotLightStationary"),
 			TEXT("StaticMesh"),
+			TEXT("SubsurfaceProfile"),
 			TEXT("TargetPoint"),
 			TEXT("TextRenderActor"),
 			TEXT("Texture2D"),
@@ -4948,8 +5135,13 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("TouchInterface"),
 			TEXT("UserDefinedEnum"),
 			TEXT("UserDefinedStruct"),
+			TEXT("WidgetBlueprint"),
 			TEXT("WindDirectionalSource"),
-			TEXT("World")
+			TEXT("World"),
+			TEXT("Cube"),
+			TEXT("Sphere"),
+			TEXT("Cylinder"),
+			TEXT("Cone")
 		};
 
 		const TCHAR* Path = TEXT("Icons/AssetIcons/%s_%dx");
@@ -4981,6 +5173,8 @@ void FSlateEditorStyle::FStyle::SetupContentBrowserStyle()
 		Set( "ContentBrowser.BreadcrumbPathPickerFolder", new IMAGE_BRUSH( "Icons/FolderClosed", FVector2D(18, 16), FLinearColor::Gray ) );
 		Set( "ContentBrowser.AssetTreeFolderOpen", new IMAGE_BRUSH( "Icons/FolderOpen", FVector2D(18, 16) ) );
 		Set( "ContentBrowser.AssetTreeFolderDeveloper", new IMAGE_BRUSH( "Icons/FolderDeveloper", FVector2D(18, 16) ) );
+		Set( "ContentBrowser.AssetTreeFolderOpenCode", new IMAGE_BRUSH( "Icons/FolderOpen_Code", FVector2D(18, 16) ) );
+		Set( "ContentBrowser.AssetTreeFolderClosedCode", new IMAGE_BRUSH( "Icons/FolderClosed_Code", FVector2D(18, 16) ) );
 		Set( "ContentBrowser.AddCollectionButtonIcon", new IMAGE_BRUSH( "Icons/PlusSymbol_12x", Icon12x12, FLinearColor::Black ) );
 
 		Set( "ContentBrowser.Splitter", FSplitterStyle()
@@ -5007,6 +5201,7 @@ void FSlateEditorStyle::FStyle::SetupContentBrowserStyle()
 		// Tile view
 		Set( "ContentBrowser.AssetTileViewNameFont", TTF_CORE_FONT( "Fonts/Roboto-Regular", 9 ) );
 		Set( "ContentBrowser.AssetTileViewNameFontSmall", TTF_CORE_FONT( "Fonts/Roboto-Light", 8, EFontHinting::Auto ) );
+		Set( "ContentBrowser.AssetTileViewNameFontVerySmall", TTF_CORE_FONT( "Fonts/Roboto-Light", 7, EFontHinting::Auto ) );
 		Set( "ContentBrowser.AssetTileViewNameFontDirty", TTF_CORE_FONT( "Fonts/Roboto-Bold", 10 ) );
 		Set( "ContentBrowser.AssetListView.TableRow", FTableRowStyle()
 			.SetEvenRowBackgroundBrush( FSlateNoResource() )
@@ -5062,7 +5257,7 @@ void FSlateEditorStyle::FStyle::SetupContentBrowserStyle()
 		Set( "ContentBrowser.PrimitiveCylinder", new IMAGE_BRUSH( "ContentBrowser/ThumbnailCylinder", Icon32x32 ) );
 
 		Set( "ContentBrowser.TopBar.Font", FTextBlockStyle( NormalText )
-			.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Bold", 12 ) )
+			.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Bold", 11 ) )
 			.SetColorAndOpacity( FLinearColor( 1.0f, 1.0f, 1.0f ) )
 			.SetHighlightColor( FLinearColor( 1.0f, 1.0f, 1.0f ) )
 			.SetShadowOffset( FVector2D( 1, 1 ) )
@@ -5122,7 +5317,7 @@ void FSlateEditorStyle::FStyle::SetupContentBrowserStyle()
 		Set( "ContentBrowser.TileViewDeveloperFolderIcon.Base", new IMAGE_BRUSH( "Icons/Folders/FolderDev_Base_512x", FVector2D(512, 512) ) );
 		Set( "ContentBrowser.TileViewDeveloperFolderIcon.Mask", new IMAGE_BRUSH( "Icons/Folders/FolderDev_BaseHi_512x", FVector2D(512, 512) ) );
 		Set( "ContentBrowser.PathText", FTextBlockStyle(NormalText)
-			.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Bold", 12 ) )
+			.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Bold", 11 ) )
 			.SetColorAndOpacity( FLinearColor( 1.0f, 1.0f, 1.0f ) )
 			.SetHighlightColor( FLinearColor( 1.0f, 1.0f, 1.0f ) )
 			.SetShadowOffset( FVector2D( 1,1 ) )

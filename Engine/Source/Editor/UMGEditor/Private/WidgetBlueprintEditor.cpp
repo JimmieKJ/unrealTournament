@@ -41,6 +41,7 @@ FWidgetBlueprintEditor::~FWidgetBlueprintEditor()
 	if ( Blueprint )
 	{
 		Blueprint->OnChanged().RemoveAll(this);
+		Blueprint->OnCompiled().RemoveAll(this);
 	}
 
 	GEditor->OnObjectsReplaced().RemoveAll(this);
@@ -223,9 +224,9 @@ void FWidgetBlueprintEditor::InvalidatePreview()
 	bPreviewInvalidated = true;
 }
 
-void FWidgetBlueprintEditor::OnBlueprintChanged(UBlueprint* InBlueprint)
+void FWidgetBlueprintEditor::OnBlueprintChangedImpl(UBlueprint* InBlueprint, bool bIsJustBeingCompiled )
 {
-	FBlueprintEditor::OnBlueprintChanged(InBlueprint);
+	FBlueprintEditor::OnBlueprintChangedImpl(InBlueprint, bIsJustBeingCompiled);
 
 	if ( InBlueprint )
 	{
@@ -341,7 +342,7 @@ void FWidgetBlueprintEditor::PasteWidgets()
 	TSet<FWidgetReference> Widgets = GetSelectedWidgets();
 	FWidgetReference Target = Widgets.Num() > 0 ? *Widgets.CreateIterator() : FWidgetReference();
 
-	FWidgetBlueprintEditorUtils::PasteWidgets(GetWidgetBlueprintObj(), Target, PasteDropLocation);
+	FWidgetBlueprintEditorUtils::PasteWidgets(SharedThis(this), GetWidgetBlueprintObj(), Target, PasteDropLocation);
 
 	//TODO UMG - Select the newly selected pasted widgets.
 }
@@ -678,7 +679,7 @@ FGraphAppearanceInfo FWidgetBlueprintEditor::GetGraphAppearance() const
 
 	if ( GetBlueprintObj()->IsA(UWidgetBlueprint::StaticClass()) )
 	{
-		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText", "WIDGET BLUEPRINT").ToString();
+		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText", "WIDGET BLUEPRINT");
 	}
 
 	return AppearanceInfo;
@@ -707,6 +708,16 @@ FWidgetReference FWidgetBlueprintEditor::GetHoveredWidget() const
 float FWidgetBlueprintEditor::GetHoveredWidgetTime() const
 {
 	return HoverTime;
+}
+
+void FWidgetBlueprintEditor::AddPostDesignerLayoutAction(TFunction<void()> Action)
+{
+	QueuedDesignerActions.Add(Action);
+}
+
+TArray< TFunction<void()> >& FWidgetBlueprintEditor::GetQueuedDesignerActions()
+{
+	return QueuedDesignerActions;
 }
 
 #undef LOCTEXT_NAMESPACE

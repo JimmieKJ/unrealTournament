@@ -166,7 +166,7 @@ TSharedRef<SWidget> SAutomationTestItem::GenerateWidgetForColumn( const FName& C
 				//name of the test
 				SNew( STextBlock )
 				.HighlightText( HighlightText )
-				.Text( TestStatus->GetDisplayNameWithDecoration() )
+				.Text( FText::FromString(TestStatus->GetDisplayNameWithDecoration()) )
 			];
 	}
 	else if( ColumnName == AutomationTestWindowConstants::SmokeTest )

@@ -325,12 +325,18 @@ bool USkyLightComponent::IsReadyForFinishDestroy()
 }
 
 /** Used to store lightmap data during RerunConstructionScripts */
-class FPrecomputedSkyLightInstanceData : public FComponentInstanceDataBase
+class FPrecomputedSkyLightInstanceData : public FSceneComponentInstanceData
 {
 public:
 	FPrecomputedSkyLightInstanceData(const USkyLightComponent* SourceComponent)
-		: FComponentInstanceDataBase(SourceComponent)
+		: FSceneComponentInstanceData(SourceComponent)
 	{}
+
+	virtual void ApplyToComponent(UActorComponent* Component) override
+	{
+		FSceneComponentInstanceData::ApplyToComponent(Component);
+		CastChecked<USkyLightComponent>(Component)->ApplyComponentInstanceData(this);
+	}
 
 	FGuid LightGuid;
 	bool bPrecomputedLightingIsValid;
@@ -357,10 +363,9 @@ FComponentInstanceDataBase* USkyLightComponent::GetComponentInstanceData() const
 	return InstanceData;
 }
 
-void USkyLightComponent::ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData)
+void USkyLightComponent::ApplyComponentInstanceData(FPrecomputedSkyLightInstanceData* LightMapData)
 {
-	check(ComponentInstanceData);
-	FPrecomputedSkyLightInstanceData* LightMapData  = static_cast<FPrecomputedSkyLightInstanceData*>(ComponentInstanceData);
+	check(LightMapData);
 
 	LightGuid = LightMapData->LightGuid;
 	bPrecomputedLightingIsValid = LightMapData->bPrecomputedLightingIsValid;

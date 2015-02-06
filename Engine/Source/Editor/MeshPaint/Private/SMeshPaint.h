@@ -111,7 +111,7 @@ protected:
 	int32 GetEraseWeightIndex() const;
 
 	/** Returns a string representing the memory used selected actors vertex color data */
-	FString GetInstanceVertexColorsText() const;
+	FText GetInstanceVertexColorsText() const;
 
 	/** Called when the Mesh Paint Mode radio button selection is changed */
 	void OntMeshPaintResourceChanged(EMeshPaintResource::Type InPaintResource);
@@ -257,7 +257,7 @@ protected:
 	/** returns a UV channel menu widget */
 	TSharedRef<SWidget> GetUVChannels();
 
-	FString GetCurrentUVChannel() const;
+	FText GetCurrentUVChannel() const;
 
 	/** returns a list of texture target menu widgets */
 	TSharedRef<SWidget> GetTextureTargets();
@@ -266,7 +266,7 @@ protected:
 	TSharedRef<SWidget> GetTextureTargetWidget( UTexture2D* TextureData );
 
 	/** returns a string containing currently selected texture */
-	FString GetCurrentTextureTargetText( UTexture2D* TextureData, int index ) const;
+	FText GetCurrentTextureTargetText( UTexture2D* TextureData, int index ) const;
 
 	/** returns a image containing currently selected texture image */
 	const FSlateBrush* GetCurrentTextureTargetImage( UTexture2D* TextureData ) const;
@@ -296,7 +296,7 @@ protected:
 	TSharedRef<SWidget> GetActorSelectionMenu();
 
 	/** Returns the currently editing actors label */
-	FString GetEditingActorLabel() const;
+	FText GetEditingActorLabel() const;
 
 	/** Called upon the user changing which mesh they wish to act upon */
 	void OnSetEditingActor( TWeakObjectPtr<AActor> InActor );
@@ -308,7 +308,7 @@ protected:
 	TSharedRef<SWidget> GetMaterialSelectionMenu();
 
 	/** Returns the currently editing materials index */
-	FString GetEditingMaterial() const;
+	FText GetEditingMaterial() const;
 
 	/** Called upon the user changing which material they wish to edit */
 	void OnSetEditingMaterial(int32 NewMaterialIndex);

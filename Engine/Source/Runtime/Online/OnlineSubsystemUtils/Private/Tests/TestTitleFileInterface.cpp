@@ -8,8 +8,8 @@ void FTestTitleFileInterface::Test(UWorld* InWorld)
 	OnlineTitleFile = Online::GetTitleFileInterface(InWorld, SubsystemName.Len() ? FName(*SubsystemName, FNAME_Find) : NAME_None);
 	if (OnlineTitleFile.IsValid())
 	{
-		OnlineTitleFile->AddOnEnumerateFilesCompleteDelegate(OnEnumerateFilesCompleteDelegate);
-		OnlineTitleFile->AddOnReadFileCompleteDelegate(OnReadFileCompleteDelegate);
+		OnEnumerateFilesCompleteDelegateHandle = OnlineTitleFile->AddOnEnumerateFilesCompleteDelegate_Handle(OnEnumerateFilesCompleteDelegate);
+		OnReadFileCompleteDelegateHandle       = OnlineTitleFile->AddOnReadFileCompleteDelegate_Handle      (OnReadFileCompleteDelegate);
 		OnlineTitleFile->EnumerateFiles();
 	}
 	else
@@ -32,8 +32,8 @@ void FTestTitleFileInterface::FinishTest()
 
 	if (OnlineTitleFile.IsValid())
 	{
-		OnlineTitleFile->ClearOnEnumerateFilesCompleteDelegate(OnEnumerateFilesCompleteDelegate);
-		OnlineTitleFile->ClearOnReadFileCompleteDelegate(OnReadFileCompleteDelegate);
+		OnlineTitleFile->ClearOnEnumerateFilesCompleteDelegate_Handle(OnEnumerateFilesCompleteDelegateHandle);
+		OnlineTitleFile->ClearOnReadFileCompleteDelegate_Handle      (OnReadFileCompleteDelegateHandle);
 	}
 	delete this;
 }

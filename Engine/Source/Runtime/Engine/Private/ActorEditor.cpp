@@ -45,7 +45,7 @@ void AActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 			AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(GetLevel());
 			if (IFA)
 			{
-				TArray<UActorComponent*> Components;
+				TInlineComponentArray<UActorComponent*> Components;
 				GetComponents(Components);
 
 				for ( int32 Idx = 0 ; Idx < Components.Num() ; ++Idx )
@@ -97,7 +97,7 @@ void AActor::PostEditMove(bool bFinished)
 			AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(GetLevel());
 			if (IFA)
 			{
-				TArray<UActorComponent*> Components;
+				TInlineComponentArray<UActorComponent*> Components;
 				GetComponents(Components);
 
 				for ( int32 Idx = 0 ; Idx < Components.Num() ; ++Idx )
@@ -119,7 +119,7 @@ void AActor::PostEditMove(bool bFinished)
 	}
 
 	// If the root component was not just recreated by the construction script - call PostEditComponentMove on it
-	if(RootComponent != NULL && !RootComponent->bCreatedByConstructionScript)
+	if(RootComponent != NULL && !RootComponent->IsCreatedByConstructionScript())
 	{
 		// @TODO Should we call on ALL components?
 		RootComponent->PostEditComponentMove(bFinished);
@@ -240,7 +240,7 @@ AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* A
 	: ComponentInstanceData(Actor)
 {
 	USceneComponent* RootComponent = Actor->GetRootComponent();
-	if (RootComponent && RootComponent->bCreatedByConstructionScript)
+	if (RootComponent && RootComponent->IsCreatedByConstructionScript())
 	{
 		bRootComponentDataCached = true;
 		RootComponentData.Transform = RootComponent->ComponentToWorld;
@@ -256,7 +256,7 @@ AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* A
 		for (USceneComponent* AttachChild : RootComponent->AttachChildren)
 		{
 			AActor* ChildOwner = (AttachChild ? AttachChild->GetOwner() : NULL);
-			if (ChildOwner != Actor)
+			if (ChildOwner && ChildOwner != Actor)
 			{
 				// Save info about actor to reattach
 				FActorRootComponentReconstructionData::FAttachedActorInfo Info;
@@ -294,7 +294,7 @@ TSharedPtr<ITransactionObjectAnnotation> AActor::GetTransactionAnnotation() cons
 void AActor::PreEditUndo()
 {
 	// Since child actor components will rebuild themselves get rid of the Actor before we make changes
-	TArray<UChildActorComponent*> ChildActorComponents;
+	TInlineComponentArray<UChildActorComponent*> ChildActorComponents;
 	GetComponents(ChildActorComponents);
 
 	for (UChildActorComponent* ChildActorComponent : ChildActorComponents)
@@ -507,6 +507,13 @@ const FString& AActor::GetActorLabel() const
 		// NOTE: Calling GetName() is actually fairly slow (does ANSI->Wide conversion, lots of copies, etc.)
 		FString DefaultActorLabel = ActorClass->GetName();
 
+		// Strip off the ugly "_C" suffix for Blueprint class actor instances
+		UBlueprint* GeneratedByClassBlueprint = Cast<UBlueprint>( ActorClass->ClassGeneratedBy );
+		if( GeneratedByClassBlueprint != nullptr && DefaultActorLabel.EndsWith( TEXT( "_C" ) ) )
+		{
+			DefaultActorLabel.RemoveFromEnd( TEXT( "_C" ) );
+		}
+
 		// We want the actor's label to be initially unique, if possible, so we'll use the number of the
 		// actor's FName when creating the initially.  It doesn't actually *need* to be unique, this is just
 		// an easy way to tell actors apart when observing them in a list.  The user can always go and rename
@@ -711,7 +718,7 @@ void AActor::CheckForErrors()
 	}
 
 	// Route error checking to components.
-	TArray<UActorComponent*> Components;
+	TInlineComponentArray<UActorComponent*> Components;
 	GetComponents(Components);
 
 	for ( int32 ComponentIndex = 0 ; ComponentIndex < Components.Num() ; ++ComponentIndex )

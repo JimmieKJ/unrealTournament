@@ -267,7 +267,7 @@ TSharedRef<SWidget> SSpeakerDropDown::MakeComboButtonItemWidget(TSharedPtr<UDial
 		[
 			// Voice Description
 			SNew( STextBlock )
-			.Text( ( Speaker.IsValid() && *Speaker ) ? (*Speaker)->GetDesc() : LOCTEXT("None", "None").ToString() )
+			.Text( ( Speaker.IsValid() && *Speaker ) ? FText::FromString((*Speaker)->GetDesc()) : LOCTEXT("None", "None") )
 		];
 }
 
@@ -559,7 +559,7 @@ TSharedRef<SWidget> STargetSetDropDown::MakeComboButtonItemWidget(TSharedPtr<FTa
 			// Voice Description
 			SNew( STextBlock )
 			.Font( Font )
-			.Text( Target ? Target->GetDesc() : LOCTEXT("None", "None").ToString() )
+			.Text( Target ? FText::FromString(Target->GetDesc()) : LOCTEXT("None", "None") )
 		];
 	}
 	else

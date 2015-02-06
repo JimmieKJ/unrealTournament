@@ -107,7 +107,7 @@ void SNodeTitle::RebuildWidget()
 		[
 			SNew(STextBlock)
 			.TextStyle( FEditorStyle::Get(), ExtraLineStyle )
-			.Text(Lines[Index])
+			.Text(FText::FromString(Lines[Index]))
 		];
 	}
 }
@@ -596,21 +596,22 @@ void SGraphNode::UpdateErrorInfo()
 	}
 }
 
-TSharedPtr<SWidget>	SGraphNode::SetupErrorReporting()
+void SGraphNode::SetupErrorReporting()
 {
-	TSharedPtr<SErrorText> ErrorText;
-
 	UpdateErrorInfo();
 
-	// generate widget
-	SAssignNew(ErrorText, SErrorText)
-		.BackgroundColor( this, &SGraphNode::GetErrorColor )
-		.ToolTipText( this, &SGraphNode::GetErrorMsgToolTip );
+	if( !ErrorReporting.IsValid() )
+	{
+		TSharedPtr<SErrorText> ErrorTextWidget;
 
-	ErrorReporting = ErrorText;
+		// generate widget
+		SAssignNew(ErrorTextWidget, SErrorText)
+			.BackgroundColor( this, &SGraphNode::GetErrorColor )
+			.ToolTipText( this, &SGraphNode::GetErrorMsgToolTip );
+
+		ErrorReporting = ErrorTextWidget;
+	}
 	ErrorReporting->SetError(ErrorMsg);
-
-	return ErrorText;
 }
 
 TSharedRef<SWidget> SGraphNode::CreateTitleWidget(TSharedPtr<SNodeTitle> NodeTitle)
@@ -649,7 +650,7 @@ void SGraphNode::UpdateGraphNode()
 	//            |_______|______|_______|
 	//
 	TSharedPtr<SVerticalBox> MainVerticalBox;
-	TSharedPtr<SWidget> ErrorText = SetupErrorReporting();
+	SetupErrorReporting();
 
 	TSharedPtr<SNodeTitle> NodeTitle = SNew(SNodeTitle, GraphNode);
 
@@ -788,7 +789,7 @@ void SGraphNode::UpdateGraphNode()
 					.AutoHeight()
 					.Padding(Settings->GetNonPinNodeBodyPadding())
 					[
-						ErrorText->AsShared()
+						ErrorReporting->AsWidget()
 					]
 				]
 			]			
@@ -1180,9 +1181,9 @@ void SGraphNode::PositionThisNodeBetweenOtherNodes(const FVector2D& PrevPos, con
 	GraphNode->NodePosY = NewCorner.Y;
 }
 
-FString SGraphNode::GetErrorMsgToolTip( ) const
+FText SGraphNode::GetErrorMsgToolTip( ) const
 {
-	return GraphNode->ErrorMsg;
+	return FText::FromString(GraphNode->ErrorMsg);
 }
 
 bool SGraphNode::IsNameReadOnly() const
@@ -1365,4 +1366,9 @@ void SGraphNode::PopulateMetaTag(FGraphNodeMetaData* TagMeta) const
 EGraphRenderingLOD::Type SGraphNode::GetCurrentLOD() const
 {
 	return OwnerGraphPanelPtr.IsValid() ? OwnerGraphPanelPtr.Pin()->GetCurrentLOD() : EGraphRenderingLOD::DefaultDetail;
+}
+
+void SGraphNode::RefreshErrorInfo()
+{
+	SetupErrorReporting();
 }

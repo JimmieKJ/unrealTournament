@@ -81,3 +81,105 @@ void UBehaviorTreeDecoratorGraph::CollectDecoratorDataWorker(const UBehaviorTree
 		CollectDecoratorDataWorker(LinkedNodes[i], DecoratorInstances, DecoratorOperations);
 	}
 }
+
+UEdGraphPin* UBehaviorTreeDecoratorGraph::FindFreePin(UEdGraphNode* Node, EEdGraphPinDirection Direction)
+{
+	for (int32 Idx = 0; Idx < Node->Pins.Num(); Idx++)
+	{
+		if (Node->Pins[Idx] && Node->Pins[Idx]->Direction == Direction && Node->Pins[Idx]->LinkedTo.Num() == 0)
+		{
+			return Node->Pins[Idx];
+		}
+	}
+
+	return nullptr;
+}
+
+UBehaviorTreeDecoratorGraphNode* UBehaviorTreeDecoratorGraph::SpawnMissingNodeWorker(const TArray<class UBTDecorator*>& NodeInstances, const TArray<struct FBTDecoratorLogic>& Operations, int32& Index, UEdGraphNode* ParentGraphNode, int32 ChildIdx)
+{
+	int32 NumSteps = 0;
+	UBehaviorTreeDecoratorGraphNode* GraphNode = nullptr;
+	UBehaviorTreeDecoratorGraphNode_Logic* LogicNode = nullptr;
+
+	const FBTDecoratorLogic& Op = Operations[Index];
+	Index++;
+
+	if (Op.Operation == EBTDecoratorLogic::Test)
+	{
+		FGraphNodeCreator<UBehaviorTreeDecoratorGraphNode_Decorator> NodeBuilder(*this);
+		UBehaviorTreeDecoratorGraphNode_Decorator* CastedGraphNode = NodeBuilder.CreateNode();
+		NodeBuilder.Finalize();
+
+		GraphNode = CastedGraphNode;
+		CastedGraphNode->NodeInstance = NodeInstances[Op.Number];
+	}
+	else
+	{
+		FGraphNodeCreator<UBehaviorTreeDecoratorGraphNode_Logic> NodeBuilder(*this);
+		LogicNode = NodeBuilder.CreateNode();
+		LogicNode->LogicMode = LogicNode->GetLogicMode(Op.Operation);
+		NodeBuilder.Finalize();
+
+		GraphNode = LogicNode;
+		NumSteps = Op.Number;
+	}
+
+	if (GraphNode)
+	{
+		GraphNode->NodePosX = ParentGraphNode->NodePosX - 300.0f;
+		GraphNode->NodePosY = ParentGraphNode->NodePosY + ChildIdx * 100.0f;
+	}
+
+	for (int32 Idx = 0; Idx < NumSteps; Idx++)
+	{
+		UBehaviorTreeDecoratorGraphNode* ChildNode = SpawnMissingNodeWorker(NodeInstances, Operations, Index, GraphNode, Idx);
+
+		UEdGraphPin* ChildOut = FindFreePin(ChildNode, EGPD_Output);
+		UEdGraphPin* NodeIn = FindFreePin(GraphNode, EGPD_Input);
+		
+		if (NodeIn == nullptr && LogicNode)
+		{
+			NodeIn = LogicNode->AddInputPin();
+		}
+
+		if (NodeIn && ChildOut)
+		{
+			NodeIn->MakeLinkTo(ChildOut);
+		}
+	}
+
+	return GraphNode;
+}
+
+int32 UBehaviorTreeDecoratorGraph::SpawnMissingNodes(const TArray<class UBTDecorator*>& NodeInstances, const TArray<struct FBTDecoratorLogic>& Operations, int32 StartIndex)
+{
+	UBehaviorTreeDecoratorGraphNode* RootNode = nullptr;
+	for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+	{
+		UBehaviorTreeDecoratorGraphNode_Logic* TestNode = Cast<UBehaviorTreeDecoratorGraphNode_Logic>(Nodes[Idx]);
+		if (TestNode && TestNode->LogicMode == EDecoratorLogicMode::Sink)
+		{
+			RootNode = TestNode;
+			break;
+		}
+	}
+
+	int32 NextIndex = StartIndex;
+	if (RootNode)
+	{
+		UBehaviorTreeDecoratorGraphNode* OperationRoot = SpawnMissingNodeWorker(NodeInstances, Operations, NextIndex, RootNode, 0);
+		if (OperationRoot)
+		{
+			UEdGraphPin* RootIn = FindFreePin(RootNode, EGPD_Input);
+			UEdGraphPin* OpOut = FindFreePin(OperationRoot, EGPD_Output);
+
+			RootIn->MakeLinkTo(OpOut);
+		}
+	}
+	else
+	{
+		NextIndex++;
+	}
+
+	return NextIndex;
+}

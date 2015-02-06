@@ -22,7 +22,7 @@ class FAndroid_ES31TargetPlatform
 
 	virtual FText DisplayName( ) const override
 	{
-		return LOCTEXT("Android_ES31", "Android (ES 3.1 + AEP)");
+		return LOCTEXT("Android_ES31", "Android (ES 3.1 + AEP, TegraK1)");
 	}
 
 	virtual FString PlatformName() const override
@@ -43,13 +43,23 @@ class FAndroid_ES31TargetPlatform
 
 	virtual bool SupportedByExtensionsString( const FString& ExtensionsString, const int GLESVersion ) const override
 	{
-		// look for the AEP extension
-		return ExtensionsString.Contains(TEXT("GL_ANDROID_extension_pack_es31a")) && ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
+		// look for the AEP extension, and make sure the project supports it (if the user changes the setting, they will need to restart
+		// the editor, a tooltip has been included to make this clear)
+		bool bProjectSupportsES31;
+		if (GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bProjectSupportsES31, GEngineIni))
+		{
+			if (bProjectSupportsES31)
+			{
+				return ExtensionsString.Contains(TEXT("GL_ANDROID_extension_pack_es31a")) && ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
+			}
+		}
+
+		return false;
 	}
 
 	virtual FText GetVariantDisplayName() const override
 	{
-		return LOCTEXT("Android_31_ShortName", "ES 3.1 + AEP");
+		return LOCTEXT("Android_31_ShortName", "ES 3.1 + AEP, TegraK1");
 	}
 
 	virtual float GetVariantPriority() const override

@@ -16,6 +16,34 @@ bool PaperGeomTools::IsPolygonWindingCCW(const TArray<FVector2D>& Points)
 	return (Sum < 0.0f);
 }
 
+// Note: We need to simplify non-simple polygons before this
+static bool IsPolygonConvex(const TArray<FVector2D>& Points)
+{
+	const int PointCount = Points.Num();
+	float Sign = 0;
+	for (int32 PointIndex = 0; PointIndex < PointCount; ++PointIndex)
+	{
+		const FVector2D& A = Points[PointIndex];
+		const FVector2D& B = Points[(PointIndex + 1) % PointCount];
+		const FVector2D& C = Points[(PointIndex + 2) % PointCount];
+		float Det = (B.X - A.X) * (C.Y - B.Y) - (B.Y - A.Y) * (C.X - B.X);
+		float DetSign = FMath::Sign(Det);
+		if (DetSign != 0)
+		{
+			if (Sign == 0)
+			{
+				Sign = DetSign;
+			}
+			else if (Sign != DetSign)
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
 static bool IsPointInPolygon(const FVector2D& TestPoint, const TArray<FVector2D>& PolygonPoints)
 {
 	const int NumPoints = PolygonPoints.Num();
@@ -187,9 +215,10 @@ static void JoinMutuallyVisible(TArray<FVector2D>& AdditivePoly, const TArray<FV
 
 /** Util that tries to combine two triangles if possible. */
 // Unlike the implementation in GeomTools, we only care about 2D points and not any other vertex attributes
+// If bConvex == true, the triangles are only merged if the resulting polygon is convex
 static bool MergeTriangleIntoPolygon(
 	TArray<FVector2D>& PolygonVertices,
-	const FVector2D& TriangleVertexA, const FVector2D& TriangleVertexB, const FVector2D& TriangleVertexC)
+	const FVector2D& TriangleVertexA, const FVector2D& TriangleVertexB, const FVector2D& TriangleVertexC, bool bConvex = false)
 {
 	// Create indexable copy
 	FVector2D TriangleVertices[3] = { TriangleVertexA, TriangleVertexB, TriangleVertexC };
@@ -209,11 +238,23 @@ static bool MergeTriangleIntoPolygon(
 			if (PolygonVertices[PolygonEdgeVertex0].Equals(TriangleVertices[TriangleEdgeVertex1], THRESH_POINTS_ARE_SAME) &&
 				PolygonVertices[PolygonEdgeVertex1].Equals(TriangleVertices[TriangleEdgeVertex0], THRESH_POINTS_ARE_SAME))
 			{
-				// Add the triangle's vertex that isn't in the adjacent edge to the polygon in between the vertices of the adjacent edge.
-				const int32 TriangleOppositeVertexIndex = (TriangleEdgeIndex + 2) % 3;
-				PolygonVertices.Insert(TriangleVertices[TriangleOppositeVertexIndex], PolygonEdgeVertex1);
+				bool bMergeTriangle = true;
+				if (bConvex)
+				{
+					TArray<FVector2D> TmpPolygonVertcies = PolygonVertices;
+					const int32 TriangleOppositeVertexIndex = (TriangleEdgeIndex + 2) % 3;
+					TmpPolygonVertcies.Insert(TriangleVertices[TriangleOppositeVertexIndex], PolygonEdgeVertex1);
+					bMergeTriangle = IsPolygonConvex(TmpPolygonVertcies);
+				}
 
-				return true;
+				if (bMergeTriangle)
+				{
+					// Add the triangle's vertex that isn't in the adjacent edge to the polygon in between the vertices of the adjacent edge.
+					const int32 TriangleOppositeVertexIndex = (TriangleEdgeIndex + 2) % 3;
+					PolygonVertices.Insert(TriangleVertices[TriangleOppositeVertexIndex], PolygonEdgeVertex1);
+
+					return true;
+				}
 			}
 		}
 	}
@@ -599,5 +640,147 @@ void PaperGeomTools::RemoveRedundantTriangles(TArray<FVector2D>& OutTriangles, c
 		TArray<FVector2D> TriangulatedPoly;
 		TriangulatePoly(/*out*/TriangulatedPoly, PolygonVertices);
 		OutTriangles.Append(TriangulatedPoly);
+	}
+}
+
+// Find convex polygons from triangle soup
+void PaperGeomTools::GenerateConvexPolygonsFromTriangles(TArray<TArray<FVector2D>>& OutPolygons, const TArray<FVector2D>& InTriangleVertices)
+{
+	// Test: Return input triangles in exactly the same format
+	//for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < InTriangleVertices.Num(); TriangleVertexIndex += 3)
+	//{
+	//	TArray<FVector2D>& Poly = *(new(OutPolygons)TArray<FVector2D>());
+	//	Poly.Add(InTriangleVertices[TriangleVertexIndex + 0]);
+	//	Poly.Add(InTriangleVertices[TriangleVertexIndex + 1]);
+	//	Poly.Add(InTriangleVertices[TriangleVertexIndex + 2]);
+	//}
+	//return;
+
+	struct FLocalTriangle
+	{
+		int VertexA, VertexB, VertexC;
+	};
+
+	TArray<FLocalTriangle> Triangles;
+	for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < InTriangleVertices.Num(); TriangleVertexIndex += 3)
+	{
+		FLocalTriangle* NewTriangle = new(Triangles)FLocalTriangle();
+		NewTriangle->VertexA = TriangleVertexIndex + 0;
+		NewTriangle->VertexB = TriangleVertexIndex + 1;
+		NewTriangle->VertexC = TriangleVertexIndex + 2;
+	}
+
+	while (Triangles.Num() > 0)
+	{
+		TArray<FVector2D> PolygonVertices;
+
+		const FLocalTriangle InitialTriangle = Triangles.Pop();
+		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexA]);
+		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexB]);
+		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexC]);
+
+		// Find triangles that can be merged into the polygon.
+		for (int32 CandidateTriangleIndex = 0; CandidateTriangleIndex < Triangles.Num(); ++CandidateTriangleIndex)
+		{
+			const FLocalTriangle& MergeCandidateTriangle = Triangles[CandidateTriangleIndex];
+			if (MergeTriangleIntoPolygon(PolygonVertices, InTriangleVertices[MergeCandidateTriangle.VertexA], InTriangleVertices[MergeCandidateTriangle.VertexB], InTriangleVertices[MergeCandidateTriangle.VertexC], true))
+			{
+				// Remove the merged triangle from the array.
+				Triangles.RemoveAtSwap(CandidateTriangleIndex);
+
+				// Restart the search for mergeable triangles from the start of the array.
+				CandidateTriangleIndex = -1;
+			}
+		}
+
+		OutPolygons.Add(PolygonVertices);
+	}
+}
+
+// Creates a convex hull that contains the given points
+void PaperGeomTools::GenerateConvexHullFromPoints(TArray<FVector2D>& OutConvexHull, TArray<FVector2D>& SourcePoints)
+{
+	int SourcePointsCount = SourcePoints.Num();
+	if (SourcePointsCount < 3)
+	{
+		return;
+	}
+
+	// Find lowest point. If multiple points have the same y, find leftmost
+	int LowestPointIndex = 0;
+	FVector2D& LowestPoint = SourcePoints[0];
+	for (int I = 1; I < SourcePointsCount; ++I)
+	{
+		if ((SourcePoints[I].Y < LowestPoint.Y) || (SourcePoints[I].Y == LowestPoint.Y && SourcePoints[I].X < LowestPoint.X))
+		{
+			LowestPointIndex = I;
+			LowestPoint = SourcePoints[I];
+		}
+	}
+
+	// Get indices sorted by angle they and the lowest point make with the x-axis (excluding the lowest point)
+	FVector2D& P = SourcePoints[LowestPointIndex];
+	TArray<int32> SortedPoints;
+	SortedPoints.Empty(SourcePointsCount);
+	for (int I = 0; I < SourcePointsCount; ++I)
+	{
+		if (I != LowestPointIndex)
+		{
+			SortedPoints.Add(I);
+		}
+	}
+	int SortedPointsCount = SortedPoints.Num();
+	for (int I = 0; I < SortedPointsCount; ++I)
+	{
+		for (int J = I + 1; J < SortedPointsCount; ++J)
+		{
+			FVector2D DI = SourcePoints[SortedPoints[I]] - P;
+			FVector2D DJ = SourcePoints[SortedPoints[J]] - P;
+			if (FMath::Atan2(DI.Y, DI.X) > FMath::Atan2(DJ.Y, DJ.X))
+			{
+				int32 Temp = SortedPoints[I];
+				SortedPoints[I] = SortedPoints[J];
+				SortedPoints[J] = Temp;
+			}
+		}
+	}
+
+	// Initialize hull points and add lowest point to end of sorted points for the algorithm
+	TArray<int> Hull;
+	Hull.Add(LowestPointIndex);
+	SortedPoints.Add(LowestPointIndex);
+	++SortedPointsCount;
+	// Traverse sorted points, removing all prior points that would make a right turn, before adding each new point (Graham scan)
+	for (int I = 0; I < SortedPointsCount; ++I)
+	{
+		int NewPointIndex = SortedPoints[I];
+		FVector2D& C = SourcePoints[NewPointIndex];
+		while (Hull.Num() > 1)
+		{
+			FVector2D& A = SourcePoints[Hull[Hull.Num() - 2]];
+			FVector2D& B = SourcePoints[Hull[Hull.Num() - 1]];
+			if ((B.X - A.X) * (C.Y - A.Y) - (B.Y - A.Y) * (C.X - A.X) < 0.0f)
+			{
+				// Remove last entry
+				Hull.RemoveAt(Hull.Num() - 1);
+			}
+			else
+			{
+				// Left turn, exit loop
+				break;
+			}
+		}
+		Hull.Add(NewPointIndex);
+	}
+
+	// We added the starting point to the end for the algorithm, so remove the duplicate
+	Hull.RemoveAt(Hull.Num() - 1);
+
+	// Result
+	int HullCount = Hull.Num();
+	OutConvexHull.Empty(HullCount);
+	for (int I = 0; I < HullCount; ++I)
+	{
+		OutConvexHull.Add(SourcePoints[Hull[I]]);
 	}
 }

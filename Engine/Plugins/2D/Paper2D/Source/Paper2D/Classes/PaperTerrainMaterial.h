@@ -38,6 +38,10 @@ struct FPaperTerrainMaterialRule
 	UPROPERTY(Category=Sprite, EditAnywhere)
 	float CollisionOffset;
 
+	// Specify a draw order for different materials in a spline. Smaller draw orders are drawn first, negative values are allowed.
+	UPROPERTY(Category=Sprite, EditAnywhere)
+	int32 DrawOrder;
+
 #if WITH_EDITORONLY_DATA
 	// Readable description for the rule (unused anywhere, just for clarity when editing the material)
 	UPROPERTY(Category = Sprite, EditAnywhere)

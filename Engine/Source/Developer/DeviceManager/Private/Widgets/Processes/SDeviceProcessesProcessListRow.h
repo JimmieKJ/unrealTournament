@@ -51,7 +51,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text(Node->GetProcessInfo().Name)
+						.Text(FText::FromString(Node->GetProcessInfo().Name))
 				];
 
 			if (OwnerTablePtr.Pin()->GetTableViewMode() == ETableViewMode::Tree)
@@ -84,7 +84,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text(FString::Printf(TEXT("%d"), Node->GetProcessInfo().ParentId))
+						.Text(FText::AsNumber(Node->GetProcessInfo().ParentId))
 				];
 		}
 		else if (ColumnName == TEXT("PID"))
@@ -94,7 +94,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text(FString::Printf(TEXT("%d"), Node->GetProcessInfo().Id))
+						.Text(FText::AsNumber(Node->GetProcessInfo().Id))
 				];
 		}
 		else if (ColumnName == TEXT("Threads"))
@@ -104,7 +104,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text(FString::Printf(TEXT("%d"), Node->GetProcessInfo().Threads.Num()))
+						.Text(FText::AsNumber(Node->GetProcessInfo().Threads.Num()))
 				];
 		}
 		else if (ColumnName == TEXT("User"))
@@ -114,7 +114,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text(Node->GetProcessInfo().UserName)
+						.Text(FText::FromString(Node->GetProcessInfo().UserName))
 				];
 		}
 

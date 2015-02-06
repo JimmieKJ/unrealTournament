@@ -19,10 +19,6 @@ class SLevelEditor
 {
 
 public:
-	// @todo why are these public?
-	TSharedRef<SDockTab> SpawnLevelEditorTab( const FSpawnTabArgs& Args, FName TabIdentifier, FString InitializationPayload );
-	//TSharedRef<SDockTab> SpawnLevelEditorModeTab( const FSpawnTabArgs& Args, FEdMode* EditorMode );
-
 	SLATE_BEGIN_ARGS( SLevelEditor ){}
 
 	SLATE_END_ARGS()
@@ -130,6 +126,10 @@ public:
 	TSharedPtr<SDockTab> SequencerTab;
 
 private:
+	
+	TSharedRef<SDockTab> SpawnLevelEditorTab(const FSpawnTabArgs& Args, FName TabIdentifier, FString InitializationPayload);
+	//TSharedRef<SDockTab> SpawnLevelEditorModeTab(const FSpawnTabArgs& Args, FEdMode* EditorMode);
+	TSharedRef<SDockTab> SummonDetailsPanel( FName Identifier, TSharedPtr<FExtender> ActorMenuExtender = nullptr );
 
 	/**
 	 * Binds UI commands to actions for the level editor                   
@@ -189,9 +189,11 @@ private:
 	/** Reset the transient viewport information */
 	void ResetViewportTabInfo();
 
-	// Handles Editor map changes.
+	/** Handles Editor map changes */
 	void HandleEditorMapChange( uint32 MapChangeFlags );
 
+	/** Called when actors are selected or unselected */
+	void OnActorSelectionChanged( const TArray<UObject*>& NewSelection );
 private:
 
 	// Tracking the active viewports in this level editor.
@@ -225,6 +227,9 @@ private:
 
 	/** Transient editor viewport states - one for each view type. Key is "LayoutId[ELevelViewportType]", eg) "Viewport 1[0]" */
 	TMap<FString, FLevelViewportInfo> TransientEditorViews;
+
+	/** List of all actor details panels to update when selection changes */
+	TArray< TWeakPtr<class SActorDetails> > AllActorDetailPanels;
 };
 
 

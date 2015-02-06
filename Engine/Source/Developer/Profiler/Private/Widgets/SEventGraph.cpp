@@ -388,7 +388,7 @@ protected:
 			.Padding( FMargin( 2.0f, 0.0f ) )
 			[
 				SNew( STextBlock )
-				.Text( EventPtr->_StatName.ToString() )
+				.Text( FText::FromName(EventPtr->_StatName) )
 				.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 				.ColorAndOpacity( this, &SEventGraphTableCell::GetColorAndOpacity )
 				.ShadowColorAndOpacity( this, &SEventGraphTableCell::GetShadowColorAndOpacity )
@@ -438,7 +438,7 @@ protected:
 			.Padding( FMargin( 2.0f, 0.0f ) )
 			[
 				SNew( STextBlock )
-				.Text( FormattedValue )
+				.Text( FText::FromString(FormattedValue) )
 				.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Tooltip") )
 				.ColorAndOpacity( this, &SEventGraphTableCell::GetColorAndOpacity )
 				.ShadowColorAndOpacity( this, &SEventGraphTableCell::GetShadowColorAndOpacity )
@@ -950,7 +950,7 @@ TSharedRef<SWidget> SEventGraph::GetToggleButtonForEventGraphType( const EEventG
 	.VAlign( VAlign_Center )
 	[
 		SNew( STextBlock )
-		.Text( EEventGraphTypes::ToName( EventGraphType ) )
+		.Text( FText::FromString(EEventGraphTypes::ToName( EventGraphType )) )
 		.TextStyle( FEditorStyle::Get(), TEXT("Profiler.Caption") )
 	];
 
@@ -962,7 +962,7 @@ TSharedRef<SWidget> SEventGraph::GetToggleButtonForEventGraphType( const EEventG
 	.Padding( 2.0f )
 	.OnCheckStateChanged( this, &SEventGraph::EventGraphType_OnCheckStateChanged, EventGraphType )
 	.IsChecked( this, &SEventGraph::EventGraphType_IsChecked, EventGraphType )
-	.ToolTipText( EEventGraphTypes::ToDescription( EventGraphType ) )
+	.ToolTipText( FText::FromString(EEventGraphTypes::ToDescription( EventGraphType )) )
 	[
 		ButtonContent
 	];
@@ -2869,7 +2869,7 @@ TSharedRef<SHorizontalBox> SEventGraph::GetContentForEvent( FEventGraphSamplePtr
 	.VAlign(VAlign_Center)
 	[
 		SNew(STextBlock)
-		.Text( GetEventDescription(EventPtr,Pct,bSimple) )
+		.Text( FText::FromString(GetEventDescription(EventPtr,Pct,bSimple)) )
 		.TextStyle( FEditorStyle::Get(), bSimple ? TEXT("Profiler.Tooltip") : TEXT("Profiler.EventGraph.DarkText") )
 	];
 

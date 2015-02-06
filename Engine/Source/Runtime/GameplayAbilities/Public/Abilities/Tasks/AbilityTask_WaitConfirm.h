@@ -26,4 +26,6 @@ protected:
 	virtual void OnDestroy(bool AbilityEnded) override;
 
 	bool RegisteredCallback;
+
+	FDelegateHandle OnConfirmCallbackDelegateHandle;
 };

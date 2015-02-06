@@ -424,11 +424,9 @@ namespace MovementBaseUtility
 				}
 
 				// @TODO: We need to find a more efficient way of finding all ticking components in an actor.
-				TArray<UActorComponent*> Components;
-				NewBaseOwner->GetComponents(Components);
-				for (auto& Component : Components)
+				for (UActorComponent* Component : NewBaseOwner->GetComponents())
 				{
-					if (Component->PrimaryComponentTick.bCanEverTick)
+					if (Component && Component->PrimaryComponentTick.bCanEverTick)
 					{
 						BasedObjectTick.AddPrerequisite(Component, Component->PrimaryComponentTick);
 					}
@@ -454,11 +452,9 @@ namespace MovementBaseUtility
 				BasedObjectTick.RemovePrerequisite(OldBaseOwner, OldBaseOwner->PrimaryActorTick);
 
 				// @TODO: We need to find a more efficient way of finding all ticking components in an actor.
-				TArray<UActorComponent*> Components;
-				OldBaseOwner->GetComponents(Components);
-				for (auto& Component : Components)
+				for (UActorComponent* Component : OldBaseOwner->GetComponents())
 				{
-					if (Component->PrimaryComponentTick.bCanEverTick)
+					if (Component && Component->PrimaryComponentTick.bCanEverTick)
 					{
 						BasedObjectTick.RemovePrerequisite(Component, Component->PrimaryComponentTick);
 					}

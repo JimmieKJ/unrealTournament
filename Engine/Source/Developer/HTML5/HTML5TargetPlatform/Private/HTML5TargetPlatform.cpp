@@ -201,7 +201,8 @@ void FHTML5TargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FN
 				TextureFormatName = NameBGRA8;
 			}
 	}
-	else if (Texture->CompressionSettings == TC_HDR)
+	else if (Texture->CompressionSettings == TC_HDR
+		|| Texture->CompressionSettings == TC_HDR_Compressed)
 	{
 		TextureFormatName = NameRGBA16F;
 	}

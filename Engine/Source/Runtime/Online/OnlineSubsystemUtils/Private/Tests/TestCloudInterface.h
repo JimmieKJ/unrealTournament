@@ -29,6 +29,14 @@
 	FOnWriteSharedFileCompleteDelegate OnWriteSharedCloudFileCompleteDelegate;
 	FOnReadSharedFileCompleteDelegate OnReadEnumerateSharedFileCompleteDelegate;
 
+	/** Handles to those delegates */
+	FDelegateHandle EnumerationDelegateHandle;
+	FDelegateHandle OnWriteUserCloudFileCompleteDelegateHandle;
+	FDelegateHandle OnReadEnumeratedUserFilesCompleteDelegateHandle;
+	FDelegateHandle OnDeleteEnumeratedUserFilesCompleteDelegateHandle;
+	FDelegateHandle OnWriteSharedCloudFileCompleteDelegateHandle;
+	FDelegateHandle OnReadEnumerateSharedFileCompleteDelegateHandle;
+
 	/** Logged in UserId */
 	TSharedPtr<FUniqueNetId> UserId;
 
@@ -71,7 +79,7 @@
 	 * @param FileCount number of files to write out
 	 * @param Delegate delegate to trigger for each file written
 	 */
-	void WriteNUserCloudFiles(const FUniqueNetId& UserId, const FString& FileNameBase, int32 FileCount, FOnWriteUserFileCompleteDelegate& Delegate);
+	FDelegateHandle WriteNUserCloudFiles(const FUniqueNetId& UserId, const FString& FileNameBase, int32 FileCount, FOnWriteUserFileCompleteDelegate& Delegate);
 
 	/**
 	 *	Write out files marked for the cloud (and shared) for the given user
@@ -80,14 +88,14 @@
 	 * @param FileCount number of files to write out
 	 * @param Delegate delegate to trigger for each file written
 	 */
-	void WriteNSharedCloudFiles(const FUniqueNetId& UserId, const FString& FileNameBase, int32 FileCount, FOnWriteSharedFileCompleteDelegate& Delegate);
+	FDelegateHandle WriteNSharedCloudFiles(const FUniqueNetId& UserId, const FString& FileNameBase, int32 FileCount, FOnWriteSharedFileCompleteDelegate& Delegate);
 
 	/**
 	 *	Read cloud files currently enumerated for the logged in user
 	 * (assumes EnumerateFiles has been called)
 	 * @param Delegate delegate to trigger for each file read	
 	 */	
-	void ReadEnumeratedUserFiles(FOnReadUserFileCompleteDelegate& Delegate);
+	FDelegateHandle ReadEnumeratedUserFiles(FOnReadUserFileCompleteDelegate& Delegate);
 
 	/**
 	 *	Read shared cloud files currently enumerated
@@ -95,7 +103,7 @@
 	 * @param bUseRandom use the random array of existing shared files if true, current users shared files otherwise
 	 * @param Delegate delegate to trigger for each file read	
 	 */	
-	void ReadEnumeratedSharedFiles(bool bUseRandom, FOnReadSharedFileCompleteDelegate& Delegate);
+	FDelegateHandle ReadEnumeratedSharedFiles(bool bUseRandom, FOnReadSharedFileCompleteDelegate& Delegate);
 
 	/**
 	 *	Delete cloud files currently enumerated
@@ -104,7 +112,7 @@
 	 * @param bLocalDelete delete local copy of file, but not cloud version
 	 * @param Delegate delegate to trigger for each file deleted
 	 */
-	void DeleteEnumeratedUserFiles(bool bCloudDelete, bool bLocalDelete, FOnDeleteUserFileCompleteDelegate& Delegate);
+	FDelegateHandle DeleteEnumeratedUserFiles(bool bCloudDelete, bool bLocalDelete, FOnDeleteUserFileCompleteDelegate& Delegate);
 
 	/**
 	 *	Delegate triggered when all user files have been enumerated

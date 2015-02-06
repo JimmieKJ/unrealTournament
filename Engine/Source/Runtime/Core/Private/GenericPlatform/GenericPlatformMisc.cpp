@@ -283,9 +283,7 @@ bool FGenericPlatformMisc::SetStoredValue(const FString& InStoreId, const FStrin
 	KeyValue = InValue;
 
 	ConfigFile.Dirty = true;
-	ConfigFile.Write(ConfigPath);
-
-	return true;
+	return ConfigFile.Write(ConfigPath);
 }
 
 bool FGenericPlatformMisc::GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue)
@@ -849,9 +847,9 @@ FString FGenericPlatformMisc::GetEpicAccountId()
 	return EpicAccountId;
 }
 
-void FGenericPlatformMisc::SetEpicAccountId( const FString& AccountId )
+bool FGenericPlatformMisc::SetEpicAccountId( const FString& AccountId )
 {
-	FPlatformMisc::SetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "AccountId" ), AccountId );
+	return FPlatformMisc::SetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "AccountId" ), AccountId );
 }
 
 const TCHAR* FGenericPlatformMisc::GetEngineMode()
@@ -866,4 +864,10 @@ const TCHAR* FGenericPlatformMisc::GetEngineMode()
 void FGenericPlatformMisc::PlatformPreInit()
 {
 	FGenericCrashContext::Initialize();
+}
+
+FString FGenericPlatformMisc::GetOperatingSystemId()
+{
+	// not implemented by default.
+	return FString();
 }

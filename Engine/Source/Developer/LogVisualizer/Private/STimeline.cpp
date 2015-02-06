@@ -160,7 +160,7 @@ void STimeline::HandleLogVisualizerSettingChanged(FName Name)
 	UpdateVisibility();
 }
 
-void STimeline::Construct(const FArguments& InArgs, TSharedPtr<SVisualLoggerView> VisualLoggerView, TSharedPtr<FSequencerTimeSliderController> TimeSliderController, TSharedPtr<STimelinesContainer> InContainer, const FVisualLogDevice::FVisualLogEntryItem& Entry)
+void STimeline::Construct(const FArguments& InArgs, TSharedPtr<SVisualLoggerView> VisualLoggerView, TSharedPtr<FVisualLoggerTimeSliderController> TimeSliderController, TSharedPtr<STimelinesContainer> InContainer, const FVisualLogDevice::FVisualLogEntryItem& Entry)
 {
 	VisualLoggerInterface = InArgs._VisualLoggerInterface.Get();
 	OnGetMenuContent = InArgs._OnGetMenuContent;

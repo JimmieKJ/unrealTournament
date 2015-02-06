@@ -44,7 +44,7 @@ TSharedPtr<SWidget> FFoliageEdModeToolkit::GetInlineContent() const
 	return FoliageEdWidget;
 }
 
-void FFoliageEdModeToolkit::PostUndo()
+void FFoliageEdModeToolkit::RefreshFullList()
 {
 	// When an undo relates to the Foliage Edit mode, refresh the list.
 	FoliageEdWidget->RefreshFullList();

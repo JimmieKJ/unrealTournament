@@ -732,7 +732,7 @@ public partial class Project : CommandUtils
                 }
 				TempCmdLine += " ";
 
-				if (!Params.Stage)
+				if (!Params.CookOnTheFlyStreaming)
 				{
 					TempCmdLine += "-streaming ";
 				}
@@ -810,7 +810,7 @@ public partial class Project : CommandUtils
 		{
 			TempCmdLine += "-execcmds=\"automation list, automation runall\" ";
 		}
-		if (!SC.StageTargetPlatform.LaunchViaUFE)
+		if (SC.StageTargetPlatform.UseAbsLog)
 		{
 			TempCmdLine += "-abslog=" + CommandUtils.MakePathSafeToUseWithCommandLine(ClientLogFile) + " ";
 		}

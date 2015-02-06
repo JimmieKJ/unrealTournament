@@ -774,6 +774,15 @@ UCurveBase::UCurveBase(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+#if WITH_EDITORONLY_DATA
+void UCurveBase::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), ImportPath, FAssetRegistryTag::TT_Hidden) );
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+#endif
+
 void UCurveBase::GetTimeRange(float& MinTime, float& MaxTime) const
 {
 	TArray<FRichCurveEditInfoConst> Curves = GetCurves();

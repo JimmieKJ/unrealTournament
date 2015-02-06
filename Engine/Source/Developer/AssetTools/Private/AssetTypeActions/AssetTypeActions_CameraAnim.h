@@ -43,4 +43,7 @@ private:
 
 	/** The pawn we we will use for previewing the camera anim */
 	TWeakObjectPtr<class APawn> PreviewPawn;
+
+	/** Handle to the registered OnMatineeEditorClosed delegate */
+	FDelegateHandle OnMatineeEditorClosedDelegateHandle;
 };

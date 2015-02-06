@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "AssetTypeActions_Base.h"
+#include "AssetTypeActions_ClassTypeBase.h"
 
-class ASSETTOOLS_API FAssetTypeActions_Blueprint : public FAssetTypeActions_Base
+class ASSETTOOLS_API FAssetTypeActions_Blueprint : public FAssetTypeActions_ClassTypeBase
 {
 public:
 	// IAssetTypeActions Implementation
-	virtual FText GetName() const override { return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_Blueprint", "Blueprint"); }
+	virtual FText GetName() const override { return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_Blueprint", "Blueprint Class"); }
 	virtual FColor GetTypeColor() const override { return FColor( 63, 126, 255 ); }
 	virtual UClass* GetSupportedClass() const override { return UBlueprint::StaticClass(); }
 	virtual bool HasActions ( const TArray<UObject*>& InObjects ) const override { return true; }
@@ -21,6 +21,9 @@ public:
 	virtual void PerformAssetDiff(UObject* Asset1, UObject* Asset2, const struct FRevisionInfo& OldRevision, const struct FRevisionInfo& NewRevision) const override;
 	virtual class UThumbnailInfo* GetThumbnailInfo(UObject* Asset) const override;
 	virtual FText GetAssetDescription(const FAssetData& AssetData) const override;
+
+	// FAssetTypeActions_ClassTypeBase Implementation
+	virtual TWeakPtr<IClassTypeActions> GetClassTypeActions(const FAssetData& AssetData) const override;
 
 protected:
 	/** Whether or not this asset can create derived blueprints */

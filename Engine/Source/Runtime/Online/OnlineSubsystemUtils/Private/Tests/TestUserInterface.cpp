@@ -32,8 +32,8 @@ void FTestUserInterface::Test(UWorld* InWorld, const TArray<FString>& InUserIds)
 		OnlineSub->GetUserInterface().IsValid())
 	{
 		// Add our delegate for the async call
-		OnQueryUserInfoCompleteDelegate = FOnQueryUserInfoCompleteDelegate::CreateRaw(this, &FTestUserInterface::OnQueryUserInfoComplete);
-		OnlineSub->GetUserInterface()->AddOnQueryUserInfoCompleteDelegate(0, OnQueryUserInfoCompleteDelegate);
+		OnQueryUserInfoCompleteDelegate       = FOnQueryUserInfoCompleteDelegate::CreateRaw(this, &FTestUserInterface::OnQueryUserInfoComplete);
+		OnQueryUserInfoCompleteDelegateHandle = OnlineSub->GetUserInterface()->AddOnQueryUserInfoCompleteDelegate_Handle(0, OnQueryUserInfoCompleteDelegate);
 
 		// list of users to query
 		for (int32 Idx=0; Idx < InUserIds.Num(); Idx++)
@@ -84,7 +84,7 @@ void FTestUserInterface::FinishTest()
 		OnlineSub->GetUserInterface().IsValid())
 	{
 		// Clear delegates for the various async calls
-		OnlineSub->GetUserInterface()->ClearOnQueryUserInfoCompleteDelegate(0, OnQueryUserInfoCompleteDelegate);
+		OnlineSub->GetUserInterface()->ClearOnQueryUserInfoCompleteDelegate_Handle(0, OnQueryUserInfoCompleteDelegateHandle);
 	}
 	delete this;
 }

@@ -159,7 +159,7 @@ void FTestAchievementsInterface::WriteAchievements()
 	}
 
 	// Add our delegate and write some achievements to the server
-	OnlineAchievements->AddOnAchievementUnlockedDelegate( OnAchievementUnlockedDelegate );
+	OnAchievementUnlockedDelegateHandle = OnlineAchievements->AddOnAchievementUnlockedDelegate_Handle( OnAchievementUnlockedDelegate );
 	OnlineAchievements->WriteAchievements( *UserId.Get(), WriteObjectRef, OnAchievementsWrittenDelegate );
 }
 
@@ -169,7 +169,7 @@ void FTestAchievementsInterface::OnAchievementsWritten(const FUniqueNetId& Playe
 	UE_LOG(LogOnline, Display, TEXT("FTestAchievementsInterface::OnAchievementsWritten( bWasSuccessful = %s )"), bWasSuccessful ? TEXT("true") : TEXT("false"));
 
 	// Clear our delegate and delete this test.
-	OnlineAchievements->ClearOnAchievementUnlockedDelegate(OnAchievementUnlockedDelegate);
+	OnlineAchievements->ClearOnAchievementUnlockedDelegate_Handle(OnAchievementUnlockedDelegateHandle);
 
 	if (bWasSuccessful && WriteObject->WriteState == EOnlineAsyncTaskState::Done)
 	{

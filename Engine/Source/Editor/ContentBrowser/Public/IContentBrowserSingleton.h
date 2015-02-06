@@ -176,12 +176,16 @@ struct FPathPickerConfig
 	/** If false, the context menu will not open when an item is right clicked */
 	bool bAllowContextMenu;
 
+	/** If true, will allow class folders to be shown in the picker */
+	bool bAllowClassesFolder;
+
 	/** If true, will add the path specified in DefaultPath to the tree if it doesn't exist already */
 	bool bAddDefaultPath;
 
 	FPathPickerConfig()
 		: bFocusSearchBoxWhenOpened(true)
 		, bAllowContextMenu(true)
+		, bAllowClassesFolder(false)
 		, bAddDefaultPath(false)
 	{}
 };

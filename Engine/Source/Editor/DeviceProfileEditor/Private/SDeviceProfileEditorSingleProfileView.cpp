@@ -19,7 +19,7 @@ void  SDeviceProfileEditorSingleProfileView::Construct(const FArguments& InArgs,
 		DetailsViewArgs.bSearchInitialKeyFocus = false;
 		DetailsViewArgs.bHideSelectionTip = true;
 		DetailsViewArgs.bLockable = false;
-		DetailsViewArgs.bObjectsUseNameArea = false;
+		DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 		DetailsViewArgs.bUpdatesFromSelection = false;
 		DetailsViewArgs.bShowOptions = false;
 	}

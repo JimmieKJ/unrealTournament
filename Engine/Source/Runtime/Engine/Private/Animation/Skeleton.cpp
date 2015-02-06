@@ -431,8 +431,27 @@ bool USkeleton::RecreateBoneTree(USkeletalMesh* InSkelMesh)
 		RegenerateGuid();	
 		BoneTree.Empty();
 		ReferenceSkeleton.Empty();
-		return MergeAllBonesToBoneTree(InSkelMesh);
+
+		bool bResult = MergeAllBonesToBoneTree(InSkelMesh);
+
+		if (bResult)
+		{
+			// this has to go through all assets and fix up
+			for (FObjectIterator Iter(UAnimationAsset::StaticClass()); Iter; ++Iter)
+			{
+				UAnimationAsset* AnimAsset = Cast<UAnimationAsset>(*Iter);
+				if (AnimAsset->GetSkeleton() == this)
+				{
+					AnimAsset->ValidateSkeleton();
+				}
+			}
+			
+			return bResult;
+		}
+		
+		return bResult;
 	}
+
 	return false;
 }
 

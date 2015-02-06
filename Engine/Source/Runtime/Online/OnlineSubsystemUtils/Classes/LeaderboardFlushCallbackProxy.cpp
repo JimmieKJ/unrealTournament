@@ -25,8 +25,8 @@ void ULeaderboardFlushCallbackProxy::TriggerFlush(APlayerController* PlayerContr
 				if (Leaderboards.IsValid())
 				{
 					// Register the completion callback
-					LeaderboardFlushCompleteDelegate = FOnLeaderboardFlushCompleteDelegate::CreateUObject(this, &ULeaderboardFlushCallbackProxy::OnFlushCompleted);
-					Leaderboards->AddOnLeaderboardFlushCompleteDelegate(LeaderboardFlushCompleteDelegate);
+					LeaderboardFlushCompleteDelegate       = FOnLeaderboardFlushCompleteDelegate::CreateUObject(this, &ULeaderboardFlushCallbackProxy::OnFlushCompleted);
+					LeaderboardFlushCompleteDelegateHandle = Leaderboards->AddOnLeaderboardFlushCompleteDelegate_Handle(LeaderboardFlushCompleteDelegate);
 
 					// Flush the leaderboard
 					Leaderboards->FlushLeaderboards(InSessionName);
@@ -81,7 +81,7 @@ void ULeaderboardFlushCallbackProxy::RemoveDelegate()
 			IOnlineLeaderboardsPtr Leaderboards = OnlineSub->GetLeaderboardsInterface();
 			if (Leaderboards.IsValid())
 			{
-				Leaderboards->ClearOnLeaderboardFlushCompleteDelegate(LeaderboardFlushCompleteDelegate);
+				Leaderboards->ClearOnLeaderboardFlushCompleteDelegate_Handle(LeaderboardFlushCompleteDelegateHandle);
 			}
 		}
 	}

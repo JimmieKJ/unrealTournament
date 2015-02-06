@@ -194,4 +194,6 @@ private:
 
 	/** Whether the notification is allowed to pop up this session */
 	bool bIsNotificationAllowed;
+
+	FConsoleVariableSinkHandle CVarDelegateHandle;
 };

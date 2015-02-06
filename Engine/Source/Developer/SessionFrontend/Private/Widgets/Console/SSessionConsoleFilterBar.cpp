@@ -186,9 +186,9 @@ TSharedRef<ITableRow> SSessionConsoleFilterBar::HandleCategoryFilterGenerateRow(
 }
 
 
-FString SSessionConsoleFilterBar::HandleCategoryFilterGetRowText( FSessionConsoleCategoryFilterPtr Filter ) const
+FText SSessionConsoleFilterBar::HandleCategoryFilterGetRowText( FSessionConsoleCategoryFilterPtr Filter ) const
 {
-	return FString::Printf(TEXT("%s (%i)"), *Filter->GetCategory().ToString(), CategoryCounters.FindRef(Filter->GetCategory()));
+	return FText::Format(LOCTEXT("CategoryFilterRowFmt", "{0} ({1})"), FText::FromName(Filter->GetCategory()), FText::AsNumber(CategoryCounters.FindRef(Filter->GetCategory())));
 }
 
 
@@ -219,9 +219,9 @@ void SSessionConsoleFilterBar::HandleHighlightOnlyCheckBoxCheckStateChanged( ECh
 }
 
 
-FString SSessionConsoleFilterBar::HandleVerbosityFilterGetRowText( FSessionConsoleVerbosityFilterPtr Filter ) const
+FText SSessionConsoleFilterBar::HandleVerbosityFilterGetRowText( FSessionConsoleVerbosityFilterPtr Filter ) const
 {
-	return FString::Printf(TEXT("%s (%i)"), *Filter->GetName(), VerbosityCounters.FindRef(Filter->GetVerbosity()));
+	return FText::Format(LOCTEXT("VerbosityFilterRowFmt", "{0} ({1})"), FText::FromString(Filter->GetName()), FText::AsNumber(VerbosityCounters.FindRef(Filter->GetVerbosity())));
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION

@@ -68,28 +68,28 @@ private:
 	TSharedRef<ITableRow> HandleDeviceProxyListViewGenerateRow( ITargetDeviceProxyPtr InItem, const TSharedRef<STableViewBase>& OwnerTable );
 
 	// Callback for getting the text in the 'Initial Culture' text block.
-	FString HandleInitialCultureTextBlockText( ) const;
+	FText HandleInitialCultureTextBlockText( ) const;
 
 	// Callback for getting the text in the 'Initial Map' text block.
-	FString HandleInitialMapTextBlockText( ) const;
+	FText HandleInitialMapTextBlockText( ) const;
 
 	// Callback for getting the visibility of the specified cook summary box.
 	EVisibility HandleLaunchSummaryBoxVisibility( ELauncherProfileLaunchModes::Type LaunchMode ) const;
 
 	// Callback for getting the text in the 'VSync' text block.
-	FString HandleLaunchVsyncTextBlockText( ) const;
+	FText HandleLaunchVsyncTextBlockText( ) const;
 
 	// Callback for getting the visibility of the specified cook summary box.
 	EVisibility HandlePackageSummaryBoxVisibility( ELauncherProfilePackagingModes::Type PackagingMode ) const;
 
 	// Callback for getting the text in the 'Game' text block.
-	FString HandleProjectTextBlockText( ) const;
+	FText HandleProjectTextBlockText( ) const;
 
 	// Callback for getting the name of the selected device group.
-	FString HandleSelectedDeviceGroupTextBlockText( ) const;
+	FText HandleSelectedDeviceGroupTextBlockText( ) const;
 
 	// Callback for getting the name of the selected profile.
-	FString HandleSelectedProfileTextBlockText( ) const;
+	FText HandleSelectedProfileTextBlockText( ) const;
 
 	// Callback for determining the visibility of a validation error icon.
 	EVisibility HandleValidationErrorIconVisibility( ELauncherProfileValidationErrors::Type Error ) const;

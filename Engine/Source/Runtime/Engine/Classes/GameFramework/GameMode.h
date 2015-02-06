@@ -59,7 +59,7 @@ struct FGameClassShortName
  *
  * @see https://docs.unrealengine.com/latest/INT/Gameplay/Framework/GameMode/index.html
  */
-UCLASS(config=Game, notplaceable, BlueprintType, Blueprintable, Transient, hidecategories=(Info, Rendering, MovementReplication, Replication, Actor))
+UCLASS(config=Game, notplaceable, BlueprintType, Blueprintable, Transient, hideCategories=(Info, Rendering, MovementReplication, Replication, Actor), meta=(ShortTooltip="Game Mode defines the game being played, its rules, scoring, and other facets of the game type."))
 class ENGINE_API AGameMode : public AInfo
 {
 	GENERATED_UCLASS_BODY()

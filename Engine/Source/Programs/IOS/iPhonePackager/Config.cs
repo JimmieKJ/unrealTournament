@@ -111,6 +111,21 @@ namespace iPhonePackager
 			}
 		}
 
+		/// <summary>
+		/// The local build intermediate directory (on PC)
+		/// </summary>
+		public static string IntermediateDirectory
+		{
+			get
+			{
+				string IntermediateGameBuildDir = GameDirectory + @"\Intermediate\IOS";
+				// if the normal Build dir exists, return it, otherwise, use the program Resources directory
+				return Path.GetFullPath(Directory.Exists(IntermediateGameBuildDir) ?
+					IntermediateGameBuildDir :
+					BuildDirectory);
+			}
+		}
+
 		static Config()
 		{
 			if (Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix) {

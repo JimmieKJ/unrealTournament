@@ -25,7 +25,7 @@ public:
 	}
 	void SetAnimationOutlinerFillPercentage(float FillPercentage);
 
-	TSharedRef<SWidget> MakeSectionOverlay(TSharedRef<class FSequencerTimeSliderController> TimeSliderController, const TAttribute< TRange<float> >& ViewRange, const TAttribute<float>& ScrubPosition, bool bTopOverlay);
+	TSharedRef<SWidget> MakeSectionOverlay(TSharedRef<class FVisualLoggerTimeSliderController> TimeSliderController, const TAttribute< TRange<float> >& ViewRange, const TAttribute<float>& ScrubPosition, bool bTopOverlay);
 	void SetSearchString(FText SearchString);
 
 	void OnNewLogEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry);

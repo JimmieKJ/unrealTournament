@@ -30,9 +30,9 @@ UENUM()
 enum EBlueprintType
 {
 	// Normal blueprint
-	BPTYPE_Normal				UMETA(DisplayName="Blueprint"),
+	BPTYPE_Normal				UMETA(DisplayName="Blueprint Class"),
 	// Blueprint that is const during execution (no state graph and methods cannot modify member variables)
-	BPTYPE_Const				UMETA(DisplayName="Const Blueprint"),
+	BPTYPE_Const				UMETA(DisplayName="Const Blueprint Class"),
 	// Blueprint that serves as a container for macros to be used in other blueprints
 	BPTYPE_MacroLibrary			UMETA(DisplayName="Blueprint Macro Library"),
 	// Blueprint that serves as an interface to be implemented by other blueprints
@@ -270,7 +270,7 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 
 	/** Pointer to the parent class that the generated class should derive from */
 	UPROPERTY(AssetRegistrySearchable)
-	TSubclassOf<class UObject>  ParentClass;
+	TSubclassOf<class UObject> ParentClass;
 
 	UPROPERTY(transient)
 	UObject* PRIVATE_InnermostPreviousCDO;
@@ -286,29 +286,30 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 #if WITH_EDITORONLY_DATA
 	/** Whether or not this blueprint is newly created, and hasn't been opened in an editor yet */
 	UPROPERTY(transient)
-	uint32 bIsNewlyCreated:1;
+	uint32 bIsNewlyCreated : 1;
 
 	/** Whether to force opening the full (non data-only) editor for this blueprint. */
 	UPROPERTY(transient)
-	uint32 bForceFullEditor:1;
+	uint32 bForceFullEditor : 1;
+
 	/**whether or not you want to continuously rerun the construction script for an actor as you drag it in the editor, or only when the drag operation is complete*/
-	UPROPERTY(EditAnywhere, Category=BlueprintOption)
-	uint32 bRunConstructionScriptOnDrag:1;
+	UPROPERTY(EditAnywhere, Category=BlueprintOptions)
+	uint32 bRunConstructionScriptOnDrag : 1;
 
 	/** Whether or not this blueprint's class is a const class or not.  Should set CLASS_Const in the KismetCompiler. */
-	UPROPERTY(EditAnywhere, Category=BlueprintOption)
-	uint32 bGenerateConstClass:1;
+	UPROPERTY(EditAnywhere, Category=ClassOptions, AdvancedDisplay)
+	uint32 bGenerateConstClass : 1;
 
 	/**shows up in the content browser when the blueprint is hovered */
-	UPROPERTY(EditAnywhere, Category=BlueprintOption)
+	UPROPERTY(EditAnywhere, Category=BlueprintOptions, meta=(MultiLine=true))
 	FString BlueprintDescription;
 
 	/** The category of the Blueprint, used to organize this Blueprint class when displayed in palette windows */
-	UPROPERTY(EditAnywhere, Category=BlueprintOption)
+	UPROPERTY(EditAnywhere, Category=BlueprintOptions)
 	FString BlueprintCategory;
 
 	/** Additional HideCategories. The are added to HideCategories from parent. */
-	UPROPERTY(EditAnywhere, Category=BlueprintOption)
+	UPROPERTY(EditAnywhere, Category=BlueprintOptions)
 	TArray<FString> HideCategories;
 
 	/** TRUE to show a warning when attempting to start in PIE and there is a compiler error on this Blueprint */
@@ -317,10 +318,10 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 
 	/** Guid key for finding searchable data for Blueprint in the DDC */
 	UPROPERTY()
-	FGuid  SearchGuid;
+	FGuid SearchGuid;
 
 	/** Deprecates the Blueprint, marking the generated class with the CLASS_Deprecated flag */
-	UPROPERTY(EditAnywhere, Category=BlueprintOption)
+	UPROPERTY(EditAnywhere, Category=ClassOptions, AdvancedDisplay)
 	bool bDeprecate;
 #endif //WITH_EDITORONLY_DATA
 
@@ -379,6 +380,10 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 	UPROPERTY()
 	TArray<class UTimelineTemplate*> Timelines;
 
+	/** Stores data to override (in children classes) components (created by SCS) from parent classes */
+	UPROPERTY()
+	class UInheritableComponentHandler* InheritableComponentHandler;
+
 	/** The type of this blueprint */
 	UPROPERTY(AssetRegistrySearchable)
 	TEnumAsByte<enum EBlueprintType> BlueprintType;
@@ -426,7 +431,12 @@ public:
 	FChangedEvent& OnChanged() { return ChangedEvent; }
 
 	/**	This should NOT be public */
-	void BroadcastChanged() { ChangedEvent.Broadcast( this ); }
+	void BroadcastChanged() { ChangedEvent.Broadcast(this); }
+
+	/** Broadcasts a notification whenever the blueprint has changed. */
+	DECLARE_EVENT_OneParam(UBlueprint, FCompiledEvent, class UBlueprint*);
+	FCompiledEvent& OnCompiled() { return CompiledEvent; }
+	void BroadcastCompiled() { CompiledEvent.Broadcast(this); }
 
 #if WITH_EDITORONLY_DATA
 protected:
@@ -466,7 +476,7 @@ public:
 	static bool ValidateGeneratedClass(const UClass* InClass);
 
 	/** Find the object in the TemplateObjects array with the supplied name */
-	UActorComponent* FindTemplateByName(const FName& TemplateName);
+	UActorComponent* FindTemplateByName(const FName& TemplateName) const;
 
 	/** Find a timeline by name */
 	class UTimelineTemplate* FindTimelineTemplateByVariableName(const FName& TimelineName);	
@@ -549,6 +559,8 @@ public:
 	virtual bool SupportsInputEvents() const;
 
 	bool ChangeOwnerOfTemplates();
+
+	UInheritableComponentHandler* GetInheritableComponentHandler(bool bCreateIfNecessary);
 
 #endif	//#if WITH_EDITOR
 
@@ -643,6 +655,9 @@ private:
 
 	/** Broadcasts a notification whenever the blueprint has changed. */
 	FChangedEvent ChangedEvent;
+
+	/** Broadcasts a notification whenever the blueprint is compiled. */
+	FCompiledEvent CompiledEvent;
 
 #if WITH_EDITOR
 public:

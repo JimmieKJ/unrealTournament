@@ -72,7 +72,7 @@ void SPropertyEditorEditInline::Construct( const FArguments& InArgs, const TShar
 		SAssignNew(ComboButton, SComboButton)
 		.OnGetMenuContent(this, &SPropertyEditorEditInline::GenerateClassPicker)
 		.ContentPadding(0)
-		.ToolTipText(InPropertyEditor, &FPropertyEditor::GetValueAsString )
+		.ToolTipText(InPropertyEditor, &FPropertyEditor::GetValueAsText )
 		.ButtonContent()
 		[
 			SNew(SHorizontalBox)

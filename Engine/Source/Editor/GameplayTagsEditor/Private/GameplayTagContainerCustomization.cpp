@@ -104,7 +104,7 @@ TSharedRef<ITableRow> FGameplayTagContainerCustomization::MakeListViewWidget(TSh
 {
 	return SNew( STableRow< TSharedPtr<FString> >, OwnerTable )
 			[
-				SNew(STextBlock) .Text( *Item.Get() )
+				SNew(STextBlock) .Text( FText::FromString(*Item.Get()) )
 			];
 }
 

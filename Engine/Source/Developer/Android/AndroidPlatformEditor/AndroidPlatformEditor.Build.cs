@@ -17,10 +17,14 @@ public class AndroidPlatformEditor : ModuleRules
 				"Slate",
 				"SlateCore",
 				"EditorStyle",
+                "EditorWidgets",
+                "DesktopWidgets",
 				"PropertyEditor",
 				"SharedSettingsWidgets",
 				"SourceControl",
 				"AndroidRuntimeSettings",
+                "AndroidDeviceDetection",
+                "TargetPlatform"
 			}
 		);
 

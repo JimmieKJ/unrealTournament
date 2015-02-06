@@ -5,6 +5,7 @@
 
 #include "ModuleInterface.h"
 #include "ModuleDescriptor.h"
+#include "AddToProjectConfig.h"
 
 struct FTemplateCategory;
 
@@ -20,7 +21,6 @@ struct FModuleContextInfo
 	/** Type of this module, eg, Runtime, Editor, etc */
 	enum EHostType::Type ModuleType;
 };
-
 
 /**
  * Game Project Generation module
@@ -49,18 +49,30 @@ public:
 	 */
 	static inline FGameProjectGenerationModule& Get()
 	{
-		return FModuleManager::LoadModuleChecked< FGameProjectGenerationModule >( "GameProjectGeneration" );
+		static const FName ModuleName = "GameProjectGeneration";
+		return FModuleManager::LoadModuleChecked< FGameProjectGenerationModule >( ModuleName );
 	}
 
 	/** Creates the game project dialog */
 	virtual TSharedRef<class SWidget> CreateGameProjectDialog(bool bAllowProjectOpening, bool bAllowProjectCreate);
 
 	/** Creates a new class dialog for creating classes based on the passed-in class. */
-	virtual TSharedRef<class SWidget> CreateNewClassDialog(class UClass* InClass);
+	virtual TSharedRef<class SWidget> CreateNewClassDialog(const UClass* InClass);
+	
+	/** 
+	 * Opens a dialog to add code files to the current project. 
+	 *
+	 * @param	Config		Dialog configuration options
+	 */
+	virtual void OpenAddCodeToProjectDialog(const FAddToProjectConfig& Config = FAddToProjectConfig());
 
-	/** Opens a dialog to adds code files to the current project. */
-	virtual void OpenAddCodeToProjectDialog();
-
+	/** 
+	 * Opens a dialog to add a new blueprint to the current project. 
+	 *
+	 * @param	Config		Dialog configuration options
+	 */
+	virtual void OpenAddBlueprintToProjectDialog(const FAddToProjectConfig& Config);
+	
 	/** Delegate for when the AddCodeToProject dialog is opened */
 	DECLARE_EVENT(FGameProjectGenerationModule, FAddCodeToProjectDialogOpenedEvent);
 	FAddCodeToProjectDialogOpenedEvent& OnAddCodeToProjectDialogOpened() { return AddCodeToProjectDialogOpenedEvent; }
@@ -83,7 +95,14 @@ public:
 	/** Returns the path to the module's include header */
 	virtual FString DetermineModuleIncludePath(const FModuleContextInfo& ModuleInfo, const FString& FileRelativeTo);
 
+	/** Get the information about any modules referenced in the .uproject file of the currently loaded project */
 	virtual TArray<FModuleContextInfo> GetCurrentProjectModules();
+
+	/** Returns true if the specified class is a valid base class for the given module */
+	virtual bool IsValidBaseClassForCreation(const UClass* InClass, const FModuleContextInfo& InModuleInfo);
+
+	/** Returns true if the specified class is a valid base class for any of the given modules */
+	virtual bool IsValidBaseClassForCreation(const UClass* InClass, const TArray<FModuleContextInfo>& InModuleInfoArray);
 
 	/** Gets file and size info about the source directory */
 	virtual void GetProjectSourceDirectoryInfo(int32& OutNumFiles, int64& OutDirectorySize);

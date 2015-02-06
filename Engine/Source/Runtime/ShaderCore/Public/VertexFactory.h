@@ -499,7 +499,7 @@ public:
 		delete Parameters;
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const class FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const
+	void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const class FSceneView& View,const struct FMeshBatchElement& BatchElement,uint32 DataFlags) const
 	{
 		if(Parameters)
 		{

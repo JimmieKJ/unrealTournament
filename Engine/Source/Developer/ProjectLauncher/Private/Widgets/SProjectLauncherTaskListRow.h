@@ -47,7 +47,7 @@ public:
 private:
 
 	// Callback for getting the duration of the task.
-	FString HandleDurationText( ) const
+	FText HandleDurationText( ) const
 	{
 		ILauncherTaskPtr TaskPtr = Task.Pin();
 
@@ -56,11 +56,11 @@ private:
 			if ((TaskPtr->GetStatus() != ELauncherTaskStatus::Pending) &&
 				(TaskPtr->GetStatus() != ELauncherTaskStatus::Canceled))
 			{
-				return TaskPtr->GetDuration().ToString(TEXT("%h:%m:%s"));
+				return FText::AsTimespan(TaskPtr->GetDuration());
 			}
 		}
 
-		return FString();
+		return FText::GetEmpty();
 	}
 
 	// Callback for getting the color and opacity of the status icon.
@@ -116,7 +116,7 @@ private:
 	}
 
 	// Callback for getting the task's status text.
-	FString HandleStatusText( ) const
+	FText HandleStatusText( ) const
 	{
 		ILauncherTaskPtr TaskPtr = Task.Pin();
 
@@ -128,31 +128,31 @@ private:
 			{
 			case ELauncherTaskStatus::Busy:
 
-				return LOCTEXT("StatusInProgressText", "Busy").ToString();
+				return LOCTEXT("StatusInProgressText", "Busy");
 
 			case ELauncherTaskStatus::Canceled:
 
-				return LOCTEXT("StatusCanceledText", "Canceled").ToString();
+				return LOCTEXT("StatusCanceledText", "Canceled");
 
 			case ELauncherTaskStatus::Canceling:
 
-				return LOCTEXT("StatusCancelingText", "Canceling").ToString();
+				return LOCTEXT("StatusCancelingText", "Canceling");
 
 			case ELauncherTaskStatus::Completed:
 
-				return LOCTEXT("StatusCompletedText", "Completed").ToString();
+				return LOCTEXT("StatusCompletedText", "Completed");
 
 			case ELauncherTaskStatus::Failed:
 
-				return LOCTEXT("StatusFailedText", "Failed").ToString();
+				return LOCTEXT("StatusFailedText", "Failed");
 
 			case ELauncherTaskStatus::Pending:
 
-				return LOCTEXT("StatusPendingText", "Pending").ToString();
+				return LOCTEXT("StatusPendingText", "Pending");
 			}
 		}
 
-		return FString();
+		return FText::GetEmpty();
 	}
 
 	// Callback for determining the throbber's visibility.

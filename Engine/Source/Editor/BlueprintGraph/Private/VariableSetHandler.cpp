@@ -24,7 +24,7 @@ void FKCHandler_VariableSet::RegisterNets(FKismetFunctionContext& Context, UEdGr
 
 		if(FBlueprintEditorUtils::IsPropertyReadOnlyInCurrentBlueprint(Context.Blueprint, SetterNode->GetPropertyForVariable()))
 		{
-			CompilerContext.MessageLog.Warning(*LOCTEXT("BlueprintReadOnlyOrPrivate_Error", "The property is mark as BlueprintReadOnly or Private. It cannot be modifed in the blueprint. @@").ToString(), Node);
+			CompilerContext.MessageLog.Warning(*LOCTEXT("BlueprintReadOnlyOrPrivate_Error", "The property is marked as BlueprintReadOnly or Private. It cannot be modifed in the blueprint. @@").ToString(), Node);
 		}
 
 		// Report an error that the local variable could not be found

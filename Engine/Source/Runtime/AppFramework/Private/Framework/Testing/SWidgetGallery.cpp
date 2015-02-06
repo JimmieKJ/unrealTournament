@@ -17,6 +17,8 @@
 
 #define LOCTEXT_NAMESPACE "WidgetGallery"
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 /**
  * Implements a widget gallery.
  *
@@ -40,8 +42,6 @@ public:
 	SLATE_END_ARGS()
 		
 public:
-
-	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 	/**
 	 * Constructs the widget gallery.
@@ -854,7 +854,6 @@ public:
 			SwitchSecondComboToOptionSetA();
 		}
 	}
-	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
 protected:
@@ -1167,5 +1166,6 @@ TSharedRef<SWidget> MakeWidgetGallery()
 		.RenderTransformPivot_Static(&GetTestRenderTransformPivot);
 }
 
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 #undef LOCTEXT_NAMESPACE

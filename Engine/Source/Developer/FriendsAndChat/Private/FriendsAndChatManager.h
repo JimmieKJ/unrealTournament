@@ -302,20 +302,6 @@ public:
 	void SetUserIsOnline(EOnlinePresenceState::Type OnlineState);
 
 	/**
-	* Get the owner's client id
-	*
-	* @return client id string (or an empty string if it fails)
-	*/
-	FString GetUserClientId() const;
-
-	/**
-	* Get the owner's display name
-	*
-	* @return display/nickname string (or an empty string if it fails)
-	*/
-	FString GetUserNickname() const;
-
-	/**
 	 * Find a recent player.
 	 *
 	 * @param InUserId The user id to find.
@@ -332,6 +318,7 @@ public:
 	TSharedPtr< IFriendItem > FindUser(const FUniqueNetId& InUserID);
 
 	TSharedPtr<class FFriendViewModel> GetFriendViewModel(const FUniqueNetId& InUserID);
+
 
 	// External events
 	DECLARE_DERIVED_EVENT(FFriendsAndChatManager, IFriendsAndChatManager::FOnFriendsNotificationEvent, FOnFriendsNotificationEvent)
@@ -805,4 +792,19 @@ private:
 
 	FFriendsAndChatAnalytics Analytics;
 	static TSharedPtr< FFriendsAndChatManager > SingletonInstance;
+
+	/** Handle to various registered delegates */
+	FDelegateHandle OnQueryRecentPlayersCompleteDelegateHandle;
+	FDelegateHandle OnFriendsListChangedDelegateHandle;
+	FDelegateHandle OnFriendInviteReceivedDelegateHandle;
+	FDelegateHandle OnFriendRemovedDelegateHandle;
+	FDelegateHandle OnFriendInviteRejectedHandle;
+	FDelegateHandle OnFriendInviteAcceptedHandle;
+	FDelegateHandle OnReadFriendsCompleteDelegateHandle;
+	FDelegateHandle OnDeleteFriendCompleteDelegateHandle;
+	FDelegateHandle OnQueryUserInfoCompleteDelegateHandle;
+	FDelegateHandle OnPresenceReceivedCompleteDelegateHandle;
+	FDelegateHandle OnGameInviteReceivedDelegateHandle;
+	FDelegateHandle OnDestroySessionCompleteDelegateHandle;
+	FDelegateHandle UpdateFriendsTickerDelegateHandle;
 };

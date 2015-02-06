@@ -222,6 +222,7 @@ void FPrecomputedLightVolume::AddToScene(FSceneInterface* Scene)
 	if (bInitialized && Scene)
 	{
 		Scene->AddPrecomputedLightVolume(this);
+		OctreeForRendering = AllowHighQualityLightmaps(Scene->GetFeatureLevel()) ? &HighQualityLightmapOctree : &LowQualityLightmapOctree;
 	}
 }
 

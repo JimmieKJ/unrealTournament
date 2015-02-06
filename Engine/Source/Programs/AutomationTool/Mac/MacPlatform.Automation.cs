@@ -45,6 +45,16 @@ public class MacPlatform : Platform
 			else if (Exe.StartsWith(CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir)))
 			{
 				AppBundlePath = CombinePaths("Engine/Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app");
+
+				string AbsoluteBundlePath = CombinePaths (SC.LocalRoot, AppBundlePath);
+				// ensure the ue4game binary exists, if applicable
+				if (!SC.IsCodeBasedProject && !Directory.Exists(AbsoluteBundlePath))
+				{
+					Log("Failed to find app bundle " + AbsoluteBundlePath);
+					AutomationTool.ErrorReporter.Error("Stage Failed.", (int)AutomationTool.ErrorCodes.Error_MissingExecutable);
+					throw new AutomationException("Could not find app bundle {0}. You may need to build the UE4 project with your target configuration and platform.", AbsoluteBundlePath);
+				}
+
 				StageAppBundle(SC, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app"), AppBundlePath);
 			}
 

@@ -325,9 +325,6 @@ public:
 	}
 
 	SLATECORE_API virtual FText ToText() const;
-	
-	/** Is this event a pointer event (touch or cursor). */
-	SLATECORE_API virtual bool IsPointerEvent() const;
 
 protected:
 
@@ -417,7 +414,7 @@ public:
 		return KeyCode;
 	}
 
-	SLATECORE_API virtual FText ToText() const override;	
+	SLATECORE_API virtual FText ToText() const override;
 
 private:
 	// Name of the key that was pressed.
@@ -743,8 +740,6 @@ public:
 	}
 
 	SLATECORE_API virtual FText ToText() const override;
-
-	SLATECORE_API virtual bool IsPointerEvent() const override;
 
 	template<typename PointerEventType>
 	static PointerEventType MakeTranslatedEvent( const PointerEventType& InPointerEvent, const FVirtualPointerPosition& VirtualPosition )

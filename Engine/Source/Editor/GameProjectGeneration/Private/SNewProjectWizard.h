@@ -77,13 +77,13 @@ private:
 	EVisibility GetSelectedTemplatePreviewVisibility() const;
 
 	/** Get a string that details the class types referenced in the selected template */
-	FString GetSelectedTemplateClassTypes() const;
+	FText GetSelectedTemplateClassTypes() const;
 	
 	/** Get a visiblity of the class types display. If the string is empty this return Collapsed otherwise it will return Visible */
 	EVisibility GetSelectedTemplateClassVisibility() const;
 	
 	/** Get a string that details the class types referenced in the selected template */
-	FString GetSelectedTemplateAssetTypes() const;	
+	FText GetSelectedTemplateAssetTypes() const;	
 	
 	/** Get a visiblity of the asset types display. If the string is empty this return Collapsed otherwise it will return Visible */
 	EVisibility GetSelectedTemplateAssetVisibility() const;

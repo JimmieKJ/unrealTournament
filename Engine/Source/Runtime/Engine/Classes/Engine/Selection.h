@@ -16,7 +16,8 @@ private:
 	typedef TArray<TWeakObjectPtr<UObject> >	ObjectArray;
 	typedef TMRUArray<UClass*>	ClassArray;
 
-	friend class FSelectionIterator;
+	template<typename SelectionFilter>
+	friend class TSelectionIterator;
 
 public:
 	/** Params: UObject* NewSelection */
@@ -351,15 +352,28 @@ private:
 	}
 };
 
+
+/** A filter for generic selection sets.  Simply allows objects which are non-null */
+class FGenericSelectionFilter
+{
+public:
+	bool IsObjectValid( const UObject* InObject ) const
+	{
+		return InObject != nullptr;
+	}
+};
+
 /**
  * Manages selections of objects.  Used in the editor for selecting
  * objects in the various browser windows.
  */
-class FSelectionIterator
+template<typename SelectionFilter>
+class TSelectionIterator
 {
 public:
-	FSelectionIterator(USelection& InSelection)
+	TSelectionIterator(USelection& InSelection)
 		: Selection( InSelection )
+		, Filter( SelectionFilter() )
 	{
 		Reset();
 	}
@@ -424,7 +438,7 @@ private:
 
 	bool IsObjectValid() const
 	{
-		return GetCurrentObject() != NULL;
+		return Filter.IsObjectValid( GetCurrentObject() );
 	}
 
 	bool IsIndexValid() const
@@ -433,5 +447,37 @@ private:
 	}
 
 	USelection&	Selection;
+	SelectionFilter Filter;
 	int32			Index;
+};
+
+
+class FSelectionIterator : public TSelectionIterator<FGenericSelectionFilter>
+{
+public:
+	FSelectionIterator(USelection& InSelection)
+		: TSelectionIterator<FGenericSelectionFilter>( InSelection )
+	{}
+};
+
+/** A filter for only iterating through editable components */
+class FSelectedEditableComponentFilter
+{
+public:
+	bool IsObjectValid(const UObject* Object) const
+	{
+		const UActorComponent* Comp = Cast<UActorComponent>( Object );
+		return Comp && Comp->CreationMethod != EComponentCreationMethod::UserConstructionScript;
+	}
+};
+
+/**
+ * An iterator used to iterate through selected components that are editable (i.e. not created in a blueprint)
+ */
+class FSelectedEditableComponentIterator : public TSelectionIterator<FSelectedEditableComponentFilter>
+{
+public:
+	FSelectedEditableComponentIterator(USelection& InSelection)
+		: TSelectionIterator<FSelectedEditableComponentFilter>(InSelection)
+	{}
 };

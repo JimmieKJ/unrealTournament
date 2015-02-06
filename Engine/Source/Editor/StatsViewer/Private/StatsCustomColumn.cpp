@@ -60,7 +60,7 @@ TSharedPtr< SWidget > FStatsCustomColumn::CreateColumnLabel( const TSharedRef< I
 			[
 				SNew( STextBlock )
 				.Font( FEditorStyle::GetFontStyle( Style ) )
-				.Text( Column->GetDisplayName().ToString() )
+				.Text( Column->GetDisplayName() )
 			]
 			+SVerticalBox::Slot()
 			.AutoHeight()
@@ -79,7 +79,7 @@ TSharedPtr< SWidget > FStatsCustomColumn::CreateColumnLabel( const TSharedRef< I
 			[
 				SNew( STextBlock )
 				.Font( FEditorStyle::GetFontStyle( Style ) )
-				.Text( Column->GetDisplayName().ToString() )
+				.Text( Column->GetDisplayName() )
 			];
 	}
 }

@@ -37,7 +37,7 @@ FString ToStringBlob( const DataType& DataVal )
 }
 
 /**
- * Helper functions to decide whether the passed in data is a JSON string we expect to deserialise a manifest from
+ * Helper functions to decide whether the passed in data is a JSON string we expect to deserialize a manifest from
  */
 bool BufferIsJsonManifest(const TArray<uint8>& DataInput)
 {
@@ -158,6 +158,8 @@ FFileManifestData::FFileManifestData()
 	, FileChunkParts()
 	, bIsUnixExecutable(false)
 	, SymlinkTarget(TEXT(""))
+	, bIsReadOnly(false)
+	, bIsCompressed(false)
 	, FileSize(INDEX_NONE)
 {
 }
@@ -726,6 +728,14 @@ void FBuildPatchAppManifest::SerializeToJSON(FString& JSONOutput)
 				{
 					Writer->WriteValue(TEXT("bIsUnixExecutable"), FileManifest.bIsUnixExecutable);
 				}
+				if (FileManifest.bIsReadOnly)
+				{
+					Writer->WriteValue(TEXT("bIsReadOnly"), FileManifest.bIsReadOnly);
+				}
+				if (FileManifest.bIsCompressed)
+				{
+					Writer->WriteValue(TEXT("bIsCompressed"), FileManifest.bIsCompressed);
+				}
 				const bool bIsSymlink = !FileManifest.SymlinkTarget.IsEmpty();
 				if (bIsSymlink)
 				{
@@ -893,6 +903,8 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 				AllDataGuids.Add(FileChunkPart.Guid);
 			}
 			FileManifest.bIsUnixExecutable = JsonFileManifest->HasField(TEXT("bIsUnixExecutable")) && JsonFileManifest->GetBoolField(TEXT("bIsUnixExecutable"));
+			FileManifest.bIsReadOnly = JsonFileManifest->HasField(TEXT("bIsReadOnly")) && JsonFileManifest->GetBoolField(TEXT("bIsReadOnly"));
+			FileManifest.bIsCompressed = JsonFileManifest->HasField(TEXT("bIsCompressed")) && JsonFileManifest->GetBoolField(TEXT("bIsCompressed"));
 			FileManifest.SymlinkTarget = JsonFileManifest->HasField(TEXT("SymlinkTarget")) ? JsonFileManifest->GetStringField(TEXT("SymlinkTarget")) : TEXT("");
 			FileManifest.Init();
 		}

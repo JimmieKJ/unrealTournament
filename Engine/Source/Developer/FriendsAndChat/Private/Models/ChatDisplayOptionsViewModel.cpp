@@ -53,11 +53,6 @@ public:
 		ChatViewModel->SetInGame(bInGame);
 	}
 
-	virtual void EnableGlobalChat(bool bEnable) override
-	{
-		ChatViewModel->EnableGlobalChat(bEnable);
-	}
-
 // End IChatViewModel interface
 
 // Begin ChatDisplayOptionsViewModel interface
@@ -143,11 +138,7 @@ public:
 
 	virtual void EnumerateChatChannelOptionsList(TArray<EChatMessageType::Type>& OUTChannelType) override
 	{
-		if (ChatViewModel->IsGlobalChatEnabled())
-		{
-			OUTChannelType.Add(EChatMessageType::Global);
-		}
-		
+		OUTChannelType.Add(EChatMessageType::Global);
 		if (OnNetworkMessageSentEvent().IsBound() && FFriendsAndChatManager::Get()->IsInGameSession())
 		{
 			OUTChannelType.Add(EChatMessageType::Party);

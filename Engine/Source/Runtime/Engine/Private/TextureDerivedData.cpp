@@ -865,6 +865,7 @@ public:
 		{
 			GetBuildInfo();
 		}
+		UTexture::GetPixelFormatEnum();
 	}
 
 	/** Does the work to cache derived data. Safe to call from any thread. */
@@ -1282,6 +1283,7 @@ FAsyncStreamDerivedMipWorker::FAsyncStreamDerivedMipWorker(
 	, bRequestFailed(false)
 	, ThreadSafeCounter(InThreadSafeCounter)
 {
+	UTexture::GetPixelFormatEnum();
 }
 
 /** Retrieves the derived mip from the derived data cache. */

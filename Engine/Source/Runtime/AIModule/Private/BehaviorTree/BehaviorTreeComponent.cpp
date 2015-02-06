@@ -587,7 +587,7 @@ void UBehaviorTreeComponent::RequestExecution(UBTCompositeNode* RequestedOn, int
 				(ActiveInstance.ActiveNodeType == EBTActiveNode::Composite) ? (UBTCompositeNode*)ActiveInstance.ActiveNode :
 				ActiveInstance.ActiveNode->GetParentNode();
 
-			CurrentInstanceIdx = InstanceStack.Num() - 1;
+			CurrentInstanceIdx = ActiveInstanceIdx;
 		}
 
 		if (ExecutionRequest.ExecuteNode != RequestedOn)
@@ -598,12 +598,34 @@ void UBehaviorTreeComponent::RequestExecution(UBTCompositeNode* RequestedOn, int
 			FindCommonParent(InstanceStack, KnownInstances, RequestedOn, InstanceIdx, CurrentNode, CurrentInstanceIdx, CommonParent, CommonInstanceIdx);
 
 			// check decorators between common parent and restart parent
-			// it's always on the same stack level, because only tasks can push new subtrees
+			int32 ItInstanceIdx = InstanceIdx;
 			for (UBTCompositeNode* It = RequestedOn; It && It != CommonParent;)
 			{
 				UBTCompositeNode* ParentNode = It->GetParentNode();
-				const int32 ChildIdx = ParentNode->GetChildIndex(*It);
-				const bool bCanExecuteTest = ParentNode->DoDecoratorsAllowExecution(*this, CommonInstanceIdx, ChildIdx);
+				int32 ChildIdx = INDEX_NONE;
+
+				if (ParentNode == nullptr)
+				{
+					// move up the tree stack
+					if (ItInstanceIdx > 0)
+					{
+						ItInstanceIdx--;
+						UBTNode* SubtreeTaskNode = InstanceStack[ItInstanceIdx].ActiveNode;
+						ParentNode = SubtreeTaskNode->GetParentNode();
+						ChildIdx = ParentNode->GetChildIndex(*SubtreeTaskNode);
+					}
+					else
+					{
+						// something went wrong...
+						break;
+					}
+				}
+				else
+				{
+					ChildIdx = ParentNode->GetChildIndex(*It);
+				}
+
+				const bool bCanExecuteTest = ParentNode->DoDecoratorsAllowExecution(*this, ItInstanceIdx, ChildIdx);
 				if (!bCanExecuteTest)
 				{
 					UE_VLOG(GetOwner(), LogBehaviorTree, Log, TEXT("> skip: decorators are not allowing execution"));
@@ -888,8 +910,11 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 		// additional operations for restarting:
 		if (!ExecutionRequest.bTryNextChild)
 		{
-			// mark all decorators less important than current search start for removal
-			UnregisterAuxNodesUpTo(ExecutionRequest.SearchStart);
+			// mark all decorators less important than current search start node for removal
+			// (all from first node on branch with search start)
+			const int32 StartNodeIdx = ExecutionRequest.ExecuteNode->GetBranchExecutionIndex(ExecutionRequest.SearchStart.ExecutionIndex) - 1;
+			const FBTNodeIndex DeactivateIdx(ExecutionRequest.ExecuteInstanceIdx, FMath::Max(StartNodeIdx, 0));
+			UnregisterAuxNodesUpTo(DeactivateIdx);
 
 			// reactivate top search node, so it could use search range correctly
 			BT_SEARCHLOG(SearchData, Verbose, TEXT("Reactivate node: %s [restart]"), *UBehaviorTreeTypes::DescribeNodeHelper(TestNode));

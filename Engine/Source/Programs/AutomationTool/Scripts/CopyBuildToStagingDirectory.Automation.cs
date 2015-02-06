@@ -193,6 +193,33 @@ public partial class Project : CommandUtils
 		}
 		var ThisPlatform = SC.StageTargetPlatform;
 
+
+        if (Params.HasDLCName)
+        {
+            string DLCName = Params.DLCName;
+
+            // Making a plugin, grab the binaries too
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName), "*.uplugin", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "libUE4-*.so", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "UE4-*.dll", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "libUE4Server-*.so", true, null, null, true);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Binaries"), "UE4Server-*.dll", true, null, null, true);
+            
+            // Put all of the cooked dir into the staged dir
+            if (SC.DedicatedServer)
+            {
+                // Dedicated server cook doesn't save shaders so no Engine dir is created
+                SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Saved", "Cooked", SC.CookPlatform), "*", true, new[] { "AssetRegistry.bin" }, "", true, !Params.UsePak(SC.StageTargetPlatform));
+            }
+            else
+            {
+                SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot, "Plugins", DLCName, "Saved", "Cooked", SC.CookPlatform), "*", true, new[] { "AssetRegistry.bin", CommandUtils.CombinePaths("Engine", "*") }, "", true, !Params.UsePak(SC.StageTargetPlatform));
+            }
+
+            return;
+        }
+
+
 		ThisPlatform.GetFilesToDeployOrStage(Params, SC);
 
 		// Get the build.properties file
@@ -384,12 +411,17 @@ public partial class Project : CommandUtils
 
 	public static void DumpTargetManifest(Dictionary<string, string> Mapping, string Filename, string StageDir, List<string> CRCFiles)
 	{
-		if (Mapping.Count > 0)
+        // const string Iso8601DateTimeFormat = "yyyy-MM-ddTHH:mm:ssZ"; // probably should work
+		// const string Iso8601DateTimeFormat = "o"; // predefined universal Iso standard format (has too many millisecond spaces for our read code in FDateTime.ParseISO8601
+        const string Iso8601DateTimeFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffzzz";
+
+        
+        if (Mapping.Count > 0)
 		{
 			var Lines = new List<string>();
 			foreach (var Pair in Mapping)
 			{
-				string TimeStamp = File.GetLastWriteTimeUtc(Pair.Key).ToString();
+                string TimeStamp = File.GetLastWriteTimeUtc(Pair.Key).ToString(Iso8601DateTimeFormat);
 				if (CRCFiles.Contains(Pair.Value))
 				{
 					byte[] FileData = File.ReadAllBytes(StageDir + "/" + Pair.Value);
@@ -419,7 +451,7 @@ public partial class Project : CommandUtils
 			string Dest = CombinePaths(StageDir, Pair.Value);
 			if (Src != Dest)  // special case for things created in the staging directory, like the pak file
 			{
-				CopyFileIncremental(Src, Dest);
+				CopyFileIncremental(Src, Dest, bFilterSpecialLinesFromIniFiles:true);
 			}
 		}
 		if (!String.IsNullOrEmpty(ManifestPath) && Mapping.Count > 0)
@@ -1111,8 +1143,8 @@ public partial class Project : CommandUtils
 		// add the manifest
 		if (!DeltaManifest.Contains("NonUFS"))
 		{
-			DeltaFiles.Add("Manifest_NonUFSFiles.txt");
-			DeltaFiles.Add("Manifest_UFSFiles.txt");
+			DeltaFiles.Add(DeploymentContext.NonUFSDeployedManifestFileName);
+			DeltaFiles.Add(DeploymentContext.UFSDeployedManifestFileName);
 		}
 
 		// TODO: determine files which need to be removed
@@ -1257,12 +1289,12 @@ public partial class Project : CommandUtils
 						}
 
 						// get the staged file data
-						Dictionary<string, string> StagedUFSFiles = ReadStagedManifest(Params, SC, "Manifest_UFSFiles.txt");
-						Dictionary<string, string> StagedNonUFSFiles = ReadStagedManifest(Params, SC, "Manifest_NonUFSFiles.txt");
+						Dictionary<string, string> StagedUFSFiles = ReadStagedManifest(Params, SC, DeploymentContext.UFSDeployedManifestFileName);
+						Dictionary<string, string> StagedNonUFSFiles = ReadStagedManifest(Params, SC, DeploymentContext.NonUFSDeployedManifestFileName);
 
 						// write out the delta file data
-						WriteDeltaManifest(Params, SC, DeployedUFSFiles, StagedUFSFiles, "Manifest_DeltaUFSFiles.txt");
-						WriteDeltaManifest(Params, SC, DeployedNonUFSFiles, StagedNonUFSFiles, "Manifest_DeltaNonUFSFiles.txt");
+						WriteDeltaManifest(Params, SC, DeployedUFSFiles, StagedUFSFiles, DeploymentContext.UFSDeployDeltaFileName);
+						WriteDeltaManifest(Params, SC, DeployedNonUFSFiles, StagedNonUFSFiles, DeploymentContext.NonUFSDeployDeltaFileName);
 					}
 				}
 			}

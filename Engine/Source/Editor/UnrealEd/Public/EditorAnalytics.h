@@ -56,6 +56,7 @@ namespace EAnalyticsErrorCodes
 		LauncherFailed = 100,
 		UATLaunchFailure = 101,
 		FailedToDeleteStagingDirectory = 102,
+		MissingExecutable = 103,
 	};
 };
 
@@ -101,5 +102,8 @@ public:
 public:
 
 	/* Translates the error code to something human readable */
-	static FString TranslateErrorCode(int32 ErrorCode);
+	UNREALED_API static FString TranslateErrorCode(int32 ErrorCode);
+
+	/* Determine whether the error code should cause the reporter to display the message in a dialog. */
+	UNREALED_API static bool ShouldElevateMessageThroughDialog(const int32 ErrorCode);
 };

@@ -113,8 +113,7 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 	DetailsViewArgs.bAllowSearch = true;
 	DetailsViewArgs.bLockable = false;
 	DetailsViewArgs.bUpdatesFromSelection = false;
-	DetailsViewArgs.bHideActorNameArea = true;
-	DetailsViewArgs.bObjectsUseNameArea = false;
+	DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 	DetailsViewArgs.NotifyHook = this;
 
 	StaticMeshDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );

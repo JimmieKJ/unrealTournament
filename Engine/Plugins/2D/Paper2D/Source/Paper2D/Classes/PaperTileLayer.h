@@ -6,15 +6,18 @@
 
 #include "PaperTileLayer.generated.h"
 
+// This is the contents of a tile map cell
 USTRUCT(BlueprintType)
 struct FPaperTileInfo
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY()
+	// The tile set that this tile comes from
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sprite)
 	UPaperTileSet* TileSet;
 
-	UPROPERTY()
+	// This is the index of the current tile within the tile set
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Sprite)
 	int32 PackedTileIndex;
 
 	FPaperTileInfo()
@@ -39,6 +42,7 @@ struct FPaperTileInfo
 	}
 };
 
+// This class represents a single layer in a tile map.  All layers in the map must have the size dimensions.
 UCLASS()
 class PAPER2D_API UPaperTileLayer : public UObject
 {
@@ -49,11 +53,11 @@ class PAPER2D_API UPaperTileLayer : public UObject
 	FText LayerName;
 
 	// Width of the layer (in tiles)
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category=Sprite)
 	int32 LayerWidth;
 
 	// Height of the layer (in tiles)
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category=Sprite)
 	int32 LayerHeight;
 
 #if WITH_EDITORONLY_DATA
@@ -67,7 +71,7 @@ class PAPER2D_API UPaperTileLayer : public UObject
 #endif
 
 	// Should this layer be hidden in the game?
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category=Sprite)
 	bool bHiddenInGame;
 
 	// Is this layer a collision layer?

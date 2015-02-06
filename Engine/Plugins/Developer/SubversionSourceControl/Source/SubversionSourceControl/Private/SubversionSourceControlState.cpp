@@ -29,6 +29,19 @@ TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FSubversionSourceC
 	return NULL;
 }
 
+TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FSubversionSourceControlState::FindHistoryRevision(const FString& InRevision) const
+{
+	for(const auto& Revision : History)
+	{
+		if(Revision->GetRevision() == InRevision)
+		{
+			return Revision;
+		}
+	}
+
+	return NULL;
+}
+
 TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FSubversionSourceControlState::GetBaseRevForMerge() const
 {
 	return FindHistoryRevision(PendingMergeBaseFileRevNumber);

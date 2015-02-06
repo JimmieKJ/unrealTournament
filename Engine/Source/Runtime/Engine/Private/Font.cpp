@@ -46,7 +46,9 @@ void UFont::Serialize( FArchive& Ar )
 		{
 			if( InFontData.FontData_DEPRECATED.Num() > 0 )
 			{
-				InFontData.BulkDataPtr = new(this) UFontBulkData(InFontData.FontData_DEPRECATED.GetData(), InFontData.FontData_DEPRECATED.Num());
+				UFontBulkData* FontBulkData = NewObject<UFontBulkData>(this);
+				FontBulkData->Initialize(InFontData.FontData_DEPRECATED.GetData(), InFontData.FontData_DEPRECATED.Num());
+				InFontData.BulkDataPtr = FontBulkData;					
 				InFontData.FontData_DEPRECATED.Empty();
 			}
 		};
@@ -91,6 +93,27 @@ void UFont::PostLoad()
 		}
 	}
 }
+
+#if WITH_EDITORONLY_DATA
+void UFont::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	// Add all the font filenames
+	for( const FTypefaceEntry& TypefaceEntry : CompositeFont.DefaultTypeface.Fonts )
+	{
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), TypefaceEntry.Font.FontFilename, FAssetRegistryTag::TT_Hidden) );
+	}
+
+	for( const FCompositeSubFont& SubFont : CompositeFont.SubTypefaces )
+	{
+		for( const FTypefaceEntry& TypefaceEntry : SubFont.Typeface.Fonts )
+		{
+			OutTags.Add( FAssetRegistryTag(SourceFileTagName(), TypefaceEntry.Font.FontFilename, FAssetRegistryTag::TT_Hidden) );
+		}
+	}
+
+	Super::GetAssetRegistryTags(OutTags);
+}
+#endif
 
 void UFont::CacheCharacterCountAndMaxCharHeight()
 {

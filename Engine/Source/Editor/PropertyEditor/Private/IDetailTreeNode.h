@@ -101,5 +101,10 @@ public:
 	 * @return true if this is a leaf node:
 	 */
 	virtual bool IsLeaf() { return false; }
+
+	/**
+	* @return TAttribute indicating whether editing is enabled or whether the property is readonly:
+	*/
+	virtual TAttribute<bool> IsPropertyEditingEnabled() const { return false; }
 };
 

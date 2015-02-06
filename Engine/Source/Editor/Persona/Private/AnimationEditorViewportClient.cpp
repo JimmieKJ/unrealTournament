@@ -2236,13 +2236,15 @@ float FAnimationViewportClient::GetWindStrengthSliderValue() const
 	return 0;
 }
 
-FString FAnimationViewportClient::GetWindStrengthLabel() const
+FText FAnimationViewportClient::GetWindStrengthLabel() const
 {
 	//Clamp slide value so that minimum value displayed is 0.00 and maximum is 1.0
 	float SliderValue = FMath::Clamp<float>(GetWindStrengthSliderValue(), 0.0f, 1.0f);
 
-	FString Value = FString::Printf(TEXT("%.2f%"),SliderValue);
-	return Value;
+	static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(2)
+		.SetMaximumFractionalDigits(2);
+	return FText::AsNumber(SliderValue, &FormatOptions);
 }
 
 void FAnimationViewportClient::SetGravityScale( float SliderPos )
@@ -2263,13 +2265,15 @@ float FAnimationViewportClient::GetGravityScaleSliderValue() const
 	return GravityScaleSliderValue;
 }
 
-FString FAnimationViewportClient::GetGravityScaleLabel() const
+FText FAnimationViewportClient::GetGravityScaleLabel() const
 {
 	//Clamp slide value so that minimum value displayed is 0.00 and maximum is 4.0
 	float SliderValue = FMath::Clamp<float>(GetGravityScaleSliderValue()*4, 0.0f, 4.0f);
 
-	FString Value = FString::Printf(TEXT("%.2f%"),SliderValue);
-	return Value;
+	static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(2)
+		.SetMaximumFractionalDigits(2);
+	return FText::AsNumber(SliderValue, &FormatOptions);
 }
 
 void FAnimationViewportClient::ToggleShowNormals()

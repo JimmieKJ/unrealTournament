@@ -23,11 +23,14 @@ public:
 	// FEditorModeTools interface
 	virtual class USelection* GetSelectedActors() const override;
 	virtual class USelection* GetSelectedObjects() const override;
+	virtual UWorld* GetWorld() const override;
 	// End of FEditorModeTools interface
 
+	void SetPreviewScene(class FPreviewScene* NewPreviewScene);
 protected:
 	class USelection* ActorSet;
 	class USelection* ObjectSet;
+	class FPreviewScene* PreviewScene;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -43,6 +46,10 @@ public:
 	// FViewportClient interface
 	virtual void Draw(FViewport* Viewport, FCanvas* Canvas) override;
 	// End of FViewportClient interface
+
+	// FEditorViewportClient interface
+	virtual FLinearColor GetBackgroundColor() const override;
+	// End of FEditorViewportClient interface
 
 	// FSerializableObject interface
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;

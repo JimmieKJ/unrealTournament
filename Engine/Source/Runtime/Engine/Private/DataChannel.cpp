@@ -399,6 +399,9 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 	// Note this bunch's retirement.
 	if ( Bunch.bReliable )
 	{
+		// Reliables should be ordered properly at this point
+		check( Bunch.ChSequence == Connection->InReliable[Bunch.ChIndex] + 1 );
+
 		Connection->InReliable[Bunch.ChIndex] = Bunch.ChSequence;
 	}
 
@@ -451,7 +454,15 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 			//  -ChSequence is next in partial sequence
 			//	-Reliability flag matches
 
-			if (InPartialBunch && !InPartialBunch->bPartialFinal && InPartialBunch->ChSequence+1 == Bunch.ChSequence && InPartialBunch->bReliable == Bunch.bReliable)
+			const bool bReliableSequencesMatches = Bunch.ChSequence == InPartialBunch->ChSequence + 1;
+			const bool bUnreliableSequenceMatches = bReliableSequencesMatches || ( Bunch.ChSequence == InPartialBunch->ChSequence );
+
+			// Unreliable partial bunches use the packet sequence, and since we can merge multiple bunches into a single packet,
+			// it's perfectly legal for the ChSequence to match in this case.
+			// Reliable partial bunches must be in consecutive order though
+			const bool bSequenceMatches = InPartialBunch->bReliable ? bReliableSequencesMatches : bUnreliableSequenceMatches;
+
+			if ( InPartialBunch && !InPartialBunch->bPartialFinal && bSequenceMatches && InPartialBunch->bReliable == Bunch.bReliable )
 			{
 				// Merge.
 				UE_LOG(LogNetPartialBunch, Verbose, TEXT("Merging Partial Bunch: %d Bytes"), Bunch.GetBytesLeft() );
@@ -465,7 +476,8 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 				// This is to ensure fast copies/appending of partial bunches. The final partial bunch may be non byte aligned.
 				check( Bunch.bHasGUIDs || Bunch.bPartialFinal || Bunch.GetBitsLeft() % 8 == 0 );
 
-				InPartialBunch->ChSequence++;
+				// Advance the sequence of the current partial bunch so we know what to expect next
+				InPartialBunch->ChSequence = Bunch.ChSequence;
 
 				if (Bunch.bPartialFinal)
 				{
@@ -482,16 +494,6 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 					InPartialBunch->bClose					= Bunch.bClose;
 					InPartialBunch->bDormant				= Bunch.bDormant;
 					InPartialBunch->bHasMustBeMappedGUIDs	= Bunch.bHasMustBeMappedGUIDs;
-
-					if (InPartialBunch->bOpen)
-					{
-						UE_LOG(LogNetPartialBunch, Verbose, TEXT("Channel: %d is now Open! [%d] - [%d]"), ChIndex, OpenPacketId.First, OpenPacketId.Last );
-
-						// If the open bunch was partial, set the ending range to the final partial bunch id
-						OpenPacketId.First = InPartialBunch->PacketId;
-						OpenPacketId.Last = Bunch.PacketId;
-						OpenAcked = true;
-					}
 				}
 				else
 				{
@@ -504,13 +506,13 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 			else
 			{
 				// Merge problem - delete InPartialBunch. This is mainly so that in the unlikely chance that ChSequence wraps around, we wont merge two completely separate partial bunches.
-				bOutSkipAck = true;
+				
+				bOutSkipAck = true;	// Don't ack the packet, since we didn't process the bunch
 
 				if ( InPartialBunch && InPartialBunch->bReliable )
 				{
 					check( !Bunch.bReliable );		// FIXME: Disconnect client in this case
 					UE_LOG( LogNetPartialBunch, Log, TEXT( "Unreliable partial trying to destroy reliable partial 2" ) );
-					bOutSkipAck = true;
 					return false;
 				}
 
@@ -537,14 +539,122 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 			return false;
 		}
 	}
-	
-	if (HandleBunch!=NULL)
+
+	if ( HandleBunch != NULL )
 	{
+		if ( HandleBunch->bOpen )
+		{
+			if ( ChType != CHTYPE_Voice )	// Voice channels can open from both side simultaneously, so ignore this logic until we resolve this
+			{
+				check( !OpenedLocally );					// If we opened the channel, we shouldn't be receiving bOpen commands from the other side
+				check( OpenPacketId.First == INDEX_NONE );	// This should be the first and only assignment of the packet range (we should only receive one bOpen bunch)
+				check( OpenPacketId.Last == INDEX_NONE );	// This should be the first and only assignment of the packet range (we should only receive one bOpen bunch)
+			}
+
+			// Remember the range.
+			// In the case of a non partial, HandleBunch == Bunch
+			// In the case of a partial, HandleBunch should == InPartialBunch, and Bunch should be the last bunch.
+			OpenPacketId.First = HandleBunch->PacketId;
+			OpenPacketId.Last = Bunch.PacketId;
+			OpenAcked = true;
+
+			UE_LOG( LogNetTraffic, Verbose, TEXT( "ReceivedNextBunch: Channel now fully open. ChIndex: %i, OpenPacketId.First: %i, OpenPacketId.Last: %i" ), ChIndex, OpenPacketId.First, OpenPacketId.Last );
+		}
+
+		if ( ChType != CHTYPE_Voice )	// Voice channels can open from both side simultaneously, so ignore this logic until we resolve this
+		{
+			// Don't process any packets until we've fully opened this channel 
+			// (unless we opened it locally, in which case it's safe to process packets)
+			if ( !OpenedLocally && !OpenAcked )
+			{
+				// If we receive a reliable at this point, this means reliables are out of order, which shouldn't be possible
+				check( !HandleBunch->bReliable );
+
+				// Don't ack this packet (since we won't process all of it)
+				bOutSkipAck = true;
+
+				UE_LOG( LogNetTraffic, Warning, TEXT( "ReceivedNextBunch: Skipping bunch since channel isn't fully open. ChIndex: %i" ), ChIndex );
+				return false;
+			}
+
+			// At this point, we should have the open packet range
+			// This is because if we opened the channel locally, we set it immediately when we sent the first bOpen bunch
+			// If we opened it from a remote connection, then we shouldn't be processing any packets until it's fully opened (which is handled above)
+			check( OpenPacketId.First != INDEX_NONE );
+			check( OpenPacketId.Last != INDEX_NONE );
+		}
+
 		// Receive it in sequence.
 		return ReceivedSequencedBunch( *HandleBunch );
 	}
 
 	return false;
+}
+
+void UChannel::AppendExportBunches( TArray<FOutBunch *>& OutExportBunches )
+{
+	UPackageMapClient * PackageMapClient = CastChecked< UPackageMapClient >( Connection->PackageMap );
+
+	// Let the package map add any outgoing bunches it needs to send
+	PackageMapClient->AppendExportBunches( OutExportBunches );
+}
+
+void UChannel::AppendMustBeMappedGuids( FOutBunch* Bunch )
+{
+	UPackageMapClient * PackageMapClient = CastChecked< UPackageMapClient >( Connection->PackageMap );
+
+	TArray< FNetworkGUID >& MustBeMappedGuidsInLastBunch = PackageMapClient->GetMustBeMappedGuidsInLastBunch();
+
+	if ( MustBeMappedGuidsInLastBunch.Num() > 0 )
+	{
+		// Rewrite the bunch with the unique guids in front
+		FOutBunch TempBunch( *Bunch );
+
+		Bunch->Reset();
+
+		// Write all the guids out
+		uint16 NumMustBeMappedGUIDs = MustBeMappedGuidsInLastBunch.Num();
+		*Bunch << NumMustBeMappedGUIDs;
+		for ( int32 i = 0; i < MustBeMappedGuidsInLastBunch.Num(); i++ )
+		{
+			*Bunch << MustBeMappedGuidsInLastBunch[i];
+		}
+
+		// Append the original bunch data at the end
+		Bunch->SerializeBits( TempBunch.GetData(), TempBunch.GetNumBits() );
+
+		Bunch->bHasMustBeMappedGUIDs = 1;
+
+		MustBeMappedGuidsInLastBunch.Empty();
+	}
+}
+
+void UActorChannel::AppendExportBunches( TArray<FOutBunch *>& OutExportBunches )
+{
+	Super::AppendExportBunches( OutExportBunches );
+
+	if ( QueuedExportBunches.Num() )
+	{
+		OutExportBunches.Append( QueuedExportBunches );
+		QueuedExportBunches.Empty();
+	}
+}
+
+void UActorChannel::AppendMustBeMappedGuids( FOutBunch* Bunch )
+{
+	if ( QueuedMustBeMappedGuidsInLastBunch.Num() > 0 )
+	{
+		// Just add our list to the main list on package map so we can re-use the code in UChannel to add them all together
+		UPackageMapClient * PackageMapClient = CastChecked< UPackageMapClient >( Connection->PackageMap );
+
+		PackageMapClient->GetMustBeMappedGuidsInLastBunch().Append( QueuedMustBeMappedGuidsInLastBunch );
+
+		QueuedMustBeMappedGuidsInLastBunch.Empty();
+	}
+
+	// Actually add them to the bunch
+	// NOTE - We do this LAST since we want to capture the append that happened above
+	Super::AppendMustBeMappedGuids( Bunch );
 }
 
 FPacketIdRange UChannel::SendBunch( FOutBunch* Bunch, bool Merge )
@@ -575,46 +685,27 @@ FPacketIdRange UChannel::SendBunch( FOutBunch* Bunch, bool Merge )
 
 	TArray<FOutBunch *> OutgoingBunches;
 
-	UPackageMapClient * PackageMapClient = CastChecked< UPackageMapClient >( Connection->PackageMap );
+	// Add any export bunches
+	AppendExportBunches( OutgoingBunches );
 
-	// Let the package map add any outgoing bunches it needs to send
-	if ( PackageMapClient->AppendExportBunches( OutgoingBunches ) )
+	if ( OutgoingBunches.Num() )
 	{
-		// Dont merge if we have multiple bunches to send.
+		// Don't merge if we are exporting guid's
+		// We can't be for sure if the last bunch has exported guids as well, so this just simplifies things
 		Merge = false;
 	}
 
-	// Append any "must be mapped" guids to front of bunch
-	// This is so the client will know to make sure they are loaded, and pause the stream until they are
-	TArray< FNetworkGUID > & MustBeMappedGuidsInLastBunch = PackageMapClient->GetMustBeMappedGuidsInLastBunch();
-
-	if ( MustBeMappedGuidsInLastBunch.Num() > 0 && Connection->Driver->IsServer() )
+	if ( Connection->Driver->IsServer() )
 	{
-		//UE_LOG( LogNet, Warning, TEXT( "SendBunch: Appending must be mapped guids. NumGuids: %i" ), MustBeMappedGuidsInLastBunch.Num() );
+		// Append any "must be mapped" guids to front of bunch from the packagemap
+		AppendMustBeMappedGuids( Bunch );
 
-		// Rewrite the bunch with the unique guids in front
-		FOutBunch TempBunch( *Bunch );
-
-		Bunch->Reset();
-
-		// Write all the guids out
-		uint16 NumMustBeMappedGUIDs = MustBeMappedGuidsInLastBunch.Num();
-		*Bunch << NumMustBeMappedGUIDs;
-		for ( int32 i = 0; i < MustBeMappedGuidsInLastBunch.Num(); i++ )
+		if ( Bunch->bHasMustBeMappedGUIDs )
 		{
-			*Bunch << MustBeMappedGuidsInLastBunch[i];
+			// We can't merge with this, since we need all the unique static guids in the front
+			Merge = false;
 		}
-
-		// Append the original bunch data at the end
-		Bunch->SerializeBits( TempBunch.GetData(), TempBunch.GetNumBits() );
-
-		Bunch->bHasMustBeMappedGUIDs = 1;
-
-		// We can't merge with this, since we need all the unique static guids in the front
-		Merge = false;
 	}
-
-	MustBeMappedGuidsInLastBunch.Empty();
 
 	//-----------------------------------------------------
 	// Contemplate merging.
@@ -725,13 +816,6 @@ FPacketIdRange UChannel::SendBunch( FOutBunch* Bunch, bool Merge )
 		}
 
 		FOutBunch *ThisOutBunch = PrepBunch(NextBunch, OutBunch, Merge); // This handles queuing reliable bunches into the ack list
-			
-		if (ThisOutBunch->bPartial && !ThisOutBunch->bReliable)
-		{
-			// If we are reliable, then partial bunches just use the reliable sequences
-			// if not reliable, we hijack ChSequence and use Connection->PartialPacketId to sequence these packets
-			ThisOutBunch->ChSequence = Connection->PartialPacketId++;
-		}
 
 		if (UE_LOG_ACTIVE(LogNetPartialBunch,Verbose) && (OutgoingBunches.Num() > 1)) // Don't want to call appMemcrc unless we need to
 		{
@@ -1348,6 +1432,21 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 			else if (!Actor->bNetTemporary && Actor->GetWorld() != NULL && !GIsRequestingExit)
 			{
 				UE_LOG(LogNetDormancy, Verbose, TEXT("Channel[%d] '%s' Destroying Actor."), ChIndex, *Describe() );
+
+				// Destroy any sub-objects we created
+				for ( int32 i = 0; i < CreateSubObjects.Num(); i++ )
+				{
+					if ( CreateSubObjects[i].IsValid() )
+					{
+						Actor->OnSubobjectDestroyFromReplication( CreateSubObjects[i].Get() );
+
+						CreateSubObjects[i]->MarkPendingKill();
+					}
+				}
+
+				CreateSubObjects.Empty();
+
+				// Destroy the actor
 				Actor->Destroy( true );
 			}
 		}
@@ -1419,6 +1518,17 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 	// We don't care about any leftover pending guids at this point
 	PendingGuidResolves.Empty();
 
+	// Free export bunches list
+	for ( int32 i = 0; i < QueuedExportBunches.Num(); i++ )
+	{
+		delete QueuedExportBunches[i];
+	}
+
+	QueuedExportBunches.Empty();
+
+	// Free the must be mapped list
+	QueuedMustBeMappedGuidsInLastBunch.Empty();
+
 	// Free any queued bunches
 	for ( int32 i = 0; i < QueuedBunches.Num(); i++ )
 	{
@@ -1468,7 +1578,7 @@ void UActorChannel::SetChannelActor( AActor* InActor )
 	// Set stuff.
 	Actor = InActor;
 
-	UE_LOG(LogNetTraffic, VeryVerbose, TEXT("SetChannelActor[%d]: Actor: %s"), ChIndex, Actor ? *Actor->GetFullName() : TEXT("NULL") );
+	UE_LOG(LogNetTraffic, VeryVerbose, TEXT("SetChannelActor: ChIndex: %i, Actor: %s, NetGUID: %s"), ChIndex, Actor ? *Actor->GetFullName() : TEXT("NULL"), *ActorNetGUID.ToString() );
 
 	if ( ChIndex >= 0 && Connection->PendingOutRec[ChIndex] > 0 )
 	{
@@ -1691,7 +1801,8 @@ void UActorChannel::ProcessBunch( FInBunch & Bunch )
 	{
 		if( !Bunch.bOpen )
 		{
-			UE_LOG(LogNetTraffic, Warning, TEXT("UActorChannel::ProcessBunch: New actor channel received non-open packet. bOpen: %i, bClose: %i, bReliable: %i"),Bunch.bOpen,Bunch.bClose,Bunch.bReliable);
+			// This absolutely shouldn't happen anymore, since we no longer process packets until channel is fully open early on
+			UE_LOG(LogNetTraffic, Error, TEXT( "UActorChannel::ProcessBunch: New actor channel received non-open packet. bOpen: %i, bClose: %i, bReliable: %i, bPartial: %i, bPartialInitial: %i, bPartialFinal: %i, ChType: %i, ChIndex: %i, Closing: %i, OpenedLocally: %i, OpenAcked: %i, NetGUID: %s" ), (int)Bunch.bOpen, (int)Bunch.bClose, (int)Bunch.bReliable, (int)Bunch.bPartial, (int)Bunch.bPartialInitial, (int)Bunch.bPartialFinal, (int)ChType, ChIndex, (int)Closing, (int)OpenedLocally, (int)OpenAcked, *ActorNetGUID.ToString() );
 			return;
 		}
 
@@ -1819,6 +1930,12 @@ bool UActorChannel::ReplicateActor()
 
 	checkSlow(Actor);
 	checkSlow(!Closing);
+
+	// The package map shouldn't have any carry over guids
+	if ( CastChecked< UPackageMapClient >( Connection->PackageMap )->GetMustBeMappedGuidsInLastBunch().Num() != 0 )
+	{
+		UE_LOG( LogNet, Warning, TEXT( "ReplicateActor: PackageMap->GetMustBeMappedGuidsInLastBunch().Num() != 0: %i" ), CastChecked< UPackageMapClient >( Connection->PackageMap )->GetMustBeMappedGuidsInLastBunch().Num() );
+	}
 
 	// Time how long it takes to replicate this particular actor
 	STAT( FScopeCycleCounterUObject FunctionScope(Actor) );
@@ -2279,7 +2396,11 @@ UObject* UActorChannel::ReadContentBlockHeader(FInBunch & Bunch, bool& bObjectDe
 	{
 		if ( SubObj )
 		{
+			// Stop tracking this sub-object
+			CreateSubObjects.Remove( SubObj );
+
 			Actor->OnSubobjectDestroyFromReplication( SubObj );
+
 			SubObj->MarkPendingKill();
 		}
 		bObjectDeleted = true;
@@ -2319,6 +2440,8 @@ UObject* UActorChannel::ReadContentBlockHeader(FInBunch & Bunch, bool& bObjectDe
 
 	if ( SubObj == NULL )
 	{
+		check( !IsServer );
+
 		// Construct the sub-object
 		UE_LOG( LogNetTraffic, Log, TEXT( "UActorChannel::ReadContentBlockHeader: Instantiating sub-object. Class: %s, Actor: %s" ), *SubObjClass->GetName(), *Actor->GetName() );
 
@@ -2334,6 +2457,9 @@ UObject* UActorChannel::ReadContentBlockHeader(FInBunch & Bunch, bool& bObjectDe
 		
 		// Register the component guid
 		Connection->Driver->GuidCache->RegisterNetGUID_Client( NetGUID, SubObj );
+
+		// Track which sub-object guids we are creating
+		CreateSubObjects.AddUnique( SubObj );
 	}
 
 	return SubObj;

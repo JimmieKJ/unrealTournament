@@ -64,6 +64,7 @@ public:
 	virtual FVector GetWidgetLocation() const;
 	virtual FMatrix GetWidgetCoordSystem() const;
 	virtual ECoordSystem GetWidgetCoordSystemSpace() const;
+	virtual FLinearColor GetBackgroundColor() const override;
 	// End of FEditorViewportClient interface
 
 	// Process marquee selection, return true of a selection has been performed

@@ -10,6 +10,8 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraEffectEditor"
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 void SNiagaraEffectEditorWidget::Construct(const FArguments& InArgs)
 {
 	/*
@@ -117,7 +119,7 @@ void SNiagaraEffectEditorWidget::Construct(const FArguments& InArgs)
 							SNew(STextBlock)
 							.Visibility(EVisibility::HitTestInvisible)
 							.TextStyle(FEditorStyle::Get(), "Graph.CornerText")
-							.Text(FString("Niagara Effect"))
+							.Text(LOCTEXT("NiagaraEditorLabel", "Niagara Effect"))
 						]
 
 					// Top-right corner text indicating read only when not simulating
@@ -129,7 +131,7 @@ void SNiagaraEffectEditorWidget::Construct(const FArguments& InArgs)
 							SNew(STextBlock)
 							.Visibility(this, &SNiagaraEffectEditorWidget::ReadOnlyVisibility)
 							.TextStyle(FEditorStyle::Get(), "Graph.CornerText")
-							.Text(FString("Read Only"))
+							.Text(LOCTEXT("ReadOnlyLabel", "Read Only"))
 						]
 
 					// Bottom-right corner text for notification list position
@@ -273,7 +275,7 @@ void SEmitterWidget::Construct(const FArguments& InArgs)
 											.Padding(2)
 											[
 												SNew(STextBlock)
-												.Text(FString("Update Script"))
+												.Text(LOCTEXT("UpdateScriptLabel", "Update Script"))
 											]
 											+ SHorizontalBox::Slot()
 											.HAlign(HAlign_Right)
@@ -295,7 +297,7 @@ void SEmitterWidget::Construct(const FArguments& InArgs)
 									.AutoHeight()
 									.Expose(UpdateScriptConstantListSlot)
 									[
-										SNew(SExpandableArea).InitiallyCollapsed(true).AreaTitle(FString("Constants"))
+										SNew(SExpandableArea).InitiallyCollapsed(true).AreaTitle(LOCTEXT("ConstantsLabel", "Constants"))
 										.BodyContent()
 										[
 											SAssignNew(UpdateScriptConstantList, SListView<TSharedPtr<EditorExposedVectorConstant>>)
@@ -323,7 +325,7 @@ void SEmitterWidget::Construct(const FArguments& InArgs)
 											.Padding(4)
 											[
 												SNew(STextBlock)
-												.Text(FString("Spawn Script"))
+												.Text(LOCTEXT("SpawnScriptLabel", "Spawn Script"))
 											]
 											+ SHorizontalBox::Slot()
 											.HAlign(HAlign_Right)
@@ -345,7 +347,7 @@ void SEmitterWidget::Construct(const FArguments& InArgs)
 										.AutoHeight()
 										.Expose(SpawnScriptConstantListSlot)
 										[
-											SNew(SExpandableArea).InitiallyCollapsed(true).AreaTitle(FString("Constants"))
+											SNew(SExpandableArea).InitiallyCollapsed(true).AreaTitle(LOCTEXT("ConstantsLabel", "Constants"))
 											.BodyContent()
 											[
 												SAssignNew(SpawnScriptConstantList, SListView<TSharedPtr<EditorExposedVectorConstant>>)
@@ -379,7 +381,7 @@ void SEmitterWidget::Construct(const FArguments& InArgs)
 										.Padding(4)
 										[
 											SNew(STextBlock)
-											.Text(FString("Spawn rate"))
+											.Text(LOCTEXT("SpawnRateLabel", "Spawn Rate"))
 										]
 										+ SHorizontalBox::Slot()
 											[
@@ -412,7 +414,7 @@ void SEmitterWidget::Construct(const FArguments& InArgs)
 										.AutoWidth()
 										[
 											SNew(STextBlock)
-											.Text(FString("Material"))
+											.Text(LOCTEXT("MaterialLabel", "Material"))
 										]
 										+ SHorizontalBox::Slot()
 											.Padding(4)
@@ -460,7 +462,7 @@ void SEmitterWidget::Construct(const FArguments& InArgs)
 											.AutoWidth()
 											[
 												SNew(STextBlock)
-												.Text(FString("Render as"))
+												.Text(LOCTEXT("RenderAsLabel", "Render as"))
 											]
 											+ SHorizontalBox::Slot()
 											.Padding(4)
@@ -542,7 +544,7 @@ void SEmitterWidget::OnUpdateScriptSelectedFromPicker(UObject *Asset)
 	UpdateScriptConstantListSlot->DetachWidget();
 	(*UpdateScriptConstantListSlot)
 		[
-			SNew(SExpandableArea).InitiallyCollapsed(true).AreaTitle(FString("Constants"))
+			SNew(SExpandableArea).InitiallyCollapsed(true).AreaTitle(LOCTEXT("ConstantsLabel", "Constants"))
 			.BodyContent()
 			[
 				SAssignNew(UpdateScriptConstantList, SListView<TSharedPtr<EditorExposedVectorConstant>>)
@@ -562,7 +564,7 @@ void SEmitterWidget::OnSpawnScriptSelectedFromPicker(UObject *Asset)
 	SpawnScriptConstantListSlot->DetachWidget();
 	(*SpawnScriptConstantListSlot)
 		[
-			SNew(SExpandableArea).InitiallyCollapsed(true).AreaTitle(FString("Constants"))
+			SNew(SExpandableArea).InitiallyCollapsed(true).AreaTitle(LOCTEXT("ConstantsLabel", "Constants"))
 			.BodyContent()
 			[
 				SAssignNew(SpawnScriptConstantList, SListView<TSharedPtr<EditorExposedVectorConstant>>)
@@ -570,3 +572,6 @@ void SEmitterWidget::OnSpawnScriptSelectedFromPicker(UObject *Asset)
 			]
 		];
 }
+
+
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION

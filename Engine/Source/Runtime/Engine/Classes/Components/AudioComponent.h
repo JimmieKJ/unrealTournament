@@ -257,9 +257,6 @@ public:
 	/** Whether or not this sound class forces sounds to the center channel */
 	uint32 bCenterChannelOnly:1;
 
-	/** Whether or not the audio component should display an icon in the editor */
-	uint32 bVisualizeComponent:1;
-
 	/** Used by the subtitle manager to prioritize subtitles wave instances spawned by this component. */
 	float SubtitlePriority;
 
@@ -292,10 +289,6 @@ public:
 private:
 	
 #if WITH_EDITORONLY_DATA
-	/** Editor only component used to display the sprite so as to be able to see the location of the Audio Component  */
-	UPROPERTY(transient)
-	class UBillboardComponent* SpriteComponent;
-
 	/** Utility function that updates which texture is displayed on the sprite dependent on the properties of the Audio Component. */
 	void UpdateSpriteTexture();
 #endif

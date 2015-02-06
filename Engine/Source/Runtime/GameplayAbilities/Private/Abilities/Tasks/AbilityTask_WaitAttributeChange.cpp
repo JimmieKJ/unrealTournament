@@ -40,7 +40,7 @@ void UAbilityTask_WaitAttributeChange::Activate()
 {
 	if (AbilitySystemComponent.IsValid())
 	{
-		AbilitySystemComponent->RegisterGameplayAttributeEvent(Attribute).AddUObject(this, &UAbilityTask_WaitAttributeChange::OnAttributeChange);
+		OnAttributeChangeDelegateHandle = AbilitySystemComponent->RegisterGameplayAttributeEvent(Attribute).AddUObject(this, &UAbilityTask_WaitAttributeChange::OnAttributeChange);
 	}
 }
 
@@ -100,7 +100,7 @@ void UAbilityTask_WaitAttributeChange::OnDestroy(bool AbilityEnded)
 {
 	if (AbilitySystemComponent.IsValid())
 	{
-		AbilitySystemComponent->RegisterGameplayAttributeEvent(Attribute).RemoveUObject(this, &UAbilityTask_WaitAttributeChange::OnAttributeChange);
+		AbilitySystemComponent->RegisterGameplayAttributeEvent(Attribute).Remove(OnAttributeChangeDelegateHandle);
 	}
 
 	Super::OnDestroy(AbilityEnded);

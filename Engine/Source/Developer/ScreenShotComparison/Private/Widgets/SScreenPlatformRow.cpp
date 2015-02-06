@@ -22,7 +22,7 @@ TSharedRef<SWidget> SScreenPlatformRow::GenerateWidgetForColumn( const FName& Co
 		.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 		.Content()
 		[
-			SNew( STextBlock ) .Text( ScreenShotDataItem->GetName() )
+			SNew( STextBlock ) .Text( FText::FromString(ScreenShotDataItem->GetName()) )
 		];
 	}
 	else if ( ColumnName == TEXT( "Current View" ) )

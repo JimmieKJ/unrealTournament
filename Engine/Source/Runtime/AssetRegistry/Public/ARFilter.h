@@ -15,6 +15,11 @@ struct FARFilter
 	TArray<FName> ClassNames;
 	/** The filter component for properties marked with the AssetRegistrySearchable flag */
 	TMultiMap<FName, FString> TagsAndValues;
+#if WITH_EDITORONLY_DATA
+	/** The filter component for asset source file names */
+	TArray<FName> SourceFilenames;
+#endif
+
 	/** If bRecursiveClasses is true, this results will exclude classes (including subclasses) in this list */
 	TSet<FName> RecursiveClassesExclusionSet;
 	/** If true, PackagePath components will be recursive */
@@ -38,7 +43,9 @@ struct FARFilter
 		PackagePaths.Append(Other.PackagePaths);
 		ObjectPaths.Append(Other.ObjectPaths);
 		ClassNames.Append(Other.ClassNames);
-
+#if WITH_EDITORONLY_DATA
+		SourceFilenames.Append(Other.SourceFilenames);
+#endif
 		for (auto TagIt = Other.TagsAndValues.CreateConstIterator(); TagIt; ++TagIt)
 		{
 			TagsAndValues.Add(TagIt.Key(), TagIt.Value());
@@ -54,7 +61,11 @@ struct FARFilter
 	/** Returns true if this filter has no entries */
 	bool IsEmpty() const
 	{
-		return PackageNames.Num() + PackagePaths.Num() + ObjectPaths.Num() + ClassNames.Num() + TagsAndValues.Num() == 0;
+		return PackageNames.Num() + PackagePaths.Num() + ObjectPaths.Num() + ClassNames.Num() + TagsAndValues.Num()
+	#if WITH_EDITORONLY_DATA
+			+ SourceFilenames.Num()
+	#endif
+			== 0;
 	}
 
 	/** Clears this filter of all entries */
@@ -65,6 +76,9 @@ struct FARFilter
 		ObjectPaths.Empty();
 		ClassNames.Empty();
 		TagsAndValues.Empty();
+#if WITH_EDITORONLY_DATA
+		SourceFilenames.Empty();
+#endif
 		RecursiveClassesExclusionSet.Empty();
 
 		bRecursivePaths = false;

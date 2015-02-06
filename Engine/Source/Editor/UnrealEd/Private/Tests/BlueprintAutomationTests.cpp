@@ -988,10 +988,10 @@ bool FBlueprintCompileOnLoadTest::RunTest(const FString& BlueprintAssetPath)
 		for (auto DiffIt(BlueprintDiffs.CreateIterator()); DiffIt; ++DiffIt)
 		{
 			// will be presented in the context of "what changed between the initial load and the second?"
-			FString DiffDescription = DiffIt->ToolTip;
-			if (DiffDescription != DiffIt->DisplayString)
+			FString DiffDescription = DiffIt->ToolTip.ToString();
+			if (DiffDescription != DiffIt->DisplayString.ToString())
 			{
-				DiffDescription = FString::Printf(TEXT("%s (%s)"), *DiffDescription, *DiffIt->DisplayString);
+				DiffDescription = FString::Printf(TEXT("%s (%s)"), *DiffDescription, *DiffIt->DisplayString.ToString());
 			}
 
 			const UEdGraphNode* NodeFromPin = DiffIt->Pin1 ? Cast<const UEdGraphNode>(DiffIt->Pin1->GetOuter()) : NULL;

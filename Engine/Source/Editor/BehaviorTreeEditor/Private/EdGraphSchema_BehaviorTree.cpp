@@ -24,97 +24,14 @@ namespace
 	const int32 NodeDistance = 60;
 }
 
-struct FBBNode
-{
-	FVector2D SubGraphBBox;
-	TArray<FBBNode*> Children;
-
-	FBBNode()
-	{
-		SubGraphBBox = FVector2D(0,0);
-	}
-};
-
-void FillTreeSizeInfo(UBehaviorTreeGraphNode* ParentNode, FBBNode& BBoxTree)
-{
-	BBoxTree.SubGraphBBox = ParentNode->NodeWidget.Pin()->GetDesiredSize();
-	float LevelWidth = 0;
-	float LevelHeight = 0;
-	for (int32 i = 0; i < ParentNode->Pins.Num(); i++)
-	{
-		if (ParentNode->Pins[i]->Direction == EGPD_Output)
-		{
-			UEdGraphPin* Pin =  ParentNode->Pins[i];
-			// sort connections so that they're organized the same as user can see in the editor
-			Pin->LinkedTo.Sort(FCompareNodeXLocation());
-			for (int32 Index=0; Index < Pin->LinkedTo.Num(); ++Index)
-			{
-				UBehaviorTreeGraphNode* GraphNode = Cast<UBehaviorTreeGraphNode>(Pin->LinkedTo[Index]->GetOwningNode());
-				if (GraphNode != NULL)
-				{
-					FBBNode* ChildBBNode = new FBBNode();
-					BBoxTree.Children.Add(ChildBBNode);
-					FillTreeSizeInfo(GraphNode, *ChildBBNode);
-					LevelWidth += ChildBBNode->SubGraphBBox.X + 20;
-					if (ChildBBNode->SubGraphBBox.Y > LevelHeight)
-					{
-						LevelHeight = ChildBBNode->SubGraphBBox.Y;
-					}			
-				}
-			}
-			if (LevelWidth > BBoxTree.SubGraphBBox.X )
-			{
-				BBoxTree.SubGraphBBox.X = LevelWidth;
-			}
-			BBoxTree.SubGraphBBox.Y += LevelHeight;
-		}
-	}
-}
-
-void AutoArrangeNodes(UBehaviorTreeGraphNode* ParentNode, FBBNode& BBoxTree, float PosX, float PosY )
-{
-	int32 BBoxIndex = 0;
-	for (int32 i = 0; i < ParentNode->Pins.Num(); i++)
-	{
-		if ( ParentNode->Pins[i]->Direction == EGPD_Output)
-		{
-			UEdGraphPin* Pin =  ParentNode->Pins[i];
-			SGraphNode::FNodeSet NodeFilter;
-			for (int32 Index=0; Index < Pin->LinkedTo.Num(); ++Index)
-			{
-				UBehaviorTreeGraphNode* GraphNode = Cast<UBehaviorTreeGraphNode>(Pin->LinkedTo[Index]->GetOwningNode());
-				if (GraphNode != NULL && BBoxTree.Children.Num() > 0)
-				{
-					AutoArrangeNodes(GraphNode, *BBoxTree.Children[BBoxIndex], PosX, PosY + GraphNode->NodeWidget.Pin()->GetDesiredSize().Y * 2.5f);
-					GraphNode->NodeWidget.Pin()->MoveTo(FVector2D(BBoxTree.Children[BBoxIndex]->SubGraphBBox.X /2 - GraphNode->NodeWidget.Pin()->GetDesiredSize().X /2 + PosX, PosY), NodeFilter);
-					PosX += BBoxTree.Children[BBoxIndex]->SubGraphBBox.X + 20;
-				}
-				BBoxIndex++;
-			}
-		}
-	}
-}
-
-
 UEdGraphNode* FBehaviorTreeSchemaAction_AutoArrange::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode)
 {
-	FBBNode BBoxTree;
-	UBehaviorTreeGraphNode* RootNode = NULL;
-	for (int32 i = 0; i < ParentGraph->Nodes.Num(); i++)
+	UBehaviorTreeGraph* Graph = Cast<UBehaviorTreeGraph>(ParentGraph);
+	if (Graph)
 	{
-		if (Cast<UBehaviorTreeGraphNode_Root>(ParentGraph->Nodes[i]) != NULL)
-		{
-			RootNode = Cast<UBehaviorTreeGraphNode_Root>(ParentGraph->Nodes[i]);
-		}
+		Graph->AutoArrange();
 	}
 
-	FillTreeSizeInfo(RootNode, BBoxTree);
-	AutoArrangeNodes(RootNode, BBoxTree, 0, RootNode->NodeWidget.Pin()->GetDesiredSize().Y * 2.5f);
-	
-	RootNode->NodePosX = BBoxTree.SubGraphBBox.X / 2 - RootNode->NodeWidget.Pin()->GetDesiredSize().X / 2;
-	RootNode->NodePosY = 0;
-
-	RootNode->NodeWidget.Pin()->GetOwnerPanel()->ZoomToFit(/*bOnlySelection=*/ false);
 	return NULL;
 }
 

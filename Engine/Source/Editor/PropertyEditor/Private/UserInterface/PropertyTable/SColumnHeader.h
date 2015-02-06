@@ -99,7 +99,7 @@ protected:
 			[
 				SNew( STextBlock )
 				.Font( FEditorStyle::GetFontStyle( TextFontStyle ) )
-				.Text( DisplayNamePieces[ Index ] )
+				.Text( FText::FromString(DisplayNamePieces[ Index ]) )
 			];
 
 			if ( Index < DisplayNamePieces.Num() - 1 )

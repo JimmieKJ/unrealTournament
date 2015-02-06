@@ -12,7 +12,6 @@
 #include "ModuleManager.h"
 #include "TargetPlatform.h"
 #include "RHICommandList.h"
-#include "ShaderCache.h"
 
 
 DEFINE_LOG_CATEGORY(LogShaders);
@@ -339,12 +338,6 @@ void FShaderResource::Serialize(FArchive& Ar)
 	{
 		INC_DWORD_STAT_BY_FName(GetMemoryStatType((EShaderFrequency)Target.Frequency).GetName(), (int64)Code.Num());
 		INC_DWORD_STAT_BY(STAT_Shaders_ShaderResourceMemory, GetSizeBytes());
-		
-		FShaderCache* ShaderCache = FShaderCache::GetShaderCache();
-		if(ShaderCache)
-		{
-			ShaderCache->LogShader((EShaderPlatform)Target.Platform, (EShaderFrequency)Target.Frequency, OutputHash, Code);
-		}
 	}
 }
 
@@ -450,31 +443,29 @@ void FShaderResource::InitRHI()
 	INC_DWORD_STAT_BY(STAT_Shaders_NumShadersUsedForRendering, 1);
 	SCOPE_CYCLE_COUNTER(STAT_Shaders_RTShaderLoadTime);
 
-	FShaderCache* ShaderCache = FShaderCache::GetShaderCache();
-
 	if(Target.Frequency == SF_Vertex)
 	{
-		VertexShader = ShaderCache ? ShaderCache->GetVertexShader((EShaderPlatform)Target.Platform, OutputHash, Code) : RHICreateVertexShader(Code);
+		VertexShader = RHICreateVertexShader(Code);
 	}
 	else if(Target.Frequency == SF_Pixel)
 	{
-		PixelShader = ShaderCache ? ShaderCache->GetPixelShader((EShaderPlatform)Target.Platform, OutputHash, Code) : RHICreatePixelShader(Code);
+		PixelShader = RHICreatePixelShader(Code);
 	}
 	else if(Target.Frequency == SF_Hull)
 	{
-		HullShader = ShaderCache ? ShaderCache->GetHullShader((EShaderPlatform)Target.Platform, OutputHash, Code) : RHICreateHullShader(Code);
+		HullShader = RHICreateHullShader(Code);
 	}
 	else if(Target.Frequency == SF_Domain)
 	{
-		DomainShader = ShaderCache ? ShaderCache->GetDomainShader((EShaderPlatform)Target.Platform, OutputHash, Code) : RHICreateDomainShader(Code);
+		DomainShader = RHICreateDomainShader(Code);
 	}
 	else if(Target.Frequency == SF_Geometry)
 	{
-		GeometryShader = ShaderCache ? ShaderCache->GetGeometryShader((EShaderPlatform)Target.Platform, OutputHash, Code) : RHICreateGeometryShader(Code);
+		GeometryShader = RHICreateGeometryShader(Code);
 	}
 	else if(Target.Frequency == SF_Compute)
 	{
-		ComputeShader = ShaderCache ? ShaderCache->GetComputeShader((EShaderPlatform)Target.Platform, OutputHash, Code) : RHICreateComputeShader(Code);
+		ComputeShader = RHICreateComputeShader(Code);
 	}
 
 	if (!FPlatformProperties::HasEditorOnlyData())

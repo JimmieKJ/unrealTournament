@@ -73,7 +73,7 @@ void SDeviceProfileDetailsPanel::RefreshUI()
 		DetailsViewArgs.bAllowSearch = true;
 		DetailsViewArgs.bHideSelectionTip = true;
 		DetailsViewArgs.bLockable = false;
-		DetailsViewArgs.bObjectsUseNameArea = false;
+		DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 		DetailsViewArgs.bSearchInitialKeyFocus = true;
 		DetailsViewArgs.bUpdatesFromSelection = false;
 		DetailsViewArgs.bShowOptions = false;
@@ -118,7 +118,7 @@ void SDeviceProfileDetailsPanel::RefreshUI()
 						.VAlign(VAlign_Center)
 						[
 							SNew( STextBlock )
-							.Text( FString::Printf( TEXT( "%s selected" ), *ViewingProfile->GetName() ) )
+							.Text( FText::Format( LOCTEXT( "SelectedDeviceProfileFmt", "{0} selected" ), FText::FromString(ViewingProfile->GetName()) ) )
 						]
 					]
 				]

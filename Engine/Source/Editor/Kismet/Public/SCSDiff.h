@@ -12,7 +12,13 @@ public:
 	TSharedRef< SWidget > TreeWidget();
 
 	TArray< FSCSResolvedIdentifier > GetDisplayedHierarchy() const;
+
+protected:
+	void OnSCSEditorUpdateSelectionFromNodes(const TArray< TSharedPtr<class FSCSEditorTreeNode> >& SelectedNodes);
+	void OnSCSEditorHighlightPropertyInDetailsView(const class FPropertyPath& InPropertyPath);
+
 private:
 	TSharedPtr< class SWidget > ContainerWidget;
 	TSharedPtr< class SSCSEditor > SCSEditor;
+	TSharedPtr< class SKismetInspector > Inspector;
 };

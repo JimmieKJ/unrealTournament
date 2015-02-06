@@ -12,11 +12,11 @@ void SDetailCategoryTableRow::Construct( const FArguments& InArgs, TSharedRef<ID
 	TSharedPtr<SHorizontalBox> MyContent;
 
 	ChildSlot
-	.Padding( 0.0f, 5.0f, 0.0f, 0.0f )
+	.Padding( 0.0f, 2.0f, 0.0f, 0.0f )
 	[	
 		SNew( SBorder )
 		.BorderImage( this, &SDetailCategoryTableRow::GetBackgroundImage )
-		.Padding( FMargin( 0.0f, 3.0f ) )
+		.Padding( FMargin( 0.0f, 3.0f, SDetailTableRowBase::ScrollbarPaddingSize, 3.0f ) )
 		.BorderBackgroundColor( FLinearColor( .6,.6,.6, 1.0f ) )
 		[
 			SAssignNew( MyContent, SHorizontalBox )

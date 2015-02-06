@@ -263,7 +263,7 @@ struct FSkeletalMeshComponentPreClothTickFunction : public FTickFunction
 
 
 /**
- * SkeletalMeshComponent is used to create an instance of a USkeletalMesh.
+ * SkeletalMeshComponent is used to create an instance of an animated SkeletalMesh asset.
  *
  * @see https://docs.unrealengine.com/latest/INT/Engine/Content/Types/SkeletalMeshes/
  * @see USkeletalMesh
@@ -766,8 +766,10 @@ public:
 	typedef FOnSkeletalMeshPropertyChangedMulticaster::FDelegate FOnSkeletalMeshPropertyChanged;
 
 	/** Register / Unregister delegates called when the skeletal mesh property is changed */
-	void RegisterOnSkeletalMeshPropertyChanged(const FOnSkeletalMeshPropertyChanged& Delegate);
+	FDelegateHandle RegisterOnSkeletalMeshPropertyChanged(const FOnSkeletalMeshPropertyChanged& Delegate);
+	DELEGATE_DEPRECATED("This overload of UnregisterOnSkeletalMeshPropertyChanged is deprecated, instead pass the result of RegisterOnSkeletalMeshPropertyChanged.")
 	void UnregisterOnSkeletalMeshPropertyChanged(const FOnSkeletalMeshPropertyChanged& Delegate);
+	void UnregisterOnSkeletalMeshPropertyChanged(FDelegateHandle Handle);
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 

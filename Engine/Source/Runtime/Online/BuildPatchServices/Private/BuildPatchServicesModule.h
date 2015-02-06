@@ -135,4 +135,7 @@ private:
 
 	// The system that holds available installations used for recycling install data
 	FBuildPatchInstallationInfo InstallationInfo;
+
+	// Handle to the registered Tick delegate
+	FDelegateHandle TickDelegateHandle;
 };

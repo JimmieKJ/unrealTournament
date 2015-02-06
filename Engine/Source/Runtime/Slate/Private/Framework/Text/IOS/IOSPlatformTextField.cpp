@@ -101,6 +101,15 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, TSharedPtr<IVirtualK
 		UITextField* AlertTextField = [alertView textFieldAtIndex: 0];
 		TextWidget->SetTextFromVirtualKeyboard(FText::FromString(AlertTextField.text));
 	}
+    
+    FIOSAsyncTask* AsyncTask = [[FIOSAsyncTask alloc] init];
+    AsyncTask.GameThreadCallback = ^ bool(void)
+    {
+        // clear the TextWidget
+        TextWidget = nullptr;
+        return true;
+    };
+    [AsyncTask FinishedTask];
 }
 
 @end

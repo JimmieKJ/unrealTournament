@@ -83,7 +83,7 @@ void SLevelEditorActiveToolkit::Construct( const FArguments&, const TSharedPtr< 
 												SNew( SImage )
 												.Visibility( this, &SLevelEditorActiveToolkit::GetVisibilityForUnsavedChangeIcon )
 												.Image( FEditorStyle::GetBrush( "ToolkitDisplay.UnsavedChangeIcon" ) )
-												.ToolTipText( LOCTEXT("UnsavedChangeToolTip", "This asset has unsaved changes").ToString() )
+												.ToolTipText( LOCTEXT("UnsavedChangeToolTip", "This asset has unsaved changes") )
 											]
 									]
 						]
@@ -124,7 +124,7 @@ void SLevelEditorActiveToolkit::Construct( const FArguments&, const TSharedPtr< 
 		[
 			SNew( SButton )
 				.OnClicked( this, &SLevelEditorActiveToolkit::OnToolkitCloseButtonClicked )
-				.ToolTipText( LOCTEXT("CloseToolkitButton", "Close").ToString() )
+				.ToolTipText( LOCTEXT("CloseToolkitButton", "Close") )
 				.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
 				.ContentPadding(0)
 				.HAlign(HAlign_Center)

@@ -18,8 +18,8 @@ protected:
 	virtual UEdGraph* GetInnerGraph() const;
 
 private:
-	FString GetPreviewCornerText() const;
-	FString GetTooltipTextForNode() const;
+	FText GetPreviewCornerText() const;
+	FText GetTooltipTextForNode() const;
 
 	TSharedRef<SWidget> CreateNodeBody();
 };

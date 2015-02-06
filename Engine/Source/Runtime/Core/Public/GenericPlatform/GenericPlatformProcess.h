@@ -209,6 +209,9 @@ struct CORE_API FGenericPlatformProcess
 	static const TCHAR* UserDir();
 	/** Get the user settings directory.  NOTE: Only one return value is valid at a time! **/
 	static const TCHAR *UserSettingsDir();
+	/** Get the user temporary directory.  NOTE: Only one return value is valid at a time! **/
+	static const TCHAR *UserTempDir();
+
 	/** Get application settings directory.  NOTE: Only one return value is valid at a time! **/
 	static const TCHAR* ApplicationSettingsDir();
 	/** Get computer name.  NOTE: Only one return value is valid at a time! **/

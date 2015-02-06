@@ -211,7 +211,7 @@ EVisibility SProjectLauncherLaunchPage::HandleLaunchModeBoxVisibility( ) const
 }
 
 
-FString SProjectLauncherLaunchPage::HandleLaunchModeComboButtonContentText( ) const
+FText SProjectLauncherLaunchPage::HandleLaunchModeComboButtonContentText( ) const
 {
 	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
 
@@ -221,23 +221,23 @@ FString SProjectLauncherLaunchPage::HandleLaunchModeComboButtonContentText( ) co
 
 		if (LaunchMode == ELauncherProfileLaunchModes::CustomRoles)
 		{
-			return LOCTEXT("LaunchModeComboButtonCustomRolesText", "Using custom roles").ToString();
+			return LOCTEXT("LaunchModeComboButtonCustomRolesText", "Using custom roles");
 		}
 
 		if (LaunchMode == ELauncherProfileLaunchModes::DefaultRole)
 		{
-			return LOCTEXT("LaunchModeComboButtonDefaultRoleText", "Using default role").ToString();
+			return LOCTEXT("LaunchModeComboButtonDefaultRoleText", "Using default role");
 		}
 
 		if (LaunchMode == ELauncherProfileLaunchModes::DoNotLaunch)
 		{
-			return LOCTEXT("LaunchModeComboButtonDoNotLaunchText", "Do not launch").ToString();
+			return LOCTEXT("LaunchModeComboButtonDoNotLaunchText", "Do not launch");
 		}
 
-		return LOCTEXT("LaunchModeComboButtonSelectText", "Select...").ToString();
+		return LOCTEXT("LaunchModeComboButtonSelectText", "Select...");
 	}
 
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 

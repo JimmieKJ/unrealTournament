@@ -21,7 +21,7 @@ public:
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override;
 
 	// delegate
-	FString GetTotalTimeString() const;
+	FText GetTotalTimeText() const;
 
 private:
 

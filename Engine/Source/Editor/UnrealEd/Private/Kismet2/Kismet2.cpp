@@ -38,6 +38,14 @@
 #include "NotificationManager.h"
 #include "SNotificationList.h" // for FNotificationInfo
 
+DECLARE_CYCLE_STAT(TEXT("Compile Blueprint"), EKismetCompilerStats_CompileBlueprint, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Broadcast Precompile"), EKismetCompilerStats_BroadcastPrecompile, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Update Search Metadata"), EKismetCompilerStats_UpdateSearchMetaData, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Garbage Collection"), EKismetCompilerStats_GarbageCollection, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Notify Blueprint Changed"), EKismetCompilerStats_NotifyBlueprintChanged, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Refresh Dependent Blueprints"), EKismetCompilerStats_RefreshDependentBlueprints, STATGROUP_KismetCompiler);
+DECLARE_CYCLE_STAT(TEXT("Validate Generated Class"), EKismetCompilerStats_ValidateGeneratedClass, STATGROUP_KismetCompiler);
+
 #define LOCTEXT_NAMESPACE "UnrealEd.Editor"
 
 //////////////////////////////////////////////////////////////////////////
@@ -566,11 +574,16 @@ bool FKismetEditorUtilities::IsReferencedByUndoBuffer(UBlueprint* Blueprint)
 
 void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIsRegeneratingOnLoad, bool bSkipGarbageCollection, bool bSaveIntermediateProducts, FCompilerResultsLog* pResults)
 {
+	BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_CompileBlueprint);
+
 	// Broadcast pre-compile
 #if WITH_EDITOR
-	if(GEditor && GIsEditor)
 	{
-		GEditor->BroadcastBlueprintPreCompile(BlueprintObj);
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_BroadcastPrecompile);
+		if(GEditor && GIsEditor)
+		{
+			GEditor->BroadcastBlueprintPreCompile(BlueprintObj);
+		}
 	}
 #endif
 
@@ -585,6 +598,7 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 	// Do not want to run this code without the editor present nor when running commandlets.
 	if (GEditor && GIsEditor)
 	{
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_UpdateSearchMetaData);
 		// We do not want to regenerate a search Guid during loads, nothing has changed in the Blueprint and it is cached elsewhere
 		if (!bIsRegeneratingOnLoad)
 		{
@@ -605,8 +619,6 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 	// Compile
 	FCompilerResultsLog LocalResults;
 	FCompilerResultsLog& Results = (pResults != NULL) ? *pResults : LocalResults;
-
-	BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Compile Blueprint"));
 
 	FBlueprintCompileReinstancer ReinstanceHelper(OldClass);
 
@@ -655,7 +667,7 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 
 		if (!bSkipGarbageCollection)
 		{
-			BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Garbage Collection"));
+			BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_GarbageCollection);
 
 			// Garbage collect to make sure the old class and actors are disposed of
 			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
@@ -666,10 +678,9 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 	}
 
 	{ 
-		BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Notify Blueprint Changed"));
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_NotifyBlueprintChanged);
 
-		// Blueprint has changed, broadcast notify
-		BlueprintObj->BroadcastChanged();
+		BlueprintObj->BroadcastCompiled();
 
 		if(GEditor)
 		{
@@ -684,7 +695,7 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 	}
 
 	{ 
-		BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Refresh Dependent Blueprints"));
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_RefreshDependentBlueprints);
 
 		TArray<UBlueprint*> DependentBPs;
 		FBlueprintEditorUtils::GetDependentBlueprints(BlueprintObj, DependentBPs);
@@ -711,7 +722,7 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 
 	if(!bIsRegeneratingOnLoad && BlueprintObj->GeneratedClass)
 	{
-		BP_SCOPED_COMPILER_EVENT_NAME(TEXT("Validate Generated Class"));
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_ValidateGeneratedClass);
 		UBlueprint::ValidateGeneratedClass(BlueprintObj->GeneratedClass);
 	}
 
@@ -853,6 +864,8 @@ bool FKismetEditorUtilities::CanCreateBlueprintOfClass(const UClass* Class)
 	bool bAllowDerivedBlueprints = false;
 	GConfig->GetBool(TEXT("Kismet"), TEXT("AllowDerivedBlueprints"), /*out*/ bAllowDerivedBlueprints, GEngineIni);
 
+	const bool bAllowBlueprintableComponents = GetDefault<UEditorExperimentalSettings>()->bBlueprintableComponents;
+	
 	const bool bCanCreateBlueprint =
 		!Class->HasAnyClassFlags(CLASS_Deprecated)
 		&& !Class->HasAnyClassFlags(CLASS_NewerVersionExists)
@@ -860,69 +873,187 @@ bool FKismetEditorUtilities::CanCreateBlueprintOfClass(const UClass* Class)
 
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 	const bool bIsValidClass = Class->GetBoolMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase)
-		|| (Class == UObject::StaticClass());
+		|| (Class == UObject::StaticClass())
+		|| (bAllowBlueprintableComponents && (Class->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || Class == USceneComponent::StaticClass() || Class == UActorComponent::StaticClass()));
 
 	return bCanCreateBlueprint && bIsValidClass;
 }
 
-UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FString& Path, UObject* Object, bool bReplaceActor )
+UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FString& Path, AActor* Actor, const bool bReplaceActor )
 {
-	UBlueprint* NewBlueprint = NULL;
+	UBlueprint* NewBlueprint = nullptr;
 
-	if (AActor* Actor = Cast<AActor>(Object))
+	// Create a blueprint
+	FString PackageName = Path;
+	FString AssetName = FPackageName::GetLongPackageAssetName(Path);
+
+	// If no AssetName was found, generate a unique asset name.
+	if(AssetName.Len() == 0)
 	{
-		// Create a blueprint
-		FString PackageName = Path;
-		FString AssetName = FPackageName::GetLongPackageAssetName(Path);
+		PackageName = FPackageName::GetLongPackagePath(Path);
+		FString BasePath = PackageName + TEXT("/") + LOCTEXT("BlueprintName_Default", "NewBlueprint").ToString();
+		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+		AssetToolsModule.Get().CreateUniqueAssetName(BasePath, TEXT(""), PackageName, AssetName);
+	}
 
+	UPackage* Package = CreatePackage(NULL, *PackageName);
 
-		// If no AssetName was found, generate a unique asset name.
-		if(AssetName.Len() == 0)
+	if(Package)
+	{
+		NewBlueprint = CreateBlueprintFromActor(FName(*AssetName), Package, Actor, bReplaceActor);
+	}
+
+	return NewBlueprint;
+}
+
+void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components)
+{
+	USimpleConstructionScript* SCS = Blueprint->SimpleConstructionScript;
+
+	TArray<UBlueprint*> ParentBPStack;
+	UBlueprint::GetBlueprintHierarchyFromClass(Blueprint->GeneratedClass, ParentBPStack);
+
+	TMap<USceneComponent*, USCS_Node*> SceneComponentsToAdd;
+	TMap<USceneComponent*, USCS_Node*> InstanceComponentToNodeMap;
+
+	AActor* Actor = nullptr;
+
+	for (UActorComponent* ActorComponent : Components)
+	{
+		if (ActorComponent)
 		{
-			PackageName = FPackageName::GetLongPackagePath(Path);
-			FString BasePath = PackageName + TEXT("/") + LOCTEXT("BlueprintName_Default", "NewBlueprint").ToString();
-			FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
-			AssetToolsModule.Get().CreateUniqueAssetName(BasePath, TEXT(""), PackageName, AssetName);
+			if (Actor)
+			{
+				check(Actor == ActorComponent->GetOwner());
+			}
+			else
+			{
+				Actor = ActorComponent->GetOwner();
+				check(Actor);
+			}
+
+			USCS_Node* SCSNode = SCS->CreateNode(ActorComponent->GetClass(), ActorComponent->GetFName());
+			UEditorEngine::CopyPropertiesForUnrelatedObjects(ActorComponent,SCSNode->ComponentTemplate);
+
+			// Clear the instance component flag
+			SCSNode->ComponentTemplate->CreationMethod = EComponentCreationMethod::Native;
+
+			USceneComponent* SceneComponent = Cast<USceneComponent>(ActorComponent);
+
+			// The easy part is non-scene component or the Root simply add it
+			if (SceneComponent == nullptr)
+			{
+				SCS->AddNode(SCSNode);
+			}
+			else
+			{
+				InstanceComponentToNodeMap.Add(SceneComponent,SCSNode);
+
+				if (ActorComponent == Actor->GetRootComponent())
+				{
+					SCS->AddNode(SCSNode);
+				}
+				// If we're attached to a blueprint component look it up as the variable name is the component name
+				else if (SceneComponent->AttachParent->IsCreatedByConstructionScript())
+				{
+					USCS_Node* ParentSCSNode = nullptr;
+					for (UBlueprint* Blueprint : ParentBPStack)
+					{
+						ParentSCSNode = Blueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->AttachParent->GetFName());
+						if (ParentSCSNode)
+						{
+							break;
+						}
+					}
+					check(ParentSCSNode);
+
+					if (ParentSCSNode->GetSCS() != SCS)
+					{
+						SCS->AddNode(SCSNode);
+						SCSNode->SetParent(ParentSCSNode);
+					}
+					else
+					{
+						ParentSCSNode->AddChildNode(SCSNode);
+					}
+				}
+				// If we're attached to a native component
+				else if (SceneComponent->AttachParent->CreationMethod == EComponentCreationMethod::Native)
+				{
+					SCS->AddNode(SCSNode);
+					SCSNode->SetParent(SceneComponent->AttachParent);
+				}
+				else
+				{
+					// Otherwise check if we've already created the parents' new SCS node and attach to that or cache it off to do next pass
+					USCS_Node** ParentSCSNode = InstanceComponentToNodeMap.Find(SceneComponent->AttachParent);
+					if (ParentSCSNode)
+					{
+						(*ParentSCSNode)->AddChildNode(SCSNode);
+					}
+					else
+					{
+						SceneComponentsToAdd.Add(SceneComponent, SCSNode);
+					}
+				}
+			}
+		}
+	}
+
+	// Hook up the remaining components nodes that the parent's node was missing when it was processed
+	for (auto ComponentIt = SceneComponentsToAdd.CreateConstIterator(); ComponentIt; ++ComponentIt)
+	{
+		InstanceComponentToNodeMap.FindChecked(ComponentIt.Key()->AttachParent)->AddChildNode(ComponentIt.Value());
+	}
+}
+
+UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FName BlueprintName, UObject* Outer, AActor* Actor, const bool bReplaceActor )
+{
+	UBlueprint* NewBlueprint = nullptr;
+
+	if (Actor != nullptr)
+	{
+		if (Outer != nullptr)
+		{
+			// We don't have a factory, but we can still try to create a blueprint for this actor class
+			NewBlueprint = FKismetEditorUtilities::CreateBlueprint( Actor->GetClass(), Outer, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass(), FName("CreateFromActor") );
 		}
 
-		UPackage* Package = CreatePackage(NULL, *PackageName);
-
-		if(Package)
-		{
-			UActorFactory* FactoryToUse = GEditor->FindActorFactoryForActorClass( Actor->GetClass() );
-			const FName BlueprintName = FName(*AssetName);
-
-			if( FactoryToUse != NULL )
-			{
-				// Create the blueprint
-				UObject* Asset = FactoryToUse->GetAssetFromActorInstance(Actor);
-				// For Actors that don't have an asset associated with them, Asset will be null
-				NewBlueprint = FactoryToUse->CreateBlueprint( Asset, Package, BlueprintName, FName("CreateFromActor") );
-			}
-			else 
-			{
-				// We don't have a factory, but we can still try to create a blueprint for this actor class
-				NewBlueprint = FKismetEditorUtilities::CreateBlueprint( Object->GetClass(), Package, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass(), FName("CreateFromActor") );
-			}
-		}
-
-		if(NewBlueprint)
+		if (NewBlueprint != nullptr)
 		{
 			// Notify the asset registry
 			FAssetRegistryModule::AssetCreated(NewBlueprint);
 
 			// Mark the package dirty
-			Package->MarkPackageDirty();
+			Outer->MarkPackageDirty();
 
-			if(NewBlueprint->GeneratedClass)
+			// If the source Actor has Instance Components we need to translate these in to SCS Nodes
+			if (Actor->GetInstanceComponents().Num() > 0)
 			{
+				AddComponentsToBlueprint(NewBlueprint, Actor->GetInstanceComponents());
+			}
+
+			if (NewBlueprint->GeneratedClass != nullptr)
+			{
+				// Since we already created SCS Nodes for the instance components, temporarily cache and clear the
+				// array to avoid creating duplicates in the new CDO
+				const TArray<UActorComponent*> TempInstanceComponents(Actor->GetInstanceComponents());
+				Actor->ClearInstanceComponents(false);
+
 				UObject* CDO = NewBlueprint->GeneratedClass->GetDefaultObject();
-				UEditorEngine::CopyPropertiesForUnrelatedObjects(Object, CDO);
-				if(AActor* CDOAsActor = Cast<AActor>(CDO))
+				UEditorEngine::CopyPropertiesForUnrelatedObjects(Actor, CDO);
+
+				for (UActorComponent* Component : TempInstanceComponents)
 				{
-					if(USceneComponent* Scene = CDOAsActor->GetRootComponent())
+					Actor->AddInstanceComponent(Component);
+				}
+
+				if (AActor* CDOAsActor = Cast<AActor>(CDO))
+				{
+					if (USceneComponent* Scene = CDOAsActor->GetRootComponent())
 					{
-						Scene->SetRelativeLocation(FVector::ZeroVector);
+						Scene->RelativeLocation = FVector::ZeroVector;
+						Scene->RelativeRotation = FRotator::ZeroRotator;
 
 						// Clear out the attachment info after having copied the properties from the source actor
 						Scene->AttachParent = NULL;
@@ -934,7 +1065,9 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FString& Path
 				}
 			}
 
-			if(bReplaceActor)
+			FKismetEditorUtilities::CompileBlueprint(NewBlueprint);
+
+			if (bReplaceActor)
 			{
 				TArray<AActor*> Actors;
 				Actors.Add(Actor);
@@ -947,7 +1080,7 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FString& Path
 		}
 	}
 
-	if (NewBlueprint)
+	if (NewBlueprint != nullptr)
 	{
 		// Open the editor for the new blueprint
 		FAssetEditorManager::Get().OpenEditorForAsset(NewBlueprint);
@@ -974,7 +1107,7 @@ public:
 			USceneComponent* SingleSceneComp = NULL;
 			if(SelectedActors.Num() == 1)
 			{
-				TArray<UActorComponent*> Components;
+				TInlineComponentArray<UActorComponent*> Components;
 				SelectedActors[0]->GetComponents(Components);
 				for(UActorComponent* Component : Components)
 				{
@@ -1258,6 +1391,8 @@ AActor* FKismetEditorUtilities::CreateBlueprintInstanceFromSelection(UBlueprint*
 	// Assume all selected actors are in the same world
 	UWorld* World = SelectedActors[0]->GetWorld();
 
+	GEditor->GetSelectedActors()->Modify();
+
 	for(auto It(SelectedActors.CreateIterator());It;++It)
 	{
 		if (AActor* Actor = Cast<AActor>(*It))
@@ -1388,6 +1523,15 @@ TSharedPtr<class IBlueprintEditor> FKismetEditorUtilities::GetIBlueprintEditorFo
 		for (UObject* TestOuter = ObjectToFocusOn->GetOuter(); TestOuter; TestOuter = TestOuter->GetOuter())
 		{
 			TargetBP = Cast<UBlueprint>(TestOuter);
+
+			if(TargetBP == nullptr)
+			{
+				if(UBlueprintGeneratedClass* BPGeneratedClass = Cast<UBlueprintGeneratedClass>(TestOuter))
+				{
+					TargetBP = Cast<UBlueprint>(BPGeneratedClass->ClassGeneratedBy);
+				}
+			}
+
 			if (TargetBP != NULL)
 			{
 				break;

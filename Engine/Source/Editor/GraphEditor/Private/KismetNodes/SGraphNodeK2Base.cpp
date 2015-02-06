@@ -33,7 +33,7 @@ void SGraphNodeK2Base::UpdateCompactNode()
 	OutputPins.Empty();
 
 	// error handling set-up
-	TSharedPtr<SWidget> ErrorText = SetupErrorReporting();
+	SetupErrorReporting();
 
 	// Reset variables that are going to be exposed, in case we are refreshing an already setup node.
 	RightNodeBox.Reset();
@@ -69,7 +69,7 @@ void SGraphNodeK2Base::UpdateCompactNode()
 		.AutoHeight()
 		.Padding( FMargin(5.0f, 1.0f) )
 		[
-			ErrorText->AsShared()
+			ErrorReporting->AsWidget()
 		]
 		+SVerticalBox::Slot()
 		[
@@ -171,6 +171,11 @@ TSharedPtr<SToolTip> SGraphNodeK2Base::GetComplexTooltip()
 	SAssignNew(NodeToolTip, SToolTip)
 		.Visibility_Static(&LocalUtils::IsToolTipVisible, ThisRef)
 		.IsInteractive_Static(&LocalUtils::IsInteractive)
+
+		// Emulate text-only tool-tip styling that SToolTip uses when no custom content is supplied.  We want node tool-tips to 
+		// be styled just like text-only tool-tips
+		.BorderImage( FCoreStyle::Get().GetBrush("ToolTip.BrightBackground") )
+		.TextMargin(FMargin(11.0f))
 	[
 		SAssignNew(VerticalBoxWidget, SVerticalBox)
 		// heading container
@@ -182,8 +187,7 @@ TSharedPtr<SToolTip> SGraphNodeK2Base::GetComplexTooltip()
 				.AutoHeight()
 			[
 				SNew(STextBlock)
-					.Font(FEditorStyle::GetFontStyle(TEXT("Kismet.Tooltip.SubtextFont")))
-					.ColorAndOpacity(FSlateColor::UseSubduedForeground())
+					.TextStyle( FEditorStyle::Get(), "Documentation.SDocumentationTooltipSubdued")
 					.Text(this, &SGraphNodeK2Base::GetToolTipHeading)
 			]
 			+SVerticalBox::Slot()
@@ -438,7 +442,7 @@ void SGraphNodeK2Base::GetNodeInfoPopups(FNodeInfoContext* Context, TArray<FGrap
 
 					FString PinName = UEdGraphSchema_K2::TypeToText(WatchPin->PinType).ToString();
 					PinName += TEXT(" ");
-					PinName += Schema->GetPinDisplayName(WatchPin);
+					PinName += Schema->GetPinDisplayName(WatchPin).ToString();
 
 					FString WatchText;
 					const FKismetDebugUtilities::EWatchTextResult WatchStatus = FKismetDebugUtilities::GetWatchText(/*inout*/ WatchText, Blueprint, ActiveObject, WatchPin);

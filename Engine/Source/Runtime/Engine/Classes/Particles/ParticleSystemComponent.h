@@ -247,7 +247,7 @@ struct FParticleEventKismetData : public FParticleEventData
 /** 
  * A particle emitter.
  */
-UCLASS(ClassGroup=Rendering, hidecategories=Object, hidecategories=Physics, hidecategories=Collision, showcategories=Trigger, editinlinenew, meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=(Rendering, Common), hidecategories=Object, hidecategories=Physics, hidecategories=Collision, showcategories=Trigger, editinlinenew, meta=(BlueprintSpawnableComponent))
 class ENGINE_API UParticleSystemComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -855,7 +855,7 @@ public:
 
 
 	// @todo document
-	void UpdateInstances();
+	void UpdateInstances(bool bEmptyInstances = false);
 
 
 	// @todo document
@@ -887,7 +887,7 @@ public:
 	 *  @param  InEventData         Gamespecific event data payload
 	 */
 	void ReportEventSpawn(const FName InEventName, const float InEmitterTime,
-		const FVector InLocation, const FVector InVelocity, const TArray<UParticleModuleEventSendToGame*>& InEventData);
+		const FVector InLocation, const FVector InVelocity, const TArray<class UParticleModuleEventSendToGame*>& InEventData);
 
 	/**
 	 *	Record a death event.
@@ -900,7 +900,7 @@ public:
 	 *	@param	InParticleTime		The relative life of the particle when the event fired.
 	 */
 	void ReportEventDeath(const FName InEventName, const float InEmitterTime,
-		const FVector InLocation, const FVector InVelocity, const TArray<UParticleModuleEventSendToGame*>& InEventData, const float InParticleTime);
+		const FVector InLocation, const FVector InVelocity, const TArray<class UParticleModuleEventSendToGame*>& InEventData, const float InParticleTime);
 
 	/**
 	 *	Record a collision event.
@@ -918,7 +918,7 @@ public:
 	 *	@param	InBoneName		Name of bone we hit (for skeletal meshes).
 	 */
 	void ReportEventCollision(const FName InEventName, const float InEmitterTime, const FVector InLocation,
-		const FVector InDirection, const FVector InVelocity, const TArray<UParticleModuleEventSendToGame*>& InEventData, 
+		const FVector InDirection, const FVector InVelocity, const TArray<class UParticleModuleEventSendToGame*>& InEventData, 
 		const float InParticleTime, const FVector InNormal, const float InTime, const int32 InItem, const FName InBoneName);
 
 	/**
@@ -930,7 +930,7 @@ public:
 	 *	@param	InLocation			The location of the particle emitter when the event fired.
 	 */
 	void ReportEventBurst(const FName InEventName, const float InEmitterTime, const int32 ParticleCount,
-		const FVector InLocation, const TArray<UParticleModuleEventSendToGame*>& InEventData);
+		const FVector InLocation, const TArray<class UParticleModuleEventSendToGame*>& InEventData);
 
 	/**
 	 *	Record a kismet event.

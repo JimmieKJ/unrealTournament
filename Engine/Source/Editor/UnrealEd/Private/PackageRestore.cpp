@@ -3,6 +3,7 @@
 #include "UnrealEd.h"
 #include "PackageRestore.h"
 #include "PackageTools.h"
+#include "AutoSaveUtils.h"
 
 #define LOCTEXT_NAMESPACE "PackageRestore"
 
@@ -267,7 +268,7 @@ namespace PackageRestore
 				.FillWidth(1)
 				[
 					SNew(STextBlock) 
-					.Text(Item->GetPackageName())
+					.Text(FText::FromString(Item->GetPackageName()))
 				]
 				+SHorizontalBox::Slot()
 				.Padding(FMargin(4, 0, 0, 0))
@@ -280,7 +281,7 @@ namespace PackageRestore
 					.FillWidth(1)
 					[
 						SNew(STextBlock) 
-						.Text(Item->GetPackageFilename())
+						.Text(FText::FromString(Item->GetPackageFilename()))
 					]
 					+SHorizontalBox::Slot()
 					.Padding(FMargin(2, 0, 0, 0))
@@ -302,7 +303,7 @@ namespace PackageRestore
 					.FillWidth(1)
 					[
 						SNew(STextBlock) 
-						.Text(Item->GetAutoSaveFilename())
+						.Text(FText::FromString(Item->GetAutoSaveFilename()))
 					]
 					+SHorizontalBox::Slot()
 					.Padding(FMargin(2, 0, 0, 0))
@@ -514,7 +515,7 @@ namespace PackageRestore
 
 FEditorFileUtils::EPromptReturnCode PackageRestore::PromptToRestorePackages(const TMap<FString, FString>& PackagesToRestore, TArray<FString>* OutFailedPackages)
 {
-	const FString& AutoSaveDir = GUnrealEd->AutoSaveDir;
+	const FString AutoSaveDir = AutoSaveUtils::GetAutoSaveDir();
 
 	FPackageRestoreItems PackageRestoreItems;
 	PackageRestoreItems.Reserve(PackagesToRestore.Num());

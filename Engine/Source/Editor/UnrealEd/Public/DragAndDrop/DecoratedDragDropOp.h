@@ -48,6 +48,7 @@ public:
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				.Padding( 0.0f, 0.0f, 3.0f, 0.0f )
+				.VAlign( VAlign_Center )
 				[
 					SNew( SImage )
 					.Image( this, &FDecoratedDragDropOp::GetIcon )

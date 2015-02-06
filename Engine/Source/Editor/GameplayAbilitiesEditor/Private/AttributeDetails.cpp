@@ -540,28 +540,28 @@ TSharedRef<ITableRow> FScalableFloatDetails::HandleRowNameComboBoxGenarateWidget
 	return
 		SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
 		[
-			SNew(STextBlock).Text(*InItem)
+			SNew(STextBlock).Text(FText::FromString(*InItem))
 		];
 }
 
 /** Display the current selection */
-FString FScalableFloatDetails::GetRowNameComboBoxContentText() const
+FText FScalableFloatDetails::GetRowNameComboBoxContentText() const
 {
-	FString RowName = TEXT("Multiple Values");
+	FString RowName;
 	const FPropertyAccess::Result RowResult = RowNameProperty->GetValue(RowName);
 	if (RowResult != FPropertyAccess::MultipleValues)
 	{
 		TSharedPtr<FString> SelectedRowName = CurrentSelectedItem;
 		if (SelectedRowName.IsValid())
 		{
-			RowName = *SelectedRowName;
+			return FText::FromString(*SelectedRowName);
 		}
 		else
 		{
-			RowName = TEXT("None");
+			return LOCTEXT("None", "None");
 		}
 	}
-	return RowName;
+	return LOCTEXT("MultipleValues", "Multiple Values");
 }
 
 FText FScalableFloatDetails::GetRowValuePreviewLabel() const
@@ -569,7 +569,7 @@ FText FScalableFloatDetails::GetRowValuePreviewLabel() const
 	return FText::Format(LOCTEXT("LevelPreviewLabel", "Preview At {0}"), FText::AsNumber(PreviewLevel));
 }
 
-FString FScalableFloatDetails::GetRowValuePreviewText() const
+FText FScalableFloatDetails::GetRowValuePreviewText() const
 {
 	TArray<const void*> RawPtrs;
 	CurveTableHandleProperty->AccessRawData(RawPtrs);
@@ -581,11 +581,14 @@ FString FScalableFloatDetails::GetRowValuePreviewText() const
 			float Value;
 			ValueProperty->GetValue(Value);
 
-			return FString::Printf(TEXT("%.3f"), Value * Curve.Eval(PreviewLevel));
+			static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+				.SetMinimumFractionalDigits(3)
+				.SetMaximumFractionalDigits(3);
+			return FText::AsNumber(Value * Curve.Eval(PreviewLevel), &FormatOptions);
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 /** Called by Slate when the filter box changes text. */

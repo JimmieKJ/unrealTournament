@@ -17,6 +17,7 @@
 #include "SMatineeRecorder.h"
 
 #include "Editor/DistCurveEditor/Public/IDistCurveEditor.h"
+#include "Editor/UnrealEd/Classes/Editor/Transactor.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSlateMatinee, Log, All);
 
@@ -98,6 +99,9 @@ public:
 
 	/** Starts recording the current sequence */
 	void StartRecordingMovie() override;
+
+	/** Handle undo redo events */
+	void OnPostUndoRedo(FUndoSessionContext SessionContext, bool Succeeded);
 
 	// Menu handlers
 	void OnMenuAddKey();
@@ -1533,6 +1537,9 @@ private:
 	};
 	TMap<UInterpTrack*, AddKeyInfo> AddKeyInfoMap;
 	TMap<UInterpTrack*, int32> TrackToNewKeyIndexMap;
+
+	/** Handle to the registered OnActorMoved delegate */
+	FDelegateHandle OnActorMovedDelegateHandle;
 
 	/** For keeping track of the previously used camera, so we can detect cuts when playing back in editor mode */
 	ACameraActor* PreviousCamera;

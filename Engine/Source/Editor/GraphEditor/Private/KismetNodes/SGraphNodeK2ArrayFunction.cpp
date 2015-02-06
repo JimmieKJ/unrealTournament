@@ -51,7 +51,7 @@ void SGraphNodeK2ArrayFunction::UpdateGraphNode()
 		OutputPins.Empty();
 
 		// error handling set-up
-		TSharedPtr<SWidget> ErrorText = SetupErrorReporting();
+		SetupErrorReporting();
 
 		// Reset variables that are going to be exposed, in case we are refreshing an already setup node.
 		RightNodeBox.Reset();
@@ -160,7 +160,7 @@ void SGraphNodeK2ArrayFunction::UpdateGraphNode()
 					.AutoHeight()
 					.Padding( FMargin(5.0f, 1.0f) )
 					[
-						ErrorText->AsShared()
+						ErrorReporting->AsWidget()
 					]
 			];
 

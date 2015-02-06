@@ -6,6 +6,7 @@
 #include "AssetViewTypes.h"
 #include "DragAndDrop/AssetDragDropOp.h"
 #include "DragAndDrop/AssetPathDragDropOp.h"
+#include "DragDropHandler.h"
 #include "AssetThumbnail.h"
 #include "AssetViewWidgets.h"
 #include "FileHelpers.h"
@@ -13,6 +14,7 @@
 #include "ObjectTools.h"
 #include "KismetEditorUtilities.h"
 #include "IPluginManager.h"
+#include "NativeClassHierarchy.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -43,6 +45,13 @@ SAssetView::~SAssetView()
 	// Unregister listener for asset loading and object property changes
 	FCoreUObjectDelegates::OnAssetLoaded.RemoveAll(this);
 	FCoreUObjectDelegates::OnObjectPropertyChanged.RemoveAll(this);
+
+	// Unsubscribe from class events
+	if ( bCanShowClasses )
+	{
+		TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+		NativeClassHierarchy->OnClassHierarchyUpdated().RemoveAll( this );
+	}
 
 	// Remove the listener for when view settings are changed
 	UContentBrowserSettings::OnSettingChanged().RemoveAll(this);
@@ -88,6 +97,13 @@ void SAssetView::Construct( const FArguments& InArgs )
 	FCoreUObjectDelegates::OnAssetLoaded.AddSP(this, &SAssetView::OnAssetLoaded);
 	FCoreUObjectDelegates::OnObjectPropertyChanged.AddSP(this, &SAssetView::OnObjectPropertyChanged);
 
+	// Listen to find out when the available classes are changed, so that we can refresh our paths
+	if ( bCanShowClasses )
+	{
+		TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+		NativeClassHierarchy->OnClassHierarchyUpdated().AddSP( this, &SAssetView::OnClassHierarchyUpdated );
+	}
+
 	// Listen for when view settings are changed
 	UContentBrowserSettings::OnSettingChanged().AddSP(this, &SAssetView::HandleSettingChanged);
 
@@ -118,7 +134,7 @@ void SAssetView::Construct( const FArguments& InArgs )
 		ThumbnailScaleSliderValue = FMath::Clamp<float>(ThumbnailScaleSliderValue.Get(), 0.0f, 1.0f);
 	}
 
-	MinThumbnailScale = 0.4f * ThumbnailScaleRangeScalar;
+	MinThumbnailScale = 0.2f * ThumbnailScaleRangeScalar;
 	MaxThumbnailScale = 2.0f * ThumbnailScaleRangeScalar;
 
 	bCanShowClasses = InArgs._CanShowClasses;
@@ -399,7 +415,11 @@ const FSourcesData& SAssetView::GetSourcesData() const
 
 bool SAssetView::IsAssetPathSelected() const
 {
-	return SourcesData.PackagePaths.Num() > 0 && !SourcesData.PackagePaths[0].ToString().StartsWith(TEXT("/Classes"));
+	int32 NumAssetPaths, NumClassPaths;
+	ContentBrowserUtils::CountPathTypes(SourcesData.PackagePaths, NumAssetPaths, NumClassPaths);
+
+	// Check that only asset paths are selected
+	return NumAssetPaths > 0 && NumClassPaths == 0;
 }
 
 void SAssetView::SetBackendFilter(const FARFilter& InBackendFilter)
@@ -1290,12 +1310,13 @@ void SAssetView::RefreshSourceItems()
 
 	const bool bShowAll = SourcesData.IsEmpty() && BackendFilter.IsEmpty();
 
-	bool bWantToShowShowClasses = false;
+	bool bShowClasses = false;
+	TArray<FName> ClassPathsToShow;
 
 	if ( bShowAll )
 	{
 		AssetRegistryModule.Get().GetAllAssets(Items);
-		bWantToShowShowClasses = true;
+		bShowClasses = true;
 		bWereItemsRecursivelyFiltered = true;
 	}
 	else
@@ -1306,79 +1327,77 @@ void SAssetView::RefreshSourceItems()
 		const bool bUsingFolders = IsShowingFolders();
 		FARFilter Filter = SourcesData.MakeFilter(bRecurse, bUsingFolders);
 
+		// Add the backend filters from the filter list
+		Filter.Append(BackendFilter);
+
 		bWereItemsRecursivelyFiltered = bRecurse;
 
-		// Remove the classes path if it is in the list. We will add classes to the results later
-		bWantToShowShowClasses = Filter.PackagePaths.Remove(TEXT("/Classes")) > 0;
+		// Move any class paths into their own array
+		Filter.PackagePaths.RemoveAll([&ClassPathsToShow](const FName& PackagePath) -> bool
+		{
+			if(ContentBrowserUtils::IsClassPath(PackagePath.ToString()))
+			{
+				ClassPathsToShow.Add(PackagePath);
+				return true;
+			}
+			return false;
+		});
+
+		// Only show classes if we have class paths, and the filter allows classes to be shown
+		const bool bFilterAllowsClasses = Filter.ClassNames.Num() == 0 || Filter.ClassNames.Contains(NAME_Class);
+		bShowClasses = ClassPathsToShow.Num() > 0 && bFilterAllowsClasses;
 
 		if ( SourcesData.Collections.Num() > 0 && Filter.ObjectPaths.Num() == 0 )
 		{
 			// This is an empty collection, no asset will pass the check
 		}
+		else if ( ClassPathsToShow.Num() > 0 && Filter.PackagePaths.Num() == 0 )
+		{
+			// Only class paths are selected, no asset will pass the check
+		}
 		else
 		{
-			// Add the backend filters from the filter list
-			Filter.Append(BackendFilter);
-
 			// Add assets found in the asset registry
 			AssetRegistryModule.Get().GetAssets(Filter, Items);
 		}
 
-		TArray< FName > ClassPaths;
-		FCollectionManagerModule& CollectionManagerModule = FModuleManager::GetModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
-		for (int Index = 0; Index < SourcesData.Collections.Num(); Index++)
+		if ( bFilterAllowsClasses )
 		{
-			CollectionManagerModule.Get().GetClassesInCollection( SourcesData.Collections[Index].Name, SourcesData.Collections[Index].Type, ClassPaths );
-		}
-
-		for (int Index = 0; Index < ClassPaths.Num(); Index++)
-		{
-			UClass* Class = FindObject<UClass>(ANY_PACKAGE, *ClassPaths[Index].ToString());
-
-			if ( Class != NULL )
+			TArray< FName > ClassPaths;
+			FCollectionManagerModule& CollectionManagerModule = FModuleManager::GetModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+			for (int32 Index = 0; Index < SourcesData.Collections.Num(); Index++)
 			{
-				Items.Add( Class );
+				CollectionManagerModule.Get().GetClassesInCollection( SourcesData.Collections[Index].Name, SourcesData.Collections[Index].Type, ClassPaths );
+			}
+
+			for (int32 Index = 0; Index < ClassPaths.Num(); Index++)
+			{
+				UClass* Class = FindObject<UClass>(ANY_PACKAGE, *ClassPaths[Index].ToString());
+
+				if ( Class != NULL )
+				{
+					Items.Add( Class );
+				}
 			}
 		}
 	}
 
 	// If we are showing classes in the asset list...
-	if (bWantToShowShowClasses && bCanShowClasses)
+	if (bShowClasses && bCanShowClasses)
 	{
-		// Make a map of UClasses to ActorFactories that support them
-		const TArray< UActorFactory *>& ActorFactories = GEditor->ActorFactories;
-		TMap<UClass*, UActorFactory*> ActorFactoryMap;
-		for ( int32 FactoryIdx = 0; FactoryIdx < ActorFactories.Num(); ++FactoryIdx )
+		// Load the native class hierarchy
+		TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+
+		FNativeClassHierarchyFilter ClassFilter;
+		ClassFilter.ClassPaths = ClassPathsToShow;
+		ClassFilter.bRecursivePaths = ShouldFilterRecursively() || !IsShowingFolders() || !ClassPathsToShow.Num();
+
+		// Find all the classes that match the current criteria
+		TArray<UClass*> MatchingClasses;
+		NativeClassHierarchy->GetMatchingClasses(ClassFilter, MatchingClasses);
+		for(UClass* CurrentClass : MatchingClasses)
 		{
-			UActorFactory* ActorFactory = ActorFactories[FactoryIdx];
-
-			if ( ActorFactory )
-			{
-				ActorFactoryMap.Add(ActorFactory->GetDefaultActorClass( FAssetData() ), ActorFactory);
-			}
-		}
-
-		// Add loaded classes
-		FText UnusedErrorMessage;
-		FAssetData NoAssetData;
-		for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
-		{
-			// Don't offer skeleton classes
-			bool bIsSkeletonClass = FKismetEditorUtilities::IsClassABlueprintSkeleton(*ClassIt);
-
-			if ( !ClassIt->HasAllClassFlags(CLASS_NotPlaceable) &&
-				!ClassIt->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) &&
-				ClassIt->IsChildOf(AActor::StaticClass()) &&
-				(!ClassIt->IsChildOf(ABrush::StaticClass()) || ClassIt->IsChildOf(AVolume::StaticClass())) &&
-				!bIsSkeletonClass )
-			{
-				UActorFactory** ActorFactory = ActorFactoryMap.Find(*ClassIt);
-
-				if ( !ActorFactory || (*ActorFactory)->CanCreateActorFrom( NoAssetData, UnusedErrorMessage ) )
-				{
-					Items.Add(FAssetData(*ClassIt));
-				}
-			}
+			Items.Add(FAssetData(CurrentClass));
 		}
 	}
 
@@ -1609,31 +1628,75 @@ void SAssetView::RefreshFilteredItems()
 
 void SAssetView::RefreshFolders()
 {
-	if(IsShowingFolders() && !ShouldFilterRecursively())
+	if(!IsShowingFolders() || ShouldFilterRecursively())
 	{
-		const bool bDisplayDev = GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder();
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-		for(auto SourcePathIt(SourcesData.PackagePaths.CreateConstIterator()); SourcePathIt; SourcePathIt++)
-		{		
-			TArray<FString> SubPaths;
-			AssetRegistryModule.Get().GetSubPaths((*SourcePathIt).ToString(), SubPaths, false);
-			for(auto SubPathIt(SubPaths.CreateConstIterator()); SubPathIt; SubPathIt++)	
-			{
-				// If this is a developer folder, and we don't want to show them try the next path
-				if ( !bDisplayDev && ContentBrowserUtils::IsDevelopersFolder(*SubPathIt) )
-				{
-					continue;
-				}
+		return;
+	}
+	
+	// Split the selected paths into asset and class paths
+	TArray<FName> AssetPathsToShow;
+	TArray<FName> ClassPathsToShow;
+	for(const FName& PackagePath : SourcesData.PackagePaths)
+	{
+		if(ContentBrowserUtils::IsClassPath(PackagePath.ToString()))
+		{
+			ClassPathsToShow.Add(PackagePath);
+		}
+		else
+		{
+			AssetPathsToShow.Add(PackagePath);
+		}
+	}
 
-				if(!Folders.Contains(*SubPathIt))
-				{
-					FilteredAssetItems.Add(MakeShareable(new FAssetViewFolder(*SubPathIt)));
-					RefreshList();
-					Folders.Add(*SubPathIt);
-					bPendingSortFilteredItems = true;
-				}
+	TArray<FString> FoldersToAdd;
+
+	const bool bDisplayDev = GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder();
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	for(const FName& PackagePath : AssetPathsToShow)
+	{		
+		TArray<FString> SubPaths;
+		AssetRegistryModule.Get().GetSubPaths(PackagePath.ToString(), SubPaths, false);
+		for(const FString& SubPath : SubPaths)
+		{
+			// If this is a developer folder, and we don't want to show them try the next path
+			if(!bDisplayDev && ContentBrowserUtils::IsDevelopersFolder(SubPath))
+			{
+				continue;
+			}
+
+			if(!Folders.Contains(SubPath))
+			{
+				FoldersToAdd.Add(SubPath);
 			}
 		}
+	}
+
+	// If we are showing classes in the asset list then we need to show their folders too
+	if(bCanShowClasses && ClassPathsToShow.Num() > 0)
+	{
+		// Load the native class hierarchy
+		TSharedRef<FNativeClassHierarchy> NativeClassHierarchy = FContentBrowserSingleton::Get().GetNativeClassHierarchy();
+
+		FNativeClassHierarchyFilter ClassFilter;
+		ClassFilter.ClassPaths = ClassPathsToShow;
+		ClassFilter.bRecursivePaths = false;
+
+		// Find all the classes that match the current criteria
+		TArray<FString> MatchingFolders;
+		NativeClassHierarchy->GetMatchingFolders(ClassFilter, MatchingFolders);
+		FoldersToAdd.Append(MatchingFolders);
+	}
+
+	if(FoldersToAdd.Num() > 0)
+	{
+		for(const FString& FolderPath : FoldersToAdd)
+		{
+			FilteredAssetItems.Add(MakeShareable(new FAssetViewFolder(FolderPath)));
+			Folders.Add(FolderPath);
+		}
+
+		RefreshList();
+		bPendingSortFilteredItems = true;
 	}
 }
 
@@ -2024,6 +2087,12 @@ void SAssetView::OnObjectPropertyChanged(UObject* Asset, FPropertyChangedEvent& 
 	{
 		RecentlyLoadedOrChangedAssets.Add( FName(*Asset->GetPathName()), Asset );
 	}
+}
+
+void SAssetView::OnClassHierarchyUpdated()
+{
+	// The class hierarchy has changed in some way, so we need to refresh our backend list
+	RequestSlowFullListRefresh();
 }
 
 void SAssetView::OnFrontendFiltersChanged()
@@ -3409,12 +3478,12 @@ FReply SAssetView::EndThumbnailEditModeClicked()
 	return FReply::Handled();
 }
 
-FString SAssetView::GetAssetCountText() const
+FText SAssetView::GetAssetCountText() const
 {
 	const int32 NumAssets = FilteredAssetItems.Num();
 	const int32 NumSelectedAssets = GetSelectedItems().Num();
 
-	FText AssetCount;
+	FText AssetCount = FText::GetEmpty();
 	if ( NumSelectedAssets == 0 )
 	{
 		if ( NumAssets == 1 )
@@ -3438,7 +3507,7 @@ FString SAssetView::GetAssetCountText() const
 		}
 	}
 
-	return AssetCount.ToString();
+	return AssetCount;
 }
 
 EVisibility SAssetView::GetEditModeLabelVisibility() const
@@ -3577,78 +3646,25 @@ bool SAssetView::HasSingleCollectionSource() const
 
 void SAssetView::OnAssetsDragDropped(const TArray<FAssetData>& AssetList, const FString& DestinationPath)
 {
-	// Do not display the menu if any of the assets are classes as they cannot be moved or copied
-	for( int32 AssetIndex = 0; AssetIndex < AssetList.Num(); AssetIndex++ )
-	{
-		const FAssetData& Asset = AssetList[AssetIndex];
-		if ( Asset.AssetClass == "Class" )
-		{
-			const FText MessageText = LOCTEXT("AssetTreeDropClassError", "The selection contains one or more 'Class' type assets, these cannot be moved or copied.");
-			FMessageDialog::Open(EAppMsgType::Ok, MessageText);
-			return;
-		}
-	}
-
-	FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, NULL);
-	const FText MoveCopyHeaderString = FText::Format( LOCTEXT("AssetViewDropMenuHeading", "Move/Copy to {0}"), FText::FromString( DestinationPath ) );
-	MenuBuilder.BeginSection("PathAssetMoveCopy", MoveCopyHeaderString);
-	{
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropCopy", "Copy Here"),
-			LOCTEXT("DragDropCopyTooltip", "Creates a copy of all dragged files in this folder."),
-			FSlateIcon(),
-			FUIAction(
-			FExecuteAction::CreateSP( this, &SAssetView::ExecuteDropCopy, AssetList, DestinationPath ),
-			FCanExecuteAction()
-			)
-			);
-
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropMove", "Move Here"),
-			LOCTEXT("DragDropMoveTooltip", "Moves all dragged files to this folder."),
-			FSlateIcon(),
-			FUIAction(
-			FExecuteAction::CreateSP( this, &SAssetView::ExecuteDropMove, AssetList, DestinationPath ),
-			FCanExecuteAction()
-			)
-			);
-	}
-	MenuBuilder.EndSection();
-
-	TWeakPtr< SWindow > ContextMenuWindow = FSlateApplication::Get().PushMenu(
-		SharedThis( this ),
-		MenuBuilder.MakeWidget(),
-		FSlateApplication::Get().GetCursorPos(),
-		FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
+	DragDropHandler::HandleAssetsDroppedOnAssetFolder(
+		SharedThis(this), 
+		AssetList, 
+		DestinationPath, 
+		FText::FromString(FPaths::GetCleanFilename(DestinationPath)), 
+		DragDropHandler::FExecuteCopyOrMoveAssets::CreateSP(this, &SAssetView::ExecuteDropCopy),
+		DragDropHandler::FExecuteCopyOrMoveAssets::CreateSP(this, &SAssetView::ExecuteDropMove)
 		);
 }
 
 void SAssetView::OnPathsDragDropped(const TArray<FString>& PathNames, const FString& DestinationPath)
 {
-	FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, NULL);
-	MenuBuilder.BeginSection("PathFolderMoveCopy", FText::Format(LOCTEXT("AssetViewDropMenuHeading", "Move/Copy to {0}"), FText::FromString(DestinationPath)));
-	{
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropCopyFolder", "Copy Folder Here"),
-			LOCTEXT("DragDropCopyFolderTooltip", "Creates a copy of all assets in the dragged folders to this folder, preserving folder structure."),
-			FSlateIcon(),
-			FUIAction( FExecuteAction::CreateSP( this, &SAssetView::ExecuteDropCopyFolder, PathNames, DestinationPath ) )
-			);
-
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("DragDropMoveFolder", "Move Folder Here"),
-			LOCTEXT("DragDropMoveFolderTooltip", "Moves all assets in the dragged folders to this folder, preserving folder structure."),
-			FSlateIcon(),
-			FUIAction( FExecuteAction::CreateSP( this, &SAssetView::ExecuteDropMoveFolder, PathNames, DestinationPath ) )
-			);
-	}
-	MenuBuilder.EndSection();
-
-	TWeakPtr< SWindow > ContextMenuWindow = FSlateApplication::Get().PushMenu(
-		SharedThis( this ),
-		MenuBuilder.MakeWidget(),
-		FSlateApplication::Get().GetCursorPos(),
-		FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu )
+	DragDropHandler::HandleFoldersDroppedOnAssetFolder(
+		SharedThis(this), 
+		PathNames, 
+		DestinationPath, 
+		FText::FromString(FPaths::GetCleanFilename(DestinationPath)), 
+		DragDropHandler::FExecuteCopyOrMoveFolders::CreateSP(this, &SAssetView::ExecuteDropCopyFolder),
+		DragDropHandler::FExecuteCopyOrMoveFolders::CreateSP(this, &SAssetView::ExecuteDropMoveFolder)
 		);
 }
 

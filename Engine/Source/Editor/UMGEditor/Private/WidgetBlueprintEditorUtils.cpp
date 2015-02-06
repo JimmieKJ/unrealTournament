@@ -17,6 +17,7 @@
 #include "ScopedTransaction.h"
 #include "K2Node_ComponentBoundEvent.h"
 #include "CanvasPanel.h"
+#include "WidgetSlotPair.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -34,26 +35,22 @@ public:
 	{
 		const bool bIsWidget = ObjectClass->IsChildOf(UWidget::StaticClass());
 		const bool bIsSlot = ObjectClass->IsChildOf(UPanelSlot::StaticClass());
+		const bool bIsSlotMetaData = ObjectClass->IsChildOf(UWidgetSlotPair::StaticClass());
 
-		return bIsWidget || bIsSlot;
+		return bIsWidget || bIsSlot || bIsSlotMetaData;
 	}
 
 	virtual void ProcessConstructedObject(UObject* NewObject) override
 	{
 		check(NewObject);
 
-		// Add it to the new object map
-		NewObjectMap.Add(NewObject->GetFName(), Cast<UWidget>(NewObject));
-
-		// If this is a scene component and it has a parent
-		UWidget* Widget = Cast<UWidget>(NewObject);
-		if ( Widget && Widget->Slot )
+		if ( UWidget* Widget = Cast<UWidget>(NewObject) )
 		{
-			// Add an entry to the child->parent name map
-//			ParentMap.Add(NewObject->GetFName(), Widget->AttachParent->GetFName());
-
-			// Clear this so it isn't used when constructing the new SCS node
-			//Widget->AttachParent = NULL;
+			NewWidgetMap.Add(Widget->GetFName(), Widget);
+		}
+		else if ( UWidgetSlotPair* SlotMetaData = Cast<UWidgetSlotPair>(NewObject) )
+		{
+			MissingSlotData.Add(SlotMetaData->GetWidgetName(), SlotMetaData);
 		}
 	}
 
@@ -61,11 +58,11 @@ public:
 
 public:
 
-	// Child->Parent name map
-	TMap<FName, FName> ParentMap;
-
 	// Name->Instance object mapping
-	TMap<FName, UWidget*> NewObjectMap;
+	TMap<FName, UWidget*> NewWidgetMap;
+
+	// Instance->OldSlotMetaData that didn't survive the journey because it wasn't copied.
+	TMap<FName, UWidgetSlotPair*> MissingSlotData;
 };
 
 bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, const FName& OldName, const FName& NewName)
@@ -166,8 +163,8 @@ void FWidgetBlueprintEditorUtils::CreateWidgetContextMenu(FMenuBuilder& MenuBuil
 	MenuBuilder.BeginSection("Actions");
 	{
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT( "EditBlueprint_Label", "Edit Blueprint..." ),
-			LOCTEXT( "EditBlueprint_Tooltip", "Open the selected widget blueprint(s) for edit." ),
+			LOCTEXT( "EditBlueprint_Label", "Edit Widget Blueprint..." ),
+			LOCTEXT( "EditBlueprint_Tooltip", "Open the selected Widget Blueprint(s) for edit." ),
 			FSlateIcon(),
 			FUIAction(
 				FExecuteAction::CreateStatic( &FWidgetBlueprintEditorUtils::ExecuteOpenSelectedWidgetsForEdit, Widgets ),
@@ -451,6 +448,8 @@ void FWidgetBlueprintEditorUtils::CopyWidgets(UWidgetBlueprint* BP, TSet<FWidget
 		UWidget* ParentWidget = Widget.GetTemplate();
 		CopyableWidets.Add(ParentWidget);
 
+		// When copying a widget users expect all sub widgets to be copied as well, so we need to ensure that
+		// we gather all the child widgets and copy them as well.
 		UWidget::GatherAllChildren(ParentWidget, CopyableWidets);
 	}
 
@@ -468,25 +467,33 @@ void FWidgetBlueprintEditorUtils::ExportWidgetsToText(TSet<UWidget*> WidgetsToEx
 	const FExportObjectInnerContext Context;
 
 	// Export each of the selected nodes
-	UObject* LastOuter = NULL;
+	UObject* LastOuter = nullptr;
 	for ( UWidget* Widget : WidgetsToExport )
 	{
 		// The nodes should all be from the same scope
 		UObject* ThisOuter = Widget->GetOuter();
-		check(( LastOuter == ThisOuter ) || ( LastOuter == NULL ));
+		check(( LastOuter == ThisOuter ) || ( LastOuter == nullptr ));
 		LastOuter = ThisOuter;
 
-		UExporter::ExportToOutputDevice(&Context, Widget, NULL, Archive, TEXT("copy"), 0, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false, ThisOuter);
+		UExporter::ExportToOutputDevice(&Context, Widget, nullptr, Archive, TEXT("copy"), 0, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false, ThisOuter);
+
+		if ( Widget->GetParent() == nullptr || !WidgetsToExport.Contains(Widget->GetParent()) )
+		{
+			auto SlotMetaData = NewObject<UWidgetSlotPair>();
+			SlotMetaData->SetWidget(Widget);
+
+			UExporter::ExportToOutputDevice(&Context, SlotMetaData, nullptr, Archive, TEXT("copy"), 0, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false, nullptr);
+		}
 	}
 
 	ExportedText = Archive;
 }
 
-void FWidgetBlueprintEditorUtils::PasteWidgets(UWidgetBlueprint* BP, FWidgetReference ParentWidgetRef, FVector2D PasteLocation)
+void FWidgetBlueprintEditorUtils::PasteWidgets(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, UWidgetBlueprint* BP, FWidgetReference ParentWidgetRef, FVector2D PasteLocation)
 {
 	const FScopedTransaction Transaction(FGenericCommands::Get().Paste->GetDescription());
 
-	UPanelWidget* ParentWidget = NULL;
+	UPanelWidget* ParentWidget = nullptr;
 	
 	if ( ParentWidgetRef.IsValid() )
 	{
@@ -511,7 +518,8 @@ void FWidgetBlueprintEditorUtils::PasteWidgets(UWidgetBlueprint* BP, FWidgetRefe
 
 	// Import the nodes
 	TSet<UWidget*> PastedWidgets;
-	FWidgetBlueprintEditorUtils::ImportWidgetsFromText(BP, TextToImport, /*out*/ PastedWidgets);
+	TMap<FName, UWidgetSlotPair*> PastedExtraSlotData;
+	FWidgetBlueprintEditorUtils::ImportWidgetsFromText(BP, TextToImport, /*out*/ PastedWidgets, /*out*/ PastedExtraSlotData);
 
 	// Ignore an empty set of widget paste data.
 	if ( PastedWidgets.Num() == 0 )
@@ -525,7 +533,7 @@ void FWidgetBlueprintEditorUtils::PasteWidgets(UWidgetBlueprint* BP, FWidgetRefe
 		// Widgets with a null parent mean that they were the root most widget of their selection set when
 		// they were copied and thus we need to paste only the root most widgets.  All their children will be added
 		// automatically.
-		if ( NewWidget->GetParent() == NULL )
+		if ( NewWidget->GetParent() == nullptr )
 		{
 			RootPasteWidgets.Add(NewWidget);
 		}
@@ -560,9 +568,31 @@ void FWidgetBlueprintEditorUtils::PasteWidgets(UWidgetBlueprint* BP, FWidgetRefe
 			UPanelSlot* Slot = ParentWidget->AddChild(NewWidget);
 			if ( Slot )
 			{
-				Slot->SetDesiredPosition(PasteLocation);
+				if ( UWidgetSlotPair* OldSlotData = PastedExtraSlotData.FindRef(NewWidget->GetFName()) )
+				{
+					TMap<FName, FString> OldSlotProperties;
+					OldSlotData->GetSlotProperties(OldSlotProperties);
+					FWidgetBlueprintEditorUtils::ImportPropertiesFromText(Slot, OldSlotProperties);
+				}
+
+				BlueprintEditor->AddPostDesignerLayoutAction(
+				[=] {
+					FWidgetReference WidgetRef = BlueprintEditor->GetReferenceFromTemplate(NewWidget);
+					UPanelSlot* PreviewSlot = WidgetRef.GetPreview()->Slot;
+					UPanelSlot* TemplateSlot = WidgetRef.GetTemplate()->Slot;
+					
+					if ( UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(PreviewSlot) )
+					{
+						CanvasSlot->SaveBaseLayout();
+						CanvasSlot->SetDesiredPosition(PasteLocation);
+						CanvasSlot->RebaseLayout();
+					}
+
+					TMap<FName, FString> SlotProperties;
+					FWidgetBlueprintEditorUtils::ExportPropertiesToText(PreviewSlot, SlotProperties);
+					FWidgetBlueprintEditorUtils::ImportPropertiesFromText(TemplateSlot, SlotProperties);
+				});
 			}
-			//TODO UMG - The paste location needs to be relative from the most upper left hand corner of other widgets in their container.
 		}
 
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
@@ -584,7 +614,7 @@ void FWidgetBlueprintEditorUtils::PasteWidgets(UWidgetBlueprint* BP, FWidgetRefe
 	}
 }
 
-void FWidgetBlueprintEditorUtils::ImportWidgetsFromText(UWidgetBlueprint* BP, const FString& TextToImport, /*out*/ TSet<UWidget*>& ImportedWidgetSet)
+void FWidgetBlueprintEditorUtils::ImportWidgetsFromText(UWidgetBlueprint* BP, const FString& TextToImport, /*out*/ TSet<UWidget*>& ImportedWidgetSet, /*out*/ TMap<FName, UWidgetSlotPair*>& PastedExtraSlotData)
 {
 	// We create our own transient package here so that we can deserialize the data in isolation and ensure unreferenced
 	// objects not part of the deserialization set are unresolved.
@@ -595,7 +625,9 @@ void FWidgetBlueprintEditorUtils::ImportWidgetsFromText(UWidgetBlueprint* BP, co
 	FWidgetObjectTextFactory Factory;
 	Factory.ProcessBuffer(TempPackage, RF_Transactional, TextToImport);
 
-	for ( auto& Entry : Factory.NewObjectMap )
+	PastedExtraSlotData = Factory.MissingSlotData;
+
+	for ( auto& Entry : Factory.NewWidgetMap )
 	{
 		UWidget* Widget = Entry.Value;
 
@@ -604,13 +636,26 @@ void FWidgetBlueprintEditorUtils::ImportWidgetsFromText(UWidgetBlueprint* BP, co
 		Widget->SetFlags(RF_Transactional);
 
 		// If there is an existing widget with the same name, rename the newly placed widget.
-		if ( FindObject<UObject>(BP->WidgetTree, *Widget->GetName()) )
+		FString WidgetOldName = Widget->GetName();
+		if ( FindObject<UObject>(BP->WidgetTree, *WidgetOldName) )
 		{
+			UWidgetSlotPair* SlotData = PastedExtraSlotData.FindRef(Widget->GetFName());
+			if ( SlotData )
+			{
+				PastedExtraSlotData.Remove(Widget->GetFName());
+			}
+
 			Widget->Rename(nullptr, BP->WidgetTree);
+
+			if ( SlotData )
+			{
+				SlotData->SetWidgetName(Widget->GetFName());
+				PastedExtraSlotData.Add(Widget->GetFName(), SlotData);
+			}
 		}
 		else
 		{
-			Widget->Rename(*Widget->GetName(), BP->WidgetTree);
+			Widget->Rename(*WidgetOldName, BP->WidgetTree);
 		}
 	}
 
@@ -648,6 +693,9 @@ void FWidgetBlueprintEditorUtils::ImportPropertiesFromText(UObject* Object, cons
 			if ( UProperty* Property = FindField<UProperty>(Object->GetClass(), Entry.Key) )
 			{
 				Property->ImportText(*Entry.Value, Property->ContainerPtrToValuePtr<uint8>(Object), 0, Object);
+
+				FPropertyChangedEvent ChangedEvent(Property);
+				Object->PostEditChangeProperty(ChangedEvent);
 			}
 		}
 	}

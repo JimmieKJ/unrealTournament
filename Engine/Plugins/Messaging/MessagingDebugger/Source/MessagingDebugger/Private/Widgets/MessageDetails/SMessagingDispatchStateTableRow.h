@@ -99,7 +99,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-						.Text(EndpointInfo->Name.ToString())
+						.Text(FText::FromName(EndpointInfo->Name))
 				];
 		}
 

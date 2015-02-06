@@ -113,6 +113,7 @@ struct FOpenGLES2 : public FOpenGLBase
 
 	static FORCEINLINE bool RequiresDontEmitPrecisionForTextureSamplers() { return bRequiresDontEmitPrecisionForTextureSamplers; }
 	static FORCEINLINE bool RequiresTextureCubeLodEXTToTextureCubeLodDefine() { return bRequiresTextureCubeLodEXTToTextureCubeLodDefine; }
+	static FORCEINLINE bool SupportsStandardDerivativesExtension()		{ return bSupportsStandardDerivativesExtension; }
 
 	static FORCEINLINE int32 GetReadHalfFloatPixelsEnum()				{ return GL_HALF_FLOAT_OES; }
 
@@ -452,6 +453,9 @@ protected:
 
 	/** GL_EXT_texture_storage */
 	static bool bSupportsTextureStorageEXT;
+
+	/** GL_OES_standard_derivations */
+	static bool bSupportsStandardDerivativesExtension;
 
 public:
 	/* This is a hack to remove the calls to "precision sampler" defaults which are produced by the cross compiler however don't compile on some android platforms */

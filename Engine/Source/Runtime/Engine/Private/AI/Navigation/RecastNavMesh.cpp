@@ -37,6 +37,8 @@
 
 #endif // WITH_RECAST
 
+static const int32 ArbitraryMaxVoxelTileSize = 1024;
+
 FNavMeshTileData::FNavData::~FNavData()
 {
 #if WITH_RECAST
@@ -453,6 +455,13 @@ void ARecastNavMesh::CleanUp()
 	DestroyRecastPImpl();
 }
 
+void ARecastNavMesh::PostLoad()
+{
+	Super::PostLoad();
+	// tilesize validation. This is temporary and should get removed by 4.9
+	TileSizeUU = FMath::Clamp(TileSizeUU, CellSize, ArbitraryMaxVoxelTileSize * CellSize);
+}
+
 void ARecastNavMesh::PostInitProperties()
 {
 	if (HasAnyFlags(RF_ClassDefaultObject) == true)
@@ -477,6 +486,8 @@ void ARecastNavMesh::PostInitProperties()
 	}
 	
 	Super::PostInitProperties();
+
+	TileSizeUU = FMath::Clamp(TileSizeUU, CellSize, ArbitraryMaxVoxelTileSize * CellSize);
 
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
@@ -671,7 +682,8 @@ void ARecastNavMesh::Serialize( FArchive& Ar )
 
 	if (Ar.IsLoading())
 	{
-		if (NavMeshVersion < NAVMESHVER_MIN_COMPATIBLE)
+		// VER_UE4_ADD_MODIFIERS_RUNTIME_GENERATION was integrated from main to 4.7 without support for reading the data. Discard it.
+		if (NavMeshVersion < NAVMESHVER_MIN_COMPATIBLE || (Ar.UE4Ver() >= VER_UE4_ADD_MODIFIERS_RUNTIME_GENERATION && Ar.UE4Ver() < VER_UE4_MERGED_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7))
 		{
 			// incompatible, just skip over this data.  navmesh needs rebuilt.
 			Ar.Seek( RecastNavMeshSizePos + RecastNavMeshSizeBytes );
@@ -1755,17 +1767,9 @@ void ARecastNavMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 					TileSizeUU = FMath::Max(16.f * AgentRadius, RECAST_MIN_TILE_SIZE);
 				}
 
-				// tile's dimension can't exceed 2^16 x cell size, as it's being stored on 2 bytes
-				const int32 DimensionVX = FMath::CeilToInt(TileSizeUU / CellSize);
-				if (DimensionVX > MAX_uint16)
-				{
-					TileSizeUU = MAX_uint16 * CellSize;
-				}
-				// also it can't be 0, and if it's 1 then we should make sure tile size is equal to cell size
-				else if (DimensionVX <= 1)
-				{
-					TileSizeUU = CellSize;
-				}
+				// tile's can't be too big, otherwise we'll crash while tryng to allocate
+				// memory during navmesh generation
+				TileSizeUU = FMath::Clamp(TileSizeUU, CellSize, ArbitraryMaxVoxelTileSize * CellSize);
 			}
 
 			if (HasAnyFlags(RF_ClassDefaultObject) == false)

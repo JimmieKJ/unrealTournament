@@ -42,12 +42,14 @@ case $ACTION in
 		        	Platform="IOS"
 		         	AdditionalFlags+=" -deploy -simulator -nocreatestub"
 			;;
-
-			"HTML5") 
+			"macosx")
+					Platform="Mac"
+			;;
+			"HTML5")
 				Platform="HTML5"
 			;;
-			*)	
-				Platform="Mac"
+			*)
+				Platform="$2"
 				AdditionalFlags+=" -deploy " 
 			;; 
 		esac
@@ -74,11 +76,14 @@ case $ACTION in
 		        	AdditionalFlags+=" -simulator"
 				AdditionalFlags+=" -nocreatestub"
 			;; 
+			"macosx")
+					Platform="Mac"
+			;;
 			"HTML5")
 				Platform="HTML5"
 			;;
 			*) 
-        			Platform="Mac"
+        			Platform="$3"
 			;;
 		
 		esac

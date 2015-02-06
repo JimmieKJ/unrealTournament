@@ -574,17 +574,23 @@ namespace iPhonePackager
 
 		static public string GetPrecompileSourcePListFilename()
 		{
-			// Check for a premade one
-			string SourceName = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + "-Info.plist");
+			// check for one in he project directory
+			string SourceName = FileOperations.FindPrefixedFile(Config.IntermediateDirectory, Program.GameName + "-Info.plist");
 
 			if (!File.Exists(SourceName))
 			{
-				// fallback to the shared one
-				SourceName = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory, "UE4Game-Info.plist");
+				// Check for a premade one
+				SourceName = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + "-Info.plist");
 
 				if (!File.Exists(SourceName))
 				{
-					Program.Log("Failed to find " + Program.GameName + "-Info.plist. Please create new .plist or copy a base .plist from a provided game sample.");
+					// fallback to the shared one
+					SourceName = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory, "UE4Game-Info.plist");
+
+					if (!File.Exists(SourceName))
+					{
+						Program.Log("Failed to find " + Program.GameName + "-Info.plist. Please create new .plist or copy a base .plist from a provided game sample.");
+					}
 				}
 			}
 

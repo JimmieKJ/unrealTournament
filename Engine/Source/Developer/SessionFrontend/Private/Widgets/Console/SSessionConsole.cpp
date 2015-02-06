@@ -435,7 +435,7 @@ TSharedRef<ITableRow> SSessionConsole::HandleLogListGenerateRow( FSessionLogMess
 	return SNew(SSessionConsoleLogTableRow, OwnerTable)
 		.HighlightText(this, &SSessionConsole::HandleLogListGetHighlightText)
 		.LogMessage(Message)
-		.ToolTipText(Message->Text);
+		.ToolTipText(FText::FromString(Message->Text));
 }
 
 

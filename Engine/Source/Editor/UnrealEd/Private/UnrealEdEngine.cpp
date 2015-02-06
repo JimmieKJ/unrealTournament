@@ -29,6 +29,7 @@
 #include "ComponentVisualizer.h"
 #include "Editor/EditorLiveStreaming/Public/IEditorLiveStreaming.h"
 #include "SourceCodeNavigation.h"
+#include "AutoReimport/AutoReimportManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdEngine, Log, All);
 
@@ -99,8 +100,11 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 		SpriteIDToIndexMap.Add( SpriteInfo.Category, InfoIndex );
 	}
 
-	AutoReimportManager = ConstructObject<UAutoReimportManager>(UAutoReimportManager::StaticClass());
-	AutoReimportManager->Initialize();
+	if (FPaths::IsProjectFilePathSet())
+	{
+		AutoReimportManager = ConstructObject<UAutoReimportManager>(UAutoReimportManager::StaticClass());
+		AutoReimportManager->Initialize();
+	}
 
 	// register details panel customizations
 	if (!HasAnyFlags(RF_ClassDefaultObject))
@@ -116,16 +120,7 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 	UEditorExperimentalSettings const* ExperimentalSettings =  GetDefault<UEditorExperimentalSettings>();
 	ECookInitializationFlags BaseCookingFlags = ECookInitializationFlags::AutoTick | ECookInitializationFlags::AsyncSave;
 	BaseCookingFlags |= ExperimentalSettings->bIterativeCookingForLaunchOn ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
-
-	if ( !ExperimentalSettings->bDisableCookInEditor)
-	{
-		CookServer = ConstructObject<UCookOnTheFlyServer>( UCookOnTheFlyServer::StaticClass() );
-		CookServer->Initialize( ECookMode::CookByTheBookFromTheEditor, BaseCookingFlags );
-
-		FCoreUObjectDelegates::OnObjectPropertyChanged.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectPropertyChanged);
-		FCoreUObjectDelegates::OnObjectModified.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectModified);
-	}
-	else if ( ExperimentalSettings->bCookOnTheSide )
+	if ( ExperimentalSettings->bCookOnTheSide )
 	{
 		CookServer = ConstructObject<UCookOnTheFlyServer>( UCookOnTheFlyServer::StaticClass() );
 		CookServer->Initialize( ECookMode::CookOnTheFlyFromTheEditor, BaseCookingFlags );
@@ -133,14 +128,69 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 
 		FCoreUObjectDelegates::OnObjectPropertyChanged.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectPropertyChanged);
 		FCoreUObjectDelegates::OnObjectModified.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectModified);
+		FCoreUObjectDelegates::OnObjectSaved.AddUObject( CookServer, &UCookOnTheFlyServer::OnObjectSaved );
+	}
+	else if ( !ExperimentalSettings->bDisableCookInEditor)
+	{
+		CookServer = ConstructObject<UCookOnTheFlyServer>( UCookOnTheFlyServer::StaticClass() );
+		CookServer->Initialize( ECookMode::CookByTheBookFromTheEditor, BaseCookingFlags );
+
+		FCoreUObjectDelegates::OnObjectPropertyChanged.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectPropertyChanged);
+		FCoreUObjectDelegates::OnObjectModified.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectModified);
+		FCoreUObjectDelegates::OnObjectSaved.AddUObject( CookServer, &UCookOnTheFlyServer::OnObjectSaved );
 	}
 }
 
-bool UUnrealEdEngine::CanCookByTheBookInEditor() const 
-{ 
+bool CanCookForPlatformInThisProcess( const FString& PlatformName )
+{
+	////////////////////////////////////////
+	// hack remove this hack when we properly support changing the mobileHDR setting 
+	// check if our mobile hdr setting in memory is different from the one which is saved in the config file
+	
+	bool ConfigSetting = false;
+	if ( !GConfig->GetBool( TEXT("/Script/Engine.RendererSettings"), TEXT("r.MobileHDR"), ConfigSetting, GEngineIni) )
+	{
+		// if we can't get the config setting then don't risk it
+		return false;
+	}
+
+	// this was stolen from void IsMobileHDR()
+	static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
+	const bool CurrentRSetting = MobileHDRCvar->GetValueOnAnyThread() == 1;
+
+	if ( CurrentRSetting != ConfigSetting )
+	{
+		return false;
+	}
+	////////////////////////////////////////
+	return true;
+}
+
+
+bool UUnrealEdEngine::CanCookByTheBookInEditor(const FString& PlatformName) const 
+{ 	
+	if ( CanCookForPlatformInThisProcess(PlatformName) == false )
+	{
+		return false;
+	}
+
 	if ( CookServer )
 	{
 		return CookServer->GetCookMode() == ECookMode::CookByTheBookFromTheEditor; 
+	}
+	return false;
+}
+
+bool UUnrealEdEngine::CanCookOnTheFlyInEditor(const FString& PlatformName) const
+{
+	if ( CanCookForPlatformInThisProcess(PlatformName) == false )
+	{
+		return false;
+	}
+
+	if ( CookServer )
+	{
+		return CookServer->GetCookMode() == ECookMode::CookOnTheFlyFromTheEditor;
 	}
 	return false;
 }
@@ -208,7 +258,7 @@ void UUnrealEdEngine::MakeSortedSpriteInfo(TArray<FSpriteCategoryInfo>& OutSorte
 			const AActor* CurDefaultClassActor = Class->GetDefaultObject<AActor>();
 			if ( CurDefaultClassActor )
 			{
-				TArray<UActorComponent*> Components;
+				TInlineComponentArray<UActorComponent*> Components;
 				CurDefaultClassActor->GetComponents(Components);
 
 				for ( auto* Comp : Components )
@@ -510,7 +560,7 @@ void UUnrealEdEngine::OnPostWindowsMessage(FViewport* Viewport, uint32 Message)
 void UUnrealEdEngine::OnOpenMatinee()
 {
 	// Register a delegate to pickup when Matinee is closed.
-	GLevelEditorModeTools().OnEditorModeChanged().AddUObject( this, &UUnrealEdEngine::OnMatineeEditorClosed );
+	OnMatineeEditorClosedDelegateHandle = GLevelEditorModeTools().OnEditorModeChanged().AddUObject( this, &UUnrealEdEngine::OnMatineeEditorClosed );
 }
 
 
@@ -600,71 +650,27 @@ void UUnrealEdEngine::SetMapBuildCancelled( bool InCancelled )
 
 FText FClassPickerDefaults::GetName() const
 {
-	static TMap< FString, FText > LocNames;
+	FText Result = LOCTEXT("NullClass", "(null class)");
 
-	if (LocNames.Num() == 0)
+	if (UClass* ItemClass = LoadClass<UObject>(NULL, *ClassName, NULL, LOAD_None, NULL))
 	{
-		LocNames.Add( TEXT("ActorName"), LOCTEXT("ActorName", "Actor") );
-		LocNames.Add( TEXT("PawnName"), LOCTEXT("PawnName", "Pawn") );
-		LocNames.Add( TEXT("CharacterName"), LOCTEXT("CharacterName", "Character") );
-		LocNames.Add( TEXT("PlayerControllerName"), LOCTEXT("PlayerControllerName", "PlayerController") );
-		LocNames.Add( TEXT("GameModeName"), LOCTEXT("GameModeName", "Game Mode") );
+		Result = ItemClass->GetDisplayNameText();
 	}
 
-	if ( LocTextNameID.IsEmpty() )
-	{
-		UClass* ItemClass = LoadClass<UObject>(NULL, *ClassName, NULL, LOAD_None, NULL);
-		check( ItemClass );
-		return FText::FromString(FName::NameToDisplayString(ItemClass->GetName(), false));
-	}
-	
-	const FText* PreExistingName = LocNames.Find( LocTextNameID );
-	if ( PreExistingName )
-	{
-		return *PreExistingName;
-	}
-
-	FText OutName;
-	if ( FText::FindText(TEXT("UnrealEd"), LocTextNameID, OutName) )
-	{
-		return OutName;
-	}
-		
-	return FText::FromString(LocTextNameID);
+	return Result;
 }
 
 
 FText FClassPickerDefaults::GetDescription() const
 {
-	static TMap< FString, FText > LocDescs;
+	FText Result = LOCTEXT("NullClass", "(null class)");
 
-	if (LocDescs.Num() == 0)
+	if (UClass* ItemClass = LoadClass<UObject>(NULL, *ClassName, NULL, LOAD_None, NULL))
 	{
-		LocDescs.Add( TEXT("ActorDesc"), LOCTEXT("ActorDesc", "An Actor is an object that can be placed or spawned in the world.") );
-		LocDescs.Add( TEXT("PawnDesc"), LOCTEXT("PawnDesc", "A Pawn is an actor that can be 'possessed' and receieve input from a controller.") );
-		LocDescs.Add( TEXT("CharacterDesc"), LOCTEXT("CharacterDesc", "A character is a type of Pawn that includes the ability to walk around.") );
-		LocDescs.Add( TEXT("PlayerControllerDesc"), LOCTEXT("PlayerControllerDesc", "A Player Controller is an actor responsible for controlling a Pawn used by the player.") );
-		LocDescs.Add( TEXT("GameModeDesc"), LOCTEXT("GameModeDesc", "Game Mode defines the game being played, its rules, scoring, and other facets of the game type.") );
+		Result = ItemClass->GetToolTipText(/*bShortTooltip=*/ true);
 	}
 
-	if ( LocTextDescriptionID.IsEmpty() )
-	{
-		return LOCTEXT("NoClassPickerDesc", "No Description.");
-	}
-
-	const FText* PreExistingDesc = LocDescs.Find( LocTextDescriptionID );
-	if ( PreExistingDesc )
-	{
-		return *PreExistingDesc;
-	}
-
-	FText OutDesc;
-	if ( FText::FindText(TEXT("UnrealEd"), LocTextDescriptionID, OutDesc) )
-	{
-		return OutDesc;
-	}
-		
-	return FText::FromString(LocTextDescriptionID);
+	return Result;
 }
 
 #undef LOCTEXT_NAMESPACE
@@ -1058,7 +1064,7 @@ void UUnrealEdEngine::UpdateVolumeActorVisibility( UClass* InVolumeActorClass, F
 			AActor* ActorToUpdate = ActorsThatChanged[ ActorIdx ];
 
 			// Find all registered primitive components and update the scene proxy with the actors updated visibility map
-			TArray<UPrimitiveComponent*> PrimitiveComponents;
+			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
 			ActorToUpdate->GetComponents(PrimitiveComponents);
 
 			for( int32 ComponentIdx = 0; ComponentIdx < PrimitiveComponents.Num(); ++ComponentIdx )
@@ -1126,7 +1132,7 @@ void UUnrealEdEngine::DrawComponentVisualizers(const FSceneView* View, FPrimitiv
 		if(Actor != NULL)
 		{
 			// Then iterate over components of that actor
-			TArray<UActorComponent*> Components;
+			TInlineComponentArray<UActorComponent*> Components;
 			Actor->GetComponents(Components);
 
 			for(int32 CompIdx=0; CompIdx<Components.Num(); CompIdx++)
@@ -1157,7 +1163,7 @@ void UUnrealEdEngine::DrawComponentVisualizersHUD(const FViewport* Viewport, con
 		if (Actor != NULL)
 		{
 			// Then iterate over components of that actor
-			TArray<UActorComponent*> Components;
+			TInlineComponentArray<UActorComponent*> Components;
 			Actor->GetComponents(Components);
 
 			for (int32 CompIdx = 0; CompIdx<Components.Num(); CompIdx++)
@@ -1242,6 +1248,6 @@ void UUnrealEdEngine::OnMatineeEditorClosed( FEdMode* Mode, bool IsEntering )
 		}
 
 		// Remove this delegate. 
-		GLevelEditorModeTools().OnEditorModeChanged().RemoveUObject( this, &UUnrealEdEngine::OnMatineeEditorClosed );
+		GLevelEditorModeTools().OnEditorModeChanged().Remove( OnMatineeEditorClosedDelegateHandle );
 	}	
 }

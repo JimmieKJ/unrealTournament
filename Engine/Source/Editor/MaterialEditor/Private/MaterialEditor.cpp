@@ -599,7 +599,7 @@ void FMaterialEditor::CreateInternalWidgets()
 	// Manually set zoom level to avoid deferred zooming
 	GraphEditor->SetViewLocation(FVector2D::ZeroVector, 1);
 
-	const FDetailsViewArgs DetailsViewArgs( false, false, true, false, true, this );
+	const FDetailsViewArgs DetailsViewArgs( false, false, true, FDetailsViewArgs::HideNameArea, true, this );
 	MaterialDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 
 	FOnGetDetailCustomizationInstance LayoutExpressionParameterDetails = FOnGetDetailCustomizationInstance::CreateStatic(
@@ -1104,15 +1104,14 @@ void FMaterialEditor::SaveEditorSettings()
 	GConfig->SetInt(TEXT("MaterialEditor"), TEXT("PrimType"), Viewport->PreviewPrimType, GEditorUserSettingsIni);
 }
 
-FString FMaterialEditor::GetCodeViewText() const
+FText FMaterialEditor::GetCodeViewText() const
 {
-	return HLSLCode;
+	return FText::FromString(HLSLCode);
 }
 
 FReply FMaterialEditor::CopyCodeViewTextToClipboard()
 {
-	FString CodeViewText = GetCodeViewText();
-	FPlatformMisc::ClipboardCopy( *CodeViewText );
+	FPlatformMisc::ClipboardCopy(*HLSLCode);
 	return FReply::Handled();
 }
 
@@ -1199,12 +1198,18 @@ void FMaterialEditor::UpdatePreviewMaterial( bool bForce )
 		// So that RebuildMaterialFunctionInfo will see all the nested material functions that may need to be updated
 		ExpressionPreviewMaterial->Expressions = Material->Expressions;
 
+		FMaterialUpdateContext UpdateContext(FMaterialUpdateContext::EOptions::SyncWithRenderingThread);
+		UpdateContext.AddMaterial(ExpressionPreviewMaterial);
+
 		// If we are previewing an expression, update the expression preview material
 		ExpressionPreviewMaterial->PreEditChange( NULL );
 		ExpressionPreviewMaterial->PostEditChange();
 	}
 	else 
 	{
+		FMaterialUpdateContext UpdateContext(FMaterialUpdateContext::EOptions::SyncWithRenderingThread);
+		UpdateContext.AddMaterial(Material);
+
 		// Update the regular preview material when not previewing an expression.
 		Material->PreEditChange( NULL );
 		Material->PostEditChange();
@@ -2410,7 +2415,7 @@ void FMaterialEditor::OnGoToDocumentation()
 	FString DocumentationLink = GetDocLinkForSelectedNode();
 	if (!DocumentationLink.IsEmpty())
 	{
-		IDocumentation::Get()->Open(DocumentationLink);
+		IDocumentation::Get()->Open(DocumentationLink, FDocumentationSourceInfo(TEXT("rightclick_matnode")));
 	}
 }
 
@@ -3319,14 +3324,10 @@ void FMaterialEditor::PasteNodesHere(const FVector2D& Location)
 		Node->CreateNewGuid();
 	}
 
-	// Force new pasted Material Expressions to have same connections as graph nodes
-	Material->MaterialGraph->LinkMaterialExpressionsFromGraph();
+	UpdateMaterialAfterGraphChange();
 
 	// Update UI
 	GraphEditor->NotifyGraphChanged();
-
-	Material->PostEditChange();
-	Material->MarkPackageDirty();
 }
 
 bool FMaterialEditor::CanPasteNodes() const
@@ -3765,11 +3766,11 @@ TSharedRef<SGraphEditor> FMaterialEditor::CreateGraphEditorWidget()
 	
 	if (MaterialFunction)
 	{
-		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL FUNCTION").ToString();
+		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL FUNCTION");
 	}
 	else
 	{
-		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_Material", "MATERIAL").ToString();
+		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_Material", "MATERIAL");
 	}
 
 	SGraphEditor::FGraphEditorEvents InEvents;

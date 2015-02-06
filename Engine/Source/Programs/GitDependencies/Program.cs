@@ -250,25 +250,29 @@ namespace GitDependencies
 				{
 					foreach(string ManifestFileName in Directory.EnumerateFiles(BuildFolder, "*.gitdeps.xml"))
 					{
-						// Read this manifest
-						DependencyManifest NewTargetManifest;
-						if(!ReadXmlObject(ManifestFileName, out NewTargetManifest))
+						// Ignore any dotfiles; Mac creates them on non-unix partitions to store permission info.
+						if(!Path.GetFileName(ManifestFileName).StartsWith("."))
 						{
-							return false;
-						}
+							// Read this manifest
+							DependencyManifest NewTargetManifest;
+							if(!ReadXmlObject(ManifestFileName, out NewTargetManifest))
+							{
+								return false;
+							}
 
-						// Add all the files, blobs and packs into the shared dictionaries
-						foreach(DependencyFile NewFile in NewTargetManifest.Files)
-						{
-							TargetFiles[NewFile.Name] = NewFile;
-						}
-						foreach(DependencyBlob NewBlob in NewTargetManifest.Blobs)
-						{
-							TargetBlobs[NewBlob.Hash] = NewBlob;
-						}
-						foreach(DependencyPack NewPack in NewTargetManifest.Packs)
-						{
-							TargetPacks[NewPack.Hash] = NewPack;
+							// Add all the files, blobs and packs into the shared dictionaries
+							foreach(DependencyFile NewFile in NewTargetManifest.Files)
+							{
+								TargetFiles[NewFile.Name] = NewFile;
+							}
+							foreach(DependencyBlob NewBlob in NewTargetManifest.Blobs)
+							{
+								TargetBlobs[NewBlob.Hash] = NewBlob;
+							}
+							foreach(DependencyPack NewPack in NewTargetManifest.Packs)
+							{
+								TargetPacks[NewPack.Hash] = NewPack;
+							}
 						}
 					}
 				}

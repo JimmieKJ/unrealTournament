@@ -59,12 +59,16 @@ void SReferenceNode::UpdateGraphNode()
 	TSharedRef<SWidget> ThumbnailWidget = SNullWidget::NullWidget;
 	if ( AssetThumbnail.IsValid() )
 	{
+		FAssetThumbnailConfig ThumbnailConfig;
+		ThumbnailConfig.bAllowFadeIn = bUsesThumbnail;
+		ThumbnailConfig.bForceGenericThumbnail = !bUsesThumbnail;
+
 		ThumbnailWidget =
 			SNew(SBox)
 			.WidthOverride(AssetThumbnail->GetSize().X)
 			.HeightOverride(AssetThumbnail->GetSize().Y)
 			[
-				AssetThumbnail->MakeThumbnailWidget(/*bAllowFadeIn=*/bUsesThumbnail, /*bForceGenericThumbnail=*/!bUsesThumbnail)
+				AssetThumbnail->MakeThumbnailWidget(ThumbnailConfig)
 			];
 	}
 

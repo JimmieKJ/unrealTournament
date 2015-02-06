@@ -55,7 +55,7 @@ protected:
 	bool bShowBlueprintTitle;
 
 	/** Blueprint title being displayed for toolbar */
-	FString BlueprintTitle;
+	FText BlueprintTitle;
 
 
 protected:
@@ -63,7 +63,7 @@ protected:
 	const FSlateBrush* GetTypeGlyph() const;
 
 	/** Get the extra title text */
-	FString GetTitleExtra() const;
+	FText GetTitleExtra() const;
 
 	/** Helper methods */
 	EVisibility IsGraphBlueprintNameVisible() const;
@@ -78,5 +78,5 @@ protected:
 	UEdGraph* GetOuterGraph( UObject* Obj );
 
 	/** Helper method used to show blueprint title in breadcrumbs */
-	FString GetBlueprintTitle() const;
+	FText GetBlueprintTitle() const;
 };

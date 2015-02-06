@@ -390,6 +390,9 @@ private:
 	/** Callback to pass to the Color Theme. Holds a handle to this bar's Refresh method */
 	FSimpleDelegate RefreshCallback;
 
+	/** Handle to the registered RefreshCallback delegate */
+	FDelegateHandle RefreshCallbackHandle;
+
 	/** Callback to pass down to the FColorDragDrop for it to show the trash */
 	FSimpleDelegate ShowTrashCallback;
 

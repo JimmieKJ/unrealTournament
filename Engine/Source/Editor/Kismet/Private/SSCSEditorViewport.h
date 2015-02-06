@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "PreviewScene.h"
 #include "SEditorViewport.h"
 
 /**
@@ -48,16 +47,8 @@ public:
 	void RequestRefresh(bool bResetCamera = false, bool bRefreshNow = false);
 
 	// SWidget interface
-
-	/**
-	 * Ticks this widget.
-	 *
-	 * @param  AllottedGeometry The space allotted for this widget
-	 * @param  InCurrentTime  Current absolute real time
-	 * @param  InDeltaTime  Real time passed since last tick
-	 */
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	
+	virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	// End of SWidget interface
 
 	/**
@@ -75,18 +66,9 @@ public:
 	 */
 	bool GetIsSimulateEnabled();
 
-	/** 
-	 * Provides access to the preview scene.
-	 */
-	const FPreviewScene& GetPreviewScene() const
-	{
-		return PreviewScene;
-	}
+	void SetOwnerTab(TSharedRef<SDockTab> Tab);
 
-	/**
-	 * Gets the current preview actor instance.
-	 */
-	AActor* GetPreviewActor() const;
+	TSharedPtr<SDockTab> GetOwnerTab() const;
 
 protected:
 	/**
@@ -95,7 +77,9 @@ protected:
 	 * @return true if the viewport is visible; false otherwise.
 	 */
 	bool IsVisible() const;
-	EVisibility GetWidgetVisibility() const;
+
+	/** Called when the simulation toggle command is fired */
+	void ToggleIsSimulateEnabled();
 
 	/** SEditorViewport interface */
 	virtual TSharedRef<class FEditorViewportClient> MakeEditorViewportClient() override;
@@ -104,9 +88,6 @@ protected:
 private:
 	/** Pointer back to editor tool (owner) */
 	TWeakPtr<class FBlueprintEditor> BlueprintEditorPtr;
-
-	/** Blueprint preview scene */
-	FPreviewScene PreviewScene;
 
 	/** Viewport client */
 	TSharedPtr<class FSCSEditorViewportClient> ViewportClient;
@@ -117,4 +98,6 @@ private:
 	/** If true, reset the camera on the next preview scene update */
 	bool bResetCameraOnNextPreviewUpdate;
 
+	/** The owner dock tab for this viewport. */
+	TWeakPtr<SDockTab> OwnerTab;
 };

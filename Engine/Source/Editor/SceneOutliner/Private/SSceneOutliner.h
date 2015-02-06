@@ -5,6 +5,10 @@
 #include "SceneOutlinerStandaloneTypes.h"
 #include "EditorUndoClient.h"
 
+/**
+ * Scene Outliner definition
+ * Note the Scene Outliner is also called the World Outliner
+ */
 namespace SceneOutliner
 {
 	typedef TTextFilter< const ITreeItem& > TreeItemTextFilter;
@@ -298,7 +302,7 @@ namespace SceneOutliner
 		EVisibility GetFilterStatusVisibility() const;
 
 		/** @return	Returns the filter status text */
-		FString GetFilterStatusText() const;
+		FText GetFilterStatusText() const;
 
 		/** @return Returns color for the filter status text message, based on success of search filter */
 		FSlateColor GetFilterStatusTextColor() const;

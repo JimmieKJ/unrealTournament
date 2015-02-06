@@ -28,6 +28,12 @@ public:
 	*/
 	static FObjectInitializer* Top();
 
+	/**
+	 * Retrieves current FObjectInitializer for current thread. Will assert of no ObjectInitializer is currently set.
+	 * @return Current FObjectInitializer reference.
+	 */
+	static FObjectInitializer& TopChecked();
+
 private:
 	/**
 	* Retrieve thread local stack of FObjectInitializers.

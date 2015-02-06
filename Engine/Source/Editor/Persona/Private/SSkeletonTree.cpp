@@ -300,7 +300,7 @@ void FDisplayedMeshBoneInfo::GenerateWidgetForNameColumn( TSharedPtr< SHorizonta
 	const FSlateFontInfo TextFont = GetBoneTextFont( PreviewComponent );
 	const FLinearColor TextColor = GetBoneTextColor( PreviewComponent );
 
-	FString ToolTip = GetBoneToolTip();
+	FText ToolTip = GetBoneToolTip();
 
 	Box->AddSlot()
 		.AutoWidth()
@@ -354,16 +354,16 @@ TSharedRef< SWidget > FDisplayedMeshBoneInfo::CreateBoneTranslationRetargetingMo
 	return MenuBuilder.MakeWidget();
 }
 
-FString FDisplayedMeshBoneInfo::GetTranslationRetargetingModeMenuTitle() const
+FText FDisplayedMeshBoneInfo::GetTranslationRetargetingModeMenuTitle() const
 {
 	const int32 BoneIndex = TargetSkeleton->GetReferenceSkeleton().FindBoneIndex( BoneName );
 	if( BoneIndex != INDEX_NONE )
 	{
 		const EBoneTranslationRetargetingMode::Type RetargetingMode = TargetSkeleton->GetBoneTranslationRetargetingMode(BoneIndex);
-		return TargetSkeleton->GetRetargetingModeString(RetargetingMode);
+		return FText::FromString(TargetSkeleton->GetRetargetingModeString(RetargetingMode));
 	}
 
-	return FString(TEXT("None"));
+	return LOCTEXT("None", "None");
 }
 
 void FDisplayedMeshBoneInfo::SetBoneTranslationRetargetingMode(EBoneTranslationRetargetingMode::Type NewRetargetingMode)
@@ -423,7 +423,7 @@ FReply FDisplayedMeshBoneInfo::OnDragDetected(const FGeometry& MyGeometry, const
 	return FReply::Unhandled();
 }
 
-FString FDisplayedMeshBoneInfo::GetBoneToolTip()
+FText FDisplayedMeshBoneInfo::GetBoneToolTip()
 {
 	bool bIsMeshBone = false;
 	bool bIsWeightedBone = false;
@@ -473,7 +473,7 @@ FString FDisplayedMeshBoneInfo::GetBoneToolTip()
 		}
 	}
 
-	return ToolTip.ToString();
+	return ToolTip;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -518,7 +518,7 @@ void FDisplayedSocketInfo::GenerateWidgetForNameColumn( TSharedPtr< SHorizontalB
 		TextColor = FLinearColor::White;
 	}
 
-	FString ToolTip = GetSocketToolTip();
+	FText ToolTip = GetSocketToolTip();
 
 	TAttribute<FText> SocketNameAttr = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &FDisplayedSocketInfo::GetSocketNameAsText));
 	TSharedPtr< SInlineEditableTextBlock > InlineWidget;
@@ -645,7 +645,7 @@ FReply FDisplayedSocketInfo::OnDragDetected(const FGeometry& MyGeometry, const F
 	return FReply::Unhandled();
 }
 
-FString FDisplayedSocketInfo::GetSocketToolTip()
+FText FDisplayedSocketInfo::GetSocketToolTip()
 {
 	FText ToolTip;
 
@@ -666,7 +666,7 @@ FString FDisplayedSocketInfo::GetSocketToolTip()
 		ToolTip = LOCTEXT( "SocketToolTipCustomized", "This socket is on the current mesh, customizing the socket of the same name on the skeleton" );
 	}
 
-	return ToolTip.ToString();
+	return ToolTip;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -704,7 +704,7 @@ void FDisplayedAttachedAssetInfo::GenerateWidgetForNameColumn( TSharedPtr< SHori
 		[
 			SNew( STextBlock )
 			.ColorAndOpacity(TextColor)
-			.Text( Asset->GetName() )
+			.Text( FText::FromString(Asset->GetName()) )
 			.HighlightText( FilterText )
 			.Font(TextFont)
 		];
@@ -877,7 +877,7 @@ void SSkeletonTree::Construct(const FArguments& InArgs)
 				.OnCheckStateChanged(this, &SSkeletonTree::OnChangeShowingRetargetingOptions)
 				[
 					SNew(STextBlock)
-						.Text(LOCTEXT("ShowRetargetingOptions", "Show Retargeting Options").ToString())
+						.Text(LOCTEXT("ShowRetargetingOptions", "Show Retargeting Options"))
 				]
 			]
 		]
@@ -2284,7 +2284,7 @@ bool SSkeletonTree::IsBoneWeighted( int32 MeshBoneIndex, UDebugSkelMeshComponent
 	return Index != INDEX_NONE;
 }
 
-FString SSkeletonTree::GetBoneFilterMenuTitle() const
+FText SSkeletonTree::GetBoneFilterMenuTitle() const
 {
 	FText BoneFilterMenuText;
 
@@ -2312,10 +2312,10 @@ FString SSkeletonTree::GetBoneFilterMenuTitle() const
 		break;
 	}
 
-	return BoneFilterMenuText.ToString();
+	return BoneFilterMenuText;
 }
 
-FString SSkeletonTree::GetSocketFilterMenuTitle() const
+FText SSkeletonTree::GetSocketFilterMenuTitle() const
 {
 	FText SocketFilterMenuText;
 
@@ -2347,7 +2347,7 @@ FString SSkeletonTree::GetSocketFilterMenuTitle() const
 		break;
 	}
 
-	return SocketFilterMenuText.ToString();
+	return SocketFilterMenuText;
 }
 
 void SSkeletonTree::OnPreviewMeshChanged( USkeletalMesh* NewPreviewMesh )

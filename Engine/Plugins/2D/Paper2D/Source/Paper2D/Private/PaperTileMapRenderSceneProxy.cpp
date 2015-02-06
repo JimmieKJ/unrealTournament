@@ -15,12 +15,8 @@ FPaperTileMapRenderSceneProxy::FPaperTileMapRenderSceneProxy(const UPaperTileMap
 	if (const UPaperTileMapComponent* InTileComponent = Cast<const UPaperTileMapComponent>(InComponent))
 	{
 		TileMap = InTileComponent->TileMap;
-		Material = (TileMap != nullptr) ? TileMap->Material : nullptr;
-
-		if (Material)
-		{
-			MaterialRelevance = Material->GetRelevance(GetScene().GetFeatureLevel());
-		}
+		Material = InTileComponent->GetMaterial(0);
+		MaterialRelevance = InTileComponent->GetMaterialRelevance(GetScene().GetFeatureLevel());
 	}
 }
 

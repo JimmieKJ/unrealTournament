@@ -161,11 +161,8 @@ void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Off
 		return;
 	}
 
+	//Gets the owning actor of the component. Can be NULL if the component is spawned with the World as an Outer, e.g. in UGameplayStatics::SpawnEmitterAtLocation().
 	AActor* Actor = Owner->Component->GetOwner();
-	if (!Actor && Owner->GetWorld()->IsGameWorld() )
-	{
-		return;
-	}
 
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);

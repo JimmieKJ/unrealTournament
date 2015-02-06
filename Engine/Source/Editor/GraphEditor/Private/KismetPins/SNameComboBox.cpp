@@ -28,19 +28,19 @@ void SNameComboBox::Construct( const FArguments& InArgs )
 	SelectedItem = NameCombo->GetSelectedItem();
 }
 
-FString SNameComboBox::GetItemNameLabel(TSharedPtr<FName> NameItem) const
+FText SNameComboBox::GetItemNameLabel(TSharedPtr<FName> NameItem) const
 {
 	if (!NameItem.IsValid())
 	{
-		return FString();
+		return FText::GetEmpty();
 	}
 
 	return (GetTextLabelForItem.IsBound())
-		? GetTextLabelForItem.Execute(NameItem)
-		: *NameItem->ToString();
+		? FText::FromString(GetTextLabelForItem.Execute(NameItem))
+		: FText::FromName(*NameItem);
 }
 
-FString SNameComboBox::GetSelectedNameLabel() const
+FText SNameComboBox::GetSelectedNameLabel() const
 {
 	TSharedPtr<FName> StringItem = NameCombo->GetSelectedItem();
 	return GetItemNameLabel(StringItem);

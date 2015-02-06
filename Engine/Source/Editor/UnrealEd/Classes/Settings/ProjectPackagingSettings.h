@@ -75,7 +75,7 @@ public:
 	 * If disabled, a development build will be created
 	 * Distribution builds are for publishing to the App Store
 	 */
-	UPROPERTY(config, EditAnywhere, Category=Project, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category=Project)
 	bool ForDistribution;
 
 	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
@@ -92,10 +92,6 @@ public:
 	/** Specifies whether to include prerequisites of packaged games, such as redistributable operating system components, whenever possible. */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool IncludePrerequisites;
-
-	/** If enabled, on Android platforms, .pak files are placed inside the APK. */
-	UPROPERTY(config, EditAnywhere, Category = Packaging, meta = (DisplayName = "Package .pak in APK"))
-	bool UseOBB_InAPK;
 
 	/**
 	 * Specifies whether to include the crash reporter in the packaged project. 

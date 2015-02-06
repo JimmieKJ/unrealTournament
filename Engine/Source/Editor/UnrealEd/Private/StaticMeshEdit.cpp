@@ -252,7 +252,8 @@ private:
 void DecomposeUCXMesh( const TArray<FVector>& CollisionVertices, const TArray<int32>& CollisionFaceIdx, UBodySetup* BodySetup )
 {
 	// We keep no ref to this Model, so it will be GC'd at some point after the import.
-	UModel* TempModel = new UModel(FObjectInitializer(),NULL,1);
+	auto TempModel = NewObject<UModel>();
+	TempModel->Initialize(nullptr, 1);
 
 	FMeshConnectivityBuilder ConnectivityBuilder;
 
@@ -509,7 +510,7 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<UMaterialInterface
 {
 	// Create the UStaticMesh object.
 	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(FindObject<UStaticMesh>(InOuter,*InName.ToString()));
-	UStaticMesh* StaticMesh = new(InOuter,InName,RF_Public|RF_Standalone) UStaticMesh(FObjectInitializer());
+	auto StaticMesh = NewNamedObject<UStaticMesh>(InOuter, InName, RF_Public | RF_Standalone);
 
 	// Add one LOD for the base mesh
 	FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();

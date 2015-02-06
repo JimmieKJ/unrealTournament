@@ -41,7 +41,7 @@ TSharedRef< class SWidget > FTextPropertyTableCellPresenter::ConstructDisplayWid
 		.Padding( FMargin( 2, 0, 0, 0 ) )
 		[
 			SNew( STextBlock )
-			.Text( PropertyEditor->GetValueAsString() )
+			.Text( PropertyEditor->GetValueAsText() )
 			.ToolTipText( PropertyEditor->GetToolTipText() )
 			.Font( Font )
 		]

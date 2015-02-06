@@ -11,6 +11,7 @@
 #include "LandscapeLayerInfoObject.h"
 #include "DynamicMeshBuilder.h"
 #include "Engine/CollisionProfile.h"
+#include "EngineUtils.h"
 
 namespace
 {
@@ -123,12 +124,14 @@ public:
 	bool bHeightmapRendering;
 	FLandscapeGizmoMeshRenderProxy* HeightmapRenderProxy;
 	FMaterialRenderProxy* GizmoRenderProxy;
+	HHitProxy* HitProxy;
 
 	FLandscapeGizmoRenderSceneProxy(const ULandscapeGizmoRenderComponent* InComponent):
 		FPrimitiveSceneProxy(InComponent),
 		bHeightmapRendering(false),
-		HeightmapRenderProxy(NULL),
-		GizmoRenderProxy(NULL)
+		HeightmapRenderProxy(nullptr),
+		GizmoRenderProxy(nullptr),
+		HitProxy(nullptr)
 	{
 #if WITH_EDITOR	
 		ALandscapeGizmoActiveActor* Gizmo = Cast<ALandscapeGizmoActiveActor>(InComponent->GetOwner());
@@ -140,31 +143,35 @@ public:
 				SampleSizeX = Gizmo->SampleSizeX;
 				SampleSizeY = Gizmo->SampleSizeY;
 				bHeightmapRendering = (Gizmo->DataType & LGT_Height);
-				FMatrix LToW = LandscapeInfo->GetLandscapeProxy()->LandscapeActorToWorld().ToMatrixWithScale();
-				FMatrix WToL = LToW.InverseFast();
-				FVector BaseLocation = WToL.TransformPosition(Gizmo->GetActorLocation());
-				float ScaleXY = LandscapeInfo->DrawScale.X;
-				float ScaleZ = LandscapeInfo->DrawScale.Z;
-				const float W = Gizmo->GetWidth() / (2 * ScaleXY);
-				const float H = Gizmo->GetHeight() / (2 * ScaleXY);
-				const float L = Gizmo->GetLength() / ScaleZ;
-				FMatrix GizmoRT = FRotationTranslationMatrix(FRotator(0, Gizmo->GetActorRotation().Yaw, 0), FVector(BaseLocation.X, BaseLocation.Y, 0)) * LToW;
+				FTransform LToW = LandscapeInfo->GetLandscapeProxy()->LandscapeActorToWorld();
+				const float W = Gizmo->Width / 2;
+				const float H = Gizmo->Height / 2;
+				const float L = Gizmo->LengthZ;
+				// The Gizmo's coordinate space is weird, it's partially relative to the landscape and partially relative to the world
+				const FVector GizmoLocation = Gizmo->GetActorLocation();
+				const FQuat   GizmoRotation = FRotator(0, Gizmo->GetActorRotation().Yaw, 0).Quaternion() * LToW.GetRotation();
+				const FVector GizmoScale3D  = Gizmo->GetActorScale3D();
+				const FTransform GizmoRT = FTransform(GizmoRotation, GizmoLocation, GizmoScale3D);
 
-				FrustumVerts[0] = Gizmo->FrustumVerts[0] = GizmoRT.TransformPosition(FVector( - W, - H, BaseLocation.Z + L ));
-				FrustumVerts[1] = Gizmo->FrustumVerts[1] = GizmoRT.TransformPosition(FVector( + W, - H, BaseLocation.Z + L ));
-				FrustumVerts[2] = Gizmo->FrustumVerts[2] = GizmoRT.TransformPosition(FVector( + W, + H, BaseLocation.Z + L ));
-				FrustumVerts[3] = Gizmo->FrustumVerts[3] = GizmoRT.TransformPosition(FVector( - W, + H, BaseLocation.Z + L ));
+				FrustumVerts[0] = Gizmo->FrustumVerts[0] = GizmoRT.TransformPosition(FVector( - W, - H, + L ));
+				FrustumVerts[1] = Gizmo->FrustumVerts[1] = GizmoRT.TransformPosition(FVector( + W, - H, + L ));
+				FrustumVerts[2] = Gizmo->FrustumVerts[2] = GizmoRT.TransformPosition(FVector( + W, + H, + L ));
+				FrustumVerts[3] = Gizmo->FrustumVerts[3] = GizmoRT.TransformPosition(FVector( - W, + H, + L ));
 
-				FrustumVerts[4] = Gizmo->FrustumVerts[4] = GizmoRT.TransformPosition(FVector( - W, - H, BaseLocation.Z ));
-				FrustumVerts[5] = Gizmo->FrustumVerts[5] = GizmoRT.TransformPosition(FVector( + W, - H, BaseLocation.Z ));
-				FrustumVerts[6] = Gizmo->FrustumVerts[6] = GizmoRT.TransformPosition(FVector( + W, + H, BaseLocation.Z ));
-				FrustumVerts[7] = Gizmo->FrustumVerts[7] = GizmoRT.TransformPosition(FVector( - W, + H, BaseLocation.Z ));
+				FrustumVerts[4] = Gizmo->FrustumVerts[4] = GizmoRT.TransformPosition(FVector( - W, - H,   0 ));
+				FrustumVerts[5] = Gizmo->FrustumVerts[5] = GizmoRT.TransformPosition(FVector( + W, - H,   0 ));
+				FrustumVerts[6] = Gizmo->FrustumVerts[6] = GizmoRT.TransformPosition(FVector( + W, + H,   0 ));
+				FrustumVerts[7] = Gizmo->FrustumVerts[7] = GizmoRT.TransformPosition(FVector( - W, + H,   0 ));
 
-				XAxis = GizmoRT.TransformPosition(FVector( + W,	0,		BaseLocation.Z + L ));
-				YAxis = GizmoRT.TransformPosition(FVector( 0,	+ H,	BaseLocation.Z + L ));
-				Origin = GizmoRT.TransformPosition(FVector( 0,	0,		BaseLocation.Z + L ));
+				XAxis  = GizmoRT.TransformPosition(FVector( + W,   0, + L ));
+				YAxis  = GizmoRT.TransformPosition(FVector(   0, + H, + L ));
+				Origin = GizmoRT.TransformPosition(FVector(   0,   0, + L ));
 
-				MeshRT = FTranslationMatrix(FVector(- W + 0.5, - H + 0.5, 0)) * FRotationTranslationMatrix(FRotator(0, Gizmo->GetActorRotation().Yaw, 0), FVector(BaseLocation.X, BaseLocation.Y, 0)) * LToW;
+				const FMatrix WToL = LToW.ToMatrixWithScale().InverseFast();
+				const FVector BaseLocation = WToL.TransformPosition(Gizmo->GetActorLocation());
+				const float ScaleXY = LandscapeInfo->DrawScale.X;
+
+				MeshRT = FTranslationMatrix(FVector(-W / ScaleXY + 0.5, -H / ScaleXY + 0.5, 0) * GizmoScale3D) * FRotationTranslationMatrix(FRotator(0, Gizmo->GetActorRotation().Yaw, 0), FVector(BaseLocation.X, BaseLocation.Y, 0)) * LToW.ToMatrixWithScale();
 				HeightmapRenderProxy = new FLandscapeGizmoMeshRenderProxy( Gizmo->GizmoMeshMaterial->GetRenderProxy(false), BaseLocation.Z + L, BaseLocation.Z, Gizmo->GizmoTexture, FLinearColor(Gizmo->TextureScale.X, Gizmo->TextureScale.Y, 0, 0), WToL );
 
 				GizmoRenderProxy = (Gizmo->DataType != LGT_None) ? Gizmo->GizmoDataMaterial->GetRenderProxy(false) : Gizmo->GizmoMaterial->GetRenderProxy(false);
@@ -206,6 +213,18 @@ public:
 		delete HeightmapRenderProxy;
 		HeightmapRenderProxy = NULL;
 	}
+
+#if WITH_EDITOR
+	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent* Component, TArray<TRefCountPtr<HHitProxy> >& OutHitProxies) override
+	{
+		ALandscapeGizmoActiveActor* Gizmo = CastChecked<ALandscapeGizmoActiveActor>(Component->GetOwner());
+		HitProxy = new HTranslucentActor(Gizmo, Component);
+		OutHitProxies.Add(HitProxy);
+
+		// by default we're not clickable, to allow the preview heightmap to be non-clickable (only the bounds frame)
+		return nullptr;
+	}
+#endif
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
 	{
@@ -265,11 +284,11 @@ public:
 							MeshBuilder.AddTriangle( Idx, Idx+3, Idx+2 );
 						}
 
-						MeshBuilder.GetMesh(FMatrix::Identity, GizmoRenderProxy , SDPG_World, true, false, ViewIndex, Collector);
+						MeshBuilder.GetMesh(FMatrix::Identity, GizmoRenderProxy, SDPG_World, true, false, false, ViewIndex, Collector, HitProxy);
 					}
 
 					if (bHeightmapRendering)
-					{		  		
+					{
 						FDynamicMeshBuilder MeshBuilder;
 
 						for (int32 Y = 0; Y < SampleSizeY; ++Y)
@@ -326,7 +345,6 @@ ULandscapeGizmoRenderComponent::ULandscapeGizmoRenderComponent(const FObjectInit
 	bHiddenInGame = true;
 	AlwaysLoadOnClient = false;
 	AlwaysLoadOnServer = false;
-	bSelectable = false;
 	SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 }
 
@@ -339,14 +357,28 @@ FBoxSphereBounds ULandscapeGizmoRenderComponent::CalcBounds(const FTransform& Lo
 {
 #if WITH_EDITOR
 	ALandscapeGizmoActiveActor* Gizmo = Cast<ALandscapeGizmoActiveActor>(GetOwner());
-	if( Gizmo )
+	if (Gizmo)
 	{
-		return FBoxSphereBounds(Gizmo->FrustumVerts, 8);
+		ULandscapeInfo* LandscapeInfo = Gizmo->TargetLandscapeInfo;
+		if (LandscapeInfo && LandscapeInfo->GetLandscapeProxy())
+		{
+			FTransform LToW = LandscapeInfo->GetLandscapeProxy()->LandscapeActorToWorld();
+
+			// We calculate this ourselves, not from Gizmo->FrustrumVerts, as those haven't been updated yet
+			// The Gizmo's coordinate space is weird, it's partially relative to the landscape and partially relative to the world
+			const FVector GizmoLocation = Gizmo->GetActorLocation();
+			const FQuat   GizmoRotation = FRotator(0, Gizmo->GetActorRotation().Yaw, 0).Quaternion() * LToW.GetRotation();
+			const FVector GizmoScale3D = Gizmo->GetActorScale3D();
+			const FTransform GizmoRT = FTransform(GizmoRotation, GizmoLocation, GizmoScale3D);
+			const float W = Gizmo->Width / 2;
+			const float H = Gizmo->Height / 2;
+			const float L = Gizmo->LengthZ;
+			return FBoxSphereBounds(FBox(FVector(-W, -H, 0), FVector(+W, +H, +L))).TransformBy(GizmoRT);
+		}
 	}
 #endif
-	{
-		return Super::CalcBounds(LocalToWorld);
-	}
+
+	return Super::CalcBounds(LocalToWorld);
 }
 
 ALandscapeGizmoActor::ALandscapeGizmoActor(const FObjectInitializer& ObjectInitializer)
@@ -627,6 +659,16 @@ void ALandscapeGizmoActiveActor::ClearGizmoData()
 	DataType = LGT_None;
 	SelectedData.Empty();
 	LayerInfos.Empty();
+
+	// If the clipboard contains copied gizmo data, clear it also
+	FString ClipboardString;
+	FPlatformMisc::ClipboardPaste(ClipboardString);
+	const TCHAR* Str = *ClipboardString;
+	if (FParse::Command(&Str, TEXT("GizmoData=")))
+	{
+		FPlatformMisc::ClipboardCopy(TEXT(""));
+	}
+
 	ReregisterAllComponents();
 }
 
@@ -681,7 +723,7 @@ float ALandscapeGizmoActiveActor::GetNormalizedHeight(uint16 LandscapeHeight) co
 {
 	if (TargetLandscapeInfo)
 	{
-		ALandscapeProxy* Proxy = TargetLandscapeInfo->GetCurrentLevelLandscapeProxy(true);
+		ALandscapeProxy* Proxy = TargetLandscapeInfo->GetLandscapeProxy();
 		if (Proxy)
 		{
 			// Need to make it scale...?
@@ -700,7 +742,7 @@ float ALandscapeGizmoActiveActor::GetWorldHeight(float NormalizedHeight) const
 {
 	if (TargetLandscapeInfo)
 	{
-		ALandscapeProxy* Proxy = TargetLandscapeInfo->GetCurrentLevelLandscapeProxy(true);
+		ALandscapeProxy* Proxy = TargetLandscapeInfo->GetLandscapeProxy();
 		if (Proxy)
 		{
 			float ZScale = GetLength();

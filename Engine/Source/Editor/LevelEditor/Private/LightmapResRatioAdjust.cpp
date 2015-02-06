@@ -72,7 +72,7 @@ bool FLightmapResRatioAdjustSettings::ApplyRatioAdjustment()
 				// Store the required levels relating to this object based on the level option settings
 				UWorld* MeshWorld = StaticMeshComp->GetWorld();
 				// Exclude preview worlds				
-				if( MeshWorld->WorldType != EWorldType::Preview && MeshWorld->WorldType != EWorldType::Inactive )
+				if( MeshWorld && (MeshWorld->WorldType != EWorldType::Preview && MeshWorld->WorldType != EWorldType::Inactive) )
 				{
 					AddRequiredLevels( Settings.LevelOptions, MeshWorld , MeshLevels );
 					Worlds.AddUnique( MeshWorld );

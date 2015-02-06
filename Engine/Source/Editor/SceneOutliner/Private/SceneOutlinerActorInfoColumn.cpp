@@ -284,10 +284,10 @@ EVisibility FActorInfoColumn::GetColumnDataVisibility( bool bIsClassHyperlink ) 
 	}
 }
 
-FString FActorInfoColumn::GetTextForItem( TWeakPtr<ITreeItem> TreeItem ) const
+FText FActorInfoColumn::GetTextForItem( TWeakPtr<ITreeItem> TreeItem ) const
 {
 	auto Item = TreeItem.Pin();
-	return Item.IsValid() ? Item->Get(FGetInfo(CurrentMode)) : FString();
+	return Item.IsValid() ? FText::FromString(Item->Get(FGetInfo(CurrentMode))) : FText::GetEmpty();
 }
 
 FText FActorInfoColumn::GetSelectedMode() const

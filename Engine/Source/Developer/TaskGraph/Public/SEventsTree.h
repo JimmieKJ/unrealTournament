@@ -38,9 +38,12 @@ public:
 
 private:
 
-	FString	GetDurationText() const
+	FText GetDurationText() const
 	{
-		return FString::Printf( TEXT("%.2f"), EventDuration.Get() );
+		static const FNumberFormattingOptions DurationFormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::AsNumber(EventDuration.Get(), &DurationFormatOptions);
 	}
 
 	FString EventName;

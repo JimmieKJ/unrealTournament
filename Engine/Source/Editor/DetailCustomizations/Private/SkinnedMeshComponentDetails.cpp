@@ -67,7 +67,7 @@ bool FSkinnedMeshComponentDetails::FindUniqueUsedPhysicsAsset(IDetailLayoutBuild
 	{
 		if (AActor* Actor = Cast<AActor>(SelectionIt->Get()))
 		{
-			TArray<USkinnedMeshComponent*> SkinnedMeshComponents;
+			TInlineComponentArray<USkinnedMeshComponent*> SkinnedMeshComponents;
 			Actor->GetComponents(SkinnedMeshComponents);
 
 			for (int32 CompIdx = 0; CompIdx < SkinnedMeshComponents.Num(); CompIdx++)

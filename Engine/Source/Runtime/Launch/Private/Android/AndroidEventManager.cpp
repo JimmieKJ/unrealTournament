@@ -324,3 +324,53 @@ bool FAppEventManager::IsGamePaused()
 {
 	return !bRunning;
 }
+
+bool FAppEventManager::WaitForEventInQueue(EAppEventState InState, double TimeoutSeconds)
+{
+	bool FoundEvent = false;
+	double StopTime = FPlatformTime::Seconds() + TimeoutSeconds;
+
+	TQueue<FAppEventData, EQueueMode::Spsc> HoldingQueue;
+	while (!FoundEvent)
+	{
+		int rc = pthread_mutex_lock(&QueueMutex);
+		check(rc == 0);
+
+		// Copy the existing queue (and check for our event)
+		while (!Queue.IsEmpty())
+		{
+			FAppEventData OutData;
+			Queue.Dequeue(OutData);
+
+			if (OutData.State == InState)
+				FoundEvent = true;
+
+			HoldingQueue.Enqueue(OutData);
+		}
+
+		if (FoundEvent)
+			break;
+
+		// Time expired?
+		if (FPlatformTime::Seconds() > StopTime)
+			break;
+
+		// Unlock for new events and wait a bit before trying again
+		rc = pthread_mutex_unlock(&QueueMutex);
+		check(rc == 0);
+		FPlatformProcess::Sleep(0.01f);
+	}
+
+	// Add events back to queue from holding
+	while (!HoldingQueue.IsEmpty())
+	{
+		FAppEventData OutData;
+		HoldingQueue.Dequeue(OutData);
+		Queue.Enqueue(OutData);
+	}
+
+	int rc = pthread_mutex_unlock(&QueueMutex);
+	check(rc == 0);
+
+	return FoundEvent;
+}

@@ -39,22 +39,23 @@ FText SGraphTitleBar::GetTitleForOneCrumb(const UEdGraph* Graph)
 	return FText::Format(LOCTEXT("BreadcrumbTitle", "{BreadcrumbDisplayName} {BreadcrumbNotes}"), Args);
 }
 
-FString SGraphTitleBar::GetTitleExtra() const
+FText SGraphTitleBar::GetTitleExtra() const
 {
 	check(EdGraphObj != NULL);
 
-	FString ExtraText = Kismet2Ptr.Pin()->GetGraphDecorationString(EdGraphObj);
+	FString ExtraText = Kismet2Ptr.Pin()->GetGraphDecorationString(EdGraphObj).ToString();
 
 	const bool bEditable = (Kismet2Ptr.Pin()->IsEditable(EdGraphObj));
 
 	if(!bEditable)
 	{
-		ExtraText += TEXT(" (READ-ONLY)");
+		ExtraText += TEXT(" (");
+		ExtraText += LOCTEXT("ReadOnlyWarningText", "READ-ONLY").ToString();
+		ExtraText += TEXT(")");
 	}
 
-	return ExtraText;
+	return FText::FromString(ExtraText);
 }
-
 
 EVisibility SGraphTitleBar::IsGraphBlueprintNameVisible() const
 {
@@ -169,7 +170,7 @@ void SGraphTitleBar::Construct( const FArguments& InArgs )
 	if (BlueprintObj)
 	{
 		bShowBlueprintTitle = true;
-		BlueprintTitle = BlueprintObj->GetFriendlyName();
+		BlueprintTitle = FText::FromString(BlueprintObj->GetFriendlyName());
 
 		// Register for notifications to refresh UI
 		if( Kismet2Ptr.IsValid() )
@@ -231,7 +232,7 @@ UEdGraph* SGraphTitleBar::GetOuterGraph( UObject* Obj )
 	return NULL;
 }
 
-FString SGraphTitleBar::GetBlueprintTitle() const
+FText SGraphTitleBar::GetBlueprintTitle() const
 {
 	return BlueprintTitle;
 }
@@ -243,7 +244,7 @@ void SGraphTitleBar::Refresh()
 	{
 		if (UBlueprint* BlueprintObj = FBlueprintEditorUtils::FindBlueprintForGraph(this->EdGraphObj))
 		{
-			BlueprintTitle = BlueprintObj->GetFriendlyName();
+			BlueprintTitle = FText::FromString(BlueprintObj->GetFriendlyName());
 			RebuildBreadcrumbTrail();
 		}
 	}

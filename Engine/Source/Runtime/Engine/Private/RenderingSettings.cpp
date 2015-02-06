@@ -6,6 +6,7 @@
 URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	TranslucentSortAxis = FVector(0.0f, -1.0f, 0.0f);
 }
 
 static FName ConsoleVariableFName(TEXT("ConsoleVariable"));

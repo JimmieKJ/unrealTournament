@@ -195,9 +195,9 @@ void ALevelBounds::SubscribeToUpdateEvents()
 	if (bSubscribedToEvents == false && GIsEditor && !GetWorld()->IsPlayInEditor())
 	{
 		GetWorldTimerManager().SetTimer(TimerHandle_OnTimerTick, this, &ALevelBounds::OnTimerTick, 1.f, true);
-		GEngine->OnActorMoved().AddUObject(this, &ALevelBounds::OnLevelActorMoved);
-		GEngine->OnLevelActorDeleted().AddUObject(this, &ALevelBounds::OnLevelActorAddedRemoved);
-		GEngine->OnLevelActorAdded().AddUObject(this, &ALevelBounds::OnLevelActorAddedRemoved);
+		OnLevelActorMovedDelegateHandle   = GEngine->OnActorMoved       ().AddUObject(this, &ALevelBounds::OnLevelActorMoved);
+		OnLevelActorDeletedDelegateHandle = GEngine->OnLevelActorDeleted().AddUObject(this, &ALevelBounds::OnLevelActorAddedRemoved);
+		OnLevelActorAddedDelegateHandle   = GEngine->OnLevelActorAdded  ().AddUObject(this, &ALevelBounds::OnLevelActorAddedRemoved);
 		
 		bSubscribedToEvents = true;
 	}
@@ -211,9 +211,9 @@ void ALevelBounds::UnsubscribeFromUpdateEvents()
 		{
 			GetWorldTimerManager().ClearTimer(TimerHandle_OnTimerTick);
 		}
-		GEngine->OnActorMoved().RemoveUObject(this, &ALevelBounds::OnLevelActorMoved);
-		GEngine->OnLevelActorDeleted().RemoveUObject(this, &ALevelBounds::OnLevelActorAddedRemoved);
-		GEngine->OnLevelActorAdded().RemoveUObject(this, &ALevelBounds::OnLevelActorAddedRemoved);
+		GEngine->OnActorMoved       ().Remove(OnLevelActorMovedDelegateHandle);
+		GEngine->OnLevelActorDeleted().Remove(OnLevelActorDeletedDelegateHandle);
+		GEngine->OnLevelActorAdded  ().Remove(OnLevelActorAddedDelegateHandle);
 
 		bSubscribedToEvents = false;
 	}

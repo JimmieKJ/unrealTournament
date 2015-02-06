@@ -1460,7 +1460,7 @@ static void DumpBlueprintInfoUtils::DumpInfoForClass(uint32 Indent, UClass* Blue
 		{
 			if (!FBlueprintEditorUtils::ImplementNewInterface(TempBlueprint, CommandOptions.InterfaceClass->GetFName()))
 			{
-				UE_LOG(LogBlueprintInfoDump, Warning, TEXT("Failed to add interface (%s), to class blueprint: '%s'"), *CommandOptions.InterfaceClass->GetName(), *ClassName);
+				UE_LOG(LogBlueprintInfoDump, Warning, TEXT("Failed to add interface (%s), to blueprint class: '%s'"), *CommandOptions.InterfaceClass->GetName(), *ClassName);
 			}
 		}		
 	}

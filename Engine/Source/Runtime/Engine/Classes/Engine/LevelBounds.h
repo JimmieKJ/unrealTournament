@@ -80,6 +80,11 @@ private:
 
 	/** True when there are no actors contributing to the bounds and we are currently using the default bounds instead */
 	bool bUsingDefaultBounds;
+
+	/** Handles to various registered delegates */
+	FDelegateHandle OnLevelActorMovedDelegateHandle;
+	FDelegateHandle OnLevelActorDeletedDelegateHandle;
+	FDelegateHandle OnLevelActorAddedDelegateHandle;
 #endif
 };
 

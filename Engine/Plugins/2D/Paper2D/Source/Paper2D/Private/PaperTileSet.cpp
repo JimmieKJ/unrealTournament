@@ -10,6 +10,10 @@ UPaperTileSet::UPaperTileSet(const FObjectInitializer& ObjectInitializer)
 {
 	TileWidth = 32;
 	TileHeight = 32;
+
+#if WITH_EDITORONLY_DATA
+	BackgroundColor = FColor(0, 0, 127);
+#endif
 }
 
 int32 UPaperTileSet::GetTileCount() const

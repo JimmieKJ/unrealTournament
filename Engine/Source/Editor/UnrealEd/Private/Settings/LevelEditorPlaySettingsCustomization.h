@@ -498,7 +498,7 @@ public:
 private:
 
 	// Callback for getting the description of the settings
-	FString HandleMultiplayerOptionsDescription( ) const
+	FText HandleMultiplayerOptionsDescription( ) const
 	{
 		const ULevelEditorPlaySettings* PlayInSettings = GetDefault<ULevelEditorPlaySettings>();
 		const bool CanRunUnderOneProcess = [&PlayInSettings]{ bool RunUnderOneProcess(false); return (PlayInSettings->GetRunUnderOneProcess(RunUnderOneProcess) && RunUnderOneProcess); }();
@@ -578,7 +578,7 @@ private:
 				}
 			}
 		}
-		return Desc;
+		return FText::FromString(Desc);
 	}
 
 	// Callback for checking whether the ClientWindowHeight and ClientWindowWidth properties are enabled.

@@ -589,6 +589,20 @@ bool UPaperFlipbookComponent::HasAnySockets() const
 	return false;
 }
 
+bool UPaperFlipbookComponent::DoesSocketExist(FName InSocketName) const
+{
+	if (SourceFlipbook != nullptr)
+	{
+		FTransform SocketLocalTransform;
+		if (SourceFlipbook->DoesSocketExist(InSocketName))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 FTransform UPaperFlipbookComponent::GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace) const
 {
 	if (SourceFlipbook != nullptr)

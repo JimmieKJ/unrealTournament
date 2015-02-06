@@ -276,7 +276,7 @@ public:
 
 	virtual FComponentInstanceDataBase* GetComponentInstanceData() const override;
 	virtual FName GetComponentInstanceDataType() const override;
-	virtual void ApplyComponentInstanceData(FComponentInstanceDataBase* ComponentInstanceData) override;
+	 void ApplyComponentInstanceData(class FPrecomputedLightInstanceData* ComponentInstanceData);
 
 	/** @return number of material elements in this primitive */
 	virtual int32 GetNumMaterials() const;

@@ -227,7 +227,7 @@ struct FOpenGLCachedAttr
 
 	bool bEnabled;
 
-	FOpenGLCachedAttr() : Pointer(FOpenGLCachedAttr_Invalid), bEnabled(false) {}
+	FOpenGLCachedAttr() : Pointer(FOpenGLCachedAttr_Invalid), Stride(-1), Divisor(0xFFFFFFFF), Type(0), StreamIndex(0xFFFFFFFF), bEnabled(false) {}
 };
 
 struct FOpenGLStream
@@ -322,7 +322,7 @@ struct FOpenGLContextState : public FOpenGLCommonState
 
 	FOpenGLVertexDeclaration* VertexDecl;
 	uint32 ActiveAttribMask;
-	uint32 MaxActiveStream;
+	uint32 ActiveStreamMask;
 	uint32 MaxActiveAttrib;
 
 	FOpenGLContextState()
@@ -350,7 +350,7 @@ struct FOpenGLContextState : public FOpenGLCommonState
 #endif
 	, VertexDecl(0)
 	, ActiveAttribMask(0)
-	, MaxActiveStream(0)
+	, ActiveStreamMask(0)
 	, MaxActiveAttrib(0)
 	{
 		Scissor.Min.X = Scissor.Min.Y = Scissor.Max.X = Scissor.Max.Y = 0;

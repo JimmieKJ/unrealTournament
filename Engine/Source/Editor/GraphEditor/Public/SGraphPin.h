@@ -111,7 +111,7 @@ public:
 	FVector2D GetNodeOffset() const;
 
 protected:
-	FString GetPinLabel() const;
+	FText GetPinLabel() const;
 
 	/** If we should show the label on this pin */
 	EVisibility GetPinLabelVisibility() const
@@ -140,7 +140,7 @@ protected:
 	virtual FSlateColor GetPinColor() const;
 
 	/** @return The tooltip to display for this pin */
-	FString GetTooltip() const;
+	FText GetTooltip() const;
 
 	TOptional<EMouseCursor::Type> GetPinCursor() const;
 

@@ -145,4 +145,7 @@ protected:
 	FVector2D LocalPopupPosition;
 
 	TPanelChildren<FSimpleSlot> Children;
+
+	/** Handle to the registered OnClickedOutsidePopup delegate */
+	FDelegateHandle OnClickedOutsidePopupDelegateHandle;
 };

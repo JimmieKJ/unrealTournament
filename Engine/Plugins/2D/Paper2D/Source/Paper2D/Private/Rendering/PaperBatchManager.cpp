@@ -11,6 +11,9 @@ namespace FPaperBatchManagerNS
 
 	static FWorldDelegates::FWorldInitializationEvent::FDelegate OnWorldCreatedDelegate;
 	static FWorldDelegates::FWorldEvent::FDelegate OnWorldDestroyedDelegate;
+
+	static FDelegateHandle OnWorldCreatedDelegateHandle;
+	static FDelegateHandle OnWorldDestroyedDelegateHandle;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -18,17 +21,17 @@ namespace FPaperBatchManagerNS
 
 void FPaperBatchManager::Initialize()
 {
-	FPaperBatchManagerNS::OnWorldCreatedDelegate = FWorldDelegates::FWorldInitializationEvent::FDelegate::CreateStatic(&FPaperBatchManager::OnWorldCreated);
-	FWorldDelegates::OnPostWorldInitialization.Add(FPaperBatchManagerNS::OnWorldCreatedDelegate);
+	FPaperBatchManagerNS::OnWorldCreatedDelegate       = FWorldDelegates::FWorldInitializationEvent::FDelegate::CreateStatic(&FPaperBatchManager::OnWorldCreated);
+	FPaperBatchManagerNS::OnWorldCreatedDelegateHandle = FWorldDelegates::OnPostWorldInitialization.Add(FPaperBatchManagerNS::OnWorldCreatedDelegate);
 
-	FPaperBatchManagerNS::OnWorldDestroyedDelegate = FWorldDelegates::FWorldEvent::FDelegate::CreateStatic(&FPaperBatchManager::OnWorldDestroyed);
-	FWorldDelegates::OnPreWorldFinishDestroy.Add(FPaperBatchManagerNS::OnWorldDestroyedDelegate);
+	FPaperBatchManagerNS::OnWorldDestroyedDelegate       = FWorldDelegates::FWorldEvent::FDelegate::CreateStatic(&FPaperBatchManager::OnWorldDestroyed);
+	FPaperBatchManagerNS::OnWorldDestroyedDelegateHandle = FWorldDelegates::OnPreWorldFinishDestroy.Add(FPaperBatchManagerNS::OnWorldDestroyedDelegate);
 }
 
 void FPaperBatchManager::Shutdown()
 {
-	FWorldDelegates::OnPostWorldInitialization.Remove(FPaperBatchManagerNS::OnWorldCreatedDelegate);
-	FWorldDelegates::OnPreWorldFinishDestroy.Remove(FPaperBatchManagerNS::OnWorldDestroyedDelegate);
+	FWorldDelegates::OnPostWorldInitialization.Remove(FPaperBatchManagerNS::OnWorldCreatedDelegateHandle);
+	FWorldDelegates::OnPreWorldFinishDestroy  .Remove(FPaperBatchManagerNS::OnWorldDestroyedDelegateHandle);
 }
 
 void FPaperBatchManager::OnWorldCreated(UWorld* World, const UWorld::InitializationValues IVS)

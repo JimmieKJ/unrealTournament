@@ -9,7 +9,7 @@
 
 #define LOCTEXT_NAMESPACE "STimelinesContainer"
 
-TSharedRef<SWidget> STimelinesContainer::MakeTimeline(TSharedPtr<class SVisualLoggerView> VisualLoggerView, TSharedPtr<class FSequencerTimeSliderController> TimeSliderController, const FVisualLogDevice::FVisualLogEntryItem& Entry)
+TSharedRef<SWidget> STimelinesContainer::MakeTimeline(TSharedPtr<class SVisualLoggerView> VisualLoggerView, TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController, const FVisualLogDevice::FVisualLogEntryItem& Entry)
 {
 	TSharedPtr<STimeline> NewTimeline;
 
@@ -253,7 +253,7 @@ FReply STimelinesContainer::OnKeyDown(const FGeometry& MyGeometry, const FKeyEve
 	return FReply::Unhandled();
 }
 
-void STimelinesContainer::Construct(const FArguments& InArgs, TSharedRef<class SVisualLoggerView> InVisualLoggerView, TSharedRef<FSequencerTimeSliderController> InTimeSliderController)
+void STimelinesContainer::Construct(const FArguments& InArgs, TSharedRef<class SVisualLoggerView> InVisualLoggerView, TSharedRef<FVisualLoggerTimeSliderController> InTimeSliderController)
 {
 	TimeSliderController = InTimeSliderController;
 	VisualLoggerView = InVisualLoggerView;

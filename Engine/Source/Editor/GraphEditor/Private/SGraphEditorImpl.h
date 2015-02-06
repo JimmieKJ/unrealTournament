@@ -78,7 +78,7 @@ private:
 	EVisibility ReadOnlyVisibility() const;
 
 	/** Returns dynamic text, meant to passively instruct the user on what to do in the graph */
-	FString GetInstructionText() const;
+	FText GetInstructionText() const;
 	/** Function to check whether we should show instruction text to the user */
 	EVisibility InstructionTextVisibility() const;
 	/** Returns a 0.0 to 1.0 value, denoting the instruction text's fade percent */

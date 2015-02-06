@@ -480,7 +480,7 @@ private:
 	 *	@param DragDropEvent		The drag event.
 	 *	@param bCreateDropPreview	If true, a drop preview actor will be spawned instead of a normal actor.
 	 */
-	bool HandlePlaceDraggedObjects(const FDragDropEvent& DragDropEvent, bool bCreateDropPreview);
+	bool HandlePlaceDraggedObjects(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, bool bCreateDropPreview);
 
 	/** SWidget Interface */
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;

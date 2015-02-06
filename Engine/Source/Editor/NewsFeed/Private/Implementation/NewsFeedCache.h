@@ -203,6 +203,9 @@ private:
 	// Holds a delegate to be invoked when the feed needs to be auto-reloaded.
 	FTickerDelegate TickDelegate;
 
+	// Handle to the registered TickDelegate.
+	FDelegateHandle TickDelegateHandle;
+
 	// Holds the title file to load from.
 	IOnlineTitleFilePtr TitleFile;
 

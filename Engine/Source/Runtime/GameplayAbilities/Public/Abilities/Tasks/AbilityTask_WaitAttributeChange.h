@@ -56,6 +56,7 @@ class UAbilityTask_WaitAttributeChange : public UAbilityTask
 	FGameplayAttribute	Attribute;
 	TEnumAsByte<EWaitAttributeChangeComparison::Type> ComparisonType;
 	float ComparisonValue;
+	FDelegateHandle OnAttributeChangeDelegateHandle;
 
 protected:
 

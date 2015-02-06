@@ -8,7 +8,11 @@
 #include "CrashReportClient.h"
 #include "UniquePtr.h"
 
+#include "TaskGraphInterfaces.h"
+
 #define LOCTEXT_NAMESPACE "CrashReportClient"
+
+//#define DO_LOCAL_TESTING 1
 
 #if	DO_LOCAL_TESTING
 	const TCHAR* GServerIP = TEXT( "http://localhost:57005" );
@@ -29,17 +33,19 @@ FCrashDescription& GetCrashDescription()
 #if !CRASH_REPORT_UNATTENDED_ONLY
 
 FCrashReportClient::FCrashReportClient(const FPlatformErrorReport& InErrorReport)
-	: AppState(EApplicationState::Ready)
-	, SubmittedCountdown(-1)
-	, bDiagnosticFileSent(false)
+	: DiagnosticText( LOCTEXT("ProcessingReport", "Processing crash report ...") )
+	, DiagnoseReportTask(nullptr)
 	, ErrorReport( InErrorReport )
 	, Uploader(GServerIP)
-	, CancelButtonText(LOCTEXT("Cancel", "Don't Send"))
+	, bBeginUploadCalled(false)
+	, bShouldWindowBeHidden(false)
+	, bAllowToBeContacted(true)
 {
+
 	if (!ErrorReport.TryReadDiagnosticsFile(DiagnosticText) && !FParse::Param(FCommandLine::Get(), TEXT("no-local-diagnosis")))
 	{
-		FDiagnoseReportWorker& Worker = DiagnoseReportTask.GetTask( &DiagnosticText, GetCrashDescription().MachineId, GetCrashDescription().EpicAccountId, GetCrashDescription().UserName, &ErrorReport );
-		DiagnoseReportTask.StartBackgroundTask();
+		DiagnoseReportTask = new FAsyncTask<FDiagnoseReportWorker>( this );
+		DiagnoseReportTask->StartBackgroundTask();
 	}
 	else if( !DiagnosticText.IsEmpty() )
 	{
@@ -47,27 +53,20 @@ FCrashReportClient::FCrashReportClient(const FPlatformErrorReport& InErrorReport
 	}
 }
 
-FReply FCrashReportClient::Submit()
-{
-	if (AppState == EApplicationState::Ready)
-	{
-		StoreCommentAndUpload();
-	}
 
-	return FReply::Handled();
+FCrashReportClient::~FCrashReportClient()
+{
+	if( DiagnoseReportTask )
+	{
+		DiagnoseReportTask->EnsureCompletion();
+		delete DiagnoseReportTask;
+	}
 }
 
-FReply FCrashReportClient::Cancel()
+FReply FCrashReportClient::Submit()
 {
-	// If the AppState is Ready, this performs a Cancel; otherwise the Cancel
-	// button has become the Close button and the ticker has already started.
-	if (AppState == EApplicationState::Ready)
-	{
-		Uploader.Cancel();
-		StartUIWillCloseTicker();
-	}
-	AppState = EApplicationState::Closing;
-
+	StoreCommentAndUpload();
+	bShouldWindowBeHidden = true;
 	return FReply::Handled();
 }
 
@@ -77,26 +76,9 @@ FReply FCrashReportClient::CopyCallstack()
 	return FReply::Handled();
 }
 
-FText FCrashReportClient::GetStatusText() const
-{
-	static const FText ClosingText = LOCTEXT("Closing", "Thank you for reporting this issue - closing automatically");
-	return AppState == EApplicationState::CountingDown ? ClosingText : Uploader.GetStatusText();
-}
-
-FText FCrashReportClient::GetCancelButtonText() const
-{
-	return CancelButtonText;
-}
-
 FText FCrashReportClient::GetDiagnosticText() const
 {
-	static const FText ProcessingReportText = LOCTEXT("ProcessingReport", "Processing crash report ...");
-	return DiagnoseReportTask.IsDone() ? DiagnosticText : ProcessingReportText;
-}
-
-EVisibility FCrashReportClient::SubmitButtonVisibility() const
-{
-	return AppState == EApplicationState::Ready ? EVisibility::Visible : EVisibility::Hidden;
+	return DiagnosticText;
 }
 
 void FCrashReportClient::UserCommentChanged(const FText& Comment, ETextCommit::Type CommitType)
@@ -104,86 +86,69 @@ void FCrashReportClient::UserCommentChanged(const FText& Comment, ETextCommit::T
 	UserComment = Comment;
 
 	// Implement Shift+Enter to commit shortcut
-	if (CommitType == ETextCommit::OnEnter &&
-		AppState == EApplicationState::Ready &&
-		FSlateApplication::Get().GetModifierKeys().IsShiftDown())
+	if (CommitType == ETextCommit::OnEnter && FSlateApplication::Get().GetModifierKeys().IsShiftDown())
 	{
 		Submit();
 	}
 }
 
-bool FCrashReportClient::ShouldWindowBeHidden() const
-{
-	return AppState == EApplicationState::Closing;
-}
-
 void FCrashReportClient::RequestCloseWindow(const TSharedRef<SWindow>& Window)
 {
-	Cancel();
+	// We may still processing minidump etc. so start the main ticker.
+	StartTicker();
+	bShouldWindowBeHidden = true;
 }
 
-void FCrashReportClient::StartUIWillCloseTicker()
+bool FCrashReportClient::AreCallstackWidgetsEnabled() const
 {
-	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FCrashReportClient::UIWillCloseTick), 1.f);
+	return !IsProcessingCallstack();
+}
+
+EVisibility FCrashReportClient::IsThrobberVisible() const
+{
+	return IsProcessingCallstack() ? EVisibility::Visible : EVisibility::Hidden;
+}
+
+void FCrashReportClient::SCrashReportClient_OnCheckStateChanged( ECheckBoxState NewRadioState )
+{
+	bAllowToBeContacted = NewRadioState == ECheckBoxState::Checked;
+}
+
+void FCrashReportClient::StartTicker()
+{
+	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateSP(this, &FCrashReportClient::Tick), 1.f);
 }
 
 void FCrashReportClient::StoreCommentAndUpload()
 {
 	// Call upload even if the report is empty: pending reports will be sent if any
-	ErrorReport.SetUserComment(UserComment);
-
-	Uploader.BeginUpload(ErrorReport);
-
-	SubmittedCountdown = 5;
-	AppState = EApplicationState::CountingDown;
-	// Change the submit button text immediately (also sends diagnostics file if complete)
-	UIWillCloseTick(0);
-	StartUIWillCloseTicker();
+	ErrorReport.SetUserComment(UserComment, bAllowToBeContacted);
+	StartTicker();
 }
 
-bool FCrashReportClient::UIWillCloseTick(float UnusedDeltaTime)
+bool FCrashReportClient::Tick(float UnusedDeltaTime)
 {
-	bool bCountingDown = AppState == EApplicationState::CountingDown;
-	if (!bCountingDown && AppState != EApplicationState::Closing)
+	// We are waiting for diagnose report task to complete.
+	if( IsProcessingCallstack() )
 	{
-		CRASHREPORTCLIENT_CHECK(false);
-		return false;
+		return true;
 	}
-
-	static const FText CountdownTextFormat = LOCTEXT("CloseApplication", "Close ({0})");
-
-	if( !bDiagnosticFileSent && DiagnoseReportTask.IsDone() )
+	else if( !bBeginUploadCalled )
 	{
-		auto DiagnosticsFilePath = ErrorReport.GetReportDirectory() / GDiagnosticsFilename;
-
-		Uploader.LocalDiagnosisComplete(FPaths::FileExists(DiagnosticsFilePath) ? DiagnosticsFilePath : TEXT(""));
-		bDiagnosticFileSent = true;	
-	}
-
-	if (bCountingDown)
-	{
-		CancelButtonText = FText::Format(CountdownTextFormat, FText::AsNumber(SubmittedCountdown));
-		if (SubmittedCountdown-- == 0)
-		{
-			AppState = EApplicationState::Closing;
-		}
-		else
-		{
-			// More ticks, please
-			return true;
-		}
+		// Can be called only when we have all files.
+		Uploader.BeginUpload(ErrorReport);
+		bBeginUploadCalled = true;
 	}
 
 	// IsWorkDone will always return true here (since uploader can't finish until the diagnosis has been sent), but it
 	//  has the side effect of joining the worker thread.
-	if( !Uploader.IsFinished() || !DiagnoseReportTask.IsDone() )
+	if( !Uploader.IsFinished() )
 	{
 		// More ticks, please
 		return true;
 	}
 
-	FPlatformMisc::RequestExit(false /* don't force */);
-	// No more ticks, thank you
+	FPlatformMisc::RequestExit(false);
 	return false;
 }
 
@@ -192,13 +157,36 @@ FString FCrashReportClient::GetCrashedAppName() const
 	return GetCrashDescription().GameName;
 }
 
-#endif // !CRASH_REPORT_UNATTENDED_ONLY
+void FCrashReportClient::FinalizeDiagnoseReportWorker( FText ReportText )
+{
+	DiagnosticText = FCrashReportUtil::FormatDiagnosticText( ReportText, GetCrashDescription().MachineId, GetCrashDescription().EpicAccountId, GetCrashDescription().UserName );
+
+	auto DiagnosticsFilePath = ErrorReport.GetReportDirectory() / GDiagnosticsFilename;
+	Uploader.LocalDiagnosisComplete(FPaths::FileExists(DiagnosticsFilePath) ? DiagnosticsFilePath : TEXT(""));
+}
+
+
+bool FCrashReportClient::IsProcessingCallstack() const
+{
+	return DiagnoseReportTask && !DiagnoseReportTask->IsWorkDone();
+}
+
+FDiagnoseReportWorker::FDiagnoseReportWorker( FCrashReportClient* InCrashReportClient ) 
+	: CrashReportClient( InCrashReportClient )
+{}
 
 void FDiagnoseReportWorker::DoWork()
 {
-	const FText ReportText = ErrorReport.DiagnoseReport();
-	DiagnosticText = FCrashReportUtil::FormatDiagnosticText( ReportText, MachineId, EpicAccountId, UserNameNoDot );
+	const FText ReportText = CrashReportClient->ErrorReport.DiagnoseReport();
+	// Inform the game thread that we are done.
+	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+	(
+		FSimpleDelegateGraphTask::FDelegate::CreateRaw( CrashReportClient, &FCrashReportClient::FinalizeDiagnoseReportWorker, ReportText ),
+		TStatId(), nullptr, ENamedThreads::GameThread
+	);
 }
+
+#endif // !CRASH_REPORT_UNATTENDED_ONLY
 
 FText FCrashReportUtil::FormatDiagnosticText( const FText& DiagnosticText, const FString MachineId, const FString EpicAccountId, const FString UserNameNoDot )
 {
@@ -208,7 +196,7 @@ FText FCrashReportUtil::FormatDiagnosticText( const FText& DiagnosticText, const
 	}
 	else
 	{
-		return FText::Format( LOCTEXT( "CrashReportClientCallstackPattern", "MachineId:{0}\nUserName:{1}\n\n{2}" ), FText::FromString( MachineId ), FText::FromString( UserNameNoDot ), DiagnosticText );
+		return FText::Format( LOCTEXT( "CrashReportClientCallstackPattern", "MachineId:{0}\n\n{1}" ), FText::FromString( MachineId ), DiagnosticText );
 	}
 
 }

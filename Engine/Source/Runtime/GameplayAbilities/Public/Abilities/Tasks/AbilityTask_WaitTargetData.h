@@ -61,6 +61,8 @@ protected:
 	TWeakObjectPtr<AGameplayAbilityTargetActor>	MyTargetActor;
 
 	TEnumAsByte<EGameplayTargetingConfirmation::Type> ConfirmationType;
+
+	FDelegateHandle OnTargetDataReplicatedCallbackDelegateHandle;
 };
 
 

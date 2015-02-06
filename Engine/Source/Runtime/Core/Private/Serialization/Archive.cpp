@@ -193,7 +193,7 @@ void FArchive::ResetCustomVersions()
 	bCustomVersionsAreReset = true;
 }
 
-void FArchive::UsingCustomVersion(FGuid Key)
+void FArchive::UsingCustomVersion(const FGuid& Key)
 {
 	// If we're loading, we want to use the version that the archive was serialized with, not register a new one.
 	if (IsLoading())
@@ -208,7 +208,7 @@ void FArchive::UsingCustomVersion(FGuid Key)
 	const_cast<FCustomVersionContainer&>(GetCustomVersions()).SetVersion(Key, RegisteredVersion->Version, RegisteredVersion->FriendlyName);
 }
 
-int32 FArchive::CustomVer(FGuid Key) const
+int32 FArchive::CustomVer(const FGuid& Key) const
 {
 	auto* CustomVersion = GetCustomVersions().GetVersion(Key);
 
@@ -219,7 +219,7 @@ int32 FArchive::CustomVer(FGuid Key) const
 	return CustomVersion ? CustomVersion->Version : -1;
 }
 
-void FArchive::SetCustomVersion(FGuid Key, int32 Version, FString FriendlyName)
+void FArchive::SetCustomVersion(const FGuid&  Key, int32 Version, FString FriendlyName)
 {
 	const_cast<FCustomVersionContainer&>(GetCustomVersions()).SetVersion(Key, Version, FriendlyName);
 }

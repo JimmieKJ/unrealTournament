@@ -71,7 +71,7 @@ private:
 	void OnSelectionChanged( TSharedPtr<FString> ProposedSelection, ESelectInfo::Type SelectInfo );
 
 	FText GetToolTipText() const;
-	FString GetParameterNameString() const;
+	FText GetParameterNameString() const;
 	bool IsParameterNameComboEnabled() const;
 	void OnCollectionChanged();
 

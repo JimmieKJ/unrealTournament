@@ -1,120 +1,80 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorWidgetsPrivatePCH.h"
 #include "SAssetDropTarget.h"
 #include "AssetDragDropOp.h"
 #include "ActorDragDropOp.h"
 #include "AssetSelection.h"
+#include "SScaleBox.h"
+
+#define LOCTEXT_NAMESPACE "EditorWidgets"
 
 void SAssetDropTarget::Construct(const FArguments& InArgs )
 {
 	OnAssetDropped = InArgs._OnAssetDropped;
 	OnIsAssetAcceptableForDrop = InArgs._OnIsAssetAcceptableForDrop;
 
-	bIsDragEventRecognized = false;
-	bAllowDrop = false;
-
-	SBorder::Construct( 
-		SBorder::FArguments()
-		.Padding(0)
-		.BorderImage( this, &SAssetDropTarget::GetDragBorder )
-		.BorderBackgroundColor( this, &SAssetDropTarget::GetDropBorderColor )
+	SDropTarget::Construct(
+		SDropTarget::FArguments()
+		.OnDrop(this, &SAssetDropTarget::OnDropped)
 		[
 			InArgs._Content.Widget
-		]
-	);
+		]);
 }
 
-const FSlateBrush* SAssetDropTarget::GetDragBorder() const
+FReply SAssetDropTarget::OnDropped(TSharedPtr<FDragDropOperation> DragDropOperation)
 {
-	return bIsDragEventRecognized ? FEditorStyle::GetBrush("MaterialList.DragDropBorder") : FEditorStyle::GetBrush("NoBorder");
-}
+	bool bUnused;
+	UObject* Object = GetDroppedObject(DragDropOperation, bUnused);
 
-FSlateColor SAssetDropTarget::GetDropBorderColor() const
-{
-	return bIsDragEventRecognized ? 
-		bAllowDrop ? FLinearColor(0,1,0,1) : FLinearColor(1,0,0,1)
-		: FLinearColor::White;
-}
-
-FReply SAssetDropTarget::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
-{
-	bool bRecognizedEvent = false;
-	UObject* Object = GetDroppedObject( DragDropEvent, bRecognizedEvent );
-
-	// Not being dragged over by a recognizable event
-	bIsDragEventRecognized = bRecognizedEvent;
-
-	bAllowDrop = false;
-
-	if( Object )
+	if ( Object )
 	{
-		// Check and see if its valid to drop this object
-		if( OnIsAssetAcceptableForDrop.IsBound() )
-		{
-			bAllowDrop = OnIsAssetAcceptableForDrop.Execute( Object );
-		}
-		else
-		{
-			// If no delegate is bound assume its always valid to drop this object
-			bAllowDrop = true;
-		}
-	}
-	else
-	{
-		// No object so we dont allow dropping
-		bAllowDrop = false;
-	}
-
-	// Handle the reply if we are allowed to drop, otherwise do not handle it.
-	return bAllowDrop ? FReply::Handled() : FReply::Unhandled();
-}
-
-FReply SAssetDropTarget::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
-{
-	// We've dropped an asset so we are no longer being dragged over
-	bIsDragEventRecognized = false;
-
-	// if we allow drop, call a delegate to handle the drop
-	if( bAllowDrop )
-	{
-		bool bUnused;
-		UObject* Object = GetDroppedObject( DragDropEvent, bUnused );
-
-		if( Object )
-		{
-			OnAssetDropped.ExecuteIfBound( Object );
-		}
+		OnAssetDropped.ExecuteIfBound(Object);
 	}
 
 	return FReply::Handled();
 }
 
-void SAssetDropTarget::OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
+bool SAssetDropTarget::OnAllowDrop(TSharedPtr<FDragDropOperation> DragDropOperation) const
 {
-	// initially we dont recognize this event
-	bIsDragEventRecognized = false;
+	bool bUnused = false;
+	UObject* Object = GetDroppedObject(DragDropOperation, bUnused);
+
+	if ( Object )
+	{
+		// Check and see if its valid to drop this object
+		if ( OnIsAssetAcceptableForDrop.IsBound() )
+		{
+			return OnIsAssetAcceptableForDrop.Execute(Object);
+		}
+		else
+		{
+			// If no delegate is bound assume its always valid to drop this object
+			return true;
+		}
+	}
+
+	return false;
 }
 
-void SAssetDropTarget::OnDragLeave( const FDragDropEvent& DragDropEvent )
+bool SAssetDropTarget::OnIsRecognized(TSharedPtr<FDragDropOperation> DragDropOperation) const
 {
-	// No longer being dragged over
-	bIsDragEventRecognized = false;
-	// Disallow dropping if not dragged over.
-	bAllowDrop = false;
+	bool bRecognizedEvent = false;
+	UObject* Object = GetDroppedObject(DragDropOperation, bRecognizedEvent);
+
+	return bRecognizedEvent;
 }
 
-UObject* SAssetDropTarget::GetDroppedObject( const FDragDropEvent& DragDropEvent, bool& bOutRecognizedEvent )
+UObject* SAssetDropTarget::GetDroppedObject(TSharedPtr<FDragDropOperation> DragDropOperation, bool& bOutRecognizedEvent) const
 {
 	bOutRecognizedEvent = false;
 	UObject* DroppedObject = NULL;
 
-	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
 	// Asset being dragged from content browser
-	if (Operation->IsOfType<FAssetDragDropOp>())
+	if ( DragDropOperation->IsOfType<FAssetDragDropOp>() )
 	{
 		bOutRecognizedEvent = true;
-		TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>(Operation);
+		TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>(DragDropOperation);
 
 		bool bCanDrop = DragDropOp->AssetData.Num() == 1;
 
@@ -127,9 +87,9 @@ UObject* SAssetDropTarget::GetDroppedObject( const FDragDropEvent& DragDropEvent
 		}
 	}
 	// Asset being dragged from some external source
-	else if (Operation->IsOfType<FExternalDragOperation>())
+	else if ( DragDropOperation->IsOfType<FExternalDragOperation>() )
 	{
-		TArray<FAssetData> DroppedAssetData = AssetUtil::ExtractAssetDataFromDrag(DragDropEvent);
+		TArray<FAssetData> DroppedAssetData = AssetUtil::ExtractAssetDataFromDrag(DragDropOperation);
 
 		if (DroppedAssetData.Num() == 1)
 		{
@@ -138,10 +98,10 @@ UObject* SAssetDropTarget::GetDroppedObject( const FDragDropEvent& DragDropEvent
 		}
 	}
 	// Actor being dragged?
-	else if (Operation->IsOfType<FActorDragDropOp>())
+	else if ( DragDropOperation->IsOfType<FActorDragDropOp>() )
 	{
 		bOutRecognizedEvent = true;
-		TSharedPtr<FActorDragDropOp> ActorDragDrop = StaticCastSharedPtr<FActorDragDropOp>(Operation);
+		TSharedPtr<FActorDragDropOp> ActorDragDrop = StaticCastSharedPtr<FActorDragDropOp>(DragDropOperation);
 
 		if (ActorDragDrop->Actors.Num() == 1)
 		{
@@ -151,3 +111,5 @@ UObject* SAssetDropTarget::GetDroppedObject( const FDragDropEvent& DragDropEvent
 
 	return DroppedObject;
 }
+
+#undef LOCTEXT_NAMESPACE

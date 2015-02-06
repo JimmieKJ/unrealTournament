@@ -45,8 +45,16 @@ public:
 	uint32 bText:1;
 
 	/** Determines the order in which factories are tried when importing an object. */
-	UPROPERTY()
+	DEPRECATED(4.8, "AutoPriority has been replaced with ImportPriority")
 	int32 AutoPriority;
+
+	/** Determines the order in which factories are tried when importing or reimporting an object.
+		Factories with higher priority values will go first. Factories with negative priorities will be excluded. */
+	UPROPERTY()
+	int32 ImportPriority;
+
+	/** This is the import priority that all factories are given in the default constructor. */
+	static const int32 DefaultImportPriority;
 
 	static FString GetCurrentFilename() { return CurrentFilename; }
 

@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #include "GraphEditorCommon.h"
+#include "SScaleBox.h"
 
 UEdGraphPin* FGraphEditorDragDropAction::GetHoveredPin() const
 {
@@ -89,6 +89,11 @@ void FGraphEditorDragDropAction::Construct()
 	HoverTargetChanged();
 }
 
+bool FGraphEditorDragDropAction::HasFeedbackMessage()
+{
+	return CursorDecoratorWindow->GetContent() != SNullWidget::NullWidget;
+}
+
 void FGraphEditorDragDropAction::SetFeedbackMessage(const TSharedPtr<SWidget>& Message)
 {
 	if (Message.IsValid())
@@ -125,26 +130,35 @@ void FGraphEditorDragDropAction::SetSimpleFeedbackMessage(const FSlateBrush* Ico
 		.AutoWidth()
 		.Padding(3.0f)
 		[
-			SNew(SImage)
-			.Visibility(ErrorIconVisibility)
-			.Image( FEditorStyle::GetBrush( TEXT("Graph.ConnectorFeedback.Error") ))
-			.ColorAndOpacity( FLinearColor::White )
+			SNew(SScaleBox)
+			.Stretch(EStretch::ScaleToFit)
+			[
+				SNew(SImage)
+				.Visibility(ErrorIconVisibility)
+				.Image( FEditorStyle::GetBrush( TEXT("Graph.ConnectorFeedback.Error") ))
+				.ColorAndOpacity( FLinearColor::White )
+			]
 		]
 		+SHorizontalBox::Slot()
 		.AutoWidth()
 		.Padding(3.0f)
 		[
-			SNew(SImage) 
-			.Visibility(IconVisibility)
-			.Image( Icon )
-			.ColorAndOpacity( IconColor )
+			SNew(SScaleBox)
+			.Stretch(EStretch::ScaleToFit)
+			[
+				SNew(SImage)
+				.Visibility(IconVisibility)
+				.Image( Icon )
+				.ColorAndOpacity( IconColor )
+			]
 		]
 		+SHorizontalBox::Slot()
 		.AutoWidth()
 		.MaxWidth(500)
 		.VAlign(VAlign_Center)
 		[
-			SNew(STextBlock) 
+			SNew(STextBlock)
+			.WrapTextAt( 480 )
 			.Text( Message )
 		]
 	);

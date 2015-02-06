@@ -16,8 +16,8 @@ void FTestExternalUIInterface::Test()
 	check(ExternalUI.IsValid());
 
 	// Define and register delegates
-	ExternalUIChangeDelegate = FOnExternalUIChangeDelegate::CreateRaw(this, &FTestExternalUIInterface::OnExternalUIChange);
-	ExternalUI->AddOnExternalUIChangeDelegate(ExternalUIChangeDelegate);
+	ExternalUIChangeDelegate       = FOnExternalUIChangeDelegate::CreateRaw(this, &FTestExternalUIInterface::OnExternalUIChange);
+	ExternalUIChangeDelegateHandle = ExternalUI->AddOnExternalUIChangeDelegate_Handle(ExternalUIChangeDelegate);
 
 	// Are we testing at least one of our external UI?
 	if (bTestLoginUI == false && bTestFriendsUI == false && bTestInviteUI == false && bTestAchievementsUI == false && bTestWebURL == false && bTestProfileUI == false)
@@ -34,7 +34,7 @@ void FTestExternalUIInterface::Test()
 void FTestExternalUIInterface::FinishTest()
 {
 	UE_LOG(LogOnline, Log, TEXT("FTestExternalUIInterface::FinishTest -- completed testing"));
-	ExternalUI->ClearOnExternalUIChangeDelegate(ExternalUIChangeDelegate);
+	ExternalUI->ClearOnExternalUIChangeDelegate_Handle(ExternalUIChangeDelegateHandle);
 	delete this;
 }
 

@@ -773,6 +773,14 @@ FVector UKismetMathLibrary::VInterpTo_Constant(FVector Current, FVector Target, 
 	return FMath::VInterpConstantTo(Current, Target, DeltaTime, InterpSpeed);
 }
 
+FVector2D UKismetMathLibrary::Vector2DInterpTo(FVector2D Current, FVector2D Target, float DeltaTime, float InterpSpeed)
+{
+	return FMath::Vector2DInterpTo( Current, Target, DeltaTime, InterpSpeed );
+}
+FVector2D UKismetMathLibrary::Vector2DInterpTo_Constant(FVector2D Current, FVector2D Target, float DeltaTime, float InterpSpeed)
+{
+	return FMath::Vector2DInterpConstantTo( Current, Target, DeltaTime, InterpSpeed );
+}
 
 FVector UKismetMathLibrary::RandomUnitVector()
 {
@@ -1943,10 +1951,14 @@ void UKismetMathLibrary::MinimumAreaRectangle(class UObject* WorldContextObject,
 
 	if( bDebugDraw )
 	{
-		DrawDebugSphere(GEngine->GetWorldFromContextObject(WorldContextObject), OutRectCenter, 10.f, 12, FColor::Yellow, true);
-		DrawDebugCoordinateSystem(GEngine->GetWorldFromContextObject(WorldContextObject), OutRectCenter, SurfaceNormalMatrix.Rotator(), 100.f, true);
-		DrawDebugLine(GEngine->GetWorldFromContextObject(WorldContextObject), OutRectCenter - RectSideA * 0.5f + FVector(0,0,10.f), OutRectCenter + RectSideA * 0.5f + FVector(0,0,10.f), FColor::Green, true,-1, 0, 5.f);
-		DrawDebugLine(GEngine->GetWorldFromContextObject(WorldContextObject), OutRectCenter - RectSideB * 0.5f + FVector(0,0,10.f), OutRectCenter + RectSideB * 0.5f + FVector(0,0,10.f), FColor::Blue, true,-1, 0, 5.f);
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+		if(World != nullptr)
+		{
+			DrawDebugSphere(World, OutRectCenter, 10.f, 12, FColor::Yellow, true);
+			DrawDebugCoordinateSystem(World, OutRectCenter, SurfaceNormalMatrix.Rotator(), 100.f, true);
+			DrawDebugLine(World, OutRectCenter - RectSideA * 0.5f + FVector(0,0,10.f), OutRectCenter + RectSideA * 0.5f + FVector(0,0,10.f), FColor::Green, true,-1, 0, 5.f);
+			DrawDebugLine(World, OutRectCenter - RectSideB * 0.5f + FVector(0,0,10.f), OutRectCenter + RectSideB * 0.5f + FVector(0,0,10.f), FColor::Blue, true,-1, 0, 5.f);
+		}
 	}
 }
 

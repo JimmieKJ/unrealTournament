@@ -843,16 +843,16 @@ void SProjectLauncherCookByTheBookSettings::HandleCookConfigurationSelectorConfi
 }
 
 
-FString SProjectLauncherCookByTheBookSettings::HandleCookConfigurationSelectorText( ) const
+FText SProjectLauncherCookByTheBookSettings::HandleCookConfigurationSelectorText( ) const
 {
 	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
 
 	if (SelectedProfile.IsValid())
 	{
-		return EBuildConfigurations::ToString(SelectedProfile->GetCookConfiguration());
+		return FText::FromString(EBuildConfigurations::ToString(SelectedProfile->GetCookConfiguration()));
 	}
 
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 

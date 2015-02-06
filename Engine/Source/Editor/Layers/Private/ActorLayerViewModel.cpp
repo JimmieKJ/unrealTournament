@@ -49,14 +49,14 @@ FName FActorLayerViewModel::GetFName() const
 }
 
 
-FString FActorLayerViewModel::GetName() const
+FText FActorLayerViewModel::GetName() const
 {
 	if( !Layer.IsValid() )
 	{
-		return LOCTEXT("Invalid layer Name", "").ToString();
+		return LOCTEXT("Invalid layer Name", "");
 	}
 
-	return Layer->LayerName.ToString();
+	return FText::FromName(Layer->LayerName);
 }
 
 

@@ -85,8 +85,8 @@ protected:
 	TSharedRef<SWidget> MakeAssetPickerMenu();
 	void OnAssetSelectedFromPicker(const FAssetData& AssetData);
 
-	FString GetAssetShortName() const;
-	FString GetAssetFullName() const;
+	FText GetAssetShortName() const;
+	FText GetAssetFullName() const;
 
 	const FSlateBrush* GetBorderImage() const;
 

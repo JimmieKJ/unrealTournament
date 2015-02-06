@@ -27,6 +27,7 @@ private:
 		virtual void ModifyOwner() override;
 		virtual void MakeTransactional() override;
 		virtual void OnCurveChanged() override { }
+		virtual bool IsValidCurve(FRichCurveEditInfo CurveInfo) override;
 
 	private:
 		UWheeledVehicleMovementComponent4W * VehicleComponent;
@@ -44,6 +45,7 @@ private:
 		virtual void ModifyOwner() override;
 		virtual void MakeTransactional() override;
 		virtual void OnCurveChanged() override { }
+		virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override;
 
 	private:
 		UWheeledVehicleMovementComponent4W * VehicleComponent;

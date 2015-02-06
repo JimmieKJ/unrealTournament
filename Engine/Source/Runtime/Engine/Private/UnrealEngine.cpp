@@ -405,9 +405,11 @@ void RefreshEngineSettings()
 	SystemResolutionSinkCallback();
 }
 
+FConsoleVariableSinkHandle GRefreshEngineSettingsSinkHandle;
+
 ENGINE_API void InitializeRenderingCVarsCaching()
 {
-	IConsoleManager::Get().RegisterConsoleVariableSink(FConsoleCommandDelegate::CreateStatic(&RefreshEngineSettings));
+	GRefreshEngineSettingsSinkHandle = IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateStatic(&RefreshEngineSettings));
 
 	// Initialise this to invalid
 	GCachedScalabilityCVars.MaterialQualityLevel = EMaterialQualityLevel::Num;
@@ -419,7 +421,7 @@ ENGINE_API void InitializeRenderingCVarsCaching()
 
 void ShutdownRenderingCVarsCaching()
 {
-	IConsoleManager::Get().UnregisterConsoleVariableSink(FConsoleCommandDelegate::CreateStatic(&RefreshEngineSettings));
+	IConsoleManager::Get().UnregisterConsoleVariableSink_Handle(GRefreshEngineSettingsSinkHandle);
 }
 
 namespace
@@ -831,7 +833,7 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 			FOnExternalUIChangeDelegate OnExternalUIChangeDelegate;
 			OnExternalUIChangeDelegate.BindUObject(this, &UEngine::OnExternalUIChange);
 
-			ExternalUI->AddOnExternalUIChangeDelegate(OnExternalUIChangeDelegate);
+			ExternalUI->AddOnExternalUIChangeDelegate_Handle(OnExternalUIChangeDelegate);
 		}
 	}
 
@@ -845,7 +847,7 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 	// register screenshot capture if we are dumping a movie
 	if(GIsDumpingMovie)
 	{
-		UGameViewportClient::OnScreenshotCaptured().AddUObject(this, &UEngine::HandleScreenshotCaptured);
+		HandleScreenshotCapturedDelegateHandle = UGameViewportClient::OnScreenshotCaptured().AddUObject(this, &UEngine::HandleScreenshotCaptured);
 	}
 #endif
 
@@ -929,7 +931,7 @@ void UEngine::PreExit()
 	FEngineAnalytics::Shutdown();
 
 #if WITH_EDITOR
-	UGameViewportClient::OnScreenshotCaptured().RemoveUObject(this, &UEngine::HandleScreenshotCaptured);
+	UGameViewportClient::OnScreenshotCaptured().Remove(HandleScreenshotCapturedDelegateHandle);
 #endif
 
 	if (ScreenSaverInhibitor)
@@ -1732,23 +1734,26 @@ public:
 
 bool UEngine::InitializeHMDDevice()
 {
-	if (FParse::Param(FCommandLine::Get(), TEXT("emulatestereo")))
+	if (!IsRunningCommandlet())
 	{
-		TSharedPtr<FFakeStereoRenderingDevice> FakeStereoDevice(new FFakeStereoRenderingDevice());
-		StereoRenderingDevice = FakeStereoDevice;
-	}
-	// No reason to connect an HMD on a dedicated server.  Also fixes dedicated servers stealing the oculus connection.
-	else if (!HMDDevice.IsValid() && !FParse::Param(FCommandLine::Get(), TEXT("nohmd")) && !IsRunningDedicatedServer())
-	{
-		// Get a list of plugins that implement this feature
-		TArray<IHeadMountedDisplayModule*> HMDImplementations = IModularFeatures::Get().GetModularFeatureImplementations<IHeadMountedDisplayModule>(IHeadMountedDisplayModule::GetModularFeatureName());
-		HMDImplementations.Sort(FHMDPluginSorter());
-		for (auto HMDModuleIt = HMDImplementations.CreateIterator(); HMDModuleIt && !HMDDevice.IsValid(); ++HMDModuleIt)
+		if (FParse::Param(FCommandLine::Get(), TEXT("emulatestereo")))
 		{
-			HMDDevice = (*HMDModuleIt)->CreateHeadMountedDisplay();
-			if (HMDDevice.IsValid())
+			TSharedPtr<FFakeStereoRenderingDevice> FakeStereoDevice(new FFakeStereoRenderingDevice());
+			StereoRenderingDevice = FakeStereoDevice;
+		}
+		// No reason to connect an HMD on a dedicated server.  Also fixes dedicated servers stealing the oculus connection.
+		else if (!HMDDevice.IsValid() && !FParse::Param(FCommandLine::Get(), TEXT("nohmd")) && !IsRunningDedicatedServer())
+		{
+			// Get a list of plugins that implement this feature
+			TArray<IHeadMountedDisplayModule*> HMDImplementations = IModularFeatures::Get().GetModularFeatureImplementations<IHeadMountedDisplayModule>(IHeadMountedDisplayModule::GetModularFeatureName());
+			HMDImplementations.Sort(FHMDPluginSorter());
+			for (auto HMDModuleIt = HMDImplementations.CreateIterator(); HMDModuleIt && !HMDDevice.IsValid(); ++HMDModuleIt)
 			{
-				StereoRenderingDevice = HMDDevice;
+				HMDDevice = (*HMDModuleIt)->CreateHeadMountedDisplay();
+				if (HMDDevice.IsValid())
+				{
+					StereoRenderingDevice = HMDDevice;
+				}
 			}
 		}
 	}
@@ -2665,7 +2670,7 @@ bool UEngine::HandleHotReloadCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 		PackagesToRebind.Add( Package );
 		const bool bWaitForCompletion = true;	// Always wait when hotreload is initiated from the console
 		IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
-		HotReloadSupport.RebindPackages(PackagesToRebind, TArray<FName>(), bWaitForCompletion, Ar);
+		const ECompilationResult::Type CompilationResult = HotReloadSupport.RebindPackages(PackagesToRebind, TArray<FName>(), bWaitForCompletion, Ar);
 	}
 	return true;
 }
@@ -7990,7 +7995,9 @@ bool UEngine::MakeSureMapNameIsValid(FString& InOutMapName)
 	bool bIsValid = !FPackageName::IsShortPackageName(TestMapName);
 	if (bIsValid)
 	{
-		bIsValid = FPackageName::DoesPackageExist(TestMapName);
+		// If the user starts a multiplayer PIE session with an unsaved map,
+		// DoesPackageExist won't find it, so we have to try to find the package in memory as well.
+		bIsValid = (FindObjectFast<UPackage>(nullptr, FName(*TestMapName)) != nullptr) || FPackageName::DoesPackageExist(TestMapName);
 	}
 	else
 	{
@@ -8102,14 +8109,17 @@ EBrowseReturnVal::Type UEngine::Browse( FWorldContext& WorldContext, FURL URL, F
 		
 		const UGameMapsSettings* GameMapsSettings = GetDefault<UGameMapsSettings>();
 		bool LoadSucces = LoadMap(WorldContext, FURL(&URL, *(GameMapsSettings->GetGameDefaultMap() + GameMapsSettings->LocalMapOptions), TRAVEL_Partial), NULL, Error);
-		check(LoadSucces);
+		if (LoadSucces==false)
+		{
+			UE_LOG(LogNet, Fatal, TEXT("Failed to load default map (%s). Error: (%s)"), *(GameMapsSettings->GetGameDefaultMap() + GameMapsSettings->LocalMapOptions), *Error);
+		}
 
 		CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
 
 		// now remove "failed" and "closed" options from LastURL so it doesn't get copied on to future URLs
 		WorldContext.LastURL.RemoveOption(TEXT("failed"));
 		WorldContext.LastURL.RemoveOption(TEXT("closed"));
-		return EBrowseReturnVal::Success;
+		return (LoadSucces ? EBrowseReturnVal::Success : EBrowseReturnVal::Failure);
 	}
 	else if( URL.HasOption(TEXT("restart")) )
 	{
@@ -8143,7 +8153,8 @@ EBrowseReturnVal::Type UEngine::Browse( FWorldContext& WorldContext, FURL URL, F
 			ShutdownWorldNetDriver(WorldContext.World());
 		}
 
-		WorldContext.PendingNetGame = new UPendingNetGame(FObjectInitializer(), URL);
+		WorldContext.PendingNetGame = NewObject<UPendingNetGame>();
+		WorldContext.PendingNetGame->Initialize(URL);
 		WorldContext.PendingNetGame->InitNetDriver();
 		if( !WorldContext.PendingNetGame->NetDriver )
 		{
@@ -8554,21 +8565,6 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 
 	// send a callback message
 	FCoreUObjectDelegates::PreLoadMap.Broadcast();
-	// make sure there is a matching PostLoadMap() no matter how we exit
-	struct FPostLoadMapCaller
-	{
-		bool bCalled;
-		FPostLoadMapCaller()
-			: bCalled(false)
-		{}
-		~FPostLoadMapCaller()
-		{
-			if (!bCalled)
-			{
-				FCoreUObjectDelegates::PostLoadMap.Broadcast();
-			}
-		}
-	} PostLoadMapCaller;
 
 	// Cancel any pending texture streaming requests.  This avoids a significant delay on consoles 
 	// when loading a map and there are a lot of outstanding texture streaming requests from the previous map.
@@ -9027,7 +9023,6 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 	}
 
 	// send a callback message
-	PostLoadMapCaller.bCalled = true;
 	FCoreUObjectDelegates::PostLoadMap.Broadcast();
 	
 	WorldContext.World()->bWorldWasLoadedThisTick = true;
@@ -10177,6 +10172,39 @@ struct FFindInstancedReferenceSubobjectHelper
 			}
 		}
 	}
+
+	static void Duplicate(UObject* OldObject, UObject* NewObject, TMap<UObject*, UObject*>& ReferenceReplacementMap, TArray<UObject*>& DuplicatedObjects)
+	{
+		if (OldObject->GetClass()->HasAnyClassFlags(CLASS_HasInstancedReference) &&
+			NewObject->GetClass()->HasAnyClassFlags(CLASS_HasInstancedReference))
+		{
+			TSet<UObject*> OldEditInlineObjects;
+			Get(OldObject->GetClass(), reinterpret_cast<uint8*>(OldObject), OldEditInlineObjects);
+			if (OldEditInlineObjects.Num())
+			{
+				TSet<UObject*> NewEditInlineObjects;
+				Get(NewObject->GetClass(), reinterpret_cast<uint8*>(NewObject), NewEditInlineObjects);
+				for (auto Obj : NewEditInlineObjects)
+				{
+					const bool bProperOuter = (Obj->GetOuter() == OldObject);
+					const bool bEditInlineNew = Obj->GetClass()->HasAnyClassFlags(CLASS_EditInlineNew | CLASS_DefaultToInstanced);
+					if (bProperOuter && bEditInlineNew)
+					{
+						const bool bKeptByOld = OldEditInlineObjects.Contains(Obj);
+						const bool bNotHandledYet = !ReferenceReplacementMap.Contains(Obj);
+						if (bKeptByOld && bNotHandledYet)
+						{
+							UObject* NewEditInlineSubobject = StaticDuplicateObject(Obj, NewObject, NULL);
+							ReferenceReplacementMap.Add(Obj, NewEditInlineSubobject);
+
+							// We also need to make sure to fixup any properties here
+							DuplicatedObjects.Add(NewEditInlineSubobject);
+						}
+					}
+				}
+			}
+		}
+	}
 };
 
 void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* NewObject, FCopyPropertiesForUnrelatedObjectsParams Params)
@@ -10187,7 +10215,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	AActor* NewActor = Cast<AActor>(NewObject);
 	if(NewActor != NULL)
 	{
-		TArray<UActorComponent*> Components;
+		TInlineComponentArray<UActorComponent*> Components;
 		NewActor->GetComponents(Components);
 
 		for(int32 i=0; i<Components.Num(); i++)
@@ -10245,6 +10273,8 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 
 	TArray<UObject*> ComponentsOnNewObject;
 	{
+		TArray<UObject*> EditInlineSubobjectsOfComponents;
+
 		// Find all instanced objects of the old CDO, and save off their modified properties to be later applied to the newly instanced objects of the new CDO
 		NewObject->CollectDefaultSubobjects(ComponentsOnNewObject,true);
 
@@ -10293,6 +10323,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 					}
 				}
 				FObjectReader Reader(NewInstance, Record.SavedProperties, true, true);
+				FFindInstancedReferenceSubobjectHelper::Duplicate(Record.OldInstance, NewInstance, ReferenceReplacementMap, EditInlineSubobjectsOfComponents);
 			}
 			else
 			{
@@ -10313,38 +10344,11 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 				}
 			}
 		}
+		ComponentsOnNewObject.Append(EditInlineSubobjectsOfComponents);
 	}
 
-	if (OldObject->GetClass()->HasAnyClassFlags(CLASS_HasInstancedReference) &&
-		NewObject->GetClass()->HasAnyClassFlags(CLASS_HasInstancedReference))
-	{
-		TSet<UObject*> OldEditInlineObjects;
-		FFindInstancedReferenceSubobjectHelper::Get(OldObject->GetClass(), reinterpret_cast<uint8*>(OldObject), OldEditInlineObjects);
-		if (OldEditInlineObjects.Num())
-		{
-			TSet<UObject*> NewEditInlineObjects;
-			FFindInstancedReferenceSubobjectHelper::Get(NewObject->GetClass(), reinterpret_cast<uint8*>(NewObject), NewEditInlineObjects);
-			for (auto Obj : NewEditInlineObjects)
-			{
-				const bool bProperOuter = (Obj->GetOuter() == OldObject);
-				const bool bEditInlineNew = Obj->GetClass()->HasAnyClassFlags(CLASS_EditInlineNew | CLASS_DefaultToInstanced);
-				if (bProperOuter && bEditInlineNew)
-				{
-					const bool bKeptByOld = OldEditInlineObjects.Contains(Obj);
-					const bool bNotHandledYet = !ReferenceReplacementMap.Contains(Obj);
-					if (bKeptByOld && bNotHandledYet)
-					{
-						UObject* NewEditInlineSubobject = StaticDuplicateObject(Obj, NewObject, NULL);
-						ReferenceReplacementMap.Add(Obj, NewEditInlineSubobject);
+	FFindInstancedReferenceSubobjectHelper::Duplicate(OldObject, NewObject, ReferenceReplacementMap, ComponentsOnNewObject);
 
-						// We also need to make sure to fixup any properties here
-						ComponentsOnNewObject.Add(NewEditInlineSubobject);
-					}
-				}
-			}
-		}
-	}
-	
 	// Replace anything with an outer of the old object with NULL, unless it already has a replacement
 	TArray<UObject*> ObjectsInOuter;
 	GetObjectsWithOuter(OldObject, ObjectsInOuter, true);
@@ -10415,7 +10419,7 @@ bool UEngine::ShouldAbsorbAuthorityOnlyEvent()
 			}
 		}
 
-		if (useIt)
+		if (useIt && (Context.World() != nullptr))
 		{
 			return (Context.World()->GetNetMode() ==  NM_Client);
 		}
@@ -10456,7 +10460,7 @@ bool UEngine::ShouldAbsorbCosmeticOnlyEvent()
 			}
 		}
 
-		if (useIt)
+		if (useIt && (Context.World() != nullptr))
 		{
 			return (Context.World()->GetNetMode() == NM_DedicatedServer);
 		}

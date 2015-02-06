@@ -204,44 +204,44 @@ struct FEdGraphSchemaAction_Dummy : public FEdGraphSchemaAction
 struct FPinConnectionResponse
 {
 public:
-	FString Message;
+	FText Message;
 
 	TEnumAsByte<enum ECanCreateConnectionResponse> Response;
 
 public:
 	FPinConnectionResponse()
-	: Message(TEXT(""))
+	: Message(FText::GetEmpty())
 	, Response(CONNECT_RESPONSE_MAKE)
 	{
 	}
 
 	FPinConnectionResponse(const ECanCreateConnectionResponse InResponse, const FString& InMessage)
-		: Message(InMessage)
+		: Message(FText::FromString(InMessage))
 		, Response(InResponse)
 	{
 	}
 
 	FPinConnectionResponse(const ECanCreateConnectionResponse InResponse, const ANSICHAR* InMessage)
-		: Message(InMessage)
+		: Message(FText::FromString(InMessage))
 		, Response(InResponse)
 	{
 	}
 
 	FPinConnectionResponse(const ECanCreateConnectionResponse InResponse, const WIDECHAR* InMessage)
-		: Message(InMessage)
+		: Message(FText::FromString(InMessage))
 		, Response(InResponse)
 	{
 	}
 
 	FPinConnectionResponse(const ECanCreateConnectionResponse InResponse, const FText& InMessage)
-		: Message(InMessage.ToString())
+		: Message(InMessage)
 		, Response(InResponse)
 	{
 	}
 
 	friend bool operator==(const FPinConnectionResponse& A, const FPinConnectionResponse& B)
 	{
-		return (A.Message == B.Message) && (A.Response == B.Response);
+		return (A.Message.ToString() == B.Message.ToString()) && (A.Response == B.Response);
 	}	
 
 	/** If a connection can be made without breaking existing connections */
@@ -562,7 +562,7 @@ class ENGINE_API UEdGraphSchema : public UObject
 	virtual FLinearColor GetPinTypeColor(const FEdGraphPinType& PinType) const { return FLinearColor::Black; }
 
 	/** Get the name to show in the editor */
-	virtual FString GetPinDisplayName(const UEdGraphPin* Pin) const;
+	virtual FText GetPinDisplayName(const UEdGraphPin* Pin) const;
 
 	/**
 	 * Takes the PinDescription and tacks on any other data important to the 

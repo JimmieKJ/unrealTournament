@@ -27,6 +27,7 @@ public:
 	// End of FViewportClient interface
 
 	// FEditorViewportClient interface
+	virtual FLinearColor GetBackgroundColor() const override;
 	// End of FEditorViewportClient interface
 
 	void ToggleShowPivot() { bShowPivot = !bShowPivot; Invalidate(); }

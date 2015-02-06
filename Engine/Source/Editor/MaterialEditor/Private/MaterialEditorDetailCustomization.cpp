@@ -92,7 +92,7 @@ TSharedRef< ITableRow > FMaterialExpressionParameterDetails::MakeDetailsGroupVie
 {
 	return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
 		[
-			SNew(STextBlock) .Text(*Item.Get())
+			SNew(STextBlock) .Text(FText::FromString(*Item.Get()))
 		];
 }
 
@@ -151,17 +151,17 @@ FText FMaterialExpressionCollectionParameterDetails::GetToolTipText() const
 	}
 }
 
-FString FMaterialExpressionCollectionParameterDetails::GetParameterNameString() const
+FText FMaterialExpressionCollectionParameterDetails::GetParameterNameString() const
 {
 	FString CurrentParameterName;
 
 	FPropertyAccess::Result Result = ParameterNamePropertyHandle->GetValue(CurrentParameterName);
 	if( Result == FPropertyAccess::MultipleValues )
 	{
-		CurrentParameterName = NSLOCTEXT("PropertyEditor", "MultipleValues", "Multiple Values").ToString();
+		return NSLOCTEXT("PropertyEditor", "MultipleValues", "Multiple Values");
 	}
 
-	return CurrentParameterName;
+	return FText::FromString(CurrentParameterName);
 }
 
 bool FMaterialExpressionCollectionParameterDetails::IsParameterNameComboEnabled() const
@@ -285,7 +285,7 @@ TSharedRef< ITableRow > FMaterialExpressionCollectionParameterDetails::MakeDetai
 {
 	return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
 		[
-			SNew(STextBlock) .Text(*Item.Get())
+			SNew(STextBlock) .Text(FText::FromString(*Item.Get()))
 		];
 }
 

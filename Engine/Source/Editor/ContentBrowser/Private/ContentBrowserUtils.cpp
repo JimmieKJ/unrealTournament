@@ -1028,6 +1028,53 @@ bool ContentBrowserUtils::AssetHasCustomThumbnail( const FAssetData& AssetData )
 	return false;
 }
 
+ContentBrowserUtils::ECBFolderCategory ContentBrowserUtils::GetFolderCategory( const FString& InPath )
+{
+	static const FString ClassesPrefix = TEXT("/Classes_");
+	static const FString GameClassesPrefix = TEXT("/Classes_Game");
+	static const FString EngineClassesPrefix = TEXT("/Classes_Engine");
+
+	const bool bIsClassDir = InPath.StartsWith(ClassesPrefix);
+	if(bIsClassDir)
+	{
+		const bool bIsGameClassDir = InPath.StartsWith(GameClassesPrefix);
+		if(bIsGameClassDir)
+		{
+			return ECBFolderCategory::GameClasses;
+		}
+
+		const bool bIsEngineClassDir = InPath.StartsWith(EngineClassesPrefix);
+		if(bIsEngineClassDir)
+		{
+			return ECBFolderCategory::EngineClasses;
+		}
+
+		return ECBFolderCategory::PluginClasses;
+	}
+	else
+	{
+		const bool bIsEngineContent = IsEngineFolder(InPath);
+		if(bIsEngineContent)
+		{
+			return ECBFolderCategory::EngineContent;
+		}
+
+		const bool bIsPluginContent = IsPluginFolder(InPath);
+		if(bIsPluginContent)
+		{
+			return ECBFolderCategory::PluginContent;
+		}
+
+		const bool bIsDeveloperContent = IsDevelopersFolder(InPath);
+		if(bIsDeveloperContent)
+		{
+			return ECBFolderCategory::DeveloperContent;
+		}
+
+		return ECBFolderCategory::GameContent;
+	}
+}
+
 bool ContentBrowserUtils::IsEngineFolder( const FString& InPath )
 {
 	return InPath.StartsWith(TEXT("/Engine")) || InPath == TEXT("Engine");
@@ -1109,6 +1156,8 @@ bool ContentBrowserUtils::IsValidFolderName(const FString& FolderName, FText& Re
 
 bool ContentBrowserUtils::DoesFolderExist(const FString& FolderPath)
 {
+	// todo: jdale - CLASS - Will need updating to handle class folders
+
 	TArray<FString> SubPaths;
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	AssetRegistryModule.Get().GetSubPaths(FPaths::GetPath(FolderPath), SubPaths, false);
@@ -1124,80 +1173,243 @@ bool ContentBrowserUtils::DoesFolderExist(const FString& FolderPath)
 	return false;
 }
 
+bool ContentBrowserUtils::IsRootDir(const FString& FolderPath)
+{
+	return IsAssetRootDir(FolderPath) || IsClassRootDir(FolderPath);
+}
+
 bool ContentBrowserUtils::IsAssetRootDir(const FString& FolderPath)
 {
-	return FolderPath == TEXT("/Game") || FolderPath == TEXT("/Engine") || FolderPath == TEXT("/Classes");
+	// All root asset folders start with "/" (not "/Classes_") and contain only a single / (at the beginning)
+	int32 LastSlashIndex = INDEX_NONE;
+	return FolderPath.Len() > 1 && !IsClassPath(FolderPath) && FolderPath.FindLastChar(TEXT('/'), LastSlashIndex) && LastSlashIndex == 0;
+}
+
+bool ContentBrowserUtils::IsClassRootDir(const FString& FolderPath)
+{
+	// All root class folders start with "/Classes_" and contain only a single / (at the beginning)
+	int32 LastSlashIndex = INDEX_NONE;
+	return IsClassPath(FolderPath) && FolderPath.FindLastChar(TEXT('/'), LastSlashIndex) && LastSlashIndex == 0;
+}
+
+FText ContentBrowserUtils::GetRootDirDisplayName(const FString& FolderPath)
+{
+	// Strip off any leading or trailing forward slashes
+	// We just want the name without any path separators
+	FString CleanFolderPath = FolderPath;
+	while(CleanFolderPath.StartsWith(TEXT("/")))
+	{
+		CleanFolderPath = CleanFolderPath.Mid(1);
+	}
+	while(CleanFolderPath.EndsWith(TEXT("/")))
+	{
+		CleanFolderPath = CleanFolderPath.Mid(0, CleanFolderPath.Len() - 1);
+	}
+
+	static const FString ClassesPrefix = TEXT("Classes_");
+	const bool bIsClassDir = CleanFolderPath.StartsWith(ClassesPrefix);
+
+	// Strip off the "Classes_" prefix
+	if(bIsClassDir)
+	{
+		CleanFolderPath = CleanFolderPath.Mid(ClassesPrefix.Len());
+	}
+
+	// Also localize well known folder names, like "Engine" and "Game"
+	static const FString EngineFolderName = TEXT("Engine");
+	static const FString GameFolderName = TEXT("Game");
+	FText LocalizedFolderName;
+	if(CleanFolderPath == EngineFolderName)
+	{
+		LocalizedFolderName = LOCTEXT("EngineFolderName", "Engine");
+	}
+	else if(CleanFolderPath == GameFolderName)
+	{
+		//LocalizedFolderName = LOCTEXT("GameFolderName", "Game");
+	}
+	else
+	{
+		LocalizedFolderName = FText::FromString(CleanFolderPath);
+	}
+
+	if(LocalizedFolderName.IsEmpty())
+	{
+		return (bIsClassDir) ? LOCTEXT("ClassesFolder", "C++ Classes") : LOCTEXT("ContentFolder", "Content");
+	}
+
+	return FText::Format((bIsClassDir) ? LOCTEXT("ClassesFolderFmt", "{0} C++ Classes") : LOCTEXT("ContentFolderFmt", "{0} Content"), LocalizedFolderName);
+}
+
+bool ContentBrowserUtils::IsClassPath(const FString& InPath)
+{
+	static const FString ClassesRootPrefix = TEXT("/Classes_");
+	return InPath.StartsWith(ClassesRootPrefix);
+}
+
+void ContentBrowserUtils::CountPathTypes(const TArray<FString>& InPaths, int32& OutNumAssetPaths, int32& OutNumClassPaths)
+{
+	OutNumAssetPaths = 0;
+	OutNumClassPaths = 0;
+
+	for(const FString& Path : InPaths)
+	{
+		if(IsClassPath(Path))
+		{
+			++OutNumClassPaths;
+		}
+		else
+		{
+			++OutNumAssetPaths;
+		}
+	}
+}
+
+void ContentBrowserUtils::CountPathTypes(const TArray<FName>& InPaths, int32& OutNumAssetPaths, int32& OutNumClassPaths)
+{
+	OutNumAssetPaths = 0;
+	OutNumClassPaths = 0;
+
+	for(const FName& Path : InPaths)
+	{
+		if(IsClassPath(Path.ToString()))
+		{
+			++OutNumClassPaths;
+		}
+		else
+		{
+			++OutNumAssetPaths;
+		}
+	}
+}
+
+void ContentBrowserUtils::CountItemTypes(const TArray<FAssetData>& InItems, int32& OutNumAssetItems, int32& OutNumClassItems)
+{
+	OutNumAssetItems = 0;
+	OutNumClassItems = 0;
+
+	for(const FAssetData& Item : InItems)
+	{
+		if(Item.AssetClass == NAME_Class)
+		{
+			++OutNumClassItems;
+		}
+		else
+		{
+			++OutNumAssetItems;
+		}
+	}
+}
+
+bool ContentBrowserUtils::IsValidPathToCreateNewClass(const FString& InPath)
+{
+	// Classes can currently only be added to game modules - if this is restricted, we can use IsClassPath here instead
+	// Classes can only be created in modules, so that will be at least two folders deep (two /)
+	static const FString GameClassesRootPrefix = TEXT("/Classes_Game");
+
+	int32 LastSlashIndex = INDEX_NONE;
+	return InPath.StartsWith(GameClassesRootPrefix) && InPath.FindLastChar(TEXT('/'), LastSlashIndex) && LastSlashIndex != 0;
+}
+
+bool ContentBrowserUtils::IsValidPathToCreateNewFolder(const FString& InPath)
+{
+	// We can't currently make folders in class paths
+	// If we do later allow folders in class paths, they must only be created within modules (see IsValidPathToCreateNewClass above)
+	return !IsClassPath(InPath);
 }
 
 const TSharedPtr<FLinearColor> ContentBrowserUtils::LoadColor(const FString& FolderPath)
 {
-	// Ignore classes folder and newly created folders
-	if ( FolderPath != TEXT("/Classes") )
+	auto LoadColorInternal = [](const FString& InPath) -> TSharedPtr<FLinearColor>
 	{
-		// Load the color from the config at this path
-		const FString RelativePath = FPackageName::LongPackageNameToFilename(FolderPath + TEXT("/"));
-
 		// See if we have a value cached first
-		TSharedPtr< FLinearColor >* CachedColor = PathColors.Find( RelativePath );
-		if ( CachedColor )
+		TSharedPtr<FLinearColor> CachedColor = PathColors.FindRef(InPath);
+		if(CachedColor.IsValid())
 		{
-			return *CachedColor;
+			return CachedColor;
 		}
 		
 		// Loads the color of folder at the given path from the config
-		if (FPaths::FileExists(GEditorUserSettingsIni))
+		if(FPaths::FileExists(GEditorUserSettingsIni))
 		{
 			// Create a new entry from the config, skip if it's default
 			FString ColorStr;
-			if ( GConfig->GetString(TEXT("PathColor"), *RelativePath, ColorStr, GEditorUserSettingsIni) )
+			if(GConfig->GetString(TEXT("PathColor"), *InPath, ColorStr, GEditorUserSettingsIni))
 			{
 				FLinearColor Color;
-				if( Color.InitFromString( ColorStr ) && !Color.Equals( ContentBrowserUtils::GetDefaultColor() ) )
+				if(Color.InitFromString(ColorStr) && !Color.Equals(ContentBrowserUtils::GetDefaultColor()))
 				{
-					return PathColors.Add( RelativePath, MakeShareable( new FLinearColor( Color ) ) );
+					return PathColors.Add(InPath, MakeShareable(new FLinearColor(Color)));
 				}
 			}
 			else
 			{
-				return PathColors.Add( RelativePath, MakeShareable( new FLinearColor( ContentBrowserUtils::GetDefaultColor() ) ) );
+				return PathColors.Add(InPath, MakeShareable(new FLinearColor(ContentBrowserUtils::GetDefaultColor())));
 			}
 		}
+
+		return nullptr;
+	};
+
+	// First try and find the color using the given path, as this works correctly for both assets and classes
+	TSharedPtr<FLinearColor> FoundColor = LoadColorInternal(FolderPath);
+	if(FoundColor.IsValid())
+	{
+		return FoundColor;
 	}
 
-	return NULL;
+	// If that failed, try and use the filename (assets used to use this as their color key, but it doesn't work with classes)
+	if(!IsClassPath(FolderPath))
+	{
+		const FString RelativePath = FPackageName::LongPackageNameToFilename(FolderPath + TEXT("/"));
+		return LoadColorInternal(RelativePath);
+	}
+
+	return nullptr;
 }
 
-void ContentBrowserUtils::SaveColor(const FString& FolderPath, const TSharedPtr<FLinearColor> FolderColor, bool bForceAdd)
+void ContentBrowserUtils::SaveColor(const FString& FolderPath, const TSharedPtr<FLinearColor>& FolderColor, bool bForceAdd)
 {
-	check( FolderPath != TEXT("/Classes") );
+	auto SaveColorInternal = [](const FString& InPath, const TSharedPtr<FLinearColor>& FolderColor)
+	{
+		// Saves the color of the folder to the config
+		if(FPaths::FileExists(GEditorUserSettingsIni))
+		{
+			GConfig->SetString(TEXT("PathColor"), *InPath, *FolderColor->ToString(), GEditorUserSettingsIni);
+		}
 
-	const FString RelativePath = FPackageName::LongPackageNameToFilename(FolderPath + TEXT("/"));
+		// Update the map too
+		PathColors.Add(InPath, FolderColor);
+	};
+
+	auto RemoveColorInternal = [](const FString& InPath)
+	{
+		// Remove the color of the folder from the config
+		if(FPaths::FileExists(GEditorUserSettingsIni))
+		{
+			GConfig->RemoveKey(TEXT("PathColor"), *InPath, GEditorUserSettingsIni);
+		}
+
+		// Update the map too
+		PathColors.Remove(InPath);
+	};
 
 	// Remove the color if it's invalid or default
-	const bool bRemove = !FolderColor.IsValid() || ( !bForceAdd && FolderColor->Equals( ContentBrowserUtils::GetDefaultColor() ) );
+	const bool bRemove = !FolderColor.IsValid() || (!bForceAdd && FolderColor->Equals(ContentBrowserUtils::GetDefaultColor()));
 
-	// Saves the color of the folder to the config
-	if (FPaths::FileExists(GEditorUserSettingsIni))
+	if(bRemove)
 	{
-		// If this is no longer custom, remove it
-		if ( bRemove )
-		{
-			GConfig->RemoveKey(TEXT("PathColor"), *RelativePath, GEditorUserSettingsIni);
-		}
-		else
-		{
-			GConfig->SetString(TEXT("PathColor"), *RelativePath, *FolderColor->ToString(), GEditorUserSettingsIni);
-		}
-	}
-
-	// Update the map too
-	if ( bRemove )
-	{
-		PathColors.Remove( RelativePath );
+		RemoveColorInternal(FolderPath);
 	}
 	else
 	{
-		PathColors.Add( RelativePath, FolderColor );
+		SaveColorInternal(FolderPath, FolderColor);
+	}
+
+	// Make sure and remove any colors using the legacy path format
+	if(!IsClassPath(FolderPath))
+	{
+		const FString RelativePath = FPackageName::LongPackageNameToFilename(FolderPath + TEXT("/"));
+		return RemoveColorInternal(RelativePath);
 	}
 }
 
@@ -1219,38 +1431,34 @@ bool ContentBrowserUtils::HasCustomColors( TArray< FLinearColor >* OutColors )
 
 			FString PathStr;
 			FString ColorStr;
-			if ( EntryStr.Split( TEXT( "/=" ), &PathStr, &ColorStr ) )	// DoesFolderExist doesn't like ending in a '/' so trim it here
+			if ( EntryStr.Split( TEXT( "=" ), &PathStr, &ColorStr ) )
 			{
-				// Ignore any that reference old folders
-				if ( FPackageName::TryConvertFilenameToLongPackageName(PathStr, PathStr) && DoesFolderExist( PathStr ) )
+				// Ignore any that have invalid or default colors
+				FLinearColor CurrentColor;
+				if( CurrentColor.InitFromString( ColorStr ) && !CurrentColor.Equals( ContentBrowserUtils::GetDefaultColor() ) )
 				{
-					// Ignore any that have invalid or default colors
-					FLinearColor CurrentColor;
-					if( CurrentColor.InitFromString( ColorStr ) && !CurrentColor.Equals( ContentBrowserUtils::GetDefaultColor() ) )
+					bHasCustom = true;
+					if ( OutColors )
 					{
-						bHasCustom = true;
-						if ( OutColors )
+						// Only add if not already present (ignores near matches too)
+						bool bAdded = false;
+						for( int32 ColorIndex = 0; ColorIndex < OutColors->Num(); ColorIndex++ )
 						{
-							// Only add if not already present (ignores near matches too)
-							bool bAdded = false;
-							for( int32 ColorIndex = 0; ColorIndex < OutColors->Num(); ColorIndex++ )
+							const FLinearColor& Color = (*OutColors)[ ColorIndex ];
+							if( CurrentColor.Equals( Color ) )
 							{
-								const FLinearColor& Color = (*OutColors)[ ColorIndex ];
-								if( CurrentColor.Equals( Color ) )
-								{
-									bAdded = true;
-									break;
-								}
-							}
-							if ( !bAdded )
-							{
-								OutColors->Add( CurrentColor );
+								bAdded = true;
+								break;
 							}
 						}
-						else
+						if ( !bAdded )
 						{
-							break;
+							OutColors->Add( CurrentColor );
 						}
+					}
+					else
+					{
+						break;
 					}
 				}
 			}

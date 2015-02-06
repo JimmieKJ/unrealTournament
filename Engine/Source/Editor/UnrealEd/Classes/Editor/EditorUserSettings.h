@@ -39,6 +39,10 @@ class UEditorUserSettings : public UObject
 	UPROPERTY(EditAnywhere, config, Category=Performance)
 	uint32 bMonitorEditorPerformance:1;
 
+	/** If enabled, any newly added classes will trigger a hot-reload of the module they were added to */
+	UPROPERTY(EditAnywhere, config, Category=HotReload)
+	uint32 bAutomaticallyHotReloadNewClasses:1;
+
 	/** Select to make Distributions use the curves, not the baked lookup tables. */
 	UPROPERTY(config)
 	uint32 bUseCurvesForDistributions:1; //(GDistributionType == 0)

@@ -39,6 +39,7 @@ public:
 		
 		/** Sets an event handler to generate a widget dynamically when the menu is needed. */
 		SLATE_EVENT( FOnGetContent, OnGetMenuContent )
+		SLATE_EVENT( FOnIsOpenChanged, OnMenuOpenChanged )
 		
 		SLATE_EVENT( FOnComboBoxOpened, OnComboBoxOpened )
 		SLATE_ARGUMENT( bool, IsFocusable )

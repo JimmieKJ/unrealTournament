@@ -10,9 +10,9 @@ public class CrashReportClientTarget : TargetRules
 		Type = TargetType.Program;
 	}
 
-	//
-	// TargetRules interface.
-	//
+    //
+    // TargetRules interface.
+    //
 	public override bool GetSupportedPlatforms(ref List<UnrealTargetPlatform> OutPlatforms)
 	{
 		OutPlatforms.Add(UnrealTargetPlatform.Win32);
@@ -71,16 +71,16 @@ public class CrashReportClientTarget : TargetRules
 	{
 		UEBuildConfiguration.bCompileLeanAndMeanUE = true;
 
-		// Don't need editor
+        // Don't need editor
 		UEBuildConfiguration.bBuildEditor = false;
 
-		// CrashReportClient doesn't ever compile with the engine linked in
+        // CrashReportClient doesn't ever compile with the engine linked in
 		UEBuildConfiguration.bCompileAgainstEngine = false;
 		UEBuildConfiguration.bCompileAgainstCoreUObject = true;
 		UEBuildConfiguration.bUseLoggingInShipping = true;
 		UEBuildConfiguration.bCompileSteamOSS = false;
 
-		UEBuildConfiguration.bIncludeADO = (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32);
+		UEBuildConfiguration.bIncludeADO = false;
 		
 		// Do not include ICU for Linux (this is a temporary workaround, separate headless CrashReportClient target should be created, see UECORE-14 for details).
 		if (Target.Platform == UnrealTargetPlatform.Linux)

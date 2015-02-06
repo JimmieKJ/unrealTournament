@@ -59,16 +59,16 @@ private:
 	}
 
 	// Callback for getting the name of the selected instance type.
-	FString HandleInstanceTypeComboButtonContentText( ) const
+	FText HandleInstanceTypeComboButtonContentText( ) const
 	{
 		ILauncherProfileLaunchRolePtr RolePtr = Role.Pin();
 
 		if (RolePtr.IsValid())
 		{
-			return ELauncherProfileRoleInstanceTypes::ToString(RolePtr->GetInstanceType());
+			return FText::FromString(ELauncherProfileRoleInstanceTypes::ToString(RolePtr->GetInstanceType()));
 		}
 
-		return FString();
+		return FText::GetEmpty();
 	}
 
 	// Callback for clicking an item in the 'Instance type' menu.

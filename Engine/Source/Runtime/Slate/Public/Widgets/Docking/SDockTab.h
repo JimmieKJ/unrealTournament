@@ -48,7 +48,7 @@ public:
 		: _Content()
 		, _TabWellContentLeft()
 		, _TabWellContentRight()
-		, _ContentPadding( FMargin( 5 ) )
+		, _ContentPadding( FMargin( 2 ) )
 		, _TabRole(ETabRole::PanelTab)
 		, _Label()
 		, _Icon( FStyleDefaults::GetNoBrush() )
@@ -98,7 +98,8 @@ public:
 
 	virtual FReply OnTouchEnded( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent ) override;
 
-	void SetContent( TSharedRef<SWidget> InContent );
+	virtual void SetContent(TSharedRef<SWidget> InContent) override;
+
 	void SetLeftContent( TSharedRef<SWidget> InContent );
 	void SetRightContent( TSharedRef<SWidget> InContent );
 

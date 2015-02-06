@@ -341,7 +341,7 @@ void FSystemSettings::Initialize( bool bSetupForEditor )
 
 	ApplyOverrides();
 
-	IConsoleManager::Get().RegisterConsoleVariableSink(FConsoleCommandDelegate::CreateRaw(this, &FSystemSettings::CVarSink));
+	IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateRaw(this, &FSystemSettings::CVarSink));
 
 	// intialize a critical texture streaming value used by texture loading, etc
 	int32 MinTextureResidentMipCount = 1;

@@ -229,6 +229,11 @@ void FCurveStructCustomization::OnCurveChanged()
 	StructPropertyHandle->NotifyPostChange();
 }
 
+bool FCurveStructCustomization::IsValidCurve( FRichCurveEditInfo CurveInfo )
+{
+	return CurveInfo.CurveToEdit == &RuntimeCurve->EditorCurveData;
+}
+
 float FCurveStructCustomization::GetTimelineLength() const
 {
 	return 0.f;

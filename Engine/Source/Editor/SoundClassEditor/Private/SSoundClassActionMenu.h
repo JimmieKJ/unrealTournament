@@ -21,7 +21,7 @@ public:
 
 private:
 	/* Create the new sound class widget */
-	TSharedRef<SWidget> CreateNewSoundClassWidget( const FString& DisplayText, const FString& ToolTip, const FSlateFontInfo& NameFont, TSharedPtr<FEdGraphSchemaAction>& InAction );
+	TSharedRef<SWidget> CreateNewSoundClassWidget( const FText& DisplayText, const FText& ToolTip, const FSlateFontInfo& NameFont, TSharedPtr<FEdGraphSchemaAction>& InAction );
 
 	/** Called when confirming name for new sound class */
 	void OnNewSoundClassNameEntered(const FText& NewText, ETextCommit::Type CommitInfo, TSharedPtr<FEdGraphSchemaAction> InAction );

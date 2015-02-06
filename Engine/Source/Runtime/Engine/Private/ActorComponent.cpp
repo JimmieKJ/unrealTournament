@@ -9,6 +9,7 @@
 #include "UObjectToken.h"
 #include "MapErrors.h"
 #include "ComponentReregisterContext.h"
+#include "Engine/SimpleConstructionScript.h"
 
 #define LOCTEXT_NAMESPACE "ActorComponent"
 
@@ -98,13 +99,14 @@ FGlobalComponentReregisterContext::~FGlobalComponentReregisterContext()
 	ActiveGlobalReregisterContextCount--;
 }
 
-
-UActorComponent::UActorComponent(const FObjectInitializer& ObjectInitializer)
+UActorComponent::UActorComponent(const FObjectInitializer& ObjectInitializer /*= FObjectInitializer::Get()*/)
 	: Super(ObjectInitializer)
 {
 	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
 	PrimaryComponentTick.bCanEverTick = false;
+
+	CreationMethod = EComponentCreationMethod::Native;
 
 	bAutoRegister = true;
 	bNetAddressable = false;
@@ -118,6 +120,48 @@ void UActorComponent::PostInitProperties()
 	if (Owner)
 	{
 		Owner->AddOwnedComponent(this);
+	}
+}
+
+void UActorComponent::PostLoad()
+{
+	Super::PostLoad();
+
+	// TODO: Wrap all this up with an engine version
+	if (bCreatedByConstructionScript_DEPRECATED)
+	{
+		CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
+	}
+	else if (bInstanceComponent_DEPRECATED)
+	{
+		CreationMethod = EComponentCreationMethod::Instance;
+	}
+
+	if (CreationMethod == EComponentCreationMethod::SimpleConstructionScript)
+	{
+		UBlueprintGeneratedClass* Class = CastChecked<UBlueprintGeneratedClass>(GetOuter()->GetClass());
+		while (Class)
+		{
+			USimpleConstructionScript* SCS = Class->SimpleConstructionScript;
+			if (SCS != nullptr && SCS->FindSCSNode(GetFName()))
+			{
+				break;
+			}
+			else
+			{
+				Class = Cast<UBlueprintGeneratedClass>(Class->GetSuperClass());
+				if (Class == nullptr)
+				{
+					CreationMethod = EComponentCreationMethod::UserConstructionScript;
+				}
+			}
+		}
+	}
+
+	if (!HasAllFlags(RF_Public) && GetOuter()->IsA<UBlueprintGeneratedClass>())
+	{
+		SetFlags(RF_Public);
+		ULinkerLoad::RefreshExportFlags(this);
 	}
 }
 
@@ -140,6 +184,11 @@ void UActorComponent::PostRename(UObject* OldOuter, const FName OldName)
 			}
 		}
 	}
+}
+
+bool UActorComponent::IsCreatedByConstructionScript() const
+{
+	return ((CreationMethod == EComponentCreationMethod::SimpleConstructionScript) || (CreationMethod == EComponentCreationMethod::UserConstructionScript));
 }
 
 #if WITH_EDITOR
@@ -358,6 +407,18 @@ bool UActorComponent::CallRemoteFunction( UFunction* Function, void* Parameters,
 static TMap<UActorComponent*,FComponentReregisterContext*> EditReregisterContexts;
 
 #if WITH_EDITOR
+bool UActorComponent::Modify( bool bAlwaysMarkDirty/*=true*/ )
+{
+	// If this is a construction script component we don't store them in the transaction buffer.  Instead, mark
+	// the Actor as modified so that we store of the transaction annotation that has the component properties stashed
+	if (IsCreatedByConstructionScript())
+	{
+		return GetOwner()->Modify(bAlwaysMarkDirty);
+	}
+
+	return Super::Modify(bAlwaysMarkDirty);
+}
+
 void UActorComponent::PreEditChange(UProperty* PropertyThatWillChange)
 {
 	Super::PreEditChange(PropertyThatWillChange);
@@ -394,6 +455,15 @@ void UActorComponent::PostEditUndo()
 		{
 			delete ReregisterContext;
 			EditReregisterContexts.Remove(this);
+		}
+	}
+	else
+	{
+		//Let the component be properly registered, after it was restored.
+		AActor* Owner = GetOwner();
+		if (Owner)
+		{
+			Owner->AddOwnedComponent(this);
 		}
 	}
 	Super::PostEditUndo();
@@ -451,12 +521,22 @@ void UActorComponent::InitializeComponent()
 {
 	check(bRegistered);
 	check(!bHasBeenInitialized);
+
+	ReceiveInitializeComponent();
+
 	bHasBeenInitialized = true;
 }
 
 void UActorComponent::UninitializeComponent()
 {
 	check(bHasBeenInitialized);
+
+	// If we're already pending kill blueprints don't get to be notified
+	if (!HasAnyFlags(RF_BeginDestroyed))
+	{
+		ReceiveUninitializeComponent();
+	}
+
 	bHasBeenInitialized = false;
 }
 
@@ -555,10 +635,7 @@ void UActorComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, F
 {
 	check(bRegistered);
 
-	if (!bIsActive)
-	{
-		SetComponentTickEnabled(false);
-	}
+	ReceiveTick(DeltaTime);
 }
 
 void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
@@ -628,7 +705,7 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 	}
 
 	// If this is a blueprint created component and it has component children they can miss getting registered in some scenarios
-	if (bCreatedByConstructionScript)
+	if (IsCreatedByConstructionScript())
 	{
 		TArray<UObject*> Children;
 		GetObjectsWithOuter(this, Children, true, RF_PendingKill);
@@ -680,7 +757,7 @@ void UActorComponent::UnregisterComponent()
 	World = NULL;
 }
 
-void UActorComponent::DestroyComponent()
+void UActorComponent::DestroyComponent(bool bPromoteChildren/*= false*/)
 {
 	// Ensure that we call UninitializeComponent before we destroy this component
 	if (bHasBeenInitialized)
@@ -698,7 +775,14 @@ void UActorComponent::DestroyComponent()
 	AActor* Owner = GetOwner();
 	if(Owner != NULL)
 	{
-		Owner->SerializedComponents.Remove(this);
+		if (IsCreatedByConstructionScript())
+		{
+			Owner->BlueprintCreatedComponents.Remove(this);
+		}
+		else
+		{
+			Owner->RemoveInstanceComponent(this);
+		}
 		Owner->RemoveOwnedComponent(this);
 		if (Owner->GetRootComponent() == this)
 		{

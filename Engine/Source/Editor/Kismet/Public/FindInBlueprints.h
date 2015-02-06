@@ -21,7 +21,7 @@ public:
 	virtual FReply OnClick();
 
 	/* Get Category for this search result */
-	virtual FString GetCategory() const;
+	virtual FText GetCategory() const;
 
 	/* Create an icon to represent the result */
 	virtual TSharedRef<SWidget>	CreateIcon() const;
@@ -81,7 +81,7 @@ public:
 	void ExpandAllChildren( TSharedPtr< STreeView< TSharedPtr< FFindInBlueprintsResult > > > InTreeView );
 
 	/** Returns the display string for the row */
-	FString GetDisplayString() const;
+	FText GetDisplayString() const;
 
 protected:
 
@@ -121,7 +121,7 @@ public:
 	virtual TSharedRef<SWidget>	CreateIcon() const override;
 	virtual bool ParseSearchInfo(const TArray<FString> &InTokens, FString InKey, FText InValue, TSharedPtr< FFindInBlueprintsResult > InParentOverride = NULL) override;
 	virtual bool ExtractContent(TSharedPtr< FJsonObject > InJsonNode, const TArray<FString>& InTokens) override;
-	virtual FString GetCategory() const override;
+	virtual FText GetCategory() const override;
 	virtual void FinalizeSearchData() override;
 	/** End FFindInBlueprintsResult Interface */
 
@@ -152,7 +152,7 @@ public:
 	/** FFindInBlueprintsResult Interface */
 	virtual TSharedRef<SWidget>	CreateIcon() const override;
 	virtual bool ParseSearchInfo(const TArray<FString> &InTokens, FString InKey, FText InValue, TSharedPtr< FFindInBlueprintsResult > InParentOverride = NULL) override;
-	virtual FString GetCategory() const override;
+	virtual FText GetCategory() const override;
 	virtual void FinalizeSearchData() override;
 	/** End FFindInBlueprintsResult Interface */
 protected:
@@ -179,7 +179,7 @@ public:
 	/** FFindInBlueprintsResult Interface */
 	virtual TSharedRef<SWidget>	CreateIcon() const override;
 	virtual bool ParseSearchInfo(const TArray<FString> &InTokens, FString InKey, FText InValue, TSharedPtr< FFindInBlueprintsResult > InParentOverride = NULL) override;
-	virtual FString GetCategory() const override;
+	virtual FText GetCategory() const override;
 	virtual void FinalizeSearchData() override;
 	/** End FFindInBlueprintsResult Interface */
 protected:
@@ -207,7 +207,7 @@ public:
 	virtual FReply OnClick() override;
 	virtual TSharedRef<SWidget>	CreateIcon() const override;
 	virtual bool ParseSearchInfo(const TArray<FString> &InTokens, FString InKey, FText InValue, TSharedPtr< FFindInBlueprintsResult > InParentOverride = NULL) override;
-	virtual FString GetCategory() const override;
+	virtual FText GetCategory() const override;
 	virtual bool ExtractContent(TSharedPtr< FJsonObject > InJsonNode, const TArray<FString>& InTokens) override;
 	/** End FFindInBlueprintsResult Interface */
 protected:

@@ -299,9 +299,9 @@ private:
 		UVValue = InCount;
 	}
 
-	FString GetUVSelectionString() const
+	FText GetUVSelectionString() const
 	{
-		return FString::Printf(TEXT("%d"), UVValue);
+		return FText::AsNumber(UVValue);
 	}
 
 	void OnChangeLOD(int32 InCount)
@@ -309,9 +309,9 @@ private:
 		LODValue = InCount;
 	}
 
-	FString GetLODSelectionString() const
+	FText GetLODSelectionString() const
 	{
-		return FString::Printf(TEXT("%d"), LODValue);
+		return FText::AsNumber(LODValue);
 	}
 
 	TSharedRef<SWidget> GetUVMenu()
@@ -958,7 +958,7 @@ public:
 					+SVerticalBox::Slot()
 					.AutoHeight()
 					[
-						CreateRadioButton( TEXT("1"), 0 )
+						CreateRadioButton( FText::FromString(TEXT("1")), 0 )
 					]
 				]
 				+SHorizontalBox::Slot()
@@ -970,7 +970,7 @@ public:
 					+SVerticalBox::Slot()
 					.AutoHeight()
 					[
-						CreateRadioButton( TEXT("2"), 1 )
+						CreateRadioButton( FText::FromString(TEXT("2")), 1 )
 					]
 					
 				]
@@ -983,7 +983,7 @@ public:
 					+SVerticalBox::Slot()
 					.AutoHeight()
 					[
-						CreateRadioButton( TEXT("3"), 2 )
+						CreateRadioButton( FText::FromString(TEXT("3")), 2 )
 					]
 				]
 				+SHorizontalBox::Slot()
@@ -995,7 +995,7 @@ public:
 					+SVerticalBox::Slot()
 					.AutoHeight()
 					[
-						CreateRadioButton( TEXT("4"), 3 )
+						CreateRadioButton( FText::FromString(TEXT("4")), 3 )
 					]
 					
 				]
@@ -1008,7 +1008,7 @@ public:
 					+SVerticalBox::Slot()
 					.AutoHeight()
 					[
-						CreateRadioButton( TEXT("5"), 4 )
+						CreateRadioButton( FText::FromString(TEXT("5")), 4 )
 					]
 				]
 			]
@@ -1017,7 +1017,7 @@ public:
 
 private:
 
-	TSharedRef<SWidget> CreateRadioButton( const FString& RadioText, int32 RadioButtonChoice )
+	TSharedRef<SWidget> CreateRadioButton( const FText& RadioText, int32 RadioButtonChoice )
 	{
 		return
 			SNew(SCheckBox)
@@ -2159,9 +2159,9 @@ int32 SMeshPaint::GetEraseWeightIndex() const
 	return FMeshPaintSettings::Get().EraseWeightIndex;
 }
 
-FString SMeshPaint::GetInstanceVertexColorsText() const 
+FText SMeshPaint::GetInstanceVertexColorsText() const 
 {
-	FString Text = LOCTEXT("MeshPaint_InstVertexColorsStartText", "None").ToString();
+	FText Text = LOCTEXT("MeshPaint_InstVertexColorsStartText", "None");
 	int32 NumBaseVertexColorBytes = 0;
 	int32 NumInstanceVertexColorBytes = 0;
 	bool bHasInstanceMaterialAndTexture = false;
@@ -2170,7 +2170,10 @@ FString SMeshPaint::GetInstanceVertexColorsText() const
 	if( NumInstanceVertexColorBytes > 0 )
 	{
 		float VertexKiloBytes = NumInstanceVertexColorBytes / 1000.0f;
-		Text = FString::Printf( TEXT( "%.3f k" ), VertexKiloBytes );
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(3)
+			.SetMaximumFractionalDigits(3);
+		Text = FText::Format( LOCTEXT("InstanceVertexColorsKiloBytesFmt", "{0} k"), FText::AsNumber(VertexKiloBytes, &FormatOptions) );
 	}
 	return Text;
 }
@@ -2678,23 +2681,23 @@ TSharedRef<SWidget> SMeshPaint::GetTextureTargetWidget( UTexture2D* TextureData 
 		];
 }
 
-FString SMeshPaint::GetCurrentTextureTargetText( UTexture2D* TextureData, int index ) const
+FText SMeshPaint::GetCurrentTextureTargetText( UTexture2D* TextureData, int index ) const
 {
 	UTexture2D* Tex = TextureData != NULL ? TextureData :  MeshPaintEditMode->GetSelectedTexture();
 
 	if( Tex == NULL ) 
 	{
-		return TEXT("");
+		return FText::GetEmpty();
 	}
 
 	switch ( index )
 	{
 		case 0:	
-			return Tex->GetName();
+			return FText::FromString(Tex->GetName());
 		case 1:	
-			return Tex->GetDesc();
+			return FText::FromString(Tex->GetDesc());
 		default:
-			return TEXT("");
+			return FText::GetEmpty();
 	}
 }
 
@@ -2704,10 +2707,10 @@ const FSlateBrush* SMeshPaint::GetCurrentTextureTargetImage(UTexture2D* TextureD
 	return Tex != NULL ? new FSlateDynamicImageBrush( Tex, FVector2D(64, 64), Tex->GetFName() ) : NULL;
 }
 
-FString SMeshPaint::GetCurrentUVChannel() const
+FText SMeshPaint::GetCurrentUVChannel() const
 {
-	UTexture2D* Tex = MeshPaintEditMode->GetSelectedTexture();	
-	return FString::Printf( TEXT("%d"), FMeshPaintSettings::Get().UVChannel );	
+	UTexture2D* Tex = MeshPaintEditMode->GetSelectedTexture();
+	return FText::AsNumber( FMeshPaintSettings::Get().UVChannel );	
 }
 
 FReply SMeshPaint::OnChangeTextureTarget( TWeakObjectPtr<UTexture2D> TextureData )
@@ -2820,10 +2823,10 @@ TSharedRef<SWidget> SMeshPaint::GetMaterialSelectionMenu()
 	return MenuBuilder.MakeWidget();
 }
 
-FString SMeshPaint::GetEditingMaterial() const
+FText SMeshPaint::GetEditingMaterial() const
 {
 	int32 SelectedMaterialIndex = MeshPaintEditMode->GetEditingMaterialIndex();
-	return TTypeToString<int32>::ToString(SelectedMaterialIndex);
+	return FText::AsNumber(SelectedMaterialIndex);
 }
 
 void SMeshPaint::OnSetEditingMaterial( int32 NewMaterialIndex )
@@ -2845,14 +2848,14 @@ TSharedRef<SWidget> SMeshPaint::GetActorSelectionMenu()
 	return MenuBuilder.MakeWidget();
 }
 
-FString SMeshPaint::GetEditingActorLabel() const
+FText SMeshPaint::GetEditingActorLabel() const
 {
 	TWeakObjectPtr<AActor> SelectedActor = MeshPaintEditMode->GetEditingActor();
 	if (SelectedActor.IsValid())
 	{
-		return SelectedActor.Get()->GetActorLabel();
+		return FText::FromString(SelectedActor.Get()->GetActorLabel());
 	}
-	return FString();
+	return FText::GetEmpty();
 }
 
 void SMeshPaint::OnSetEditingActor( TWeakObjectPtr<AActor> InActor )

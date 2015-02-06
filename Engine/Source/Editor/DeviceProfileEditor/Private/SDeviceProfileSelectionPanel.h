@@ -79,6 +79,9 @@ private:
 
 	/** The profile selected from the current list. */
 	TWeakObjectPtr< UDeviceProfile > SelectedProfile;
+
+	/** Handle to the registered RegenerateProfileList delegate */
+	FDelegateHandle RegenerateProfileListDelegateHandle;
 };
 
 

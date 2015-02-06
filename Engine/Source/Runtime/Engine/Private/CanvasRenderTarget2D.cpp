@@ -4,7 +4,8 @@
 #include "Engine/CanvasRenderTarget2D.h"
 
 UCanvasRenderTarget2D::UCanvasRenderTarget2D( const FObjectInitializer& ObjectInitializer )
-	: Super(ObjectInitializer)
+	: Super(ObjectInitializer),
+	  World( nullptr )
 {
 	bNeedsTwoCopies = false;
 }
@@ -50,7 +51,9 @@ void UCanvasRenderTarget2D::UpdateResource()
 	);
 
 	// Create the FCanvas which does the actual rendering.
-	FCanvas RenderCanvas(GameThread_GetRenderTargetResource(), nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, GetWorld()->FeatureLevel);
+	const UWorld* WorldPtr = World.Get();
+	const ERHIFeatureLevel::Type FeatureLevel = WorldPtr != nullptr ? World->FeatureLevel : GMaxRHIFeatureLevel;
+	FCanvas RenderCanvas(GameThread_GetRenderTargetResource(), nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, FeatureLevel);
 	Canvas->Canvas = &RenderCanvas;
 
 	if (!IsPendingKill() && OnCanvasRenderTargetUpdate.IsBound())
@@ -78,13 +81,14 @@ void UCanvasRenderTarget2D::UpdateResource()
 	);
 }
 
-UCanvasRenderTarget2D* UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(TSubclassOf<UCanvasRenderTarget2D> CanvasRenderTarget2DClass, int32 Width, int32 Height)
+UCanvasRenderTarget2D* UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(UObject* WorldContextObject, TSubclassOf<UCanvasRenderTarget2D> CanvasRenderTarget2DClass, int32 Width, int32 Height)
 {
 	if ((Width > 0) && (Height > 0) && (CanvasRenderTarget2DClass != NULL))
 	{
 		UCanvasRenderTarget2D* NewCanvasRenderTarget = ConstructObject<UCanvasRenderTarget2D>(CanvasRenderTarget2DClass, GetTransientPackage());
 		if (NewCanvasRenderTarget)
 		{
+			NewCanvasRenderTarget->World = GEngine->GetWorldFromContextObject(WorldContextObject);
 			NewCanvasRenderTarget->InitAutoFormat(Width, Height);
 			return NewCanvasRenderTarget;
 		}
@@ -97,4 +101,10 @@ void UCanvasRenderTarget2D::GetSize(int32& Width, int32& Height)
 {
 	Width = GetSurfaceWidth();
 	Height = GetSurfaceHeight();
+}
+
+
+UWorld* UCanvasRenderTarget2D::GetWorld() const
+{
+	return World.Get();
 }

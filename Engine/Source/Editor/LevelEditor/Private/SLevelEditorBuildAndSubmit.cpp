@@ -55,8 +55,8 @@ public:
 					[
 						SNew(STextBlock)
 						.Font(FEditorStyle::GetFontStyle("BuildAndSubmit.NormalFont"))
-						.Text(Item->Name)
-						.ToolTipText(Item->Name)
+						.Text(FText::FromString(Item->Name))
+						.ToolTipText(FText::FromString(Item->Name))
 					]
 				];
 		}
@@ -126,7 +126,7 @@ SLevelEditorBuildAndSubmit::~SLevelEditorBuildAndSubmit()
 {
 	UPackage::PackageDirtyStateChangedEvent.RemoveAll(this);
 
-	ISourceControlModule::Get().GetProvider().UnregisterSourceControlStateChanged(FSourceControlStateChanged::FDelegate::CreateRaw(this, &SLevelEditorBuildAndSubmit::OnSourceControlStateChanged));
+	ISourceControlModule::Get().GetProvider().UnregisterSourceControlStateChanged_Handle(OnSourceControlStateChangedDelegateHandle);
 }
 
 void SLevelEditorBuildAndSubmit::Construct( const FArguments& InArgs, const TSharedRef< class ILevelEditor >& OwningLevelEditor )
@@ -276,7 +276,7 @@ void SLevelEditorBuildAndSubmit::Construct( const FArguments& InArgs, const TSha
 
 	UpdatePackagesList();
 
-	ISourceControlModule::Get().GetProvider().RegisterSourceControlStateChanged(FSourceControlStateChanged::FDelegate::CreateRaw(this, &SLevelEditorBuildAndSubmit::OnSourceControlStateChanged));
+	OnSourceControlStateChangedDelegateHandle = ISourceControlModule::Get().GetProvider().RegisterSourceControlStateChanged_Handle(FSourceControlStateChanged::FDelegate::CreateRaw(this, &SLevelEditorBuildAndSubmit::OnSourceControlStateChanged));
 
 	UPackage::PackageDirtyStateChangedEvent.AddRaw(this, &SLevelEditorBuildAndSubmit::OnEditorPackageModified);
 }

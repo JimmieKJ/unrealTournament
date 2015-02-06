@@ -236,6 +236,15 @@ bool FCurveColorCustomization::HasAnyAlphaKeys() const
 	return false;
 }
 
+bool FCurveColorCustomization::IsValidCurve( FRichCurveEditInfo CurveInfo )
+{
+	return 
+		CurveInfo.CurveToEdit == &RuntimeCurve->ColorCurves[0] ||
+		CurveInfo.CurveToEdit == &RuntimeCurve->ColorCurves[1] ||
+		CurveInfo.CurveToEdit == &RuntimeCurve->ColorCurves[2] ||
+		CurveInfo.CurveToEdit == &RuntimeCurve->ColorCurves[3];
+}
+
 float FCurveColorCustomization::GetTimelineLength() const
 {
 	return 0.f;

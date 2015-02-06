@@ -62,12 +62,12 @@ A **class** is a set of behaviors, properties, and other elements, such as funct
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-Class Blueprint
+Blueprint Class
 	[/PARAM]
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Class_Blueprint]
-A **Class Blueprint** is an asset that content creators can use to easily add functionality on top of existing gameplay classes. Often shortened as just _Blueprint_. Blueprints are created inside of Unreal Editor visually, instead of by typing code, and saved as assets in a content package. They essentially define a new class or type of Actor, which can then be placed into maps as instances that behave like any other type of Actor.
+A **Blueprint Class** is an asset that content creators can use to easily add functionality on top of existing gameplay classes. Often shortened as just _Blueprint_. Blueprints are created inside of Unreal Editor visually, instead of by typing code, and saved as assets in a content package. They essentially define a new class or type of Actor, which can then be placed into maps as instances that behave like any other type of Actor.
 [/EXCERPT:Glossary_Class_Blueprint]
 
 	[/PARAM]
@@ -134,8 +134,8 @@ Construction Script
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Construction_Script]
-The **Construction Script** runs following the **Components** list when an instance of a _Class Blueprint_ 
-is created. It contains a node graph that is executed allowing the _Class Blueprint_ instance to perform initialization operations. 
+The **Construction Script** runs following the **Components** list when an instance of a _Blueprint Class_ 
+is created. It contains a node graph that is executed allowing the _Blueprint Class_ instance to perform initialization operations. 
 This can be extremely powerful as actions like performing traces into the world, setting meshes and materials, and so on can be 
 used to achieve context-specific setup. For instance, a light _Blueprint_ could determine what type of ground it is placed 
 upon and choose the correct mesh to use from a set of meshes or a fence _Blueprint_ could perform traces extending out in 

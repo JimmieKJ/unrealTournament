@@ -2781,6 +2781,27 @@ void FRCPassPostProcessAaES2::Process(FRenderingCompositePassContext& Context)
 		EDRF_UseTriangleOptimization);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+
+	auto& View = Context.View;
+	if (FSceneRenderer::ShouldCompositeEditorPrimitives(View))
+	{
+		// Remove jitter (ensures editor prims are stable.)
+		View.ViewMatrices.ProjMatrix.M[2][0] = 0.0f;
+		View.ViewMatrices.ProjMatrix.M[2][1] = 0.0f;
+
+		// Compute the view projection matrix and its inverse.
+		View.ViewProjectionMatrix = View.ViewMatrices.ViewMatrix * View.ViewMatrices.ProjMatrix;
+		View.InvViewProjectionMatrix = View.ViewMatrices.GetInvProjMatrix() * View.InvViewMatrix;
+
+		/** The view transform, starting from world-space points translated by -ViewOrigin. */
+		FMatrix TranslatedViewMatrix = FTranslationMatrix(-View.ViewMatrices.PreViewTranslation) * View.ViewMatrices.ViewMatrix;
+
+		// Compute a transform from view origin centered world-space to clip space.
+		View.ViewMatrices.TranslatedViewProjectionMatrix = TranslatedViewMatrix * View.ViewMatrices.ProjMatrix;
+		View.ViewMatrices.InvTranslatedViewProjectionMatrix = View.ViewMatrices.TranslatedViewProjectionMatrix.Inverse();
+
+		View.InitRHIResources(nullptr);
+	}
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessAaES2::ComputeOutputDesc(EPassOutputId InPassOutputId) const

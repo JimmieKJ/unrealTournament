@@ -26,11 +26,11 @@ struct FGraphAppearanceInfo
 	/** Image to draw in corner of graph */
 	const FSlateBrush* CornerImage;
 	/** Text to write in corner of graph */
-	FString CornerText;
+	FText CornerText;
 	/** If set, will be used as override for PIE notify text */
-	FString PIENotifyText;
+	FText PIENotifyText;
 	/** If set, will be used as override for read only text */
-	FString ReadOnlyText;
+	FText ReadOnlyText;
 	/** Text to display if the graph is empty (to guide the user on what to do) */
 	FText InstructionText;
 	/** Allows graphs to nicely fade instruction text (or completely hide it). */

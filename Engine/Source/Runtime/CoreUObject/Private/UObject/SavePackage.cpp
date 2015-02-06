@@ -1701,7 +1701,7 @@ public:
 								UByteProperty* ByteProp = dynamic_cast<UByteProperty*>(Object);
 								if (ByteProp != NULL && ByteProp->Enum != NULL)
 								{
-									HandleDependency(ByteProp->Enum, true);
+									HandleDependency(ByteProp->Enum, /*bProcessObject =*/true);
 								}
 								// a normal field - property, enum, const; just insert it into the list and keep going
 								ProcessedObjects.Add(Object);
@@ -1718,10 +1718,19 @@ public:
 				}
 				else
 				{
-					// since normal references to objects aren't force-loaded, we do not need to pass true for bProcessObject
-					// (which would indicate that Object must be inserted into the sorted export list before the object that contains
-					// this object reference - i.e. the object we're currently serializing)
-					HandleDependency(Object);
+					// since normal references to objects aren't force-loaded, 
+					// we do not need to pass true for bProcessObject by default
+					// (true would indicate that Object must be inserted into 
+					// the sorted export list before the object that contains 
+					// this object reference - i.e. the object we're currently
+					// serializing)
+					// 
+					// sometimes (rarely) this is the case though, so we use 
+					// ForceLoadObjects to determine if the object we're 
+					// serializing would force load Object (if so, it'll come 
+					// first in the ExportMap)
+					bool const bProcessObject = ForceLoadObjects.Contains(Object);
+					HandleDependency(Object, bProcessObject);
 				}
 			}
 		}
@@ -1820,8 +1829,34 @@ public:
 					// so we turn off field serialization so that we don't have to worry about handling this struct's fields just yet
 					bIgnoreFieldReferences = true;
 
+					// most often, we don't want/need object references getting  
+					// recorded as dependencies, but some structs (classes) 
+					// require certain non-field objects be prioritized in the 
+					// ExportMap earlier (see UClass::GetRequiredPreloadDependencies() 
+					// for more details)... this array records/holds those 
+					// required sub-objects
+					TArray<UObject*> StructForceLoadObjects;
+
+					bool const bIsClassObject = (dynamic_cast<UClass*>(StructObject) != nullptr);
+					if (bIsClassObject)
+					{
+						UClass* AsClass = (UClass*)StructObject;
+						AsClass->GetRequiredPreloadDependencies(StructForceLoadObjects);
+					}
+					// append rather than replace (in case we're nested in a 
+					// recursive call)... adding these to ForceLoadObjects 
+					// ensures that any reference to a StructForceLoadObjects
+					// object gets recorded in the ExportMap before StructObject
+					// (see operator<<, where we utilize ForceLoadObjects)
+					ForceLoadObjects.Append(StructForceLoadObjects);
+					int32 const ForceLoadCount = StructForceLoadObjects.Num();
+
 					SerializedObjects.Add(StructObject);
 					StructObject->Serialize(*this);
+
+					// remove (pop) rather than empty, in case ClassForceLoadObjects
+					// had entries from a previous call to this function up that chain
+					ForceLoadObjects.RemoveAt(ForceLoadObjects.Num() - ForceLoadCount, ForceLoadCount);
 
 					// at this point, any objects which were referenced through this struct's script or defaults will be in the list of exports, and 
 					// the CurrentInsertIndex will have been advanced so that the object processed will be inserted just before this struct in the array
@@ -1830,15 +1865,16 @@ public:
 					// now re-enable field serialization and process the struct's properties, functions, enums, structs, etc.  They will be inserted into the list
 					// just ahead of the struct itself, so that those objects are created first during seek-free loading.
 					bIgnoreFieldReferences = false;
-
+					
 					// invoke the serialize operator rather than calling Serialize directly so that the object is handled correctly (i.e. if it is a struct, then we should
 					// call ProcessStruct, etc. and all this logic is already contained in the serialization operator)
-					if (!dynamic_cast<UClass*>(StructObject))
+					if (!bIsClassObject)
 					{
 						// before processing the Children reference, set the CurrentClass to the class which contains this StructObject so that we
 						// don't inadvertently serialize other fields of the owning class too early.
 						CurrentClass = StructObject->GetOwnerClass();
-					}
+					}					
+
 					(*this) << (UObject*&)StructObject->Children;
 					CurrentClass = NULL;
 
@@ -1928,6 +1964,13 @@ private:
 	 * hasn't been created yet.
 	 */
 	UClass* CurrentClass;
+
+	/** 
+	 * This is a list of objects that would be force loaded by a struct/class 
+	 * currently being handled by ProcessStruct() (meaning that they should be
+	 * prioritized in the target ExportMap, before the struct).
+	 */
+	TArray<UObject*> ForceLoadObjects;
 };
 
 #define EXPORT_SORTING_DETAILED_LOGGING 0
@@ -2610,12 +2653,12 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 				if (bCompressFromMemory || bSaveAsync)
 				{
 					// Allocate the linker with a memory writer, forcing byte swapping if wanted.
-					Linker = new ULinkerSave( FObjectInitializer(), InOuter, bForceByteSwapping, bSaveUnversioned );
+					Linker = new(EC_InternalUseOnlyConstructor) ULinkerSave(FObjectInitializer(), InOuter, bForceByteSwapping, bSaveUnversioned);
 				}
 				else
 				{
 					// Allocate the linker, forcing byte swapping if wanted.
-					Linker = new ULinkerSave( FObjectInitializer(), InOuter, *TempFilename, bForceByteSwapping, bSaveUnversioned );
+					Linker = new(EC_InternalUseOnlyConstructor) ULinkerSave(FObjectInitializer(), InOuter, *TempFilename, bForceByteSwapping, bSaveUnversioned);
 				}
 
 				// Use the custom versions we had previously gleaned from the export tag pass

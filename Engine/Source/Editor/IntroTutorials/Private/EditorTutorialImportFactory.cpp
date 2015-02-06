@@ -116,6 +116,11 @@ EReimportResult::Type UEditorTutorialImportFactory::Reimport(UObject* Obj)
 	return EReimportResult::Failed;
 }
 
+int32 UEditorTutorialImportFactory::GetPriority() const
+{
+	return ImportPriority;
+}
+
 bool UEditorTutorialImportFactory::Import(UEditorTutorial* InTutorialToImportTo, const FString& InImportPath)
 {
 	if(!InImportPath.IsEmpty() && InTutorialToImportTo != nullptr && IDocumentation::Get()->PageExists(InImportPath))

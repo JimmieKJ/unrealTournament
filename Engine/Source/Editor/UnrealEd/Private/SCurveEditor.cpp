@@ -389,7 +389,7 @@ TSharedRef<SWidget> SCurveEditor::CreateCurveSelectionWidget() const
 					SNew(STextBlock)
 					.Font(FEditorStyle::GetFontStyle("CurveEd.LabelFont"))
 					.ColorAndOpacity(CurveViewModel->Color)
-					.Text(CurveViewModel->CurveInfo.CurveName.ToString())
+					.Text(FText::FromName(CurveViewModel->CurveInfo.CurveName))
 				]
 
 				+ SHorizontalBox::Slot()
@@ -1983,11 +1983,11 @@ TSharedPtr<FUICommandList> SCurveEditor::GetCommands()
 bool SCurveEditor::IsValidCurve( FRichCurve* Curve ) const
 {
 	bool bIsValid = false;
-	if(Curve)
+	if(Curve && CurveOwner)
 	{
 		for(auto CurveViewModel : CurveViewModels)
 		{
-			if(CurveViewModel->CurveInfo.CurveToEdit == Curve)
+			if(CurveViewModel->CurveInfo.CurveToEdit == Curve && CurveOwner->IsValidCurve(CurveViewModel->CurveInfo))
 			{
 				bIsValid = true;
 				break;

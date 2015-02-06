@@ -513,7 +513,7 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 			// make sure OpenGL context created before accepting touch events.. FAndroidWindow::GetScreenRect() may try to create it early from wrong thread if this is the first call
 			if (!GAndroidGPUInfoReady)
 			{
-				return 0;
+				return 1;
 			}
 			FPlatformRect ScreenRect = FAndroidWindow::GetScreenRect();
 
@@ -959,4 +959,9 @@ extern "C" void Java_com_epicgames_ue4_GameActivity_nativeSetAndroidVersionInfor
 	FString UEOSLanguage = FString(UTF8_TO_TCHAR(javaOSLanguage));
 
 	FAndroidMisc::SetVersionInfo( UEAndroidVersion, UEPhoneMake, UEPhoneModel, UEOSLanguage );
+}
+
+bool WaitForAndroidLoseFocusEvent(double TimeoutSeconds)
+{
+	return FAppEventManager::GetInstance()->WaitForEventInQueue(EAppEventState::APP_EVENT_STATE_WINDOW_LOST_FOCUS, TimeoutSeconds);
 }

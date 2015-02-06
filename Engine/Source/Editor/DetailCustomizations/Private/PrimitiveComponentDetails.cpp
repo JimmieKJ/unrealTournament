@@ -11,7 +11,7 @@
 #include "IDocumentation.h"
 #include "EditorCategoryUtils.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-
+#include "ComponentMaterialCategory.h"
 
 #define LOCTEXT_NAMESPACE "PrimitiveComponentDetails"
 
@@ -160,6 +160,18 @@ EVisibility FPrimitiveComponentDetails::IsMassVisible(bool bOverrideMass) const
 
 void FPrimitiveComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
+	// Get the objects being customized so we can enable/disable editing of 'Simulate Physics'
+	DetailBuilder.GetObjectsBeingCustomized(ObjectsCustomized);
+
+	// See if we are hiding Physics category
+	TArray<FString> HideCategories;
+	FEditorCategoryUtils::GetClassHideCategories(DetailBuilder.GetDetailsView().GetBaseClass(), HideCategories);
+
+	if(!HideCategories.Contains("Materials"))
+	{
+		AddMaterialCategory(DetailBuilder);
+	}
+
 	TSharedRef<IPropertyHandle> MobilityHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, Mobility), USceneComponent::StaticClass());
 	MobilityHandle->SetToolTipText(LOCTEXT("PrimitiveMobilityTooltip", "Mobility for primitive components controls how they can be modified in game and therefore how they interact with lighting and physics.\n● A movable primitive component can be changed in game, but requires dynamic lighting and shadowing from lights which have a large performance cost.\n● A static primitive component can't be changed in game, but can have its lighting baked, which allows rendering to be very efficient."));
 
@@ -169,15 +181,12 @@ void FPrimitiveComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 		uint32 NumChildren = 0;
 		BodyInstanceHandler->GetNumChildren(NumChildren);
 
-		// See if we are hiding Physics category
-		TArray<FString> HideCategories;
-		FEditorCategoryUtils::GetClassHideCategories(DetailBuilder.GetDetailsView().GetBaseClass(), HideCategories);
+
 		if (!HideCategories.Contains(TEXT("Physics")))
 		{
 			IDetailCategoryBuilder& PhysicsCategory = DetailBuilder.EditCategory("Physics");
 
-			// Get the objects being customized so we can enable/disable editing of 'Simulate Physics'
-			DetailBuilder.GetObjectsBeingCustomized(ObjectsCustomized);
+
 
 			bool bDisplayMass = true;
 			bool bDisplayMassOverride = true;
@@ -310,6 +319,22 @@ void FPrimitiveComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 	AddAdvancedSubCategory( DetailBuilder, "Rendering", "LOD");
 }
 
+void FPrimitiveComponentDetails::AddMaterialCategory( IDetailLayoutBuilder& DetailBuilder )
+{
+	TArray<TWeakObjectPtr<USceneComponent> > Components;
+
+	for( TWeakObjectPtr<UObject> Object : ObjectsCustomized )
+	{
+		USceneComponent*  Component = Cast<USceneComponent>(Object.Get());
+		if( Component )
+		{
+			Components.Add( Component );
+		}
+	}
+
+	MaterialCategory = MakeShareable(new FComponentMaterialCategory(Components));
+	MaterialCategory->Create(DetailBuilder);
+}
 void FPrimitiveComponentDetails::AddAdvancedSubCategory( IDetailLayoutBuilder& DetailBuilder, FName MainCategoryName, FName SubCategoryName)
 {
 	TArray<TSharedRef<IPropertyHandle> > SubCategoryProperties;

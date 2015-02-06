@@ -341,6 +341,7 @@ const FExpandableAreaStyle& FExpandableAreaStyle::GetDefault()
 
 
 FSearchBoxStyle::FSearchBoxStyle()
+	: bLeftAlignButtons(false)
 {
 }
 

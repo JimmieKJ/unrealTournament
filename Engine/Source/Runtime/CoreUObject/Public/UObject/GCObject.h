@@ -80,7 +80,7 @@ public:
 	{
 		if (GGCObjectReferencer == NULL)
 		{
-			GGCObjectReferencer = new UGCObjectReferencer(FObjectInitializer());
+			GGCObjectReferencer = NewObject<UGCObjectReferencer>();
 			GGCObjectReferencer->AddToRoot();
 		}
 	}

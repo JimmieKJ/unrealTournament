@@ -11,7 +11,6 @@
 #include "LevelEditor.h"
 #include "Toolkits/ToolkitManager.h"
 #include "EditorLevelUtils.h"
-#include "DynamicMeshBuilder.h"
 
 #include "ActorEditorUtils.h"
 #include "EditorStyle.h"
@@ -433,7 +432,24 @@ FVector FEdMode::GetWidgetLocation() const
 
 bool FEdMode::ShouldDrawWidget() const
 {
-	return (Owner->GetSelectedActors()->GetTop<AActor>() != NULL);
+	bool bDrawWidget = false;
+	if (GEditor->GetSelectedComponentCount() > 0)
+	{
+		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		{
+			if (It->IsA<USceneComponent>())
+			{
+				bDrawWidget = true;
+				break;
+			}
+		}
+	}
+	else
+	{
+		bDrawWidget = (GEditor->GetSelectedActors()->GetTop<AActor>() != NULL);
+	}
+
+	return bDrawWidget;
 }
 
 /**
@@ -584,104 +600,12 @@ FModeTool* FEdMode::FindTool( EModeTools InID )
 
 void FEdMode::Render(const FSceneView* View,FViewport* Viewport,FPrimitiveDrawInterface* PDI)
 {
-	if( GEditor->bShowBrushMarkerPolys )
-	{
-		// Draw translucent polygons on brushes and volumes
-
-		for( TActorIterator<ABrush> It(GetWorld()); It; ++ It )
-		{
-			ABrush* Brush = *It;
-
-			// Brush->Brush is checked to safe from brushes that were created without having their brush members attached.
-			if( Brush->Brush && (FActorEditorUtils::IsABuilderBrush(Brush) || Brush->IsVolumeBrush()) && Owner->GetSelectedActors()->IsSelected(Brush) )
-			{
-				// Build a mesh by basically drawing the triangles of each 
-				FDynamicMeshBuilder MeshBuilder;
-				int32 VertexOffset = 0;
-
-				for( int32 PolyIdx = 0 ; PolyIdx < Brush->Brush->Polys->Element.Num() ; ++PolyIdx )
-				{
-					const FPoly* Poly = &Brush->Brush->Polys->Element[PolyIdx];
-
-					if( Poly->Vertices.Num() > 2 )
-					{
-						const FVector Vertex0 = Poly->Vertices[0];
-						FVector Vertex1 = Poly->Vertices[1];
-
-						MeshBuilder.AddVertex(Vertex0, FVector2D::ZeroVector, FVector(1,0,0), FVector(0,1,0), FVector(0,0,1), FColor::White);
-						MeshBuilder.AddVertex(Vertex1, FVector2D::ZeroVector, FVector(1,0,0), FVector(0,1,0), FVector(0,0,1), FColor::White);
-
-						for( int32 VertexIdx = 2 ; VertexIdx < Poly->Vertices.Num() ; ++VertexIdx )
-						{
-							const FVector Vertex2 = Poly->Vertices[VertexIdx];
-							MeshBuilder.AddVertex(Vertex2, FVector2D::ZeroVector, FVector(1,0,0), FVector(0,1,0), FVector(0,0,1), FColor::White);
-							MeshBuilder.AddTriangle(VertexOffset,VertexOffset + VertexIdx,VertexOffset+VertexIdx-1);
-							Vertex1 = Vertex2;
-						}
-
-						// Increment the vertex offset so the next polygon uses the correct vertex indices.
-						VertexOffset += Poly->Vertices.Num();
-					}
-				}
-
-				// Allocate the material proxy and register it so it can be deleted properly once the rendering is done with it.
-				FDynamicColoredMaterialRenderProxy* MaterialProxy = new FDynamicColoredMaterialRenderProxy(GEngine->EditorBrushMaterial->GetRenderProxy(false),Brush->GetWireColor());
-				PDI->RegisterDynamicResource( MaterialProxy );
-
-				// Flush the mesh triangles.
-				MeshBuilder.Draw(PDI, Brush->ActorToWorld().ToMatrixWithScale(), MaterialProxy, SDPG_World, 0.f);
-			}
-		}
-	}
-
-	const bool bIsInGameView = !Viewport->GetClient() || Viewport->GetClient()->IsInGameView();
-	if (Owner->ShouldDrawBrushVertices() && !bIsInGameView)
-	{
-		UTexture2D* VertexTexture = GetVertexTexture();
-		const float TextureSizeX = VertexTexture->GetSizeX() * 0.170f;
-		const float TextureSizeY = VertexTexture->GetSizeY() * 0.170f;
-
-		for (FSelectionIterator It(*Owner->GetSelectedActors()); It; ++It)
-		{
-			AActor* SelectedActor = static_cast<AActor*>(*It);
-			checkSlow(SelectedActor->IsA(AActor::StaticClass()));
-
-			ABrush* Brush = Cast< ABrush >(SelectedActor);
-			if (Brush && Brush->Brush && !FActorEditorUtils::IsABuilderBrush(Brush))
-			{
-				for (int32 p = 0; p < Brush->Brush->Polys->Element.Num(); ++p)
-				{
-					FTransform BrushTransform = Brush->ActorToWorld();
-
-					FPoly* poly = &Brush->Brush->Polys->Element[p];
-					for (int32 VertexIndex = 0; VertexIndex < poly->Vertices.Num(); ++VertexIndex)
-					{
-						const FVector& PolyVertex = poly->Vertices[VertexIndex];
-						const FVector WorldLocation = BrushTransform.TransformPosition(PolyVertex);
-						
-						const float Scale = View->WorldToScreen( WorldLocation ).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
-
-						const FColor Color(Brush->GetWireColor());
-						PDI->SetHitProxy(new HBSPBrushVert(Brush, &poly->Vertices[VertexIndex]));
-
-						PDI->DrawSprite(WorldLocation, TextureSizeX * Scale, TextureSizeY * Scale, VertexTexture->Resource, Color, SDPG_World, 0.0f, 0.0f, 0.0f, 0.0f, SE_BLEND_Masked );
-
-						PDI->SetHitProxy(NULL);
-			
-					}
-				}
-			}
-		}
-	}
-
 	// Let the current mode tool render if it wants to
 	FModeTool* tool = GetCurrentTool();
 	if( tool )
 	{
 		tool->Render( View, Viewport, PDI );
 	}
-
-	AGroupActor::DrawBracketsForGroups(PDI, Viewport);
 
 	if(UsesPropertyWidgets())
 	{
@@ -931,6 +855,16 @@ bool FEdMode::UsesToolkits() const
 	return false;
 }
 
+UWorld* FEdMode::GetWorld() const
+{
+	return Owner->GetWorld();
+}
+
+class FEditorModeTools* FEdMode::GetModeManager() const
+{
+	return Owner;
+}
+
 bool FEdMode::StartTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport)
 {
 	bool bResult = false;
@@ -1014,118 +948,145 @@ static bool IsTransformProperty(UProperty* InProp)
 
 }
 
-void FEdMode::GetPropertyWidgetInfos(const UStruct* InStruct, const void* InContainer, TArray<FPropertyWidgetInfo>& OutInfos, FString PropertyNamePrefix, FString DisplayNamePrefix) const
+struct FPropertyWidgetInfoChainElement
 {
-	if(PropertyNamePrefix.Len() == 0)
-	{
-		OutInfos.Empty();
-	}
+	UProperty* Property;
+	int32 Index;
 
-	for (TFieldIterator<UProperty> PropertyIt(InStruct, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
-	{
-		UProperty* CurrentProp = *PropertyIt;
-		check(CurrentProp);
-		FString DisplayName = CurrentProp->GetMetaData(TEXT("DisplayName"));
-		if (!PropertyNamePrefix.IsEmpty() && DisplayNamePrefix.IsEmpty()) // Display name is already invalid
-		{
-			DisplayName.Empty();
-		}
-		if (!DisplayName.IsEmpty()) //Display name cannot be only the prefix.
-		{
-			DisplayName = DisplayNamePrefix + DisplayName;
-		}
+	FPropertyWidgetInfoChainElement(UProperty* InProperty = nullptr, int32 InIndex = INDEX_NONE)
+		: Property(InProperty), Index(InIndex)
+	{}
 
-		if(	ShouldCreateWidgetForProperty(CurrentProp) )
+	static bool ShouldCreateWidgetSomwhereInBranch(UProperty* InProp)
+	{
+		UStructProperty* StructProperty = Cast<UStructProperty>(InProp);
+		if (!StructProperty)
 		{
-			if( UArrayProperty* ArrayProp = Cast<UArrayProperty>(CurrentProp) )
+			UArrayProperty* ArrayProperty = Cast<UArrayProperty>(InProp);
+			if (ArrayProperty)
 			{
-				check(InContainer != NULL);
+				StructProperty = Cast<UStructProperty>(ArrayProperty->Inner);
+			}
+		}
 
-				FScriptArrayHelper_InContainer ArrayHelper(ArrayProp, InContainer);
+		if (StructProperty)
+		{
+			if (FEdMode::CanCreateWidgetForStructure(StructProperty->Struct) && InProp->HasMetaData(FEdMode::MD_MakeEditWidget))
+			{
+				return true;
+			}
 
-				// See how many widgets we need to make for the array property
-				uint32 ArrayDim = ArrayHelper.Num();
-				for( uint32 i = 0; i < ArrayDim; i++ )
+			for (TFieldIterator<UProperty> PropertyIt(StructProperty->Struct, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
+			{
+				if (ShouldCreateWidgetSomwhereInBranch(*PropertyIt))
 				{
-					//create a new widget info struct
-					FPropertyWidgetInfo WidgetInfo;
-
-					//fill it in with the struct name
-					WidgetInfo.PropertyName = PropertyNamePrefix + CurrentProp->GetFName().ToString();
-					WidgetInfo.DisplayName = DisplayName.IsEmpty() ? WidgetInfo.PropertyName : DisplayName;
-
-					//And see if we have any meta data that matches the MD_ValidateWidgetUsing name
-					WidgetInfo.PropertyValidationName = FName(*CurrentProp->GetMetaData(MD_ValidateWidgetUsing));
-
-					WidgetInfo.PropertyIndex = i;
-
-					// See if its a transform
-					WidgetInfo.bIsTransform = IsTransformProperty(ArrayProp->Inner);
-
-					//Add it to our out array
-					OutInfos.Add(WidgetInfo);
+					return true;
 				}
 			}
-			else
-			{
-
-				//create a new widget info struct
-				FPropertyWidgetInfo WidgetInfo;
-
-				//fill it in with the struct name
-				WidgetInfo.PropertyName = PropertyNamePrefix + CurrentProp->GetFName().ToString();
-				WidgetInfo.DisplayName = DisplayName.IsEmpty() ? WidgetInfo.PropertyName : DisplayName;
-
-				//And see if we have any meta data that matches the MD_ValidateWidgetUsing name
-				WidgetInfo.PropertyValidationName = FName(*CurrentProp->GetMetaData(MD_ValidateWidgetUsing));
-
-				// See if its a transform
-				WidgetInfo.bIsTransform = IsTransformProperty(CurrentProp);
-
-				//Add it to our out array
-				OutInfos.Add(WidgetInfo);
-			}
-
 		}
-		else
+
+		return false;
+	}
+
+	static FEdMode::FPropertyWidgetInfo CreateWidgetInfo(const TArray<FPropertyWidgetInfoChainElement>& Chain, bool bIsTransform, UProperty* CurrentProp, int32 Index = INDEX_NONE)
+	{
+		check(CurrentProp);
+		FEdMode::FPropertyWidgetInfo WidgetInfo;
+		WidgetInfo.PropertyValidationName = FName(*CurrentProp->GetMetaData(FEdMode::MD_ValidateWidgetUsing));
+		WidgetInfo.bIsTransform = bIsTransform;
+		WidgetInfo.PropertyIndex = Index;
+
+		const FString SimplePostFix(TEXT("."));
+		for (int32 ChainIndex = 0; ChainIndex < Chain.Num(); ++ChainIndex)
 		{
-			UStructProperty* StructProp = Cast<UStructProperty>(CurrentProp);
-			if(StructProp != NULL)
+			const FPropertyWidgetInfoChainElement& Element = Chain[ChainIndex];
+			check(Element.Property);
+			const FString Postfix = (Element.Index != INDEX_NONE) ? FString::Printf(TEXT("[%d]."), Element.Index) : SimplePostFix;
+			const FString PropertyName = Element.Property->GetName() + Postfix;
+			const FString DisplayName = Element.Property->GetMetaData(TEXT("DisplayName"));
+
+			WidgetInfo.PropertyName += PropertyName;
+			WidgetInfo.DisplayName += (!DisplayName.IsEmpty()) ? (DisplayName + Postfix) : PropertyName;
+		}
+
+		{
+			const FString PropertyName = CurrentProp->GetName();
+			const FString DisplayName = CurrentProp->GetMetaData(TEXT("DisplayName"));
+
+			WidgetInfo.PropertyName += PropertyName;
+			WidgetInfo.DisplayName += (!DisplayName.IsEmpty()) ? DisplayName : PropertyName;
+		}
+		return WidgetInfo;
+	}
+
+	static void RecursiveGet(const FEdMode& EdMode, const UStruct* InStruct, const void* InContainer, TArray<FEdMode::FPropertyWidgetInfo>& OutInfos, TArray<FPropertyWidgetInfoChainElement>& Chain)
+	{
+		for (TFieldIterator<UProperty> PropertyIt(InStruct, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
+		{
+			UProperty* CurrentProp = *PropertyIt;
+			check(CurrentProp);
+
+			if (EdMode.ShouldCreateWidgetForProperty(CurrentProp))
+			{
+				if (UArrayProperty* ArrayProp = Cast<UArrayProperty>(CurrentProp))
+				{
+					check(InContainer);
+					FScriptArrayHelper_InContainer ArrayHelper(ArrayProp, InContainer);
+					// See how many widgets we need to make for the array property
+					const uint32 ArrayDim = ArrayHelper.Num();
+					for (uint32 Index = 0; Index < ArrayDim; ++Index)
+					{
+						OutInfos.Add(FPropertyWidgetInfoChainElement::CreateWidgetInfo(Chain, IsTransformProperty(ArrayProp->Inner), CurrentProp, Index));
+					}
+				}
+				else
+				{
+					OutInfos.Add(FPropertyWidgetInfoChainElement::CreateWidgetInfo(Chain, IsTransformProperty(CurrentProp), CurrentProp));
+				}
+			}
+			else if (UStructProperty* StructProp = Cast<UStructProperty>(CurrentProp))
 			{
 				// Recursively traverse into structures, looking for additional vector properties to expose
-				GetPropertyWidgetInfos(StructProp->Struct
+				Chain.Push(FPropertyWidgetInfoChainElement(StructProp));
+				RecursiveGet(EdMode
+					, StructProp->Struct
 					, StructProp->ContainerPtrToValuePtr<void>(InContainer)
 					, OutInfos
-					, PropertyNamePrefix + StructProp->GetFName().ToString() + TEXT(".")
-					, !DisplayName.IsEmpty() ? (DisplayName + TEXT(".")) : FString());
+					, Chain);
+				Chain.Pop(false);
 			}
-			else
+			else if (UArrayProperty* ArrayProp = Cast<UArrayProperty>(CurrentProp))
 			{
 				// Recursively traverse into arrays of structures, looking for additional vector properties to expose
-				UArrayProperty* ArrayProp = Cast<UArrayProperty>(CurrentProp);
-				if(ArrayProp != NULL)
+				UStructProperty* InnerStructProp = Cast<UStructProperty>(ArrayProp->Inner);
+				if (InnerStructProp)
 				{
-					StructProp = Cast<UStructProperty>(ArrayProp->Inner);
-					if(StructProp != NULL)
+					FScriptArrayHelper_InContainer ArrayHelper(ArrayProp, InContainer);
+
+					// If the array is not empty the do additional check to tell if iteration is necessary
+					if (ArrayHelper.Num() && ShouldCreateWidgetSomwhereInBranch(InnerStructProp))
 					{
-						FScriptArrayHelper_InContainer ArrayHelper(ArrayProp, InContainer);
-						for(int32 ArrayIndex = 0; ArrayIndex < ArrayHelper.Num(); ++ArrayIndex)
+						for (int32 ArrayIndex = 0; ArrayIndex < ArrayHelper.Num(); ++ArrayIndex)
 						{
-							if(ArrayHelper.IsValidIndex(ArrayIndex))
-							{
-								const FString ArrayPostfix = FString::Printf(TEXT("[%d]"), ArrayIndex) + TEXT(".");
-								GetPropertyWidgetInfos(StructProp->Struct
-									, ArrayHelper.GetRawPtr(ArrayIndex)
-									, OutInfos
-									, PropertyNamePrefix + ArrayProp->GetFName().ToString() + ArrayPostfix
-									, !DisplayName.IsEmpty() ? (DisplayName + ArrayPostfix) : FString());
-							}
+							Chain.Push(FPropertyWidgetInfoChainElement(ArrayProp, ArrayIndex));
+							RecursiveGet(EdMode
+								, InnerStructProp->Struct
+								, ArrayHelper.GetRawPtr(ArrayIndex)
+								, OutInfos
+								, Chain);
+							Chain.Pop(false);
 						}
 					}
 				}
 			}
 		}
 	}
+};
+
+void FEdMode::GetPropertyWidgetInfos(const UStruct* InStruct, const void* InContainer, TArray<FPropertyWidgetInfo>& OutInfos) const
+{
+	TArray<FPropertyWidgetInfoChainElement> Chain;
+	FPropertyWidgetInfoChainElement::RecursiveGet(*this, InStruct, InContainer, OutInfos, Chain);
 }
 
 bool FEdMode::IsSnapRotationEnabled()

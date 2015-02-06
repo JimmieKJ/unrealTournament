@@ -692,7 +692,7 @@ void FLayers::RemoveViewFromActorViewVisibility( FLevelEditorViewportClient* Vie
 		}
 
 		// Find all registered primitive components and update the scene proxy with the actors updated visibility map
-		TArray<UPrimitiveComponent*> Components;
+		TInlineComponentArray<UPrimitiveComponent*> Components;
 		Actor->GetComponents(Components);
 
 		for( int32 ComponentIdx = 0; ComponentIdx < Components.Num(); ++ComponentIdx )

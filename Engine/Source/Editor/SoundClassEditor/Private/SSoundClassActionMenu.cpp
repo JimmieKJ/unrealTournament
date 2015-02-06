@@ -26,7 +26,7 @@ void SSoundClassActionMenuItem::Construct(const FArguments& InArgs, TSharedPtr<F
 		this->ChildSlot
 			[
 				SNew(SHorizontalBox)
-				.ToolTipText( InAction->TooltipDescription )
+				.ToolTipText( FText::FromString(InAction->TooltipDescription) )
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				.VAlign(VAlign_Center)
@@ -40,7 +40,7 @@ void SSoundClassActionMenuItem::Construct(const FArguments& InArgs, TSharedPtr<F
 	}
 	else
 	{
-		TSharedRef<SWidget> NewSoundClassWidget = CreateNewSoundClassWidget( InAction->MenuDescription.ToString(), InAction->TooltipDescription, FSlateFontInfo( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 9), InAction );
+		TSharedRef<SWidget> NewSoundClassWidget = CreateNewSoundClassWidget( InAction->MenuDescription, FText::FromString(InAction->TooltipDescription), FSlateFontInfo( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 9), InAction );
 		// Promote requires 2 'slots'
 		this->ChildSlot
 			[
@@ -49,7 +49,7 @@ void SSoundClassActionMenuItem::Construct(const FArguments& InArgs, TSharedPtr<F
 	}
 }
 
-TSharedRef<SWidget> SSoundClassActionMenuItem::CreateNewSoundClassWidget( const FString& DisplayText, const FString& ToolTip, const FSlateFontInfo& NameFont, TSharedPtr<FEdGraphSchemaAction>& InAction )
+TSharedRef<SWidget> SSoundClassActionMenuItem::CreateNewSoundClassWidget( const FText& DisplayText, const FText& ToolTip, const FSlateFontInfo& NameFont, TSharedPtr<FEdGraphSchemaAction>& InAction )
 {
 	FString ClassName;
 	FSoundClassGraphSchemaAction_NewNode* Action = static_cast<FSoundClassGraphSchemaAction_NewNode*>(InAction.Get());

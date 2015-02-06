@@ -678,7 +678,11 @@ namespace iPhonePackager
 						}
 						else
 						{
-							dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string; 
+							dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
+							if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
+							{
+								dllPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
+							}
 						}
 						if (String.IsNullOrEmpty(dllPath) || !File.Exists(dllPath))
 						{
@@ -772,6 +776,15 @@ namespace iPhonePackager
 						if (Config.bCert)
 						{
 							ToolsHub.TryInstallingCertificate_PromptForKey(Config.Certificate, false);
+						}
+						CodeSignatureBuilder.FindCertificates();
+						CodeSignatureBuilder.FindProvisions(Config.OverrideBundleName);
+						break;
+
+					case "certificates":
+						{
+							CodeSignatureBuilder.FindCertificates();
+							CodeSignatureBuilder.FindProvisions(Config.OverrideBundleName);
 						}
 						break;
 

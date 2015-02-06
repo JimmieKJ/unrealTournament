@@ -69,14 +69,14 @@ public:
 	virtual void RegisterDebugDrawDelgate() override
 	{
 		DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FNavTestSceneProxy::DrawDebugLabels);
-		UDebugDrawService::Register(TEXT("Navigation"), DebugTextDrawingDelegate);
+		DebugTextDrawingDelegateHandle = UDebugDrawService::Register(TEXT("Navigation"), DebugTextDrawingDelegate);
 	}
 
 	virtual void UnregisterDebugDrawDelgate() override
 	{
 		if (DebugTextDrawingDelegate.IsBound())
 		{
-			UDebugDrawService::Unregister(DebugTextDrawingDelegate);
+			UDebugDrawService::Unregister(DebugTextDrawingDelegateHandle);
 		}
 	}
 
@@ -406,6 +406,7 @@ private:
 	FVector NavMeshDrawOffset;
 	ANavigationTestingActor* NavTestActor;
 	FDebugDrawDelegate DebugTextDrawingDelegate;
+	FDelegateHandle DebugTextDrawingDelegateHandle;
 	TArray<FVector> PathPoints;
 	TArray<FString> PathPointFlags;
 

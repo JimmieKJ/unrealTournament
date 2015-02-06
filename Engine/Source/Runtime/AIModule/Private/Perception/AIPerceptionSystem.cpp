@@ -87,7 +87,7 @@ void UAIPerceptionSystem::PostInitProperties()
 		UWorld* World = GEngine->GetWorldFromContextObject(GetOuter());
 		if (World)
 		{
-			World->GetTimerManager().SetTimer(this, &UAIPerceptionSystem::AgeStimuli, PerceptionAgingRate, /*inbLoop=*/true);
+			World->GetTimerManager().SetTimer(AgeStimuliTimerHandle, this, &UAIPerceptionSystem::AgeStimuli, PerceptionAgingRate, /*inbLoop=*/true);
 		}
 	}
 }

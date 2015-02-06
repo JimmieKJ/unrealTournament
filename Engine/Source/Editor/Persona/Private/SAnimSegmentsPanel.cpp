@@ -126,7 +126,7 @@ FString	SAnimSegmentsPanel::GetAnimSegmentName(int32 AnimSegmentIndex) const
 	return FString();
 }
 
-FString	SAnimSegmentsPanel::GetAnimSegmentDetailedInfo(int32 AnimSegmentIndex) const
+FText SAnimSegmentsPanel::GetAnimSegmentDetailedInfo(int32 AnimSegmentIndex) const
 {
 	if (ValidIndex(AnimSegmentIndex))
 	{
@@ -134,10 +134,13 @@ FString	SAnimSegmentsPanel::GetAnimSegmentDetailedInfo(int32 AnimSegmentIndex) c
 		UAnimSequenceBase * Anim = AnimSegment.AnimReference;
 		if ( Anim != NULL )
 		{
-			return FString::Printf(TEXT("%s %.2f"), *Anim->GetName(), AnimSegment.GetLength() );
+			static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+				.SetMinimumFractionalDigits(2)
+				.SetMaximumFractionalDigits(2);
+			return FText::Format(LOCTEXT("AnimSegmentPanel_GetAnimSegmentDetailedInfoFmt", "{0} {1}"), FText::FromString(Anim->GetName()), FText::AsNumber(AnimSegment.GetLength(), &FormatOptions) );
 		}
 	}
-	return FString();
+	return FText::GetEmpty();
 }
 
 void SAnimSegmentsPanel::SetSegmentStartPos(float NewStartPos, int32 AnimSegmentIndex)

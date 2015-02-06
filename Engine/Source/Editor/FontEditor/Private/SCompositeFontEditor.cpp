@@ -744,7 +744,8 @@ void STypefaceEntryEditor::OnTypefaceEntryFontPathPicked(const FString& InNewFon
 		CompositeFontEditorPtr->GetFontObject()->Modify();
 
 		// We need to allocate the bulk data with the font as its outer
-		const UFontBulkData* const BulkData = new(CompositeFontEditorPtr->GetFontObject()) UFontBulkData(InNewFontFilename);
+		UFontBulkData* const BulkData = NewObject<UFontBulkData>(CompositeFontEditorPtr->GetFontObject());
+		BulkData->Initialize(InNewFontFilename);
 
 		TypefaceEntryPtr->Font.SetFont(InNewFontFilename, BulkData);
 		CompositeFontEditorPtr->FlushCachedFont();

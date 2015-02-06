@@ -126,14 +126,6 @@ public:
 
 	void BuildSlot(TSharedRef<SConstraintCanvas> Canvas);
 
-	virtual void SetDesiredPosition(FVector2D InPosition) override;
-
-	virtual void SetDesiredSize(FVector2D InSize) override;
-
-	virtual void Resize(const FVector2D& Direction, const FVector2D& Amount) override;
-
-	virtual bool CanResize(const FVector2D& Direction) const override;
-
 	// UPanelSlot interface
 	virtual void SynchronizeProperties() override;
 	// End of UPanelSlot interface
@@ -149,6 +141,8 @@ public:
 	/** Stores the current layout information about the slot and parent canvas. */
 	void SaveBaseLayout();
 
+	void SetDesiredPosition(FVector2D InPosition);
+
 	/** Compares the saved base layout against the current state.  Updates the necessary properties to maintain a stable position. */
 	void RebaseLayout(bool PreserveSize = true);
 #endif
@@ -156,8 +150,10 @@ public:
 private:
 	SConstraintCanvas::FSlot* Slot;
 
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 	FGeometry PreEditGeometry;
 	FAnchorData PreEditLayoutData;
+
+	TOptional<FVector2D> DesiredPosition;
 #endif
 };

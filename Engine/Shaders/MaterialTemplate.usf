@@ -231,7 +231,6 @@ struct FMaterialVertexParameters
 #if USE_INSTANCING
 	/** Per-instance properties. */
 	float4x4 InstanceLocalToWorld;
-	float3x3 InstanceWorldToLocal;
 	float3 InstanceLocalPosition;
 	float4 PerInstanceParams;
 #elif PARTICLE_MESH_FACTORY
@@ -695,7 +694,6 @@ float3 GetSpeedTreeVertexOffset(FMaterialVertexParameters Parameters, int Geomet
 
 	#if USE_INSTANCING
 		float3x3 LocalToWorld = (float3x3)Parameters.InstanceLocalToWorld;
-		float3x3 WorldToLocal = Parameters.InstanceWorldToLocal;
 		float3 LocalPosition = Parameters.InstanceLocalPosition;
 
 		// skip if this instance is hidden
@@ -705,7 +703,6 @@ float3 GetSpeedTreeVertexOffset(FMaterialVertexParameters Parameters, int Geomet
 		}
 	#else
 		float3x3 LocalToWorld = (float3x3)Primitive.LocalToWorld;
-		float3x3 WorldToLocal = (float3x3)Primitive.WorldToLocal;
 		float3 LocalPosition = mul(float4(Parameters.WorldPosition.xyz, 1), Primitive.WorldToLocal).xyz;
 	#endif
 
@@ -1175,6 +1172,13 @@ half GetMaterialOpacity(FMaterialPixelParameters Parameters)
 
 float3 GetMaterialWorldPositionOffset(FMaterialVertexParameters Parameters)
 {
+	#if USE_INSTANCING
+		// skip if this instance is hidden
+		if (Parameters.PerInstanceParams.z < 1.f)
+		{
+			return float3(0,0,0);
+		}
+	#endif
 %s;
 }
 

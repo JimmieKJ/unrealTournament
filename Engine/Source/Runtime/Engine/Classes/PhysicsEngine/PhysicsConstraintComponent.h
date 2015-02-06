@@ -68,8 +68,8 @@ public:
 	//Begin ActorComponent interface
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
-#endif // WITH_EDITOR
 	virtual void OnRegister() override;
+#endif // WITH_EDITOR
 	virtual void OnUnregister() override;
 	virtual void InitializeComponent() override;
 	//End ActorComponent interface
@@ -258,10 +258,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsConstraint")
 	ENGINE_API void GetConstraintForce(FVector& OutLinearForce, FVector& OutAngularForce);
 
-#if WITH_EDITORONLY_DATA
-	UPROPERTY(transient)
-	class UBillboardComponent* SpriteComponent;
-
+#if WITH_EDITOR
 	ENGINE_API void UpdateSpriteTexture();
 #endif
 

@@ -21,7 +21,7 @@ class ENGINE_API UPawnMovementComponent : public UNavMovementComponent
 public:
 
 	/** Overridden to only allow registration with components owned by a Pawn. */
-	virtual void SetUpdatedComponent(class UPrimitiveComponent* NewUpdatedComponent) override;
+	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
 
 	/**
 	 * Adds the given vector to the accumulated input in world space. Input vectors are usually between 0 and 1 in magnitude. 

@@ -158,9 +158,9 @@ private:
 	 *
 	 *	@param Class	The Actor class which the stats are associated with
 	 */
-	FString GetStatButtonToolTipText( const TWeakObjectPtr< UClass > Class ) const
+	FText GetStatButtonToolTipText( const TWeakObjectPtr< UClass > Class ) const
 	{
-		return FString::Printf( *LOCTEXT("StatButtonToolTip", "Select All %s Actors in %s").ToString(), *Class->GetFName().ToString(), *ViewModel->GetName() );
+		return FText::Format( LOCTEXT("StatButtonToolTipFmt", "Select All {0} Actors in {1}"), FText::FromName(Class->GetFName()), FText::FromString(ViewModel->GetName()) );
 	}
 
 	/**
@@ -168,9 +168,9 @@ private:
 	 *
 	 *	@param Class	The Actor class which the stats are associated with
 	 */
-	FString GetRemoveStatButtonToolTipText( const TWeakObjectPtr< UClass > Class ) const
+	FText GetRemoveStatButtonToolTipText( const TWeakObjectPtr< UClass > Class ) const
 	{
-		return FString::Printf( *LOCTEXT("RemoveStatButtonToolTip", "Remove All").ToString(), *Class->GetFName().ToString(), *ViewModel->GetName() );
+		return LOCTEXT("RemoveStatButtonToolTip", "Remove All");
 	}
 
 

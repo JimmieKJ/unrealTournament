@@ -114,7 +114,17 @@ void FSubversionSourceControlProvider::RegisterSourceControlStateChanged( const 
 
 void FSubversionSourceControlProvider::UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
 {
-	OnSourceControlStateChanged.Remove( SourceControlStateChanged );
+	OnSourceControlStateChanged.DEPRECATED_Remove( SourceControlStateChanged );
+}
+
+FDelegateHandle FSubversionSourceControlProvider::RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
+{
+	return OnSourceControlStateChanged.Add( SourceControlStateChanged );
+}
+
+void FSubversionSourceControlProvider::UnregisterSourceControlStateChanged_Handle( FDelegateHandle Handle )
+{
+	OnSourceControlStateChanged.Remove( Handle );
 }
 
 ECommandResult::Type FSubversionSourceControlProvider::Execute( const TSharedRef<ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TArray<FString>& InFiles, EConcurrency::Type InConcurrency, const FSourceControlOperationComplete& InOperationCompleteDelegate )
@@ -172,6 +182,11 @@ void FSubversionSourceControlProvider::CancelOperation( const TSharedRef<ISource
 }
 
 bool FSubversionSourceControlProvider::UsesLocalReadOnlyState() const
+{
+	return false;
+}
+
+bool FSubversionSourceControlProvider::UsesChangelists() const
 {
 	return false;
 }

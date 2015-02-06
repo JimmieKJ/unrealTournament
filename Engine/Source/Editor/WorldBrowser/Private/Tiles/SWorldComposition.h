@@ -34,13 +34,13 @@ private:
 
 	/** Top status bar details */
 	FText GetZoomText() const;
-	FString	GetCurrentOriginText() const;
-	FString GetCurrentLevelText() const;
+	FText GetCurrentOriginText() const;
+	FText GetCurrentLevelText() const;
 
 	/** Bottom status bar details */
-	FString GetMouseLocationText() const;
-	FString	GetMarqueeSelectionSizeText() const;
-	FString GetWorldSizeText() const;
+	FText GetMouseLocationText() const;
+	FText GetMarqueeSelectionSizeText() const;
+	FText GetWorldSizeText() const;
 
 	/** @return whether SIMULATION sign should be visible */
 	EVisibility IsSimulationVisible() const;

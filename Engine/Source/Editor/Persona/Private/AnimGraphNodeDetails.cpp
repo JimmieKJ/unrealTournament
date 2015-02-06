@@ -793,7 +793,7 @@ void FPlayerTreeViewEntry::GenerateNameWidget(TSharedPtr<SHorizontalBox> Box)
 		[
 			SNew(STextBlock)
 			.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 10))
-			.Text(EntryName)
+			.Text(FText::FromString(EntryName))
 		];
 }
 

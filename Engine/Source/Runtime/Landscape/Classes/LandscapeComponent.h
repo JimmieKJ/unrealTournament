@@ -103,10 +103,12 @@ UCLASS(hidecategories=(Display, Attachment, Physics, Debug, Collision, Movement,
 class ULandscapeComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
-
+	
+	/** X offset from global components grid origin (in quads) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=LandscapeComponent)
 	int32 SectionBaseX;
 
+	/** Y offset from global components grid origin (in quads) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=LandscapeComponent)
 	int32 SectionBaseY;
 
@@ -270,7 +272,7 @@ public:
 	// End UPrimitiveComponent interface.
 
 	// Begin USceneComponent interface.
-	virtual void DestroyComponent() override;
+	virtual void DestroyComponent(bool bPromoteChildren = false) override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	// End USceneComponent interface.
 

@@ -113,28 +113,22 @@ bool FHistoryManager::CanGoBack() const
 	return HistoryData.Num() > 0 && CurrentHistoryIndex > 0;
 }
 
-FString FHistoryManager::GetBackDesc() const
+FText FHistoryManager::GetBackDesc() const
 {
 	if ( CanGoBack() )
 	{
 		return HistoryData[CurrentHistoryIndex - 1].HistoryDesc;
 	}
-	else
-	{
-		return FString();
-	}
+	return FText::GetEmpty();
 }
 
-FString FHistoryManager::GetForwardDesc() const
+FText FHistoryManager::GetForwardDesc() const
 {
 	if ( CanGoForward() )
 	{
 		return HistoryData[CurrentHistoryIndex + 1].HistoryDesc;
 	}
-	else
-	{
-		return FString();
-	}
+	return FText::GetEmpty();
 }
 
 void FHistoryManager::GetAvailableHistoryMenuItems(bool bGetPrior, FMenuBuilder& MenuBuilder)
@@ -165,7 +159,7 @@ void FHistoryManager::GetAvailableHistoryMenuItems(bool bGetPrior, FMenuBuilder&
 				for (int32 HistoryIdx = StartIndex; HistoryIdx <= EndIndex; ++HistoryIdx)
 				{
 					MenuBuilder.AddMenuEntry(
-						FText::FromString( HistoryData[HistoryIdx].HistoryDesc ),
+						HistoryData[HistoryIdx].HistoryDesc,
 						FText(),
 						FSlateIcon(),
 						FUIAction(

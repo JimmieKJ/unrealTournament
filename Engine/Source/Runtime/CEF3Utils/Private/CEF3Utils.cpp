@@ -21,7 +21,11 @@ namespace CEF3Utils
 	void LoadCEF3Modules()
 	{
 #if PLATFORM_WINDOWS
+	#if PLATFORM_64BITS
 		FString DllPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/CEF3/Win64")));
+	#else
+		FString DllPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/CEF3/Win32")));
+	#endif
 
 		CEF3DLLHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*DllPath, TEXT("libcef.dll")));
 		if (CEF3DLLHandle == NULL)

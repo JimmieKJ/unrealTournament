@@ -26,8 +26,8 @@ private:
 	void OnBindingChanged();
 	TSharedRef<SWidget> OnGetDataFieldContent();
 	void OnDataFieldNameChange(int32 Index);
-	FString GetDataFieldDesc() const;
-	FString GetValueDesc() const;
+	FText GetDataFieldDesc() const;
+	FText GetValueDesc() const;
 	EVisibility GetBindingDescVisibility() const;
 	EVisibility GetDataFieldVisibility() const;
 	EVisibility GetDefaultValueVisibility() const;

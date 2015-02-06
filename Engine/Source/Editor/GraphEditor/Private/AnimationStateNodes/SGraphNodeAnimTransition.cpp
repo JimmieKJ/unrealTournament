@@ -108,7 +108,7 @@ TSharedRef<SWidget> SGraphNodeAnimTransition::GenerateRichTooltip()
 
 	TSharedRef<SVerticalBox> Widget = SNew(SVerticalBox);
 
-	const FString TooltipDesc = GetPreviewCornerText(false);
+	const FText TooltipDesc = GetPreviewCornerText(false);
 
 	
 	// Transition rule linearized
@@ -194,39 +194,41 @@ void SGraphNodeAnimTransition::UpdateGraphNode()
 		];
 }
 
-FString SGraphNodeAnimTransition::GetPreviewCornerText(bool bReverse) const
+FText SGraphNodeAnimTransition::GetPreviewCornerText(bool bReverse) const
 {
 	UAnimStateTransitionNode* TransNode = CastChecked<UAnimStateTransitionNode>(GraphNode);
 
 	UAnimStateNodeBase* PrevState = (bReverse ? TransNode->GetNextState() : TransNode->GetPreviousState());
 	UAnimStateNodeBase* NextState = (bReverse ? TransNode->GetPreviousState() : TransNode->GetNextState());
 
-	FString Result = TEXT("Bad transition (missing source or target)");
+	FText Result = LOCTEXT("BadTransition", "Bad transition (missing source or target)");
 
 	// Show the priority if there is any ambiguity
 	if (PrevState != NULL)
 	{
 		if (NextState != NULL)
 		{
-			Result = FString::Printf(TEXT("%s to %s"), *PrevState->GetStateName(), *NextState->GetStateName());
-		}
+			TArray<UAnimStateTransitionNode*> TransitionFromSource;
+			PrevState->GetTransitionList(/*out*/ TransitionFromSource);
 
-		TArray<UAnimStateTransitionNode*> TransitionFromSource;
-		PrevState->GetTransitionList(/*out*/ TransitionFromSource);
-
-		if (TransitionFromSource.Num() > 1)
-		{
-			// See if the priorities differ
 			bool bMultiplePriorities = false;
-			for (int32 Index = 0; (Index < TransitionFromSource.Num()) && !bMultiplePriorities; ++Index)
+			if (TransitionFromSource.Num() > 1)
 			{
-				const bool bDifferentPriority = (TransitionFromSource[Index]->PriorityOrder != TransNode->PriorityOrder);
-				bMultiplePriorities |= bDifferentPriority;
+				// See if the priorities differ
+				for (int32 Index = 0; (Index < TransitionFromSource.Num()) && !bMultiplePriorities; ++Index)
+				{
+					const bool bDifferentPriority = (TransitionFromSource[Index]->PriorityOrder != TransNode->PriorityOrder);
+					bMultiplePriorities |= bDifferentPriority;
+				}
 			}
 
 			if (bMultiplePriorities)
 			{
-				Result += FString::Printf(TEXT(" (Priority %d)"), TransNode->PriorityOrder);
+				Result = FText::Format(LOCTEXT("TransitionXToYWithPriority", "{0} to {1} (Priority {2})"), FText::FromString(PrevState->GetStateName()), FText::FromString(NextState->GetStateName()), FText::AsNumber(TransNode->PriorityOrder));
+			}
+			else
+			{
+				Result = FText::Format(LOCTEXT("TransitionXToY", "{0} to {1}"), FText::FromString(PrevState->GetStateName()), FText::FromString(NextState->GetStateName()));
 			}
 		}
 	}

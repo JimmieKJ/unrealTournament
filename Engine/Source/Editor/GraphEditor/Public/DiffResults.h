@@ -61,10 +61,10 @@ struct FDiffSingleResult
 	class UEdGraphPin* Pin2;
 
 	/** String describing the error to the user */
-	FString DisplayString;
+	FText DisplayString;
 
 	/** Optional tooltip containing more information */
-	FString ToolTip; 
+	FText ToolTip; 
 
 	/** User can override color to use for display string */
 	FLinearColor DisplayColor;
@@ -80,8 +80,8 @@ FORCEINLINE bool operator==( const FDiffSingleResult& LHS, const FDiffSingleResu
 			LHS.Node2 == RHS.Node2 &&
 			LHS.Pin1 == RHS.Pin1 &&
 			LHS.Pin2 == RHS.Pin2 &&
-			LHS.DisplayString == RHS.DisplayString &&
-			LHS.ToolTip == RHS.ToolTip &&
+			LHS.DisplayString.ToString() == RHS.DisplayString.ToString() &&
+			LHS.ToolTip.ToString() == RHS.ToolTip.ToString() &&
 			LHS.DisplayColor == RHS.DisplayColor;
 }
 

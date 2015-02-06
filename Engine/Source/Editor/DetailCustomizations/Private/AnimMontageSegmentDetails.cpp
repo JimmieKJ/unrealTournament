@@ -272,26 +272,26 @@ void SAnimationSegmentViewport::Tick(const FGeometry& AllottedGeometry, const do
 				}
 			}
 
-			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()) ).ToString());
+			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()) ));
 		}
 		else if (Component->AnimBlueprintGeneratedClass)
 		{
-			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName()) ).ToString());
+			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName()) ));
 		}
 		else if (Component->SkeletalMesh == NULL)
 		{
-			Description->SetText(FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ).ToString());
+			Description->SetText(FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ));
 		}
 		else
 		{
-			Description->SetText(LOCTEXT("Default", "Default").ToString());
+			Description->SetText(LOCTEXT("Default", "Default"));
 		}
 
 		Component->GetScene()->GetWorld()->Tick(LEVELTICK_All, InDeltaTime);
 	}
 	else
 	{
-		Description->SetText(FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ).ToString());
+		Description->SetText(FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ));
 	}
 }
 

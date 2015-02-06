@@ -24,7 +24,8 @@ TWeakPtr< IToolkitHost > FAssetEditorToolkit::PreviousWorldCentricToolkitHostFor
 const FName FAssetEditorToolkit::ToolbarTabId( TEXT( "AssetEditorToolkit_Toolbar" ) );
 
 FAssetEditorToolkit::FAssetEditorToolkit()
-	: bIsToolbarFocusable(false)
+	: bCheckDirtyOnAssetSave(false)
+	, bIsToolbarFocusable(false)
 {
 	WorkspaceMenuCategory = FWorkspaceItem::NewGroup(LOCTEXT("WorkspaceMenu_BaseAssetEditor", "Asset Editor"));
 }
@@ -82,16 +83,17 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 
 		// Create a new SlateToolkitHost
 		NewMajorTab = SNew(SDockTab) 
-						.ContentPadding(0.0f) 
-						.TabRole(ETabRole::MajorTab)
-						.ToolTip( IDocumentation::Get()->CreateToolTip( Label, nullptr, DocLink, GetToolkitFName().ToString() ) )
-						.Icon( this, &FAssetEditorToolkit::GetDefaultTabIcon )
-						.Label( Label );
+			.ContentPadding(0.0f) 
+			.TabRole(ETabRole::MajorTab)
+			.ToolTip( IDocumentation::Get()->CreateToolTip( Label, nullptr, DocLink, GetToolkitFName().ToString() ) )
+			.Icon( this, &FAssetEditorToolkit::GetDefaultTabIcon )
+			.Label( Label );
+
 		{
 			static_assert(sizeof(EAssetEditorToolkitTabLocation) == sizeof(int32), "EAssetEditorToolkitTabLocation is the incorrect size");
 
 			// Work out where we should create this asset editor
-			EAssetEditorToolkitTabLocation SavedAssetEditorToolkitTabLocation = EAssetEditorToolkitTabLocation::Standalone;
+			EAssetEditorToolkitTabLocation SavedAssetEditorToolkitTabLocation = EAssetEditorToolkitTabLocation::Docked;
 			GConfig->GetInt(
 				TEXT("AssetEditorToolkitTabLocation"), 
 				*ObjectsToEdit[0]->GetPathName(), 
@@ -318,6 +320,10 @@ bool FAssetEditorToolkit::CloseWindow()
 	return true;
 }
 
+void FAssetEditorToolkit::InvokeTab(const FTabId& TabId)
+{
+	GetTabManager()->InvokeTab(TabId);
+}
 
 TSharedPtr< IToolkitHost > FAssetEditorToolkit::GetPreviousWorldCentricToolkitHost()
 {
@@ -375,7 +381,7 @@ void FAssetEditorToolkit::SaveAsset_Execute()
 			}
 		}
 
-		FEditorFileUtils::PromptForCheckoutAndSave( PackagesToSave, /*bCheckDirty=*/ false, /*bPromptToSave=*/ false );
+		FEditorFileUtils::PromptForCheckoutAndSave( PackagesToSave, bCheckDirtyOnAssetSave, /*bPromptToSave=*/ false );
 	}
 }
 
@@ -523,7 +529,7 @@ void FAssetEditorToolkit::FindInContentBrowser_Execute()
 
 void FAssetEditorToolkit::BrowseDocumentation_Execute() const
 {
-	IDocumentation::Get()->Open(GetDocumentationLink());
+	IDocumentation::Get()->Open(GetDocumentationLink(), FDocumentationSourceInfo(TEXT("help_menu_asset")));
 }
 
 void FAssetEditorToolkit::ViewReferences_Execute()

@@ -37,7 +37,7 @@
 #include "GameplayDebuggingComponent.h"
 
 #if WITH_EDITOR
-#	include "Editor.h" //right now it's needed here because of ECoordSystem 
+#	include "UnrealEd.h" //right now it's needed here because of ECoordSystem 
 #endif
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGDT, Warning, All);

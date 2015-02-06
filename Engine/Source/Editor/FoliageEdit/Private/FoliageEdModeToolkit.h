@@ -22,7 +22,7 @@ public:
 	virtual class FEdMode* GetEditorMode() const override;
 	virtual TSharedPtr<class SWidget> GetInlineContent() const override;
 
-	void PostUndo();
+	void RefreshFullList();
 
 private:
 	TSharedPtr< class SFoliageEdit > FoliageEdWidget;

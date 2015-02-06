@@ -47,6 +47,9 @@ namespace ETestExternalUIInterfaceState
 	/** Delegate for external UI opening and closing */
 	FOnExternalUIChangeDelegate ExternalUIChangeDelegate;
 
+	/** ExternalUIChange delegate handle */
+	FDelegateHandle ExternalUIChangeDelegateHandle;
+
 	/** Current external UI test */
 	ETestExternalUIInterfaceState::Type State;
 

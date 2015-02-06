@@ -308,7 +308,7 @@ void FVertexSnappingImpl::ClearSnappingHelpers( bool bClearImmediately )
 
 static void DrawSnapVertices( AActor* Actor, float PointSize, FPrimitiveDrawInterface* PDI )
 {
-	TArray<UActorComponent*> Components;
+	TInlineComponentArray<UActorComponent*> Components;
 	Actor->GetComponents(Components);
 
 	// Get the closest vertex on each component
@@ -508,7 +508,7 @@ FSnappingVertex FVertexSnappingImpl::GetClosestVertex( const TArray<FSnapActor>&
 		AActor* Actor = SnapActor.Actor;
 
 		// Get the closest vertex on each component
-		TArray<UPrimitiveComponent*> PrimitiveComponents;
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
 		Actor->GetComponents(PrimitiveComponents);
 
 		for( int32 ComponentIndex  = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex )

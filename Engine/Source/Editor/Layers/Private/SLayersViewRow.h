@@ -122,5 +122,8 @@ private:
 
 	/** Widget for displaying and editing the Layer name */
 	TSharedPtr< SInlineEditableTextBlock > InlineTextBlock;
+
+	/** Handle to the registered EnterEditingMode delegate */
+	FDelegateHandle EnterEditingModeDelegateHandle;
 };
 

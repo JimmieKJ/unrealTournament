@@ -135,7 +135,7 @@ void ADebugCameraHUD::PostRender()
 				}
 				else
 				{
-					TArray<UMeshComponent*> Components;
+					TInlineComponentArray<UMeshComponent*> Components;
 					GetComponents(Components);
 
 					for ( int32 i=0; i<Components.Num(); i++ )

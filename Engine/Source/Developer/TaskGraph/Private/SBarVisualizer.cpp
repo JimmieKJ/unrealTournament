@@ -189,9 +189,12 @@ void SBarVisualizer::ScrollBar_OnUserScrolled( float InScrollOffsetFraction )
 	}
 }
 
-FString SBarVisualizer::GetZoomLabel() const
+FText SBarVisualizer::GetZoomLabel() const
 {
-	return FString::Printf( TEXT( "%s %.2fx" ), *NSLOCTEXT("TaskGraph", "ZoomLabel", "Zoom").ToString(), GetZoom() );
+	static const FNumberFormattingOptions ZoomFormatOptions = FNumberFormattingOptions()
+		.SetMinimumFractionalDigits(2)
+		.SetMaximumFractionalDigits(2);
+	return FText::Format( NSLOCTEXT("TaskGraph", "ZoomLabelFmt", "Zoom: {0}x"), FText::AsNumber(GetZoom(), &ZoomFormatOptions) );
 }
 
 float SBarVisualizer::GetZoomValue() const
@@ -394,12 +397,12 @@ TSharedRef<ITableRow> SBarVisualizer::OnGenerateWidgetForList( TSharedPtr<FVisua
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew( STextBlock ).Text( InItem->EventName )
+				SNew( STextBlock ).Text( FText::FromString(InItem->EventName) )
 			];
 	}
 	else
 	{
-		BarTitle = SNew( STextBlock ).Text( InItem->EventName );
+		BarTitle = SNew( STextBlock ).Text( FText::FromString(InItem->EventName) );
 	}
 
 	return SNew( STableRow< TSharedPtr< FVisualizerEvent > >, OwnerTable )
@@ -604,7 +607,7 @@ void SBarVisualizer::OnBarGeometryChanged( FGeometry Geometry )
 	Timeline->SetDrawingGeometry( Geometry );
 }
 
-FString SBarVisualizer::GetSelectedCategoryName() const
+FText SBarVisualizer::GetSelectedCategoryName() const
 {
 	if( SelectedBarGraph.IsValid() )
 	{
@@ -614,11 +617,11 @@ FString SBarVisualizer::GetSelectedCategoryName() const
 		{
 			EventName = BarGraph->EventName + TEXT("\\") + EventName;
 		}
-		return EventName;
+		return FText::FromString(EventName);
 	}
 	else
 	{
-		return TEXT("Frame");
+		return NSLOCTEXT("SBarVisualizer", "Frame", "Frame");
 	}
 }
 

@@ -378,6 +378,13 @@ public:
 	virtual bool GetSolutionPath(FString& OutSolutionPath) = 0;
 
 	/**
+	 * Gets the path to the user's temporary directory
+	 *
+	 * @return The path to the user's temporary directory
+	 */
+	virtual FString GetUserTempPath() = 0;
+
+	/**
 	* Gets a feedback context which can display progress information using the native platform GUI.
 	*
 	* @return FFeedbackContext for the native GUI.

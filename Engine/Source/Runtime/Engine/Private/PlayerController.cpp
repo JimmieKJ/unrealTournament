@@ -47,7 +47,7 @@ const float RetryServerCheckSpectatorThrottleTime = 0.25f;
 
 APlayerController::APlayerController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, SlateOperations(FReply::Unhandled())
+	, SlateOperations(new FReply( FReply::Unhandled() ))
 {
 	NetPriority = 3.0f;
 	CheatClass = UCheatManager::StaticClass();
@@ -372,7 +372,7 @@ FString APlayerController::ConsoleCommand(const FString& Cmd,bool bWriteToLog)
 
 void APlayerController::CleanUpAudioComponents()
 {
-	TArray<UAudioComponent*> Components;
+	TInlineComponentArray<UAudioComponent*> Components;
 	GetComponents(Components);
 
 	for(int32 CompIndex = 0; CompIndex < Components.Num(); CompIndex++)
@@ -2312,13 +2312,10 @@ void APlayerController::BuildInputStack(TArray<UInputComponent*>& InputStack)
 			}
 
 			// See if there is another InputComponent that was added to the Pawn's components array (possibly by script).
-			TArray<UInputComponent*> Components;
-			ControlledPawn->GetComponents(Components);
-
-			for (int32 i=0; i < Components.Num(); i++)
+			for (UActorComponent* ActorComponent : ControlledPawn->GetComponents())
 			{
-				UInputComponent* PawnInputComponent = Components[i];
-				if (PawnInputComponent != ControlledPawn->InputComponent)
+				UInputComponent* PawnInputComponent = Cast<UInputComponent>(ActorComponent);
+				if (PawnInputComponent && PawnInputComponent != ControlledPawn->InputComponent)
 				{
 					InputStack.Push(PawnInputComponent);
 				}
@@ -4399,7 +4396,7 @@ void APlayerController::SetInputMode(const FInputModeDataBase& InData)
 	UGameViewportClient* GameViewportClient = GetWorld()->GetGameViewport();
 	if (GameViewportClient != nullptr)
 	{
-		InData.ApplyInputMode(SlateOperations, *GameViewportClient);
+		InData.ApplyInputMode(*SlateOperations, *GameViewportClient);
 	}
 }
 
@@ -4421,7 +4418,7 @@ void APlayerController::BuildHiddenComponentList(const FVector& ViewLocation, TS
 		AActor* HiddenActor = HiddenActors[ActorIndex];
 		if (HiddenActor != NULL)
 		{
-			TArray<UPrimitiveComponent*> Components;
+			TInlineComponentArray<UPrimitiveComponent*> Components;
 			HiddenActor->GetComponents(Components);
 
 			for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)

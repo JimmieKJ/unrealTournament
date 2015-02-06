@@ -15,11 +15,13 @@ class FHotReloadClassReinstancer : public FBlueprintCompileReinstancer
 	{
 		FCDOProperty()
 			: Property(nullptr)
+			, SubobjectName(NAME_None)
 			, SerializedValueOffset(0)
 			, SerializedValueSize(0)
 		{}
 
 		UProperty* Property;
+		FName SubobjectName;
 		int64 SerializedValueOffset;
 		int64 SerializedValueSize;
 	};

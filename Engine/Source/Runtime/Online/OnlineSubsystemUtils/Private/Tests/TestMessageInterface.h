@@ -25,6 +25,11 @@ private:
 	/** Delegate to use for deleting messages for a user */
 	FOnDeleteMessageCompleteDelegate OnDeleteMessageCompleteDelegate;
 
+	FDelegateHandle OnEnumerateMessagesCompleteDelegateHandle;
+	FDelegateHandle OnReadMessageCompleteDelegateHandle;
+	FDelegateHandle OnSendMessageCompleteDelegateHandle;
+	FDelegateHandle OnDeleteMessageCompleteDelegateHandle;
+
 	/** true to enable message enumeration */
 	bool bEnumerateMessages;
 	/** true to enable downloading of each message that was enumerated */

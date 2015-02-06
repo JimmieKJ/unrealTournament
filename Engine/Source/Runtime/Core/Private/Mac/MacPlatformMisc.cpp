@@ -409,6 +409,21 @@ void FMacPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName, TCHAR
 	}
 }
 
+void FMacPlatformMisc::SetEnvironmentVar(const TCHAR* InVariableName, const TCHAR* Value)
+{
+	FString VariableName = InVariableName;
+	VariableName.ReplaceInline(TEXT("-"), TEXT("_"));
+	if (Value == NULL || Value[0] == TEXT('\0'))
+	{
+		unsetenv(TCHAR_TO_ANSI(*VariableName));
+	}
+	else
+	{
+		setenv(TCHAR_TO_ANSI(*VariableName), TCHAR_TO_ANSI(Value), 1);
+	}
+}
+
+
 TArray<uint8> FMacPlatformMisc::GetMacAddress()
 {
 	TArray<uint8> Result;
@@ -482,6 +497,7 @@ void FMacPlatformMisc::PumpMessages( bool bFromMainLoop )
 				bChachedMacMenuStateNeedsUpdate = false;
 			}
 
+			MacApplication->InvalidateTextLayouts();
 			MacApplication->CloseQueuedWindows();
 		}
 	}
@@ -1096,6 +1112,24 @@ int32 FMacPlatformMisc::MacOSXVersionCompare(uint8 Major, uint8 Minor, uint8 Rev
 	}
 	
 	return 0;
+}
+
+FString FMacPlatformMisc::GetOperatingSystemId()
+{
+	FString Result;
+	io_service_t Entry = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice"));
+	if (Entry)
+	{
+		CFTypeRef UUID = IORegistryEntryCreateCFProperty(Entry, CFSTR(kIOPlatformUUIDKey), kCFAllocatorDefault, 0);
+		Result = FString((__bridge NSString*)UUID);
+		IOObjectRelease(Entry);
+		CFRelease(UUID);
+	}
+	else
+	{
+		UE_LOG(LogMac, Warning, TEXT("GetOperatingSystemId() failed"));
+	}
+	return Result;
 }
 
 /** Global pointer to crash handler */

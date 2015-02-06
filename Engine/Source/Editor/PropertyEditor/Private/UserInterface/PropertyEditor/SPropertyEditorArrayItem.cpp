@@ -37,15 +37,15 @@ bool SPropertyEditorArrayItem::Supports( const TSharedRef< class FPropertyEditor
 		!(Cast<const UArrayProperty>(Property->GetOuter())->PropertyFlags & CPF_EditConst);
 }
 
-FString SPropertyEditorArrayItem::GetValueAsString() const
+FText SPropertyEditorArrayItem::GetValueAsString() const
 {
 	if( PropertyEditor->GetProperty() && PropertyEditor->PropertyIsA( UStructProperty::StaticClass() ) )
 	{
-		return FText::Format( NSLOCTEXT("PropertyEditor", "NumStructItems", "{0} members"), FText::AsNumber( PropertyEditor->GetPropertyNode()->GetNumChildNodes() ) ).ToString();
+		return FText::Format( NSLOCTEXT("PropertyEditor", "NumStructItems", "{0} members"), FText::AsNumber( PropertyEditor->GetPropertyNode()->GetNumChildNodes() ) );
 	}
 	else
 	{
-		return PropertyEditor->GetValueAsString();
+		return FText::FromString(PropertyEditor->GetValueAsString());
 	}
 }
 

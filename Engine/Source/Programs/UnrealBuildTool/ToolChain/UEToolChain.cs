@@ -38,7 +38,7 @@ namespace UnrealBuildTool
 
 		void SetUpGlobalEnvironment();
 
-        void AddFilesToManifest(ref FileManifest manifest, UEBuildBinary Binary );
+        void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary);
 
 		void SetupBundleDependencies(List<UEBuildBinary> Binaries, string GameName);
 
@@ -253,7 +253,7 @@ namespace UnrealBuildTool
 
 		}
 
-        public virtual void AddFilesToManifest(ref FileManifest manifest, UEBuildBinary Binary )
+        public virtual void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary)
         {
 
         }

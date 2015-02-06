@@ -94,7 +94,7 @@ public:
 
 	// Get delegates
 	const FSlateBrush* GetRecordButtonBrush() const;
-	FString GetStatusText() const;
+	FText GetStatusText() const;
 	ECheckBoxState GetDrawRecentState() const;
 	ECheckBoxState GetGroupByFrameState() const;
 	ECheckBoxState GetGroupByTagState() const;

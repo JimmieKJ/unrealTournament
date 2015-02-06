@@ -14,6 +14,7 @@
 #include "EditorActorFolders.h"
 
 #include "SInlineEditableTextBlock.h"
+#include "IDocumentation.h"
 
 #define LOCTEXT_NAMESPACE "SceneOutlinerItemLabelColumn"
 
@@ -378,6 +379,11 @@ struct SWorldTreeLabel : FCommonLabelData, public SCompoundWidget
 				.Text(this, &SWorldTreeLabel::GetDisplayText)
 				.HighlightText(SceneOutliner.GetFilterHighlightText())
 				.ColorAndOpacity(this, &SWorldTreeLabel::GetForegroundColor)
+				.ToolTip(IDocumentation::Get()->CreateToolTip(
+					TAttribute<FText>(this, &SWorldTreeLabel::GetTooltipText),
+					nullptr,
+					TEXT("Shared/LevelEditor/SceneOutliner"),
+					TEXT("WorldSettingsLabel")))
 			]
 		];
 	}
@@ -389,6 +395,14 @@ private:
 	{
 		auto Item = TreeItemPtr.Pin();
 		return Item.IsValid() ? FText::FromString(Item->GetDisplayString()) : FText();
+	}
+
+	FText GetTooltipText() const
+	{
+		auto Item = TreeItemPtr.Pin();
+		FText PersistentLevelDisplayName = Item.IsValid() ? FText::FromString(Item->GetDisplayString()) : FText();
+		
+		return FText::Format(LOCTEXT("WorldLabel_Tooltip", "The world settings for {0}, double-click to edit"), PersistentLevelDisplayName);
 	}
 
 	FSlateColor GetForegroundColor() const
@@ -440,6 +454,11 @@ struct SLevelBlueprintTreeLabel : FCommonLabelData, public SCompoundWidget
 				.Text(this, &SLevelBlueprintTreeLabel::GetDisplayText)
 				.HighlightText(SceneOutliner.GetFilterHighlightText())
 				.ColorAndOpacity(this, &SLevelBlueprintTreeLabel::GetForegroundColor)
+				.ToolTip(IDocumentation::Get()->CreateToolTip(
+					TAttribute<FText>(this, &SLevelBlueprintTreeLabel::GetTooltipText),
+					nullptr,
+					TEXT("Shared/LevelEditor/SceneOutliner"),
+					TEXT("LevelBlueprintLabel")))
 			]
 		];
 	}
@@ -451,6 +470,14 @@ private:
 	{
 		auto Item = TreeItemPtr.Pin();
 		return Item.IsValid() ? FText::FromString(Item->GetDisplayString()) : FText();
+	}
+
+	FText GetTooltipText() const
+	{
+		auto Item = TreeItemPtr.Pin();
+		FText LevelDisplayName = Item.IsValid() ? FText::FromString(Item->GetDisplayString()) : FText();
+
+		return FText::Format(LOCTEXT("LevelBlueprintLabel_Tooltip", "The Level Blueprint for {0}, double-click to edit"), LevelDisplayName);
 	}
 
 	FSlateColor GetForegroundColor() const

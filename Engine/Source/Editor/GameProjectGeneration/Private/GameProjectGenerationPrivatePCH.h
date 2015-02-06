@@ -16,3 +16,4 @@ DECLARE_LOG_CATEGORY_EXTERN(LogGameProjectGeneration, Verbose, All);
 #include "SNewProjectWizard.h"
 #include "SGameProjectDialog.h"
 #include "SNewClassDialog.h"
+#include "SGetSuggestedIDEWidget.h"

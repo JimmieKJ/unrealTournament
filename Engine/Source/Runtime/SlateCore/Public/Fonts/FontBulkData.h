@@ -14,10 +14,10 @@ public:
 	UFontBulkData();
 
 	/** Construct the bulk font data from the given file */
-	UFontBulkData(const FString& InFontFilename);
+	void Initialize(const FString& InFontFilename);
 
 	/** Construct the bulk font data from the given data */
-	UFontBulkData(const void* const InFontData, const int32 InFontDataSizeBytes);
+	void Initialize(const void* const InFontData, const int32 InFontDataSizeBytes);
 
 	/** Locks the bulk font data and returns a read-only pointer to it */
 	const void* Lock(int32& OutFontDataSizeBytes) const;

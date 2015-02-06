@@ -89,40 +89,51 @@ public:
 	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 protected:
-	FString HandleSampleCount() const
+	FText HandleSampleCount() const
 	{
-		FString Text = FString::Printf(TEXT("Samples: %6d"), FPSAnalyzer->Samples.Num());
-		return Text;
+		return FText::Format(LOCTEXT("SamplesCountFmt", "Samples: {0}"), FText::AsNumber(FPSAnalyzer->Samples.Num()));
 	}
-	FString HandleMinFPS() const
+	FText HandleMinFPS() const
 	{
-		FString Text = FPSAnalyzer->Samples.Num() > 0 ? FString::Printf(TEXT("Min FPS: %3.2f"), FPSAnalyzer->MinFPS) : TEXT("Min FPS: ");
-		return Text;
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(LOCTEXT("MinFPSFmt", "Min FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(FPSAnalyzer->MinFPS, &FormatOptions) : FText::GetEmpty()));
 	}
-	FString HandleMaxFPS() const
+	FText HandleMaxFPS() const
 	{
-		FString Text = FPSAnalyzer->Samples.Num() > 0 ? FString::Printf(TEXT("Max FPS: %3.2f"), FPSAnalyzer->MaxFPS) : TEXT("Max FPS: ");
-		return Text;
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(LOCTEXT("MaxFPSFmt", "Max FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(FPSAnalyzer->MaxFPS, &FormatOptions) : FText::GetEmpty()));
 	}
-	FString HandleAverageFPS() const
+	FText HandleAverageFPS() const
 	{
-		FString Text = FPSAnalyzer->Samples.Num() > 0 ? FString::Printf(TEXT("Ave FPS: %3.2f"), FPSAnalyzer->AveFPS) : TEXT("Ave FPS: ");
-		return Text;
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(LOCTEXT("AverageFPSFmt", "Ave FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(FPSAnalyzer->AveFPS, &FormatOptions) : FText::GetEmpty()));
 	}
-	FString HandleFPS30() const
+	FText HandleFPS30() const
 	{
-		FString Text = FPSAnalyzer->Samples.Num() > 0 ? FString::Printf(TEXT("+30FPS: %3.2f"), 100.0f*(float)FPSAnalyzer->FPS30 / (float)FPSAnalyzer->Samples.Num()) : TEXT("+30FPS: ");
-		return Text;
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(LOCTEXT("+30FPSFmt", "+30FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(100.0f*(float)FPSAnalyzer->FPS30 / (float)FPSAnalyzer->Samples.Num(), &FormatOptions) : FText::GetEmpty()));
 	}
-	FString HandleFPS25() const
+	FText HandleFPS25() const
 	{
-		FString Text = FPSAnalyzer->Samples.Num() > 0 ? FString::Printf(TEXT("+25FPS: %3.2f"), 100.0f*(float)FPSAnalyzer->FPS25 / (float)FPSAnalyzer->Samples.Num()) : TEXT("+25FPS: ");
-		return Text;
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(LOCTEXT("+25FPSFmt", "+25FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(100.0f*(float)FPSAnalyzer->FPS25 / (float)FPSAnalyzer->Samples.Num(), &FormatOptions) : FText::GetEmpty()));
 	}
-	FString HandleFPS20() const
+	FText HandleFPS20() const
 	{
-		FString Text = FPSAnalyzer->Samples.Num() > 0 ? FString::Printf(TEXT("+20FPS: %3.2f"), 100.0f*(float)FPSAnalyzer->FPS20 / (float)FPSAnalyzer->Samples.Num()) : TEXT("+20FPS: ");
-		return Text;
+		static const FNumberFormattingOptions FormatOptions = FNumberFormattingOptions()
+			.SetMinimumFractionalDigits(2)
+			.SetMaximumFractionalDigits(2);
+		return FText::Format(LOCTEXT("+20FPSFmt", "+20FPS: {0}"), ((FPSAnalyzer->Samples.Num() > 0) ? FText::AsNumber(100.0f*(float)FPSAnalyzer->FPS20 / (float)FPSAnalyzer->Samples.Num(), &FormatOptions) : FText::GetEmpty()));
 	}
 
 protected:

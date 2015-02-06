@@ -342,7 +342,7 @@ TSharedRef<ITableRow> SMessageLogListing::MakeShowWidget(TSharedRef<FMessageFilt
 				+SHorizontalBox::Slot().AutoWidth()
 				[
 					SNew(STextBlock)
-					.Text(Selection->GetName().ToString())
+					.Text(Selection->GetName())
 				]
 			]
 		];

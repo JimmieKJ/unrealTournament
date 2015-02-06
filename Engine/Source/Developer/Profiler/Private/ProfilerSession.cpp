@@ -67,7 +67,7 @@ FProfilerSession::FProfilerSession( const ISessionInstanceInfoPtr InSessionInsta
 {
 	// Randomize creation time to test loading profiler captures with different creation time and different amount of data.
 	CreationTime = FDateTime::Now() += FTimespan( 0, 0, FMath::RandRange( 2, 8 ) );
-	FTicker::GetCoreTicker().AddTicker( OnTick );
+	OnTickHandle = FTicker::GetCoreTicker().AddTicker( OnTick );
 }
 
 FProfilerSession::FProfilerSession( const FString& InDataFilepath )
@@ -94,12 +94,12 @@ FProfilerSession::FProfilerSession( const FString& InDataFilepath )
 {
 	// Randomize creation time to test loading profiler captures with different creation time and different amount of data.
 	CreationTime = FDateTime::Now() += FTimespan( 0, 0, FMath::RandRange( 2, 8 ) );
-	FTicker::GetCoreTicker().AddTicker( OnTick );
+	OnTickHandle = FTicker::GetCoreTicker().AddTicker( OnTick );
 }
 
 FProfilerSession::~FProfilerSession()
 {
-	FTicker::GetCoreTicker().RemoveTicker( OnTick );	
+	FTicker::GetCoreTicker().RemoveTicker( OnTickHandle );	
 }
 
 FGraphDataSourceRefConst FProfilerSession::CreateGraphDataSource( const uint32 InStatID )
@@ -457,7 +457,7 @@ FRawProfilerSession::FRawProfilerSession( const FString& InRawStatsFileFileath )
 
 FRawProfilerSession::~FRawProfilerSession()
 {
-	FTicker::GetCoreTicker().RemoveTicker( OnTick );
+	FTicker::GetCoreTicker().RemoveTicker( OnTickHandle );
 }
 
 bool FRawProfilerSession::HandleTicker( float DeltaTime )
@@ -726,7 +726,7 @@ void FRawProfilerSession::PrepareLoading()
 	const int64 AllocatedSize = ProfilerStream.GetAllocatedSize();
 
 	// We have the whole metadata and basic information about the raw stats file, start ticking the profiler session.
-	//FTicker::GetCoreTicker().AddTicker( OnTick, 0.25f );
+	//OnTickHandle = FTicker::GetCoreTicker().AddTicker( OnTick, 0.25f );
 
 #if	0
 	if( SessionType == EProfilerSessionTypes::OfflineRaw )

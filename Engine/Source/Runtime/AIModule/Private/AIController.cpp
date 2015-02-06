@@ -547,7 +547,7 @@ EPathFollowingRequestResult::Type AAIController::MoveToLocation(const FVector& D
 	if (bCanRequestMove && bProjectDestinationToNavigation)
 	{
 		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-		const FNavAgentProperties& AgentProps = GetNavAgentProperties();
+		const FNavAgentProperties& AgentProps = GetNavAgentPropertiesRef();
 		FNavLocation ProjectedLocation;
 
 		if (NavSys && !NavSys->ProjectPointToNavigation(Dest, ProjectedLocation, AgentProps.GetExtent(), &AgentProps))
@@ -642,7 +642,7 @@ bool AAIController::PreparePathfinding(FPathFindingQuery& Query, const FVector& 
 	if (NavSys)
 	{
 		ANavigationData* NavData = bUsePathfinding ?
-			NavSys->GetNavDataForProps(GetNavAgentProperties()) :
+			NavSys->GetNavDataForProps(GetNavAgentPropertiesRef()) :
 			NavSys->GetAbstractNavData();
 
 		FVector GoalLocation = Dest;

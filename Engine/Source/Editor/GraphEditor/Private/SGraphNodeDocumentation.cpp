@@ -59,7 +59,7 @@ void SGraphNodeDocumentation::UpdateGraphNode()
 	RightNodeBox.Reset();
 	LeftNodeBox.Reset();
 
-	TSharedPtr<SWidget> ErrorText = SetupErrorReporting();
+	SetupErrorReporting();
 
 	// Create Node Title
 	TSharedPtr<SNodeTitle> NodeTitle = SNew( SNodeTitle, GraphNode );

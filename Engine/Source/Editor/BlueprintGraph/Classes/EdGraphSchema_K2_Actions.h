@@ -715,6 +715,56 @@ struct BLUEPRINTGRAPH_API FEdGraphSchemaAction_K2Event : public FEdGraphSchemaAc
 };
 
 /*******************************************************************************
+* FEdGraphSchemaAction_K2InputAction
+*******************************************************************************/
+
+/**
+* A reference to a specific event (living inside a Blueprint graph)... intended
+* to be used the 'docked' palette only.
+*/
+USTRUCT()
+struct BLUEPRINTGRAPH_API FEdGraphSchemaAction_K2InputAction : public FEdGraphSchemaAction_K2TargetNode
+{
+	GENERATED_USTRUCT_BODY()
+
+	/**
+	 * An empty default constructor (stubbed out for arrays and other containers
+	 * that need to allocate default instances of this struct)
+	 */
+	FEdGraphSchemaAction_K2InputAction()
+		: FEdGraphSchemaAction_K2TargetNode()
+	{}
+
+	/**
+	* The primary constructor, used to customize the Super FEdGraphSchemaAction.
+	*
+	* @param   Category		The tree parent header (or path, delimited by '|') you want to sort this action under.
+	* @param   MenuDescription	The string you want displayed in the tree, corresponding to this action.
+	* @param   Tooltip			A string to display when hovering over this action entry.
+	* @param   Grouping		Used to override list ordering (actions with the same number get grouped together, higher numbers get sorted first).
+	*/
+	FEdGraphSchemaAction_K2InputAction(FString const& Category, FText const& MenuDescription, FString const& Tooltip, int32 const Grouping)
+		: FEdGraphSchemaAction_K2TargetNode(Category, MenuDescription, Tooltip, Grouping)
+	{}
+
+	/**
+	* Provides a set identifier for all FEdGraphSchemaAction_K2InputAction actions.
+	*
+	* @return A static identifier for actions of this type.
+	*/
+	static FName StaticGetTypeId()
+	{
+		static FName Type("FEdGraphSchemaAction_K2InputAction");
+		return Type;
+	}
+
+	// FEdGraphSchemaAction interface
+	virtual FName GetTypeId() const override { return StaticGetTypeId(); }
+	virtual bool IsParentable() const override { return true; }
+	// End of FEdGraphSchemaAction interface
+};
+
+/*******************************************************************************
 * FEdGraphSchemaAction_K2Delegate
 *******************************************************************************/
 

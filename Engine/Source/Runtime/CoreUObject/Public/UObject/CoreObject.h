@@ -22,7 +22,7 @@ struct FLevelGuids
  */
 class COREUOBJECT_API UPackage : public UObject
 {
-	DECLARE_CLASS_INTRINSIC(UPackage,UObject,0,CoreUObject)
+	DECLARE_CASTED_CLASS_INTRINSIC(UPackage,UObject,0,CoreUObject, CASTCLASS_UPackage)
 
 public:
 	/** delegate type for package dirty state events.  ( Params: UPackage* ModifiedPackage ) */

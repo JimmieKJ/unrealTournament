@@ -279,7 +279,7 @@ void FSkeletalMeshComponentDetails::RegisterSkeletalMeshPropertyChanged(TWeakObj
 {
 	if(Mesh.IsValid() && OnSkeletalMeshPropertyChanged.IsBound())
 	{
-		Mesh->RegisterOnSkeletalMeshPropertyChanged(OnSkeletalMeshPropertyChanged);
+		OnSkeletalMeshPropertyChangedDelegateHandles.Add(Mesh.Get(), Mesh->RegisterOnSkeletalMeshPropertyChanged(OnSkeletalMeshPropertyChanged));
 	}
 }
 
@@ -287,7 +287,8 @@ void FSkeletalMeshComponentDetails::UnregisterSkeletalMeshPropertyChanged(TWeakO
 {
 	if(Mesh.IsValid())
 	{
-		Mesh->UnregisterOnSkeletalMeshPropertyChanged(OnSkeletalMeshPropertyChanged);
+		Mesh->UnregisterOnSkeletalMeshPropertyChanged(OnSkeletalMeshPropertyChangedDelegateHandles.FindRef(Mesh.Get()));
+		OnSkeletalMeshPropertyChangedDelegateHandles.Remove(Mesh.Get());
 	}
 }
 
@@ -297,7 +298,8 @@ void FSkeletalMeshComponentDetails::UnregisterAllMeshPropertyChangedCallers()
 	{
 		if(USkeletalMeshComponent* Mesh = Cast<USkeletalMeshComponent>(MeshIter->Get()))
 		{
-			Mesh->UnregisterOnSkeletalMeshPropertyChanged(OnSkeletalMeshPropertyChanged);
+			Mesh->UnregisterOnSkeletalMeshPropertyChanged(OnSkeletalMeshPropertyChangedDelegateHandles.FindRef(Mesh));
+			OnSkeletalMeshPropertyChangedDelegateHandles.Remove(Mesh);
 		}
 	}
 }
@@ -331,7 +333,7 @@ TSharedRef<SWidget> FSkeletalMeshComponentDetails::GetClassPickerMenuContent()
 		];
 }
 
-FString FSkeletalMeshComponentDetails::GetSelectedAnimBlueprintName() const
+FText FSkeletalMeshComponentDetails::GetSelectedAnimBlueprintName() const
 {
 	check(AnimationBlueprintHandle->IsValidHandle());
 
@@ -339,11 +341,11 @@ FString FSkeletalMeshComponentDetails::GetSelectedAnimBlueprintName() const
 	AnimationBlueprintHandle->GetValue(Object);
 	if(Object)
 	{
-		return Object->GetName();
+		return FText::FromString(Object->GetName());
 	}
 	else
 	{
-		return FString(TEXT("None"));
+		return LOCTEXT("None", "None");
 	}
 }
 

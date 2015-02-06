@@ -935,6 +935,13 @@ void UCookCommandlet::CollectFilesToCook(TArray<FString>& FilesInPath)
 				AddFileToCook(FilesInPath, Obj);
 			}
 		}
+		if (PlatformEngineIni.GetString(TEXT("/Script/EngineSettings.GameMapsSettings"), TEXT("GameInstanceClass"), Obj))
+		{
+			if (Obj != FName(NAME_None).ToString())
+			{
+				AddFileToCook(FilesInPath, Obj);
+			}
+		}
 	}
 
 	// make sure we cook any extra assets for the default touch interface

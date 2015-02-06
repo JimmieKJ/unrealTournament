@@ -549,6 +549,7 @@ public:
 
 	//@TODO: Better comments
 	virtual void EvaluateAnimation(struct FPoseContext& Output);
+	virtual void PostAnimEvaluation() {}
 
 	void InitializeAnimation();
 	void UpdateAnimation(float DeltaSeconds);

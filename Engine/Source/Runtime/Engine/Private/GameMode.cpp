@@ -178,12 +178,9 @@ bool AGameMode::SetPause(APlayerController* PC, FCanUnpause CanUnpauseDelegate)
 {
 	if ( AllowPausing(PC) )
 	{
-		// Don't add the delegate twice (no need)
-		if (Pausers.Find(CanUnpauseDelegate) == INDEX_NONE)
-		{
-			// Not in the list so add it for querying
-			Pausers.Add(CanUnpauseDelegate);
-		}
+		// Add it for querying
+		Pausers.Add(CanUnpauseDelegate);
+
 		// Let the first one in "own" the pause state
 		AWorldSettings * WorldSettings = GetWorldSettings();
 		if (WorldSettings->Pauser == NULL)

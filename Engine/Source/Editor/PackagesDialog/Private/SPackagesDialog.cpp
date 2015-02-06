@@ -380,7 +380,7 @@ TSharedRef<SWidget> SPackagesDialog::GenerateWidgetForItemAndColumn( TSharedPtr<
 			.Padding(RowPadding)
 			[
 				SNew(STextBlock)
-				.Text(PackageName)
+				.Text(FText::FromString(PackageName))
 				.IsEnabled(!Item->IsDisabled())
 			];
 	}
@@ -391,7 +391,7 @@ TSharedRef<SWidget> SPackagesDialog::GenerateWidgetForItemAndColumn( TSharedPtr<
 			.Padding(RowPadding)
 			[
 				SNew(STextBlock)
-				.Text(PackageType)
+				.Text(FText::FromString(PackageType))
 				.IsEnabled(!Item->IsDisabled())
 				.ColorAndOpacity(PackageColor)
 			];

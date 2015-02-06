@@ -442,7 +442,7 @@ void FWorldTileModel::SetLevelPosition(const FIntPoint& InPosition)
 
 	if (IsLandscapeBased())
 	{
-		FixLandscapeSectionsOffset();
+		UpdateLandscapeSectionsOffset(Offset);
 	}
 	
 	// Transform child levels
@@ -454,10 +454,18 @@ void FWorldTileModel::SetLevelPosition(const FIntPoint& InPosition)
 	}
 }
 
-void FWorldTileModel::FixLandscapeSectionsOffset()
+void FWorldTileModel::UpdateLandscapeSectionsOffset(FIntPoint LevelOffset)
 {
-	check(IsLandscapeBased());
-	Editor->DeferredCommands.AddUnique(TEXT("UpdateLandscapeEditorData"));
+	ALandscapeProxy* LandscapeProxy = GetLandscape();
+	if (LandscapeProxy)
+	{
+		// Calculate new section coordinates for landscape
+		FVector	DrawScale = LandscapeProxy->GetRootComponent()->RelativeScale3D;
+		FIntPoint QuadsSpaceOffset;
+		QuadsSpaceOffset.X = FMath::RoundToInt(LevelOffset.X / DrawScale.X);
+		QuadsSpaceOffset.Y = FMath::RoundToInt(LevelOffset.Y / DrawScale.Y);
+		LandscapeProxy->SetAbsoluteSectionBase(QuadsSpaceOffset + LandscapeProxy->LandscapeSectionOffset);
+	}
 }
 
 void FWorldTileModel::Update()

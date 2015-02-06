@@ -10,9 +10,12 @@ class UEditorGameAgnosticSettings : public UObject
 	GENERATED_UCLASS_BODY()
 
 	/** When checked, the most recently loaded project will be auto-loaded at editor startup if no other project was specified on the command line */
-	UPROPERTY(EditAnywhere, Category=Startup)
+	UPROPERTY(EditAnywhere, Category=General)
 	bool bLoadTheMostRecentlyLoadedProjectAtStartup; // Note that this property is NOT config since it is not necessary to save the value to ini. It is determined at startup in UEditorEngine::InitEditor().
 
+	/** Can the editor report usage analytics (types of assets being spawned, etc...) back to Epic in order for us to improve the editor user experience?  Note: The editor must be restarted for changes to take effect. */
+	UPROPERTY(EditAnywhere, config, Category=General, AdvancedDisplay)
+	bool bEditorAnalyticsEnabled;
 
 	// =====================================================================
 	// The following options are NOT exposed in the preferences Editor

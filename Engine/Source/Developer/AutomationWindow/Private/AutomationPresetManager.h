@@ -45,7 +45,7 @@ public:
 	 * @return The preset's name.
 	 * @see GetID, SetPresetName
 	 */
-	const FString& GetPresetName( ) const
+	const FText& GetPresetName( ) const
 	{
 		return PresetName;
 	}
@@ -56,7 +56,7 @@ public:
 	 * @param InPresetName The name to set.
 	 * @see GetPresetName
 	 */
-	void SetPresetName(const FString& InPresetName)
+	void SetPresetName(const FText& InPresetName)
 	{
 		PresetName = InPresetName;
 	}
@@ -112,7 +112,7 @@ private:
 	FGuid Id;
 
 	/** The name of this preset. */
-	FString PresetName;
+	FText PresetName;
 
 	/** The list of enabled test names. */
 	TArray<FString> EnabledTests;
@@ -139,7 +139,7 @@ public:
 	 * @param PresetName The name of the new preset.
 	 * @param SelectedTests The list of enabled tests.
 	 */
-	virtual AutomationPresetRef AddNewPreset( const FString& PresetName, const TArray<FString>& SelectedTests );
+	virtual AutomationPresetRef AddNewPreset( const FText& PresetName, const TArray<FString>& SelectedTests );
 
 	/**
 	 * Returns a reference to the list that holds the presets.

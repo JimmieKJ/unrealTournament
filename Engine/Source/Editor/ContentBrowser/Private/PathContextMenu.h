@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NewAssetContextMenu.h"
+#include "NewAssetOrClassContextMenu.h"
 
 class FPathContextMenu : public TSharedFromThis<FPathContextMenu>
 {
@@ -11,7 +11,13 @@ public:
 	FPathContextMenu(const TWeakPtr<SWidget>& InParentContent);
 
 	/** Sets the handler for when new assets are requested */
-	void SetOnNewAssetRequested(const FNewAssetContextMenu::FOnNewAssetRequested& InOnNewAssetRequested);
+	void SetOnNewAssetRequested(const FNewAssetOrClassContextMenu::FOnNewAssetRequested& InOnNewAssetRequested);
+
+	/** Sets the handler for when new classes are requested */
+	void SetOnNewClassRequested(const FNewAssetOrClassContextMenu::FOnNewClassRequested& InOnNewClassRequested);
+
+	/** Sets the handler for when importing an asset is requested */
+	void SetOnImportAssetRequested( const FNewAssetOrClassContextMenu::FOnImportAssetRequested& InOnImportAssetRequested );
 
 	/** Delegate for when the context menu requests a rename of a folder */
 	DECLARE_DELEGATE_OneParam(FOnRenameFolderRequested, const FString& /*FolderToRename*/);
@@ -30,8 +36,17 @@ public:
 	/** Makes the asset tree context menu widget */
 	void MakePathViewContextMenu(FMenuBuilder& MenuBuilder);
 
+	/** Handler to check to see if creating a new asset is allowed */
+	bool CanCreateAsset() const;
+
 	/** Makes the new asset submenu */
 	void MakeNewAssetSubMenu(FMenuBuilder& MenuBuilder);
+
+	/** Handler for when "New Class" is selected */
+	void ExecuteCreateClass();
+
+	/** Handler to check to see if creating a new class is allowed */
+	bool CanCreateClass() const;
 
 	/** Makes the set color submenu */
 	void MakeSetColorSubMenu(FMenuBuilder& MenuBuilder);
@@ -96,6 +111,9 @@ public:
 	/** Handler to check to see if "Checkin to source control" can be executed */
 	bool CanExecuteSCCCheckIn() const;
 
+	/** Handler to check to see if "Sync" can be executed */
+	bool CanExecuteSCCSync() const;
+
 	/** Handler to check to see if "Connect to source control" can be executed */
 	bool CanExecuteSCCConnect() const;	
 
@@ -124,7 +142,9 @@ private:
 private:
 	TArray<FString> SelectedPaths;
 	TWeakPtr<SWidget> ParentContent;
-	FNewAssetContextMenu::FOnNewAssetRequested OnNewAssetRequested;
+	FNewAssetOrClassContextMenu::FOnNewAssetRequested OnNewAssetRequested;
+	FNewAssetOrClassContextMenu::FOnNewClassRequested OnNewClassRequested;
+	FNewAssetOrClassContextMenu::FOnImportAssetRequested OnImportAssetRequested;
 	FOnRenameFolderRequested OnRenameFolderRequested;
 	FOnFolderDeleted OnFolderDeleted;
 

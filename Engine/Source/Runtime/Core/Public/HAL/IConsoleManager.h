@@ -308,6 +308,39 @@ struct IConsoleThreadPropagation
  */
 DECLARE_DELEGATE_TwoParams( FConsoleObjectVisitor, const TCHAR*, IConsoleObject* );
 
+
+/**
+ * Class representing an handle to an online delegate.
+ */
+class FConsoleVariableSinkHandle
+{
+public:
+	FConsoleVariableSinkHandle()
+	{
+	}
+
+	explicit FConsoleVariableSinkHandle(FDelegateHandle InHandle)
+		: Handle(InHandle)
+	{
+	}
+
+	template <typename MulticastDelegateType>
+	void RemoveFromDelegate(MulticastDelegateType& MulticastDelegate)
+	{
+		MulticastDelegate.Remove(Handle);
+	}
+
+	template <typename DelegateType>
+	bool HasSameHandle(const DelegateType& Delegate) const
+	{
+		return Delegate.GetHandle() == Handle;
+	}
+
+private:
+	FDelegateHandle Handle;
+};
+
+
 /**
  * handles console commands and variables, registered console variables are released on destruction
  */
@@ -376,13 +409,27 @@ struct CORE_API IConsoleManager
 	 * The registered command is executed at few defined points (see CallAllConsoleVariableSinks)
 	 * @param Command
 	 */
+	DELEGATE_DEPRECATED("This function is deprecated - please replace any usage with RegisterConsoleVariableSink_Handle.")
 	virtual void RegisterConsoleVariableSink(const FConsoleCommandDelegate& Command) = 0;
 
 	/**
 	 * The registered command is executed at few defined points (see CallAllConsoleVariableSinks)
 	 * @param Command
 	 */
+	DELEGATE_DEPRECATED("Delegate comparison is deprecated - please replace any usage with UnregisterConsoleVariableSink_Handle, passing the result of RegisterConsoleVariableSink_Handle.")
 	virtual void UnregisterConsoleVariableSink(const FConsoleCommandDelegate& Command) = 0;
+
+	/**
+	 * The registered command is executed at few defined points (see CallAllConsoleVariableSinks)
+	 * @param Command
+	 */
+	virtual FConsoleVariableSinkHandle RegisterConsoleVariableSink_Handle(const FConsoleCommandDelegate& Command) = 0;
+
+	/**
+	 * The registered command is executed at few defined points (see CallAllConsoleVariableSinks)
+	 * @param Command
+	 */
+	virtual void UnregisterConsoleVariableSink_Handle(FConsoleVariableSinkHandle Handle) = 0;
 
 	// ----------
 
@@ -553,15 +600,16 @@ public:
 	FAutoConsoleVariableSink(const FConsoleCommandDelegate& InCommand)
 		: Command(InCommand)
 	{
-		IConsoleManager::Get().RegisterConsoleVariableSink(Command);
+		Handle = IConsoleManager::Get().RegisterConsoleVariableSink_Handle(Command);
 	}
 	/** Destructor, removes the console variable sink **/
 	virtual ~FAutoConsoleVariableSink()
 	{
-//disabled for now, destruction order makes this not always working		IConsoleManager::Get().UnregisterConsoleVariableSink(Command);
+//disabled for now, destruction order makes this not always working		IConsoleManager::Get().UnregisterConsoleVariableSink_Handle(Handle);
 	}
 
 	const FConsoleCommandDelegate& Command;
+	FConsoleVariableSinkHandle Handle;
 };
 
 

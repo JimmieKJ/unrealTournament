@@ -4,6 +4,7 @@
 
 class UWidgetTree;
 class UWidgetBlueprint;
+class UWidgetSlotPair;
 struct FWidgetReference;
 
 //////////////////////////////////////////////////////////////////////////
@@ -18,7 +19,7 @@ public:
 
 	static void CopyWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets);
 
-	static void PasteWidgets(UWidgetBlueprint* BP, FWidgetReference ParentWidget, FVector2D PasteLocation);
+	static void PasteWidgets(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, UWidgetBlueprint* BP, FWidgetReference ParentWidget, FVector2D PasteLocation);
 
 	static void DeleteWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets);
 
@@ -29,7 +30,7 @@ public:
 public:
 	static void ExportWidgetsToText(TSet<UWidget*> WidgetsToExport, /*out*/ FString& ExportedText);
 
-	static void ImportWidgetsFromText(UWidgetBlueprint* BP, const FString& TextToImport, /*out*/ TSet<UWidget*>& ImportedWidgetSet);
+	static void ImportWidgetsFromText(UWidgetBlueprint* BP, const FString& TextToImport, /*out*/ TSet<UWidget*>& ImportedWidgetSet, /*out*/ TMap<FName, UWidgetSlotPair*>& PastedExtraSlotData);
 
 	/** Exports the individual properties of an object to text and stores them in a map. */
 	static void ExportPropertiesToText(UObject* Object, TMap<FName, FString>& ExportedProperties);

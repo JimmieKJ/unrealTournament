@@ -29,10 +29,11 @@ public:
 	
 	virtual bool IsSupportedBySchema(const class UEdGraphSchema* Schema) const { return true; }
 
-protected:
+	bool HasFeedbackMessage();
 	void SetFeedbackMessage(const TSharedPtr<SWidget>& Message);
 	void SetSimpleFeedbackMessage(const FSlateBrush* Icon, const FSlateColor& IconColor, const FText& Message);
 
+protected:
 	UEdGraphPin* GetHoveredPin() const;
 	UEdGraphNode* GetHoveredNode() const;
 	UEdGraph* GetHoveredGraph() const;

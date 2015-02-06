@@ -7,6 +7,7 @@
 
 /**
  * A Gameplay Ability Blueprint is essentially a specialized Blueprint whose graphs control a gameplay ability.
+ *	NOTE: This feature is EXPERIMENTAL. Use at your own risk!
  */
 
 UCLASS(BlueprintType)

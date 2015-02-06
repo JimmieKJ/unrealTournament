@@ -19,7 +19,6 @@ void SMediaPlayerEditorDetails::Construct( const FArguments& InArgs, UMediaPlaye
 		DetailsViewArgs.bAllowSearch = true;
 		DetailsViewArgs.bHideSelectionTip = true;
 		DetailsViewArgs.bLockable = false;
-		DetailsViewArgs.bObjectsUseNameArea = false;
 		DetailsViewArgs.bSearchInitialKeyFocus = true;
 		DetailsViewArgs.bUpdatesFromSelection = false;
 		DetailsViewArgs.bShowOptions = true;

@@ -87,7 +87,7 @@ private:
 			.VAlign( VAlign_Center )
 			[
 				SNew(STextBlock)
-				.Text( Description )
+				.Text( FText::FromString(Description) )
 			]
 		];
 	}

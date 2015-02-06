@@ -244,14 +244,81 @@ int32 UBlackboardComponent::GetNumKeys() const
 	return BlackboardAsset ? BlackboardAsset->GetNumKeys() : 0;
 }
 
-void UBlackboardComponent::RegisterObserver(FBlackboard::FKey KeyID, FOnBlackboardChange ObserverDelegate)
+FDelegateHandle UBlackboardComponent::RegisterObserver(FBlackboard::FKey KeyID, UObject* NotifyOwner, FOnBlackboardChange ObserverDelegate)
 {
-	Observers.AddUnique(KeyID, ObserverDelegate);
+	for (auto It = Observers.CreateConstKeyIterator(KeyID); It; ++It)
+	{
+		// If the pair's value matches, return a pointer to it.
+		if (It.Value().GetHandle() == ObserverDelegate.GetHandle())
+		{
+			return It.Value().GetHandle();
+		}
+	}
+
+	FDelegateHandle Handle = Observers.Add(KeyID, ObserverDelegate).GetHandle();
+	ObserverHandles.Add(NotifyOwner, Handle);
+
+	return Handle;
 }
 
 void UBlackboardComponent::UnregisterObserver(FBlackboard::FKey KeyID, FOnBlackboardChange ObserverDelegate)
 {
-	Observers.RemoveSingle(KeyID, ObserverDelegate);
+	for (auto It = Observers.CreateKeyIterator(KeyID); It; ++It)
+	{
+		if (It.Value().DEPRECATED_Compare(ObserverDelegate))
+		{
+			for (auto HandleIt = ObserverHandles.CreateIterator(); HandleIt; ++HandleIt)
+			{
+				if (HandleIt.Value() == It.Value().GetHandle())
+				{
+					HandleIt.RemoveCurrent();
+					break;
+				}
+			}
+
+			It.RemoveCurrent();
+			break;
+		}
+	}
+}
+
+void UBlackboardComponent::UnregisterObserver(FBlackboard::FKey KeyID, FDelegateHandle ObserverHandle)
+{
+	for (auto It = Observers.CreateKeyIterator(KeyID); It; ++It)
+	{
+		if (It.Value().GetHandle() == ObserverHandle)
+		{
+			for (auto HandleIt = ObserverHandles.CreateIterator(); HandleIt; ++HandleIt)
+			{
+				if (HandleIt.Value() == ObserverHandle)
+				{
+					HandleIt.RemoveCurrent();
+					break;
+				}
+			}
+
+			It.RemoveCurrent();
+			break;
+		}
+	}
+}
+
+void UBlackboardComponent::UnregisterObserversFrom(UObject* NotifyOwner)
+{
+	for (auto It = ObserverHandles.CreateKeyIterator(NotifyOwner); It; ++It)
+	{
+		for (auto ObsIt = Observers.CreateIterator(); ObsIt; ++ObsIt)
+		{
+			if (ObsIt.Value().GetHandle() == It.Value())
+			{
+				ObsIt.RemoveCurrent();
+				break;
+			}
+		}
+
+		It.RemoveCurrent();
+		// check other delegates from NotifyOwner as well
+	}
 }
 
 void UBlackboardComponent::PauseUpdates()
@@ -340,8 +407,6 @@ FString UBlackboardComponent::GetDebugInfoString(EBlackboardDescription::Type Mo
 		TArray<uint8> ObserversKeys;
 		if (Observers.GetKeys(ObserversKeys) > 0)
 		{
-			DebugString += TEXT("Observed Keys:\n");
-		
 			for (int32 KeyIndex = 0; KeyIndex < ObserversKeys.Num(); ++KeyIndex)
 			{
 				const FBlackboard::FKey KeyID = ObserversKeys[KeyIndex];

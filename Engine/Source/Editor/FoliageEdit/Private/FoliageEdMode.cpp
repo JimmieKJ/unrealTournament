@@ -31,6 +31,7 @@
 #include "Components/ModelComponent.h"
 #include "EngineUtils.h"
 #include "LandscapeDataAccess.h"
+#include "Foliage/FoliageType_InstancedStaticMesh.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEdMode"
 #define FOLIAGE_SNAP_TRACE (10000.f)
@@ -164,7 +165,7 @@ void FEdModeFoliage::PostUndo()
 {
 	FEdMode::PostUndo();
 
-	StaticCastSharedPtr<FFoliageEdModeToolkit>(Toolkit)->PostUndo();
+	StaticCastSharedPtr<FFoliageEdModeToolkit>(Toolkit)->RefreshFullList();
 }
 
 /** When the user changes the active streaming level with the level browser */
@@ -1287,7 +1288,7 @@ void FEdModeFoliage::ApplyPaintBucket(AActor* Actor, bool bRemove)
 		// Remove all instances of the selected meshes
 		AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForCurrentLevel(GetWorld());
 
-		TArray<UActorComponent*> Components;
+		TInlineComponentArray<UActorComponent*> Components;
 		Actor->GetComponents(Components);
 
 		for (int32 ComponentIdx = 0; ComponentIdx < Components.Num(); ComponentIdx++)
@@ -1314,7 +1315,7 @@ void FEdModeFoliage::ApplyPaintBucket(AActor* Actor, bool bRemove)
 		TMap<UPrimitiveComponent*, TArray<FFoliagePaintBucketTriangle> > ComponentPotentialTriangles;
 
 		// Check all the components of the hit actor
-		TArray<UStaticMeshComponent*> StaticMeshComponents;
+		TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents;
 		Actor->GetComponents(StaticMeshComponents);
 
 		for (int32 ComponentIdx = 0; ComponentIdx < StaticMeshComponents.Num(); ComponentIdx++)
@@ -1787,7 +1788,7 @@ bool FEdModeFoliage::ReplaceStaticMesh(UFoliageType* OldSettings, UStaticMesh* N
 
 			GEditor->BeginTransaction(NSLOCTEXT("UnrealEd", "FoliageMode_ChangeStaticMeshTransaction", "Foliage Editing: Change StaticMesh"));
 			IFA->Modify();
-			NewMeshInfo = IFA->AddMesh(NewStaticMesh, &NewSettings);
+			NewMeshInfo = IFA->AddMesh(NewStaticMesh, &NewSettings, Cast<UFoliageType_InstancedStaticMesh>(OldSettings));
 			NewSettings->DisplayOrder = OldSettings->DisplayOrder;
 			NewSettings->ShowNothing = OldSettings->ShowNothing;
 			NewSettings->ShowPaintSettings = OldSettings->ShowPaintSettings;
@@ -1824,6 +1825,8 @@ bool FEdModeFoliage::ReplaceStaticMesh(UFoliageType* OldSettings, UStaticMesh* N
 
 		// Update mesh list.
 		UpdateFoliageMeshList();
+
+		StaticCastSharedPtr<FFoliageEdModeToolkit>(Toolkit)->RefreshFullList();
 	}
 	return true;
 }
@@ -1950,7 +1953,7 @@ bool FEdModeFoliage::InputKey(FEditorViewportClient* ViewportClient, FViewport* 
 								Instance.ZOffset = 0.f;
 								Instance.Base = Hit.Component.Get();
 								// We cannot be based on an a blueprint component as these will disappear when the construction script is re-run
-								if (Instance.Base && Instance.Base->bCreatedByConstructionScript)
+								if (Instance.Base && Instance.Base->IsCreatedByConstructionScript())
 								{
 									Instance.Base = nullptr;
 								}

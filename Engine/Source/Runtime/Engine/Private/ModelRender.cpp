@@ -400,7 +400,7 @@ public:
 
 		//@todo parallelrendering - remove this legacy state modification
 		// Poly selected state is modified in many places, so it's hard to push the selection state to the proxy
-		const_cast<FModelSceneProxy*>(this)->SetSelection_RenderThread(bAnySelectedSurfs);
+		const_cast<FModelSceneProxy*>(this)->SetSelection_RenderThread(bAnySelectedSurfs,false);
 	}
 
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)

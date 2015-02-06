@@ -46,6 +46,7 @@ public:
 	virtual void SetIsHighlighted(bool bInIsHighlighted) { bIsHighlighted = bInIsHighlighted; }
 	virtual bool IsHighlighted() const { return bIsHighlighted; }
 	virtual bool IsLeaf() { return true; }
+	virtual TAttribute<bool> IsPropertyEditingEnabled() const override { return IsParentEnabled; }
 
 private:
 

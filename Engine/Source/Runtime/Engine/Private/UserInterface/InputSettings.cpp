@@ -42,7 +42,7 @@ void UInputSettings::PostInitProperties()
 	}
 
 #if PLATFORM_WINDOWS
-	// If the console key is set to the default we'll see about switching it to the keyboard default
+	// If the console key is set to the default we'll see about adding the keyboard default
 	// If they've mapped any additional keys, we'll just assume they've set it up in a way they desire
 	if (ConsoleKeys.Num() == 1 && ConsoleKeys[0] == EKeys::Tilde)
 	{
@@ -62,7 +62,10 @@ void UInputSettings::PostInitProperties()
 			break;
 		}
 
-		ConsoleKeys[0] = DefaultConsoleKey;
+		if (DefaultConsoleKey != EKeys::Tilde && DefaultConsoleKey.IsValid())
+		{
+			ConsoleKeys.Add(DefaultConsoleKey);
+		}
 	}
 #endif
 }

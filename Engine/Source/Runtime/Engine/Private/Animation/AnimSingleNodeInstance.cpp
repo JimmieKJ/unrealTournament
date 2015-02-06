@@ -414,11 +414,15 @@ bool UAnimSingleNodeInstance::NativeEvaluateAnimation(FPoseContext& Output)
 		VertexAnims.Add(FActiveVertexAnim(CurrentVertexAnim, 1.f, CurrentTime));
 	}
 
-	PostEvaluateAnimEvent.ExecuteIfBound();
-
 	return true;
 }
 
+void UAnimSingleNodeInstance::PostAnimEvaluation()
+{
+	PostEvaluateAnimEvent.ExecuteIfBound();
+
+	Super::PostAnimEvaluation();
+}
 
 void UAnimSingleNodeInstance::Montage_Advance(float DeltaTime)
 {

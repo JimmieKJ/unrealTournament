@@ -48,6 +48,8 @@ void UK2Node_ActorBoundEvent::ReconstructNode()
 	// Ensure that we try to update the delegate we're bound to if its moved
 	GetTargetDelegate();
 
+	CachedNodeTitle.MarkDirty();
+
 	Super::ReconstructNode();
 }
 

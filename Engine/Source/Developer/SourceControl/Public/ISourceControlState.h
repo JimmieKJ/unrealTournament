@@ -34,12 +34,19 @@ public:
 	virtual TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> GetHistoryItem( int32 HistoryIndex ) const = 0;
 
 	/**
-	 * Find an item from the history with e specified revision number.
+	 * Find an item from the history with the specified revision number.
 	 * @param	RevisionNumber	the revision number to look for
 	 * @returns a history item or NULL if the item could not be found
 	 */
 	virtual TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FindHistoryRevision( int32 RevisionNumber ) const = 0;
 	
+	/**
+	 * Find an item from the history with the specified revision.
+	 * @param	InRevision	the revision identifier to look for
+	 * @returns a history item or NULL if the item could not be found
+	 */
+	virtual TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FindHistoryRevision( const FString& InRevision ) const = 0;
+
 	/**
 	 * Get the revision that we should use as a base when performing a three wage merge, does not refresh source control state
 	 * @returns a revision identifier or NULL if none exist

@@ -44,7 +44,17 @@ public class HTML5Platform : Platform
             {
                 GameExe += "-HTML5-" + Params.ClientConfigsToBuild[0].ToString();
             }
-            GameExe += ".js";
+			GameExe += ".js";
+			
+			// ensure the ue4game binary exists, if applicable
+			string FullGameExePath = Path.Combine(Path.GetDirectoryName(Params.ProjectGameExeFilename), GameExe);
+			if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(FullGameExePath))
+			{
+				Log("Failed to find game application " + FullGameExePath);
+				AutomationTool.ErrorReporter.Error("Stage Failed.", (int)AutomationTool.ErrorCodes.Error_MissingExecutable);
+				throw new AutomationException("Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", FullGameExePath);
+			}
+
             if (Path.Combine(Path.GetDirectoryName(Params.ProjectGameExeFilename), GameExe) != Path.Combine(PackagePath, GameExe))
             {
                 File.Copy(Path.Combine(Path.GetDirectoryName(Params.ProjectGameExeFilename), GameExe), Path.Combine(PackagePath, GameExe), true);
@@ -127,7 +137,7 @@ public class HTML5Platform : Platform
 				{
 					InArguments = InArguments.Replace ("\"", "");
 					string[] Arguments = InArguments.Split(' ');
-					string ArgumentString = IsContentOnly ? "'" + InGameName + "/" + InGameName + ".uproject '," : "";
+					string ArgumentString = IsContentOnly ? "'../../../" + InGameName + "/" + InGameName + ".uproject '," : "";
 					for (int i = 0; i < Arguments.Length - 1; ++i)
 					{
 						ArgumentString += "'";
@@ -357,8 +367,13 @@ public class HTML5Platform : Platform
 
     public override PakType RequiresPak(ProjectParams Params)
     {
-        return PakType.Never;
+        return PakType.Always;
     }
+
+	public override string GetPlatformPakCommandLine()
+	{
+		return " -compress";
+	}
 
 	public override bool DeployLowerCaseFilenames(bool bUFSFile)
 	{

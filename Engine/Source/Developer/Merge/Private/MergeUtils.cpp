@@ -111,7 +111,7 @@ UObject const* FMergeToolUtils::LoadRevision(const UObject* AssetObject, const F
 	check(AssetObject->IsAsset());
 	
 	const UObject* AssetRevision = nullptr;
-	if (DesiredRevision.Revision < 0)
+	if (DesiredRevision.Revision.IsEmpty())
 	{
 		// an invalid revision number represents the local copy
 		AssetRevision = AssetObject;

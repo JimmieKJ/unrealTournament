@@ -20,8 +20,10 @@ class INavAgentInterface
 
 	/**
 	 *	Retrieves FNavAgentProperties expressing navigation props and caps of represented agent
+	 *	@NOTE the function will be renamed to GetNavAgentProperties in 4.8. Current name was introduced
+	 *		to help with deprecating old GetNavAgentProperties function
 	 */
-	virtual const FNavAgentProperties& GetNavAgentProperties() const { return FNavAgentProperties::DefaultProperties; }
+	virtual const FNavAgentProperties& GetNavAgentPropertiesRef() const { return FNavAgentProperties::DefaultProperties; }
 
 	/**
 	 *	Retrieves Agent's location
@@ -41,4 +43,10 @@ class INavAgentInterface
 
 	/** Allows delaying repath requests */
 	virtual bool ShouldPostponePathUpdates() const { return false; }
+
+	//----------------------------------------------------------------------//
+	// DEPRECATED
+	//----------------------------------------------------------------------//
+	DEPRECATED(4.7, "This version is deprecated. Please use GetNavAgentPropertiesRef instead.")
+	virtual const FNavAgentProperties* GetNavAgentProperties() const { return &FNavAgentProperties::DefaultProperties; }
 };

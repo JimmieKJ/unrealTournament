@@ -11,7 +11,7 @@ bool FIntSerializationTest::RunTest (const FString& Parameters)
 	//Create object for serialization
 	//UIntSerialization SerializableObject;
 	//SerializableObject->
-	UIntSerialization* SerializableObject = new UIntSerialization(FObjectInitializer());
+	auto SerializableObject = NewObject<UIntSerialization>();
 	SerializableObject->UnsignedInt8Variable = 255U;
 	SerializableObject->UnsignedInt16Variable = 65535U;
 	SerializableObject->UnsignedInt32Variable = 4294967295U;
@@ -30,7 +30,7 @@ bool FIntSerializationTest::RunTest (const FString& Parameters)
 
 	//Deserialize into new object
 	FMemoryReader InAr(SaveData, true);
-	UIntSerialization* DeSerializableObject = new UIntSerialization(FObjectInitializer());
+	auto DeSerializableObject = NewObject<UIntSerialization>();
 	DeSerializableObject->Serialize(InAr);
 
 	//Compare test

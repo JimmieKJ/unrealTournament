@@ -156,7 +156,8 @@ public:
 
 			SettingRegions.FindChecked(Settings.SettingsObject)->SetText(Settings.Description);
 
-			if (!Settings.SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config | CLASS_DefaultConfig))
+			// @todo userconfig: Should we check for GlobalUserConfig here? It's not ever going to be checked in...
+			if (!Settings.SettingsObject->GetClass()->HasAnyClassFlags(CLASS_Config | CLASS_DefaultConfig /*| CLASS_GlobalUserConfig*/))
 			{
 				continue;
 			}

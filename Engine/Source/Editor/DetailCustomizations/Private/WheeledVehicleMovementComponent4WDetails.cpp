@@ -130,6 +130,11 @@ void FWheeledVehicleMovementComponent4WDetails::FSteeringCurveEditor::MakeTransa
 	}
 }
 
+bool FWheeledVehicleMovementComponent4WDetails::FSteeringCurveEditor::IsValidCurve( FRichCurveEditInfo CurveInfo )
+{
+	return CurveInfo.CurveToEdit == &VehicleComponent->SteeringCurve.EditorCurveData;
+}
+
 FWheeledVehicleMovementComponent4WDetails::FSteeringCurveEditor::FSteeringCurveEditor(UWheeledVehicleMovementComponent4W * InVehicle)
 {
 	VehicleComponent = InVehicle;
@@ -172,6 +177,11 @@ void FWheeledVehicleMovementComponent4WDetails::FTorqueCurveEditor::MakeTransact
 	{
 		Owner->SetFlags(Owner->GetFlags() | RF_Transactional);
 	}
+}
+
+bool FWheeledVehicleMovementComponent4WDetails::FTorqueCurveEditor::IsValidCurve( FRichCurveEditInfo CurveInfo )
+{
+	return CurveInfo.CurveToEdit == &VehicleComponent->EngineSetup.TorqueCurve.EditorCurveData;
 }
 
 FWheeledVehicleMovementComponent4WDetails::FTorqueCurveEditor::FTorqueCurveEditor(UWheeledVehicleMovementComponent4W * InVehicle)

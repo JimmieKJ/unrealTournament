@@ -462,7 +462,9 @@ bool ULevelExporterT3D::ExportText( const FExportObjectInnerContext* Context, UO
 					FCString::Spc(TextIndent), *Actor->GetClass()->GetName(), *Actor->GetName(),
 					*Actor->GetArchetype()->GetClass()->GetName(), *Actor->GetArchetype()->GetPathName(), *ParentActorString, *SocketNameString, *GroupActor );
 
+				ExportRootScope = Actor;
 				ExportObjectInner( Context, Actor, Ar, PortFlags | PPF_ExportsNotFullyQualified );
+				ExportRootScope = nullptr;
 
 				Ar.Logf( TEXT("%sEnd Actor\r\n"), FCString::Spc(TextIndent) );
 				Actor->AttachRootComponentToActor(ParentActor, SocketName, EAttachLocation::KeepWorldPosition);
@@ -1298,7 +1300,7 @@ bool GenerateExportMaterialPropertyData(
 
 		if(!RenderTarget)
 		{
-			RenderTarget = new UTextureRenderTarget2D(FObjectInitializer());
+			RenderTarget = NewObject<UTextureRenderTarget2D>();
 			check(RenderTarget);
 			RenderTarget->AddToRoot();
 			RenderTarget->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1504,7 +1506,7 @@ static void AddActorToOBJs(AActor* Actor, TArray<FOBJGeom*>& Objects, TSet<UMate
 	UStaticMeshComponent* StaticMeshComponent = NULL;
 	UStaticMesh* StaticMesh = NULL;
 
-	TArray<UStaticMeshComponent*> StaticMeshComponents;
+	TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents;
 	Actor->GetComponents(StaticMeshComponents);
 
 	for( int32 j=0; j<StaticMeshComponents.Num(); j++ )
@@ -2628,7 +2630,7 @@ namespace MaterialExportUtils
 			OutFlattenMaterial.DiffuseSize.Y > 0)
 		{
 			// Create temporary render target
-			UTextureRenderTarget2D* RenderTargetDiffuse = new UTextureRenderTarget2D(FObjectInitializer());
+			auto RenderTargetDiffuse = NewObject<UTextureRenderTarget2D>();
 			check(RenderTargetDiffuse);
 			RenderTargetDiffuse->AddToRoot();
 			RenderTargetDiffuse->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -2661,7 +2663,7 @@ namespace MaterialExportUtils
 			InMaterial->GetMaterial()->HasNormalConnected())
 		{
 			// Create temporary render target
-			UTextureRenderTarget2D* RenderTargetNormal = new UTextureRenderTarget2D(FObjectInitializer());
+			auto RenderTargetNormal = NewObject<UTextureRenderTarget2D>();
 			check(RenderTargetNormal);
 			RenderTargetNormal->AddToRoot();
 			RenderTargetNormal->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -2702,7 +2704,7 @@ namespace MaterialExportUtils
 		float TargetGamma,
 		TArray<FColor>& OutSamples)
 	{
-		UTextureRenderTarget2D* RenderTargetTexture = new UTextureRenderTarget2D(FObjectInitializer());
+		auto RenderTargetTexture = NewObject<UTextureRenderTarget2D>();
 		check(RenderTargetTexture);
 		RenderTargetTexture->AddToRoot();
 		RenderTargetTexture->ClearColor = FLinearColor::Transparent;

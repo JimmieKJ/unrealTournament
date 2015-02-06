@@ -9,7 +9,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogPawnMovementComponent, Log, All);
 //----------------------------------------------------------------------//
 // UPawnMovementComponent
 //----------------------------------------------------------------------//
-void UPawnMovementComponent::SetUpdatedComponent(UPrimitiveComponent* NewUpdatedComponent)
+void UPawnMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
 {
 	if (NewUpdatedComponent)
 	{

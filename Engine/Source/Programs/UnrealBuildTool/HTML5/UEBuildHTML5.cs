@@ -117,12 +117,6 @@ namespace UnrealBuildTool
          */
         protected override void RegisterBuildPlatformInternal()
         {
-            //@todo.Rocket: Add platform support
-            if (UnrealBuildTool.RunningRocket() || UnrealBuildTool.BuildingRocket())
-            {
-                return;
-            }
-
             // Make sure the SDK is installed
             if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (HasRequiredSDKsInstalled() == SDKStatus.Valid))
             {

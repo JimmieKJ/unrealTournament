@@ -67,7 +67,7 @@ private:
 	void HandleBuildConfigurationSelectorConfigurationSelected(EBuildConfigurations::Type Configuration);
 
 	/** Callback for getting the content text of the build configuration selector. */
-	FString HandleBuildConfigurationSelectorText() const;
+	FText HandleBuildConfigurationSelectorText() const;
 
 	/** Callback for determining the visibility of a validation error icon. */
 	EVisibility HandleValidationErrorIconVisibility(ELauncherProfileValidationErrors::Type Error) const;

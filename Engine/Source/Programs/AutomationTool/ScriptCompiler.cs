@@ -70,7 +70,7 @@ namespace AutomationTool
 			}
 			// Register all the classes inside UBT
 			Log.TraceVerbose("Registering UBT Classes.");
-			UnrealBuildTool.UnrealBuildTool.RegisterAllUBTClasses();
+			UnrealBuildTool.UnrealBuildTool.RegisterAllUBTClasses(GlobalCommandLine.NoCodeProject);
 			Environment.CurrentDirectory = OldCWD;
 
 			// Compile only if not disallowed.

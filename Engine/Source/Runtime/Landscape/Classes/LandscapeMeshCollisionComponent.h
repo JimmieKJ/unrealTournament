@@ -74,7 +74,7 @@ class ULandscapeMeshCollisionComponent : public ULandscapeHeightfieldCollisionCo
 	// End UActorComponent interface.
 
 	// Begin USceneComponent interface.
-	virtual void DestroyComponent() override;
+	virtual void DestroyComponent(bool bPromoteChildren = false) override;
 	// End USceneComponent interface.
 
 	// Begin UPrimitiveComponent interface

@@ -4,6 +4,18 @@
 
 namespace ContentBrowserUtils
 {
+	enum class ECBFolderCategory : uint8
+	{
+		GameContent,
+		EngineContent,
+		PluginContent,
+		DeveloperContent,
+
+		GameClasses,
+		EngineClasses,
+		PluginClasses,
+	};
+
 	/** Loads the specified object if needed and opens the asset editor for it */
 	bool OpenEditorForAsset(const FString& ObjectPath);
 
@@ -120,6 +132,9 @@ namespace ContentBrowserUtils
 	/** Returns true if the specified asset that uses shared thumbnails has a thumbnail assigned to it */
 	bool AssetHasCustomThumbnail( const FAssetData& AssetData );
 
+	/** Extract the category of the given path */
+	ECBFolderCategory GetFolderCategory( const FString& InPath );
+
 	/** Returns true if the passed-in path is a engine folder */
 	bool IsEngineFolder( const FString& InPath );
 
@@ -138,8 +153,35 @@ namespace ContentBrowserUtils
 	/** Returns true if the path specified exists as a folder in the asset registry */
 	bool DoesFolderExist(const FString& FolderPath);
 
-	/** Returns true if the pass-ed-in path is one of the asset root directories */
+	/** Check to see whether the given path is a root directory (either for asset or classes) */
+	bool IsRootDir(const FString& FolderPath);
+
+	/** Check to see whether the given path is a root asset directory */
 	bool IsAssetRootDir(const FString& FolderPath);
+
+	/** Check to see whether the given path is a root class directory */
+	bool IsClassRootDir(const FString& FolderPath);
+
+	/** Get the localized display name to use for the given root directory */
+	FText GetRootDirDisplayName(const FString& FolderPath);
+
+	/** Check to see whether the given path is rooted against a class directory */
+	bool IsClassPath(const FString& InPath);
+
+	/** Given an array of paths, work out how many are rooted against class roots, and how many are rooted against asset roots */
+	void CountPathTypes(const TArray<FString>& InPaths, int32& OutNumAssetPaths, int32& OutNumClassPaths);
+
+	/** Given an array of paths, work out how many are rooted against class roots, and how many are rooted against asset roots */
+	void CountPathTypes(const TArray<FName>& InPaths, int32& OutNumAssetPaths, int32& OutNumClassPaths);
+
+	/** Given an array of "asset" data, work out how many are assets, and how many are classes */
+	void CountItemTypes(const TArray<FAssetData>& InItems, int32& OutNumAssetItems, int32& OutNumClassItems);
+
+	/** Check to see whether the given path is a valid location in which to create new classes */
+	bool IsValidPathToCreateNewClass(const FString& InPath);
+
+	/** Check to see whether the given path is a valid location in which to create a new folder */
+	bool IsValidPathToCreateNewFolder(const FString& InPath);
 
 	/**
 	 * Loads the color of this path from the config
@@ -156,7 +198,7 @@ namespace ContentBrowserUtils
 	 * @param FolderColor - The color the folder should appear as
 	 * @param bForceAdd - If true, force the color to be added for the path
 	 */
-	void SaveColor(const FString& FolderPath, const TSharedPtr<FLinearColor> FolderColor, bool bForceAdd = false);
+	void SaveColor(const FString& FolderPath, const TSharedPtr<FLinearColor>& FolderColor, bool bForceAdd = false);
 
 	/**
 	 * Checks to see if any folder has a custom color, optionally outputs them to a list

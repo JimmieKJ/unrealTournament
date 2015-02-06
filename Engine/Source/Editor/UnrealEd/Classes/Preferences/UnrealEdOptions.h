@@ -52,18 +52,6 @@ struct FClassPickerDefaults
 	UPROPERTY()
 	FString ClassName;
 
-	/** The loc text name for the class */
-	UPROPERTY()
-	FString LocTextNameID;
-
-	/** The loc text description for the class */
-	UPROPERTY()
-	FString LocTextDescriptionID;
-
-	/** The image to show for the class in the picker */
-	UPROPERTY()
-	FName Image;
-
 	/** The name of the asset type being created */
 	UPROPERTY()
 	FString AssetClass;

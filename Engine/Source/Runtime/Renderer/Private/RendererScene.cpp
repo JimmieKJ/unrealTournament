@@ -529,7 +529,7 @@ void FScene::UpdatePrimitiveTransform(UPrimitiveComponent* Primitive)
 	// If the root component of an actor is being moved, update all the actor position of the other components sharing that actor
 	if (Owner && Owner->GetRootComponent() == Primitive)
 	{
-		TArray<UPrimitiveComponent*> Components;
+		TInlineComponentArray<UPrimitiveComponent*> Components;
 		Owner->GetComponents(Components);
 		for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
 		{
@@ -1760,6 +1760,8 @@ void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmed
 		BasePassForForwardShadingLowQualityLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(FeatureLevel, Materials, PrimitivesToUpdate);
 		BasePassForForwardShadingDistanceFieldShadowMapLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(FeatureLevel, Materials, PrimitivesToUpdate);
 		BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(FeatureLevel, Materials, PrimitivesToUpdate);
+		BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(FeatureLevel, Materials, PrimitivesToUpdate);
+		BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(FeatureLevel, Materials, PrimitivesToUpdate);
 		BasePassForForwardShadingMovableDirectionalLightDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(FeatureLevel, Materials, PrimitivesToUpdate);
 		BasePassForForwardShadingMovableDirectionalLightCSMDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(FeatureLevel, Materials, PrimitivesToUpdate);
 		BasePassForForwardShadingMovableDirectionalLightLightmapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(FeatureLevel, Materials, PrimitivesToUpdate);
@@ -1975,6 +1977,10 @@ void FScene::DumpStaticMeshDrawListStats() const
 	DUMP_DRAW_LIST(BasePassForForwardShadingDistanceFieldShadowMapLightMapDrawList[EBasePass_Masked]);
 	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList[EBasePass_Default]);
 	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList[EBasePass_Masked]);
+	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList[EBasePass_Default]);
+	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList[EBasePass_Masked]);
+	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList[EBasePass_Default]);
+	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList[EBasePass_Masked]);
 	DUMP_DRAW_LIST(BasePassForForwardShadingMovableDirectionalLightDrawList[EBasePass_Default]);
 	DUMP_DRAW_LIST(BasePassForForwardShadingMovableDirectionalLightDrawList[EBasePass_Masked]);
 	DUMP_DRAW_LIST(BasePassForForwardShadingMovableDirectionalLightCSMDrawList[EBasePass_Default]);
@@ -2143,7 +2149,10 @@ void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
 	StaticMeshDrawListApplyWorldOffset(WholeSceneShadowDepthDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingNoLightMapDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingLowQualityLightMapDrawList, InOffset);
+	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingDistanceFieldShadowMapLightMapDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList, InOffset);
+	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList, InOffset);
+	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingMovableDirectionalLightDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingMovableDirectionalLightCSMDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingMovableDirectionalLightLightmapDrawList, InOffset);

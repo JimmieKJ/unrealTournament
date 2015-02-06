@@ -55,6 +55,16 @@ void FDefaultSourceControlProvider::UnregisterSourceControlStateChanged( const F
 
 }
 
+FDelegateHandle FDefaultSourceControlProvider::RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
+{
+	return FDelegateHandle();
+}
+
+void FDefaultSourceControlProvider::UnregisterSourceControlStateChanged_Handle( FDelegateHandle Handle )
+{
+
+}
+
 ECommandResult::Type FDefaultSourceControlProvider::Execute( const TSharedRef<ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TArray<FString>& InFiles, EConcurrency::Type InConcurrency, const FSourceControlOperationComplete& InOperationCompleteDelegate )
 {
 	return ECommandResult::Failed;
@@ -70,6 +80,11 @@ void FDefaultSourceControlProvider::CancelOperation( const TSharedRef<ISourceCon
 }
 
 bool FDefaultSourceControlProvider::UsesLocalReadOnlyState() const
+{
+	return false;
+}
+
+bool FDefaultSourceControlProvider::UsesChangelists() const
 {
 	return false;
 }

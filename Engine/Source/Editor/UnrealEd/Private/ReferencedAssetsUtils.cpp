@@ -13,7 +13,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogReferncedAssetsBrowser, Log, All);
  */
 FFindReferencedAssets::FFindReferencedAssets(void)
 {
-	FEditorDelegates::MapChange.AddRaw(this, &FFindReferencedAssets::OnEditorMapChange);
+	OnEditorMapChangeDelegateHandle = FEditorDelegates::MapChange.AddRaw(this, &FFindReferencedAssets::OnEditorMapChange);
 
 	// Set up our ignore lists
 	IgnoreClasses.Add(ULevel::StaticClass());
@@ -49,7 +49,7 @@ FFindReferencedAssets::FFindReferencedAssets(void)
  */
 FFindReferencedAssets::~FFindReferencedAssets(void)
 {
-	FEditorDelegates::MapChange.RemoveRaw(this, &FFindReferencedAssets::OnEditorMapChange);
+	FEditorDelegates::MapChange.Remove(OnEditorMapChangeDelegateHandle);
 }
 
 void FFindReferencedAssets::OnEditorMapChange( uint32 Flag )

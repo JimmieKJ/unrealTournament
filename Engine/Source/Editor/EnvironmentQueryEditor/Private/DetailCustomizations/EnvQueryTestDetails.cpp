@@ -257,13 +257,13 @@ void FEnvQueryTestDetails::BuildFilterTestValues()
 	{
 		if (EditedTest->GetWorkOnFloatValues())
 		{
-			FilterTestValues.Add(FStringIntPair(TestConditionEnum->GetEnumText(EEnvTestFilterType::Minimum).ToString(), EEnvTestFilterType::Minimum));
-			FilterTestValues.Add(FStringIntPair(TestConditionEnum->GetEnumText(EEnvTestFilterType::Maximum).ToString(), EEnvTestFilterType::Maximum));
-			FilterTestValues.Add(FStringIntPair(TestConditionEnum->GetEnumText(EEnvTestFilterType::Range).ToString(), EEnvTestFilterType::Range));
+			FilterTestValues.Add(FTextIntPair(TestConditionEnum->GetEnumText(EEnvTestFilterType::Minimum), EEnvTestFilterType::Minimum));
+			FilterTestValues.Add(FTextIntPair(TestConditionEnum->GetEnumText(EEnvTestFilterType::Maximum), EEnvTestFilterType::Maximum));
+			FilterTestValues.Add(FTextIntPair(TestConditionEnum->GetEnumText(EEnvTestFilterType::Range), EEnvTestFilterType::Range));
 		}
 		else
 		{
-			FilterTestValues.Add(FStringIntPair(TestConditionEnum->GetEnumText(EEnvTestFilterType::Match).ToString(), EEnvTestFilterType::Match));
+			FilterTestValues.Add(FTextIntPair(TestConditionEnum->GetEnumText(EEnvTestFilterType::Match), EEnvTestFilterType::Match));
 		}
 	}
 }
@@ -276,16 +276,16 @@ void FEnvQueryTestDetails::BuildScoreEquationValues()
 	ScoreEquationValues.Reset();
 
 	// Const scoring is always valid.  But other equations are only valid if the score values can be other than boolean values.
-	ScoreEquationValues.Add(FStringIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::Constant).ToString(), EEnvTestScoreEquation::Constant));
+	ScoreEquationValues.Add(FTextIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::Constant), EEnvTestScoreEquation::Constant));
 
 	const UEnvQueryTest* EditedTest = Cast<const UEnvQueryTest>(MyTest.Get());
 	if (EditedTest)
 	{
 		if (EditedTest->GetWorkOnFloatValues())
 		{
-			ScoreEquationValues.Add(FStringIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::Linear).ToString(), EEnvTestScoreEquation::Linear));
-			ScoreEquationValues.Add(FStringIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::Square).ToString(), EEnvTestScoreEquation::Square));
-			ScoreEquationValues.Add(FStringIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::InverseLinear).ToString(), EEnvTestScoreEquation::InverseLinear));
+			ScoreEquationValues.Add(FTextIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::Linear), EEnvTestScoreEquation::Linear));
+			ScoreEquationValues.Add(FTextIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::Square), EEnvTestScoreEquation::Square));
+			ScoreEquationValues.Add(FTextIntPair(TestScoreEquationEnum->GetEnumText(EEnvTestScoreEquation::InverseLinear), EEnvTestScoreEquation::InverseLinear));
 		}
 	}
 }
@@ -302,14 +302,14 @@ void FEnvQueryTestDetails::OnScoreEquationChange(int32 Index)
 	ScoreEquationHandle->SetValue(EnumValue);
 }
 
-void FEnvQueryTestDetails::BuildScoreClampingTypeValues(bool bBuildMinValues, TArray<FStringIntPair>& ClampTypeValues) const
+void FEnvQueryTestDetails::BuildScoreClampingTypeValues(bool bBuildMinValues, TArray<FTextIntPair>& ClampTypeValues) const
 {
 	UEnum* ScoringNormalizationEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvQueryTestClamping"));
 	check(ScoringNormalizationEnum);
 
 	ClampTypeValues.Reset();
-	ClampTypeValues.Add(FStringIntPair(ScoringNormalizationEnum->GetEnumText(EEnvQueryTestClamping::None).ToString(), EEnvQueryTestClamping::None));
-	ClampTypeValues.Add(FStringIntPair(ScoringNormalizationEnum->GetEnumText(EEnvQueryTestClamping::SpecifiedValue).ToString(), EEnvQueryTestClamping::SpecifiedValue));
+	ClampTypeValues.Add(FTextIntPair(ScoringNormalizationEnum->GetEnumText(EEnvQueryTestClamping::None), EEnvQueryTestClamping::None));
+	ClampTypeValues.Add(FTextIntPair(ScoringNormalizationEnum->GetEnumText(EEnvQueryTestClamping::SpecifiedValue), EEnvQueryTestClamping::SpecifiedValue));
 
 	if (IsFiltering())
 	{
@@ -328,7 +328,7 @@ void FEnvQueryTestDetails::BuildScoreClampingTypeValues(bool bBuildMinValues, TA
 
 		if (bSupportFilterThreshold)
 		{
-			ClampTypeValues.Add(FStringIntPair(ScoringNormalizationEnum->GetEnumText(EEnvQueryTestClamping::FilterThreshold).ToString(), EEnvQueryTestClamping::FilterThreshold));
+			ClampTypeValues.Add(FTextIntPair(ScoringNormalizationEnum->GetEnumText(EEnvQueryTestClamping::FilterThreshold), EEnvQueryTestClamping::FilterThreshold));
 		}
 	}
 }
@@ -355,7 +355,7 @@ TSharedRef<SWidget> FEnvQueryTestDetails::OnGetClampMinTypeContent()
  	for (int32 i = 0; i < ClampMinTypeValues.Num(); i++)
  	{
  		FUIAction ItemAction(FExecuteAction::CreateSP(this, &FEnvQueryTestDetails::OnClampMinTestChange, ClampMinTypeValues[i].Int));
- 		MenuBuilder.AddMenuEntry(FText::FromString(ClampMinTypeValues[i].Str), TAttribute<FText>(), FSlateIcon(), ItemAction);
+ 		MenuBuilder.AddMenuEntry(ClampMinTypeValues[i].Text, TAttribute<FText>(), FSlateIcon(), ItemAction);
  	}
 
 	return MenuBuilder.MakeWidget();
@@ -369,13 +369,13 @@ TSharedRef<SWidget> FEnvQueryTestDetails::OnGetClampMaxTypeContent()
  	for (int32 i = 0; i < ClampMaxTypeValues.Num(); i++)
  	{
  		FUIAction ItemAction(FExecuteAction::CreateSP(this, &FEnvQueryTestDetails::OnClampMaxTestChange, ClampMaxTypeValues[i].Int));
- 		MenuBuilder.AddMenuEntry(FText::FromString(ClampMaxTypeValues[i].Str), TAttribute<FText>(), FSlateIcon(), ItemAction);
+ 		MenuBuilder.AddMenuEntry(ClampMaxTypeValues[i].Text, TAttribute<FText>(), FSlateIcon(), ItemAction);
  	}
 
 	return MenuBuilder.MakeWidget();
 }
 
-FString FEnvQueryTestDetails::GetClampMinTypeDesc() const
+FText FEnvQueryTestDetails::GetClampMinTypeDesc() const
 {
 	check(ClampMinTypeHandle.IsValid());
 	uint8 EnumValue;
@@ -385,14 +385,14 @@ FString FEnvQueryTestDetails::GetClampMinTypeDesc() const
 	{
 		if (ClampMinTypeValues[i].Int == EnumValue)
 		{
-			return ClampMinTypeValues[i].Str;
+			return ClampMinTypeValues[i].Text;
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
-FString FEnvQueryTestDetails::GetClampMaxTypeDesc() const
+FText FEnvQueryTestDetails::GetClampMaxTypeDesc() const
 {
 	check(ClampMaxTypeHandle.IsValid());
 	uint8 EnumValue;
@@ -402,14 +402,14 @@ FString FEnvQueryTestDetails::GetClampMaxTypeDesc() const
 	{
 		if (ClampMaxTypeValues[i].Int == EnumValue)
 		{
-			return ClampMaxTypeValues[i].Str;
+			return ClampMaxTypeValues[i].Text;
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
-FString FEnvQueryTestDetails::GetEquationValuesDesc() const
+FText FEnvQueryTestDetails::GetEquationValuesDesc() const
 {
 	check(ScoreEquationHandle.IsValid());
 	uint8 EnumValue;
@@ -419,11 +419,11 @@ FString FEnvQueryTestDetails::GetEquationValuesDesc() const
 	{
 		if (ScoreEquationValues[i].Int == EnumValue)
 		{
-			return ScoreEquationValues[i].Str;
+			return ScoreEquationValues[i].Text;
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 TSharedRef<SWidget> FEnvQueryTestDetails::OnGetFilterTestContent()
@@ -434,13 +434,13 @@ TSharedRef<SWidget> FEnvQueryTestDetails::OnGetFilterTestContent()
 	for (int32 i = 0; i < FilterTestValues.Num(); i++)
 	{
 		FUIAction ItemAction(FExecuteAction::CreateSP(this, &FEnvQueryTestDetails::OnFilterTestChange, FilterTestValues[i].Int));
-		MenuBuilder.AddMenuEntry(FText::FromString(FilterTestValues[i].Str), TAttribute<FText>(), FSlateIcon(), ItemAction);
+		MenuBuilder.AddMenuEntry(FilterTestValues[i].Text, TAttribute<FText>(), FSlateIcon(), ItemAction);
 	}
 
 	return MenuBuilder.MakeWidget();
 }
 
-FString FEnvQueryTestDetails::GetCurrentFilterTestDesc() const
+FText FEnvQueryTestDetails::GetCurrentFilterTestDesc() const
 {
 	uint8 EnumValue;
 	FilterTypeHandle->GetValue(EnumValue);
@@ -449,11 +449,11 @@ FString FEnvQueryTestDetails::GetCurrentFilterTestDesc() const
 	{
 		if (FilterTestValues[i].Int == EnumValue)
 		{
-			return FilterTestValues[i].Str;
+			return FilterTestValues[i].Text;
 		}
 	}
 
-	return FString();
+	return FText::GetEmpty();
 }
 
 TSharedRef<SWidget> FEnvQueryTestDetails::OnGetEquationValuesContent()
@@ -464,13 +464,13 @@ TSharedRef<SWidget> FEnvQueryTestDetails::OnGetEquationValuesContent()
 	for (int32 i = 0; i < ScoreEquationValues.Num(); i++)
 	{
 		FUIAction ItemAction(FExecuteAction::CreateSP(this, &FEnvQueryTestDetails::OnScoreEquationChange, ScoreEquationValues[i].Int));
-		MenuBuilder.AddMenuEntry(FText::FromString(ScoreEquationValues[i].Str), TAttribute<FText>(), FSlateIcon(), ItemAction);
+		MenuBuilder.AddMenuEntry(ScoreEquationValues[i].Text, TAttribute<FText>(), FSlateIcon(), ItemAction);
 	}
 
 	return MenuBuilder.MakeWidget();
 }
 
-FString FEnvQueryTestDetails::GetScoreEquationInfo() const
+FText FEnvQueryTestDetails::GetScoreEquationInfo() const
 {
 	uint8 EnumValue;
 	ScoreEquationHandle->GetValue(EnumValue);
@@ -478,22 +478,22 @@ FString FEnvQueryTestDetails::GetScoreEquationInfo() const
 	switch (EnumValue)
 	{
 		case EEnvTestScoreEquation::Linear:
-			return LOCTEXT("Linear","Final score = ScoringFactor * NormalizedItemValue").ToString();
+			return LOCTEXT("Linear","Final score = ScoringFactor * NormalizedItemValue");
 
 		case EEnvTestScoreEquation::Square:
-			return LOCTEXT("Square","Final score = ScoringFactor * (NormalizedItemValue * NormalizedItemValue)\nBias towards items with big values.").ToString();
+			return LOCTEXT("Square","Final score = ScoringFactor * (NormalizedItemValue * NormalizedItemValue)\nBias towards items with big values.");
 
 		case EEnvTestScoreEquation::InverseLinear:
-			return LOCTEXT("Inverse","Final score = ScoringFactor * (1.0 - NormalizedItemValue)\nBias towards items with values close to zero.  (Linear, but flipped from 1 to 0 rather than 0 to 1.").ToString();
+			return LOCTEXT("Inverse","Final score = ScoringFactor * (1.0 - NormalizedItemValue)\nBias towards items with values close to zero.  (Linear, but flipped from 1 to 0 rather than 0 to 1.");
 
 		case EEnvTestScoreEquation::Constant:
-			return LOCTEXT("Constant", "Final score (for values that 'pass') = ScoringFactor\nNOTE: In this case, the score is normally EITHER the ScoringFactor value or zero.\nThe score will be zero if the Normalized Test Value is zero (or if the test value is false for a boolean query).\nOtherwise, score will be the ScoringFactor.").ToString();
+			return LOCTEXT("Constant", "Final score (for values that 'pass') = ScoringFactor\nNOTE: In this case, the score is normally EITHER the ScoringFactor value or zero.\nThe score will be zero if the Normalized Test Value is zero (or if the test value is false for a boolean query).\nOtherwise, score will be the ScoringFactor.");
 
 		default:
 			break;
 	}
 
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 EVisibility FEnvQueryTestDetails::GetVisibilityOfValueMinForScoreClamping() const

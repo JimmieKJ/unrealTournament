@@ -262,15 +262,6 @@ protected:
 	 */
 	static FString TranslateUATError(int32 ErrorCode);
 
-	/** Callback for ChoosePackagesToCheckIn(), continues to bring up UI once source control operations are complete */
-	static void ChoosePackagesToCheckInCallback(const FSourceControlOperationRef& InOperation, ECommandResult::Type InResult);
-
-	/** Called when the process has completed and we have packages to check in */
-	static void ChoosePackagesToCheckInCompleted(const TArray<UPackage*>& LoadedPackages, const TArray<FString>& PackageNames, const TArray<FString>& ConfigFiles);
-
-	/** Delegate called when the user has decided to cancel the check in process */
-	static void ChoosePackagesToCheckInCancelled(FSourceControlOperationRef InOperation);
-
 private:
 
 	struct EventData

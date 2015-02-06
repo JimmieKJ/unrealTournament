@@ -4,6 +4,7 @@
 
 #include "ModuleManager.h"
 #include "IAssetTypeActions.h"
+#include "IClassTypeActions.h"
 #include "IAssetTools.h"
 
 class FAssetToolsModule : public IModuleInterface
@@ -22,7 +23,8 @@ public:
 	 */
 	static inline FAssetToolsModule& GetModule()
 	{
-		return FModuleManager::LoadModuleChecked< FAssetToolsModule >("AssetTools");
+		static const FName ModuleName = "AssetTools";
+		return FModuleManager::LoadModuleChecked< FAssetToolsModule >(ModuleName);
 	}
 
 private:

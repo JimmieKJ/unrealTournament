@@ -258,6 +258,7 @@ void UK2Node_Literal::SetObjectRef(UObject* NewValue)
 		// Set the pin type to reflect the object we're referencing
 		if( ValuePin )
 		{
+			ValuePin->Modify();
 			ValuePin->PinType.PinCategory = Schema->PC_Object;
 			ValuePin->PinType.PinSubCategory = TEXT("");
 			ValuePin->PinType.PinSubCategoryObject = ObjectRef->GetClass();

@@ -227,7 +227,7 @@ bool SAnimationEditorViewportTabBody::CanUseGizmos() const
 	return false;
 }
 
-FString SAnimationEditorViewportTabBody::GetDisplayString() const
+FText SAnimationEditorViewportTabBody::GetDisplayString() const
 {
 	class UDebugSkelMeshComponent* Component = PersonaPtr.Pin()->PreviewComponent;
 	FString TargetSkeletonName = TargetSkeleton ?TargetSkeleton->GetName() : FName(NAME_None).ToString();
@@ -236,36 +236,36 @@ FString SAnimationEditorViewportTabBody::GetDisplayString() const
 	{
 		if ( Component->bForceRefpose )
 		{
-			return LOCTEXT("ReferencePose", "Reference pose").ToString();
+			return LOCTEXT("ReferencePose", "Reference pose");
 		}
 		else if (Component->IsPreviewOn())
 		{
-			return FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()) ).ToString();
+			return FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()) );
 		}
 		else if (Component->AnimBlueprintGeneratedClass != NULL)
 		{
 			const bool bWarnAboutBoneManip = !PersonaPtr.Pin()->IsModeCurrent(FPersonaModes::AnimBlueprintEditMode);
 			if (bWarnAboutBoneManip)
 			{
-				return FText::Format(LOCTEXT("PreviewingAnimBP_WarnDisabled", "Previewing {0}. \nBone manipulation is disabled in this mode. "), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName())).ToString();
+				return FText::Format(LOCTEXT("PreviewingAnimBP_WarnDisabled", "Previewing {0}. \nBone manipulation is disabled in this mode. "), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName()));
 			}
 			else
 			{
-				return FText::Format(LOCTEXT("PreviewingAnimBP", "Previewing {0}"), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName())).ToString();
+				return FText::Format(LOCTEXT("PreviewingAnimBP", "Previewing {0}"), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName()));
 			}
 		}
 		else if (Component->SkeletalMesh == NULL)
 		{
-			return FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ).ToString();
+			return FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) );
 		}
 		else 
 		{
-			return LOCTEXT("NothingToPlay", "Nothing to play").ToString();
+			return LOCTEXT("NothingToPlay", "Nothing to play");
 		}
 	}
 	else
 	{
-		return FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) ).ToString();
+		return FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) );
 	}
 }
 
@@ -1554,7 +1554,7 @@ float SAnimationEditorViewportTabBody::GetWindStrengthSliderValue() const
 	return GetAnimationViewportClient()->GetWindStrengthSliderValue();
 }
 
-FString SAnimationEditorViewportTabBody::GetWindStrengthLabel() const
+FText SAnimationEditorViewportTabBody::GetWindStrengthLabel() const
 {
 	return GetAnimationViewportClient()->GetWindStrengthLabel();
 }
@@ -1639,7 +1639,7 @@ float SAnimationEditorViewportTabBody::GetGravityScaleSliderValue() const
 	return GetAnimationViewportClient()->GetGravityScaleSliderValue();
 }
 
-FString SAnimationEditorViewportTabBody::GetGravityScaleLabel() const
+FText SAnimationEditorViewportTabBody::GetGravityScaleLabel() const
 {
 	return GetAnimationViewportClient()->GetGravityScaleLabel();
 }

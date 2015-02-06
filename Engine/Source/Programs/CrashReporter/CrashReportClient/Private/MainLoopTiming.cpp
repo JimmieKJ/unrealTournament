@@ -4,7 +4,7 @@
 
 #include "MainLoopTiming.h"
 #include "LaunchEngineLoop.h"
-
+#include "TaskGraphInterfaces.h"
 
 FMainLoopTiming::FMainLoopTiming(float IdealTickRate, EMainLoopOptions::Type Options)
 	: IdealFrameTime(1.f / IdealTickRate)
@@ -17,6 +17,7 @@ FMainLoopTiming::FMainLoopTiming(float IdealTickRate, EMainLoopOptions::Type Opt
 void FMainLoopTiming::Tick()
 {
 	// Tick app logic
+	FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 	FTicker::GetCoreTicker().Tick(ActualDeltaTime);
 
 #if !CRASH_REPORT_UNATTENDED_ONLY

@@ -55,7 +55,7 @@ TSharedRef< ITableRow > FSkeletonNotifyDetails::MakeAnimationRow( TSharedPtr<FSt
 {
 	return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
 	[
-		SNew(STextBlock).Text(*Item.Get())
+		SNew(STextBlock).Text(FText::FromString(*Item.Get()))
 	];
 }
 

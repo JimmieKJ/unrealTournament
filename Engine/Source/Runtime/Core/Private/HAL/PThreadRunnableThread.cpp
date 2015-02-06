@@ -28,14 +28,13 @@ uint32 FRunnableThreadPThread::Run()
 		// Initialization has failed, release the sync event
 		ThreadInitSyncEvent->Trigger();
 	}
+	
+	// Clean ourselves up without waiting
+	ThreadIsRunning = false;
 
 #if STATS
 	FThreadStats::Shutdown();
 #endif
-
-	// Clean ourselves up without waiting
-	ThreadIsRunning = false;
-
 
 	return ExitCode;
 }

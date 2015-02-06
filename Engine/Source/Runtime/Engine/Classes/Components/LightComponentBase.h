@@ -151,21 +151,16 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 	 */
 	bool HasStaticShadowing() const;
 
+#if WITH_EDITOR
 	/** UActorComponent Interface */
 	virtual void OnRegister() override;
+#endif
 
 	/** We return a small bounds to allow us to non-interpenetrates when placing lights in the level. */
 	virtual bool ShouldCollideWhenPlacing() const override;
 
 	/** Get the extent used when placing this component in the editor, used for 'pulling back' hit. */
 	virtual FBoxSphereBounds GetPlacementExtent() const override;
-
-protected:
-#if WITH_EDITORONLY_DATA
-	UPROPERTY(transient)
-	class UBillboardComponent* SpriteComponent;
-#endif
-
 };
 
 

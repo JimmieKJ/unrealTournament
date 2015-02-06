@@ -10,14 +10,15 @@ UPaperRuntimeSettings::UPaperRuntimeSettings(const FObjectInitializer& ObjectIni
 	: Super(ObjectInitializer)
 	, DefaultPixelsPerUnrealUnit(2.56f)
 	, bEnableSpriteAtlasGroups(false)
-	, bEnableTileMapEditing(false)
 	, bEnableTerrainSplineEditing(false)
 {
 #if WITH_EDITORONLY_DATA
 	if (!IsRunningCommandlet())
 	{
-		DefaultTranslucentSpriteMaterialName = FStringAssetReference("/Paper2D/MaskedUnlitSpriteMaterial.MaskedUnlitSpriteMaterial");
-		DefaultOpaqueSpriteMaterialName = FStringAssetReference("/Paper2D/OpaqueUnlitSpriteMaterial.OpaqueUnlitSpriteMaterial");
+		bPickBestMaterialWhenCreatingSprite = true;
+		DefaultMaskedMaterialName = FStringAssetReference("/Paper2D/MaskedUnlitSpriteMaterial.MaskedUnlitSpriteMaterial");
+		DefaultTranslucentMaterialName = FStringAssetReference("/Paper2D/TranslucentUnlitSpriteMaterial.TranslucentUnlitSpriteMaterial");
+		DefaultOpaqueMaterialName = FStringAssetReference("/Paper2D/OpaqueUnlitSpriteMaterial.OpaqueUnlitSpriteMaterial");
 	}
 #endif
 }

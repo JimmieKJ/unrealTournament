@@ -135,7 +135,7 @@ class ULandscapeHeightfieldCollisionComponent : public UPrimitiveComponent
 	// End UActorComponent interface.
 
 	// Begin USceneComponent interface.
-	virtual void DestroyComponent() override;
+	virtual void DestroyComponent(bool bPromoteChildren = false) override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform &BoundTransform) const override;
 
 	virtual ECollisionEnabled::Type GetCollisionEnabled() const override;

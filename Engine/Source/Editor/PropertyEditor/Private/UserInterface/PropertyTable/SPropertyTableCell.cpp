@@ -230,7 +230,7 @@ TSharedRef<SBorder> SPropertyTableCell::ConstructInvalidPropertyWidget()
 			[
 				SNew(STextBlock)
 				.ColorAndOpacity(FLinearColor::Red)
-				.Text(NSLOCTEXT("PropertyEditor", "InvalidTableCellProperty", "Failed to retrieve value").ToString())
+				.Text(NSLOCTEXT("PropertyEditor", "InvalidTableCellProperty", "Failed to retrieve value"))
 			]
 		];
 }

@@ -23,6 +23,7 @@ void SGestureEditBox::Construct( const FArguments& InArgs, TSharedPtr<FGestureTr
 		SAssignNew( ConflictPopup, SMenuAnchor )
 		.Placement(MenuPlacement_ComboBox)
 		.OnGetMenuContent( this, &SGestureEditBox::OnGetContentForConflictPopup )
+		.OnMenuOpenChanged(this, &SGestureEditBox::OnConflictPopupOpenChanged)
 		[
 			SNew( SBox )
 			.WidthOverride( 200.0f )
@@ -127,8 +128,6 @@ void SGestureEditBox::OnGestureEditingStopped()
 	{
 		GestureEditor->CommitNewGesture();
 	}
-
-	ConflictPopup->SetIsOpen(false);
 }
 
 
@@ -136,7 +135,7 @@ void SGestureEditBox::OnGestureChanged()
 {
 	if( GestureEditor->HasConflict() )
 	{
-		ConflictPopup->SetIsOpen(true, false);
+		ConflictPopup->SetIsOpen(true, true);
 	}
 	else
 	{
@@ -150,7 +149,6 @@ void SGestureEditBox::OnGestureChanged()
 		}
 	}
 }
-
 
 EVisibility SGestureEditBox::GetGestureRemoveButtonVisibility() const
 {
@@ -245,6 +243,13 @@ TSharedRef<SWidget> SGestureEditBox::OnGetContentForConflictPopup()
 		];
 }
 
+void SGestureEditBox::OnConflictPopupOpenChanged(bool bIsOpen)
+{
+	if(!bIsOpen)
+	{
+		GestureEditor->StopEditing();
+	}
+}
 
 EVisibility SGestureEditBox::GetNotificationVisibility() const
 {
@@ -267,6 +272,5 @@ FReply SGestureEditBox::OnMouseButtonDown( const FGeometry& MyGeometry, const FP
 
 	return FReply::Handled();
 }
-
 
 #undef LOCTEXT_NAMESPACE

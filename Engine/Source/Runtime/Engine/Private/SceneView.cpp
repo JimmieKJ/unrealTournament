@@ -15,6 +15,7 @@
 #include "BufferVisualizationData.h"
 #include "Interfaces/Interface_PostProcessVolume.h"
 #include "Engine/TextureCube.h"
+#include "Classes/Engine/RendererSettings.h"
 
 DEFINE_LOG_CATEGORY(LogBufferVisualization);
 
@@ -286,6 +287,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 #if WITH_EDITOR
 	, OverrideLODViewOrigin(InitOptions.OverrideLODViewOrigin)
 	, bAllowTranslucentPrimitivesInHitProxy( true )
+	, bHasSelectedComponents( false )
 #endif
 	, FeatureLevel(InitOptions.ViewFamily ? InitOptions.ViewFamily->GetFeatureLevel() : GMaxRHIFeatureLevel)
 {
@@ -360,6 +362,17 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	// Compute a transform from view origin centered world-space to clip space.
 	ViewMatrices.TranslatedViewProjectionMatrix = TranslatedViewMatrix * ViewMatrices.ProjMatrix;
 	ViewMatrices.InvTranslatedViewProjectionMatrix = ViewMatrices.TranslatedViewProjectionMatrix.Inverse();
+
+	// Compute screen scale factors.
+	// Stereo renders at half horizontal resolution, but compute shadow resolution based on full resolution.
+	const bool bStereo = StereoPass != eSSP_FULL;
+	const float ScreenXScale = bStereo ? 2.0f : 1.0f;
+	ViewMatrices.ProjectionScale.X = ScreenXScale * FMath::Abs(ViewMatrices.ProjMatrix.M[0][0]);
+	ViewMatrices.ProjectionScale.Y = FMath::Abs(ViewMatrices.ProjMatrix.M[1][1]);
+	ViewMatrices.ScreenScale = FMath::Max(
+		ViewRect.Size().X * 0.5f * ViewMatrices.ProjectionScale.X,
+		ViewRect.Size().Y * 0.5f * ViewMatrices.ProjectionScale.Y
+		);
 	
 	ShadowViewMatrices = ViewMatrices;
 
@@ -424,8 +437,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	static TConsoleVariableData<int32>* SortPolicyCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.TranslucentSortPolicy"));
 	TranslucentSortPolicy = static_cast<ETranslucentSortPolicy::Type>(SortPolicyCvar->GetValueOnAnyThread());
 
-	//@TODO: PAPER2D: Should come from the config value if/when axis switching is allowed
-	TranslucentSortAxis = FVector(0.0f, -1.0f, 0.0f);
+	TranslucentSortAxis = GetDefault<URendererSettings>()->TranslucentSortAxis;
 
 	// As the world is only accessable from the game thread, bIsGameView should be explicitly
 	// set on any other thread.

@@ -33,17 +33,17 @@ private:
 	void OnSelectionChangedInternal( TSharedPtr<int32> NewSelection, ESelectInfo::Type SelectInfo );
 
 	//Get string to display
-	FString OnGetVisibleTextInternal() const
+	FText OnGetVisibleTextInternal() const
 	{
-		return VisibleText.Get();
+		return FText::FromString(VisibleText.Get());
 	}
 
 	// Function to create each row of the combo widget
 	TSharedRef<ITableRow> OnGenerateComboWidget( TSharedPtr<int32> InComboIndex, const TSharedRef<STableViewBase>& OwnerTable );
 
-	FString GetRowString(int32 RowIndex) const
+	FText GetRowString(int32 RowIndex) const
 	{
-		return OnGetDisplayName.Execute(RowIndex);
+		return FText::FromString(OnGetDisplayName.Execute(RowIndex));
 	}
 
 private:

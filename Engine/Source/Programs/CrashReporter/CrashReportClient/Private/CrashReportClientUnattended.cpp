@@ -6,11 +6,9 @@
 FCrashReportClientUnattended::FCrashReportClientUnattended(const FPlatformErrorReport& ErrorReport)
 	: Uploader(GServerIP)
 {
-	Uploader.BeginUpload(ErrorReport);
-
 	// Prevent uploader waiting for a diagnosis file
-	Uploader.LocalDiagnosisSkipped();
-
+	Uploader.LocalDiagnosisSkipped();	
+	Uploader.BeginUpload(ErrorReport);
 	StartTicker();
 }
 

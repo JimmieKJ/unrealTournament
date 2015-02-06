@@ -198,11 +198,11 @@ static TArray< FMergeGraphEntry > GenerateDiffListItems(const FBlueprintRevPair&
 
 						if( ConflictingDifference )
 						{
-							Label = FText::Format( NSLOCTEXT("SMergeGraphView", "ConflictIdentifier", "CONFLICT: {0} conflicts with {1}" ), FText::FromString((*ConflictingDifference)->DisplayString), FText::FromString(Difference.DisplayString) );
+							Label = FText::Format( NSLOCTEXT("SMergeGraphView", "ConflictIdentifier", "CONFLICT: {0} conflicts with {1}" ), (*ConflictingDifference)->DisplayString, Difference.DisplayString );
 						}
 						else
 						{
-							Label = FText::FromString( Difference.DisplayString );
+							Label = Difference.DisplayString;
 						}
 
 						FMergeGraphRowEntry NewEntry = {
@@ -231,7 +231,7 @@ static TArray< FMergeGraphEntry > GenerateDiffListItems(const FBlueprintRevPair&
 						if (!ConflictingDifference)
 						{
 							FMergeGraphRowEntry NewEntry = {
-								FText::FromString(Difference.DisplayString)
+								Difference.DisplayString
 								, Difference.OwningGraph
 								, Difference.Node2 /*UEdGraphNode* LocalNode*/
 								, Difference.Node1 /*UEdGraphNode* BaseNode*/

@@ -204,13 +204,13 @@ public:
 	float GetWindStrengthSliderValue() const;
 
 	/** Function to get wind strength label */
-	FString GetWindStrengthLabel() const;
+	FText GetWindStrengthLabel() const;
 	/** Function to set gravity scale (0.0 - 4.0) */
 	void SetGravityScale(float SliderPos);
 	/** Function to get slide value used to represent gravity scale */
 	float GetGravityScaleSliderValue() const;
 	/** Function to get gravity scale label */
-	FString GetGravityScaleLabel() const;
+	FText GetGravityScaleLabel() const;
 	/** Function to set mesh stat drawing state */
 	void OnSetShowMeshStats(int32 ShowMode);
 	/** Whether or not mesh stats are being displayed */

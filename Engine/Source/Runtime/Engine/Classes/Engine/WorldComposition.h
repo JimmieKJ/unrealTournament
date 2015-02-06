@@ -135,11 +135,13 @@ class ENGINE_API UWorldComposition : public UObject
 	/** Collect tiles package names to cook  */
 	void CollectTilesToCook(TArray<FString>& PackageNames);
 
-	DECLARE_MULTICAST_DELEGATE_OneParam(FWorldCompositionEvent, UWorld*);
-	// Callback on world composition creation
-	static FWorldCompositionEvent OnWorldCompositionCreated;
-	// Callback on world composition destruction 
-	static FWorldCompositionEvent OnWorldCompositionDestroyed;
+	// Event to enable/disable world composition in the world
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FEnableWorldCompositionEvent, UWorld*, bool);
+	static FEnableWorldCompositionEvent EnableWorldCompositionEvent;
+	
+	// Event when world composition was successfully enabled/disabled in the world
+	DECLARE_MULTICAST_DELEGATE_OneParam(FWorldCompositionChangedEvent, UWorld*);
+	static FWorldCompositionChangedEvent WorldCompositionChangedEvent;
 
 #endif //WITH_EDITOR
 

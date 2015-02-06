@@ -44,6 +44,9 @@ class UDataTable : public UObject
 	virtual void FinishDestroy() override;
 	virtual void Serialize( FArchive& Ar ) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+#if WITH_EDITORONLY_DATA
+	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
+#endif
 	// End  UObject interface
 
 	// Begin UDataTable interface

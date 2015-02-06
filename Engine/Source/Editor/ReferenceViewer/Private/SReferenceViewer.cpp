@@ -304,28 +304,22 @@ void SReferenceViewer::GraphNavigateHistoryForward()
 	ForwardClicked();
 }
 
-FString SReferenceViewer::GetHistoryBackTooltip() const
+FText SReferenceViewer::GetHistoryBackTooltip() const
 {
 	if ( HistoryManager.CanGoBack() )
 	{
-		return FText::Format( LOCTEXT("HistoryBackTooltip", "Back to {0}"), FText::FromString(HistoryManager.GetBackDesc()) ).ToString();
+		return FText::Format( LOCTEXT("HistoryBackTooltip", "Back to {0}"), HistoryManager.GetBackDesc() );
 	}
-	else
-	{
-		return FString();
-	}
+	return FText::GetEmpty();
 }
 
-FString SReferenceViewer::GetHistoryForwardTooltip() const
+FText SReferenceViewer::GetHistoryForwardTooltip() const
 {
 	if ( HistoryManager.CanGoForward() )
 	{
-		return FText::Format( LOCTEXT("HistoryForwardTooltip", "Forward to {0}"), FText::FromString(HistoryManager.GetForwardDesc()) ).ToString();
+		return FText::Format( LOCTEXT("HistoryForwardTooltip", "Forward to {0}"), HistoryManager.GetForwardDesc() );
 	}
-	else
-	{
-		return FString();
-	}
+	return FText::GetEmpty();
 }
 
 FText SReferenceViewer::GetAddressBarText() const
@@ -367,22 +361,22 @@ void SReferenceViewer::OnUpdateHistoryData(FReferenceViewerHistoryData& HistoryD
 		const TArray<FName>& CurrentGraphRootPackageNames = GraphObj->GetCurrentGraphRootPackageNames();
 		if ( CurrentGraphRootPackageNames.Num() == 1 )
 		{
-			HistoryData.HistoryDesc = FText::FromName(CurrentGraphRootPackageNames[0]).ToString();
+			HistoryData.HistoryDesc = FText::FromName(CurrentGraphRootPackageNames[0]);
 		}
 		else if ( CurrentGraphRootPackageNames.Num() > 1 )
 		{
-			HistoryData.HistoryDesc = FText::Format(LOCTEXT("AddressBarMultiplePackagesText", "{0} and {1} others"), FText::FromName(CurrentGraphRootPackageNames[0]), FText::AsNumber(CurrentGraphRootPackageNames.Num())).ToString();
+			HistoryData.HistoryDesc = FText::Format(LOCTEXT("AddressBarMultiplePackagesText", "{0} and {1} others"), FText::FromName(CurrentGraphRootPackageNames[0]), FText::AsNumber(CurrentGraphRootPackageNames.Num()));
 		}
 		else
 		{
-			HistoryData.HistoryDesc = TEXT("");
+			HistoryData.HistoryDesc = FText::GetEmpty();
 		}
 
 		HistoryData.PackageNames = CurrentGraphRootPackageNames;
 	}
 	else
 	{
-		HistoryData.HistoryDesc = TEXT("");
+		HistoryData.HistoryDesc = FText::GetEmpty();
 		HistoryData.PackageNames.Empty();
 	}
 }

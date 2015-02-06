@@ -30,14 +30,14 @@ private:
 	// Profile combo related
 	TSharedRef<SWidget> MakeCollisionProfileComboWidget( TSharedPtr<FString> InItem );
 	void OnCollisionProfileChanged( TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo, IDetailGroup* CollisionGroup );
-	FString GetCollisionProfileComboBoxContent() const;
-	FString GetCollisionProfileComboBoxToolTip() const;
+	FText GetCollisionProfileComboBoxContent() const;
+	FText GetCollisionProfileComboBoxToolTip() const;
 	void OnCollisionProfileComboOpening();
 
 	// Movement channel related
 	TSharedRef<SWidget> MakeObjectTypeComboWidget( TSharedPtr<FString> InItem );
 	void OnObjectTypeChanged( TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo  );
-	FString GetObjectTypeComboBoxContent() const;
+	FText GetObjectTypeComboBoxContent() const;
 	int32 InitializeObjectTypeComboList();
 
 	// set to default for profile setting

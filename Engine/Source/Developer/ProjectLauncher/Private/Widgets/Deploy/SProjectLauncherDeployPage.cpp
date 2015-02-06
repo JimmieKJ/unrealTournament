@@ -144,7 +144,7 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 /* SProjectLauncherDevicesPage callbacks
  *****************************************************************************/
 
-FString SProjectLauncherDeployPage::HandleDeploymentModeComboButtonContentText( ) const
+FText SProjectLauncherDeployPage::HandleDeploymentModeComboButtonContentText( ) const
 {
 	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
 
@@ -154,28 +154,28 @@ FString SProjectLauncherDeployPage::HandleDeploymentModeComboButtonContentText( 
 
 		if (DeploymentMode == ELauncherProfileDeploymentModes::CopyToDevice)
 		{
-			return TEXT("Copy to device");
+			return LOCTEXT("CopyToDeviceAction", "Copy to device");
 		}
 
 		if (DeploymentMode == ELauncherProfileDeploymentModes::DoNotDeploy)
 		{
-			return TEXT("Do not deploy");
+			return LOCTEXT("DoNotDeployAction", "Do not deploy");
 		}
 
 		if (DeploymentMode == ELauncherProfileDeploymentModes::FileServer)
 		{
-			return TEXT("File server");
+			return LOCTEXT("FileServerAction", "File server");
 		}
 
 		if (DeploymentMode == ELauncherProfileDeploymentModes::CopyRepository)
 		{
-			return TEXT("Copy repository");
+			return LOCTEXT("CopyRepositoryAction", "Copy repository");
 		}
 
-		return LOCTEXT("DeploymentModeComboButtonDefaultText", "Select...").ToString();
+		return LOCTEXT("DeploymentModeComboButtonDefaultText", "Select...");
 	}
 
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 

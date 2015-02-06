@@ -7,7 +7,6 @@
 #include "RefCounting.h"
 #include "Runtime/Engine/Public/PixelFormat.h" // for EPixelFormat
 #include "LockFreeList.h"
-#include "SecureHash.h"
 
 #define DISABLE_RHI_DEFFERED_DELETE 0
 
@@ -104,24 +103,12 @@ class FRHIBoundShaderState : public FRHIResource {};
 // Shaders
 //
 
-class FRHIShader : public FRHIResource
-{
-public:
-	FRHIShader(bool InbDoNotDeferDelete = false) : FRHIResource(InbDoNotDeferDelete) {}
-	
-	void SetHash(FSHAHash InHash) { Hash = InHash; }
-	FSHAHash GetHash() const { return Hash; }
-
-private:
-	FSHAHash Hash;
-};
-
-class FRHIVertexShader : public FRHIShader {};
-class FRHIHullShader : public FRHIShader {};
-class FRHIDomainShader : public FRHIShader {};
-class FRHIPixelShader : public FRHIShader {};
-class FRHIGeometryShader : public FRHIShader {};
-class FRHIComputeShader : public FRHIShader {};
+class FRHIVertexShader : public FRHIResource {};
+class FRHIHullShader : public FRHIResource {};
+class FRHIDomainShader : public FRHIResource {};
+class FRHIPixelShader : public FRHIResource {};
+class FRHIGeometryShader : public FRHIResource {};
+class FRHIComputeShader : public FRHIResource {};
 
 //
 // Buffers

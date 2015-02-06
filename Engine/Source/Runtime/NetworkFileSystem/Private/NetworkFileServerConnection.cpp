@@ -880,7 +880,7 @@ void FNetworkFileServerClientConnection::PackageFile( FString& Filename, FArchiv
 	{
 		if (!File->Size())
 		{
-			UE_LOG(LogFileServer, Error, TEXT("Sending empty file %s...."), *Filename);
+			UE_LOG(LogFileServer, Warning, TEXT("Sending empty file %s...."), *Filename);
 		}
 		else
 		{

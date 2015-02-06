@@ -327,9 +327,9 @@ bool FFindInBlueprintsResult::ExtractContent(TSharedPtr< FJsonObject > InJsonNod
 	return bMatchesSearchResults;
 }
 
-FString FFindInBlueprintsResult::GetCategory() const
+FText FFindInBlueprintsResult::GetCategory() const
 {
-	return FString();
+	return FText::GetEmpty();
 }
 
 TSharedRef<SWidget> FFindInBlueprintsResult::CreateIcon() const
@@ -389,9 +389,9 @@ void FFindInBlueprintsResult::ExpandAllChildren( TSharedPtr< STreeView< TSharedP
 	}
 }
 
-FString FFindInBlueprintsResult::GetDisplayString() const
+FText FFindInBlueprintsResult::GetDisplayString() const
 {
-	return DisplayText.ToString();
+	return DisplayText;
 }
 
 //////////////////////////////////////////////////////////
@@ -519,30 +519,30 @@ bool FFindInBlueprintsGraphNode::ExtractContent(TSharedPtr< FJsonObject > InJson
 	return bMatchesSearchResults;
 }
 
-FString FFindInBlueprintsGraphNode::GetCategory() const
+FText FFindInBlueprintsGraphNode::GetCategory() const
 {
 	if(Class == UK2Node_CallFunction::StaticClass())
 	{
-		return LOCTEXT("CallFuctionCat", "Function Call").ToString();
+		return LOCTEXT("CallFuctionCat", "Function Call");
 	}
 	else if(Class == UK2Node_MacroInstance::StaticClass())
 	{
-		return LOCTEXT("MacroCategory", "Macro").ToString();
+		return LOCTEXT("MacroCategory", "Macro");
 	}
 	else if(Class == UK2Node_Event::StaticClass())
 	{
-		return LOCTEXT("EventCat", "Event").ToString();
+		return LOCTEXT("EventCat", "Event");
 	}
 	else if(Class == UK2Node_VariableGet::StaticClass())
 	{
-		return LOCTEXT("VariableGetCategory", "Variable Get").ToString();
+		return LOCTEXT("VariableGetCategory", "Variable Get");
 	}
 	else if(Class == UK2Node_VariableSet::StaticClass())
 	{
-		return LOCTEXT("VariableSetCategory", "Variable Set").ToString();
+		return LOCTEXT("VariableSetCategory", "Variable Set");
 	}
 
-	return LOCTEXT("NodeCategory", "Node").ToString();
+	return LOCTEXT("NodeCategory", "Node");
 }
 
 void FFindInBlueprintsGraphNode::FinalizeSearchData()
@@ -584,7 +584,7 @@ TSharedRef<SWidget> FFindInBlueprintsPin::CreateIcon() const
 	return 	SNew(SImage)
 		.Image(Brush)
 		.ColorAndOpacity(IconColor)
-		.ToolTipText(FindInBlueprintsHelpers::GetPinTypeAsString(PinType) );
+		.ToolTipText(FText::FromString(FindInBlueprintsHelpers::GetPinTypeAsString(PinType)));
 }
 
 bool FFindInBlueprintsPin::ParseSearchInfo(const TArray<FString> &InTokens, FString InKey, FText InValue, TSharedPtr< FFindInBlueprintsResult > InParent)
@@ -615,9 +615,9 @@ bool FFindInBlueprintsPin::ParseSearchInfo(const TArray<FString> &InTokens, FStr
 	return bMatchesTokens;
 }
 
-FString FFindInBlueprintsPin::GetCategory() const
+FText FFindInBlueprintsPin::GetCategory() const
 {
-	return LOCTEXT("PinCategory", "Pin").ToString();
+	return LOCTEXT("PinCategory", "Pin");
 }
 
 void FFindInBlueprintsPin::FinalizeSearchData()
@@ -664,7 +664,7 @@ TSharedRef<SWidget> FFindInBlueprintsProperty::CreateIcon() const
 	return 	SNew(SImage)
 		.Image(Brush)
 		.ColorAndOpacity(IconColor)
-		.ToolTipText( FindInBlueprintsHelpers::GetPinTypeAsString(PinType) );
+		.ToolTipText( FText::FromString(FindInBlueprintsHelpers::GetPinTypeAsString(PinType)) );
 }
 
 bool FFindInBlueprintsProperty::ParseSearchInfo(const TArray<FString> &InTokens, FString InKey, FText InValue, TSharedPtr< FFindInBlueprintsResult > InParent)
@@ -701,13 +701,13 @@ bool FFindInBlueprintsProperty::ParseSearchInfo(const TArray<FString> &InTokens,
 	return bMatchesTokens;
 }
 
-FString FFindInBlueprintsProperty::GetCategory() const
+FText FFindInBlueprintsProperty::GetCategory() const
 {
 	if(bIsSCSComponent)
 	{
-		return LOCTEXT("Component", "Component").ToString();
+		return LOCTEXT("Component", "Component");
 	}
-	return LOCTEXT("Variable", "Variable").ToString();
+	return LOCTEXT("Variable", "Variable");
 }
 
 void FFindInBlueprintsProperty::FinalizeSearchData()
@@ -846,17 +846,17 @@ bool FFindInBlueprintsGraph::ParseSearchInfo(const TArray<FString> &InTokens, FS
 	return bMatchesTokens;
 }
 
-FString FFindInBlueprintsGraph::GetCategory() const
+FText FFindInBlueprintsGraph::GetCategory() const
 {
 	if(GraphType == GT_Function)
 	{
-		return LOCTEXT("FunctionGraphCategory", "Function").ToString();
+		return LOCTEXT("FunctionGraphCategory", "Function");
 	}
 	else if(GraphType == GT_Macro)
 	{
-		return LOCTEXT("MacroGraphCategory", "Macro").ToString();
+		return LOCTEXT("MacroGraphCategory", "Macro");
 	}
-	return LOCTEXT("GraphCategory", "Graph").ToString();
+	return LOCTEXT("GraphCategory", "Graph");
 }
 
 ////////////////////////////////////
@@ -1057,7 +1057,7 @@ void SFindInBlueprints::Construct( const FArguments& InArgs, TSharedPtr<FBluepri
 				[
 					SNew(STextBlock)
 					.Font( FEditorStyle::GetFontStyle("AssetDiscoveryIndicator.DiscovertingAssetsFont") )
-					.Text( LOCTEXT("SearchResults", "Searching...").ToString() )
+					.Text( LOCTEXT("SearchResults", "Searching...") )
 					.Visibility(this, &SFindInBlueprints::GetSearchbarVisiblity)
 				]
 
@@ -1323,29 +1323,27 @@ TSharedRef<ITableRow> SFindInBlueprints::OnGenerateRow( FSearchResult InItem, co
 				[
 					SNew(STextBlock)
 					.Text(InItem.Get(), &FFindInBlueprintsResult::GetDisplayString)
-					.ToolTipText(LOCTEXT("BlueprintCatSearchToolTip", "Blueprint").ToString())
+					.ToolTipText(LOCTEXT("BlueprintCatSearchToolTip", "Blueprint"))
 				]
 			];
 	}
 	else // Functions/Event/Pin widget
 	{
-		FString CommentText;
+		FText CommentText = FText::GetEmpty();
 
 		if(!InItem->GetCommentText().IsEmpty())
 		{
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("Comment"), FText::FromString(InItem->GetCommentText()));
 
-			CommentText = FText::Format(LOCTEXT("NodeComment", "Node Comment:[{Comment}]"), Args).ToString();
+			CommentText = FText::Format(LOCTEXT("NodeComment", "Node Comment:[{Comment}]"), Args);
 		}
 
-		FString Tooltip;
-
 		FFormatNamedArguments Args;
-		Args.Add(TEXT("Category"), FText::FromString(InItem->GetCategory()));
+		Args.Add(TEXT("Category"), InItem->GetCategory());
 		Args.Add(TEXT("DisplayTitle"), InItem->DisplayText);
 
-		Tooltip = FText::Format(LOCTEXT("BlueprintResultSearchToolTip", "{Category} : {DisplayTitle}"), Args).ToString();
+		FText Tooltip = FText::Format(LOCTEXT("BlueprintResultSearchToolTip", "{Category} : {DisplayTitle}"), Args);
 
 		return SNew( STableRow< TSharedPtr<FFindInBlueprintsResult> >, OwnerTable )
 			[
@@ -1456,7 +1454,7 @@ void SFindInBlueprints::OnCopyAction()
 		}
 
 		// Add the display string
-		SelectedText += SelectedItem->GetDisplayString();
+		SelectedText += SelectedItem->GetDisplayString().ToString();
 
 		// If there is a comment, add two indents and then the comment
 		FString CommentText = SelectedItem->GetCommentText();

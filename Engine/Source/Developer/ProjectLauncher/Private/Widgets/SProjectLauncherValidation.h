@@ -136,7 +136,7 @@ protected:
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-					.Text(MessageText)
+					.Text(FText::FromString(MessageText))
 			];
 	}
 
@@ -181,19 +181,19 @@ private:
 		return EVisibility::Collapsed;
 	}
 
-	FString	HandleValidationMessage( ELauncherProfileValidationErrors::Type Error ) const
+	FText HandleValidationMessage( ELauncherProfileValidationErrors::Type Error ) const
 	{
 		ILauncherProfilePtr LaunchProfile = LaunchProfileAttr.Get();
 		if (LaunchProfile.IsValid())
 		{
 			if (LaunchProfile->HasValidationError(Error))
 			{
-				return LOCTEXT("NoPlatformSDKInstalled", "A required platform SDK is mising: ").ToString() + LaunchProfile->GetInvalidPlatform();
+				return FText::Format(LOCTEXT("NoPlatformSDKInstalledFmt", "A required platform SDK is mising: {0}"), FText::FromString(LaunchProfile->GetInvalidPlatform()));
 			}
 
-			return TEXT("");
+			return FText::GetEmpty();
 		}
-		return LOCTEXT("InvalidLaunchProfile", "Invalid Launch Profile.").ToString();
+		return LOCTEXT("InvalidLaunchProfile", "Invalid Launch Profile.");
 	}
 
 private:

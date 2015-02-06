@@ -972,6 +972,8 @@ int32 UGenerateBlueprintAPICommandlet::Main(FString const& Params)
 	GenerateBlueprintAPIUtils::CommandOptions = GenerateBlueprintAPIUtils::CommandletOptions(Switches);
 	GenerateBlueprintAPIUtils::CommandletOptions const& CommandOptions = GenerateBlueprintAPIUtils::CommandOptions;
 
+	FModuleManager::Get().LoadModuleChecked(TEXT("Blutility"));
+
 	FString ActiveFilePath;
 	FArchive* FileOut = nullptr;
 

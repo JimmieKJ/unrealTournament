@@ -79,6 +79,9 @@ private:
 	static FWorldDelegates::FWorldInitializationEvent::FDelegate OnWorldCreatedDelegate;
 	static FWorldDelegates::FWorldEvent::FDelegate OnWorldDestroyedDelegate;
 
+	static FDelegateHandle OnWorldCreatedDelegateHandle;
+	static FDelegateHandle OnWorldDestroyedDelegateHandle;
+
 public:
 
 	//@TODO: BOX2D: These conversion functions ignore the Paper2D coordinate system (they are fixed on a XZ coordinate system)

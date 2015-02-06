@@ -84,4 +84,7 @@ protected:
 	TArray<FString> TestReproStrings;
 
 	static FAutomationTestExecutionInfo* ExecutionInfo;
+
+private:
+	FTimerHandle TriggerFirstValidTestTimerHandle;
 };

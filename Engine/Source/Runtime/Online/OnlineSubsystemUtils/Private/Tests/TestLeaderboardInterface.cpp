@@ -77,13 +77,13 @@ void FTestLeaderboardInterface::OnLeaderboardFlushComplete(FName SessionName, bo
 	UE_LOG(LogOnline, Verbose, TEXT("OnLeaderboardFlushComplete Session: %s bWasSuccessful: %d"), *SessionName.ToString(), bWasSuccessful);
 	bOverallSuccess = bOverallSuccess && bWasSuccessful;
 
-	Leaderboards->ClearOnLeaderboardFlushCompleteDelegate(LeaderboardFlushDelegate);
+	Leaderboards->ClearOnLeaderboardFlushCompleteDelegate_Handle(LeaderboardFlushDelegateHandle);
 	TestPhase++;
 }
 
 void FTestLeaderboardInterface::FlushLeaderboards()
 {
-	Leaderboards->AddOnLeaderboardFlushCompleteDelegate(LeaderboardFlushDelegate);
+	LeaderboardFlushDelegateHandle = Leaderboards->AddOnLeaderboardFlushCompleteDelegate_Handle(LeaderboardFlushDelegate);
 	Leaderboards->FlushLeaderboards(TEXT("TEST"));
 }
 
@@ -103,7 +103,7 @@ void FTestLeaderboardInterface::OnLeaderboardReadComplete(bool bWasSuccessful)
 		}
 	}
 
-	Leaderboards->ClearOnLeaderboardReadCompleteDelegate(LeaderboardReadCompleteDelegate);
+	Leaderboards->ClearOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadCompleteDelegateHandle);
 	TestPhase++;
 }
 
@@ -112,7 +112,7 @@ void FTestLeaderboardInterface::ReadLeaderboards()
 	ReadObject = MakeShareable(new TestLeaderboardRead());
 	FOnlineLeaderboardReadRef ReadObjectRef = ReadObject.ToSharedRef();
 
-	Leaderboards->AddOnLeaderboardReadCompleteDelegate(LeaderboardReadCompleteDelegate);
+	LeaderboardReadCompleteDelegateHandle = Leaderboards->AddOnLeaderboardReadCompleteDelegate_Handle(LeaderboardReadCompleteDelegate);
 	Leaderboards->ReadLeaderboardsForFriends(0, ReadObjectRef);
 }
 

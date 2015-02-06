@@ -92,6 +92,7 @@ void FWorkflowCentricApplication::PushTabFactories(FWorkflowAllowedTabSet& Facto
 		TSharedPtr<FWorkflowTabFactory> SomeFactory = FactoryIt.Value();
 		FTabSpawnerEntry& SpawnerEntry = TabManager->RegisterTabSpawner(SomeFactory->GetIdentifier(), FOnSpawnTab::CreateRaw(this, &FWorkflowCentricApplication::CreatePanelTab, SomeFactory))
 			.SetDisplayName(SomeFactory->ConstructTabName(SpawnInfo).Get())
+			.SetTooltipText(SomeFactory->GetTabToolTipText(SpawnInfo))
 			.SetGroup(CurrentAppModePtr->GetWorkspaceMenuCategory());
 		
 		// Add the tab icon to the menu entry if one was provided

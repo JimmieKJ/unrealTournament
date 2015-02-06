@@ -14,14 +14,14 @@
 class SInputCatcherOverlay : public SOverlay
 {
 public:
-	void Construct(const FArguments& InArgs, TSharedRef<class FSequencerTimeSliderController> InTimeSliderController)
+	void Construct(const FArguments& InArgs, TSharedRef<class FVisualLoggerTimeSliderController> InTimeSliderController)
 	{
 		SOverlay::Construct(InArgs);
 		TimeSliderController = InTimeSliderController;
 	}
 
 	/** Controller for manipulating time */
-	TSharedPtr<class FSequencerTimeSliderController> TimeSliderController;
+	TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController;
 private:
 	/** SWidget Interface */
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -87,7 +87,7 @@ void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUI
 		.Thickness(FVector2D(2.0f, 2.0f));
 	ZoomScrollBar->SetState(0.0f, 1.0f);
 
-	TSharedPtr<FSequencerTimeSliderController> TimeSliderController(new FSequencerTimeSliderController(TimeSliderArgs));
+	TSharedPtr<FVisualLoggerTimeSliderController> TimeSliderController(new FVisualLoggerTimeSliderController(TimeSliderArgs));
 	TimeSliderController->SetExternalScrollbar(ZoomScrollBar);
 	VisualLoggerInterface->SetTimeSliderController(TimeSliderController);
 
@@ -282,7 +282,7 @@ void SVisualLoggerView::OnSearchChanged(const FText& Filter)
 	TimelinesContainer->OnSearchChanged(Filter);
 }
 
-TSharedRef<SWidget> SVisualLoggerView::MakeSectionOverlay(TSharedRef<FSequencerTimeSliderController> TimeSliderController, const TAttribute< TRange<float> >& ViewRange, const TAttribute<float>& ScrubPosition, bool bTopOverlay)
+TSharedRef<SWidget> SVisualLoggerView::MakeSectionOverlay(TSharedRef<FVisualLoggerTimeSliderController> TimeSliderController, const TAttribute< TRange<float> >& ViewRange, const TAttribute<float>& ScrubPosition, bool bTopOverlay)
 {
 	return
 		SNew(SHorizontalBox)
@@ -296,7 +296,7 @@ TSharedRef<SWidget> SVisualLoggerView::MakeSectionOverlay(TSharedRef<FSequencerT
 		+ SHorizontalBox::Slot()
 		.FillWidth(1.0f)
 		[
-			SNew(SSequencerSectionOverlay, TimeSliderController)
+			SNew(SVisualLoggerSectionOverlay, TimeSliderController)
 			.DisplayScrubPosition(bTopOverlay)
 			.DisplayTickLines(!bTopOverlay)
 		];

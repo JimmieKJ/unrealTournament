@@ -19,8 +19,18 @@ public:
 
 private:
 	TWeakObjectPtr<class UPaperTileMap> TileMapPtr;
+	TWeakObjectPtr<class UPaperTileMapComponent> TileMapComponentPtr;
+
+	IDetailLayoutBuilder* MyDetailLayout;
 
 private:
 	FReply EnterTileMapEditingMode();
+	FReply OnNewButtonClicked();
+	FReply OnPromoteButtonClicked();
+
 	EVisibility GetNonEditModeVisibility() const;
+
+	EVisibility GetVisibilityForInstancedOnlyProperties() const;
+
+	EVisibility GetNewButtonVisiblity() const;
 };
