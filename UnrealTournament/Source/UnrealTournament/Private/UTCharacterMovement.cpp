@@ -152,7 +152,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 					{
 						if (B->RouteCache[i] == B->GetMoveTarget())
 						{
-							int32 LinkIndex = B->GetMoveTarget().Node->GetBestLinkTo(B->GetMoveTarget().TargetPoly, B->RouteCache[i + 1], CharacterOwner, CharacterOwner->GetNavAgentProperties(), GetUTNavData(GetWorld()));
+							int32 LinkIndex = B->GetMoveTarget().Node->GetBestLinkTo(B->GetMoveTarget().TargetPoly, B->RouteCache[i + 1], CharacterOwner, CharacterOwner->GetNavAgentPropertiesRef(), GetUTNavData(GetWorld()));
 							if (LinkIndex != INDEX_NONE && (B->GetMoveTarget().Node->Paths[LinkIndex].ReachFlags & R_JUMP) && B->GetMoveTarget().Node->Paths[LinkIndex].Spec.IsValid())
 							{
 								LiftPath = Cast<UUTReachSpec_Lift>(B->GetMoveTarget().Node->Paths[LinkIndex].Spec.Get());

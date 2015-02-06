@@ -26,10 +26,11 @@ void UUTProjectileMovementComponent::InitializeComponent()
 			{
 				AddlUpdatedComponents.Add(Prim);
 				// if code hasn't manually set an overlap event, mirror the setting of the parent
-				if (!Prim->OnComponentBeginOverlap.IsBound() && !Prim->OnComponentEndOverlap.IsBound())
+				UPrimitiveComponent* UpdatedPrimComponent = Cast<UPrimitiveComponent>(UpdatedComponent);
+				if (!Prim->OnComponentBeginOverlap.IsBound() && !Prim->OnComponentEndOverlap.IsBound() && UpdatedPrimComponent)
 				{
-					Prim->OnComponentBeginOverlap = UpdatedComponent->OnComponentBeginOverlap;
-					Prim->OnComponentEndOverlap = UpdatedComponent->OnComponentEndOverlap;
+					Prim->OnComponentBeginOverlap = UpdatedPrimComponent->OnComponentBeginOverlap;
+					Prim->OnComponentEndOverlap = UpdatedPrimComponent->OnComponentEndOverlap;
 				}
 			}
 		}

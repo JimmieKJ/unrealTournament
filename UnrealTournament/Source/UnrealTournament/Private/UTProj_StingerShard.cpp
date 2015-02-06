@@ -147,7 +147,7 @@ void AUTProj_StingerShard::AttachToRagdoll(AUTCharacter* HitChar, const FVector&
 		NewConstraint->SetWorldLocation(HitLocation); // note: important! won't work right if not in the proper location
 		NewConstraint->RegisterComponent();
 		NewConstraint->ConstraintInstance.bDisableCollision = true;
-		NewConstraint->SetConstrainedComponents(HitChar->GetMesh(), ClosestRagdollPart->BodySetup.Get()->BoneName, ProjectileMovement->UpdatedComponent, NAME_None);
+		NewConstraint->SetConstrainedComponents(HitChar->GetMesh(), ClosestRagdollPart->BodySetup.Get()->BoneName, Cast<UPrimitiveComponent>(ProjectileMovement->UpdatedComponent), NAME_None);
 		NewConstraint->ConstraintInstance.ProjectionLinearTolerance = 0.05f;
 		//NewConstraint->ConstraintInstance.EnableProjection();
 	}

@@ -28,6 +28,9 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 void AUTInventory::PostInitProperties()
 {
 	Super::PostInitProperties();
+
+	// MATTFIXME
+	/*
 	// attempt to set defaults for event early outs based on whether the class has implemented them
 	// note that this only works for blueprints, C++ classes need to manually set
 	if (Cast<UBlueprintGeneratedClass>(GetClass()) != NULL)
@@ -51,12 +54,16 @@ void AUTInventory::PostInitProperties()
 			bCallOwnerEvent = (Func != NULL && Func->Script.Num() > 0);
 		}
 	}
+	*/
 }
 
 void AUTInventory::PreInitializeComponents()
 {
 	// get rid of components that are only supposed to be part of the pickup mesh
 	// TODO: would be better to not create in the first place, no reasonable engine hook to filter
+	TArray<UActorComponent*> SerializedComponents = BlueprintCreatedComponents;
+	SerializedComponents += GetInstanceComponents();
+
 	for (int32 i = 0; i < SerializedComponents.Num(); i++)
 	{
 		USceneComponent* SceneComp = Cast<USceneComponent>(SerializedComponents[i]);
@@ -71,7 +78,7 @@ void AUTInventory::PreInitializeComponents()
 			SceneComp->DestroyComponent();
 		}
 	}
-
+	
 	Super::PreInitializeComponents();
 }
 

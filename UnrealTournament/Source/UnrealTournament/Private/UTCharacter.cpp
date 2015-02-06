@@ -919,40 +919,36 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& TraceDir)
 {
 #if !UE_SERVER
-	// TODO: gore setting check
-	if (BloodDecals.Num() > 0)
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+	if (Settings != NULL)
 	{
-		const FBloodDecalInfo& DecalInfo = BloodDecals[FMath::RandHelper(BloodDecals.Num())];
-		if (DecalInfo.Material != NULL)
+		// TODO: gore setting check
+		if (BloodDecals.Num() > 0)
 		{
-			static FName NAME_BloodDecal(TEXT("BloodDecal"));
-			FHitResult Hit;
-			if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (GetCapsuleComponent()->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
+			const FBloodDecalInfo& DecalInfo = BloodDecals[FMath::RandHelper(BloodDecals.Num())];
+			if (DecalInfo.Material != NULL)
 			{
-				UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
-				if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
+				static FName NAME_BloodDecal(TEXT("BloodDecal"));
+				FHitResult Hit;
+				if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (GetCapsuleComponent()->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
 				{
-					Decal->SetAbsolute(false, false, true);
-					Decal->AttachTo(Hit.Component.Get());
-				}
-				else
-				{
-					Decal->SetAbsolute(true, true, true);
-				}
-				FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
-				Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
-				Decal->SetWorldLocation(Hit.Location);
-				Decal->SetWorldRotation((-Hit.Normal).Rotation() + FRotator(0.0f, 0.0f, 360.0f * FMath::FRand()));
-				Decal->SetDecalMaterial(DecalInfo.Material);
-				Decal->RegisterComponentWithWorld(GetWorld());
-				AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
-				if (Settings != NULL)
-				{
+					UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
+					if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
+					{
+						Decal->SetAbsolute(false, false, true);
+						Decal->AttachTo(Hit.Component.Get());
+					}
+					else
+					{
+						Decal->SetAbsolute(true, true, true);
+					}
+					FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
+					Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
+					Decal->SetWorldLocation(Hit.Location);
+					Decal->SetWorldRotation((-Hit.Normal).Rotation() + FRotator(0.0f, 0.0f, 360.0f * FMath::FRand()));
+					Decal->SetDecalMaterial(DecalInfo.Material);
+					Decal->RegisterComponentWithWorld(GetWorld());
 					Settings->AddImpactEffect(Decal);
-				}
-				else
-				{
-					GetWorldTimerManager().SetTimer(Decal, &UDecalComponent::DestroyComponent, 30.0f, false);
 				}
 			}
 		}
@@ -2600,7 +2596,7 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 }
 
 
-void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* HitComponent, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (IsDead())
 	{

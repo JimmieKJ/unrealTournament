@@ -476,7 +476,7 @@ void AUTBot::Tick(float DeltaTime)
 
 		if (MoveTarget.IsValid())
 		{
-			if (NavData->HasReachedTarget(MyPawn, MyPawn->GetNavAgentProperties(), MoveTarget))
+			if (NavData->HasReachedTarget(MyPawn, MyPawn->GetNavAgentPropertiesRef(), MoveTarget))
 			{
 				// reached
 				ClearMoveTarget();
@@ -681,7 +681,7 @@ void AUTBot::Tick(float DeltaTime)
 				{
 					// TODO: raycast for direct reachability?
 					float TotalDistance = 0.0f;
-					if (NavData->GetMovePoints(MyPawn->GetNavAgentLocation(), MyPawn, MyPawn->GetNavAgentProperties(), MoveTarget, RouteCache, MoveTargetPoints, CurrentPath, &TotalDistance))
+					if (NavData->GetMovePoints(MyPawn->GetNavAgentLocation(), MyPawn, MyPawn->GetNavAgentPropertiesRef(), MoveTarget, RouteCache, MoveTargetPoints, CurrentPath, &TotalDistance))
 					{
 						ConsiderTranslocation();
 						MoveTimer = TotalDistance / FMath::Max<float>(100.0f, MyPawn->GetMovementComponent()->GetMaxSpeed()) + 1.0f;
@@ -1777,7 +1777,7 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 		LastFindInventoryWeight = MinWeight;
 
 		FBestInventoryEval NodeEval(RespawnPredictionTime, (GetCharacter() != NULL) ? GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, (MinWeight > 0.0f) ? FMath::TruncToInt(5.0f / MinWeight) : 0);
-		return NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
+		return NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
 	}
 }
 
@@ -1785,7 +1785,7 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 {
 	FSingleEndpointEval NodeEval(Goal);
 	float Weight = 0.0f;
-	if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
+	if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
 	{
 		GoalString = SuccessGoalString;
 		SetMoveTarget(RouteCache[0]);
@@ -2027,7 +2027,7 @@ void AUTBot::ExecuteWhatToDoNext()
 			{
 				FRandomDestEval NodeEval;
 				float Weight = 0.0f;
-				if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+				if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
 				{
 					SetMoveTarget(RouteCache[0]);
 					StartNewAction(WaitForMoveAction);
@@ -2339,7 +2339,7 @@ void AUTBot::DoCharge()
 		{
 			float Weight = 0.0f;
 			FSingleEndpointEval NodeEval(GetTarget());
-			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
+			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
 			if (RouteCache.Num() > 0)
 			{
 				SetMoveTarget(RouteCache[0]);
@@ -2396,7 +2396,7 @@ void AUTBot::DoHunt()
 		// TODO: guess future destination, intercept path, try to find high ground, etc
 		FSingleEndpointEval NodeEval(GetEnemyLocation(Enemy, true));
 		float Weight = 0.0f;
-		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentProperties(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
 		{
 			SetMoveTarget(RouteCache[0]);
 			StartNewAction(ChargeAction); // TODO: hunting action
@@ -2513,7 +2513,7 @@ bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector
 						if (DestPoly != INVALID_NAVNODEREF)
 						{
 							FRouteCacheItem Target(NavData->GetNodeFromPoly(DestPoly), AdjustedDest, DestPoly);
-							return (Target.Node.IsValid() && Node->GetBestLinkTo(TeleportPoly, Target, GetPawn(), GetPawn()->GetNavAgentProperties(), NavData) != INDEX_NONE);
+							return (Target.Node.IsValid() && Node->GetBestLinkTo(TeleportPoly, Target, GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NavData) != INDEX_NONE);
 						}
 					}
 				}

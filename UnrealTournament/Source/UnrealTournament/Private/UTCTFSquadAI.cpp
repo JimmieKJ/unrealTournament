@@ -98,11 +98,11 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 			}
 			else if (HideTarget.IsValid())
 			{
-				if (StartHideTime == 0.0f && !NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), HideTarget))
+				if (StartHideTime == 0.0f && !NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), HideTarget))
 				{
 					FSingleEndpointEval NodeEval(HideTarget.GetLocation(NULL));
 					float Weight = 0.0f;
-					if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
+					if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
 					{
 						B->GoalString = "Hide";
 						B->SetMoveTarget(B->RouteCache[0]);
@@ -135,11 +135,11 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 							B->StartWaitForMove();
 							return true;
 						}
-						else if (!NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), HideTarget))
+						else if (!NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), HideTarget))
 						{
 							FSingleEndpointEval NodeEval(HideTarget.GetLocation(NULL));
 							float Weight = 0.0f;
-							if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
+							if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
 							{
 								B->GoalString = "Hide";
 								B->SetMoveTarget(B->RouteCache[0]);
@@ -184,7 +184,7 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 			FHideLocEval NodeEval(FMath::FRand() < (0.07f * B->Skill + 0.5f * B->Personality.MapAwareness), FSphere(FriendlyBase->GetActorLocation(), (EnemyBase->GetActorLocation() - FriendlyBase->GetActorLocation()).Size()));
 			NodeEval.RejectNodes = UsedHidingSpots;
 			float Weight = 0.0f;
-			if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
+			if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetNavAgentLocation(), Weight, true, B->RouteCache))
 			{
 				B->GoalString = "Hide";
 				HideTarget = B->RouteCache.Last();

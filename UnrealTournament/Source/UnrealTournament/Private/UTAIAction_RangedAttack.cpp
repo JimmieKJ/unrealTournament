@@ -43,7 +43,7 @@ bool UUTAIAction_RangedAttack::FindStrafeDest()
 		if (MyPoly != INVALID_NAVNODEREF)
 		{
 			TArray<NavNodeRef> AdjacentPolys;
-			NavData->FindAdjacentPolys(GetPawn(), GetPawn()->GetNavAgentProperties(), MyPoly, true, AdjacentPolys);
+			NavData->FindAdjacentPolys(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), MyPoly, true, AdjacentPolys);
 			if (AdjacentPolys.Num() > 0)
 			{
 				const FVector TargetLoc = GetTarget()->GetActorLocation();

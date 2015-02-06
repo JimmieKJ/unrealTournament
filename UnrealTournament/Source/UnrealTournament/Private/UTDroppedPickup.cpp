@@ -48,7 +48,7 @@ void AUTDroppedPickup::EnableInstigatorTouch()
 		if (Overlaps.Contains(Instigator))
 		{
 			FHitResult UnusedHitResult;
-			OnOverlapBegin(Instigator, Instigator->GetMovementComponent()->UpdatedComponent, 0, false, UnusedHitResult);
+			OnOverlapBegin(Instigator, Cast<UPrimitiveComponent>(Instigator->GetMovementComponent()->UpdatedComponent), 0, false, UnusedHitResult);
 		}
 	}
 }

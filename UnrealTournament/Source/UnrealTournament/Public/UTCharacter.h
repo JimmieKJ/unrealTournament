@@ -1328,7 +1328,7 @@ public:
 	virtual void OnOverlapBegin(AActor* OtherActor);
 	
 	UFUNCTION()
-	virtual void OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* HitComponent, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 	virtual bool CanPickupObject(AUTCarriedObject* PendingObject);
 	/** @return the current object carried by this pawn */

@@ -457,13 +457,13 @@ void SPackageContentDialog::Construct(const FArguments& InArgs, TSharedPtr<SWind
 	{
 		TSharedPtr<FWeaponClassFilter> Filter = MakeShareable(new FWeaponClassFilter);
 		Options.ClassFilter = Filter;
-		Options.ViewerTitleString = LOCTEXT("WeaponClassSelect", "Select Weapon Blueprint").ToString();
+		Options.ViewerTitleString = FText::FromString(LOCTEXT("WeaponClassSelect", "Select Weapon Blueprint").ToString());
 	}
 	else if (DialogMode == PACKAGE_Hat)
 	{
 		TSharedPtr<FHatClassFilter> Filter = MakeShareable(new FHatClassFilter);
 		Options.ClassFilter = Filter;
-		Options.ViewerTitleString = LOCTEXT("HatClassSelect", "Select Cosmetic Blueprint").ToString();
+		Options.ViewerTitleString = FText::FromString(LOCTEXT("HatClassSelect", "Select Cosmetic Blueprint").ToString());
 	}
 	else
 	{

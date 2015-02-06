@@ -42,5 +42,5 @@ class AUTGib : public AActor
 	virtual void CheckGibVisibility();
 
 	UFUNCTION()
-	virtual void OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* HitComponent, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 };

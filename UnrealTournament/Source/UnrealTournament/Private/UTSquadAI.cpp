@@ -152,7 +152,7 @@ bool AUTSquadAI::CheckSuperPickups(AUTBot* B, int32 MaxDist)
 	FSuperPickupEval NodeEval(B->RespawnPredictionTime, (B->GetCharacter() != NULL) ? B->GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, MaxDist, 1.0f, ClaimedPickups);
 	float Weight = 0.0f;
 	TArray<FRouteCacheItem> PotentialRoute;
-	if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, true, PotentialRoute))
+	if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, true, PotentialRoute))
 	{
 		if (Team != NULL && PotentialRoute.Last().Actor != NULL)
 		{
@@ -214,7 +214,7 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 
 				Routes.AddZeroed(1);
 				float Weight = 0.0f;
-				if (!NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, Routes.Last().RouteCache))
+				if (!NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, Routes.Last().RouteCache))
 				{
 					Routes.RemoveAt(Routes.Num() - 1);
 				}
@@ -235,7 +235,7 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 		// figure out our desired position along the squad route
 		// if we've reached it, jump ahead some spaces to the next position (done to minimize congestion amongst squadmates, confusion due to temporary path blockers, etc)
 		const FAlternateRoute& AlternatePath = Routes[B->UsingSquadRouteIndex];
-		UUTPathNode* Anchor = NavData->GetNodeFromPoly(NavData->FindAnchorPoly(B->GetPawn()->GetNavAgentLocation(), B->GetPawn(), B->GetPawn()->GetNavAgentProperties()));
+		UUTPathNode* Anchor = NavData->GetNodeFromPoly(NavData->FindAnchorPoly(B->GetPawn()->GetNavAgentLocation(), B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef()));
 		int32 AnchorIndex = (Anchor != NULL) ? AlternatePath.RouteCache.IndexOfByPredicate([Anchor](const FRouteCacheItem& TestItem){ return TestItem.Node == Anchor; }) : INDEX_NONE;
 		int32 SquadRouteGoalIndex = B->SquadRouteGoal.IsValid() ? AlternatePath.RouteCache.IndexOfByPredicate([B](const FRouteCacheItem& TestItem){ return TestItem.Node == B->SquadRouteGoal.Node && TestItem.Actor == B->SquadRouteGoal.Actor; }) : INDEX_NONE;
 		if (SquadRouteGoalIndex == INDEX_NONE || SquadRouteGoalIndex <= AnchorIndex)
@@ -258,7 +258,7 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 			// sanity check the goal is in there
 			NodeEval.Goals.Add(NavData->FindNearestNode(Goal->GetActorLocation(), NavData->GetPOIExtent(Goal)));
 			float Weight = 0.0f;
-			if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, B->RouteCache))
+			if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, B->RouteCache))
 			{
 				// set SquadRouteGoal to the endpoint we actually found
 				B->SquadRouteGoal = B->RouteCache.Last();
@@ -312,7 +312,7 @@ bool AUTSquadAI::PickRetreatDestination(AUTBot* B)
 		return true;
 	}
 	// keep moving to previous retreat destination if possible (don't oscillate)
-	else if (B->RouteCache.Num() > 1 && NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), B->RouteCache[0]))
+	else if (B->RouteCache.Num() > 1 && NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), B->RouteCache[0]))
 	{
 		B->RouteCache.RemoveAt(0);
 		B->SetMoveTarget(B->RouteCache[0]);
@@ -322,7 +322,7 @@ bool AUTSquadAI::PickRetreatDestination(AUTBot* B)
 	{
 		FRandomDestEval NodeEval;
 		float Weight = 0.0f;
-		if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentProperties(), NodeEval, B->GetNavAgentLocation(), Weight, false, B->RouteCache))
+		if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetNavAgentLocation(), Weight, false, B->RouteCache))
 		{
 			B->SetMoveTarget(B->RouteCache[0]);
 			return true;

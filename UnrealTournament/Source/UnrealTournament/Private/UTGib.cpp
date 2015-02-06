@@ -55,7 +55,7 @@ void AUTGib::CheckGibVisibility()
 	}
 }
 
-void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* HitComponent, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 #if !UE_SERVER
 	// if we landed on a mover, attach to it
@@ -75,43 +75,40 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* HitComp
 				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), Effect, Hit.Location, Hit.Normal.Rotation(), true);
 			}
 		}
-		if (BloodDecals.Num() > 0)
+		AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+		if (Settings != NULL)
 		{
-			const FBloodDecalInfo& DecalInfo = BloodDecals[FMath::RandHelper(BloodDecals.Num())];
-			if (DecalInfo.Material != NULL)
+			if (BloodDecals.Num() > 0)
 			{
-				static FName NAME_BloodDecal(TEXT("BloodDecal"));
-				FHitResult DecalHit;
-				if (GetWorld()->LineTraceSingle(DecalHit, GetActorLocation(), GetActorLocation() - Hit.Normal * 200.0f, ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
+				const FBloodDecalInfo& DecalInfo = BloodDecals[FMath::RandHelper(BloodDecals.Num())];
+				if (DecalInfo.Material != NULL)
 				{
-					UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
-					if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
+					static FName NAME_BloodDecal(TEXT("BloodDecal"));
+					FHitResult DecalHit;
+					if (GetWorld()->LineTraceSingle(DecalHit, GetActorLocation(), GetActorLocation() - Hit.Normal * 200.0f, ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
 					{
-						Decal->SetAbsolute(false, false, true);
-						Decal->AttachTo(Hit.Component.Get());
-					}
-					else
-					{
-						Decal->SetAbsolute(true, true, true);
-					}
-					FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
-					Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
-					Decal->SetWorldLocation(DecalHit.Location);
-					Decal->SetWorldRotation((-DecalHit.Normal).Rotation() + FRotator(0.0f, 0.0f, 360.0f * FMath::FRand()));
-					Decal->SetDecalMaterial(DecalInfo.Material);
-					Decal->RegisterComponentWithWorld(GetWorld());
-					AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
-					if (Settings != NULL)
-					{
+						UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
+						if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
+						{
+							Decal->SetAbsolute(false, false, true);
+							Decal->AttachTo(Hit.Component.Get());
+						}
+						else
+						{
+							Decal->SetAbsolute(true, true, true);
+						}
+						FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
+						Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
+						Decal->SetWorldLocation(DecalHit.Location);
+						Decal->SetWorldRotation((-DecalHit.Normal).Rotation() + FRotator(0.0f, 0.0f, 360.0f * FMath::FRand()));
+						Decal->SetDecalMaterial(DecalInfo.Material);
+						Decal->RegisterComponentWithWorld(GetWorld());
 						Settings->AddImpactEffect(Decal);
-					}
-					else
-					{
-						GetWorldTimerManager().SetTimer(Decal, &UDecalComponent::DestroyComponent, 30.0f, false);
 					}
 				}
 			}
 		}
+	
 		LastBloodTime = GetWorld()->TimeSeconds;
 	}
 #endif
