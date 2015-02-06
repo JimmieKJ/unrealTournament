@@ -317,8 +317,8 @@ public class DeploymentContext //: ProjectParams
 		ProjectArgForCommandLines = ProjectArgForCommandLines.Replace("\\", "/");
 	}
 
-	public int StageFiles(StagedFileType FileType, string InPath, string Wildcard = "*", bool bRecursive = true, string[] ExcludeWildcard = null, string NewPath = null, bool bAllowNone = false, bool bRemap = true, string NewName = null)
-	{
+    public int StageFiles(StagedFileType FileType, string InPath, string Wildcard = "*", bool bRecursive = true, string[] ExcludeWildcard = null, string NewPath = null, bool bAllowNone = false, bool bRemap = true, string NewName = null)
+    {
 		int FilesAdded = 0;
 		// make sure any ..'s are removed
 		Utils.CollapseRelativeDirectories(ref InPath);
@@ -346,34 +346,43 @@ public class DeploymentContext //: ProjectParams
 				{
 					continue;
 				}
-				bool OtherPlatform = false;
-				foreach (UnrealTargetPlatform Plat in Enum.GetValues(typeof(UnrealTargetPlatform)))
-				{
-					if (Plat != StageTargetPlatform.PlatformType && Plat != UnrealTargetPlatform.Unknown)
-					{
-                        var Search = FileToCopy;
-                        if (Search.StartsWith(LocalRoot, StringComparison.InvariantCultureIgnoreCase))
+
+                if (!bAllowNotForLicenseesFiles && (FileToCopy.Contains("NotForLicensees") || FileToCopy.Contains("NoRedist")))
+                {
+                    continue;
+                }
+
+                if (bStripFilesForOtherPlatforms)
+                {
+                    bool OtherPlatform = false;
+                    foreach (UnrealTargetPlatform Plat in Enum.GetValues(typeof(UnrealTargetPlatform)))
+                    {
+                        if (Plat != StageTargetPlatform.PlatformType && Plat != UnrealTargetPlatform.Unknown)
                         {
-                            if (LocalRoot.EndsWith("\\") || LocalRoot.EndsWith("/"))
+                            var Search = FileToCopy;
+                            if (Search.StartsWith(LocalRoot, StringComparison.InvariantCultureIgnoreCase))
                             {
-                                Search = Search.Substring(LocalRoot.Length - 1);
+                                if (LocalRoot.EndsWith("\\") || LocalRoot.EndsWith("/"))
+                                {
+                                    Search = Search.Substring(LocalRoot.Length - 1);
+                                }
+                                else
+                                {
+                                    Search = Search.Substring(LocalRoot.Length);
+                                }
                             }
-                            else
+                            if (Search.IndexOf(CommandUtils.CombinePaths("/" + Plat.ToString() + "/"), 0, StringComparison.InvariantCultureIgnoreCase) >= 0)
                             {
-                                Search = Search.Substring(LocalRoot.Length);
+                                OtherPlatform = true;
+                                break;
                             }
                         }
-                        if (Search.IndexOf(CommandUtils.CombinePaths("/" + Plat.ToString() + "/"), 0, StringComparison.InvariantCultureIgnoreCase) >= 0)
-						{
-							OtherPlatform = true;
-							break;
-						}
-					}
-				}
-				if (OtherPlatform)
-				{
-					continue;
-				}
+                    }
+                    if (OtherPlatform)
+                    {
+                        continue;
+                    }
+                }
 
 				string Dest;
 				if (!FileToCopy.StartsWith(InPath))
