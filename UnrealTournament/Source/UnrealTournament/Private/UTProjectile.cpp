@@ -556,17 +556,22 @@ void AUTProjectile::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 	}
 }
 
+bool AUTProjectile::ShouldIgnoreHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp)
+{
+	// don't blow up on non-blocking volumes
+	// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
+	return ( ((Cast<AUTTeleporter>(OtherActor) != NULL || Cast<AVolume>(OtherActor) != NULL) && !GetVelocity().IsZero())
+			|| (Cast<AUTProjectile>(OtherActor) != NULL && !InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
+			|| (Cast<AUTWeaponRedirector>(OtherActor) != NULL && ((AUTWeaponRedirector*)OtherActor)->bWeaponPortal) );
+}
+
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	UE_LOG(UT, Verbose, TEXT("%s::ProcessHit fake %d has master %d has fake %d OtherActor:%s"), *GetName(), bFakeClientProjectile, (MasterProjectile != NULL), (MyFakeProjectile != NULL), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
 
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
 	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || bHasSpawnedFully)
-		// don't blow up on non-blocking volumes
-		// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
-		&& ((Cast<AUTTeleporter>(OtherActor) == NULL && Cast<AVolume>(OtherActor) == NULL) || GetVelocity().IsZero())
-		&& (Cast<AUTProjectile>(OtherActor) == NULL || InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
-		&& (Cast<AUTWeaponRedirector>(OtherActor) == NULL || !((AUTWeaponRedirector*)OtherActor)->bWeaponPortal) )
+		 && !ShouldIgnoreHit(OtherActor, OtherComp) )
 	{
 		if (MyFakeProjectile && !MyFakeProjectile->IsPendingKillPending())
 		{

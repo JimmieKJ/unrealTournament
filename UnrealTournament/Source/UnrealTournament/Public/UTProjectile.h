@@ -263,6 +263,12 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 		Destroy();
 	}
 
+	/** returns whether the projectile should ignore a potential overlap hit and keep going
+	 * split from ProcessHit() as some projectiles want custom hit behavior but the same exclusions
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
+	bool ShouldIgnoreHit(AActor* OtherActor, UPrimitiveComponent* OtherComp);
+
 	/** called when projectile hits something */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
 	void ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);

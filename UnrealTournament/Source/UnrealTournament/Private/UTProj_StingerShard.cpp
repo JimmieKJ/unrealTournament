@@ -99,7 +99,7 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 			Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 		}
 	}
-	else
+	else if (!ShouldIgnoreHit(OtherActor, OtherComp))
 	{
 		//Stop the projectile and give it collision
 		ProjectileMovement->ProjectileGravityScale = 0.0f;
