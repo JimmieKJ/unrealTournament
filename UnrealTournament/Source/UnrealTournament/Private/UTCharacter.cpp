@@ -497,22 +497,17 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 
 void AUTCharacter::OnRepHeadArmorFlashCount()
 {
-	// FIXME - what if stale, what about last time property?
 	// play helmet client-side hit effect 
 	if (HeadArmorHitEffect != NULL)
 	{
-		// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
 		UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
 		PSC->bAutoDestroy = true;
 		PSC->SecondsBeforeInactive = 0.0f;
 		PSC->bAutoActivate = false;
 		PSC->SetTemplate(HeadArmorHitEffect);
 		PSC->bOverrideLODMethod = false;
-		PSC->RegisterComponentWithWorld(GetWorld());
-		PSC->AttachTo(GetMesh());
-		PSC->SetAbsolute(true, true, true);
-		PSC->SetWorldLocationAndRotation( GetHeadLocation(), GetActorRotation());
-		PSC->SetRelativeScale3D(FVector(1.f));
+		PSC->RegisterComponent();
+		PSC->AttachTo(GetMesh(), HeadBone);
 		PSC->ActivateSystem(true);
 	}
 }
