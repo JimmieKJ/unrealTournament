@@ -14,8 +14,9 @@ class UUTHUDWidget_Paperdoll : public UUTHUDWidget
 
 public:
 
-	virtual void Draw_Implementation(float DeltaTime);
-	virtual void InitializeWidget(AUTHUD* Hud);
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
+	virtual void Draw_Implementation(float DeltaTime) override;
+	virtual void InitializeWidget(AUTHUD* Hud) override;
 
 protected:
 
