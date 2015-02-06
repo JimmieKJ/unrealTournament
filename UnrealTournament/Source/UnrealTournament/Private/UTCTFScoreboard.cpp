@@ -105,7 +105,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	float BarOpacity = 0.3;
 
 	FText PlayerName = FText::FromString(PlayerState->PlayerName);
-	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
+	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score/10.f));
 	FText PlayerCaps = FText::AsNumber(PlayerState->FlagCaptures);
 	FText PlayerAssists = FText::AsNumber(PlayerState->Assists);
 	FText PlayerReturns = FText::AsNumber(PlayerState->FlagReturns);
