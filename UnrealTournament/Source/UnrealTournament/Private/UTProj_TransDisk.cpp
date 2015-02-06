@@ -140,6 +140,21 @@ void AUTProj_TransDisk::OnDisrupted_Implementation()
 				LC->SetIntensity(0.0F);
 			}
 		}
+
+		if (DisruptedEffect != NULL)
+		{
+			// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
+			UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
+			PSC->bAutoDestroy = true;
+			PSC->SecondsBeforeInactive = 0.0f;
+			PSC->bAutoActivate = false;
+			PSC->SetTemplate(DisruptedEffect);
+			PSC->bOverrideLODMethod = false;
+			PSC->RegisterComponent();
+			PSC->AttachTo(GetRootComponent());
+			PSC->SetRelativeLocationAndRotation(FVector(0.f, 0.f, 20.f), FRotator(0.f));
+			PSC->ActivateSystem(true);
+		}
 	}
 }
 

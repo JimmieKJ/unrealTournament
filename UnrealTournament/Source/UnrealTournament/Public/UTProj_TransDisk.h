@@ -64,6 +64,10 @@ class AUTProj_TransDisk : public AUTProjectile, public IUTMovementBaseInterface
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)
 	UParticleSystem* LandedEffect;
 
+	/**The effect played when the Disk lands*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
+		UParticleSystem* DisruptedEffect;
+
 	/** Max speed while underwater */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
 	float MaxSpeedUnderWater;
