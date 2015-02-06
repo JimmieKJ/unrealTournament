@@ -112,7 +112,10 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		if (FireModeNum == GetFireMode())
 		{
 			bCharging = false;
-			FireLoadedRocket();
+			if (RocketLauncher->NumLoadedRockets > 0)
+			{
+				FireLoadedRocket();
+			}
 		}
 	}
 

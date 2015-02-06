@@ -294,6 +294,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		{
 			Cast<AUTProj_RocketSeeking>(SpawnedProjectile)->TargetActor = LockedTarget;
 		}
+		NumLoadedRockets = 0;
 		return SpawnedProjectile;
 	}
 }
@@ -313,12 +314,12 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 		if (ShouldPlay1PVisuals())
 		{
 			// try and play a firing animation if specified
-			if (FiringAnimation.IsValidIndex(NumLoadedRockets - 1) && FiringAnimation[NumLoadedRockets - 1] != NULL)
+			if (FiringAnimation.IsValidIndex(NumLoadedRockets) && FiringAnimation[NumLoadedRockets] != NULL)
 			{
 				UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 				if (AnimInstance != NULL)
 				{
-					AnimInstance->Montage_Play(FiringAnimation[NumLoadedRockets - 1], 1.f);
+					AnimInstance->Montage_Play(FiringAnimation[NumLoadedRockets], 1.f);
 				}
 			}
 
@@ -408,7 +409,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 		}
 
 	NumLoadedRockets--;
-	return NULL;
+	return ResultProj;
 }
 
 
