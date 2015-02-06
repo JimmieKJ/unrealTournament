@@ -77,6 +77,7 @@ public:
 
 	virtual void SetWidgetsToVisualize( const FWidgetPath& InWidgetsToVisualize ) override;
 	virtual int32 Visualize( const FWidgetPath& InWidgetsToVisualize, FSlateWindowElementList& OutDrawElements, int32 LayerId ) override;
+	virtual int32 VisualizeCursorAndKeys(FSlateWindowElementList& OutDrawElements, int32 LayerId) const override;
 
 protected:
 
@@ -216,4 +217,10 @@ private:
 	void UpdateStats();
 	TSharedRef<ITableRow> GenerateStatRow( TSharedRef<FStatItem> StatItem, const TSharedRef<STableViewBase>& OwnerTable );
 	FReply CopyStatsToClipboard();
+
+private:
+	// DEMO MODE
+	bool bEnableDemoMode;
+	double LastMouseClickTime;
+	FVector2D CursorPingPosition;
 };

@@ -961,6 +961,13 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 			MaxLayerId = WidgetReflector->Visualize( DrawWindowArgs.WidgetsUnderCursor, WindowElementList, MaxLayerId );
 		}
 
+		// Visualize pointer presses and pressed keys for demo-recording purposes.
+		const bool bVisualiseMouseClicks = WidgetReflector.IsValid() && PlatformApplication->Cursor.IsValid() && PlatformApplication->Cursor->GetType() != EMouseCursor::None;
+		if (bVisualiseMouseClicks)
+		{
+			MaxLayerId = WidgetReflector->VisualizeCursorAndKeys(WindowElementList, MaxLayerId);
+		}
+
 		// Keep track of windows that we're actually going to be presenting, so we can mark
 		// them as 'drawn' afterwards.
 		FGenericWindow* NativeWindow = WindowToDraw->GetNativeWindow().Get();

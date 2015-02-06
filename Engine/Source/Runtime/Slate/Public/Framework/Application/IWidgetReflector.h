@@ -56,6 +56,9 @@ public:
 	 */
 	virtual int32 Visualize( const FWidgetPath& InWidgetsToVisualize, FSlateWindowElementList& OutDrawElements, int32 LayerId ) = 0;
 
+	/** Visualize the cursor position and any pressed keys for demo-recording purposes. */
+	virtual int32 VisualizeCursorAndKeys(FSlateWindowElementList& OutDrawElements, int32 LayerId) const = 0;
+
 	/**
 	 * Sets the widget that should be visualized.
 	 *
