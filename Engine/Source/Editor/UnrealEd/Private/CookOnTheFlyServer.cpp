@@ -271,11 +271,19 @@ const FString& GetAssetRegistryPath()
 /**
  * Return the release asset registry filename for the release version supplied
  */
-FString GetReleaseVersionAssetRegistryPath(const FString& ReleaseVersion, const FName& PlatformName )
+FString GetReleaseVersionAssetRegistryPath(const FString& ReleaseVersion, const FName& PlatformName)
 {
 	// cache the part of the path which is static because getting the GameDir is really slow and also string manipulation
 	const static FString GameDirectory = FPaths::GameDir() / FString(TEXT("Releases"));
 	return  GameDirectory / ReleaseVersion / PlatformName.ToString();
+}
+
+// When writing out the release version, don't write outside of Saved/Cooked
+FString GetReleaseVersionAssetRegistryTemporaryPath(const FString& ReleaseVersion, const FName& PlatformName)
+{
+	// cache the part of the path which is static because getting the GameSavedDir is really slow and also string manipulation
+	const static FString GameDirectory = FPaths::GameSavedDir() / TEXT("Cooked");
+	return GameDirectory / PlatformName.ToString() / FString(TEXT("Releases")) / ReleaseVersion;
 }
 
 const FString& GetAssetRegistryFilename()
@@ -1837,10 +1845,12 @@ FString UCookOnTheFlyServer::GetOutputDirectoryOverride() const
 	// Output directory override.	
 	if (OutputDirectory.Len() <= 0)
 	{
-		if ( IsCookingDLC() )
+		if (IsCookingDLC())
 		{
-			check( IsCookByTheBookMode() );
-			OutputDirectory = FPaths::Combine(*FPaths::GamePluginsDir(), *CookByTheBookOptions->DlcName, TEXT("Saved"), TEXT("Cooked"), TEXT("[Platform]"));
+			check(IsCookByTheBookMode());
+			//GDC simplification, not requiring plugins right now
+			//OutputDirectory = FPaths::Combine(*FPaths::GamePluginsDir(), *CookByTheBookOptions->DlcName, TEXT("Saved"), TEXT("Cooked"), TEXT("[Platform]"));
+			OutputDirectory = FPaths::Combine(*FPaths::GameDir(), TEXT("Saved"), TEXT("Cooked"), *CookByTheBookOptions->DlcName, TEXT("[Platform]"));
 		}
 		else
 		{
@@ -2345,26 +2355,51 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FString>& FilesInPath, const
 		}
 	}
 
+	/*
+	//GDC simplification, not requiring plugins right now
 	if ( IsCookingDLC() )
 	{
-		// get the dlc and make sure we cook that directory 
-		FString DLCPath = FPaths::GamePluginsDir() / CookByTheBookOptions->DlcName / FString(TEXT("Content"));;
+	// get the dlc and make sure we cook that directory
+	FString DLCPath = FPaths::GamePluginsDir() / CookByTheBookOptions->DlcName / FString(TEXT("Content"));;
 
-		TArray<FString> Files;
-		IFileManager::Get().FindFilesRecursive(Files, *DLCPath, *(FString(TEXT("*")) + FPackageName::GetAssetPackageExtension()), true, false);
-		IFileManager::Get().FindFilesRecursive(Files, *DLCPath, *(FString(TEXT("*")) + FPackageName::GetMapPackageExtension()), true, false);
-		for (int32 Index = 0; Index < Files.Num(); Index++)
+	TArray<FString> Files;
+	IFileManager::Get().FindFilesRecursive(Files, *DLCPath, *(FString(TEXT("*")) + FPackageName::GetAssetPackageExtension()), true, false);
+	IFileManager::Get().FindFilesRecursive(Files, *DLCPath, *(FString(TEXT("*")) + FPackageName::GetMapPackageExtension()), true, false);
+	for (int32 Index = 0; Index < Files.Num(); Index++)
+	{
+	FString StdFile = Files[Index];
+	FPaths::MakeStandardFilename(StdFile);
+	AddFileToCook( FilesInPath,StdFile);
+
+	// this asset may not be in our currently mounted content directories, so try to mount a new one now
+	FString LongPackageName;
+	if(!FPackageName::IsValidLongPackageName(StdFile) && !FPackageName::TryConvertFilenameToLongPackageName(StdFile, LongPackageName))
+	{
+	FPackageName::RegisterMountPoint(ExternalMountPointName, DLCPath);
+	}
+	}
+	}
+	*/
+
+	//GDC simplification, just try to cook the dlc name package
+	if (IsCookingDLC())
+	{
+		if (FPackageName::IsShortPackageName(CookByTheBookOptions->DlcName))
 		{
-			FString StdFile = Files[Index];
-			FPaths::MakeStandardFilename(StdFile);
-			AddFileToCook( FilesInPath,StdFile);
-
-			// this asset may not be in our currently mounted content directories, so try to mount a new one now
-			FString LongPackageName;
-			if(!FPackageName::IsValidLongPackageName(StdFile) && !FPackageName::TryConvertFilenameToLongPackageName(StdFile, LongPackageName))
+			FString OutFilename;
+			if (FPackageName::SearchForPackageOnDisk(CookByTheBookOptions->DlcName, NULL, &OutFilename) == false)
 			{
-				FPackageName::RegisterMountPoint(ExternalMountPointName, DLCPath);
+				LogCookerMessage(FString::Printf(TEXT("Unable to find package for map %s."), *CookByTheBookOptions->DlcName), EMessageSeverity::Warning);
+				UE_LOG(LogCook, Warning, TEXT("Unable to find package for map %s."), *CookByTheBookOptions->DlcName);
 			}
+			else
+			{
+				AddFileToCook(FilesInPath, OutFilename);
+			}
+		}
+		else
+		{
+			AddFileToCook(FilesInPath, CookByTheBookOptions->DlcName);
 		}
 	}
 
@@ -2604,7 +2639,7 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 
 			if ( IsCreatingReleaseVersion() )
 			{
-				const FString VersionedRegistryPath = GetReleaseVersionAssetRegistryPath( CookByTheBookOptions->CreateReleaseVersion, Manifest.Key ); 
+				const FString VersionedRegistryPath = GetReleaseVersionAssetRegistryTemporaryPath(CookByTheBookOptions->CreateReleaseVersion, Manifest.Key);
 
 				IFileManager::Get().MakeDirectory( *VersionedRegistryPath ,true );
 
