@@ -104,19 +104,23 @@ bool AUTMutator_WeaponReplacement::CheckRelevance_Implementation(AActor* Other)
 					GetAllBlueprintAssetData(AUTPickupAmmo::StaticClass(), AssetList);
 					for (const FAssetData& Asset : AssetList)
 					{
-						static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
-						const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-						// FIXME: match ammo type from asset data instead of loading class
-						if (ClassPath != NULL)
+						static FName NAME_Ammo(TEXT("Ammo"));
+						const FString* AmmoData = Asset.TagsAndValues.Find(NAME_Ammo);
+						if (AmmoData != NULL && AmmoData->Contains(NewWeapon->GetPathName()))
 						{
-							UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-							AUTPickupAmmo* A = Cast<AUTPickupAmmo>(TestClass->GetDefaultObject());
-							if (A != NULL && A->Ammo.Type == NewWeapon)
+							static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+							const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+							if (ClassPath != NULL)
 							{
-								FVector AmmoLocation = AmmoPickup->GetActorLocation();
-								FRotator AmmoRotation = AmmoPickup->GetActorRotation();
-								GetWorld()->SpawnActor(TestClass, &AmmoLocation, &AmmoRotation);
-								return false;
+								UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+								AUTPickupAmmo* A = Cast<AUTPickupAmmo>(TestClass->GetDefaultObject());
+								if (A != NULL && A->Ammo.Type == NewWeapon)
+								{
+									FVector AmmoLocation = AmmoPickup->GetActorLocation();
+									FRotator AmmoRotation = AmmoPickup->GetActorRotation();
+									GetWorld()->SpawnActor(TestClass, &AmmoLocation, &AmmoRotation);
+									return false;
+								}
 							}
 						}
 					}
