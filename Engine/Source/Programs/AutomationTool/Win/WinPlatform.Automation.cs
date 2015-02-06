@@ -98,6 +98,21 @@ public abstract class BaseWinPlatform : Platform
 
             if (SC.DedicatedServer)
             {
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
+                {
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server.");
+                }
+
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
+                {
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*-Test.");
+                }
+
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
+                {
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*-Shipping.");
+                }
+
                 StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server.");
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-*.");
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Plugins"), "UE4Server-*.", true);
@@ -106,6 +121,21 @@ public abstract class BaseWinPlatform : Platform
             }
             else
             {
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
+                {
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4.");
+                }
+
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
+                {
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*-Test.");
+                }
+
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
+                {
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*-Shipping.");
+                }
+
                 StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4.");
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4-*.");
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Plugins"), "UE4-*.", true);
