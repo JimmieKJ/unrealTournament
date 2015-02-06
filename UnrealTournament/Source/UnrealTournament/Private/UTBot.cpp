@@ -116,7 +116,7 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	LastIterativeLeadCheck = 1.0f;
 	TacticalAimUpdateInterval = 0.2f;
 	StoppedOffsetErrorReduction = 0.8f;
-	BothStoppedOffsetErrorReduction = 0.5f;
+	BothStoppedOffsetErrorReduction = 0.6f;
 	UsingSquadRouteIndex = INDEX_NONE;
 
 	WaitForMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_WaitForMove>(this, FName(TEXT("WaitForMove")));
@@ -237,25 +237,27 @@ float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, co
 
 void AUTBot::InitializeSkill(float NewBaseSkill)
 {
-	Skill = NewBaseSkill + Personality.SkillModifier;
+	Skill = FMath::Max<float>(0.0f, NewBaseSkill + Personality.SkillModifier);
 
 	if (Skill >= 0)
 	{
-		TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (Skill + 2.0f);
+		float AimingSkill = Skill + Personality.Accuracy;
+
+		TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (AimingSkill + 2.0f);
 
 		// no error for really high skill bots
-		if (Skill >= 7.f)
+		if (AimingSkill >= 7.5f)
 		{
 			MaxTrackingPredictionError = 0.f;
 			MaxTrackingOffsetError = 0.f;
 		}
 		else
 		{
-			MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 7.0f / (Skill + 2.0f);
-			MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 7.0f / (Skill + 2.0f);
+			MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 7.0f / (AimingSkill + 2.0f);
+			MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 7.0f / (AimingSkill + 2.0f);
 		}
 
-		TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 7.0f / (Skill + 2.0f);
+		TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 7.0f / (AimingSkill + 2.0f);
 		TrackingPredictionError = MaxTrackingPredictionError;
 		TrackingOffsetError = MaxTrackingOffsetError;
 	}
@@ -279,11 +281,14 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	}
 	else
 	{
-		RotationRate.Yaw = 164.0f + 22.0f * (Skill + Personality.ReactionTime);
+		RotationRate.Yaw = 123.0f + 30.0f * (Skill + Personality.ReactionTime);
 	}
 	RotationRate.Pitch = RotationRate.Yaw;
+	// TODO: old reduced yaw rotation while acquiring enemy; may not need this with new aiming model
 	//AdjustedYaw = (0.75 + 0.05 * ReactionTime) * RotationRate.Yaw;
 	//AcquisitionYawRate = AdjustedYaw;
+
+	// TODO: old code meant to make low skill bots have reduced movement speed; probably don't want this, messes with anims and makes bots look weird
 	//SetMaxDesiredSpeed();
 
 	TranslocInterval = FMath::Max<float>(0.0f, 5.0f - 1.0f * (Skill + Personality.MovementAbility));
@@ -745,19 +750,19 @@ void AUTBot::UpdateTrackingError()
 	{
 		TrackingPredictionError = MaxTrackingPredictionError * (2.f*FMath::FRand() - 1.f);
 		float OldTrackingOffsetError = TrackingOffsetError;
-		bool bStoppedEnemy = (!Enemy || Enemy->GetVelocity().IsNearlyZero());
-		bool bAmStopped = (GetPawn() && GetPawn()->GetVelocity().IsNearlyZero());
+		bool bStoppedEnemy = (Enemy == NULL || TrackedVelocity.IsNearlyZero());
+		bool bAmStopped = (GetPawn() != NULL && GetPawn()->GetVelocity().IsNearlyZero());
 		if (bStoppedEnemy || bAmStopped)
 		{
-			TrackingOffsetError *= ((bStoppedEnemy && bAmStopped) ? BothStoppedOffsetErrorReduction : StoppedOffsetErrorReduction);
+			TrackingOffsetError *= ((bStoppedEnemy && bAmStopped) ? BothStoppedOffsetErrorReduction : StoppedOffsetErrorReduction) * FMath::FRandRange(0.9f, 1.1f);
 			if (FMath::FRand() < 0.5f)
 			{
-				TrackingOffsetError *= -0.1f;
+				TrackingOffsetError *= -1.0f;
 			}
 		}
 		else
 		{
-			TrackingOffsetError = MaxTrackingOffsetError * (2.f*FMath::FRand() - 1.f);
+			TrackingOffsetError = MaxTrackingOffsetError * (2.f * FMath::FRand() - 1.f);
 		}
 		TrackingErrorUpdateTime = GetWorld()->GetTimeSeconds() + TrackingErrorUpdateInterval;
 	}
@@ -1175,7 +1180,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 							FVector SideDir = ((TargetLoc - P->GetActorLocation()) ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FLinearColor::White, false);
 							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*(TrackingReactionTime + TrackingPredictionError), 40.f, 8, FLinearColor::Yellow, false);
-							TargetLoc = TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError) + SideDir * FMath::Min(500.f, TrackingOffsetError * (TargetLoc - P->GetActorLocation()).Size());
+							TargetLoc = TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError) + SideDir * FMath::Min<float>(500.f, TrackingOffsetError * (TargetLoc - P->GetActorLocation()).Size());
 							//DrawDebugSphere(GetWorld(), TargetLoc, 40.f, 8, FLinearColor::Red, false);
 
 							if (CanAttack(Enemy, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
@@ -1233,7 +1238,6 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 			{
 				DesiredRotation.Pitch = 0.f;
 			}
-			DesiredRotation.Yaw = FRotator::ClampAxis(DesiredRotation.Yaw);
 
 			FRotator NewControlRotation(FMath::FixedTurn(ControlRotation.Pitch, DesiredRotation.Pitch, RotationRate.Pitch * DeltaTime), FMath::FixedTurn(ControlRotation.Yaw, DesiredRotation.Yaw, RotationRate.Yaw * DeltaTime), 0);
 
