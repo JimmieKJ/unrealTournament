@@ -364,8 +364,8 @@ void FOpenGLBufferedGPUTiming::InitDynamicRHI()
 		
 		for(int32 BufferIndex = 0; BufferIndex < BufferSize; ++BufferIndex)
 		{
-			StartTimestamps.Add(FOpenGLRenderQuery(RQT_AbsoluteTime));
-			EndTimestamps.Add(FOpenGLRenderQuery(RQT_AbsoluteTime));
+			StartTimestamps.Add(new FOpenGLRenderQuery(RQT_AbsoluteTime));
+			EndTimestamps.Add(new FOpenGLRenderQuery(RQT_AbsoluteTime));
 		}
 	}
 }
@@ -376,6 +376,16 @@ void FOpenGLBufferedGPUTiming::InitDynamicRHI()
 void FOpenGLBufferedGPUTiming::ReleaseDynamicRHI()
 {
 	VERIFY_GL_SCOPE();
+
+	for (FOpenGLRenderQuery* Query : StartTimestamps)
+	{
+		delete Query;
+	}
+
+	for (FOpenGLRenderQuery* Query : EndTimestamps)
+	{
+		delete Query;
+	}
 
 	StartTimestamps.Reset();
 	EndTimestamps.Reset();
@@ -392,7 +402,7 @@ void FOpenGLBufferedGPUTiming::StartTiming()
 	if ( GIsSupported && !bIsTiming )
 	{
 		int32 NewTimestampIndex = (CurrentTimestamp + 1) % BufferSize;
-		FOpenGLRenderQuery* TimerQuery = &StartTimestamps[NewTimestampIndex];
+		FOpenGLRenderQuery* TimerQuery = StartTimestamps[NewTimestampIndex];
 		{
 			if (!TimerQuery->bInvalidResource && !PlatformContextIsCurrent(TimerQuery->ResourceContext))
 			{
@@ -407,7 +417,7 @@ void FOpenGLBufferedGPUTiming::StartTiming()
 			}
 		}
 
-		FOpenGL::QueryTimestampCounter(StartTimestamps[NewTimestampIndex].Resource);
+		FOpenGL::QueryTimestampCounter(StartTimestamps[NewTimestampIndex]->Resource);
 		CurrentTimestamp = NewTimestampIndex;
 		bIsTiming = true;
 	}
@@ -424,8 +434,8 @@ void FOpenGLBufferedGPUTiming::EndTiming()
 	if ( GIsSupported && bIsTiming )
 	{
 		checkSlow( CurrentTimestamp >= 0 && CurrentTimestamp < BufferSize );
-		
-		FOpenGLRenderQuery* TimerQuery = &EndTimestamps[CurrentTimestamp];
+
+		FOpenGLRenderQuery* TimerQuery = EndTimestamps[CurrentTimestamp];
 		{
 			if (!TimerQuery->bInvalidResource && !PlatformContextIsCurrent(TimerQuery->ResourceContext))
 			{
@@ -438,9 +448,9 @@ void FOpenGLBufferedGPUTiming::EndTiming()
 				PlatformGetNewRenderQuery(&TimerQuery->Resource, &TimerQuery->ResourceContext);
 				TimerQuery->bInvalidResource = false;
 			}
-		} 
+		}
 
-		FOpenGL::QueryTimestampCounter(EndTimestamps[CurrentTimestamp].Resource);
+		FOpenGL::QueryTimestampCounter(EndTimestamps[CurrentTimestamp]->Resource);
 		NumIssuedTimestamps = FMath::Min<int32>(NumIssuedTimestamps + 1, BufferSize);
 		bIsTiming = false;
 	}
@@ -457,22 +467,22 @@ uint64 FOpenGLBufferedGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 
 	VERIFY_GL_SCOPE();
 
-	if ( GIsSupported )
+	if (GIsSupported)
 	{
-		checkSlow( CurrentTimestamp >= 0 && CurrentTimestamp < BufferSize );
+		checkSlow(CurrentTimestamp >= 0 && CurrentTimestamp < BufferSize);
 		GLuint64 StartTime, EndTime;
 
 		int32 TimestampIndex = CurrentTimestamp;
 
 		{
-			FOpenGLRenderQuery* EndStamp = &EndTimestamps[TimestampIndex];
+			FOpenGLRenderQuery* EndStamp = EndTimestamps[TimestampIndex];
 			if (!EndStamp->bInvalidResource && !PlatformContextIsCurrent(EndStamp->ResourceContext))
 			{
 				PlatformReleaseRenderQuery(EndStamp->Resource, EndStamp->ResourceContext);
 				EndStamp->bInvalidResource = true;
 			}
 
-			FOpenGLRenderQuery* StartStamp = &StartTimestamps[TimestampIndex];
+			FOpenGLRenderQuery* StartStamp = StartTimestamps[TimestampIndex];
 			if (!StartStamp->bInvalidResource && !PlatformContextIsCurrent(StartStamp->ResourceContext))
 			{
 				PlatformReleaseRenderQuery(StartStamp->Resource, StartStamp->ResourceContext);
@@ -480,7 +490,7 @@ uint64 FOpenGLBufferedGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 
 			}
 
-			if(StartStamp->bInvalidResource || EndStamp->bInvalidResource)
+			if (StartStamp->bInvalidResource || EndStamp->bInvalidResource)
 			{
 				UE_LOG(LogRHI, Log, TEXT("timing invalid, since the stamp queries have invalid resources"));
 				return 0.0f;
@@ -490,20 +500,20 @@ uint64 FOpenGLBufferedGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 		if (!bGetCurrentResultsAndBlock)
 		{
 			// Quickly check the most recent measurements to see if any of them has been resolved.  Do not flush these queries.
-			for ( int32 IssueIndex = 1; IssueIndex < NumIssuedTimestamps; ++IssueIndex )
+			for (int32 IssueIndex = 1; IssueIndex < NumIssuedTimestamps; ++IssueIndex)
 			{
 				GLuint EndAvailable = GL_FALSE;
-				FOpenGL::GetQueryObject(EndTimestamps[TimestampIndex].Resource, FOpenGL::QM_ResultAvailable, &EndAvailable);
+				FOpenGL::GetQueryObject(EndTimestamps[TimestampIndex]->Resource, FOpenGL::QM_ResultAvailable, &EndAvailable);
 
-				if ( EndAvailable == GL_TRUE )
+				if (EndAvailable == GL_TRUE)
 				{
 					GLuint StartAvailable = GL_FALSE;
-					FOpenGL::GetQueryObject(StartTimestamps[TimestampIndex].Resource, FOpenGL::QM_ResultAvailable, &StartAvailable);
+					FOpenGL::GetQueryObject(StartTimestamps[TimestampIndex]->Resource, FOpenGL::QM_ResultAvailable, &StartAvailable);
 
-					if(StartAvailable == GL_TRUE)
+					if (StartAvailable == GL_TRUE)
 					{
-						FOpenGL::GetQueryObject(EndTimestamps[TimestampIndex].Resource, FOpenGL::QM_Result, &EndTime);
-						FOpenGL::GetQueryObject(StartTimestamps[TimestampIndex].Resource, FOpenGL::QM_Result, &StartTime);
+						FOpenGL::GetQueryObject(EndTimestamps[TimestampIndex]->Resource, FOpenGL::QM_Result, &EndTime);
+						FOpenGL::GetQueryObject(StartTimestamps[TimestampIndex]->Resource, FOpenGL::QM_Result, &StartTime);
 						if (EndTime > StartTime)
 						{
 							return EndTime - StartTime;
@@ -515,58 +525,58 @@ uint64 FOpenGLBufferedGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 			}
 		}
 
-		if ( NumIssuedTimestamps > 0 || bGetCurrentResultsAndBlock )
+		if (NumIssuedTimestamps > 0 || bGetCurrentResultsAndBlock)
 		{
 			// None of the (NumIssuedTimestamps - 1) measurements were ready yet,
 			// so check the oldest measurement more thoroughly.
 			// This really only happens if occlusion and frame sync event queries are disabled, otherwise those will block until the GPU catches up to 1 frame behind
-			const bool bBlocking = ( NumIssuedTimestamps == BufferSize ) || bGetCurrentResultsAndBlock;
-			
+			const bool bBlocking = (NumIssuedTimestamps == BufferSize) || bGetCurrentResultsAndBlock;
+
 			uint32 IdleStart = FPlatformTime::Cycles();
 			double StartTimeoutTime = FPlatformTime::Seconds();
 
 			GLuint EndAvailable = GL_FALSE;
 
-			SCOPE_CYCLE_COUNTER( STAT_RenderQueryResultTime );
+			SCOPE_CYCLE_COUNTER(STAT_RenderQueryResultTime);
 			// If we are blocking, retry until the GPU processes the time stamp command
-			do 
+			do
 			{
-				FOpenGL::GetQueryObject(EndTimestamps[TimestampIndex].Resource, FOpenGL::QM_ResultAvailable, &EndAvailable);
+				FOpenGL::GetQueryObject(EndTimestamps[TimestampIndex]->Resource, FOpenGL::QM_ResultAvailable, &EndAvailable);
 
 				if ((FPlatformTime::Seconds() - StartTimeoutTime) > 0.5)
 				{
 					UE_LOG(LogRHI, Log, TEXT("Timed out while waiting for GPU to catch up. (500 ms) EndTimeStamp"));
 					return 0;
 				}
-			} while ( EndAvailable == GL_FALSE && bBlocking );
-	
+			} while (EndAvailable == GL_FALSE && bBlocking);
+
 			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
 			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUQuery]++;
 
-			if ( EndAvailable == GL_TRUE )
+			if (EndAvailable == GL_TRUE)
 			{
 				IdleStart = FPlatformTime::Cycles();
 				StartTimeoutTime = FPlatformTime::Seconds();
 
 				GLuint StartAvailable = GL_FALSE;
 
-				do 
+				do
 				{
-					FOpenGL::GetQueryObject(StartTimestamps[TimestampIndex].Resource, FOpenGL::QM_ResultAvailable, &StartAvailable);
+					FOpenGL::GetQueryObject(StartTimestamps[TimestampIndex]->Resource, FOpenGL::QM_ResultAvailable, &StartAvailable);
 
 					if ((FPlatformTime::Seconds() - StartTimeoutTime) > 0.5)
 					{
 						UE_LOG(LogRHI, Log, TEXT("Timed out while waiting for GPU to catch up. (500 ms) StartTimeStamp"));
 						return 0;
 					}
-				} while ( StartAvailable == GL_FALSE && bBlocking );
+				} while (StartAvailable == GL_FALSE && bBlocking);
 
 				GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
 
-				if(StartAvailable == GL_TRUE)
+				if (StartAvailable == GL_TRUE)
 				{
-					FOpenGL::GetQueryObject(EndTimestamps[TimestampIndex].Resource, FOpenGL::QM_Result, &EndTime);
-					FOpenGL::GetQueryObject(StartTimestamps[TimestampIndex].Resource, FOpenGL::QM_Result, &StartTime);
+					FOpenGL::GetQueryObject(EndTimestamps[TimestampIndex]->Resource, FOpenGL::QM_Result, &EndTime);
+					FOpenGL::GetQueryObject(StartTimestamps[TimestampIndex]->Resource, FOpenGL::QM_Result, &StartTime);
 					if (EndTime > StartTime)
 					{
 						return EndTime - StartTime;
@@ -577,6 +587,7 @@ uint64 FOpenGLBufferedGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 	}
 	return 0;
 }
+
 
 FOpenGLDisjointTimeStampQuery::FOpenGLDisjointTimeStampQuery(class FOpenGLDynamicRHI* InOpenGLRHI)
 :	bIsResultValid(false)
