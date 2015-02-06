@@ -21,6 +21,13 @@ static TAutoConsoleVariable<float> CVarStencilSizeThreshold(
 	TEXT("0..1: optimization is enabled, value defines the minimum size (screen space) to trigger the optimization (default 0.1)")
 	);
 
+static TAutoConsoleVariable<float> CVarDecalFadeScreenSizeMultiplier(
+	TEXT("r.Decal.FadeScreenSizeMult"),
+	1.0f,
+	TEXT("Control the per decal fade screen size. Multiplies with the per-decal screen size fade threshold.")
+	TEXT("  Smaller means decals fade less aggressively.")
+	);
+
 enum ERenderTargetMode
 {
 	RTM_Unknown = -1,
@@ -125,9 +132,10 @@ struct FTransientDecalRenderData
 	const FMaterial* MaterialResource;
 	const FDeferredDecalProxy* DecalProxy;
 	bool bHasNormal;
+	float FadeAlpha;
 
 	FTransientDecalRenderData(const FScene& InScene, FDeferredDecalProxy* InDecalProxy)
-		: DecalProxy(InDecalProxy)
+		: DecalProxy(InDecalProxy), FadeAlpha(1.0f)
 	{
 		MaterialProxy = InDecalProxy->DecalMaterial->GetRenderProxy(InDecalProxy->bOwnerSelected);
 		MaterialResource = MaterialProxy->GetMaterial(InScene.GetFeatureLevel());
@@ -492,10 +500,11 @@ public:
 		FMaterialShader(Initializer)
 	{
 		ScreenToDecal.Bind(Initializer.ParameterMap,TEXT("ScreenToDecal"));
-		DecalToWorld.Bind(Initializer.ParameterMap,TEXT("DecalToWorld"));
+		DecalToWorld.Bind(Initializer.ParameterMap, TEXT("DecalToWorld"));
+		FadeAlpha.Bind(Initializer.ParameterMap, TEXT("FadeAlpha"));
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FMaterialRenderProxy* MaterialProxy, const FDeferredDecalProxy& DecalProxy)
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FMaterialRenderProxy* MaterialProxy, const FDeferredDecalProxy& DecalProxy, const float FadeAlphaValue = 1.0f)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
@@ -532,18 +541,21 @@ public:
 
 			SetShaderValue(RHICmdList, ShaderRHI, DecalToWorld, DecalToWorldValue);
 		}
+
+		SetShaderValue(RHICmdList, ShaderRHI, FadeAlpha, FadeAlphaValue);
 	}
 
 	virtual bool Serialize(FArchive& Ar)
 	{
 		bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
-		Ar << ScreenToDecal << DecalToWorld;
+		Ar << ScreenToDecal << DecalToWorld << FadeAlpha;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 	FShaderParameter ScreenToDecal;
 	FShaderParameter DecalToWorld;
+	FShaderParameter FadeAlpha;
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDeferredDecalPS,TEXT("DeferredDecal"),TEXT("MainPS"),SF_Pixel);
@@ -635,7 +647,7 @@ void SetShader(const FRenderingCompositePassContext& Context, const FTransientDe
 
 	Context.RHICmdList.SetLocalBoundShaderState(Context.RHICmdList.BuildLocalBoundShaderState(GetVertexDeclarationFVector3(), VertexShader->GetVertexShader(), FHullShaderRHIRef(), FDomainShaderRHIRef(), PixelShader->GetPixelShader(), FGeometryShaderRHIRef()));
 
-	PixelShader->SetParameters(Context.RHICmdList, View, DecalData.MaterialProxy, *DecalData.DecalProxy);
+	PixelShader->SetParameters(Context.RHICmdList, View, DecalData.MaterialProxy, *DecalData.DecalProxy, DecalData.FadeAlpha);
 }
 
 bool RenderPreStencil(FRenderingCompositePassContext& Context, const FMaterialShaderMap* MaterialShaderMap, const FMatrix& ComponentToWorldMatrix, const FMatrix& FrustumComponentToClip)
@@ -810,10 +822,29 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 		{
 			FTransientDecalRenderData Data(Scene, DecalProxy);
 
+			if (Data.DecalProxy->Component->FadeScreenSize != 0.0f)
+			{
+				float FadeMultiplier = CVarDecalFadeScreenSizeMultiplier.GetValueOnRenderThread();
+
+				float Distance = (View.ViewMatrices.ViewOrigin - ComponentToWorldMatrix.GetOrigin()).Size();
+				float Radius = ComponentToWorldMatrix.GetMaximumAxisScale();
+				float CurrentScreenSize = ((Radius / Distance) * FadeMultiplier);
+
+				// fading coefficient needs to increase with increasing field of view and decrease with increasing resolution
+				// FadeCoeffScale is an empirically determined constant to bring us back roughly to fraction of screen size for FadeScreenSize
+				const float FadeCoeffScale = 600.0f;
+				float FOVFactor = ((2.0f / View.ViewMatrices.ProjMatrix.M[0][0]) / View.ViewRect.Width()) * FadeCoeffScale;
+				float FadeCoeff = Data.DecalProxy->Component->FadeScreenSize * FOVFactor;
+				float FadeRange = FadeCoeff * 0.5f;
+
+				float Alpha = (CurrentScreenSize - FadeCoeff) / FadeRange;
+				Data.FadeAlpha = FMath::Min(Alpha, 1.0f);
+			}
+
 			uint32 DecalRenderStage = ComputeRenderStage(Data.DecalBlendMode);
 
 			// we could do this test earlier to avoid the decal intersection but getting DecalBlendMode also costs
-			if(RenderStage == DecalRenderStage)
+			if (RenderStage == DecalRenderStage && Data.FadeAlpha > 0.0f)
 			{
 				SortedDecals.Add(Data);
 			}

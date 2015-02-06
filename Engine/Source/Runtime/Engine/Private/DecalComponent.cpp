@@ -36,7 +36,7 @@ void FDeferredDecalProxy::SetTransform(const FTransform& InComponentToWorld)
 }
 
 UDecalComponent::UDecalComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+: Super(ObjectInitializer), FadeScreenSize(0.01)
 {
 }
 
