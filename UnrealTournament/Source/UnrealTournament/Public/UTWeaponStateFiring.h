@@ -19,6 +19,8 @@ class UUTWeaponStateFiring : public UUTWeaponState
 		bDelayShot = false;
 	}
 
+	FTimerHandle RefireCheckHandle;
+
 	// accessor for convenience
 	inline uint8 GetFireMode()
 	{

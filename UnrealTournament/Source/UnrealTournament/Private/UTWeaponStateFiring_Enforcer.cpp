@@ -5,7 +5,7 @@
 
 void UUTWeaponStateFiring_Enforcer::BeginState(const UUTWeaponState* PrevState)
 {
-	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
+	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
 	ToggleLoopingEffects(true);
 	GetOuterAUTWeapon()->OnStartedFiring();
 	FireShot();
@@ -16,7 +16,7 @@ void UUTWeaponStateFiring_Enforcer::EndState()
 	GetOuterAUTWeapon()->OnStoppedFiring();
 	GetOuterAUTWeapon()->StopFiringEffects();
 	GetOuterAUTWeapon()->GetUTOwner()->ClearFiringInfo();
-	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer);
+	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring_Enforcer::PutDown);
 }
 
@@ -34,8 +34,8 @@ void UUTWeaponStateFiring_Enforcer::ResetTiming()
 				UpdateTiming();
 			}
 		
-			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer);
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - (GetWorld()->GetTimeSeconds() - LastFiredTime), true);
+			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
+			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - (GetWorld()->GetTimeSeconds() - LastFiredTime), true);
 		}
 	}
 }
@@ -43,7 +43,7 @@ void UUTWeaponStateFiring_Enforcer::ResetTiming()
 void UUTWeaponStateFiring_Enforcer::UpdateTiming()
 {
 	// TODO: we should really restart the timer at the percentage it currently is, but FTimerManager has no facility to do this
-	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
+	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
 }
 
 void UUTWeaponStateFiring_Enforcer::FireShot()
@@ -56,7 +56,7 @@ void UUTWeaponStateFiring_Enforcer::PutDown()
 {
 	// by default, firing states delay put down until the weapon returns to active via player letting go of the trigger, out of ammo, etc
 	// However, allow putdown time to overlap with reload time - start a timer to do an early check
-	float TimeTillPutDown = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiring::RefireCheckTimer);
+	float TimeTillPutDown = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle);
 	if (TimeTillPutDown <= GetOuterAUTWeapon()->GetPutDownTime())
 	{
 		Super::PutDown();
@@ -64,6 +64,6 @@ void UUTWeaponStateFiring_Enforcer::PutDown()
 	else
 	{
 		TimeTillPutDown -= GetOuterAUTWeapon()->GetPutDownTime();
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring_Enforcer::PutDown, TimeTillPutDown, false);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring_Enforcer::PutDown, TimeTillPutDown, false);
 	}
 }

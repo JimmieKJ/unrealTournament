@@ -50,10 +50,11 @@ void AUTWeap_Translocator::RecallDisk()
 		UUTGameplayStatics::UTPlaySound(GetWorld(), RecallSound, UTOwner, SRT_All);
 	}
 	// special recovery time for recall
-	typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
-	if (Cast<UUTWeaponStateFiringOnce>(CurrentState) != NULL && GetWorldTimerManager().IsTimerActive(CurrentState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer))
+	UUTWeaponStateFiringOnce* CurrentFiringState = Cast<UUTWeaponStateFiringOnce>(CurrentState);
+	if (CurrentFiringState && GetWorldTimerManager().IsTimerActive(CurrentFiringState->RefireCheckHandle))
 	{
-		GetWorldTimerManager().SetTimer(CurrentState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, RecallFireInterval, false);
+		typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
+		GetWorldTimerManager().SetTimer(CurrentFiringState->RefireCheckHandle, CurrentFiringState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, RecallFireInterval, false);
 	}
 }
 

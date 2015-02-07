@@ -6,7 +6,7 @@
 
 void UUTWeaponStateFiring::BeginState(const UUTWeaponState* PrevState)
 {
-	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
+	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
 	ToggleLoopingEffects(true);
 	PendingFireSequence = -1;
 	bDelayShot = false;
@@ -35,12 +35,12 @@ void UUTWeaponStateFiring::ToggleLoopingEffects(bool bNowOn)
 void UUTWeaponStateFiring::UpdateTiming()
 {
 	// TODO: we should really restart the timer at the percentage it currently is, but FTimerManager has no facility to do this
-	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
+	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
 }
 
 bool UUTWeaponStateFiring::WillSpawnShot(float DeltaTime)
 {
-	return (GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiring::RefireCheckTimer) < DeltaTime);
+	return (GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle) < DeltaTime);
 }
 
 static float LastShotTime = 0.f;
@@ -103,7 +103,7 @@ void UUTWeaponStateFiring::PutDown()
 {
 	// by default, firing states delay put down until the weapon returns to active via player letting go of the trigger, out of ammo, etc
 	// However, allow putdown time to overlap with reload time - start a timer to do an early check
-	float TimeTillPutDown = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiring::RefireCheckTimer);
+	float TimeTillPutDown = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle);
 	if (TimeTillPutDown <= GetOuterAUTWeapon()->GetPutDownTime())
 	{
 		Super::PutDown();

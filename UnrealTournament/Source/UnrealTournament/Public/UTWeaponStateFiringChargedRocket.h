@@ -45,7 +45,7 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		ChargeTime = 0.0f;
 		bCharging = false;
 		RocketLauncher->NumLoadedRockets = 0;
-		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring::RefireCheckTimer);
+		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
 		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::GraceTimer);
 		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer);
 	}
@@ -134,7 +134,7 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 			ChargeTime = 0.0f;
 			if (GetOuterAUTWeapon()->GetCurrentState() == this)
 			{
-				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), false);
+				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), false);
 			}
 
 			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::GraceTimer);

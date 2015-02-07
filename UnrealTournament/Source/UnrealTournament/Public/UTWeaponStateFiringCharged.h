@@ -93,7 +93,7 @@ class UUTWeaponStateFiringCharged : public UUTWeaponStateFiring
 			ChargeTime = 0.0f;
 			if (GetOuterAUTWeapon()->GetCurrentState() == this)
 			{
-				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), false);
+				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), false);
 			}
 		}
 	}

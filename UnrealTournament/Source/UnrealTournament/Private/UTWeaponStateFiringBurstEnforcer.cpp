@@ -37,7 +37,7 @@ void UUTWeaponStateFiringBurstEnforcer::BeginState(const UUTWeaponState* PrevSta
 	else
 	{
 		//set the timer to the proper refire time
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, GetRemainingCooldownTime(), true);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, GetRemainingCooldownTime(), true);
 	}
 }
 
@@ -55,7 +55,7 @@ void UUTWeaponStateFiringBurstEnforcer::ResetTiming()
 
 void UUTWeaponStateFiringBurstEnforcer::EndState()
 {
-	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer);
+	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringBurstEnforcer::PutDown);
 	Super::EndState();
 }
@@ -65,18 +65,18 @@ void UUTWeaponStateFiringBurstEnforcer::IncrementShotTimer()
 	if ((!Cast<AUTWeap_Enforcer>(GetOuterAUTWeapon())->bDualEnforcerMode && (CurrentShot == BurstSize)) 
 		|| (Cast<AUTWeap_Enforcer>(GetOuterAUTWeapon())->bDualEnforcerMode && (CurrentShot == BurstSize) && bFirstVolleyComplete))
 	{
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - (BurstSize - 1)*BurstInterval / GetUTOwner()->GetFireRateMultiplier(), true);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - (BurstSize - 1)*BurstInterval / GetUTOwner()->GetFireRateMultiplier(), true);
 	}
 	else
 	{
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, BurstInterval / GetUTOwner()->GetFireRateMultiplier(), true);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, BurstInterval / GetUTOwner()->GetFireRateMultiplier(), true);
 	}
 }
 
 void UUTWeaponStateFiringBurstEnforcer::UpdateTiming()
 {
 	// TODO: we should really restart the timer at the percentage it currently is, but FTimerManager has no facility to do this
-	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - (BurstSize - 1)*BurstInterval / GetUTOwner()->GetFireRateMultiplier(), true);
+	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - (BurstSize - 1)*BurstInterval / GetUTOwner()->GetFireRateMultiplier(), true);
 }
 
 
@@ -134,7 +134,7 @@ void UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer()
 		}
 		else if (!GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(CurrentFireMode))
 		{
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, GetRemainingCooldownTime(), true);
+			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiringBurstEnforcer::RefireCheckTimer, GetRemainingCooldownTime(), true);
 		}
 		else
 		{
