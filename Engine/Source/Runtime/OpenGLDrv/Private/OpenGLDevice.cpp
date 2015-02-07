@@ -7,6 +7,7 @@
 #include "OpenGLDrvPrivate.h"
 
 #include "HardwareInfo.h"
+#include "ShaderCache.h"
 
 extern GLint GMaxOpenGLColorSamples;
 extern GLint GMaxOpenGLDepthSamples;
@@ -1044,6 +1045,10 @@ void FOpenGLDynamicRHI::Init()
 	check(!GIsRHIInitialized);
 	VERIFY_GL_SCOPE();
 
+#if PLATFORM_DESKTOP
+	FShaderCache::InitShaderCache();
+#endif
+
 	InitializeStateResources();
 
 	// Create a default point sampler state for internal use.
@@ -1118,6 +1123,10 @@ void FOpenGLDynamicRHI::Cleanup()
 {
 	if(GIsRHIInitialized)
 	{
+#if PLATFORM_DESKTOP
+		FShaderCache::ShutdownShaderCache();
+#endif
+
 		// Reset the RHI initialized flag.
 		GIsRHIInitialized = false;
 

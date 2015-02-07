@@ -7,6 +7,7 @@
 #include "OpenGLDrvPrivate.h"
 #include "Shader.h"
 #include "GlobalShader.h"
+#include "ShaderCache.h"
 
 #define CHECK_FOR_GL_SHADERS_TO_REPLACE 0
 
@@ -46,6 +47,7 @@ static bool VerifyCompiledShader(GLuint Shader, const ANSICHAR* GlslCode )
 {
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderCompileVerifyTime);
 
+#if UE_BUILD_DEBUG
 	GLint CompileStatus;
 	glGetShaderiv(Shader, GL_COMPILE_STATUS, &CompileStatus);
 	if (CompileStatus != GL_TRUE)
@@ -96,6 +98,7 @@ static bool VerifyCompiledShader(GLuint Shader, const ANSICHAR* GlslCode )
 		}
 		return false;
 	}
+#endif
 	return true;
 }
 
@@ -106,6 +109,7 @@ static bool VerifyLinkedProgram(GLuint Program)
 {
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderLinkVerifyTime);
 
+#if UE_BUILD_DEBUG
 	GLint LinkStatus = 0;
 	glGetProgramiv(Program, GL_LINK_STATUS, &LinkStatus);
 	if (LinkStatus != GL_TRUE)
@@ -129,6 +133,7 @@ static bool VerifyLinkedProgram(GLuint Program)
 		}
 		return false;
 	}
+#endif
 	return true;
 }
 
@@ -329,7 +334,7 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 	// The code as given to us.
 	FAnsiCharArray GlslCodeOriginal;
 	AppendCString(GlslCodeOriginal, (ANSICHAR*)Code.GetData() + CodeOffset);
-	uint32 GlslCodeOriginalCRC = FCrc::MemCrc_DEPRECATED(GlslCodeOriginal.GetData(), GlslCodeOriginal.Num() + 1);
+	uint32 GlslCodeOriginalCRC = FCrc::MemCrc_DEPRECATED(GlslCodeOriginal.GetData(), GlslCodeOriginal.Num());
 
 	// The amended code we actually compile.
 	FAnsiCharArray GlslCode;
@@ -367,7 +372,7 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 		}
 #endif
 
-		Resource = glCreateShader(TypeEnum);
+		Resource = FOpenGL::CreateShader(TypeEnum);
 
 #if (PLATFORM_ANDROID || PLATFORM_HTML5)
 		if (IsES2Platform(GMaxRHIShaderPlatform))
@@ -1250,7 +1255,7 @@ static FOpenGLLinkedProgram* LinkProgram( const FOpenGLLinkedProgramConfiguratio
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderLinkTime);
 	VERIFY_GL_SCOPE();
 
-	GLuint Program = glCreateProgram();
+	GLuint Program = FOpenGL::CreateProgram();
 
 	// ensure that compute shaders are always alone
 	check( (Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX].Resource == 0) != (Config.Shaders[CrossCompiler::SHADER_STAGE_COMPUTE].Resource == 0));
@@ -1498,6 +1503,12 @@ FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState(
 	else
 	{
 		check(VertexDeclarationRHI);
+
+		FShaderCache* ShaderCache = FShaderCache::GetShaderCache();
+		if (ShaderCache)
+		{
+			ShaderCache->LogBoundShaderState(FOpenGL::GetShaderPlatform(), VertexDeclarationRHI, VertexShaderRHI, PixelShaderRHI, HullShaderRHI, DomainShaderRHI, GeometryShaderRHI);
+		}
 
 		DYNAMIC_CAST_OPENGLRESOURCE(VertexDeclaration,VertexDeclaration);
 		DYNAMIC_CAST_OPENGLRESOURCE(VertexShader,VertexShader);
