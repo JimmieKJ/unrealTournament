@@ -67,10 +67,16 @@ class AUTWeap_Translocator : public AUTWeapon
 	{
 		return true;
 	}
+
 	virtual bool HasAnyAmmo() override
 	{
 		// return true since even if currently zero we'll shortly recharge more
 		return true;
+	}
+
+	virtual bool NeedsAmmoDisplay() const override
+	{
+		return false;
 	}
 
 	/**Don't drop translocator when killed. Kill the disk*/

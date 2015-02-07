@@ -422,7 +422,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual void DetachFromOwnerNative();
 
 	/** return number of fire modes */
-	virtual uint8 GetNumFireModes()
+	virtual uint8 GetNumFireModes() const
 	{
 		return FMath::Min3(255, FiringState.Num(), FireInterval.Num());
 	}
@@ -565,8 +565,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 		return 0.0f;
 	}
 
-	UFUNCTION(BlueprintNativeEvent)
-	void DrawWeaponInfo(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
+	/** Return true if needs HUD ammo display widget drawn. */
+	virtual bool NeedsAmmoDisplay() const;
 
 	/** returns crosshair color taking into account user settings, red flash on hit, etc */
 	UFUNCTION(BlueprintCallable, Category = Weapon)

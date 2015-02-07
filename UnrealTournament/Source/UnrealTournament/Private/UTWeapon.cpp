@@ -774,6 +774,18 @@ bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo >= AmmoCost[FireModeNum]);
 }
 
+bool AUTWeapon::NeedsAmmoDisplay() const
+{
+	for (int32 i = GetNumFireModes() - 1; i >= 0; i--)
+	{
+		if (AmmoCost[i] > 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool AUTWeapon::HasAnyAmmo()
 {
 	bool bHadCost = false;
@@ -1516,14 +1528,6 @@ void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUD
 			TargetPlayerState = NULL;
 		}
 	}
-}
-
-void AUTWeapon::DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
-{
-	UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
-	FString AmmoStr = FString::Printf(TEXT("%i"),Ammo);
-	FText AmmoText = FText::FromString( AmmoStr );
-	WeaponHudWidget->DrawText(AmmoText,0,0,Font, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Bottom);
 }
 
 void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, USkeletalMeshComponent*& InOverlayMesh) const

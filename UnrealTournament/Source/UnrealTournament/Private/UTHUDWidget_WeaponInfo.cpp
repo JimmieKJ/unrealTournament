@@ -24,14 +24,19 @@ void UUTHUDWidget_WeaponInfo::InitializeWidget(AUTHUD* Hud)
 	AmmoText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_WeaponInfo::GetAmmoAmount_Implementation);
 }
 
+bool UUTHUDWidget_WeaponInfo::ShouldDraw_Implementation(bool bShowScores)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+	return (UTC && UTC->GetWeapon() && UTC->GetWeapon()->NeedsAmmoDisplay());
+}
 
 void UUTHUDWidget_WeaponInfo::Draw_Implementation(float DeltaTime)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	UUTHUDWidget_WeaponInfo* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_WeaponInfo>();
 
 	if (UTC)	
 	{
+		UUTHUDWidget_WeaponInfo* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_WeaponInfo>();
 		bool bCalcFlash = true;
 		AUTWeapon* CurrentWeapon = UTC->GetWeapon();
 		if (CurrentWeapon)
@@ -43,7 +48,7 @@ void UUTHUDWidget_WeaponInfo::Draw_Implementation(float DeltaTime)
 				LastAmmoAmount = CurrentWeapon->Ammo;
 				bCalcFlash = false;
 			}
-			
+		
 			LastWeapon = CurrentWeapon;
 		}
 
@@ -55,10 +60,8 @@ void UUTHUDWidget_WeaponInfo::Draw_Implementation(float DeltaTime)
 				AmmoText.RenderColor = AmmoFlashColor;
 				bCalcFlash = false;
 			}
-
 			LastAmmoAmount = LastWeapon->Ammo;
 		}
-
 
 		if (FlashTimer > 0)
 		{

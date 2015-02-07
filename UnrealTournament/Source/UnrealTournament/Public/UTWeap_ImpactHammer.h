@@ -43,11 +43,14 @@ class AUTWeap_ImpactHammer : public AUTWeapon
 	UFUNCTION(Client, Reliable)
 	virtual void ClientAutoHit(AActor* Target);
 
+	virtual bool NeedsAmmoDisplay() const override
+	{
+		return false;
+	}
+
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL) override;
 
 	virtual void Tick(float DeltaTime) override;
-
-	virtual void DrawWeaponInfo_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta) override;
 
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;

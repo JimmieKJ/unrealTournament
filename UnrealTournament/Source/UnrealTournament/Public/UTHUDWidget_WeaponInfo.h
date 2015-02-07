@@ -1,10 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 
-/**
- *
- **/
-
 #include "UTHUDWidget_WeaponInfo.generated.h"
 
 UCLASS()
@@ -14,8 +10,9 @@ class UUTHUDWidget_WeaponInfo : public UUTHUDWidget
 
 public:
 
-	virtual void Draw_Implementation(float DeltaTime);
-	virtual void InitializeWidget(AUTHUD* Hud);
+	virtual void Draw_Implementation(float DeltaTime) override;
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
+	virtual void InitializeWidget(AUTHUD* Hud) override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
