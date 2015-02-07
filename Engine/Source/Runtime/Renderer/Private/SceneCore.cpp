@@ -162,7 +162,8 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 	bIsShadowMapped(bInIsShadowMapped),
 	bUncachedStaticLighting(false),
 	bHasTranslucentObjectShadow(bInHasTranslucentObjectShadow),
-	bHasInsetObjectShadow(bInHasInsetObjectShadow)
+	bHasInsetObjectShadow(bInHasInsetObjectShadow),
+	bSelfShadowOnly(false)
 {
 	// Determine whether this light-primitive interaction produces a shadow.
 	if(PrimitiveSceneInfo->Proxy->HasStaticLighting())
@@ -202,6 +203,8 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 		}
 	}
 #endif
+
+	bSelfShadowOnly = PrimitiveSceneInfo->Proxy->CastsSelfShadowOnly();
 
 	if (bIsDynamic)
 	{

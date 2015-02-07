@@ -1883,8 +1883,9 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 			0xff,0xff
 			>::GetRHI(), 1);
 
-
-		const TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& DynamicMeshElements = bSelfShadowOnly ? DynamicSubjectMeshElements : DynamicReceiverMeshElements;
+		// Pre-shadows mask by receiver elements, self-shadow mask by subject elements.
+		// Note that self-shadow pre-shadows still mask by receiver elements.
+		const TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& DynamicMeshElements = bPreShadow ? DynamicReceiverMeshElements : DynamicSubjectMeshElements;
 
 		FDepthDrawingPolicyFactory::ContextType Context(DDM_AllOccluders);
 
@@ -1895,9 +1896,9 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 			FDepthDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, *View, Context, MeshBatch, false, true, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
 		}
 
-		// bPreShadow: only receive shadow on specific objects
-		// bSelfShadowOnly: only cast shadow on itself
-		const PrimitiveArrayType& MaskPrimitives = bSelfShadowOnly ? SubjectPrimitives : ReceiverPrimitives;
+		// Pre-shadows mask by receiver elements, self-shadow mask by subject elements.
+		// Note that self-shadow pre-shadows still mask by receiver elements.
+		const PrimitiveArrayType& MaskPrimitives = bPreShadow ? ReceiverPrimitives : SubjectPrimitives;
 
 		for (int32 PrimitiveIndex = 0, PrimitiveCount = MaskPrimitives.Num(); PrimitiveIndex < PrimitiveCount; PrimitiveIndex++)
 		{

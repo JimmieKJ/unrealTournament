@@ -35,6 +35,7 @@ public:
 	bool IsUncachedStaticLighting() const { return bUncachedStaticLighting; }
 	bool HasTranslucentObjectShadow() const { return bHasTranslucentObjectShadow; }
 	bool HasInsetObjectShadow() const { return bHasInsetObjectShadow; }
+	bool CastsSelfShadowOnly() const { return bSelfShadowOnly; }
 	FLightSceneInfo* GetLight() const { return LightSceneInfo; }
 	int32 GetLightId() const { return LightId; }
 	FPrimitiveSceneInfo* GetPrimitiveSceneInfo() const { return PrimitiveSceneInfo; }
@@ -81,6 +82,9 @@ private:
 
 	/** True if the interaction has an inset per-object shadow. */
 	uint32 bHasInsetObjectShadow : 1;
+
+	/** True if the primitive only shadows itself. */
+	uint32 bSelfShadowOnly : 1;
 
 	/** A pointer to the NextPrimitive member of the previous interaction in the light's interaction list. */
 	FLightPrimitiveInteraction** PrevPrimitiveLink;

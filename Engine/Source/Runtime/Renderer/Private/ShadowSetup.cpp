@@ -1177,6 +1177,7 @@ void FDeferredShadingSceneRenderer::SetupInteractionShadows(
 		const bool bCreateObjectShadowForStationaryLight = ShouldCreateObjectShadowForStationaryLight(Interaction->GetLight(), PrimitiveSceneInfo->Proxy, Interaction->IsShadowMapped());
 
 		if (Interaction->HasShadow() 
+			// TODO: Handle inset shadows, especially when an object is only casting a self-shadow.
 			// Only render shadows from objects that use static lighting during a reflection capture, since the reflection capture doesn't update at runtime
 			&& (!bStaticSceneOnly || PrimitiveSceneInfo->Proxy->HasStaticLighting())
 			&& (bCreateTranslucentObjectShadow || bCreateInsetObjectShadow || bCreateObjectShadowForStationaryLight))
@@ -1658,6 +1659,8 @@ void FDeferredShadingSceneRenderer::CreateWholeSceneProjectedShadow(FLightSceneI
 						Interaction = Interaction->GetNextPrimitive())
 					{
 						if (Interaction->HasShadow() 
+							// If the primitive only wants to cast a self shadow don't include it in whole scene shadows.
+							&& !Interaction->CastsSelfShadowOnly()
 							&& (!bStaticSceneOnly || Interaction->GetPrimitiveSceneInfo()->Proxy->HasStaticLighting()))
 						{
 							ProjectedShadowInfo->AddSubjectPrimitive(Interaction->GetPrimitiveSceneInfo(), &Views);
