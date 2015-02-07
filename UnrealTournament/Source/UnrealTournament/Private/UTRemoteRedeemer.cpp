@@ -388,27 +388,32 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 void AUTRemoteRedeemer::ExplodeStage1()
 {
 	ExplodeStage(ExplosionRadii[0]);
-	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage2, ExplosionTimings[0]);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage2, ExplosionTimings[0]);
 }
 void AUTRemoteRedeemer::ExplodeStage2()
 {
 	ExplodeStage(ExplosionRadii[1]);
-	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage3, ExplosionTimings[1]);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage3, ExplosionTimings[1]);
 }
 void AUTRemoteRedeemer::ExplodeStage3()
 {
 	ExplodeStage(ExplosionRadii[2]);
-	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage4, ExplosionTimings[2]);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage4, ExplosionTimings[2]);
 }
 void AUTRemoteRedeemer::ExplodeStage4()
 {
 	ExplodeStage(ExplosionRadii[3]);
-	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage5, ExplosionTimings[3]);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage5, ExplosionTimings[3]);
 }
 void AUTRemoteRedeemer::ExplodeStage5()
 {
 	ExplodeStage(ExplosionRadii[4]);
-	GetWorldTimerManager().SetTimer(this, &AUTRemoteRedeemer::ExplodeStage6, ExplosionTimings[4]);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTRemoteRedeemer::ExplodeStage6, ExplosionTimings[4]);
 }
 void AUTRemoteRedeemer::ExplodeStage6()
 {
