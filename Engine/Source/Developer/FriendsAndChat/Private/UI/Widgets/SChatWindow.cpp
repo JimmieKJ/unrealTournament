@@ -152,6 +152,7 @@ public:
 								.OnTextCommitted(this, &SChatWindowImpl::HandleChatEntered)
 								.HintText(LOCTEXT("FriendsListSearch", "Enter to chat"))
 								.OnTextChanged(this, &SChatWindowImpl::OnChatTextChanged)
+								.IsEnabled(this, &SChatWindowImpl::IsChatEntryEnabled)
 							]
 						]
 						+SVerticalBox::Slot()
@@ -331,42 +332,7 @@ private:
 	 */
 	TSharedRef<SWidget> GetMenuContent()
 	{
-		TSharedPtr<SVerticalBox> ChannelSelection;
-
-		TSharedRef<SWidget> Contents =
-		SNew(SUniformGridPanel)
-		+SUniformGridPanel::Slot(0,0)
-		[
-			SNew(SBorder)
-			.BorderImage(&FriendStyle.ChatChannelsBackgroundBrush)
-			[
-				SAssignNew(ChannelSelection, SVerticalBox)
-			]
-		]
-		+SUniformGridPanel::Slot(1,0)
-		[
-			SNew(SBorder)
-			.BorderImage(&FriendStyle.ChatOptionsBackgroundBrush)
-			.Padding(8.0f)
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Top)
-			[
-				SNew(SCheckBox)
-				.Style(&FriendStyle.FriendCheckboxStyle)
-				.OnCheckStateChanged(this, &SChatWindowImpl::OnGlobalOptionChanged)
-				.IsChecked(this, &SChatWindowImpl::GetGlobalOptionState)
-				[
-					SNew(SBox)
-					.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("GlobalChatterCheckBox", "Global Chatter"))
-						.Font(FriendStyle.FriendsFontStyleSmallBold)
-						.ColorAndOpacity(FriendStyle.DefaultFontColor)
-					]
-				]
-			]
-		];
+		TSharedPtr<SVerticalBox> ChannelSelection = SNew(SVerticalBox);
 
 		for( const auto& RecentFriend : SharedChatViewModel->GetRecentOptions())
 		{
@@ -442,6 +408,44 @@ private:
 				]
 			];
 		};
+
+		
+		TSharedRef<SWidget> Contents =
+		SNew(SUniformGridPanel)
+		+SUniformGridPanel::Slot(0,0)
+		[
+			SNew(SBorder)
+			.BorderImage(&FriendStyle.ChatChannelsBackgroundBrush)
+			.Visibility(ChannelSelection->GetChildren()->Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed)
+			[
+				ChannelSelection.ToSharedRef()
+			]
+		]
+		+SUniformGridPanel::Slot(1,0)
+		[
+			SNew(SBorder)
+			.BorderImage(&FriendStyle.ChatOptionsBackgroundBrush)
+			.Padding(8.0f)
+			.Visibility(SharedChatViewModel->IsGlobalChatEnabled() ? EVisibility::Visible : EVisibility::Collapsed)
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Top)
+			[
+				SNew(SCheckBox)
+				.Style(&FriendStyle.FriendCheckboxStyle)
+				.OnCheckStateChanged(this, &SChatWindowImpl::OnGlobalOptionChanged)
+				.IsChecked(this, &SChatWindowImpl::GetGlobalOptionState)
+				[
+					SNew(SBox)
+					.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("GlobalChatterCheckBox", "Global Chatter"))
+						.Font(FriendStyle.FriendsFontStyleSmallBold)
+						.ColorAndOpacity(FriendStyle.DefaultFontColor)
+					]
+				]
+			]
+		];
 
 		return Contents;
 	}
@@ -531,6 +535,11 @@ private:
 		}
 	}
 
+	bool IsChatEntryEnabled() const
+	{
+		return SharedChatViewModel->IsChatChannelValid();
+	}
+
 	FReply HandleSendClicked()
 	{
 		SendChatMessage();
@@ -600,12 +609,17 @@ private:
 
 	const FSlateBrush* GetChatChannelIcon() const
 	{
-		switch(SharedChatViewModel->GetChatChannelType())
+		if (!SharedChatViewModel->IsChatChannelValid())
 		{
-			case EChatMessageType::Global: return &FriendStyle.ChatGlobalBrush; break;
-			case EChatMessageType::Whisper: return &FriendStyle.ChatWhisperBrush; break;
-			case EChatMessageType::Party: return &FriendStyle.ChatPartyBrush; break;
-			default:
+			return &FriendStyle.ChatInvalidBrush;
+		}
+
+		switch (SharedChatViewModel->GetChatChannelType())
+		{
+		case EChatMessageType::Global: return &FriendStyle.ChatGlobalBrush;	break;
+		case EChatMessageType::Whisper: return &FriendStyle.ChatWhisperBrush; break;
+		case EChatMessageType::Party: return &FriendStyle.ChatPartyBrush; break;
+		default:
 			return nullptr;
 		}
 	}
@@ -613,14 +627,14 @@ private:
 	void OnGlobalOptionChanged(ECheckBoxState NewState)
 	{
 		const bool bDisabled = NewState == ECheckBoxState::Unchecked;
-		SharedChatViewModel->SetAllowGlobalChat(!bDisabled);
+		SharedChatViewModel->SetDisplayGlobalChat(!bDisabled);
 
 		FFriendsAndChatManager::Get()->GetAnalytics().RecordToggleChat(TEXT("Global"), !bDisabled, TEXT("Social.Chat.Toggle"));
 	}
 
 	ECheckBoxState GetGlobalOptionState() const
 	{
-		return SharedChatViewModel->IsGlobalChatEnabled() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		return SharedChatViewModel->IsDisplayingGlobalChat() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 
 	virtual bool SupportsKeyboardFocus() const override
