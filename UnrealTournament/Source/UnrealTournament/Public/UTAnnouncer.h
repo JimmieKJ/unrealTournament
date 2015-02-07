@@ -70,6 +70,8 @@ class UUTAnnouncer : public UObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Announcer)
 	float Spacing;
 
+	FTimerHandle PlayNextAnnouncementHandle;
+
 	/** fast lookup to audio we've used previously */
 	TMap<FName, USoundBase*> CachedAudio;
 

@@ -57,14 +57,14 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 				QueuedAnnouncements.Add(NewAnnouncement);
 
 				// play now if nothing in progress
-				if (!GetWorld()->GetTimerManager().IsTimerActive(this, &UUTAnnouncer::PlayNextAnnouncement))
+				if (!GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle))
 				{
 					if (CurrentAnnouncement.MessageClass == NULL)
 					{
 						float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->AnnouncementDelay;
 						if (Delay > 0.f)
 						{
-							GetWorld()->GetTimerManager().SetTimer(this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);
+							GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);
 						}
 						else
 						{
@@ -80,12 +80,12 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 void UUTAnnouncer::AnnouncementFinished()
 {
 	CurrentAnnouncement = FAnnouncementInfo();
-	GetWorld()->GetTimerManager().SetTimer(this, &UUTAnnouncer::PlayNextAnnouncement, Spacing, false);
+	GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Spacing, false);
 }
 
 void UUTAnnouncer::PlayNextAnnouncement()
 {
-	GetWorld()->GetTimerManager().ClearTimer(this, &UUTAnnouncer::PlayNextAnnouncement);
+	GetWorld()->GetTimerManager().ClearTimer(PlayNextAnnouncementHandle);
 	if (QueuedAnnouncements.Num() > 0)
 	{
 		if (AnnouncementComp->IsPlaying())
