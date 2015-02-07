@@ -20,6 +20,9 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 	: Super(ObjectInitializer)
 	{}
 
+	FTimerHandle GraceTimerHandle;
+	FTimerHandle LoadTimerHandle;
+
 	virtual void BeginState(const UUTWeaponState* PrevState) override
 	{
 		RocketLauncher = Cast<AUTWeap_RocketLauncher>(GetOuterAUTWeapon());
@@ -34,7 +37,7 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		}
 
 		RocketLauncher->BeginLoadRocket();
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(), false);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(LoadTimerHandle, this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(), false);
 	}
 
 	virtual void EndState() override
@@ -46,8 +49,8 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		bCharging = false;
 		RocketLauncher->NumLoadedRockets = 0;
 		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
-		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::GraceTimer);
-		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer);
+		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(GraceTimerHandle);
+		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(LoadTimerHandle);
 	}
 
 	virtual void LoadTimer()
@@ -62,7 +65,7 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 			{
 				RocketLauncher->ClientAbortLoad();
 			}
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::GraceTimer, RocketLauncher->GracePeriod, false);
+			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(GraceTimerHandle, this, &UUTWeaponStateFiringChargedRocket::GraceTimer, RocketLauncher->GracePeriod, false);
 		}
 		//Fire delay for shooting one alternate rocket
 		else if (!bCharging)
@@ -73,7 +76,7 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		{
 			RocketLauncher->BeginLoadRocket();
 
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(), false);
+			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(LoadTimerHandle, this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(), false);
 		}
 	}
 
@@ -100,10 +103,10 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 	virtual void UpdateTiming() override
 	{
 		Super::UpdateTiming();
-		if (GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(this, &UUTWeaponStateFiringChargedRocket::LoadTimer))
+		if (GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(LoadTimerHandle))
 		{
-			float RemainingPct = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(this, &UUTWeaponStateFiringChargedRocket::LoadTimer) / GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRate(this, &UUTWeaponStateFiringChargedRocket::LoadTimer);
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime() * RemainingPct, false);
+			float RemainingPct = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(LoadTimerHandle) / GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRate(this, &UUTWeaponStateFiringChargedRocket::LoadTimer);
+			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(LoadTimerHandle, this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime() * RemainingPct, false);
 		}
 	}
 
@@ -137,8 +140,8 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), false);
 			}
 
-			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::GraceTimer);
-			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringChargedRocket::LoadTimer);
+			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(GraceTimerHandle);
+			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(LoadTimerHandle);
 		}
 	}
 };

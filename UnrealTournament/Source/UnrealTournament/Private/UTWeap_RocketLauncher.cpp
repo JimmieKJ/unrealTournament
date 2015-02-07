@@ -139,7 +139,7 @@ void AUTWeap_RocketLauncher::ClientAbortLoad_Implementation()
 		{
 			AdjustedGraceTime = FMath::Max<float>(0.01f, AdjustedGraceTime - UTOwner->PlayerState->ExactPing * 0.0005f); // one way trip so half ping
 		}
-		GetWorldTimerManager().SetTimer(LoadState, &UUTWeaponStateFiringChargedRocket::GraceTimer, AdjustedGraceTime, false);
+		GetWorldTimerManager().SetTimer(LoadState->GraceTimerHandle, LoadState, &UUTWeaponStateFiringChargedRocket::GraceTimer, AdjustedGraceTime, false);
 	}
 }
 
@@ -155,8 +155,8 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 		UUTWeaponStateFiringChargedRocket* AltState = Cast<UUTWeaponStateFiringChargedRocket>(FiringState[1]);
 		if (AltState != NULL && AltState->bCharging)
 		{
-			if (GetWorldTimerManager().IsTimerActive(AltState, &UUTWeaponStateFiringChargedRocket::GraceTimer)
-				&& (GetWorldTimerManager().GetTimerRemaining(AltState, &UUTWeaponStateFiringChargedRocket::GraceTimer) < 0.05f))
+			if (GetWorldTimerManager().IsTimerActive(AltState->GraceTimerHandle)
+				&& (GetWorldTimerManager().GetTimerRemaining(AltState->GraceTimerHandle) < 0.05f))
 			{
 				// too close to timer ending, so don't allow mode change to avoid de-synchronizing client and server
 				return;
