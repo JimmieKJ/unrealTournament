@@ -102,7 +102,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	FTextureUVs BarTextureUVs;
 
-	void CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups, float DeltaTime);
+	/** Fills the WeaponGroups and returns the number of weapons found. */
+	int32 CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups, float DeltaTime);
 
 	// Override the default version to return the secondary scaling
 	virtual float GetDrawScaleOverride();

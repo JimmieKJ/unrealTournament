@@ -129,7 +129,12 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		}
 	}
 
-	CollectWeaponData(WeaponGroups, DeltaTime);
+	int32 NumWeapons = CollectWeaponData(WeaponGroups, DeltaTime);
+	if (NumWeapons < 2)
+	{
+		// skip rendering weapon bar if 0 or 1 weapons
+		return;
+	}
 
 	if (WeaponGroups.Num() > 0)
 	{
@@ -306,8 +311,9 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	}
 }
 
-void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups, float DeltaTime)
+int32 UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroups, float DeltaTime)
 {
+	int32 NumWeapons = 0;
 	if (UTCharacterOwner)
 	{
 		bool bUseClassicGroups = UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bUseClassicGroups;
@@ -325,6 +331,7 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 
 		for (TInventoryIterator<AUTWeapon> It(UTCharacterOwner); It; ++It)
 		{
+			NumWeapons++;
 			AUTWeapon* Weapon = *It;
 			int32 WeaponGroup = bUseClassicGroups ? Weapon->ClassicGroup : Weapon->Group;
 			int32 GroupIndex = -1;
@@ -380,6 +387,7 @@ void UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGroup
 			}
 		}
 	}
+	return NumWeapons;
 }
 
 float UUTHUDWidget_WeaponBar::GetDrawScaleOverride()
