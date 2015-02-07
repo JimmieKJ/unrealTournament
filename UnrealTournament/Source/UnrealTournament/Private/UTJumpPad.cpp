@@ -75,8 +75,7 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 			AUTCharacter* UTChar = Cast<AUTCharacter>(Char);
 			if (UTChar != NULL)
 			{
-				UTChar->UTCharacterMovement->bRestrictedJump = true;
-				GetWorldTimerManager().SetTimer(UTChar->UTCharacterMovement, &UUTCharacterMovement::ClearRestrictedJump, RestrictedJumpTime, false);
+				UTChar->UTCharacterMovement->RestrictJump(RestrictedJumpTime);
 			}
 		}
 

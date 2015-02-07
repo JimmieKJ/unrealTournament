@@ -427,6 +427,11 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = AirControl)
 	bool bRestrictedJump;
 
+	FTimerHandle ClearRestrictedJumpHandle;
+
+	/** Call to restrict air control for part of a jump/fall. */
+	virtual void RestrictJump(float RestrictedJumpTime);
+
 	/** allows timed clearing of bRestrictedJump during the jump/fall (e.g. jump pads that only want to restrict for part of the jump) */
 	UFUNCTION()
 	virtual void ClearRestrictedJump();

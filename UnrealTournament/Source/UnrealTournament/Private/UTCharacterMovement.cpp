@@ -803,10 +803,16 @@ float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FH
 	return (GetCurrentMovementTime() - DodgeRollTapTime < DodgeRollBonusTapInterval) ? FallingDamageRollReduction : 0.f;
 }
 
+void UUTCharacterMovement::RestrictJump(float RestrictedJumpTime)
+{
+	bRestrictedJump = true;
+	GetWorld()->GetTimerManager().SetTimer(ClearRestrictedJumpHandle, this, &UUTCharacterMovement::ClearRestrictedJump, RestrictedJumpTime, false);
+}
+
 void UUTCharacterMovement::ClearRestrictedJump()
 {
 	bRestrictedJump = false;
-	GetWorld()->GetTimerManager().ClearTimer(this, &UUTCharacterMovement::ClearRestrictedJump);
+	GetWorld()->GetTimerManager().ClearTimer(ClearRestrictedJumpHandle);
 }
 
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
