@@ -175,7 +175,6 @@ void AUTRemoteRedeemer::BlowUp()
 		bExploded = true;
 		bTearOff = true;
 
-		GetWorldTimerManager().ClearTimer(this, &AUTRemoteRedeemer::BlowUp);
 		if (Role == ROLE_Authority)
 		{
 			DriverLeave(true);
@@ -203,7 +202,6 @@ void AUTRemoteRedeemer::Detonate()
 		bExploded = true;
 		bTearOff = true;
 
-		GetWorldTimerManager().ClearTimer(this, &AUTRemoteRedeemer::BlowUp);
 		if (Role == ROLE_Authority)
 		{
 			DriverLeave(true);
