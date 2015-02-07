@@ -70,8 +70,7 @@ namespace UnrealBuildTool
                 {
                     throw new BuildException("Trying to access TargetInfo.IsMonolithic when TargetInfo.Type is not set. Make sure IsMonolithic is used only in ModuleRules.");
                 }
-                return Type == TargetRules.TargetType.Client ||
-                     Type == TargetRules.TargetType.RocketGame;
+                return Type == TargetRules.TargetType.Client;
             }
         }
     }
