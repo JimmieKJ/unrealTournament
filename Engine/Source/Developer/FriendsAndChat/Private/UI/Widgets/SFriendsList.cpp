@@ -76,4 +76,18 @@ const FButtonStyle* SFriendsList::GetActionButtonStyle(const FFriendsAndChatStyl
 	}
 }
 
+FSlateColor SFriendsList::GetActionButtonFontColor(const FFriendsAndChatStyle& FriendStyle, EFriendActionLevel ActionLevel)
+{
+	switch (ActionLevel)
+	{
+	case EFriendActionLevel::Critical:
+		return FSlateColor(FriendStyle.FriendListCriticalFontColor);
+	case EFriendActionLevel::Emphasis:
+		return FSlateColor(FriendStyle.FriendListEmphasisFontColor);
+	case EFriendActionLevel::Action:
+	default:
+		return FSlateColor(FriendStyle.FriendListActionFontColor);
+	}
+}
+
 #undef LOCTEXT_NAMESPACE

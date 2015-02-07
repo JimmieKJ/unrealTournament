@@ -90,6 +90,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListComboButtonStyle(const
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemButtonStyle(const FButtonStyle& ButtonStyle)
+{
+	ComboItemButtonStyle = ButtonStyle;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListItemButtonStyle(const FButtonStyle& ButtonStyle)
 {
 	FriendListItemButtonStyle = ButtonStyle;
@@ -272,6 +278,36 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetNetworkChatColor(const FLinearCol
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemTextColorNormal(const FLinearColor& InColor)
+{
+	ComboItemTextColorNormal = InColor;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemTextColorHovered(const FLinearColor& InColor)
+{
+	ComboItemTextColorHovered = InColor;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendListCriticalFontColor(const FLinearColor& InColor)
+{
+	FriendListCriticalFontColor = InColor;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendListEmphasisFontColor(const FLinearColor& InColor)
+{
+	FriendListEmphasisFontColor = InColor;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendListActionFontColor(const FLinearColor& InColor)
+{
+	FriendListActionFontColor = InColor;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatGlobalBrush(const FSlateBrush& Brush)
 {
 	ChatGlobalBrush = Brush;
@@ -293,6 +329,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatWhisperBrush(const FSlateBrus
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetAddFriendEditableTextStyle(const FEditableTextBoxStyle& InEditableTextStyle)
 {
 	AddFriendEditableTextStyle = InEditableTextStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemTextStyle(const FTextBlockStyle& InTextStyle)
+{
+	ComboItemTextStyle = InTextStyle;
 	return *this;
 }
 
@@ -365,6 +407,24 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetScrollbarStyle(const FScrollBarSt
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetWindowStyle(const FWindowStyle& InStyle)
 {
 	WindowStyle = InStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboMenuPadding(const FMargin& InPadding)
+{
+	ComboMenuPadding = InPadding;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemPadding(const FMargin& InPadding)
+{
+	ComboItemPadding = InPadding;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemContentPadding(const FMargin& InPadding)
+{
+	ComboItemContentPadding = InPadding;
 	return *this;
 }
 
