@@ -3,6 +3,7 @@
 #include "FriendsAndChatPrivatePCH.h"
 #include "FriendsViewModel.h"
 #include "FriendListViewModel.h"
+#include "SFriendUserHeader.h"
 #include "SFriendsList.h"
 #include "SFriendsListContainer.h"
 #include "SFriendsContainer.h"
@@ -45,9 +46,27 @@ public:
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SBorder)
-				.Padding(FriendStyle.BorderPadding)
-				.BorderImage(&FriendStyle.FriendContainerHeader)
+				.Padding(FriendStyle.UserHeaderPadding)
+				.BorderImage(&FriendStyle.Background)
+				.Visibility(FriendStyle.HasUserHeader ? EVisibility::Visible : EVisibility::Collapsed)
 				[
+					SNew(SBox)
+					.WidthOverride(FriendStyle.FriendsListWidth)
+					[
+						SNew(SFriendUserHeader, ViewModel->GetUserViewModel())
+						.FriendStyle(&FriendStyle)
+					]
+				]
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Fill)
+			[
+					SNew(SBorder)
+					.Padding(FriendStyle.BorderPadding)
+					.BorderImage(&FriendStyle.FriendContainerHeader)
+					[
 					SNew(SBox)
 					.WidthOverride(FriendStyle.FriendsListWidth)
 					.HeightOverride(FriendStyle.StatusButtonSize.Y)

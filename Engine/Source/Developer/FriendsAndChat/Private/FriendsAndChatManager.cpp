@@ -686,6 +686,44 @@ EOnlinePresenceState::Type FFriendsAndChatManager::GetUserIsOnline()
 	return EOnlinePresenceState::Offline;
 }
 
+FString FFriendsAndChatManager::GetUserClientId() const
+{
+	FString Result;
+	if (OnlineSub != nullptr)
+	{
+		TSharedPtr<FOnlineUserPresence> Presence;
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentity->GetUniquePlayerId(0);
+		if (UserId.IsValid())
+		{
+			OnlineSub->GetPresenceInterface()->GetCachedPresence(*UserId, Presence);
+			if (Presence.IsValid())
+			{
+				const FVariantData* ClientId = Presence->Status.Properties.Find(DefaultClientIdKey);
+				if (ClientId != nullptr && ClientId->GetType() == EOnlineKeyValuePairDataType::String)
+				{
+					ClientId->GetValue(Result);
+				}
+			}
+		}
+	}
+	return Result;
+}
+
+FString FFriendsAndChatManager::GetUserNickname() const
+{
+	FString Result;
+	if (OnlineSub != nullptr)
+	{
+		TSharedPtr<FOnlineUserPresence> Presence;
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentity->GetUniquePlayerId(0);
+		if (UserId.IsValid())
+		{
+			Result = OnlineIdentity->GetPlayerNickname(*UserId);
+		}
+	}
+	return Result;
+}
+
 // List processing
 
 void FFriendsAndChatManager::RequestListRefresh()

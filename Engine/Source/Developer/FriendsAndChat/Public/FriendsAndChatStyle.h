@@ -221,6 +221,11 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category=Appearance)
 	FSlateFontInfo FriendsFontStyleBold;
 	FFriendsAndChatStyle& SetFontStyleBold(const FSlateFontInfo& InFontStyle);
+	
+	/** Font Style */
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateFontInfo FriendsFontStyleBoldLarge;
+	FFriendsAndChatStyle& SetFontStyleBoldLarge(const FSlateFontInfo& InFontStyle);
 
 	/** Font Style */
 	UPROPERTY(EditAnywhere, Category=Appearance)
@@ -315,8 +320,16 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	FFriendsAndChatStyle& SetActionComboButtonSize(const FVector2D& InActionComboButtonSize);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
+	FVector2D UserPresenceImageSize;
+	FFriendsAndChatStyle& SetUserPresenceImageSize(const FVector2D& InUserPresenceImageSize);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
 	FMargin BorderPadding;
-	FFriendsAndChatStyle& SetBorderPadding(const FMargin& BorderPadding);
+	FFriendsAndChatStyle& SetBorderPadding(const FMargin& InBorderPadding);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin UserHeaderPadding;
+	FFriendsAndChatStyle& SetUserHeaderPadding(const FMargin& InUserHeaderPadding);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	float FriendsListWidth;
@@ -357,6 +370,10 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FMargin ComboItemContentPadding;
 	FFriendsAndChatStyle& SetComboItemContentPadding(const FMargin& InPadding);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	bool HasUserHeader;
+	FFriendsAndChatStyle& SetHasUserHeader(bool InHasUserHeader);
 };
 
 /** Manages the style which provides resources for the rich text widget. */
