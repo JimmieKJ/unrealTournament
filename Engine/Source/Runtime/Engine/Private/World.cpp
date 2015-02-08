@@ -4988,6 +4988,11 @@ bool UWorld::IsGameWorld() const
 	return WorldType == EWorldType::Game || WorldType == EWorldType::PIE;
 }
 
+bool UWorld::UsesGameHiddenFlags() const
+{
+	return IsGameWorld() || bHack_Force_UsesGameHiddenFlags_True;
+}
+
 FString UWorld::GetAddressURL() const
 {
 	return FString::Printf( TEXT("%s:%i"), *URL.Host, URL.Port );

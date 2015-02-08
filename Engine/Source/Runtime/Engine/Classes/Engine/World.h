@@ -861,6 +861,9 @@ public:
 	/** If true, this is a preview world used for editor tools, and not an actual loaded map world */
 	TEnumAsByte<EWorldType::Type>				WorldType;
 
+	/** Force UsesGameHiddenFlags to return true. */
+	bool										bHack_Force_UsesGameHiddenFlags_True;
+
 	/** If true this world is in the process of running the construction script for an actor */
 	bool										bIsRunningConstructionScript;
 
@@ -2448,6 +2451,9 @@ public:
 
 	/** Returns true if this world is any kind of game world (including PIE worlds) */
 	bool IsGameWorld() const;
+
+	/** Returns true if this world should look at game hidden flags instead of editor hidden flags for the purposes of rendering */
+	bool UsesGameHiddenFlags() const;
 
 	// Return the URL of this level, which may possibly
 	// exist on a remote machine.
