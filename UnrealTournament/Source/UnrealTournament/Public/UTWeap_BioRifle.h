@@ -49,6 +49,8 @@ class AUTWeap_BioRifle : public AUTWeapon
 	virtual void StartCharge();
 
 	virtual void FireShot() override;
+	
+	FTimerHandle IncreaseGlobStrengthHandle;
 
 	virtual void IncreaseGlobStrength();
 	virtual void ClearGlobStrength();

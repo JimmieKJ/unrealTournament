@@ -124,7 +124,7 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 		GlobStrength++;
 		ConsumeAmmo(CurrentFireMode);
 	}
-	GetWorldTimerManager().SetTimer(this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
+	GetWorldTimerManager().SetTimer(IncreaseGlobStrengthHandle, this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
 
 	// AI decision to release fire
 	if (UTOwner != NULL)
@@ -157,16 +157,16 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 void AUTWeap_BioRifle::ClearGlobStrength()
 {
 	GlobStrength = 0;
-	GetWorldTimerManager().ClearTimer(this, &AUTWeap_BioRifle::IncreaseGlobStrength);
+	GetWorldTimerManager().ClearTimer(IncreaseGlobStrengthHandle);
 }
 
 void AUTWeap_BioRifle::UpdateTiming()
 {
 	Super::UpdateTiming();
-	if (GetWorldTimerManager().IsTimerActive(this, &AUTWeap_BioRifle::IncreaseGlobStrength))
+	if (GetWorldTimerManager().IsTimerActive(IncreaseGlobStrengthHandle))
 	{
-		float RemainingPct = GetWorldTimerManager().GetTimerRemaining(this, &AUTWeap_BioRifle::IncreaseGlobStrength) / GetWorldTimerManager().GetTimerRate(this, &AUTWeap_BioRifle::IncreaseGlobStrength);
-		GetWorldTimerManager().SetTimer(this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
+		float RemainingPct = GetWorldTimerManager().GetTimerRemaining(IncreaseGlobStrengthHandle) / GetWorldTimerManager().GetTimerRate(IncreaseGlobStrengthHandle);
+		GetWorldTimerManager().SetTimer(IncreaseGlobStrengthHandle, this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
 	}
 }
 
