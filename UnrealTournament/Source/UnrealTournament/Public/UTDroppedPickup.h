@@ -68,6 +68,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void PlayTakenEffects(APawn* TakenBy);
 
+	FTimerHandle EnableInstigatorTouchHandle;
+
 	/** defer Instigator picking the item back up */
 	UFUNCTION()
 	void EnableInstigatorTouch();

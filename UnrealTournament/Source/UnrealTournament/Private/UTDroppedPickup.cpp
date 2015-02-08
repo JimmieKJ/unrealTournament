@@ -35,7 +35,7 @@ void AUTDroppedPickup::BeginPlay()
 	if (!bPendingKillPending)
 	{
 		// don't allow Instigator to touch until a little time has passed so a live player throwing an item doesn't immediately pick it back up again
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTDroppedPickup::EnableInstigatorTouch, 1.0f, false);
+		GetWorld()->GetTimerManager().SetTimer(EnableInstigatorTouchHandle, this, &AUTDroppedPickup::EnableInstigatorTouch, 1.0f, false);
 	}
 }
 
@@ -95,7 +95,7 @@ void AUTDroppedPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (OtherActor != Instigator || !GetWorld()->GetTimerManager().IsTimerActive(this, &AUTDroppedPickup::EnableInstigatorTouch))
+	if (OtherActor != Instigator || !GetWorld()->GetTimerManager().IsTimerActive(EnableInstigatorTouchHandle))
 	{
 		APawn* P = Cast<APawn>(OtherActor);
 		if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTest(P->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
