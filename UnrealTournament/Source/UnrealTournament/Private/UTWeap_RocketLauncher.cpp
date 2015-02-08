@@ -428,11 +428,11 @@ void AUTWeap_RocketLauncher::StateChanged()
 {
 	if (Role == ROLE_Authority && CurrentState != InactiveState && CurrentState != EquippingState && CurrentState != UnequippingState)
 	{
-		GetWorldTimerManager().SetTimer(this, &AUTWeap_RocketLauncher::UpdateLock, LockCheckTime, true);
+		GetWorldTimerManager().SetTimer(UpdateLockHandle, this, &AUTWeap_RocketLauncher::UpdateLock, LockCheckTime, true);
 	}
 	else
 	{
-		GetWorldTimerManager().ClearTimer(this, &AUTWeap_RocketLauncher::UpdateLock);
+		GetWorldTimerManager().ClearTimer(UpdateLockHandle);
 	}
 }
 

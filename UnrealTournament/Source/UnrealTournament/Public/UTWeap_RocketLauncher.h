@@ -142,6 +142,8 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 
 	//Targeting
 	virtual void StateChanged() override;
+
+	FTimerHandle UpdateLockHandle;
 	virtual void UpdateLock();
 	virtual void SetLockTarget(AActor* NewTarget);
 	virtual bool CanLockTarget(AActor* Target);
