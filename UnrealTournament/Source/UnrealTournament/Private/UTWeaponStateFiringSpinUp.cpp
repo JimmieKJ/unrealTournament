@@ -39,7 +39,7 @@ void UUTWeaponStateFiringSpinUp::BeginState(const UUTWeaponState* PrevState)
 void UUTWeaponStateFiringSpinUp::EndState()
 {
 	Super::EndState();
-	GetWorld()->GetTimerManager().ClearTimer(this, &UUTWeaponStateFiringSpinUp::CooldownFinished);
+	GetWorld()->GetTimerManager().ClearTimer(CoolDownFinishedHandle);
 }
 
 void UUTWeaponStateFiringSpinUp::IncrementShotTimer()
@@ -94,7 +94,7 @@ void UUTWeaponStateFiringSpinUp::RefireCheckTimer()
 					AnimInstance->Montage_Play(CooldownAnim, 1.f / (WarmupTimeUsed / TotalWarmupTime));
 				}
 			}
-			GetWorld()->GetTimerManager().SetTimer(this, &UUTWeaponStateFiringSpinUp::CooldownFinished, CoolDownTime * (WarmupTimeUsed / TotalWarmupTime), false);
+			GetWorld()->GetTimerManager().SetTimer(CoolDownFinishedHandle, this, &UUTWeaponStateFiringSpinUp::CooldownFinished, CoolDownTime * (WarmupTimeUsed / TotalWarmupTime), false);
 		}
 	}
 	else
@@ -122,7 +122,7 @@ void UUTWeaponStateFiringSpinUp::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (!GetWorld()->GetTimerManager().IsTimerActive(this, &UUTWeaponStateFiringSpinUp::CooldownFinished))
+	if (!GetWorld()->GetTimerManager().IsTimerActive(CoolDownFinishedHandle))
 	{
 		ShotTimeRemaining -= DeltaTime * GetUTOwner()->GetFireRateMultiplier();
 		if (ShotTimeRemaining <= 0.0f)

@@ -45,6 +45,8 @@ public:
 	/** sets NextShotTime for the next shot, taking into account warmup if we're still in that phase */
 	virtual void IncrementShotTimer();
 
+	FTimerHandle CoolDownFinishedHandle;
+
 	/** called on a timer to finish cooldown and return to the active state */
 	UFUNCTION()
 	virtual void CooldownFinished();
