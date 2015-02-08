@@ -29,11 +29,11 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 	{
 		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-			GetWorldTimerManager().SetTimer(CTFScoreboard, &UUTCTFScoreboard::OpenScoringPlaysPage, 10.0f, false);
+			GetWorldTimerManager().SetTimer(CTFScoreboard->OpenScoringPlaysHandle, CTFScoreboard, &UUTCTFScoreboard::OpenScoringPlaysPage, 10.0f, false);
 		}
 		else
 		{
-			GetWorldTimerManager().ClearTimer(CTFScoreboard, &UUTCTFScoreboard::OpenScoringPlaysPage);
+			GetWorldTimerManager().ClearTimer(CTFScoreboard->OpenScoringPlaysHandle);
 		}
 	}
 }

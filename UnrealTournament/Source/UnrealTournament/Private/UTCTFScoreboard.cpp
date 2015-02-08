@@ -27,7 +27,7 @@ void UUTCTFScoreboard::OpenScoringPlaysPage()
 }
 void UUTCTFScoreboard::PageChanged_Implementation()
 {
-	GetWorld()->GetTimerManager().ClearTimer(this, &UUTCTFScoreboard::OpenScoringPlaysPage);
+	GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
 }
 
 void UUTCTFScoreboard::Draw_Implementation(float DeltaTime)

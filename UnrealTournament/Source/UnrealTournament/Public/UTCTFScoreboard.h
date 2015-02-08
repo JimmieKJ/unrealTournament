@@ -34,6 +34,8 @@ class UUTCTFScoreboard : public UUTTeamScoreboard
 
 	virtual void Draw_Implementation(float DeltaTime) override;
 
+	FTimerHandle OpenScoringPlaysHandle;
+
 	/** no-params accessor for timers */
 	UFUNCTION()
 	void OpenScoringPlaysPage();
