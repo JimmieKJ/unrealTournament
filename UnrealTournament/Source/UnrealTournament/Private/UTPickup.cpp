@@ -206,7 +206,7 @@ void AUTPickup::StartSleeping_Implementation()
 	SetActorEnableCollision(false);
 	if (RespawnTime > 0.0f)
 	{
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTPickup::WakeUpTimer, RespawnTime, false);
+		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
 		if (TimerSprite != NULL && TimerSprite->Elements.Num() > 0)
 		{
 			if (TimerMI != NULL)
@@ -245,7 +245,7 @@ void AUTPickup::PlayTakenEffects(bool bReplicate)
 void AUTPickup::WakeUp_Implementation()
 {
 	SetPickupHidden(false);
-	GetWorld()->GetTimerManager().ClearTimer(this, &AUTPickup::WakeUpTimer);
+	GetWorld()->GetTimerManager().ClearTimer(WakeUpTimerHandle);
 
 	PrimaryActorTick.SetTickFunctionEnable(GetClass()->GetDefaultObject<AUTPickup>()->PrimaryActorTick.bStartWithTickEnabled);
 	if (TimerSprite != NULL)
@@ -300,7 +300,7 @@ float AUTPickup::GetRespawnTimeOffset(APawn* Asker) const
 	}
 	else
 	{
-		float RespawnTime = GetWorldTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer);
+		float RespawnTime = GetWorldTimerManager().GetTimerRemaining(WakeUpTimerHandle);
 		return (RespawnTime <= 0.0f) ? FLT_MAX : RespawnTime;
 	}
 }
@@ -310,11 +310,11 @@ void AUTPickup::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	UWorld* World = GetWorld();
-	if (RespawnTime > 0.0f && !State.bActive && World->GetTimerManager().IsTimerActive(this, &AUTPickup::WakeUpTimer))
+	if (RespawnTime > 0.0f && !State.bActive && World->GetTimerManager().IsTimerActive(WakeUpTimerHandle))
 	{
 		if (TimerMI != NULL)
 		{
-			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 1.0f - World->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer) / RespawnTime);
+			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 1.0f - World->GetTimerManager().GetTimerRemaining(WakeUpTimerHandle) / RespawnTime);
 		}
 	}
 }
@@ -362,7 +362,7 @@ void AUTPickup::OnRep_RespawnTimeRemaining()
 {
 	if (!State.bActive)
 	{
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTPickup::WakeUpTimer, RespawnTimeRemaining, false);
+		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTimeRemaining, false);
 	}
 }
 
@@ -370,7 +370,7 @@ void AUTPickup::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTrack
 {
 	Super::PreReplication(ChangedPropertyTracker);
 
-	RespawnTimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(this, &AUTPickup::WakeUpTimer);
+	RespawnTimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(WakeUpTimerHandle);
 }
 
 void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

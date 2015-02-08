@@ -105,7 +105,7 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		Super::UpdateTiming();
 		if (GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(LoadTimerHandle))
 		{
-			float RemainingPct = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(LoadTimerHandle) / GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRate(this, &UUTWeaponStateFiringChargedRocket::LoadTimer);
+			float RemainingPct = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(LoadTimerHandle) / GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRate(LoadTimerHandle);
 			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(LoadTimerHandle, this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime() * RemainingPct, false);
 		}
 	}

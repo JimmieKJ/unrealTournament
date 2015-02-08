@@ -110,6 +110,9 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	void StartSleeping();
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Pickup)
 	void WakeUp();
+
+	FTimerHandle WakeUpTimerHandle;
+
 	/** used for the timer-based call to WakeUp() so clients can perform different behavior to handle possible sync issues */
 	UFUNCTION()
 	void WakeUpTimer();
