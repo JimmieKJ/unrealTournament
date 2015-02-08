@@ -27,8 +27,10 @@ class UUTWeaponStateUnequipping : public UUTWeaponState
 	virtual void BeginState(const UUTWeaponState* PrevState) override;
 	virtual void EndState() override
 	{
-		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateUnequipping::PutDownFinished);
+		GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(PutDownFinishedHandle);
 	}
+	
+	FTimerHandle PutDownFinishedHandle;
 
 	void PutDownFinished()
 	{
@@ -40,7 +42,7 @@ class UUTWeaponStateUnequipping : public UUTWeaponState
 
 	virtual void BringUp(float OverflowTime) override
 	{
-		PartialEquipTime = FMath::Max<float>(0.001f, GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerElapsed(this, &UUTWeaponStateUnequipping::PutDownFinished));
+		PartialEquipTime = FMath::Max<float>(0.001f, GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerElapsed(PutDownFinishedHandle));
 		GetOuterAUTWeapon()->GotoEquippingState(OverflowTime);
 	}
 

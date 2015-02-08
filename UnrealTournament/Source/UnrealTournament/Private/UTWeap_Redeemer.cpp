@@ -178,7 +178,7 @@ void AUTWeap_Redeemer::Tick(float DeltaTime)
 		}
 		else if (CurrentState == UnequippingState)
 		{
-			float PercentDone = GetWorldTimerManager().GetTimerElapsed(Cast<UUTWeaponStateUnequipping>(UnequippingState), &UUTWeaponStateUnequipping::PutDownFinished) / PutDownTime;
+			float PercentDone = GetWorldTimerManager().GetTimerElapsed(Cast<UUTWeaponStateUnequipping>(UnequippingState)->PutDownFinishedHandle) / PutDownTime;
 			EquipRotation.Pitch = -50.f * PercentDone;
 		}
 		else if (CurrentState == InactiveState)

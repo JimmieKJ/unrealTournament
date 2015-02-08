@@ -19,7 +19,7 @@ void UUTWeaponStateUnequipping_Enforcer::BeginState(const UUTWeaponState* PrevSt
 	else
 	{
 		AUTWeap_Enforcer* OuterWeapon = Cast<AUTWeap_Enforcer>(GetOuterAUTWeapon());
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateUnequipping_Enforcer::PutDownFinished, UnequipTime);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(PutDownFinishedHandle, this, &UUTWeaponStateUnequipping_Enforcer::PutDownFinished, UnequipTime);
 		if (OuterWeapon->PutDownAnim != NULL)
 		{
 			UAnimInstance* AnimInstance = OuterWeapon->Mesh->GetAnimInstance();
