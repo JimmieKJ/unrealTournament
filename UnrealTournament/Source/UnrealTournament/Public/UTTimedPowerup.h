@@ -41,6 +41,8 @@ class AUTTimedPowerup : public AUTInventory
 	UFUNCTION(Reliable, Client)
 	void ClientSetTimeRemaining(float InTimeRemaining);
 
+	FTimerHandle PlayFadingSoundHandle;
+
 	UFUNCTION()
 	virtual void PlayFadingSound();
 

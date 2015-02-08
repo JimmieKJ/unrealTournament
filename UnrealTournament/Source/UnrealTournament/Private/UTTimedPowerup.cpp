@@ -28,7 +28,7 @@ void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	{
 		NewOwner->SetWeaponOverlay(OverlayMaterial, true);
 	}
-	GetWorld()->GetTimerManager().SetTimer(this, &AUTTimedPowerup::PlayFadingSound, FMath::Max<float>(0.1f, TimeRemaining - 3.0f), false);
+	GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, FMath::Max<float>(0.1f, TimeRemaining - 3.0f), false);
 }
 
 void AUTTimedPowerup::Removed()
@@ -37,7 +37,7 @@ void AUTTimedPowerup::Removed()
 	{
 		GetUTOwner()->SetWeaponOverlay(OverlayMaterial, false);
 	}
-	GetWorld()->GetTimerManager().ClearTimer(this, &AUTTimedPowerup::PlayFadingSound);
+	GetWorld()->GetTimerManager().ClearTimer(PlayFadingSoundHandle);
 	Super::Removed();
 }
 
@@ -46,12 +46,12 @@ void AUTTimedPowerup::PlayFadingSound()
 	// reset timer if time got added
 	if (TimeRemaining > 3.f)
 	{
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTTimedPowerup::PlayFadingSound, TimeRemaining - 3.0f, false);
+		GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, TimeRemaining - 3.0f, false);
 	}
 	else
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), PowerupFadingSound, GetUTOwner());
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTTimedPowerup::PlayFadingSound, 0.75f, false);
+		GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, 0.75f, false);
 	}
 }
 
