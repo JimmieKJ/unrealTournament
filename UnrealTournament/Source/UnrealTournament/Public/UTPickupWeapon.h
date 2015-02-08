@@ -54,6 +54,8 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 
 	virtual void ProcessTouch_Implementation(APawn* TouchedBy) override;
 
+	FTimerHandle CheckTouchingHandle;
+
 	/** checks for anyone touching the pickup and checks if they should get the item
 	 * this is necessary because this type of pickup doesn't toggle collision when weapon stay is on
 	 */
