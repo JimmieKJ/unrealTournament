@@ -2858,12 +2858,12 @@ void AUTBot::SetWarningTimer(AUTProjectile* Incoming, AUTCharacter* Shooter, flo
 		{
 			WarningDelay = FMath::Max<float>(0.08f, FMath::Max<float>(0.35f - 0.02f * (Skill + Personality.ReactionTime) * (1.0f + FMath::FRand()), TimeToImpact - 0.65f));
 		}
-		if (!GetWorldTimerManager().IsTimerActive(this, &AUTBot::ProcessIncomingWarning) || WarningDelay < GetWorldTimerManager().GetTimerRate(this, &AUTBot::ProcessIncomingWarning))
+		if (!GetWorldTimerManager().IsTimerActive(ProcessIncomingWarningHandle) || WarningDelay < GetWorldTimerManager().GetTimerRate(ProcessIncomingWarningHandle))
 		{
 			WarningProj = Incoming;
 			WarningShooter = (WarningProj != NULL) ? NULL : Shooter;
 			// TODO: if in air, consider air control towards wall for wall dodge
-			GetWorldTimerManager().SetTimer(this, &AUTBot::ProcessIncomingWarning, WarningDelay, false);
+			GetWorldTimerManager().SetTimer(ProcessIncomingWarningHandle, this, &AUTBot::ProcessIncomingWarning, WarningDelay, false);
 		}
 	}
 }

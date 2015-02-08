@@ -513,6 +513,8 @@ protected:
 	UPROPERTY()
 	AUTCharacter* WarningShooter;
 
+	FTimerHandle ProcessIncomingWarningHandle;
+
 	/** called on a timer to react to expected incoming weapons fire, either projectile in flight or about to shoot instant hit */
 	UFUNCTION()
 	virtual void ProcessIncomingWarning();
