@@ -804,6 +804,8 @@ public:
 	virtual EBotMonitoringStatus ShouldTriggerCombo(const FVector& CurrentLoc, const FVector& ProjVelocity, const FRadialDamageParams& DamageParams);
 
 protected:
+	FTimerHandle CheckWeaponFiringTimerHandle;
+
 	/** timer to call CheckWeaponFiring() */
 	UFUNCTION()
 	void CheckWeaponFiringTimed();

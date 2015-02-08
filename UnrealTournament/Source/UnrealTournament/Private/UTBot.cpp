@@ -353,7 +353,7 @@ void AUTBot::Possess(APawn* InPawn)
 	bPickNewFireMode = true;
 	
 	// set weapon timer, if not already
-	GetWorldTimerManager().SetTimer(this, &AUTBot::CheckWeaponFiringTimed, 1.2f - 0.09f * FMath::Min<float>(10.0f, Skill + Personality.ReactionTime), true);
+	GetWorldTimerManager().SetTimer(CheckWeaponFiringTimerHandle, this, &AUTBot::CheckWeaponFiringTimed, 1.2f - 0.09f * FMath::Min<float>(10.0f, Skill + Personality.ReactionTime), true);
 
 	// init respawn prediction time
 	// this is here because we want some randomness (so all bots don't converge as one when their skill is the same)
@@ -1618,7 +1618,7 @@ void AUTBot::CheckWeaponFiring(bool bFromWeapon)
 {
 	if (UTChar == NULL)
 	{
-		GetWorldTimerManager().ClearTimer(this, &AUTBot::CheckWeaponFiringTimed); // timer will get restarted in Possess() if we get a new Pawn
+		GetWorldTimerManager().ClearTimer(CheckWeaponFiringTimerHandle); // timer will get restarted in Possess() if we get a new Pawn
 	}
 	else if (UTChar->GetWeapon() != NULL && UTChar->GetPendingWeapon() == NULL && (bFromWeapon || !UTChar->GetWeapon()->IsFiring())) // if weapon is firing, it should query bot when it's done for better responsiveness than a timer
 	{
