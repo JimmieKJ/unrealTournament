@@ -158,11 +158,11 @@ void AUTInventory::ClientGivenTo_Implementation(APawn* NewInstigator, bool bAuto
 	{
 		bPendingClientGivenTo = true;
 		bPendingAutoActivate = bAutoActivate;
-		GetWorld()->GetTimerManager().SetTimer(this, &AUTInventory::CheckPendingClientGivenTo, 0.1f, false);
+		GetWorld()->GetTimerManager().SetTimer(CheckPendingClientGivenToHandle, this, &AUTInventory::CheckPendingClientGivenTo, 0.1f, false);
 	}
 	else
 	{
-		GetWorld()->GetTimerManager().ClearTimer(this, &AUTInventory::CheckPendingClientGivenTo);
+		GetWorld()->GetTimerManager().ClearTimer(CheckPendingClientGivenToHandle);
 		bPendingClientGivenTo = false;
 		ClientGivenTo_Internal(bAutoActivate);
 		eventClientGivenTo(bAutoActivate);

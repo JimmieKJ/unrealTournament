@@ -46,6 +46,7 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void eventClientRemoved();
 
+	FTimerHandle CheckPendingClientGivenToHandle;
 	void CheckPendingClientGivenTo();
 	virtual void OnRep_Instigator() override;
 
