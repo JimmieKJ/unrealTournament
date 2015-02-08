@@ -1075,7 +1075,7 @@ void AUTWeapon::PlayPredictedImpactEffects(FVector ImpactLoc)
 	float SleepTime = UTPC ? UTPC->GetProjectileSleepTime() : 0.f;
 	if (SleepTime > 0.f)
 	{
-		if (GetWorldTimerManager().IsTimerActive(this, &AUTWeapon::PlayDelayedImpactEffects))
+		if (GetWorldTimerManager().IsTimerActive(PlayDelayedImpactEffectsHandle))
 		{
 			// play the delayed effect now, since we are about to replace it
 			PlayDelayedImpactEffects();
@@ -1087,7 +1087,7 @@ void AUTWeapon::PlayPredictedImpactEffects(FVector ImpactLoc)
 		DelayedHitScan.FireMode = CurrentFireMode;
 		DelayedHitScan.SpawnLocation = SpawnLocation;
 		DelayedHitScan.SpawnRotation = SpawnRotation;
-		GetWorldTimerManager().SetTimer(this, &AUTWeapon::PlayDelayedImpactEffects, SleepTime, false);
+		GetWorldTimerManager().SetTimer(PlayDelayedImpactEffectsHandle, this, &AUTWeapon::PlayDelayedImpactEffects, SleepTime, false);
 	}
 	else
 	{
@@ -1184,12 +1184,12 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		float SleepTime = OwningPlayer->GetProjectileSleepTime();
 		if (SleepTime > 0.f)
 		{
-			if (!GetWorldTimerManager().IsTimerActive(this, &AUTWeapon::SpawnDelayedFakeProjectile))
+			if (!GetWorldTimerManager().IsTimerActive(SpawnDelayedFakeProjHandle))
 			{
 				DelayedProjectile.ProjectileClass = ProjectileClass;
 				DelayedProjectile.SpawnLocation = SpawnLocation;
 				DelayedProjectile.SpawnRotation = SpawnRotation;
-				GetWorldTimerManager().SetTimer(this, &AUTWeapon::SpawnDelayedFakeProjectile, SleepTime, false);
+				GetWorldTimerManager().SetTimer(SpawnDelayedFakeProjHandle, this, &AUTWeapon::SpawnDelayedFakeProjectile, SleepTime, false);
 			}
 			return NULL;
 		}

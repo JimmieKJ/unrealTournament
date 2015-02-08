@@ -252,8 +252,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** Play impact effects client-side for predicted hitscan shot - decides whether to delay because of high client ping. */
 	virtual void PlayPredictedImpactEffects(FVector ImpactLoc);
 
+	FTimerHandle PlayDelayedImpactEffectsHandle;
+
 	/** Trigger delayed hitscan effects, delayed because client ping above max forward prediction limit. */
 	virtual void PlayDelayedImpactEffects();
+
+	FTimerHandle SpawnDelayedFakeProjHandle;
 
 	/** Spawn a delayed projectile, delayed because client ping above max forward prediction limit. */
 	virtual void SpawnDelayedFakeProjectile();
