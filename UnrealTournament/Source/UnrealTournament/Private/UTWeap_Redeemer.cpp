@@ -173,7 +173,7 @@ void AUTWeap_Redeemer::Tick(float DeltaTime)
 		FRotator EquipRotation(0.f, 0.f, 0.f);
 		if (CurrentState == EquippingState)
 		{
-			float PercentDone = GetWorldTimerManager().GetTimerElapsed(EquippingState, &UUTWeaponStateEquipping::BringUpFinished) / BringUpTime;
+			float PercentDone = GetWorldTimerManager().GetTimerElapsed(EquippingState->BringUpFinishedHandle) / BringUpTime;
 			EquipRotation.Pitch = -50.f * (1.f - PercentDone);
 		}
 		else if (CurrentState == UnequippingState)

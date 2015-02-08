@@ -41,18 +41,20 @@ class UUTWeaponStateEquipping : public UUTWeaponState
 	virtual void Tick(float DeltaTime)
 	{
 		// failsafe
-		if (!GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(this, &UUTWeaponStateEquipping::BringUpFinished))
+		if (!GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(BringUpFinishedHandle))
 		{
 			UE_LOG(UT, Warning, TEXT("%s in state Equipping with no equip timer!"), *GetOuterAUTWeapon()->GetName());
 			BringUpFinished();
 		}
 	}
 
+	FTimerHandle BringUpFinishedHandle;
+
 	virtual void BringUpFinished();
 
 	virtual void PutDown() override
 	{
-		PartialEquipTime = FMath::Max(0.001f, GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerElapsed(this, &UUTWeaponStateEquipping::BringUpFinished));
+		PartialEquipTime = FMath::Max(0.001f, GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerElapsed(BringUpFinishedHandle));
 		GetOuterAUTWeapon()->GotoState(GetOuterAUTWeapon()->UnequippingState);
 	}
 };

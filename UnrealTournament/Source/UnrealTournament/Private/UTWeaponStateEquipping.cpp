@@ -64,7 +64,7 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 	}
 	else
 	{
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateEquipping::BringUpFinished, EquipTime);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(BringUpFinishedHandle, this, &UUTWeaponStateEquipping::BringUpFinished, EquipTime);
 		if (GetOuterAUTWeapon()->BringUpAnim != NULL)
 		{
 			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();

@@ -46,7 +46,7 @@ void UUTWeaponStateEquipping_Enforcer::StartEquip(float OverflowTime)
 	}
 	else
 	{
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateEquipping_Enforcer::BringUpFinished, EquipTime);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(BringUpFinishedHandle, this, &UUTWeaponStateEquipping_Enforcer::BringUpFinished, EquipTime);
 		AUTWeap_Enforcer* OuterWeapon = Cast<AUTWeap_Enforcer>(GetOuterAUTWeapon());
 		if (OuterWeapon->BringUpAnim != NULL)
 		{
