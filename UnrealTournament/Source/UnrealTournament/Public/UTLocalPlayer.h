@@ -308,12 +308,10 @@ public:
 protected:
 	TSharedPtr<SUWFriendsPopup> FriendsMenu;
 
+#endif
 	// If the player is not logged in, then this string will hold the last attempted presence update
 	FString LastPresenceUpdate;
 	bool bLastAllowInvites;
-
-
-#endif
 
 
 public:
