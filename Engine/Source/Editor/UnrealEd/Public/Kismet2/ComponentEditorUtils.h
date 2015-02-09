@@ -8,11 +8,6 @@
 class UNREALED_API FComponentEditorUtils
 {
 public:
-	
-	static class USceneComponent* GetSceneComponent(class UObject* Object, class UObject* SubObject = NULL);
-
-	static void GetArchetypeInstances(class UObject* Object, TArray<class UObject*>& ArchetypeInstances);
-
 	/** Test whether or not the given string is a valid variable name string for the given component instance */
 	static bool IsValidVariableNameString(const UActorComponent* InComponent, const FString& InString);
 
@@ -95,31 +90,43 @@ public:
 	 */
 	static bool AttemptApplyMaterialToComponent( USceneComponent* SceneComponent, UMaterialInterface* MaterialToApply, int32 OptionalMaterialSlot = -1 );
 
-	struct FTransformData
-	{
-		FTransformData(const class USceneComponent& Component)
-			: Trans(Component.RelativeLocation)
-			, Rot(Component.RelativeRotation)
-			, Scale(Component.RelativeScale3D)
-		{}
-
-		FVector Trans; 
-		FRotator Rot;
-		FVector Scale;
-	};
-
 	/** Potentially transforms the delta to be applied to a component into the appropriate space */
 	static void AdjustComponentDelta(USceneComponent* Component, FVector& Drag, FRotator& Rotation);
 
-	// Given a template, propagates a default transform change to all instances of the template
-	static void PropagateTransformPropertyChange(class USceneComponent* InSceneComponentTemplate, const FTransformData& OldDefaultTransform, const FTransformData& NewDefaultTransform, TSet<class USceneComponent*>& UpdatedComponents);
-
-	static void PropagateTransformPropertyChangeAmongOverridenTemplates(class USceneComponent* InSceneComponentTemplate, const FTransformData& OldDefaultTransform, const FTransformData& NewDefaultTransform, TSet<class USceneComponent*>& UpdatedComponents);
-
-
-	// Given an instance of a template and a property, propagates a default value change to the instance (only if applicable)
+	// Given a template and a property, propagates a default value change to all instances (only if applicable)
 	template<typename T>
-	static void PropagateTransformPropertyChange(class USceneComponent* InSceneComponent, const class UProperty* InProperty, const T& OldDefaultValue, const T& NewDefaultValue, TSet<class USceneComponent*>& UpdatedComponents)
+	static void PropagateDefaultValueChange(class USceneComponent* InSceneComponentTemplate, const class UProperty* InProperty, const T& OldDefaultValue, const T& NewDefaultValue, TSet<class USceneComponent*>& UpdatedInstances)
+	{
+		TArray<UObject*> ArchetypeInstances;
+		if(InSceneComponentTemplate->HasAnyFlags(RF_ArchetypeObject))
+		{
+			InSceneComponentTemplate->GetArchetypeInstances(ArchetypeInstances);
+			for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
+			{
+				USceneComponent* InstancedSceneComponent = static_cast<USceneComponent*>(ArchetypeInstances[InstanceIndex]);
+				if(InstancedSceneComponent != nullptr && !UpdatedInstances.Contains(InstancedSceneComponent) && ApplyDefaultValueChange(InstancedSceneComponent, InProperty, OldDefaultValue, NewDefaultValue))
+				{
+					UpdatedInstances.Add(InstancedSceneComponent);
+				}
+			}
+		}
+		else if(UObject* Outer = InSceneComponentTemplate->GetOuter())
+		{
+			Outer->GetArchetypeInstances(ArchetypeInstances);
+			for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
+			{
+				USceneComponent* InstancedSceneComponent = static_cast<USceneComponent*>(FindObjectWithOuter(ArchetypeInstances[InstanceIndex], InSceneComponentTemplate->GetClass(), InSceneComponentTemplate->GetFName()));
+				if(InstancedSceneComponent != nullptr && !UpdatedInstances.Contains(InstancedSceneComponent) && ApplyDefaultValueChange(InstancedSceneComponent, InProperty, OldDefaultValue, NewDefaultValue))
+				{
+					UpdatedInstances.Add(InstancedSceneComponent);
+				}
+			}
+		}
+	}
+
+	// Given an instance of a template and a property, set a default value change to the instance (only if applicable)
+	template<typename T>
+	static bool ApplyDefaultValueChange(class USceneComponent* InSceneComponent, const class UProperty* InProperty, const T& OldDefaultValue, const T& NewDefaultValue)
 	{
 		check(InProperty != nullptr);
 		check(InSceneComponent != nullptr);
@@ -127,13 +134,15 @@ public:
 		T* CurrentValue = InProperty->ContainerPtrToValuePtr<T>(InSceneComponent);
 		if(CurrentValue != nullptr)
 		{
-			PropagateTransformPropertyChange(InSceneComponent, *CurrentValue, OldDefaultValue, NewDefaultValue, UpdatedComponents);
+			return ApplyDefaultValueChange(InSceneComponent, *CurrentValue, OldDefaultValue, NewDefaultValue);
 		}
+
+		return false;
 	}
 
 	// Given an instance of a template and a current value, propagates a default value change to the instance (only if applicable)
 	template<typename T>
-	static void PropagateTransformPropertyChange(class USceneComponent* InSceneComponent, T& CurrentValue, const T& OldDefaultValue, const T& NewDefaultValue, TSet<class USceneComponent*>& UpdatedComponents)
+	static bool ApplyDefaultValueChange(class USceneComponent* InSceneComponent, T& CurrentValue, const T& OldDefaultValue, const T& NewDefaultValue)
 	{
 		check(InSceneComponent != nullptr);
 
@@ -161,15 +170,14 @@ public:
 			// Re-register the component with the scene so that transforms are updated for display
 			InSceneComponent->ReregisterComponent();
 
-			// Add the component to the set of updated instances
-			UpdatedComponents.Add(InSceneComponent);
+			return true;
 		}
+
+		return false;
 	}
 
 	// Try to find the correct variable name for a given native component template or instance (which can have a mismatch)
 	static FName FindVariableNameGivenComponentInstance(UActorComponent* ComponentInstance);
-private:
-	static void PropagateTransformInner(class USceneComponent* InstancedSceneComponent, const FTransformData& OldDefaultTransform, const FTransformData& NewDefaultTransform, TSet<class USceneComponent*>& UpdatedComponents);
-	
+
 	static USceneComponent* FindClosestParentInList(UActorComponent* ChildComponent, const TArray<UActorComponent*>& ComponentList);
 };

@@ -108,7 +108,6 @@ namespace
 FSCSEditorViewportClient::FSCSEditorViewportClient(TWeakPtr<FBlueprintEditor>& InBlueprintEditorPtr, FPreviewScene* InPreviewScene)
 	: FEditorViewportClient(nullptr, InPreviewScene)
 	, BlueprintEditorPtr(InBlueprintEditorPtr)
-	, PreviewBlueprint(NULL)
 	, PreviewActorBounds(ForceInitToZero)
 	, bIsManipulating(false)
 	, ScopedTransaction(NULL)
@@ -404,8 +403,6 @@ bool FSCSEditorViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList:
 
 							// Adjust the deltas as necessary
 							FComponentEditorUtils::AdjustComponentDelta(SceneComp, Drag, Rot);
-							
-							FComponentEditorUtils::FTransformData OldDefaultTransform(*SelectedTemplate);
 
 							TSharedPtr<ISCSEditorCustomization> Customization = BlueprintEditor->CustomizeSCSEditor(SceneComp);
 							if(Customization.IsValid() && Customization->HandleViewportDrag(SceneComp, SelectedTemplate, Drag, Rot, ModifiedScale, GetWidgetLocation()))
@@ -436,21 +433,7 @@ bool FSCSEditorViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList:
 								UpdatedComponents.Add(SelectedTemplate);
 							}
 
-							FComponentEditorUtils::FTransformData NewDefaultTransform(*SelectedTemplate);
-
-							const bool bCanPropagateForNativeComponent = SelectedNodePtr->IsNative()
-								&& SelectedTemplate->HasAnyFlags(RF_DefaultSubObject);
-							if (bCanPropagateForNativeComponent)
-							{
-								FComponentEditorUtils::PropagateTransformPropertyChange(SelectedTemplate, OldDefaultTransform, NewDefaultTransform, UpdatedComponents);
-							}
-							const bool bCanPropagateForOverridenComponent = !SelectedNodePtr->IsNative()
-								&& SelectedTemplate->HasAnyFlags(RF_ArchetypeObject);
-							if (bCanPropagateForOverridenComponent)
-							{
-								FComponentEditorUtils::PropagateTransformPropertyChangeAmongOverridenTemplates(SelectedTemplate, OldDefaultTransform, NewDefaultTransform, UpdatedComponents);
-							}
-
+							UBlueprint* PreviewBlueprint = UBlueprint::GetBlueprintFromClass(PreviewActor->GetClass());
 							if(PreviewBlueprint != NULL)
 							{
 								// Like PostEditMove(), but we only need to re-run construction scripts
@@ -469,34 +452,35 @@ bool FSCSEditorViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList:
 									TemplateComp->ConstraintInstance.CopyConstraintGeometryFrom(&ConstraintComp->ConstraintInstance);
 								}
 
-								// Get the Blueprint class default object
-								AActor* CDO = NULL;
-								if(PreviewBlueprint->GeneratedClass)
+								// Iterate over all the active archetype instances and propagate the change(s) to the matching component instance
+								TArray<UObject*> ArchetypeInstances;
+								if(SelectedTemplate->HasAnyFlags(RF_ArchetypeObject))
 								{
-									CDO = Cast<AActor>(PreviewBlueprint->GeneratedClass->ClassDefaultObject);
-								}
-								else if(PreviewBlueprint->ParentClass)
-								{
-									CDO = Cast<AActor>(PreviewBlueprint->ParentClass->ClassDefaultObject);
-								}
-
-								if(CDO != NULL)
-								{
-									// Iterate over all the active archetype instances and propagate the change(s) to the matching component instance
-									TArray<UObject*> ArchetypeInstances;
-									CDO->GetArchetypeInstances(ArchetypeInstances);
+									SelectedTemplate->GetArchetypeInstances(ArchetypeInstances);
 									for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
 									{
-										AActor* ArchetypeInstance = Cast<AActor>(ArchetypeInstances[InstanceIndex]);
-										if(ArchetypeInstance != NULL)
+										SceneComp = Cast<USceneComponent>(ArchetypeInstances[InstanceIndex]);
+										if(SceneComp && SceneComp->GetOwner() != PreviewActor)
 										{
-											const bool bIsProcessingPreviewActor = (ArchetypeInstance == PreviewActor);
-											SceneComp = Cast<USceneComponent>(SelectedNodePtr->FindComponentInstanceInActor(ArchetypeInstance));
-											if(!bIsProcessingPreviewActor && SceneComp != nullptr && !UpdatedComponents.Contains(SceneComp))
+											FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeLocation, OldRelativeLocation, SelectedTemplate->RelativeLocation);
+											FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeRotation, OldRelativeRotation, SelectedTemplate->RelativeRotation);
+											FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeScale3D,  OldRelativeScale3D,  SelectedTemplate->RelativeScale3D);
+										}
+									}
+								}
+								else if(UObject* Outer = SelectedTemplate->GetOuter())
+								{
+									Outer->GetArchetypeInstances(ArchetypeInstances);
+									for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
+									{
+										if(ArchetypeInstances[InstanceIndex] != PreviewActor)
+										{
+											SceneComp = static_cast<USceneComponent*>(FindObjectWithOuter(ArchetypeInstances[InstanceIndex], SelectedTemplate->GetClass(), SelectedTemplate->GetFName()));
+											if(SceneComp)
 											{
-												FComponentEditorUtils::PropagateTransformPropertyChange(SceneComp, SceneComp->RelativeLocation, OldRelativeLocation, SelectedTemplate->RelativeLocation, UpdatedComponents);
-												FComponentEditorUtils::PropagateTransformPropertyChange(SceneComp, SceneComp->RelativeRotation, OldRelativeRotation, SelectedTemplate->RelativeRotation, UpdatedComponents);
-												FComponentEditorUtils::PropagateTransformPropertyChange(SceneComp, SceneComp->RelativeScale3D,  OldRelativeScale3D,  SelectedTemplate->RelativeScale3D,  UpdatedComponents);
+												FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeLocation, OldRelativeLocation, SelectedTemplate->RelativeLocation);
+												FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeRotation, OldRelativeRotation, SelectedTemplate->RelativeRotation);
+												FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeScale3D,  OldRelativeScale3D,  SelectedTemplate->RelativeScale3D);
 											}
 										}
 									}
@@ -534,9 +518,13 @@ void FSCSEditorViewportClient::TrackingStopped()
 	{
 		// Re-run construction scripts if we haven't done so yet (so that the components in the preview actor can update their transforms)
 		AActor* PreviewActor = GetPreviewActor();
-		if(PreviewActor != NULL && PreviewBlueprint != NULL && !PreviewBlueprint->bRunConstructionScriptOnDrag)
+		if(PreviewActor != nullptr)
 		{
-			PreviewActor->RerunConstructionScripts();
+			UBlueprint* PreviewBlueprint = UBlueprint::GetBlueprintFromClass(PreviewActor->GetClass());
+			if(PreviewBlueprint != nullptr && !PreviewBlueprint->bRunConstructionScriptOnDrag)
+			{
+				PreviewActor->RerunConstructionScripts();
+			}
 		}
 
 		// End transaction
@@ -770,7 +758,7 @@ void FSCSEditorViewportClient::ToggleIsSimulateEnabled()
 	TSharedRef<SWidget> Inspector = BlueprintEditorPtr.Pin()->GetInspector();
 
 	// When simulate is enabled, we don't want to allow the user to modify the components
-	BlueprintEditorPtr.Pin()->UpdatePreviewActor(PreviewBlueprint, true);
+	BlueprintEditorPtr.Pin()->UpdatePreviewActor(BlueprintEditorPtr.Pin()->GetBlueprintObj(), true);
 
 	SCSEditor->SetEnabled(!bIsSimulateEnabled);
 	Inspector->SetEnabled(!bIsSimulateEnabled);
@@ -825,14 +813,15 @@ void FSCSEditorViewportClient::BeginTransaction(const FText& Description)
 	{
 		ScopedTransaction = new FScopedTransaction(Description);
 
-		if (PreviewBlueprint != nullptr)
-		{
-			FBlueprintEditorUtils::MarkBlueprintAsModified(PreviewBlueprint);
-		}
-
 		auto BlueprintEditor = BlueprintEditorPtr.Pin();
 		if (BlueprintEditor.IsValid())
 		{
+			UBlueprint* PreviewBlueprint = BlueprintEditor->GetBlueprintObj();
+			if (PreviewBlueprint != nullptr)
+			{
+				FBlueprintEditorUtils::MarkBlueprintAsModified(PreviewBlueprint);
+			}
+
 			TArray<FSCSEditorTreeNodePtrType> SelectedNodes = BlueprintEditor->GetSelectedSCSEditorTreeNodes();
 			for(auto SelectedSCSNodeIter(SelectedNodes.CreateIterator()); SelectedSCSNodeIter; ++SelectedSCSNodeIter)
 			{
@@ -845,7 +834,7 @@ void FSCSEditorViewportClient::BeginTransaction(const FText& Description)
 					}
 
 					// Modify both the component template and the instance in the preview actor (provided there is one)
-					UActorComponent* ComponentTemplate = Node->GetEditableComponentTemplate(BlueprintEditor->GetBlueprintObj());
+					UActorComponent* ComponentTemplate = Node->GetEditableComponentTemplate(PreviewBlueprint);
 					if (ComponentTemplate != nullptr)
 					{
 						ComponentTemplate->SetFlags(RF_Transactional);

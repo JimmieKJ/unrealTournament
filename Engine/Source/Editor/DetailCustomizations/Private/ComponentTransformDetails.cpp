@@ -43,40 +43,15 @@ private:
 	UWorld* PrevWorld;
 };
 
-template<typename T>
-static void PropagateTransformPropertyChange(UObject* InObject, UProperty* InProperty, const T& OldValue, const T& NewValue)
+static USceneComponent* GetSceneComponentFromDetailsObject(UObject* InObject)
 {
-	check(InObject != nullptr);
-	check(InProperty != nullptr);
-
-	TSet<USceneComponent*> UpdatedComponents;
-	if (InObject->HasAnyFlags(RF_ClassDefaultObject | RF_DefaultSubObject))
+	AActor* Actor = Cast<AActor>(InObject);
+	if(Actor)
 	{
-		TArray<UObject*> ArchetypeInstances;
-		FComponentEditorUtils::GetArchetypeInstances(InObject, ArchetypeInstances);
-		for (int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
-		{
-			USceneComponent* InstancedSceneComponent = FComponentEditorUtils::GetSceneComponent(ArchetypeInstances[InstanceIndex], InObject);
-			if (InstancedSceneComponent != nullptr && !UpdatedComponents.Contains(InstancedSceneComponent))
-			{
-				FComponentEditorUtils::PropagateTransformPropertyChange(InstancedSceneComponent, InProperty, OldValue, NewValue, UpdatedComponents);
-			}
-		}
+		return Actor->GetRootComponent();
 	}
-
-	if (InObject->HasAnyFlags(RF_ArchetypeObject))
-	{
-		TArray<UObject*> ArchetypeInstances;
-		InObject->GetArchetypeInstances(ArchetypeInstances);
-		for (int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
-		{
-			USceneComponent* InstancedSceneComponent = FComponentEditorUtils::GetSceneComponent(ArchetypeInstances[InstanceIndex], InObject);
-			if (InstancedSceneComponent != nullptr && InstancedSceneComponent->HasAnyFlags(RF_InheritableComponentTemplate) && !UpdatedComponents.Contains(InstancedSceneComponent))
-			{
-				FComponentEditorUtils::PropagateTransformPropertyChange(InstancedSceneComponent, InProperty, OldValue, NewValue, UpdatedComponents);
-			}
-		}
-	}
+	
+	return Cast<USceneComponent>(InObject);
 }
 
 FComponentTransformDetails::FComponentTransformDetails( const TArray< TWeakObjectPtr<UObject> >& InSelectedObjects, const FSelectedActorInfo& InSelectedActorInfo, IDetailLayoutBuilder& DetailBuilder )
@@ -622,8 +597,8 @@ void FComponentTransformDetails::OnToggleAbsoluteLocation( bool bEnable )
 		if( ObjectPtr.IsValid() )
 		{
 			UObject* Object = ObjectPtr.Get();
-			USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
-			if( RootComponent && RootComponent->bAbsoluteLocation != bEnable )
+			USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
+			if( SceneComponent && SceneComponent->bAbsoluteLocation != bEnable )
 			{
 				if( !bBeganTransaction )
 				{
@@ -647,16 +622,18 @@ void FComponentTransformDetails::OnToggleAbsoluteLocation( bool bEnable )
 					NotifyHook->NotifyPreChange( AbsoluteLocationProperty );
 				}
 
-				RootComponent->bAbsoluteLocation = !RootComponent->bAbsoluteLocation;
+				SceneComponent->bAbsoluteLocation = !SceneComponent->bAbsoluteLocation;
 
 				FPropertyChangedEvent PropertyChangedEvent( AbsoluteLocationProperty );
 				Object->PostEditChangeProperty(PropertyChangedEvent);
 
-				// If this is a default object or subobject, propagate the change out to any current instances of this object
+				// If it's a template, propagate the change out to any current instances of the object
+				if(SceneComponent->IsTemplate())
 				{
-					uint32 NewValue = RootComponent->bAbsoluteLocation;
+					uint32 NewValue = SceneComponent->bAbsoluteLocation;
 					uint32 OldValue = !NewValue;
-					PropagateTransformPropertyChange(Object, AbsoluteLocationProperty, OldValue, NewValue);
+					TSet<USceneComponent*> UpdatedInstances;
+					FComponentEditorUtils::PropagateDefaultValueChange(SceneComponent, AbsoluteLocationProperty, OldValue, NewValue, UpdatedInstances);
 				}
 
 				if( NotifyHook )
@@ -687,8 +664,8 @@ void FComponentTransformDetails::OnToggleAbsoluteRotation( bool bEnable )
 		if( ObjectPtr.IsValid() )
 		{
 			UObject* Object = ObjectPtr.Get();
-			USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
-			if( RootComponent && RootComponent->bAbsoluteRotation != bEnable )
+			USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
+			if( SceneComponent && SceneComponent->bAbsoluteRotation != bEnable )
 			{
 				if( !bBeganTransaction )
 				{
@@ -712,16 +689,18 @@ void FComponentTransformDetails::OnToggleAbsoluteRotation( bool bEnable )
 					NotifyHook->NotifyPreChange( AbsoluteRotationProperty );
 				}
 
-				RootComponent->bAbsoluteRotation = !RootComponent->bAbsoluteRotation;
+				SceneComponent->bAbsoluteRotation = !SceneComponent->bAbsoluteRotation;
 
 				FPropertyChangedEvent PropertyChangedEvent( AbsoluteRotationProperty );
 				Object->PostEditChangeProperty(PropertyChangedEvent);
 
-				// If this is a default object or subobject, propagate the change out to any current instances of this object
+				// If it's a template, propagate the change out to any current instances of the object
+				if(SceneComponent->IsTemplate())
 				{
-					uint32 NewValue = RootComponent->bAbsoluteRotation;
+					uint32 NewValue = SceneComponent->bAbsoluteRotation;
 					uint32 OldValue = !NewValue;
-					PropagateTransformPropertyChange(Object, AbsoluteRotationProperty, OldValue, NewValue);
+					TSet<USceneComponent*> UpdatedInstances;
+					FComponentEditorUtils::PropagateDefaultValueChange(SceneComponent, AbsoluteRotationProperty, OldValue, NewValue, UpdatedInstances);
 				}
 
 				if( NotifyHook )
@@ -751,8 +730,8 @@ void FComponentTransformDetails::OnToggleAbsoluteScale( bool bEnable )
 		if( ObjectPtr.IsValid() )
 		{
 			UObject* Object = ObjectPtr.Get();
-			USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
-			if( RootComponent && RootComponent->bAbsoluteScale != bEnable )
+			USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
+			if( SceneComponent && SceneComponent->bAbsoluteScale != bEnable )
 			{
 				if( !bBeganTransaction )
 				{
@@ -776,16 +755,18 @@ void FComponentTransformDetails::OnToggleAbsoluteScale( bool bEnable )
 					NotifyHook->NotifyPreChange( AbsoluteScaleProperty );
 				}
 
-				RootComponent->bAbsoluteScale = !RootComponent->bAbsoluteScale;
+				SceneComponent->bAbsoluteScale = !SceneComponent->bAbsoluteScale;
 
 				FPropertyChangedEvent PropertyChangedEvent( AbsoluteScaleProperty );
 				Object->PostEditChangeProperty(PropertyChangedEvent);
 
-				// If this is a default object or subobject, propagate the change out to any current instances of this object
+				// If it's a template, propagate the change out to any current instances of the object
+				if(SceneComponent->IsTemplate())
 				{
-					uint32 NewValue = RootComponent->bAbsoluteScale;
+					uint32 NewValue = SceneComponent->bAbsoluteScale;
 					uint32 OldValue = !NewValue;
-					PropagateTransformPropertyChange(Object, AbsoluteScaleProperty, OldValue, NewValue);
+					TSet<USceneComponent*> UpdatedInstances;
+					FComponentEditorUtils::PropagateDefaultValueChange(SceneComponent, AbsoluteScaleProperty, OldValue, NewValue, UpdatedInstances);
 				}
 
 				if( NotifyHook )
@@ -808,7 +789,7 @@ struct FGetRootComponentArchetype
 {
 	static USceneComponent* Get(UObject* Object)
 	{
-		auto RootComponent = Object ? FComponentEditorUtils::GetSceneComponent(Object) : nullptr;
+		auto RootComponent = Object ? GetSceneComponentFromDetailsObject(Object) : nullptr;
 		return RootComponent ? Cast<USceneComponent>(RootComponent->GetArchetype()) : nullptr;
 	}
 };
@@ -927,16 +908,16 @@ void FComponentTransformDetails::CacheTransform()
 		if( ObjectPtr.IsValid() )
 		{
 			UObject* Object = ObjectPtr.Get();
-			USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
+			USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
 
 			FVector Loc;
 			FRotator Rot;
 			FVector Scale;
-			if( RootComponent )
+			if( SceneComponent )
 			{
-				Loc = RootComponent->RelativeLocation;
-				Rot = (bEditingRotationInUI && !Object->HasAnyFlags(RF_ClassDefaultObject | RF_DefaultSubObject)) ? ObjectToRelativeRotationMap.FindOrAdd(Object) : RootComponent->RelativeRotation;
-				Scale = RootComponent->RelativeScale3D;
+				Loc = SceneComponent->RelativeLocation;
+				Rot = (bEditingRotationInUI && !Object->IsTemplate()) ? ObjectToRelativeRotationMap.FindOrAdd(Object) : SceneComponent->RelativeRotation;
+				Scale = SceneComponent->RelativeScale3D;
 
 				if( ObjectIndex == 0 )
 				{
@@ -949,9 +930,9 @@ void FComponentTransformDetails::CacheTransform()
 					CachedRotation.Set( Rot );
 					CachedScale.Set( Scale );
 
-					bAbsoluteLocation = RootComponent->bAbsoluteLocation;
-					bAbsoluteScale = RootComponent->bAbsoluteScale;
-					bAbsoluteRotation = RootComponent->bAbsoluteRotation;
+					bAbsoluteLocation = SceneComponent->bAbsoluteLocation;
+					bAbsoluteScale = SceneComponent->bAbsoluteScale;
+					bAbsoluteRotation = SceneComponent->bAbsoluteRotation;
 				}
 				else if( CurLoc != Loc || CurRot != Rot || CurScale != Scale )
 				{
@@ -991,10 +972,10 @@ void FComponentTransformDetails::OnSetLocation( float NewValue, ETextCommit::Typ
 		if( ObjectPtr.IsValid() )
 		{
 			UObject* Object = ObjectPtr.Get();
-			USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
-			if( RootComponent )
+			USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
+			if( SceneComponent )
 			{
-				FVector OldRelativeLocation = RootComponent->RelativeLocation;
+				FVector OldRelativeLocation = SceneComponent->RelativeLocation;
 				FVector RelativeLocation = OldRelativeLocation;
 				float OldValue = RelativeLocation[Axis];
 				if( OldValue != NewValue )
@@ -1040,18 +1021,22 @@ void FComponentTransformDetails::OnSetLocation( float NewValue, ETextCommit::Typ
 					{
 						// HACK: Set directly if no actors are selected since this causes Rot->Quat->Rot conversion
 						// (recalculates relative rotation even though this is location)
-						RootComponent->RelativeLocation = RelativeLocation;
+						SceneComponent->RelativeLocation = RelativeLocation;
 					}
 					else
 					{
-						RootComponent->SetRelativeLocation( RelativeLocation );
+						SceneComponent->SetRelativeLocation( RelativeLocation );
 					}
 
 					FPropertyChangedEvent PropertyChangedEvent( RelativeLocationProperty );
 					Object->PostEditChangeProperty( PropertyChangedEvent );
 
-					// If this is a default object or subobject, propagate the change out to any current instances of this object
-					PropagateTransformPropertyChange(Object, RelativeLocationProperty, OldRelativeLocation, RelativeLocation);
+					// If it's a template, propagate the change out to any current instances of the object
+					if(SceneComponent->IsTemplate())
+					{
+						TSet<USceneComponent*> UpdatedInstances;
+						FComponentEditorUtils::PropagateDefaultValueChange(SceneComponent, RelativeLocationProperty, OldRelativeLocation, RelativeLocation, UpdatedInstances);
+					}
 
 					if( NotifyHook )
 					{
@@ -1088,12 +1073,12 @@ void FComponentTransformDetails::OnSetRotation( float NewValue, bool bCommitted,
 			if( ObjectPtr.IsValid() )
 			{
 				UObject* Object = ObjectPtr.Get();
-				USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
-				if( RootComponent )
+				USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
+				if( SceneComponent )
 				{
-					const bool bIsEditingTemplateObject = Object->HasAnyFlags(RF_ClassDefaultObject|RF_DefaultSubObject);
+					const bool bIsEditingTemplateObject = Object->IsTemplate();
 
-					FRotator& RelativeRotation = (bEditingRotationInUI && !bIsEditingTemplateObject) ? ObjectToRelativeRotationMap.FindOrAdd(Object) : RootComponent->RelativeRotation;
+					FRotator& RelativeRotation = (bEditingRotationInUI && !bIsEditingTemplateObject) ? ObjectToRelativeRotationMap.FindOrAdd(Object) : SceneComponent->RelativeRotation;
 					FRotator OldRelativeRotation = RelativeRotation;
 
 					float& ValueToChange = Axis == 0 ? RelativeRotation.Roll : Axis == 1 ? RelativeRotation.Pitch : RelativeRotation.Yaw;
@@ -1113,7 +1098,7 @@ void FComponentTransformDetails::OnSetRotation( float NewValue, bool bCommitted,
 								GEditor->BeginTransaction( LOCTEXT( "OnSetRotation_ComponentDirect", "Modify Component(s)") );
 							}
 
-							if (!Object->HasAnyFlags(RF_ClassDefaultObject|RF_DefaultSubObject))
+							if (!bIsEditingTemplateObject)
 							{
 								// Broadcast the first time an actor is about to move
 								GEditor->BroadcastBeginObjectMovement( *Object );
@@ -1149,11 +1134,11 @@ void FComponentTransformDetails::OnSetRotation( float NewValue, bool bCommitted,
 							{
 								// HACK: Set directly if no actors are selected since this causes Rot->Quat->Rot conversion issues
 								// (recalculates relative rotation from quat which can give an equivalent but different value than the user typed)
-								RootComponent->RelativeRotation = RelativeRotation;
+								SceneComponent->RelativeRotation = RelativeRotation;
 							}
 							else
 							{
-								RootComponent->SetRelativeRotation( RelativeRotation );
+								SceneComponent->SetRelativeRotation( RelativeRotation );
 							}
 						}
 
@@ -1163,8 +1148,12 @@ void FComponentTransformDetails::OnSetRotation( float NewValue, bool bCommitted,
 							ObjectAsActor->ReregisterAllComponents();
 						}
 
-						// If this is a default object or subobject, propagate the change out to any current instances of this object
-						PropagateTransformPropertyChange(Object, RelativeRotationProperty, OldRelativeRotation, RelativeRotation);
+						// If it's a template, propagate the change out to any current instances of the object
+						if(SceneComponent->IsTemplate())
+						{
+							TSet<USceneComponent*> UpdatedInstances;
+							FComponentEditorUtils::PropagateDefaultValueChange(SceneComponent, RelativeRotationProperty, OldRelativeRotation, RelativeRotation, UpdatedInstances);
+						}
 
 						FPropertyChangedEvent PropertyChangedEvent( RelativeRotationProperty, !bCommitted && bEditingRotationInUI ? EPropertyChangeType::Interactive : EPropertyChangeType::ValueSet );
 
@@ -1237,8 +1226,8 @@ void FComponentTransformDetails::OnBeginRotatonSlider()
 				bBeganTransaction = true;
 			}
 
-			USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
-			if( RootComponent )
+			USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
+			if( SceneComponent )
 			{
 				FScopedSwitchWorldForObject WorldSwitcher( Object );
 				
@@ -1252,7 +1241,7 @@ void FComponentTransformDetails::OnBeginRotatonSlider()
 				Object->PreEditChange( RelativeRotationProperty );
 
 				// Add/update cached rotation value prior to slider interaction
-				ObjectToRelativeRotationMap.FindOrAdd(Object) = RootComponent->RelativeRotation;
+				ObjectToRelativeRotationMap.FindOrAdd(Object) = SceneComponent->RelativeRotation;
 			}
 		}
 	}
@@ -1274,8 +1263,8 @@ void FComponentTransformDetails::OnEndRotationSlider(float NewValue)
 		if( ObjectPtr.IsValid() )
 		{
 			UObject* Object = ObjectPtr.Get();
-			USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
-			if( RootComponent )
+			USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
+			if( SceneComponent )
 			{
 				FScopedSwitchWorldForObject WorldSwitcher( Object );
 
@@ -1308,10 +1297,10 @@ void FComponentTransformDetails::ScaleObject( float NewValue, int32 Axis, bool b
 		if( ObjectPtr.IsValid() )
 		{
 			UObject* Object = ObjectPtr.Get();
-			USceneComponent* RootComponent = FComponentEditorUtils::GetSceneComponent( Object );
-			if( RootComponent )
+			USceneComponent* SceneComponent = GetSceneComponentFromDetailsObject( Object );
+			if( SceneComponent )
 			{
-				FVector OldRelativeScale = RootComponent->RelativeScale3D;
+				FVector OldRelativeScale = SceneComponent->RelativeScale3D;
 				FVector RelativeScale = OldRelativeScale;
 				if( bMirror )
 				{
@@ -1371,7 +1360,7 @@ void FComponentTransformDetails::ScaleObject( float NewValue, int32 Axis, bool b
 						}
 					}
 
-					RootComponent->SetRelativeScale3D( RelativeScale );
+					SceneComponent->SetRelativeScale3D( RelativeScale );
 
 					// Build property chain so the actor knows whether we changed the X, Y or Z
 					FEditPropertyChain PropertyChain;
@@ -1414,8 +1403,12 @@ void FComponentTransformDetails::ScaleObject( float NewValue, int32 Axis, bool b
 						CacheTransform();
 					}
 
-					// If this is a default object or subobject, propagate the change out to any current instances of this object
-					PropagateTransformPropertyChange(Object, RelativeScale3DProperty, OldRelativeScale, RelativeScale);
+					// If it's a template, propagate the change out to any current instances of the object
+					if(SceneComponent->IsTemplate())
+					{
+						TSet<USceneComponent*> UpdatedInstances;
+						FComponentEditorUtils::PropagateDefaultValueChange(SceneComponent, RelativeScale3DProperty, OldRelativeScale, RelativeScale, UpdatedInstances);
+					}
 
 					if( NotifyHook )
 					{

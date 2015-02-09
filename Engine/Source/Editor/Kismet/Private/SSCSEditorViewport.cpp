@@ -312,6 +312,8 @@ void SSCSEditorViewport::RequestRefresh(bool bResetCamera, bool bRefreshNow)
 {
 	if(bRefreshNow)
 	{
+		Invalidate();
+
 		if(ViewportClient.IsValid())
 		{
 			ViewportClient->InvalidatePreview(bResetCamera);
@@ -367,6 +369,8 @@ void SSCSEditorViewport::Tick(const FGeometry& AllottedGeometry, const double In
 	// If the preview scene is no longer valid (i.e. all actors have destroyed themselves), then attempt to recreate the scene. This way we can "loop" certain "finite" Blueprints that might destroy themselves.
 	if(ViewportClient.IsValid() && bPreviewNeedsUpdating)
 	{
+		Invalidate();
+
 		ViewportClient->InvalidatePreview(bResetCameraOnNextPreviewUpdate);
 
 		// Reset for next update
