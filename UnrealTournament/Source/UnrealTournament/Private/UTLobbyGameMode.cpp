@@ -223,6 +223,13 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode == TEXT("/Script/UnrealTournament.UTCTFGameMode"));
 		}
 	}
+
+	AUTBasePlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
+	if (PC)
+	{
+		PC->ClientSetPresence(TEXT("Sitting in a HUB"), true, true, true, false);
+	}
+
 }
 
 
@@ -277,12 +284,6 @@ FName AUTLobbyGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FNam
 
 void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
-	if (!UniqueId.IsValid())
-	{
-		ErrorMessage=TEXT("NOTLOGGEDIN");
-		return;
-	}
-
 	if (MinAllowedRank > 0 || MaxAllowedRank > 0)
 	{
 		int32 PendingRank = GetIntOption(Options, TEXT("Rank"), 0);

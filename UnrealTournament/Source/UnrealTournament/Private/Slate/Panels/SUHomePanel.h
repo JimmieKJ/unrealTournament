@@ -12,6 +12,7 @@ class SUHomePanel : public SUWPanel
 {
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
+
 protected:
 
 };

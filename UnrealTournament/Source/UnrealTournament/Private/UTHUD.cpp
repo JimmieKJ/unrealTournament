@@ -337,7 +337,7 @@ void AUTHUD::DrawHUD()
 		if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
 		{
 			HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
-			if (HudWidgets[WidgetIndex]->ShouldDraw(bShowScores || bPreMatchScoreBoard))
+			if (HudWidgets[WidgetIndex]->ShouldDraw(bShowScores || bPreMatchScoreBoard || bForceScores))
 			{
 				HudWidgets[WidgetIndex]->Draw(RenderDelta);
 			}

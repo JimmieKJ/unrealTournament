@@ -2164,5 +2164,5 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 	{
 		UE_LOG(UT,Log,TEXT("Command %s = [NONE]"), *TestCommand);		
 	}
-	
 }
+

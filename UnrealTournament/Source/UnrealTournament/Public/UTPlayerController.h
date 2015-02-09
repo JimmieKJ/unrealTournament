@@ -573,7 +573,6 @@ public:
 	void ResolveKeybind(FString Command, TArray<FString>& Keys, bool bIncludeGamepad=false, bool bIncludeAxis=true);
 
 
-
 	virtual void DebugTest(FString TestCommand) override;
 };
 

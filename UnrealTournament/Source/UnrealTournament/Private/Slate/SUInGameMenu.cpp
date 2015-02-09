@@ -105,7 +105,7 @@ void SUInGameMenu::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELo
 
 void SUInGameMenu::OnMenuOpened()
 {
-	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUWindowsMidGame::OwnerLoginStatusChanged);
+	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUInGameMenu::OwnerLoginStatusChanged);
 	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
 	SUWindowsDesktop::OnMenuOpened();
 	OnInfo();
@@ -259,7 +259,7 @@ void SUInGameMenu::BuildInfoSubMenu()
 		[
 			SNew(SButton)
 			.VAlign(VAlign_Center)
-			.OnClicked(this, &SUWindowsMidGame::OnInfo)
+			.OnClicked(this, &SUInGameMenu::OnInfo)
 			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 			[
 				SNew(STextBlock)
@@ -279,7 +279,7 @@ void SUInGameMenu::BuildPlaySubMenu()
 		[
 			SNew(SButton)
 			.VAlign(VAlign_Center)
-			.OnClicked(this, &SUWindowsMidGame::Play)
+			.OnClicked(this, &SUInGameMenu::Play)
 			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 			[
 				SNew(STextBlock)
@@ -336,7 +336,7 @@ void SUInGameMenu::BuildTeamSubMenu()
 								.ContentPadding(FMargin(10.0f, 5.0f))
 								.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_SwitchToRed", "Switch to Red").ToString())
 								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle.AltTeam"))
-								.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 0, DropDownButton)
+								.OnClicked(this, &SUInGameMenu::OnChangeTeam, 0, DropDownButton)
 							];
 						}
 
@@ -350,7 +350,7 @@ void SUInGameMenu::BuildTeamSubMenu()
 								.ContentPadding(FMargin(10.0f, 5.0f))
 								.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_SwitchToBlue", "Switch to Blue").ToString())
 								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle.AltTeam"))
-								.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 1, DropDownButton)
+								.OnClicked(this, &SUInGameMenu::OnChangeTeam, 1, DropDownButton)
 							];
 						}
 
@@ -365,7 +365,7 @@ void SUInGameMenu::BuildTeamSubMenu()
 								.ContentPadding(FMargin(10.0f, 5.0f))
 								.Text(NSLOCTEXT("SUWindowsMidGameMenu", "MenuBar_Teams_SwitchToSpectate", "Switch to Spectator").ToString())
 								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-								.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 255, DropDownButton)
+								.OnClicked(this, &SUInGameMenu::OnChangeTeam, 255, DropDownButton)
 							];
 						}
 					}
@@ -399,7 +399,7 @@ void SUInGameMenu::BuildTeamSubMenu()
 				[
 					SNew(SButton)
 					.VAlign(VAlign_Center)
-					.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 0, DropDownButton)
+					.OnClicked(this, &SUInGameMenu::OnChangeTeam, 0, DropDownButton)
 					.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 					[
 						SNew(STextBlock)
@@ -418,7 +418,7 @@ void SUInGameMenu::BuildTeamSubMenu()
 				[
 					SNew(SButton)
 					.VAlign(VAlign_Center)
-					.OnClicked(this, &SUWindowsMidGame::OnChangeTeam, 0, DropDownButton)
+					.OnClicked(this, &SUInGameMenu::OnChangeTeam, 0, DropDownButton)
 					.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 					[
 						SNew(STextBlock)
@@ -440,7 +440,7 @@ void SUInGameMenu::BuildServerBrowserSubMenu()
 		[
 			SNew(SButton)
 			.VAlign(VAlign_Center)
-			.OnClicked(this, &SUWindowsMidGame::OnServerBrowser)
+			.OnClicked(this, &SUInGameMenu::OnServerBrowser)
 			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 			[
 				SNew(STextBlock)
@@ -477,7 +477,7 @@ void SUInGameMenu::BuildOptionsSubMenu()
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings").ToString())
 			.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingPlayer)
+			.OnClicked(this, &SUInGameMenu::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingPlayer)
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -487,7 +487,7 @@ void SUInGameMenu::BuildOptionsSubMenu()
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_HUDSettings", "HUD Settings").ToString())
 			.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-			.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsHUD)
+			.OnClicked(this, &SUInGameMenu::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsHUD)
 		]
 		+ SVerticalBox::Slot()
 			.AutoHeight()
@@ -497,7 +497,7 @@ void SUInGameMenu::BuildOptionsSubMenu()
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
 				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-				.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsSystem)
+				.OnClicked(this, &SUInGameMenu::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsSystem)
 			] 
 		+ SVerticalBox::Slot()
 			.AutoHeight()
@@ -507,7 +507,7 @@ void SUInGameMenu::BuildOptionsSubMenu()
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings").ToString())
 				.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
-				.OnClicked(this, &SUWindowsMidGame::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsControls)
+				.OnClicked(this, &SUInGameMenu::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingsControls)
 			]
 	);
 
@@ -709,7 +709,7 @@ void SUInGameMenu::BuildOnlineBar()
 					[
 						SNew(SButton)
 						.VAlign(VAlign_Center)
-						.OnClicked(this, &SUWindowsMidGame::OnLogin)
+						.OnClicked(this, &SUInGameMenu::OnLogin)
 						.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
 						[
 							SNew(STextBlock)

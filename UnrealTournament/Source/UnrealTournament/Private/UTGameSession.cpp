@@ -26,14 +26,27 @@ void AUTGameSession::InitOptions( const FString& Options )
 	UTGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 }
 
+void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+{
+	UNetDriver* NetDriver = NULL;
+	if (GetWorld())
+	{
+		NetDriver = GetWorld()->GetNetDriver();
+	}
+
+	FString LocalAddress = NetDriver->LowLevelGetNetworkNumber();
+
+	if ( !UniqueId.IsValid() && Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) )
+	{
+		ErrorMessage = TEXT("NOTLOGGEDIN");
+	}
+}
 
 
 FString AUTGameSession::ApproveLogin(const FString& Options)
 {
 	if (UTGameMode)
 	{
-		UE_LOG(UT, Log, TEXT("ApproveLogin: %s"), *Options);
-
 		if (!UTGameMode->HasOption(Options, TEXT("VersionCheck")) && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 		{
 			UE_LOG(UT, Warning, TEXT("********************************YOU MUST UPDATE TO A NEW VERSION %s"), *Options);
@@ -83,7 +96,7 @@ bool AUTGameSession::ProcessAutoLogin()
 
 void AUTGameSession::RegisterServer()
 {
-	UE_LOG(UT,Verbose,TEXT("--------------[REGISTER SERVER] ----------------"));
+	UE_LOG(UT,Verbose,TEXT("--------------[REGISTER SERVER]----------------"));
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
@@ -91,8 +104,16 @@ void AUTGameSession::RegisterServer()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnCreateSessionComplete);
-			SessionInterface->AddOnCreateSessionCompleteDelegate(OnCreateSessionCompleteDelegate);
+			EOnlineSessionState::Type State = SessionInterface->GetSessionState(FName(TEXT("Game")));
+			if (State == EOnlineSessionState::NoSession)
+			{
+				OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnCreateSessionComplete);
+				SessionInterface->AddOnCreateSessionCompleteDelegate(OnCreateSessionCompleteDelegate);
+			}
+			else if (State == EOnlineSessionState::Ended)
+			{
+				StartMatch();
+			}
 
 			TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 32));
 			if (OnlineGameSettings.IsValid() && UTGameMode)
@@ -104,23 +125,25 @@ void AUTGameSession::RegisterServer()
 			}
 		}
 	}
-	UE_LOG(UT,Log,TEXT("Couldn't register the server."))
 }
 
-void AUTGameSession::UnRegisterServer()
+void AUTGameSession::UnRegisterServer(bool bShuttingDown)
 {
-	UE_LOG(UT,Log,TEXT("--------------[UNREGISTER SERVER] ----------------"));
-
 	const auto OnlineSub = IOnlineSubsystem::Get();
+	const auto SessionInterface = OnlineSub->GetSessionInterface();
+	EOnlineSessionState::Type State = SessionInterface->GetSessionState(FName(TEXT("Game")));
+
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
-		const auto SessionInterface = OnlineSub->GetSessionInterface();
-		if (SessionInterface.IsValid())
+		DestroyHostBeacon();
+		if (bShuttingDown)
 		{
-			DestroyHostBeacon();
-			OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnDestroySessionComplete);
-			SessionInterface->AddOnDestroySessionCompleteDelegate(OnDestroySessionCompleteDelegate);
-			SessionInterface->DestroySession(GameSessionName);
+			if (SessionInterface.IsValid())
+			{
+				OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnDestroySessionComplete);
+				SessionInterface->AddOnDestroySessionCompleteDelegate(OnDestroySessionCompleteDelegate);
+				SessionInterface->DestroySession(GameSessionName);
+			}
 		}
 	}
 }
@@ -169,6 +192,7 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 	// If we were not successful, then clear the online game settings member and move on
 	if (bWasSuccessful)
 	{
+		UpdateSessionJoinability(FName(TEXT("Game")), true, true, true, false);
 		// Immediately start the online session
 		StartMatch();
 	}
@@ -226,6 +250,7 @@ void AUTGameSession::OnEndSessionComplete(FName SessionName, bool bWasSuccessful
 	if (!bWasSuccessful)
 	{
 		UE_LOG(UT,Log,TEXT("Failed to end the session '%s' so match stats will not save.  See the logs!"), *SessionName.ToString());
+		IOnlineSubsystem::Get()->GetSessionInterface()->DumpSessionState();
 	}
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
@@ -282,7 +307,6 @@ void AUTGameSession::UpdateGameState()
 void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 {
 	UWorld* const World = GetWorld();
-	UE_LOG(LogOnlineGame, Verbose, TEXT("Creating host beacon."));
 	check(!BeaconHost);
 
 	// Always create a new beacon host
@@ -309,7 +333,6 @@ void AUTGameSession::DestroyHostBeacon()
 {
 	if (BeaconHost)
 	{
-		UE_LOG(LogOnlineGame, Verbose, TEXT("Destroying Host Beacon."));
 		BeaconHostListener->UnregisterHost(BeaconHost->GetBeaconType());
 		BeaconHost->Destroy();
 		BeaconHost = NULL;

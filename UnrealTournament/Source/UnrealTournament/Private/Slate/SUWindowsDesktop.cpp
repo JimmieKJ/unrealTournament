@@ -162,8 +162,12 @@ void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
 
 void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate)
 {
-	ActivePanel->OnHidePanel();
-	Desktop->RemoveSlot(0);
+	if (ActivePanel.IsValid())
+	{
+		ActivePanel->OnHidePanel();
+		ActivePanel.Reset();
+		Desktop->RemoveSlot(0);
+	}
 
 }
 #endif

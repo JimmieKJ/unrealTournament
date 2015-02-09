@@ -499,6 +499,8 @@ protected:
 
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 
+	// When players leave/join or during the end of game state
+	virtual void UpdatePlayersPresence();
 
 
 };

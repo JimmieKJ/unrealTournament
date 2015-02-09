@@ -3,7 +3,8 @@
 #pragma once
 
 #include "GameFramework/GameMode.h"
-#include "../Private/Slate/SUWindowsMidGame.h"
+#include "UTPlayerState.h"
+#include "Private/Slate/SUTInGameMenu.h"
 #include "UTBaseGameMode.generated.h"
 
 UCLASS()
@@ -24,7 +25,7 @@ public:
 	 **/
 	virtual TSharedRef<SUWindowsDesktop> GetGameMenu(UUTLocalPlayer* PlayerOwner) const
 	{
-		return SNew(SUWindowsMidGame).PlayerOwner(PlayerOwner);
+		return SNew(SUTInGameMenu).PlayerOwner(PlayerOwner);
 	}
 
 #endif
@@ -40,6 +41,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
 	FText DisplayName;
 
+	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 

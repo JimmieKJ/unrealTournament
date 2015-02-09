@@ -73,6 +73,9 @@ class UUTProfileSettings : public UObject
 	UPROPERTY()
 	FString CharacterPath;
 
+	UPROPERTY()
+	uint32 CountryFlag;
+
 protected:
 
 	/**

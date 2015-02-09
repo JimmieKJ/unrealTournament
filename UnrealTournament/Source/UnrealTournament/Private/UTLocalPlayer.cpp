@@ -50,6 +50,8 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 	{
 		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 		OnlineUserCloudInterface = OnlineSubsystem->GetUserCloudInterface();
+		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		OnlinePresenceInterface = OnlineSubsystem->GetPresenceInterface();
 	}
 
 	if (OnlineIdentityInterface.IsValid())
@@ -77,6 +79,23 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnlineUserCloudInterface->AddOnDeleteUserFileCompleteDelegate(OnDeleteUserFileCompleteDelegate);
 
 	}
+
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnJoinSessionComplete);
+		OnlineSessionInterface->AddOnJoinSessionCompleteDelegate(OnJoinSessionCompleteDelegate);
+
+		OnEndSessionCompleteDelegate = FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete);
+
+	}
+
+	if (OnlinePresenceInterface.IsValid())
+	{
+		OnPresenceUpdatedCompleteDelegate = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated);
+		OnPresenceReceivedCompleteDelegate = FOnPresenceReceivedDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceRecieved);
+		OnlinePresenceInterface->AddOnPresenceReceivedDelegate(OnPresenceReceivedCompleteDelegate);
+	}
+
 
 }
 
@@ -219,10 +238,12 @@ void UUTLocalPlayer::ShowMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = true;
+/*
 			if (PlayerController->MyHUD)
 			{
 				PlayerController->MyHUD->bShowHUD = false;
 			}
+*/
 
 			if (!IsMenuGame())
 			{
@@ -243,10 +264,12 @@ void UUTLocalPlayer::HideMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = false;
+/*
 			if (PlayerController->MyHUD)
 			{
 				PlayerController->MyHUD->bShowHUD = true;
 			}
+*/
 			PlayerController->SetInputMode(FInputModeGameOnly());
 			PlayerController->SetPause(false);
 		}
@@ -254,6 +277,13 @@ void UUTLocalPlayer::HideMenu()
 		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
 
 	}
+#endif
+}
+
+void UUTLocalPlayer::MessageBox(FText MessageTitle, FText MessageText)
+{
+#if !UE_SERVER
+	ShowMessage(MessageTitle, MessageText, UTDIALOG_BUTTON_OK, NULL);
 #endif
 }
 
@@ -466,6 +496,11 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 			OnlineIdentityInterface->ClearOnLoginStatusChangedDelegate(GetControllerId(), OnLoginStatusChangedDelegate);
 			OnlineIdentityInterface->ClearOnLogoutCompleteDelegate(GetControllerId(), OnLogoutCompleteDelegate);
 		}
+
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate(OnJoinSessionCompleteDelegate);
+		}
 	}
 }
 
@@ -548,6 +583,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
 		ReadELOFromCloud();
+		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 	}
 
 	for (int32 i=0; i< PlayerLoginStatusChangedListeners.Num(); i++)
@@ -658,12 +694,10 @@ FString UUTLocalPlayer::GetProfileFilename()
 {
 	if (IsLoggedIn())
 	{
-		FString AccountUserName = OnlineIdentityInterface->GetPlayerNickname(GetControllerId());
-		FString ProfileFilename = FString::Printf(TEXT("%s.user.profile"), *AccountUserName);
-		return ProfileFilename;
+		return TEXT("user_profile");
 	}
 
-	return TEXT("local.user.profile");
+	return TEXT("local_user_profile");
 }
 
 /*
@@ -1024,7 +1058,7 @@ void UUTLocalPlayer::ShowContentLoadingMessage()
 				.AutoHeight()
 				[
 					SNew(SBox)
-					.WidthOverride(400)
+					.WidthOverride(700)
 					.HeightOverride(64)
 					[
 						SNew(SOverlay)
@@ -1047,7 +1081,7 @@ void UUTLocalPlayer::ShowContentLoadingMessage()
 							.HAlign(HAlign_Center)
 							[
 								SNew(STextBlock)
-								.Text(NSLOCTEXT("Loading","LoadingContent","Loading Content..."))
+								.Text(NSLOCTEXT("Loading","LoadingContent","Scanning for Custom Content..."))
 								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 							]
 						]
@@ -1086,3 +1120,119 @@ TSharedPtr<SWidget> UUTLocalPlayer::GetFriendsPopup()
 
 
 #endif
+
+void UUTLocalPlayer::JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate)
+{
+	OnlineSessionInterface->JoinSession(0,GameSessionName,SearchResult);
+}
+
+void UUTLocalPlayer::LeaveSession()
+{
+	OnlineSessionInterface->AddOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
+	OnlineSessionInterface->EndSession(GameSessionName);
+}
+
+void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	OnlineSessionInterface->ClearOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
+	OnlineSessionInterface->DestroySession(GameSessionName);
+}
+
+
+void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+{
+	if (Result == EOnJoinSessionCompleteResult::Success)
+	{
+		FString ConnectionString;
+		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
+		{
+			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
+		}
+	}
+	else if (Result == EOnJoinSessionCompleteResult::AlreadyInSession)
+	{
+		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "AlreadyInSession", "You are already in a session and can't join another."));
+	}
+	else if (Result == EOnJoinSessionCompleteResult::SessionIsFull)
+	{
+		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "SessionFull", "The session you are attempting to join is full."));
+	}
+}
+
+void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
+{
+	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+	if (UserId.IsValid())
+	{
+		FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
+		if (GameSettings != NULL)
+		{
+			GameSettings->bAllowInvites = true;
+			GameSettings->bAllowJoinInProgress = true;
+			GameSettings->bAllowJoinViaPresence = true;
+			GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
+			OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
+		}
+
+		TSharedPtr<FOnlineUserPresence> CurrentPresence;
+		OnlinePresenceInterface->GetCachedPresence(*UserId, CurrentPresence);
+		if (CurrentPresence.IsValid())
+		{
+			CurrentPresence->Status.StatusStr = NewPresenceString;
+			OnlinePresenceInterface->SetPresence(*UserId, CurrentPresence->Status, OnPresenceUpdatedCompleteDelegate);
+		}
+		else
+		{
+			FOnlineUserPresenceStatus NewStatus;
+			NewStatus.State = EOnlinePresenceState::Online;
+			NewStatus.StatusStr = NewPresenceString;
+			OnlinePresenceInterface->SetPresence(*UserId, NewStatus, OnPresenceUpdatedCompleteDelegate);
+		}
+	}
+	else
+	{
+		LastPresenceUpdate = NewPresenceString;
+		bLastAllowInvites = bAllowInvites;
+	}
+}
+
+void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful)
+{
+	UE_LOG(UT,Log,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
+}
+
+void UUTLocalPlayer::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
+{
+	UE_LOG(UT,Log,TEXT("Presence Recieved %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
+}
+
+uint32 UUTLocalPlayer::GetCountryFlag()
+{
+	if (CurrentProfileSettings)
+	{
+		return FMath::Clamp<uint32>(CurrentProfileSettings->CountryFlag,0,20);
+	}
+	return 0;
+}
+
+void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
+{
+	NewFlag = FMath::Clamp<uint32>(NewFlag,0,20);
+	if (CurrentProfileSettings)
+	{
+		CurrentProfileSettings->CountryFlag = NewFlag;
+		if (bSave)
+		{
+			SaveProfileSettings();
+		}
+	}
+
+	if (PlayerController)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS)
+		{
+			PS->ServerRecieveCountryFlag(NewFlag);
+		}
+	}
+}

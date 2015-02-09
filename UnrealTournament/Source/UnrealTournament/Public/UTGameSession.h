@@ -17,6 +17,10 @@ public:
 	// Approve a player logging in to the current server
 	FString ApproveLogin(const FString& Options);
 
+	// The base engine ApproveLogin doesn't pass the Address and UniqueId to the approve login process.  So we have
+	// a second layer.
+	void ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
+
 	// Cached reference to the Game Mode
 	AUTBaseGameMode* UTGameMode;
 	
@@ -29,7 +33,7 @@ public:		// Online Subsystem stuff
 	
 	virtual void InitOptions( const FString& Options );
 	virtual void RegisterServer();
-	virtual void UnRegisterServer();
+	virtual void UnRegisterServer(bool bShuttingDown);
 
 	virtual void StartMatch();
 	virtual void EndMatch();

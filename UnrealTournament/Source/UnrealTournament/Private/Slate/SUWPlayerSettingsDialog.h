@@ -74,6 +74,11 @@ protected:
 	TSharedPtr<STextBlock> SelectedCharacter;
 	void OnCharacterSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
+	TSharedPtr<STextBlock> SelectedFlag;
+	TArray<TSharedPtr<FString>> CountyFlagNames;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
+	void OnFlagSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
 	int32 Emote1Index;
 	int32 Emote2Index;
 	int32 Emote3Index;

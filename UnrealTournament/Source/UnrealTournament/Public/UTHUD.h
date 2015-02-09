@@ -125,6 +125,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category="HUD")
 	uint32 bShowScores:1;
 
+	UPROPERTY(BlueprintReadWrite, Category ="HUD")
+	uint32 bForceScores:1;
+
 	/** Creates the scoreboard */
 	virtual void CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass);
 	

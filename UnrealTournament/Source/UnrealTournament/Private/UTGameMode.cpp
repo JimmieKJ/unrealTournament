@@ -1951,6 +1951,9 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 	{
 		BaseMutator->PostPlayerInit(C);
 	}
+
+	UpdatePlayersPresence();
+
 }
 
 void AUTGameMode::PostLogin( APlayerController* NewPlayer )
@@ -2009,6 +2012,8 @@ void AUTGameMode::Logout(AController* Exiting)
 			UTGameSession->UpdateGameState();
 		}
 	}
+
+	UpdatePlayersPresence();
 }
 
 bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
@@ -2341,7 +2346,7 @@ void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 		if (UTGameSession != NULL)
 		{
-			UTGameSession->UnRegisterServer();
+			UTGameSession->UnRegisterServer(false);
 		}
 	}
 
@@ -2504,3 +2509,18 @@ FString AUTGameMode::GetHUBPregameFormatString()
 	return FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Small>Host</>\n<UWindows.Standard.MatchBadge>{Player0Name}</>\n\n<UWindows.Standard.MatchBadge.Small>({NumPlayers} Players)</>"), *DisplayName.ToString());
 }
 #endif
+
+void AUTGameMode::UpdatePlayersPresence()
+{
+	bool bAllowJoin = (NumPlayers < GameSession->MaxPlayers);
+	UE_LOG(UT,Log,TEXT("AllowJoin: %i %i %i"), bAllowJoin, NumPlayers, GameSession->MaxPlayers);
+	FString PresenceString = FText::Format(NSLOCTEXT("UTGameMode","PlayingPresenceFormatStr","Playing {0} on {1}"), DisplayName, FText::FromString(*GetWorld()->GetMapName())).ToString();
+	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	{
+		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
+		if (Controller)
+		{
+			Controller->ClientSetPresence(PresenceString, bAllowJoin, bAllowJoin, bAllowJoin, false);
+		}
+	}
+}

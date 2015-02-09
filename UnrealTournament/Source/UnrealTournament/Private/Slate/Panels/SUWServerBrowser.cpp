@@ -19,7 +19,7 @@
 #include "UTGameEngine.h"
 #include "UTServerBeaconClient.h"
 #include "../SUWScaleBox.h"
-
+#include "Engine/UserInterfaceSettings.h"
 
 #if !UE_SERVER
 /** List Sort helpers */
@@ -396,10 +396,24 @@ TSharedRef<SWidget> SUWServerBrowser::BuildPlayerList()
 
 }
 
+float SUWServerBrowser::GetReverseScale() const
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->ViewportClient)
+	{
+		FVector2D ViewportSize;
+		PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+		return 1.0f / GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+	}
+	return 1.0f;
+}
+
 
 TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 {
-	return SAssignNew(InternetServerBrowser, SBox) 
+	return SAssignNew(UnScaler, SDPIScaler)
+		.DPIScale(this, &SUWServerBrowser::GetReverseScale)
+		[
+			SAssignNew(InternetServerBrowser, SBox) 
 			.HeightOverride(500.0f)
 			[
 				SAssignNew( VertSplitter, SSplitter )
@@ -622,8 +636,8 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 					]
 
 				]
-
-			];
+			]
+		];
 }
 
 TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
@@ -1018,6 +1032,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				FString BeaconIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
 				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags);
+				NewServer->SearchResult = Result;
 				PingList.Add( NewServer );
 			}
 		}
@@ -1188,14 +1203,18 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
+	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
 	CleanupQoS();
 	PlayerOwner->HideMenu();
+
+/*
 	FString Command = FString::Printf(TEXT("open %s"), *ServerData.IP);
 	if (bSpectate)
-	{
+	{ 
 		Command += FString(TEXT("?spectatoronly=1"));
 	}
 	PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
+*/
 }
 
 void SUWServerBrowser::FilterAllServers(FString InitialGameType)

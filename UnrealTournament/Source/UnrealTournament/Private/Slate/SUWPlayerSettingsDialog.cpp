@@ -36,6 +36,32 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	PlayerPreviewMesh = NULL;
 
+
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Unreal"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("United States"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("United Kingdom"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("France"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Germany"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Italy"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Russia"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Australia"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Poland"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Brazil"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Portugal"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Spain"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Sweden"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Ukraine"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Austria"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Finland"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Hungary"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Netherlands"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Belgium"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Switzerland"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("South Africa"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Canada"))));
+
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
+
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
 	if (BaseMat != NULL)
 	{
@@ -234,6 +260,65 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "AutoWeaponSwitch", "Weapon Switch on Pickup").ToString())
 				]
 			]
+
+
+			// Country Flag
+
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SNew(SBox)
+					.HAlign(HAlign_Center)
+					.WidthOverride(80.0f * ViewportSize.X / 1280.0f)
+					.Content()
+					[
+						SNew(STextBlock)
+						.ColorAndOpacity(FLinearColor::White)
+						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "CountryFlag", "Country Flag").ToString())
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FString> >)
+					.InitiallySelectedItem(0)
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					.OptionsSource(&CountyFlagNames)
+					.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+					.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnFlagSelected)
+					.Content()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						[
+							SAssignNew(SelectedFlag, STextBlock)
+							.Text(FString(TEXT("Unreal")))
+							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+						]
+					]
+				]
+			]
+
+
+
+
+
+
+
+
 			+ SVerticalBox::Slot()
 			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
 			.AutoHeight()
@@ -614,6 +699,13 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			CharacterComboBox->SetSelectedItem(CharacterList[0]);
 		}
 	}
+
+	if (GetPlayerOwner().IsValid())
+	{
+		uint32 CountryFlag = GetPlayerOwner()->GetCountryFlag();
+		CountryFlagComboBox->SetSelectedItem(CountyFlagNames[CountryFlag]);
+	}
+
 }
 
 SUWPlayerSettingsDialog::~SUWPlayerSettingsDialog()
@@ -722,6 +814,18 @@ void SUWPlayerSettingsDialog::PlayerColorChanged(FLinearColor NewValue)
 FReply SUWPlayerSettingsDialog::OKClick()
 {
 	GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
+
+	uint32 NewFlag = 0;
+	for (int32 i=0; i<CountyFlagNames.Num();i++)
+	{
+		if (*CountyFlagNames[i] == SelectedFlag->GetText().ToString())
+		{
+			NewFlag = i;
+			break;
+		}
+	}
+	
+	GetPlayerOwner()->SetCountryFlag(NewFlag,false);
 
 	// If we have a valid PC then tell the PC to set it's name
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
@@ -933,5 +1037,11 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	--GFrameNumber;
 	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
 }
+
+void SUWPlayerSettingsDialog::OnFlagSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedFlag->SetText(*NewSelection.Get());
+}
+
 
 #endif

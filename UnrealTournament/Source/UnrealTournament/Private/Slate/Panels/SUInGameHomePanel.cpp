@@ -1,0 +1,289 @@
+
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "../Public/UnrealTournament.h"
+#include "../Public/UTLocalPlayer.h"
+#include "SlateBasics.h"
+#include "../SUWScaleBox.h"
+#include "Slate/SlateGameResources.h"
+#include "SUInGameHomePanel.h"
+
+
+
+#if !UE_SERVER
+
+
+void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
+{
+	ChatDestination = ChatDestinations::Local;
+
+	this->ChildSlot
+	.VAlign(VAlign_Fill)
+	.HAlign(HAlign_Fill)
+	[
+		SNew(SOverlay)
+		+SOverlay::Slot()
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.FillHeight(1.0)
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SCanvas)			// Create a widget to pass input to the scoreboard here!!!!
+			]
+
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SOverlay)
+				+SOverlay::Slot()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SBox)
+								.HeightOverride(42)
+								[
+									SNew(SImage)
+									.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.Bar"))
+								]
+							]
+							+SOverlay::Slot()
+							[
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.AutoWidth()
+								.Padding(30.0f,0.0f,30.0f,0.0f)
+								[
+									SNew(STextBlock)
+									.Text(this, &SUInGameHomePanel::GetChatDestinationText)
+									.TextStyle(SUWindowsStyle::Get(), "UT.ChatBar.Button.TextStyle")
+								]
+							]
+						]
+
+						+SHorizontalBox::Slot()
+						.FillWidth(1.0f)
+						[
+
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SBox)
+								.HeightOverride(42)
+								[
+									SNew(SImage)
+									.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.EntryArea"))
+								]
+							]
+							+SOverlay::Slot()
+							[
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.AutoWidth()
+								.Padding(30.0f, 4.0f, 10.0f, 0.0f)
+								[
+									SNew(STextBlock)
+									.Text(FText::FromString(TEXT(" >")))
+									.TextStyle(SUWindowsStyle::Get(), "UT.ChatBar.Editbox.TextStyle")
+								]
+								+SHorizontalBox::Slot()
+								.Padding(0.0f, 4.0f, 10.0f, 0.0f)
+								[
+									SAssignNew(ChatText, SEditableTextBox)
+									.Style(SUWindowsStyle::Get(), "UT.ChatBar.Editbox.ChatEditBox")
+									.OnTextCommitted(this, &SUInGameHomePanel::ChatTextCommited)
+									.ClearKeyboardFocusOnCommit(false)
+									.MinDesiredWidth(300.0f)
+									.Text(FText::GetEmpty())
+								]
+							]
+
+						]
+
+
+						+SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(SBox)
+							.HeightOverride(42)
+							.WidthOverride(80)
+							[
+								SNew(SOverlay)
+								+SOverlay::Slot()
+								.HAlign(HAlign_Fill)
+								.VAlign(VAlign_Fill)
+								[
+									SNew(SImage)
+									.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.Fill"))
+								]
+
+								+SOverlay::Slot()
+								.HAlign(HAlign_Center)
+								.VAlign(VAlign_Center)
+								[
+									BuildChatDestinationsButton()
+								]
+							]
+						]
+					]
+				]
+		
+			]
+		]
+	];
+}
+
+TSharedRef<SWidget> SUInGameHomePanel::BuildChatDestinationsButton()
+{
+
+	SAssignNew(ChatDestinationsButton, SComboButton)
+		.HasDownArrow(false)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+		.ButtonContent()
+		[
+			SNew(SImage)
+			.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Chat36"))
+		];
+
+	TSharedPtr<SVerticalBox> ChatBox;
+	SAssignNew(ChatBox, SVerticalBox);
+	if (ChatBox.IsValid())
+	{
+		ChatBox->AddSlot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("Chat", "ChatDestination_Game", "Game").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Local)
+		];
+	
+		AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+		if (GS)
+		{
+			if (GS->bTeamGame)
+			{
+				ChatBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+					.ContentPadding(FMargin(10.0f, 5.0f))
+					.Text(NSLOCTEXT("Chat", "ChatDestination_Team", "Team").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+					.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Team)
+				];
+			}
+
+			if (GS->bIsInstanceServer)
+			{
+				ChatBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+					.ContentPadding(FMargin(10.0f, 5.0f))
+					.Text(NSLOCTEXT("Chat", "ChatDestination_Lobby", "Lobby").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+					.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Lobby)
+				];
+			}
+
+			if (PlayerOwner->IsLoggedIn())
+			{
+				ChatBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+					.ContentPadding(FMargin(10.0f, 5.0f))
+					.Text(NSLOCTEXT("Chat", "ChatDestination_Friends", "Friends").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+					.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Friends)
+				];
+			}
+		}
+	}
+
+	ChatDestinationsButton->SetMenuContent(ChatBox.ToSharedRef());
+	return ChatDestinationsButton.ToSharedRef();
+}
+
+FReply SUInGameHomePanel::ChangeChatDestination(TSharedPtr<SComboButton> Button, FName NewDestination)
+{
+	if (Button.IsValid()) Button->SetIsOpen(false);
+	ChatDestination = NewDestination;
+	return FReply::Handled();
+}
+
+void SUInGameHomePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+{
+	SUWPanel::OnShowPanel(inParentWindow);
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		PC->MyUTHUD->bForceScores = true;
+	}
+}
+void SUInGameHomePanel::OnHidePanel()
+{
+	SUWPanel::OnHidePanel();
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		PC->MyUTHUD->bForceScores = false;
+	}
+}
+
+FText SUInGameHomePanel::GetChatDestinationText() const
+{
+	if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Send to Team");
+	if (ChatDestination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Say in Game");
+	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper to Friends");
+	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Yell back to the Lobby");
+	
+	return NSLOCTEXT("Chat", "GlobalTag","Global Chat");
+}
+
+void SUInGameHomePanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
+{
+	if (CommitType == ETextCommit::OnEnter)
+	{
+		FString FianlText = NewText.ToString();
+		// Figure out the type of chat...
+		if (FianlText != TEXT(""))
+		{
+			if (ChatDestination == ChatDestinations::Global)	ConsoleCommand(FString::Printf(TEXT("GlobalChat %s"), *FianlText));
+			if (ChatDestination == ChatDestinations::Friends)	ConsoleCommand(FString::Printf(TEXT("FriendSay %s"), *FianlText));
+			if (ChatDestination == ChatDestinations::Lobby)		ConsoleCommand(FString::Printf(TEXT("LobbySay %s"), *FianlText));
+			if (ChatDestination == ChatDestinations::Local)		ConsoleCommand(FString::Printf(TEXT("Say %s"), *FianlText));
+			if (ChatDestination == ChatDestinations::Match)		ConsoleCommand(FString::Printf(TEXT("MatchChat %s"), *FianlText));
+			if (ChatDestination == ChatDestinations::Team)		ConsoleCommand(FString::Printf(TEXT("TeamSay %s"), *FianlText));
+			ChatText->SetText(FText::GetEmpty());
+		}
+		else
+		{
+			// Add code to change chat mode here.
+		}
+		
+
+	}
+}
+
+
+
+#endif

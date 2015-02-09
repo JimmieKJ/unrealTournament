@@ -68,6 +68,13 @@ public:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientReturnToLobby();
 
+	UFUNCTION()
+	virtual void ClientReturnedToMenus();
+
+	// Allows the game to cause the client to set it's presence.
+	UFUNCTION(Client, reliable)
+	virtual void ClientSetPresence(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
+
 protected:
 	FOnFindSessionsCompleteDelegate OnFindGUIDSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> GUIDSessionSearchSettings;

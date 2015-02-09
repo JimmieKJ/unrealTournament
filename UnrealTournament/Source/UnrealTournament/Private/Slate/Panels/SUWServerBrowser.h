@@ -233,6 +233,8 @@ public:
 
 	FString MOTD;
 
+	FOnlineSessionSearchResult SearchResult;
+
 	bool bFakeHUB;
 
 	TArray<TSharedPtr<FServerInstanceData>> HUBInstances;
@@ -409,6 +411,8 @@ protected:
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineSessionPtr OnlineSessionInterface;
 
+	TSharedPtr<SDPIScaler> UnScaler;
+
 	TSharedPtr<class SButton> JoinIPButton;
 	TSharedPtr<class SButton> RefreshButton;
 	TSharedPtr<class SButton> SpectateButton;
@@ -553,6 +557,7 @@ private:
 	TSharedPtr<FServerData> RandomHUB;
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
 
+	float GetReverseScale() const;
 
 };
 

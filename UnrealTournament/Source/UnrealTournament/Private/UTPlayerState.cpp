@@ -47,6 +47,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, LastKillerPlayerState);
 	DOREPLIFETIME(AUTPlayerState, bHasHighScore);
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
+	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -441,6 +442,17 @@ void AUTPlayerState::BeginPlay()
 		LP = Cast<UUTLocalPlayer>(PC->Player);
 	}
 
+	if (LP)
+	{
+		// Send over the country flag....
+		UUTProfileSettings* Settings = LP->GetProfileSettings();
+		if (Settings)
+		{
+			CountryFlag = Settings->CountryFlag;
+			ServerRecieveCountryFlag(CountryFlag);
+		}
+	}
+
 	if (Role == ROLE_Authority && StatManager == nullptr)
 	{
 		//Make me a statmanager
@@ -474,6 +486,7 @@ void AUTPlayerState::BeginPlay()
 			}
 		}		
 	}
+
 }
 
 void AUTPlayerState::SetCharacter(const FString& CharacterPath)
@@ -769,3 +782,11 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName)
 	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
+
+bool AUTPlayerState::ServerRecieveCountryFlag_Validate(uint32 NewCountryFlag) { return true; }
+
+void AUTPlayerState::ServerRecieveCountryFlag_Implementation(uint32 NewCountryFlag)
+{
+	CountryFlag = NewCountryFlag;
+}
+

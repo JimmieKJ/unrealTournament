@@ -66,6 +66,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FVector2D Icon24x24(24.0f, 24.0f);
 	const FVector2D Icon25x25(25.0f, 25.0f);
 	const FVector2D Icon32x32(32.0f, 32.0f);
+	const FVector2D Icon36x36(36.0f, 36.0f);
 	const FVector2D Icon40x40(40.0f, 40.0f);
 	const FVector2D Icon48x48(48.0f, 48.0f);
 	const FVector2D Icon64x64(64.0f, 64.0f);
@@ -116,6 +117,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Icon.About", new IMAGE_BRUSH("Icons/UT.Icon.About", Icon48x48));
 		Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("Icons/UT.Icon.SignOut", Icon48x48));
 		Style.Set("UT.Icon.SignIn", new IMAGE_BRUSH("Icons/UT.Icon.SignIn", Icon48x48));
+		Style.Set("UT.Icon.Chat36", new IMAGE_BRUSH("Icons/UT.Icon.Chat36", Icon36x36));
 		
 	}
 
@@ -175,8 +177,54 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	}
 
 
+	{
+		// Chat Bar
+
+		Style.Set("UT.ChatBar.Bar", new BOX_BRUSH("ChatBar/UT.ChatBar.Bar", FMargin(4.0f / 64.0f, 2.0f/42.0f, 20.0f / 64.0f, 4.0f/42.0f)));
+		Style.Set("UT.ChatBar.EntryArea", new BOX_BRUSH("ChatBar/UT.ChatBar.EntryArea", FMargin(4.0f / 64.0f, 2.0f/42.0f, 4.0f / 64.0f, 2.0f/42.0f)));
+		Style.Set("UT.ChatBar.Fill", new BOX_BRUSH("ChatBar/UT.ChatBar.Fill", FMargin(4.0f / 64.0f, 2.0f/42.0f, 4.0f / 64.0f, 4.0f/42.0f)));
+
+		Style.Set("UT.ChatBar.Button.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 26))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("UT.ChatBar.Editbox.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 26))
+			.SetColorAndOpacity(FLinearColor::Black)
+			);
 
 
+		Style.Set("UT.ChatBar.Editbox.ChatEditBox", FEditableTextBoxStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 26))
+			.SetForegroundColor(FLinearColor::Black)
+			.SetBackgroundImageNormal( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageHovered( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageFocused( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageReadOnly( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			);
+
+	}
+
+
+	{
+		// Context Menus
+
+		Style.Set("UT.ContextMenu.Button", FButtonStyle()
+			.SetNormal ( BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered( BOX_BRUSH("UWindows.Standard.MenuList.Hovered", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed( BOX_BRUSH("UWindows.Standard.MenuList.Pressed", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(BOX_BRUSH("UWindows.Standard.MenuList.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UT.ContextMenu.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 20))
+			.SetColorAndOpacity(FLinearColor::Black)
+			);
+	
+	}
 
 
 

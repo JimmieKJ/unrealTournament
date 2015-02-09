@@ -39,6 +39,9 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
 	TextureAtlas = Tex.Object;
 
+	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
+	FlagAtlas = FlagTex.Object;
+
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
@@ -284,7 +287,11 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	
 	// Draw the background border.
 	DrawTexture(TextureAtlas, XOffset, YOffset, 625, 36, 149, 138, 32, 32, BarOpacity, FLinearColor::Black);	// NOTE: Once I make these interactable.. have a selection color too
-	DrawTexture(TextureAtlas, XOffset + 72, YOffset + 18, 32,24, 193,138,32,24,1.0, FLinearColor::White, FVector2D(0.5f,0.5f));	// Add a function to support additional flags
+
+	int32 FlagU = (PlayerState->CountryFlag % 8) * 32;
+	int32 FlagV = (PlayerState->CountryFlag / 8) * 24;
+
+	DrawTexture(FlagAtlas, XOffset + 72, YOffset + 18, 32,24, FlagU,FlagV,32,24,1.0, FLinearColor::White, FVector2D(0.5f,0.5f));	// Add a function to support additional flags
 
 	// Draw the Text
 	DrawText(Position, XOffset + 50, YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);

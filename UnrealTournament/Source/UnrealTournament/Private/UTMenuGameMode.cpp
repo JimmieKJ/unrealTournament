@@ -30,6 +30,7 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
 	if (PC != NULL)
 	{
+		PC->ClientReturnedToMenus();
 		PC->ShowMenu();
 	}
 }

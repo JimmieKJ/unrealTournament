@@ -8,6 +8,7 @@
 #include "../Private/Slate/SUWToast.h"
 #include "../Private/Slate/SUWDialog.h"
 #include "UTProfileSettings.h"
+#include "OnlinePresenceInterface.h"
 #include "UTLocalPlayer.generated.h"
 
 class SUWServerBrowser;
@@ -62,6 +63,8 @@ public:
 	virtual void HideMenu();
 	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.
 
+	virtual void MessageBox(FText MessageTitle, FText MessageText);
+
 #if !UE_SERVER
 	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0,0.0f));
 
@@ -81,6 +84,9 @@ public:
 	// Holds all of the chat this client has recieved.
 	TArray<TSharedPtr<FStoredChatMessage>> ChatArchive;
 	virtual void SaveChat(FName Type, FString Message, FLinearColor Color);
+
+	UPROPERTY(Config)
+	FString TutorialLaunchParams;
 
 protected:
 
@@ -211,6 +217,8 @@ private:
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
+	IOnlineSessionPtr OnlineSessionInterface;
+	IOnlinePresencePtr OnlinePresenceInterface;
 
 	// Our delegate references....
 	FOnLoginCompleteDelegate OnLoginCompleteDelegate;		
@@ -220,6 +228,12 @@ private:
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
 	FOnWriteUserFileCompleteDelegate OnWriteUserFileCompleteDelegate;
 	FOnDeleteUserFileCompleteDelegate OnDeleteUserFileCompleteDelegate;
+
+	FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
+	FOnEndSessionCompleteDelegate OnEndSessionCompleteDelegate;
+
+	IOnlinePresence::FOnPresenceTaskCompleteDelegate OnPresenceUpdatedCompleteDelegate;
+	FOnPresenceReceivedDelegate OnPresenceReceivedCompleteDelegate;
 	
 public:
 	virtual void LoadProfileSettings();
@@ -272,10 +286,22 @@ public:
 	// Returns the base ELO Rank with any type of processing we need.
 	int GetBaseELORank();
 
+	// Connect to a server via the session id
+	virtual void JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate);
+	virtual void LeaveSession();
+
+	// Updates this user's online presence
+	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
+
+protected:
+	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+	virtual void OnEndSessionComplete(FName SessionName, bool bWasSuccessful);
+	virtual void OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful);
+	virtual void OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence);
 
 #if !UE_SERVER
-protected:
-	TSharedPtr<SOverlay> ContentLoadingMessage;
+
+	 TSharedPtr<SOverlay> ContentLoadingMessage;
 
 public:
 	virtual void ShowContentLoadingMessage();
@@ -285,8 +311,17 @@ public:
 protected:
 	TSharedPtr<SUWFriendsPopup> FriendsMenu;
 
+	// If the player is not logged in, then this string will hold the last attempted presence update
+	FString LastPresenceUpdate;
+	bool bLastAllowInvites;
+
+
 #endif
 
+
+public:
+	virtual uint32 GetCountryFlag();
+	virtual void SetCountryFlag(uint32 NewFlag, bool bSave=false);
 	
 };
 

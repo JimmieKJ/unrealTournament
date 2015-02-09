@@ -192,6 +192,9 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveStatsID(const FString& NewStatsID);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRecieveCountryFlag(uint32 NewCountryFlag);
+
 	UPROPERTY()
 	TSubclassOf<AUTHat> HatClass;
 
@@ -225,6 +228,9 @@ public:
 
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void ServerNextChatDestination();
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
+	uint32 CountryFlag;
 
 public:
 	void WriteStatsToCloud();

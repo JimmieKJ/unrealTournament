@@ -56,3 +56,15 @@ int32 AUTBaseGameMode::GetNumMatches()
 {
 	return 1;
 }
+
+void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+
+	// Allow our game session to validate that a player can play
+	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+	if (ErrorMessage == TEXT("") && UTGameSession)
+	{
+		UTGameSession->ValidatePlayer(Address, UniqueId, ErrorMessage);
+	}
+}
