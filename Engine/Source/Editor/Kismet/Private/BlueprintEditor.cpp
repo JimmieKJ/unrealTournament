@@ -2748,7 +2748,10 @@ void FBlueprintEditor::OnActiveTabChanged( TSharedPtr<SDockTab> PreviouslyActive
 		FocusedGraphEdPtr = nullptr;
 	}
 
-	MyBlueprintWidget->Refresh();
+	if (MyBlueprintWidget.IsValid() == true)
+	{
+		MyBlueprintWidget->Refresh();
+	}
 }
 
 void FBlueprintEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor)
