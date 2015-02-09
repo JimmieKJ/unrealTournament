@@ -342,7 +342,8 @@ void AUTGameMode::InitGameState()
 	if (GameSession != NULL && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
 		GameSession->RegisterServer();
-		GetWorldTimerManager().SetTimer(this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
 	}
 
 	UE_LOG(UT,Log,TEXT("LobbyInstanceID: %i"),LobbyInstanceID);
@@ -1001,7 +1002,8 @@ void AUTGameMode::BeginGame()
 void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
-	GetWorldTimerManager().SetTimer(this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
 
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
 	{
@@ -1093,16 +1095,19 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	SetEndGameFocus(Winner);
 
 	// Allow replication to happen before reporting scores, stats, etc.
-	GetWorldTimerManager().SetTimer(this, &AUTGameMode::HandleMatchHasEnded, 1.5f);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::HandleMatchHasEnded, 1.5f);
 	bGameEnded = true;
 
 	// Setup a timer to pop up the final scoreboard on everyone
-	GetWorldTimerManager().SetTimer(this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
+	FTimerHandle TempHandle2;
+	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
 
 	// Setup a timer to continue to the next map.
 
 	EndTime = GetWorld()->TimeSeconds;
-	GetWorldTimerManager().SetTimer(this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
+	FTimerHandle TempHandle3;
+	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
 
 	SendEndOfGameStats(Reason);
 
@@ -1845,7 +1850,8 @@ void AUTGameMode::HandleCountdownToBegin()
 		GetWorld()->Exec(GetWorld(), *FString::Printf(TEXT("Demorec %s"), *DemoFilename.Replace(TEXT("%m"), *MapName.RightChop(MapName.Find(TEXT("/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd) + 1))));
 	}
 	CountDown = 5;
-	GetWorldTimerManager().SetTimer(this, &AUTGameMode::CheckCountDown, 1.0, false);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.0, false);
 }
 
 void AUTGameMode::CheckCountDown()
@@ -1854,7 +1860,8 @@ void AUTGameMode::CheckCountDown()
 	{
 		// Broadcast the localized message saying when the game begins.
 		BroadcastLocalized( this, UUTCountDownMessage::StaticClass(), CountDown, NULL, NULL, NULL);
-		GetWorldTimerManager().SetTimer(this, &AUTGameMode::CheckCountDown, 1.0,false);
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.0, false);
 		CountDown--;
 	}
 	else
