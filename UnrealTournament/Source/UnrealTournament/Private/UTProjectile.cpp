@@ -778,7 +778,7 @@ void AUTProjectile::TornOff()
 	}
 	else
 	{
-		Explode(GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
+		Explode(GetActorLocation(), FVector(1.0f, 0.0f, 0.0f));
 	}
 }
 
