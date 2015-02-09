@@ -53,6 +53,7 @@ class UUTWeaponState : public UObject
 	 * note that the state can't outright reject putdown (weapon has that authority)
 	 * but it can delay it until it returns to active by overriding this
 	 */
+	FTimerHandle PutDownHandle;
 	virtual void PutDown()
 	{
 		GetOuterAUTWeapon()->UnEquip();

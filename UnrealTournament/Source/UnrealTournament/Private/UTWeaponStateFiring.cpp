@@ -111,7 +111,7 @@ void UUTWeaponStateFiring::PutDown()
 	else
 	{
 		TimeTillPutDown -= GetOuterAUTWeapon()->GetPutDownTime();
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiring::PutDown, TimeTillPutDown, false);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(PutDownHandle, this, &UUTWeaponStateFiring::PutDown, TimeTillPutDown, false);
 	}
 }
 

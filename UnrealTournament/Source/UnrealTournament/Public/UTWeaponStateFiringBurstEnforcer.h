@@ -18,7 +18,6 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringBurstEnforcer : public UUTWeaponS
 	virtual void IncrementShotTimer() override;
 	virtual void UpdateTiming() override;
 	virtual void RefireCheckTimer() override;
-	FTimerHandle PutDownHandle;
 	virtual void PutDown() override;
 	virtual float GetRemainingCooldownTime();
 	virtual void Tick(float DeltaTime) override{};
