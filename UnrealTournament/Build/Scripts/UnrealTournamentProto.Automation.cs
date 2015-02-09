@@ -178,7 +178,6 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 {
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePathMac,
-                    FileIgnoreList = CommandUtils.CombinePaths(RawImagePathMac, "Manifest_DebugFiles.txt"),
                     AppLaunchCmd = "./UnrealTournament/Binaries/Mac/UnrealTournament-Mac-Test.app",
                     AppLaunchCmdArgs = "",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
