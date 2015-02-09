@@ -18,7 +18,8 @@ void AUTProj_RocketSpiral::BeginPlay()
 {
 	Super::BeginPlay();
 
-	GetWorldTimerManager().SetTimer(this, &AUTProj_RocketSpiral::UpdateSpiral, 0.05f, true);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTProj_RocketSpiral::UpdateSpiral, 0.05f, true);
 }
 
 void AUTProj_RocketSpiral::UpdateSpiral()

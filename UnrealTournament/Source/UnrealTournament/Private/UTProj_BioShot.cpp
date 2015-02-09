@@ -606,7 +606,8 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 					if (!bFoundWebLink)
 					{
 						// try later
-						GetWorldTimerManager().SetTimer(this, &AUTProj_BioShot::FindWebLink, 1.f, false);
+						FTimerHandle TempHandle;
+						GetWorldTimerManager().SetTimer(TempHandle, this, &AUTProj_BioShot::FindWebLink, 1.f, false);
 					}
 				}
 			}

@@ -56,7 +56,8 @@ float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent cons
 				DisruptedController = EventInstigator;
 				if (Role == ROLE_Authority)
 				{
-					GetWorldTimerManager().SetTimer(this, &AUTProj_TransDisk::ShutDown, DisruptDestroyTime, false);
+					FTimerHandle TempHandle;
+					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTProj_TransDisk::ShutDown, DisruptDestroyTime, false);
 				}
 				//Play and deactivate effects
 				OnDisrupted();

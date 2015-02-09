@@ -32,7 +32,8 @@ void AUTHat::SetBodiesToSimulatePhysics()
 void AUTHat::OnWearerHeadshot_Implementation()
 {
 	bHeadshotRotating = true;
-	GetWorldTimerManager().SetTimer(this, &AUTHat::HeadshotRotationComplete, HeadshotRotationTime, false);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTHat::HeadshotRotationComplete, HeadshotRotationTime, false);
 }
 
 void AUTHat::HeadshotRotationComplete()

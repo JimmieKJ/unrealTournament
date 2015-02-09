@@ -298,8 +298,8 @@ void AUTWeap_Enforcer::BecomeDual()
 	UnequippingState = EnforcerUnequippingState;
 
 	//Setup a timer to fire once the equip animation finishes
-
-	GetWorldTimerManager().SetTimer(this, &AUTWeap_Enforcer::DualEquipFinished, EnforcerEquippingState->EquipTime);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Enforcer::DualEquipFinished, EnforcerEquippingState->EquipTime);
 	MaxAmmo *= 2;
 	
 }

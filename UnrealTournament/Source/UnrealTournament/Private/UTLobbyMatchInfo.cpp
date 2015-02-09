@@ -144,7 +144,8 @@ void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 		CurrentState = NewMatchState;
 		if (CurrentState == ELobbyMatchState::Recycling)
 		{
-			GetWorldTimerManager().SetTimer(this, &AUTLobbyMatchInfo::RecycleMatchInfo, 120.0, false);
+			FTimerHandle TempHandle; 
+			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyMatchInfo::RecycleMatchInfo, 120.0, false);
 		}
 	}
 }

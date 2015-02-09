@@ -132,7 +132,8 @@ void AUTLobbyPlayerState::StartServerToClientDataPush_Implementation()
 	else
 	{
 		// Check again in a little bit....
-		GetWorldTimerManager().SetTimer(this, &AUTLobbyPlayerState::StartServerToClientDataPush_Implementation, 0.05, false);	
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyPlayerState::StartServerToClientDataPush_Implementation, 0.05, false);	
 	}
 }
 

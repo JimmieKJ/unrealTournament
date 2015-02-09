@@ -35,7 +35,8 @@ void AUTProj_RocketGrenade::BeginPlay()
 
 		//Set the fuse timer
 		float ExplodeTime = FuseTime + FMath::FRand() * RandomFuseMod;
-		GetWorldTimerManager().SetTimer(this, &AUTProj_RocketGrenade::FuseTimer, FuseTime, true);
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTProj_RocketGrenade::FuseTimer, FuseTime, true);
 	}
 
 	Super::BeginPlay();

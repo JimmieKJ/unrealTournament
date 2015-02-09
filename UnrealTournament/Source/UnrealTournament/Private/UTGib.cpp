@@ -43,7 +43,8 @@ void AUTGib::BeginPlay()
 
 	if (!IsPendingKillPending())
 	{
-		GetWorldTimerManager().SetTimer(this, &AUTGib::CheckGibVisibility, 7.f, false);
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGib::CheckGibVisibility, 7.f, false);
 	}
 }
 

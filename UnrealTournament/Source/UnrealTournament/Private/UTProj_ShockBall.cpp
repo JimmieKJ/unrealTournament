@@ -142,7 +142,8 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 		}
 		else
 		{
-			GetWorldTimerManager().SetTimer(this, &AUTProj_ShockBall::ClearBotCombo, 0.2f, false);
+			FTimerHandle TempHandle;
+			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTProj_ShockBall::ClearBotCombo, 0.2f, false);
 		}
 	}
 }

@@ -35,7 +35,8 @@ void AUTGameObjective::InitializeObjective()
 	Super::BeginPlay();
 	if (InitialSpawnDelay > 0.0f)
 	{
-		GetWorldTimerManager().SetTimer(this, &AUTGameObjective::CreateCarriedObject, InitialSpawnDelay, false);
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameObjective::CreateCarriedObject, InitialSpawnDelay, false);
 	}
 	else
 	{
