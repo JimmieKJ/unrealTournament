@@ -87,6 +87,12 @@ FString FPaths::GameUserDir()
 {
 	if (ShouldSaveToUserDir())
 	{
+		FString UserDir;
+		if (FParse::Value(FCommandLine::Get(), TEXT("UserDir="), UserDir))
+		{
+			return FPaths::Combine(FPlatformProcess::UserDir(), FApp::GetGameName(), *UserDir) + TEXT("/");
+		}
+
 		// PLK - We're a config heavy game, I'd prefer to be in My Documents than AppData
 		return FPaths::Combine(FPlatformProcess::UserDir(), FApp::GetGameName()) + TEXT("/");
 	}
