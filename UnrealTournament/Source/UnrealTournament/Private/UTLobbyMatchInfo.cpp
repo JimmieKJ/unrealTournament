@@ -332,7 +332,13 @@ void AUTLobbyMatchInfo::ServerMatchMapChanged_Implementation(const FString& NewM
 bool AUTLobbyMatchInfo::ServerMatchOptionsChanged_Validate(const FString& NewMatchOptions) { return true; }
 void AUTLobbyMatchInfo::ServerMatchOptionsChanged_Implementation(const FString& NewMatchOptions)
 {
-	MatchOptions = NewMatchOptions;
+	// recreate the match options string using the URL code with the old options as a base
+	// this a) prevents options the server admin set that are not available in the UI from getting clobbered, and
+	// b) prevents the client from removing the admin required server options with bad options strings
+	FURL OldURL(NULL, *FString::Printf(TEXT("?%s"), *MatchOptions), TRAVEL_Absolute);
+	FURL NewURL(&OldURL, *FString::Printf(TEXT("?%s"), *NewMatchOptions), TRAVEL_Relative);
+
+	NewURL.ToString().Split(TEXT("?"), NULL, &MatchOptions);
 }
 
 bool AUTLobbyMatchInfo::ServerMatchIsReadyForPlayers_Validate() { return true; }
@@ -365,8 +371,8 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
 	if (Players.Num() < MinPlayers)
 	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
-		return;
+		//GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+		//return;
 	}
 
 	if (Players.Num() > MaxPlayers)
