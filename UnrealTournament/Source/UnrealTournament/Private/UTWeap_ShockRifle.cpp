@@ -22,12 +22,7 @@ void AUTWeap_ShockRifle::AttachToOwnerNative()
 	if (GetNetMode() != NM_DedicatedServer && Mesh != NULL && ScreenMaterialID < Mesh->GetNumMaterials())
 	{
 		ScreenMI = Mesh->CreateAndSetMaterialInstanceDynamic(ScreenMaterialID);
-		// FIXME: can't use, results in crash due to engine bug
-		//ScreenTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(UCanvasRenderTarget2D::StaticClass(), 64, 64);
-		{
-			ScreenTexture = ConstructObject<UUTCanvasRenderTarget2D>(UUTCanvasRenderTarget2D::StaticClass(), this);
-			ScreenTexture->InitAutoFormat(64, 64);
-		}
+		ScreenTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(this, UCanvasRenderTarget2D::StaticClass(), 64, 64);
 		ScreenTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		ScreenTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTWeap_ShockRifle::UpdateScreenTexture);
 		ScreenMI->SetTextureParameterValue(FName(TEXT("ScreenTexture")), ScreenTexture);
@@ -73,6 +68,29 @@ void AUTWeap_ShockRifle::Tick(float DeltaTime)
 	{
 		ScreenTexture->UpdateResource();
 	}
+}
+
+UAnimMontage* AUTWeap_ShockRifle::GetFiringAnim(uint8 FireMode) const
+{
+	return (FireMode == 0 && bPlayComboEffects && ComboFireAnim != NULL) ? ComboFireAnim : Super::GetFiringAnim(FireMode);
+}
+
+void AUTWeap_ShockRifle::PlayFiringEffects()
+{
+	Super::PlayFiringEffects();
+
+	if (bPlayComboEffects && ShouldPlay1PVisuals())
+	{
+		Play1PComboEffects();
+		bPlayComboEffects = false;
+	}
+}
+
+void AUTWeap_ShockRifle::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime)
+{
+	Super::HitScanTrace(StartLocation, EndTrace, Hit, PredictionTime);
+
+	bPlayComboEffects = (Cast<AUTProj_ShockBall>(Hit.GetActor()) != NULL);
 }
 
 bool AUTWeap_ShockRifle::WaitingForCombo()

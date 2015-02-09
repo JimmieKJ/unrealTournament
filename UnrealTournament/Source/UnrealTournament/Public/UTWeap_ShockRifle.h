@@ -19,6 +19,9 @@ class AUTWeap_ShockRifle : public AUTWeapon
 	/** result of MovingComboCheck() when bot starts a potential combo (one result for whole combo since the function returns a random skill check) */
 	UPROPERTY()
 	bool bMovingComboCheckResult;
+	
+	/** effects flag to play combo-specific animations and effects (clientside guess, not necessarily 100% accurate) */
+	bool bPlayComboEffects;
 
 	/** render target for on-mesh display screen */
 	UPROPERTY(BlueprintReadWrite, Category = Mesh)
@@ -36,6 +39,10 @@ class AUTWeap_ShockRifle : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = Mesh)
 	UMaterialInstanceDynamic* ScreenMI;
 
+	/** anim to play for a shock combo instead of the normal one */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UAnimMontage* ComboFireAnim;
+
 	TSharedPtr<FCanvasWordWrapper> WordWrapper;
 
 	/** set (client only) to last time user recorded a kill while holding this weapon, used to change on-mesh screen display */
@@ -52,6 +59,12 @@ class AUTWeap_ShockRifle : public AUTWeapon
 		LastClientKillTime = GetWorld()->TimeSeconds;
 	}
 
+	virtual UAnimMontage* GetFiringAnim(uint8 FireMode) const;
+	virtual void PlayFiringEffects();
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
+	void Play1PComboEffects();
+
+	virtual void HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime) override;
 	virtual AUTProjectile* FireProjectile() override;
 
 	/** returns whether AI using this weapon shouldn't fire because it's waiting for a combo trigger */

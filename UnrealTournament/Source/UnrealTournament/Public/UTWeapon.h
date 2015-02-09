@@ -449,6 +449,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintImplementableEvent)
 	bool FireShotOverride();
 
+	/** returns montage to play on the weapon for the specified firing mode */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual UAnimMontage* GetFiringAnim(uint8 FireMode) const;
 	/** play firing effects not associated with the shot's results (e.g. muzzle flash but generally NOT emitter to target) */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();
@@ -502,7 +505,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	void K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit);
 
 	/** Handles rewind functionality for net games with ping prediction */
-	virtual void HitScanTrace(FVector StartLocation, FVector EndTrace, FHitResult& Hit, float PredictionTime);
+	virtual void HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime);
 
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireProjectile();

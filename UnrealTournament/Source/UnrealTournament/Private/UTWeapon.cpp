@@ -554,6 +554,11 @@ bool AUTWeapon::ShouldPlay1PVisuals() const
 	}
 }
 
+UAnimMontage* AUTWeapon::GetFiringAnim(uint8 FireMode) const
+{
+	return (FireAnimation.IsValidIndex(CurrentFireMode) ? FireAnimation[CurrentFireMode] : NULL);
+}
+
 void AUTWeapon::PlayFiringEffects()
 {
 	if (UTOwner != NULL)
@@ -568,12 +573,13 @@ void AUTWeapon::PlayFiringEffects()
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
 			// try and play a firing animation if specified
-			if (FireAnimation.IsValidIndex(CurrentFireMode) && FireAnimation[CurrentFireMode] != NULL)
+			UAnimMontage* Anim = GetFiringAnim(CurrentFireMode);
+			if (Anim != NULL)
 			{
 				UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
 				if (AnimInstance != NULL)
 				{
-					AnimInstance->Montage_Play(FireAnimation[CurrentFireMode], UTOwner->GetFireRateMultiplier());
+					AnimInstance->Montage_Play(Anim, UTOwner->GetFireRateMultiplier());
 				}
 			}
 
@@ -669,7 +675,6 @@ void AUTWeapon::FireShot()
 
 	if (!FireShotOverride() && GetUTOwner() != NULL) // script event may kill user
 	{
-		PlayFiringEffects();
 		if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 		{
 			FireProjectile();
@@ -678,6 +683,7 @@ void AUTWeapon::FireShot()
 		{
 			FireInstantHit();
 		}
+		PlayFiringEffects();
 	}
 	if (GetUTOwner() != NULL)
 	{
@@ -940,7 +946,7 @@ void AUTWeapon::NetSynchRandomSeed()
 	}
 }
 
-void AUTWeapon::HitScanTrace(FVector StartLocation, FVector EndTrace, FHitResult& Hit, float PredictionTime)
+void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime)
 {
 	bool bRewindPlayers = ((PredictionTime > 0.f) && (Role == ROLE_Authority));
 	ECollisionChannel TraceChannel = bRewindPlayers ? COLLISION_TRACE_WEAPONNOCHARACTER : COLLISION_TRACE_WEAPON;
