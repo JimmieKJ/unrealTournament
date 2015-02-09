@@ -455,6 +455,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void StopFiringEffects();
 
+	/** blueprint hook to modify spawned instance of FireEffect (e.g. tracer or beam) */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+	void ModifyFireEffect(UParticleSystemComponent* Effect);
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnLocation, FRotator& SpawnRotation);

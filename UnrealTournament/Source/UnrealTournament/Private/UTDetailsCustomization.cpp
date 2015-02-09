@@ -193,8 +193,10 @@ void FUTDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayou
 				}
 			}
 			TArray<UObject*> Children;
-			GetObjectsWithOuter(Objects[0].Get(), Children, true, RF_PendingKill);
-			GetObjectsWithOuter(Objects[0].Get()->GetClass(), Children, true, RF_PendingKill);
+			for (UClass* TestClass = Objects[0].Get()->GetClass(); TestClass != NULL; TestClass = TestClass->GetSuperClass())
+			{
+				GetObjectsWithOuter(TestClass, Children, true, RF_PendingKill);
+			}
 			for (int32 i = 0; i < Children.Num(); i++)
 			{
 				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Children[i]);

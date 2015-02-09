@@ -631,6 +631,7 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[FireMode], SpawnLocation, SpawnRotation, true);
 			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
 			PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(TargetLoc));
+			ModifyFireEffect(PSC);
 		}
 		// perhaps the muzzle flash also contains hit effect (constant beam, etc) so set the parameter on it instead
 		else if (MuzzleFlash.IsValidIndex(FireMode) && MuzzleFlash[FireMode] != NULL)
