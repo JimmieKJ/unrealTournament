@@ -19,6 +19,7 @@
 #include "Slate/Panels/SUDuelSettings.h"
 #include "Slate/Panels/SULobbyMatchSetupPanel.h"
 #include "UTCharacterContent.h"
+#include "UTGameEngine.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1968,6 +1969,34 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 		{
 			UTGameSession->UpdateGameState();
 		}
+	}
+	
+
+	FString CloudID;
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	// For dedicated server, will need to pass stats id as a commandline parameter
+	if (FParse::Value(FCommandLine::Get(), TEXT("CloudID="), CloudID))
+	{
+	}
+	else if (LocalPC && LocalPC->PlayerState)
+	{
+		AUTPlayerState* LocalPS = Cast<AUTPlayerState>(LocalPC->PlayerState);
+		if (LocalPS && !LocalPS->StatsID.IsEmpty())
+		{
+			CloudID = LocalPS->StatsID;
+		}
+	}
+
+	AUTPlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (PC && UTEngine)
+	{
+		PC->ClientRequireContentItemListBegin(CloudID);
+		for (auto It = UTEngine->MyContentCRCs.CreateConstIterator(); It; ++It)
+		{
+			PC->ClientRequireContentItem(It.Key(), It.Value());
+		}
+		PC->ClientRequireContentItemListComplete();
 	}
 }
 

@@ -2166,3 +2166,44 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 	}
 }
 
+void AUTPlayerController::ClientRequireContentItem_Implementation(const FString& PakFile, uint32 CRC)
+{
+	bool bContentMatched = false;
+
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine)
+	{
+		if (UTEngine->DownloadedContentCRCs.Contains(PakFile) && UTEngine->DownloadedContentCRCs[PakFile] == CRC)
+		{
+			bContentMatched = true;
+		}
+
+		if (!bContentMatched)
+		{
+			UTEngine->FilesToDownload.Add(PakFile, CRC);
+		}
+	}
+}
+
+void AUTPlayerController::ClientRequireContentItemListBegin_Implementation(const FString& CloudId)
+{
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine)
+	{
+		UTEngine->ContentDownloadCloudId = CloudId;
+		UTEngine->FilesToDownload.Empty();
+	}
+}
+
+void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
+{
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine)
+	{
+		if (UTEngine->FilesToDownload.Num() > 0)
+		{
+			// quit so we can download everything
+			UTEngine->SetClientTravel(GetWorld(), TEXT("?downloadfiles"), TRAVEL_Absolute);
+		}
+	}
+}

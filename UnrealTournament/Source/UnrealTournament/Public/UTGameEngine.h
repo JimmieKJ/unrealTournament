@@ -67,6 +67,12 @@ class UUTGameEngine : public UGameEngine
 	/** Max prediction ping (used when negotiating with clients) */
 	float ServerMaxPredictionPing;
 
+	TMap<FString, uint32> DownloadedContentCRCs;
+	TMap<FString, uint32> MyContentCRCs;
+
+	FString ContentDownloadCloudId;
+	TMap<FString, uint32> FilesToDownload;
+
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;
@@ -75,6 +81,8 @@ class UUTGameEngine : public UGameEngine
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) const override;
 	virtual void UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing = true) override;
 	virtual void LoadDownloadedAssetRegistries();
+
+	virtual EBrowseReturnVal::Type Browse(FWorldContext& WorldContext, FURL URL, FString& Error) override;
 
 	virtual void SetupLoadingScreen();
 #define UT_LOADING_SCREEN_HOOK SetupLoadingScreen();

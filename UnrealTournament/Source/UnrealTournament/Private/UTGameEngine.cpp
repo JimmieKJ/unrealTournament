@@ -160,6 +160,46 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 	Super::Tick(DeltaSeconds, bIdleMode);
 }
 
+EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL URL, FString& Error )
+{
+#if !UE_SERVER && !UE_EDITOR
+	if (URL.Valid && URL.HasOption(TEXT("downloadfiles")))
+	{
+		WorldContext.TravelURL = TEXT("");
+
+		// Need to download files, load default map
+		if (WorldContext.PendingNetGame)
+		{
+			CancelPending(WorldContext);
+		}
+		// Handle failure URL.
+		UE_LOG(LogNet, Log, TEXT("%s"), TEXT("Returning to Entry"));
+		if (WorldContext.World() != NULL)
+		{
+			ResetLoaders(WorldContext.World()->GetOuter());
+		}
+
+		const UGameMapsSettings* GameMapsSettings = GetDefault<UGameMapsSettings>();
+		bool LoadSuccess = LoadMap(WorldContext, FURL(&URL, *(GameMapsSettings->GetGameDefaultMap() + GameMapsSettings->LocalMapOptions), TRAVEL_Partial), NULL, Error);
+		if (LoadSuccess == false)
+		{
+			UE_LOG(LogNet, Fatal, TEXT("Failed to load default map (%s). Error: (%s)"), *(GameMapsSettings->GetGameDefaultMap() + GameMapsSettings->LocalMapOptions), *Error);
+		}
+
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+
+		// now remove "downloadfiles" options from LastURL so it doesn't get copied on to future URLs
+		WorldContext.LastURL.RemoveOption(TEXT("downloadfiles"));
+		
+		BroadcastTravelFailure(WorldContext.World(), ETravelFailure::PackageMissing, TEXT("DownloadFiles"));
+
+		return (LoadSuccess ? EBrowseReturnVal::Success : EBrowseReturnVal::Failure);
+	}
+#endif
+
+	return Super::Browse(WorldContext, URL, Error);
+}
+
 #if PLATFORM_LINUX
 
 #include "SDL.h"
@@ -452,10 +492,32 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		TArray<FString>	FoundPaks;
 		FPakFileSearchVisitor PakVisitor(FoundPaks);
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads")), PakVisitor);
+		for (const auto& PakPath : FoundPaks)
+		{
+			FString PakFilename = FPaths::GetBaseFilename(PakPath);
+
+			TArray<uint8> Data;
+			if (FFileHelper::LoadFileToArray(Data, *PakPath))
+			{
+				uint32 CRC32 = FCrc::MemCrc32(Data.GetData(), Data.Num());
+				DownloadedContentCRCs.Add(PakFilename, CRC32);
+			}
+		}
+
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
+			
+			TArray<uint8> Data;
+			if (FFileHelper::LoadFileToArray(Data, *PakPath))
+			{
+				uint32 CRC32 = FCrc::MemCrc32(Data.GetData(), Data.Num());
+				MyContentCRCs.Add(PakFilename, CRC32);
+			}
+
 			FArrayReader SerializedAssetData;
 			int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 			if (DashPosition != -1)

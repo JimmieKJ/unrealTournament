@@ -7,6 +7,7 @@
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWRedirectDialog.h"
 #include "Engine/GameInstance.h"
+#include "UTGameEngine.h"
 
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -19,9 +20,10 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 #if !UE_SERVER
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 
-	if (FailureType == ETravelFailure::PackageMissing && !ErrorString.IsEmpty())
+	if (FailureType == ETravelFailure::PackageMissing)
 	{
-		if (FPaths::GetExtension(ErrorString) == FString(TEXT("pak")))
+		// Missing map
+		if (!ErrorString.IsEmpty() && FPaths::GetExtension(ErrorString) == FString(TEXT("pak")))
 		{
 			LastAttemptedURL = GEngine->PendingNetGameFromWorld(World)->URL;
 
@@ -33,6 +35,34 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 				);
 
 			return;
+		}
+
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTEngine &&	!UTEngine->ContentDownloadCloudId.IsEmpty() && UTEngine->FilesToDownload.Num() > 0)
+		{
+			TArray<FString> FileURLs;
+
+			for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
+			{
+				if (UTEngine->DownloadedContentCRCs.Contains(It.Key()))
+				{
+					// Unmount the pak
+
+					// Remove the CRC entry
+
+					// Delete the original file
+				}
+
+				FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+				FileURLs.Add(BaseURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key());
+			}
+
+			FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
+				.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::CloudRedirectResult))
+				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
+				.RedirectURLs(FileURLs)
+				.PlayerOwner(FirstPlayer)
+				);
 		}
 	}
 
@@ -237,6 +267,43 @@ void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, u
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
 		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+		if (FirstPlayer != nullptr)
+		{
+			FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
+			FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+		}
+	}
+#endif
+}
+
+void UUTGameViewportClient::CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+#if !UE_SERVER
+	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
+	{
+		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (FirstPlayer != nullptr && UTEngine)
+		{
+			for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
+			{
+				if (!UTEngine->DownloadedContentCRCs.Contains(It.Key()))
+				{
+					// File failed to download at all.
+					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "DownloadFail", "Download Failed"), NSLOCTEXT("UTGameViewportClient", "DownloadFailMsg", "The download of cloud content failed."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+					return;
+				}
+
+				if (UTEngine->DownloadedContentCRCs[It.Key()] != It.Value())
+				{
+					// File was the wrong checksum.
+					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "WrongChecksum", "Checksum failed"), NSLOCTEXT("UTGameViewportClient", "WrongChecksumMsg", "The files downloaded from the cloud do not match the files the server is using."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+					return;
+				}
+			}
+		}
+
 		if (FirstPlayer != nullptr)
 		{
 			FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);

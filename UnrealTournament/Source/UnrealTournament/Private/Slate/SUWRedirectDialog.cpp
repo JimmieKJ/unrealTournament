@@ -4,6 +4,7 @@
 #include "SUWRedirectDialog.h"
 #include "SUWindowsStyle.h"
 #include "AssetData.h"
+#include "UTGameEngine.h"
 
 #if !UE_SERVER
 
@@ -180,6 +181,13 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 			}
 			FString FullFilePath = FPaths::Combine(*Path, *FPaths::GetCleanFilename(RedirectToURL));
 			bSucceeded = FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *FullFilePath);
+
+			uint32 CRC = FCrc::MemCrc32(HttpResponse->GetContent().GetData(), HttpResponse->GetContent().Num());
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine)
+			{
+				UTEngine->DownloadedContentCRCs.Add(FPaths::GetCleanFilename(RedirectToURL), CRC);
+			}
 
 			if (FCoreDelegates::OnMountPak.IsBound())
 			{
