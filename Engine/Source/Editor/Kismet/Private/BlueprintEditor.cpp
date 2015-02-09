@@ -6308,8 +6308,8 @@ void FBlueprintEditor::RefreshStandAloneDefaultsEditor()
 	TArray<UObject*> DefaultObjects;
 	for ( int32 i = 0; i < GetEditingObjects().Num(); ++i )
 	{
-		auto Blueprint = (UBlueprint*)( GetEditingObjects()[i] );
-		if ( Blueprint->GeneratedClass )
+		UBlueprintCore* Blueprint = Cast<UBlueprintCore>(GetEditingObjects()[i]);
+		if (Blueprint && Blueprint->GeneratedClass)
 		{
 			DefaultObjects.Add(Blueprint->GeneratedClass->GetDefaultObject());
 		}
