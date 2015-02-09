@@ -235,5 +235,6 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 	}
 	
 	GUIDSessionSearchSettings.Reset();
-	GetWorldTimerManager().SetTimer(this, &AUTBasePlayerController::AttemptGUIDJoin, 5.0f, false);
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTBasePlayerController::AttemptGUIDJoin, 5.0f, false);
 }

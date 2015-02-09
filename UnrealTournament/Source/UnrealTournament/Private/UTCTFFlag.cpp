@@ -34,7 +34,8 @@ void AUTCTFFlag::OnConstruction(const FTransform& Transform)
 
 	if (Role == ROLE_Authority)
 	{
-		GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::DefaultTimer, 1.0f, true);
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFFlag::DefaultTimer, 1.0f, true);
 	}
 }
 
@@ -149,7 +150,8 @@ void AUTCTFFlag::Drop(AController* Killer)
 	FlagDropTime = GetWorld()->GetTimeSeconds();
 	if (bDelayDroppedMessage)
 	{
-		GetWorldTimerManager().SetTimer(this, &AUTCTFFlag::DelayedDropMessage, 0.8f, false);
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFFlag::DelayedDropMessage, 0.8f, false);
 	}
 	else
 	{

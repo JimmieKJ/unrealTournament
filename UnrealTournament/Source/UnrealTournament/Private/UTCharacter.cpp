@@ -1228,7 +1228,8 @@ void AUTCharacter::PlayDying()
 			// SetTimer() has a dumb assert if the target of the function is already destroyed, so we need to check it ourselves
 			if (!bPendingKillPending)
 			{
-				GetWorldTimerManager().SetTimer(this, &AUTCharacter::DeathCleanupTimer, 15.0f, false);
+				FTimerHandle TempHandle;
+				GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 15.0f, false);
 			}
 		}
 	}
@@ -1273,7 +1274,8 @@ void AUTCharacter::GibExplosion_Implementation()
 		}
 		else
 		{
-			GetWorldTimerManager().SetTimer(this, &AUTCharacter::DeathCleanupTimer, 1.0f, false);
+			FTimerHandle TempHandle;
+			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 1.0f, false);
 		}
 	}
 }
@@ -1286,7 +1288,8 @@ void AUTCharacter::DeathCleanupTimer()
 	}
 	else
 	{
-		GetWorldTimerManager().SetTimer(this, &AUTCharacter::DeathCleanupTimer, 0.5f, false);
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 0.5f, false);
 	}
 }
 
