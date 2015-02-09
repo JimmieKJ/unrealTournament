@@ -56,46 +56,24 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 
 	if (OnlineIdentityInterface.IsValid())
 	{
-		OnLoginCompleteDelegate = FOnLoginCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnLoginComplete);
-		OnlineIdentityInterface->AddOnLoginCompleteDelegate(GetControllerId(), OnLoginCompleteDelegate);
-
-		OnLoginStatusChangedDelegate = FOnLoginStatusChangedDelegate::CreateUObject(this, &UUTLocalPlayer::OnLoginStatusChanged);
-		OnlineIdentityInterface->AddOnLoginStatusChangedDelegate(GetControllerId(), OnLoginStatusChangedDelegate);
-
-		OnLogoutCompleteDelegate = FOnLogoutCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnLogoutComplete);
-		OnlineIdentityInterface->AddOnLogoutCompleteDelegate(GetControllerId(), OnLogoutCompleteDelegate);
+		OnLoginCompleteDelegate = OnlineIdentityInterface->AddOnLoginCompleteDelegate_Handle(GetControllerId(), FOnLoginCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnLoginComplete));
+		OnLoginStatusChangedDelegate = OnlineIdentityInterface->AddOnLoginStatusChangedDelegate_Handle(GetControllerId(), FOnLoginStatusChangedDelegate::CreateUObject(this, &UUTLocalPlayer::OnLoginStatusChanged));
+		OnLogoutCompleteDelegate = OnlineIdentityInterface->AddOnLogoutCompleteDelegate_Handle(GetControllerId(), FOnLogoutCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnLogoutComplete));
 	}
 
 	if (OnlineUserCloudInterface.IsValid())
 	{
-
-	    OnReadUserFileCompleteDelegate = FOnReadUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadUserFileComplete);
-		OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate(OnReadUserFileCompleteDelegate);
-		
-	    OnWriteUserFileCompleteDelegate = FOnWriteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnWriteUserFileComplete);
-		OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate(OnWriteUserFileCompleteDelegate);
-
-		OnDeleteUserFileCompleteDelegate = FOnDeleteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnDeleteUserFileComplete);
-		OnlineUserCloudInterface->AddOnDeleteUserFileCompleteDelegate(OnDeleteUserFileCompleteDelegate);
+		OnReadUserFileCompleteDelegate = OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate_Handle(FOnReadUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadUserFileComplete));
+		OnWriteUserFileCompleteDelegate = OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate_Handle(FOnWriteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnWriteUserFileComplete));
+		OnDeleteUserFileCompleteDelegate = OnlineUserCloudInterface->AddOnDeleteUserFileCompleteDelegate_Handle(FOnDeleteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnDeleteUserFileComplete));
 
 	}
 
 	if (OnlineSessionInterface.IsValid())
 	{
-		OnJoinSessionCompleteDelegate = FOnJoinSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnJoinSessionComplete);
-		OnlineSessionInterface->AddOnJoinSessionCompleteDelegate(OnJoinSessionCompleteDelegate);
-
-		OnEndSessionCompleteDelegate = FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete);
-
+		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnJoinSessionComplete));
 	}
-
-	if (OnlinePresenceInterface.IsValid())
-	{
-		OnPresenceUpdatedCompleteDelegate = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated);
-		OnPresenceReceivedCompleteDelegate = FOnPresenceReceivedDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceRecieved);
-		OnlinePresenceInterface->AddOnPresenceReceivedDelegate(OnPresenceReceivedCompleteDelegate);
-	}
-
+	
 
 }
 
@@ -492,14 +470,14 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 	{
 		if (OnlineIdentityInterface.IsValid())
 		{
-			OnlineIdentityInterface->ClearOnLoginCompleteDelegate(GetControllerId(), OnLoginCompleteDelegate);
-			OnlineIdentityInterface->ClearOnLoginStatusChangedDelegate(GetControllerId(), OnLoginStatusChangedDelegate);
-			OnlineIdentityInterface->ClearOnLogoutCompleteDelegate(GetControllerId(), OnLogoutCompleteDelegate);
+			OnlineIdentityInterface->ClearOnLoginCompleteDelegate_Handle(GetControllerId(), OnLoginCompleteDelegate);
+			OnlineIdentityInterface->ClearOnLoginStatusChangedDelegate_Handle(GetControllerId(), OnLoginStatusChangedDelegate);
+			OnlineIdentityInterface->ClearOnLogoutCompleteDelegate_Handle(GetControllerId(), OnLogoutCompleteDelegate);
 		}
 
 		if (OnlineSessionInterface.IsValid())
 		{
-			OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate(OnJoinSessionCompleteDelegate);
+			OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
 		}
 	}
 }
@@ -1128,13 +1106,13 @@ void UUTLocalPlayer::JoinSession(FOnlineSessionSearchResult SearchResult, bool b
 
 void UUTLocalPlayer::LeaveSession()
 {
-	OnlineSessionInterface->AddOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
+	OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
 	OnlineSessionInterface->EndSession(GameSessionName);
 }
 
 void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	OnlineSessionInterface->ClearOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
+	OnlineSessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
 	OnlineSessionInterface->DestroySession(GameSessionName);
 }
 
@@ -1179,14 +1157,14 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 		if (CurrentPresence.IsValid())
 		{
 			CurrentPresence->Status.StatusStr = NewPresenceString;
-			OnlinePresenceInterface->SetPresence(*UserId, CurrentPresence->Status, OnPresenceUpdatedCompleteDelegate);
+			OnlinePresenceInterface->SetPresence(*UserId, CurrentPresence->Status, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
 		}
 		else
 		{
 			FOnlineUserPresenceStatus NewStatus;
 			NewStatus.State = EOnlinePresenceState::Online;
 			NewStatus.StatusStr = NewPresenceString;
-			OnlinePresenceInterface->SetPresence(*UserId, NewStatus, OnPresenceUpdatedCompleteDelegate);
+			OnlinePresenceInterface->SetPresence(*UserId, NewStatus, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
 		}
 	}
 	else

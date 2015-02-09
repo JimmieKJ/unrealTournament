@@ -118,18 +118,18 @@ bool FFriendItem::IsGameJoinable() const
 
 FString FFriendItem::GetGameSessionId() const
 {
-	FString SessionIdStr;
+	FString SessionId;
 	if (OnlineFriend.IsValid())
 	{
 		const FOnlineUserPresence& FriendPresence = OnlineFriend->GetPresence();
-		const FVariantData* SessionId = FriendPresence.Status.Properties.Find(DefaultSessionIdKey);
-		if (SessionId != nullptr)
+		if (FriendPresence.SessionId.IsValid())
 		{
-			SessionId->GetValue(SessionIdStr);
+			SessionId = FriendPresence.SessionId->ToString();
 		}
 	}
-	return SessionIdStr;
+	return SessionId;
 }
+
 
 const TSharedRef< FUniqueNetId > FFriendItem::GetUniqueID() const
 {

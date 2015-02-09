@@ -221,19 +221,16 @@ private:
 	IOnlinePresencePtr OnlinePresenceInterface;
 
 	// Our delegate references....
-	FOnLoginCompleteDelegate OnLoginCompleteDelegate;		
-	FOnLoginStatusChangedDelegate OnLoginStatusChangedDelegate;
-	FOnLogoutCompleteDelegate OnLogoutCompleteDelegate;
+	FDelegateHandle OnLoginCompleteDelegate;		
+	FDelegateHandle OnLoginStatusChangedDelegate;
+	FDelegateHandle OnLogoutCompleteDelegate;
 
-	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
-	FOnWriteUserFileCompleteDelegate OnWriteUserFileCompleteDelegate;
-	FOnDeleteUserFileCompleteDelegate OnDeleteUserFileCompleteDelegate;
+	FDelegateHandle OnReadUserFileCompleteDelegate;
+	FDelegateHandle OnWriteUserFileCompleteDelegate;
+	FDelegateHandle OnDeleteUserFileCompleteDelegate;
 
-	FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
-	FOnEndSessionCompleteDelegate OnEndSessionCompleteDelegate;
-
-	IOnlinePresence::FOnPresenceTaskCompleteDelegate OnPresenceUpdatedCompleteDelegate;
-	FOnPresenceReceivedDelegate OnPresenceReceivedCompleteDelegate;
+	FDelegateHandle OnJoinSessionCompleteDelegate;
+	FDelegateHandle OnEndSessionCompleteDelegate;
 	
 public:
 	virtual void LoadProfileSettings();

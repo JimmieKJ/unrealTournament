@@ -78,7 +78,7 @@ public:
 class FOnlineUserPresence
 {
 public:
-	uint64 SessionId;
+	TSharedPtr<FUniqueNetId> SessionId;
 	uint32 bIsOnline:1;
 	uint32 bIsPlaying:1;
 	uint32 bIsPlayingThisGame:1;
@@ -88,7 +88,7 @@ public:
 
 	/** Constructor */
 	FOnlineUserPresence()
-		: SessionId(0)
+		: SessionId(nullptr)
 		, bIsOnline(0)
 		, bIsPlaying(0)
 		, bIsPlayingThisGame(0)
