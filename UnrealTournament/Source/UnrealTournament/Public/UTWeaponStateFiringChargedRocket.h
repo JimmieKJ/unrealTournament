@@ -130,7 +130,8 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		}
 		if (RocketLauncher->NumLoadedRockets > 0)
 		{
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(this, &UUTWeaponStateFiringChargedRocket::FireLoadedRocket, RocketLauncher->BurstInterval, false); 
+			FTimerHandle TempHandle;
+			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(TempHandle, this, &UUTWeaponStateFiringChargedRocket::FireLoadedRocket, RocketLauncher->BurstInterval, false); 
 		}
 		else
 		{
