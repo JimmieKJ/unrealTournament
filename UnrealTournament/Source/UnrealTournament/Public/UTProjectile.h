@@ -216,19 +216,12 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 		InitialLifeSpan = InLifespan;
 		if (InLifespan > 0.0f)
 		{
-			GetWorldTimerManager().SetTimer(this, &AActor::LifeSpanExpired, InLifespan);
+			GetWorldTimerManager().SetTimer(TimerHandle_LifeSpanExpired, this, &AActor::LifeSpanExpired, InLifespan);
 		}
 		else
 		{
-			GetWorldTimerManager().ClearTimer(this, &AActor::LifeSpanExpired);
+			GetWorldTimerManager().ClearTimer(TimerHandle_LifeSpanExpired);
 		}
-	}
-	// this override is needed because for some reason the above timer is considered a different delegate than that created by calling the same code in AActor...
-	float GetLifeSpan() const override
-	{
-		// Timer remaining returns -1.0f if there is no such timer - return this as ZERO
-		float CurrentLifespan = GetWorldTimerManager().GetTimerRemaining(this, &AActor::LifeSpanExpired);
-		return (CurrentLifespan != -1.0f) ? CurrentLifespan : 0.0f;
 	}
 
 	virtual void PostNetReceiveLocationAndRotation() override;

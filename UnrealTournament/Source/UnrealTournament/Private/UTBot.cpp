@@ -1347,10 +1347,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				{
 					// we're in the middle of the movement code and setting crouch here will get clobbered
 					// (see UUTCharacterMovement::PerformMovement())
-					if (!GetWorldTimerManager().IsTimerActive(this, &AUTBot::ApplyCrouch))
-					{
-						GetWorldTimerManager().SetTimerForNextTick(this, &AUTBot::ApplyCrouch);
-					}
+					GetWorldTimerManager().SetTimerForNextTick(this, &AUTBot::ApplyCrouch);
 				}
 			}
 			else
