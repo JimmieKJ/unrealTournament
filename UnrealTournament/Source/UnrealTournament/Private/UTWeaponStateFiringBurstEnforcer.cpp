@@ -56,7 +56,7 @@ void UUTWeaponStateFiringBurstEnforcer::ResetTiming()
 void UUTWeaponStateFiringBurstEnforcer::EndState()
 {
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
-	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiringBurstEnforcer::PutDown);
+	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(PutDownHandle);
 	Super::EndState();
 }
 

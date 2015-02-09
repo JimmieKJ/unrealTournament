@@ -26,6 +26,7 @@ class UUTWeaponStateFiring_Enforcer : public UUTWeaponStateFiring
 	/** Reset the timer if the time remaining on it is greater than the new FireRate */
 	virtual void ResetTiming();
 
+	FTimerHandle PutDownHandle;
 	virtual void PutDown() override;
 
 private:

@@ -17,7 +17,7 @@ void UUTWeaponStateFiring_Enforcer::EndState()
 	GetOuterAUTWeapon()->StopFiringEffects();
 	GetOuterAUTWeapon()->GetUTOwner()->ClearFiringInfo();
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
-	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(this, &UUTWeaponStateFiring_Enforcer::PutDown);
+	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(PutDownHandle);
 }
 
 
@@ -64,6 +64,6 @@ void UUTWeaponStateFiring_Enforcer::PutDown()
 	else
 	{
 		TimeTillPutDown -= GetOuterAUTWeapon()->GetPutDownTime();
-		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring_Enforcer::PutDown, TimeTillPutDown, false);
+		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(PutDownHandle, this, &UUTWeaponStateFiring_Enforcer::PutDown, TimeTillPutDown, false);
 	}
 }
