@@ -9,6 +9,12 @@
 
 void SUWRedirectDialog::Construct(const FArguments& InArgs)
 {
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+	}
+
 	SUWDialog::Construct(SUWDialog::FArguments()
 		.PlayerOwner(InArgs._PlayerOwner)
 		.DialogTitle(InArgs._DialogTitle)
@@ -163,7 +169,7 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 	//If the download was successful save it to disk
 	if (bSucceeded && HttpResponse.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
 	{
-		if (HttpResponse->GetContentLength())
+		if (HttpResponse->GetContent().Num() > 0)
 		{
 			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		
@@ -206,6 +212,12 @@ bool SUWRedirectDialog::DownloadFile(FString URL)
 		HttpRequest->SetURL(URL);
 		HttpRequest->OnProcessRequestComplete().BindRaw(this, &SUWRedirectDialog::HttpRequestComplete);
 		HttpRequest->OnRequestProgress().BindRaw(this, &SUWRedirectDialog::HttpRequestProgress);
+
+		if (OnlineIdentityInterface.IsValid())
+		{
+			FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
+			HttpRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+		}
 
 		HttpRequest->SetVerb("GET");
 		return HttpRequest->ProcessRequest();

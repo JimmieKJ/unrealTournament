@@ -77,6 +77,10 @@ protected:
 	
 	int32 AssetsTotalSize;
 	int32 AssetsDownloadedAmount;
+
+	IOnlineSubsystem* OnlineSubsystem;
+	IOnlineIdentityPtr OnlineIdentityInterface;
+
 public:
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 };
