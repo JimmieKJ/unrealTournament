@@ -1498,15 +1498,22 @@ void AUTPlayerController::Possess(APawn* PawnToPossess)
 		}
 	}
 
-	if (UTPlayerState->HatClass)
+	AUTCharacter *UTChar = Cast<AUTCharacter>(GetPawn());
+	if (UTChar != nullptr)
 	{
-		AUTCharacter *UTChar = Cast<AUTCharacter>(GetPawn());
-		if (UTChar != nullptr)
+		if (UTPlayerState->HatClass)
 		{
 			UTChar->HatClass = UTPlayerState->HatClass;
 			UTChar->OnRepHat();
 		}
+
+		if (UTPlayerState->EyewearClass)
+		{
+			UTChar->EyewearClass = UTPlayerState->EyewearClass;
+			UTChar->OnRepEyewear();
+		}
 	}
+
 }
 
 void AUTPlayerController::PawnLeavingGame()
@@ -2173,9 +2180,23 @@ void AUTPlayerController::ClientRequireContentItem_Implementation(const FString&
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine)
 	{
-		if (UTEngine->DownloadedContentCRCs.Contains(PakFile) && UTEngine->DownloadedContentCRCs[PakFile] == CRC)
+		if (UTEngine->MyContentCRCs.Contains(PakFile) && UTEngine->MyContentCRCs[PakFile] == CRC)
 		{
+			UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s is my content"), *PakFile);
 			bContentMatched = true;
+		}
+
+		if (UTEngine->DownloadedContentCRCs.Contains(PakFile))
+		{
+			if (UTEngine->DownloadedContentCRCs[PakFile] == CRC)
+			{
+				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded"), *PakFile);
+				bContentMatched = true;
+			}
+			else
+			{
+				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded, but an old version"), *PakFile);
+			}
 		}
 
 		if (!bContentMatched)

@@ -1979,22 +1979,32 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 
 	FString CloudID;
 	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+
 	// For dedicated server, will need to pass stats id as a commandline parameter
-	if (FParse::Value(FCommandLine::Get(), TEXT("CloudID="), CloudID))
+	if (!FParse::Value(FCommandLine::Get(), TEXT("CloudID="), CloudID))
 	{
-	}
-	else if (LocalPC && LocalPC->PlayerState)
-	{
-		AUTPlayerState* LocalPS = Cast<AUTPlayerState>(LocalPC->PlayerState);
-		if (LocalPS && !LocalPS->StatsID.IsEmpty())
+		if (LocalPC)
 		{
-			CloudID = LocalPS->StatsID;
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(LocalPC->Player);
+			IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+			if (OnlineSubsystem && LP)
+			{
+				IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+				if (OnlineIdentityInterface.IsValid())
+				{
+					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+					if (UserId.IsValid())
+					{
+						CloudID = UserId->ToString();
+					}
+				}
+			}
 		}
 	}
 
 	AUTPlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (PC && UTEngine)
+	if (NewPlayer != LocalPC && PC && UTEngine)
 	{
 		PC->ClientRequireContentItemListBegin(CloudID);
 		for (auto It = UTEngine->MyContentCRCs.CreateConstIterator(); It; ++It)

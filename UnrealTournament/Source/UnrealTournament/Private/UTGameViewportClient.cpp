@@ -54,7 +54,14 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 				}
 
 				FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
-				FileURLs.Add(BaseURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key());
+				FString McpConfigOverride;
+				FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+				if (McpConfigOverride == TEXT("gamedev"))
+				{
+					BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+				}
+
+				FileURLs.Add(BaseURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key() + TEXT(".pak"));
 			}
 
 			FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
@@ -63,6 +70,8 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 				.RedirectURLs(FileURLs)
 				.PlayerOwner(FirstPlayer)
 				);
+
+			return;
 		}
 	}
 

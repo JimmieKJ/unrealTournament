@@ -373,6 +373,8 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->Kills = Kills;
 		PS->Deaths = Deaths;
 		PS->Assists = Assists;
+		PS->HatClass = HatClass;
+		PS->EyewearClass = EyewearClass;
 		PS->StatManager = StatManager;
 		if (PS->StatManager)
 		{

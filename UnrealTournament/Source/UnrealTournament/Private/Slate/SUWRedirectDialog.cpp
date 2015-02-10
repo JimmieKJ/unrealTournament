@@ -186,7 +186,7 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 			if (UTEngine)
 			{
-				UTEngine->DownloadedContentCRCs.Add(FPaths::GetCleanFilename(RedirectToURL), CRC);
+				UTEngine->DownloadedContentCRCs.Add(FPaths::GetBaseFilename(RedirectToURL), CRC);
 			}
 
 			if (FCoreDelegates::OnMountPak.IsBound())
@@ -199,7 +199,7 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 	{
 		if (HttpResponse.IsValid())
 		{
-			UE_LOG(UT, Warning, TEXT("HTTP Error: %s"), HttpResponse->GetResponseCode());
+			UE_LOG(UT, Warning, TEXT("HTTP Error: %d"), HttpResponse->GetResponseCode());
 		}
 		else
 		{
