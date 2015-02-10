@@ -15,13 +15,7 @@ public class UnrealTournament : ModuleRules
 				"AnalyticsET",
 			}
 		);
-
-        if (Target.Platform == UnrealTargetPlatform.Linux)
-        {
-            // Hack for LINUXMessageBoxExt
-            PublicDependencyModuleNames.AddRange(new string[] { "SDL2" });
-        }
-
+        
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "OnlineSubsystem", "OnlineSubsystemUtils", "RenderCore", "Navmesh", "WebBrowser", "Json", "HTTP", "UMG", "EngineSettings" });
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat" });
         if (Target.Type != TargetRules.TargetType.Server)
