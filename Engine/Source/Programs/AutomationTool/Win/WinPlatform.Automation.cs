@@ -120,6 +120,11 @@ public abstract class BaseWinPlatform : Platform
             }
             else
             {
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Debug))
+                {
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*-Debug.");
+                }
+
                 if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
                 {
                     StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4.");
