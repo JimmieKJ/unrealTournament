@@ -170,8 +170,20 @@ public:
 	UPROPERTY(Config)
 	FStringClassReference ScoreboardClassName;
 
+	/** Remove all items from character inventory list, before giving him game mode's default inventory. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
+		bool bClearPlayerInventory;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	TArray<TSubclassOf<AUTInventory> > DefaultInventory;
+
+	/** If true, characters taking damage lose health. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+		bool bDamageHurtsHealth;
+
+	/** Toggle invulnerability */
+	UFUNCTION(Exec, BlueprintCallable, Category = AI)
+		virtual void Demigod();
 
 	/** mutators required for the game, added at startup just before command line mutators */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)

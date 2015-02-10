@@ -71,6 +71,9 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	GameMessageClass = UUTGameMessage::StaticClass();
 	SquadType = AUTSquadAI::StaticClass();
 	MaxSquadSize = 3;
+	bClearPlayerInventory = false;
+	bDelayedStart = true;
+	bDamageHurtsHealth = true;
 
 	DefaultPlayerName = FString("Malcolm");
 	MapPrefix = TEXT("DM");
@@ -82,7 +85,6 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	DemoFilename = TEXT("%m-%td");
 
 	bDedicatedInstance = false;
-
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -100,6 +102,11 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 			Destroy();
 		}
 	}
+}
+
+void AUTGameMode::Demigod()
+{
+	bDamageHurtsHealth = !bDamageHurtsHealth;
 }
 
 // Parse options for this game...
@@ -1301,6 +1308,10 @@ void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
 	if (UTCharacter != NULL)
 	{
+		if (bClearPlayerInventory)
+		{
+			UTCharacter->DefaultCharacterInventory.Empty();
+		}
 		UTCharacter->AddDefaultInventory(DefaultInventory);
 	}
 }
@@ -1586,22 +1597,18 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	if (UTNewPlayer != NULL)
 	{
 		// tell client what hud class to use
-
 		TSubclassOf<UUTScoreboard> ScoreboardClass = LoadClass<UUTScoreboard>(NULL, *ScoreboardClassName.AssetLongPathname, NULL, LOAD_None, NULL);
 		UTNewPlayer->ClientSetHUDAndScoreboard(HUDClass, ScoreboardClass);
 
-		if (!bDelayedStart)
+		// start match, or let player enter, immediately
+		if (UTGameState->HasMatchStarted())
 		{
-			// start match, or let player enter, immediately
-			if (UTGameState->HasMatchStarted())
-			{
-				RestartPlayer(NewPlayer);
-			}
+			RestartPlayer(NewPlayer);
+		}
 
-			if (NewPlayer->GetPawn() != NULL)
-			{
-				NewPlayer->GetPawn()->ClientSetRotation(NewPlayer->GetPawn()->GetActorRotation());
-			}
+		if (NewPlayer->GetPawn() != NULL)
+		{
+			NewPlayer->GetPawn()->ClientSetRotation(NewPlayer->GetPawn()->GetActorRotation());
 		}
 	}
 	else
@@ -1618,13 +1625,11 @@ void AUTGameMode::StartPlay()
 
 bool AUTGameMode::ReadyToStartMatch()
 {
-	// If bDelayed Start is set, wait for a manual match start
-	if (bDelayedStart)
+	if (GetWorld()->IsPlayInEditor() || !bDelayedStart)
 	{
-		return false;
+		// PIE is always ready to start.
+		return true;
 	}
-
-	if (GetWorld()->IsPlayInEditor()) return true;	// PIE is always ready to start.
 
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)

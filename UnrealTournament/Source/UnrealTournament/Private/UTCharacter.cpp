@@ -700,7 +700,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					}
 				}
 			}
-			Health -= ResultDamage;
+
+			if (Game->bDamageHurtsHealth)
+			{
+				Health -= ResultDamage;
+			}
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 
 			// Let the game Score damage if it wants to
