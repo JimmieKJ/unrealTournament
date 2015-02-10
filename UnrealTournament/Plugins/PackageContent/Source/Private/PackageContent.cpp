@@ -170,6 +170,14 @@ public:
 			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContentSuccess", "Content published successfully. Would you like to share it now?")))
 			{
 				FString LauncherCommandLine = TEXT("-CloudKey=ut -assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
+
+				FString McpConfigOverride;
+				FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+				if (McpConfigOverride == TEXT("gamedev"))
+				{
+					LauncherCommandLine += TEXT(" -mcpconfig=gamedev -Launcherlabel=LatestLauncherDev -applabel=Production-Latest");
+				}
+
 				if (DesktopPlatform->OpenLauncher(false, LauncherCommandLine))
 				{
 
