@@ -331,6 +331,7 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		FPakFileSearchVisitor PakVisitor(FoundPaks);
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
+		FoundPaks.Empty();
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
@@ -344,6 +345,7 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 			}
 		}
 
+		FoundPaks.Empty();
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
