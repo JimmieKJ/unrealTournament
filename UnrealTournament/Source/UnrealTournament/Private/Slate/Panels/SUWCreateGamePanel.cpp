@@ -917,7 +917,7 @@ FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetPlayerOwner()->GetControllerId());
 				if (UserId.IsValid())
 				{
-					Options += FString::Printf(TEXT("-cloudID=%s"), *UserId->ToString());
+					Options += FString::Printf(TEXT(" -cloudID=%s"), *UserId->ToString());
 				}
 			}
 		}
