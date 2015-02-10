@@ -46,11 +46,19 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 			{
 				if (UTEngine->DownloadedContentCRCs.Contains(It.Key()))
 				{
+					FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads"), *It.Key()) + TEXT(".pak");
+
 					// Unmount the pak
+					if (FCoreDelegates::OnUnmountPak.IsBound())
+					{
+						FCoreDelegates::OnUnmountPak.Execute(Path);
+					}
 
 					// Remove the CRC entry
+					UTEngine->DownloadedContentCRCs.Remove(It.Key());
 
 					// Delete the original file
+					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
 				}
 
 				FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
