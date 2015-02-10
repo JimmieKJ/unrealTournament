@@ -438,8 +438,8 @@ void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 	}
 
 	SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
-	AUTLobbyPlayerState* OwnerPS = GetOwnerPlayerState();
-	if (OwnerPS) OwnerPS->bReadyToPlay = false;
+	TWeakObjectPtr<AUTLobbyPlayerState> OwnerPS = GetOwnerPlayerState();
+	if (OwnerPS.IsValid()) OwnerPS->bReadyToPlay = false;
 }
 
 void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)

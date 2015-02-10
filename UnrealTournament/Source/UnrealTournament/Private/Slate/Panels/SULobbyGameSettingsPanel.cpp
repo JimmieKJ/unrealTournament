@@ -261,7 +261,7 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 		// Find any players who are no longer in the match list.
 		for (int32 i=0; i < MatchInfo->Players.Num(); i++)
 		{
-			if (MatchInfo->Players[i])
+			if (MatchInfo->Players[i].IsValid())
 			{
 				bool bFound = false;
 				for (int32 j=0; j<PlayerData.Num(); j++)
@@ -400,7 +400,7 @@ FReply SULobbyGameSettingsPanel::Ready()
 						{
 							for (int32 i=0; i < MatchInfo->Players.Num(); i++)
 							{
-								if (MatchInfo->Players[i] && MatchInfo->Players[i] != PS && !MatchInfo->Players[i]->bReadyToPlay)
+								if (MatchInfo->Players[i].IsValid() && MatchInfo->Players[i] != PS && !MatchInfo->Players[i]->bReadyToPlay)
 								{
 									bAllReady = false;
 									break;

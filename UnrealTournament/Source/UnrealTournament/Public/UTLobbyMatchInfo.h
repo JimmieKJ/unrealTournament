@@ -24,7 +24,7 @@ struct FPlayerListInfo
 
 	// If this player is in the match and in this lobby server, then LocalPlayerState will be valid
 	UPROPERTY()
-	AUTLobbyPlayerState* LocalPlayerState;
+	TWeakObjectPtr<AUTLobbyPlayerState> LocalPlayerState;
 
 	// The current name of this player
 	UPROPERTY()
@@ -38,9 +38,9 @@ struct FPlayerListInfo
 
 	FPlayerListInfo() {};
 
-	FPlayerListInfo(AUTLobbyPlayerState* inPlayerState)
+	FPlayerListInfo(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState)
 	{
-		if (inPlayerState)
+		if (inPlayerState.IsValid())
 		{
 			PlayerID = inPlayerState->UniqueId;
 			LocalPlayerState = inPlayerState;
@@ -109,7 +109,7 @@ public:
 
 	// A list of players in this lobby
 	UPROPERTY(Replicated, replicatedUsing = OnRep_Players)
-	TArray<AUTLobbyPlayerState*> Players;
+	TArray<TWeakObjectPtr<AUTLobbyPlayerState>> Players;
 
 	// This is the process handle of the game instance that is running.
 	FProcHandle GameInstanceProcessHandle;
@@ -244,7 +244,7 @@ protected:
 
 	// Only available on the server, this holds a cached reference to the GameState.
 	UPROPERTY()
-	AUTLobbyGameState* LobbyGameState;
+	TWeakObjectPtr<AUTLobbyGameState> LobbyGameState;
 
 	FText MatchElapsedTime;
 
@@ -278,11 +278,11 @@ protected:
 	/**
 	 *	Returns the Owner's UTLobbyPlayerState
 	 **/
-	AUTLobbyPlayerState* GetOwnerPlayerState()
+	TWeakObjectPtr<AUTLobbyPlayerState> GetOwnerPlayerState()
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
-			if (Players[i] && Players[i]->UniqueId == OwnerId)
+			if (Players[i].IsValid() && Players[i]->UniqueId == OwnerId)
 			{
 				return Players[i];
 			}

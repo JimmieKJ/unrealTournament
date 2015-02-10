@@ -268,7 +268,7 @@ FText SUMatchPanel::GetMatchBadgeText() const
 		{
 			for (int32 i = 0; i < MatchInfo->Players.Num(); i++)
 			{
-				if (MatchInfo->Players[i])
+				if (MatchInfo->Players[i].IsValid())
 				{
 					const FString Tag = FString::Printf(TEXT("Player%iName"), i);
 					Args.Add(Tag, FText::FromString(MatchInfo->Players[i]->PlayerName));
