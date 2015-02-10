@@ -936,7 +936,7 @@ void AUTGameMode::StartMatch()
 		// Already started
 		return;
 	}
-	if (GetWorld()->IsPlayInEditor())
+	if (GetWorld()->IsPlayInEditor() || !bDelayedStart)
 	{
 		SetMatchState(MatchState::InProgress);
 	}
