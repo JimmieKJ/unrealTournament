@@ -24,6 +24,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	bHighScorerPerTeamBasis = false;
 	bHasRespawnChoices = true;
 	bWeaponStayActive = false;
+	bOnlyTheStrongSurvive = false;
 }
 
 void AUTDuelGame::InitGameState()
