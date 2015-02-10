@@ -26,6 +26,7 @@ void SUTMenuBase::CreateDesktop()
 {
 	bNeedsPlayerOptions = false;
 	bShowingFriends = false;
+	TickCountDown = 0;
 	
 	LeftMenuBar = NULL;
 	RightMenuBar = NULL;
