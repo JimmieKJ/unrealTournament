@@ -17,10 +17,11 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	if (UTGameState == NULL || UTGameState->Teams.Num() < 2 || UTGameState->Teams[0] == NULL || UTGameState->Teams[1] == NULL) return;
 
 	// Draw the front end End
+	float Width = (Size.X * 0.5) - CenterBuffer;
 
 	float FrontSize = 35;
 	float EndSize = 16;
-	float MiddleSize = 624 - FrontSize - EndSize;
+	float MiddleSize = Width - FrontSize - EndSize;
 	float XOffset = 0;
 
 	// Draw the Background
@@ -29,16 +30,16 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(TextureAtlas, XOffset + FrontSize + MiddleSize, YOffset + 22, EndSize, 65, 39,188,64,65, 1.0, FLinearColor::Red);
 
 	DrawText(NSLOCTEXT("UTTeamScoreboard","RedTeam","RED"), 36, YOffset + 40, HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), 620, YOffset + 48, ScoreFont, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), Width * 0.9, YOffset + 48, ScoreFont, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 
-	XOffset += 645;
+	XOffset = Size.X - Width;
 
 	DrawTexture(TextureAtlas, XOffset + EndSize + MiddleSize, YOffset + 22, 35, 65, 196, 188, 36, 65 , 1.0, FLinearColor::Blue);
 	DrawTexture(TextureAtlas, XOffset + EndSize, YOffset + 22, MiddleSize, 65, 130,188,64,65, 1.0, FLinearColor::Blue);
 	DrawTexture(TextureAtlas, XOffset, YOffset + 22, EndSize, 65, 117, 188, 16, 65, 1.0, FLinearColor::Blue);
 
 	DrawText(NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE"), 1237, YOffset + 40, HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
-	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), 654, YOffset + 48, ScoreFont, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), Size.X - Width + (Width * 0.1), YOffset + 48, ScoreFont, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 
 	YOffset += 119;
 

@@ -331,6 +331,8 @@ void AUTHUD::DrawHUD()
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
 
+	bShowScores = true;
+
 	for (int WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 	{
 		// If we aren't hidden then set the canvas and render..

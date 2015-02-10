@@ -57,6 +57,7 @@ void AUTBasePlayerController::DebugTest(FString TestCommand)
 void AUTBasePlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
 {
 
+
 }
 
 bool AUTBasePlayerController::ServerDebugTest_Validate(const FString& TestCommand) {return true;}

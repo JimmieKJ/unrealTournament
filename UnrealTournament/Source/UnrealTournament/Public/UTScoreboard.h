@@ -51,6 +51,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnY;
 
+	// How much space in between each column
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float CenterBuffer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float ColumnMedalX;
+
+
+	// Where to draw the flags
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float FlagX;
+
+
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
@@ -59,6 +72,13 @@ public:
 	virtual void SetPage(uint32 NewPage);
 
 protected:
+
+	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
+	TArray<FVector2D> BadgeNumberUVs;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
+	TArray<FVector2D> BadgeUVs;
+	
 
 	/** number of 'pages' that can be flipped through on the scoreboard */
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
