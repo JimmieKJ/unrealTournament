@@ -33,6 +33,7 @@ FCoreDelegates::FGetSerialNumberBlocksForDebugVisualizersDelegate& FCoreDelegate
 }
 
 FCoreDelegates::FOnMountPak FCoreDelegates::OnMountPak;
+FCoreDelegates::FOnUnmountPak FCoreDelegates::OnUnmountPak;
 FCoreDelegates::FOnUserLoginChangedEvent FCoreDelegates::OnUserLoginChangedEvent; 
 FCoreDelegates::FOnUserControllerConnectionChange FCoreDelegates::OnControllerConnectionChange;
 FCoreDelegates::FOnSafeFrameChangedEvent FCoreDelegates::OnSafeFrameChangedEvent;

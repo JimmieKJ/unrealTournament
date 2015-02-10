@@ -454,6 +454,11 @@ public:
 			PlatformFile.HandleMountCommand(Cmd, Ar);
 			return true;
 		}
+		if (FParse::Command(&Cmd, TEXT("Unmount")))
+		{
+			PlatformFile.HandleUnmountCommand(Cmd, Ar);
+			return true;
+		}
 		else if (FParse::Command(&Cmd, TEXT("PakList")))
 		{
 			PlatformFile.HandlePakListCommand(Cmd, Ar);
@@ -471,6 +476,15 @@ void FPakPlatformFile::HandleMountCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 	{
 		const FString MountPoint = FParse::Token(Cmd, false);
 		Mount(*PakFilename, 0, MountPoint.IsEmpty() ? NULL : *MountPoint);
+	}
+}
+
+void FPakPlatformFile::HandleUnmountCommand(const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	const FString PakFilename = FParse::Token(Cmd, false);
+	if (!PakFilename.IsEmpty())
+	{
+		Unmount(*PakFilename);
 	}
 }
 
@@ -494,6 +508,7 @@ FPakPlatformFile::FPakPlatformFile()
 FPakPlatformFile::~FPakPlatformFile()
 {
 	FCoreDelegates::OnMountPak.Unbind();
+	FCoreDelegates::OnUnmountPak.Unbind();
 
 	// We need to flush async IO... if it hasn't been shut down already.
 	if (FIOSystem::HasShutdown() == false)
@@ -671,6 +686,7 @@ bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 #endif // !UE_BUILD_SHIPPING
 
 	FCoreDelegates::OnMountPak.BindRaw(this, &FPakPlatformFile::HandleMountPakDelegate);
+	FCoreDelegates::OnUnmountPak.BindRaw(this, &FPakPlatformFile::HandleUnmountPakDelegate);
 	return !!LowerLevel;
 }
 
@@ -710,6 +726,25 @@ bool FPakPlatformFile::Mount(const TCHAR* InPakFilename, uint32 PakOrder, const 
 	return bSuccess;
 }
 
+bool FPakPlatformFile::Unmount(const TCHAR* InPakFilename)
+{
+	{
+		FScopeLock ScopedLock(&PakListCritical); 
+
+		for (int32 PakIndex = 0; PakIndex < PakFiles.Num(); PakIndex++)
+		{
+			if (PakFiles[PakIndex].PakFile->GetFilename() == InPakFilename)
+			{
+				delete PakFiles[PakIndex].PakFile;
+				PakFiles.RemoveAt(PakIndex);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 IFileHandle* FPakPlatformFile::CreatePakFileHandle(const TCHAR* Filename, FPakFile* PakFile, const FPakEntry* FileEntry)
 {
 	IFileHandle* Result = NULL;
@@ -742,6 +777,11 @@ IFileHandle* FPakPlatformFile::CreatePakFileHandle(const TCHAR* Filename, FPakFi
 bool FPakPlatformFile::HandleMountPakDelegate(const FString& PakFilePath, uint32 PakOrder)
 {
 	return Mount(*PakFilePath, PakOrder);
+}
+
+bool FPakPlatformFile::HandleUnmountPakDelegate(const FString& PakFilePath)
+{
+	return Unmount(*PakFilePath);
 }
 
 IFileHandle* FPakPlatformFile::OpenRead(const TCHAR* Filename)

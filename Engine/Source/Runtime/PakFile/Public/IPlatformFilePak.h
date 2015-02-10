@@ -561,7 +561,7 @@ public:
 	{
 		return Timestamp;
 	}
-
+	
 private:
 
 	/**
@@ -868,6 +868,11 @@ class PAKFILE_API FPakPlatformFile : public IPlatformFile
 	bool HandleMountPakDelegate(const FString& PakFilePath, uint32 PakOrder);
 
 	/**
+	 * Handler for device delegate to prompt us to unload a pak.
+	 */
+	bool HandleUnmountPakDelegate(const FString& PakFilePath);
+
+	/**
 	 * Finds all pak files in the given directory.
 	 *
 	 * @param Directory Directory to (recursively) look for pak files in
@@ -931,6 +936,8 @@ public:
 	 * @param InPath Path to mount the pak at.
 	 */
 	bool Mount(const TCHAR* InPakFilename, uint32 PakOrder, const TCHAR* InPath = NULL);
+
+	bool Unmount(const TCHAR* InPakFilename);
 
 	/**
 	 * Finds a file in the specified pak files.
@@ -1321,6 +1328,7 @@ public:
 #if !UE_BUILD_SHIPPING
 	void HandlePakListCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	void HandleMountCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	void HandleUnmountCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 #endif
 	// END Console commands
 };
