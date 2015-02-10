@@ -907,6 +907,21 @@ FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 		GConfig->Flush(false);
 		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
 		FString Options = FString::Printf(TEXT("unrealtournament %s -log -server"), *NewURL);
+
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		if (OnlineSubsystem)
+		{
+			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+			if (OnlineIdentityInterface.IsValid())
+			{
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetPlayerOwner()->GetControllerId());
+				if (UserId.IsValid())
+				{
+					Options += FString::Printf(TEXT("-cloudID=%s"), *UserId->ToString());
+				}
+			}
+		}
+
 		UE_LOG(UT, Log, TEXT("Run dedicated server with command line: %s %s"), *ExecPath, *Options);
 		GetPlayerOwner()->DedicatedServerProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
 
