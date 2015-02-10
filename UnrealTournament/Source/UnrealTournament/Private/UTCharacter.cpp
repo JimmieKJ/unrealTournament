@@ -701,7 +701,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 
-			if (Game->bDamageHurtsHealth)
+			if (Game->bDamageHurtsHealth || !Cast<AUTPlayerController>(GetController())) 
 			{
 				Health -= ResultDamage;
 			}
