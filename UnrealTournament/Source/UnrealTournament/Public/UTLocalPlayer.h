@@ -271,7 +271,11 @@ private:
 	
 	int32 TDM_ELO;	// The Player's current TDM ELO rank
 	int32 DUEL_ELO;	// The Player's current Duel ELO rank
+	int32 FFA_ELO;	// The Player's current FFA ELO rank
 	int32 MatchesPlayed;	// The # of matches this player has played.
+	int32 DuelMatchesPlayed;	// The # of matches this player has played.
+	int32 TDMMatchesPlayed;	// The # of matches this player has played.
+	int32 FFAMatchesPlayed;	// The # of matches this player has played.
 
 	void ReadELOFromCloud();
 	void UpdateBaseELOFromCloudData();
@@ -281,10 +285,10 @@ public:
 	static FString GetStatsFilename() { return TEXT("stats.json"); }
 	
 	// Returns the base ELO Rank with any type of processing we need.
-	int32 GetBaseELORank();
+	virtual int32 GetBaseELORank();
 
-	// Given an ELO, return the badge and level
-	void GetBadgeFromELO(int32 ELO, int32& Badge, int32& Level);
+	// Returns what badge should represent player's skill level.
+	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id
 	virtual void JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate);

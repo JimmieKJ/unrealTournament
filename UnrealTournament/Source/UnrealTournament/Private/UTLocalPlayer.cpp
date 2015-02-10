@@ -913,7 +913,11 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 			{
 				StatsJson->TryGetNumberField(TEXT("SkillRating"), DUEL_ELO);
 				StatsJson->TryGetNumberField(TEXT("TDMSkillRating"), TDM_ELO);
+				StatsJson->TryGetNumberField(TEXT("DMSkillRating"), FFA_ELO);
 				StatsJson->TryGetNumberField(TEXT("MatchesPlayed"), MatchesPlayed);
+				StatsJson->TryGetNumberField(TEXT("SkillRatingSamples"), DuelMatchesPlayed);
+				StatsJson->TryGetNumberField(TEXT("TDMSkillRatingSamples"), TDMMatchesPlayed);
+				StatsJson->TryGetNumberField(TEXT("DMSkillRatingSamples"), FFAMatchesPlayed);
 			}
 		}
 	}
@@ -921,29 +925,66 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 
 int32 UUTLocalPlayer::GetBaseELORank()
 {
+	// Currently Elo returned is just a representation of DM skill
+	// good enough for initial sorting of players by skill
+	// Will eventually calculate per game type more accurately
 
-	// we can do whatever we want here.  
-
-	int32 Cnt = 0;
-	int32 Total = 0;
-	if (DUEL_ELO > 0) { Cnt++; Total += DUEL_ELO; }
-	if (TDM_ELO > 0) { Cnt++; Total += TDM_ELO; }
-
-	if (Cnt > 0)
+	float TotalRating = 0.f;
+	float RatingCount = 0.f;
+	float CurrentRating = 0.f;
+	int32 MatchCount = 0;
+	if (DUEL_ELO > 0)
 	{
-		return int32( float(Total) / float(Cnt) );
+		TotalRating += DUEL_ELO;
+		RatingCount += 1.f;
+		MatchCount += DuelMatchesPlayed;
+		CurrentRating = TotalRating / RatingCount;
 	}
+
+	// max rating of 5000 if not Duel
+	if ((TDM_ELO > 0) && ((CurrentRating < 5000) || (DuelMatchesPlayed < 50)))
+	{
+		TotalRating += 0.8f * FMath::Min(TDM_ELO, 5000);
+		RatingCount += 0.8f;
+		MatchCount += TDMMatchesPlayed;
+		CurrentRating = TotalRating / RatingCount;
+	}
+
+	// FFA Elo is the least accurate, weighted lower
+	// max rating of 2400 based on FFA 
+	if ((FFA_ELO > 0) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed < 40)))
+	{
+		TotalRating += 0.5f * FMath::Min(FFA_ELO, 2400);
+		RatingCount += 0.5f;
+		MatchCount += FFAMatchesPlayed;
+		CurrentRating = TotalRating / RatingCount;
+	}
+
+	// Limit displayed Elo to 400 + 50 * number of matches played, except scaling to 100 * number of duels played if duels played > 10
+	float MaxElo = 400.f + 50.f * MatchCount + FMath::Max(0.f, float(DuelMatchesPlayed) - 10.f) * 50.f * FMath::Clamp((float(DuelMatchesPlayed)-10.f)/40.f, 0.f, 1.f);
 							
-	return 1500;
+	return (CurrentRating > 0.f) ? CurrentRating : 1000;
 }
 
-void UUTLocalPlayer::GetBadgeFromELO(int32 ELO, int32& Badge, int32& Level)
+void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
 {
-	// Fake info for now.
-	Badge = 1;
-	Level = 5;
+	// Bronze levels up to 1750, start at 400, go up every 150
+	if (EloRating  < 1750)
+	{
+		BadgeLevel = 0;
+		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 150.f, 1.f, 9.f);
+	}
+	else if (EloRating < 3550)
+	{
+		BadgeLevel = 1;
+		SubLevel = FMath::Clamp((float(EloRating) - 1750.f) / 200.f, 1.f, 9.f);
+	}
+	else
+	{
+		BadgeLevel = 2;
+		SubLevel = FMath::Clamp((float(EloRating) - 3550.f) / 400.f, 1.f, 9.f);
+	}
 }
-
 
 FString UUTLocalPlayer::GetHatPath() const
 {
