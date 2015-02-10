@@ -68,3 +68,12 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 		UTGameSession->ValidatePlayer(Address, UniqueId, ErrorMessage);
 	}
 }
+
+void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
+{
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
+	if (PC)
+	{
+		PC->ClientGenericInitialization();
+	}
+}

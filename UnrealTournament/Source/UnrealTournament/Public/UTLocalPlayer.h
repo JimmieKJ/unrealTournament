@@ -281,7 +281,10 @@ public:
 	static FString GetStatsFilename() { return TEXT("stats.json"); }
 	
 	// Returns the base ELO Rank with any type of processing we need.
-	int GetBaseELORank();
+	int32 GetBaseELORank();
+
+	// Given an ELO, return the badge and level
+	void GetBadgeFromELO(int32 ELO, int32& Badge, int32& Level);
 
 	// Connect to a server via the session id
 	virtual void JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate);

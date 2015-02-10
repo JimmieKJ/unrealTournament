@@ -48,6 +48,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bHasHighScore);
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
+	DOREPLIFETIME(AUTPlayerState, AverageRank);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);

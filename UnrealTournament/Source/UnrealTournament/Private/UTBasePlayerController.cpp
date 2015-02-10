@@ -257,3 +257,21 @@ void AUTBasePlayerController::ClientSetPresence_Implementation(const FString& Ne
 		LP->UpdatePresence(NewPresenceString, bAllowInvites, bAllowJoinInProgress, bAllowJoinViaPresence, bAllowJoinViaPresenceFriendsOnly);
 	}
 }
+
+
+void AUTBasePlayerController::ClientGenericInitialization_Implementation()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		ServerRecieveAverageRank(LP->GetBaseELORank());
+	}
+}
+
+bool AUTBasePlayerController::ServerRecieveAverageRank_Validate(int32 NewAverageRank) { return true; }
+void AUTBasePlayerController::ServerRecieveAverageRank_Implementation(int32 NewAverageRank)
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS) PS->AverageRank = NewAverageRank;
+}
+

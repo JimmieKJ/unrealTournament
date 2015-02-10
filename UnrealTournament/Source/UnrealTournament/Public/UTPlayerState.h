@@ -252,6 +252,12 @@ private:
 	void ReadStatsFromCloud();
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
+
+public:
+	// Average ELO rank for this player.
+	UPROPERTY(Replicated)
+	int32 AverageRank;
+
 };
 
 

@@ -11,6 +11,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "SUMatchPanel.h"
 #include "UTLobbyPC.h"
+#include "UTLobbyPlayerState.h"
 
 #if !UE_SERVER
 
@@ -19,6 +20,8 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 	bIsFeatured = InArgs._bIsFeatured;
 	MatchInfo = InArgs._MatchInfo;
 	OnClicked = InArgs._OnClicked;
+
+	PlayerOwner = InArgs._PlayerOwner;
 
 	ChildSlot
 	.VAlign(VAlign_Fill)
@@ -32,68 +35,176 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 			.OnClicked(this, &SUMatchPanel::ButtonClicked)
 			.ButtonStyle(SUWindowsStyle::Get(),"UWindows.Lobby.MatchButton")
 			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Fill)
+				SNew(SOverlay)
+				+SOverlay::Slot()
 				[
 					SNew(SVerticalBox)
 					+SVerticalBox::Slot()
-					.Padding(5.0,5.0,5.0,0.0)
 					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
+					.HAlign(HAlign_Fill)
 					[
-						SNew(SBox)						// First the overlaid box that controls everything....
-						.HeightOverride(145)
-						.WidthOverride(145)
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.Padding(5.0,5.0,5.0,0.0)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
 						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.Padding(5.0,0.0,5.0,0.0)
-							.VAlign(VAlign_Fill)
-							.HAlign(HAlign_Center)
+							SNew(SBox)						// First the overlaid box that controls everything....
+							.HeightOverride(145)
+							.WidthOverride(145)
 							[
-								SNew(SRichTextBlock)
-								.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
-								.Justification(ETextJustify::Center)
-								.DecoratorStyleSet( &SUWindowsStyle::Get() )
-								.AutoWrapText( true )
-								.Text(this, &SUMatchPanel::GetMatchBadgeText)
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.Padding(5.0,0.0,5.0,0.0)
+								.VAlign(VAlign_Fill)
+								.HAlign(HAlign_Center)
+								[
+									SNew(SRichTextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
+									.Justification(ETextJustify::Center)
+									.DecoratorStyleSet( &SUWindowsStyle::Get() )
+									.AutoWrapText( true )
+									.Text(this, &SUMatchPanel::GetMatchBadgeText)
+								]
+							]
+						]
+					]
+					+SVerticalBox::Slot()
+					.VAlign(VAlign_Bottom)
+					.HAlign(HAlign_Fill)
+					.AutoHeight()
+					.Padding(20.0f,0.0f,20.0f,5.0f)
+					[
+						SNew(SBox)
+						.HeightOverride(24)
+						[
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
+							]
+							+SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.HAlign(HAlign_Center)
+								[
+									SNew(STextBlock)
+										.Text( this, &SUMatchPanel::GetButtonText)
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.Action.TextStyle")
+								]
 							]
 						]
 					]
 				]
-				+SVerticalBox::Slot()
-				.VAlign(VAlign_Bottom)
-				.HAlign(HAlign_Fill)
-				.AutoHeight()
-				.Padding(20.0f,0.0f,20.0f,5.0f)
+
+				+SOverlay::Slot()
+				.VAlign(VAlign_Top)
 				[
-					SNew(SBox)
-					.HeightOverride(24)
+					SAssignNew(BadgeBox, SVerticalBox)
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					.HAlign(HAlign_Left)
 					[
-						SNew(SOverlay)
-						+SOverlay::Slot()
+						SNew(SBox)
+						.WidthOverride(32)
+						.HeightOverride(32)
 						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
-						]
-						+SOverlay::Slot()
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SImage)
+								.Image(this, &SUMatchPanel::GetELOBadgeImage)
+							]
+							+SOverlay::Slot()
 							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Top)
 							[
 								SNew(STextBlock)
-									.Text( this, &SUMatchPanel::GetButtonText)
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchButton.Action.TextStyle")
+								.Text( this, &SUMatchPanel::GetELOBadgeText)
+								.TextStyle(SUWindowsStyle::Get(), "UT.ELOBadge.TextStyle")
 							]
 						]
 					]
+
 				]
 			]
 		]
 	];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const FSlateBrush* SUMatchPanel::GetELOBadgeImage() const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	if (PlayerOwner.IsValid() && MatchInfo.IsValid())
+	{
+		AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+		if (GS)
+		{
+			for (int32 i=0; i<GS->PlayerArray.Num();i++)
+			{
+				if (GS->PlayerArray[i] && GS->PlayerArray[i]->UniqueId == MatchInfo->OwnerId)
+				{
+					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(GS->PlayerArray[i]);
+					if (PS)
+					{
+						PlayerOwner->GetBadgeFromELO(PS->AverageRank, Badge, Level);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	if (Badge == 0) return SUWindowsStyle::Get().GetBrush("UT.Icon.Badge2");
+	if (Badge == 1) return SUWindowsStyle::Get().GetBrush("UT.Icon.Badge1");
+	return SUWindowsStyle::Get().GetBrush("UT.Icon.Badge0");
+}
+
+FText SUMatchPanel::GetELOBadgeText() const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	if (PlayerOwner.IsValid() && MatchInfo.IsValid())
+	{
+		AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+		if (GS)
+		{
+			for (int32 i=0; i<GS->PlayerArray.Num();i++)
+			{
+				if (GS->PlayerArray[i] && GS->PlayerArray[i]->UniqueId == MatchInfo->OwnerId)
+				{
+					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(GS->PlayerArray[i]);
+					if (PS)
+					{
+						PlayerOwner->GetBadgeFromELO(PS->AverageRank, Badge, Level);
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	return FText::AsNumber(Level);
 }
 
 FText SUMatchPanel::GetButtonText() const

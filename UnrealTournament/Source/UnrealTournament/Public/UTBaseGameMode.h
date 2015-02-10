@@ -42,7 +42,8 @@ public:
 	FText DisplayName;
 
 	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
-
+	virtual void GenericPlayerInitialization(AController* C);
+	
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 
 	// The Unique ID for this game instance.

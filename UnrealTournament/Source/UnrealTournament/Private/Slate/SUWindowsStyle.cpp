@@ -107,6 +107,19 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("Testing.TestMapShot", new IMAGE_BRUSH( "Testing/Testing.TestMapShot", FVector2D(400.0f, 213.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 
+	{ // Badges
+
+		Style.Set("UT.Icon.Badge0", new IMAGE_BRUSH("Icons/UT.Icon.Badge0", Icon32x32));
+		Style.Set("UT.Icon.Badge1", new IMAGE_BRUSH("Icons/UT.Icon.Badge1", Icon32x32));
+		Style.Set("UT.Icon.Badge2", new IMAGE_BRUSH("Icons/UT.Icon.Badge2", Icon32x32));
+
+		Style.Set("UT.ELOBadge.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+	}
+
 	{  // Icons
 		
 		Style.Set("UT.Icon.Home", new IMAGE_BRUSH("Icons/UT.Icon.Home", Icon48x48));

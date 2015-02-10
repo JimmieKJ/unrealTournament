@@ -188,6 +188,7 @@ void SULobbyInfoPanel::TickNonChatPanel(float DeltaTime)
 							[
 								SAssignNew(MP,SUMatchPanel)
 								.MatchInfo(MatchInfo)
+								.PlayerOwner(PlayerOwner)
 							];
 
 							MatchData.Add( FMatchData::Make(LobbyGameState->AvailableMatches[i], MP));

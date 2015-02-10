@@ -919,7 +919,7 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 	}
 }
 
-int UUTLocalPlayer::GetBaseELORank()
+int32 UUTLocalPlayer::GetBaseELORank()
 {
 
 	// we can do whatever we want here.  
@@ -936,6 +936,14 @@ int UUTLocalPlayer::GetBaseELORank()
 							
 	return 1500;
 }
+
+void UUTLocalPlayer::GetBadgeFromELO(int32 ELO, int32& Badge, int32& Level)
+{
+	// Fake info for now.
+	Badge = 1;
+	Level = 5;
+}
+
 
 FString UUTLocalPlayer::GetHatPath() const
 {

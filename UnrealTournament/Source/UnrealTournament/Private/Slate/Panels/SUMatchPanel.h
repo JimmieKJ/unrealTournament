@@ -15,6 +15,7 @@ class SUMatchPanel : public SCompoundWidget
 		, _bIsFeatured(false)
 	{}
 		SLATE_ARGUMENT( TWeakObjectPtr<AUTLobbyMatchInfo>, MatchInfo )
+		SLATE_ARGUMENT( TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner )
 		SLATE_ARGUMENT( bool, bIsFeatured )
 
 		/** Called when the Play/Jo */
@@ -29,8 +30,13 @@ public:
 	
 protected:
 
+	// The Player Owner that owns this panel
+	TWeakObjectPtr<UUTLocalPlayer> PlayerOwner;
+
 	// Used to store all of the attributes to be displayed.
 	TArray<TSharedPtr<TAttributePropertyBase>> DataStore;
+
+	TSharedPtr<SVerticalBox> BadgeBox;
 
 	// Holds the match info associated with this match...
 	UPROPERTY()
@@ -63,6 +69,8 @@ protected:
 
 	FText GetMatchBadgeText() const;
 
+	const FSlateBrush* GetELOBadgeImage() const;
+	FText GetELOBadgeText() const;
 };
 
 #endif

@@ -75,6 +75,13 @@ public:
 	UFUNCTION(Client, reliable)
 	virtual void ClientSetPresence(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
 
+	UFUNCTION(client, reliable)
+	virtual void ClientGenericInitialization();
+
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void ServerRecieveAverageRank(int32 NewAverageRank);
+
+
 protected:
 	FOnFindSessionsCompleteDelegate OnFindGUIDSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> GUIDSessionSearchSettings;

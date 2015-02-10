@@ -224,9 +224,11 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 		}
 	}
 
-	AUTBasePlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
+	// Set my Initial Presence
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
 	if (PC)
 	{
+		// Set my initial presence....
 		PC->ClientSetPresence(TEXT("Sitting in a HUB"), true, true, true, false);
 	}
 
