@@ -20,6 +20,61 @@
 static const float BOB_SCALING_FACTOR = 2.0f;
 
 #if !UE_SERVER
+
+DECLARE_DELEGATE_OneParam(FDragHandler, FVector2D);
+
+class SDragImage : public SImage
+{
+public:
+	SLATE_BEGIN_ARGS(SDragImage)
+		: _Image(FCoreStyle::Get().GetDefaultBrush()), _ColorAndOpacity(FLinearColor::White), _OnDrag()
+	{}
+
+		/** Image resource */
+		SLATE_ATTRIBUTE(const FSlateBrush*, Image)
+
+		/** Color and opacity */
+		SLATE_ATTRIBUTE(FSlateColor, ColorAndOpacity)
+
+		/** Invoked when the mouse is dragged in the widget */
+		SLATE_EVENT(FDragHandler, OnDrag)
+
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		OnDrag = InArgs._OnDrag;
+		SImage::Construct(SImage::FArguments().Image(InArgs._Image).ColorAndOpacity(InArgs._ColorAndOpacity));
+	}
+
+	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		return FReply::Handled().CaptureMouse(AsShared()).UseHighPrecisionMouseMovement(AsShared());
+	}
+	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		if (HasMouseCapture())
+		{
+			return FReply::Handled().ReleaseMouseCapture();
+		}
+		else
+		{
+			return FReply::Handled();
+		}
+	}
+	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		if (HasMouseCapture())
+		{
+			OnDrag.ExecuteIfBound(MouseEvent.GetCursorDelta());
+		}
+		return FReply::Handled();
+	}
+
+protected:
+	FDragHandler OnDrag;
+};
+
 void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 {
 	SUWDialog::Construct(SUWDialog::FArguments()
@@ -65,12 +120,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
 	if (BaseMat != NULL)
 	{
-		// FIXME: can't use, results in crash due to engine bug
-		//PlayerPreviewTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(UCanvasRenderTarget2D::StaticClass(), 512, 512);
-		{
-			PlayerPreviewTexture = ConstructObject<UUTCanvasRenderTarget2D>(UUTCanvasRenderTarget2D::StaticClass(), GetPlayerOwner()->GetWorld());
-			PlayerPreviewTexture->InitAutoFormat(512, 512);
-		}
+		PlayerPreviewTexture = Cast<UUTCanvasRenderTarget2D>(UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetPlayerOwner().Get(), UUTCanvasRenderTarget2D::StaticClass(), 512, 512));
 		PlayerPreviewTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.BindSP(this, &SUWPlayerSettingsDialog::UpdatePlayerRender);
 		PlayerPreviewMID = UMaterialInstanceDynamic::Create(BaseMat, GetPlayerOwner()->GetWorld());
@@ -90,6 +140,12 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	GEngine->CreateNewWorldContext(EWorldType::Preview).SetCurrentWorld(PlayerPreviewWorld);
 	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
 	ViewState.Allocate();
+	{
+		UDirectionalLightComponent* PreviewLight = ConstructObject<UDirectionalLightComponent>(UDirectionalLightComponent::StaticClass(), PlayerPreviewWorld);
+		PreviewLight->SetLightColor(FLinearColor::White);
+		PreviewLight->SetWorldRotation(FVector(1.0f, 0.0f, -1.0f).Rotation());
+		PreviewLight->RegisterComponentWithWorld(PlayerPreviewWorld);
+	}
 
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
@@ -646,8 +702,9 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Center)
 			[
-				SNew(SImage)
+				SNew(SDragImage)
 				.Image(PlayerPreviewBrush)
+				.OnDrag(this, &SUWPlayerSettingsDialog::DragPlayerPreview)
 			]
 		];
 
@@ -1011,7 +1068,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 {
 	FEngineShowFlags ShowFlags(ESFIM_Game);
-	ShowFlags.SetLighting(false); // FIXME: create some proxy light and use lit mode
+	//ShowFlags.SetLighting(false); // FIXME: create some proxy light and use lit mode
 	ShowFlags.SetMotionBlur(false);
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
 	
@@ -1036,6 +1093,14 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
 	--GFrameNumber;
 	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
+}
+
+void SUWPlayerSettingsDialog::DragPlayerPreview(const FVector2D MouseDelta)
+{
+	if (PlayerPreviewMesh != NULL)
+	{
+		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0.1f * MouseDelta.Y, 0.1f * MouseDelta.X, 0.0f));
+	}
 }
 
 void SUWPlayerSettingsDialog::OnFlagSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)

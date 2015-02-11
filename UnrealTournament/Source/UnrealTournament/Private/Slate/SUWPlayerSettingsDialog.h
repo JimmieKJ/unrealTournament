@@ -105,6 +105,7 @@ protected:
 	void OnNameTextChanged(const FText& NewText);
 	TSharedRef<ITableRow> GenerateWeaponListRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
 
+	virtual void DragPlayerPreview(FVector2D MouseDelta);
 	virtual void RecreatePlayerPreview();
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 
