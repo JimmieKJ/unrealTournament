@@ -61,7 +61,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
 	MaxWaitForPlayers = 90.f;
-	bOnlyTheStrongSurvive = true;
+	bOnlyTheStrongSurvive = false;
 	EndScoreboardDelay = 2.0f;
 	GameDifficulty = 3.0f;
 	BotFillCount = 0;
