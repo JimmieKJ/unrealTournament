@@ -169,7 +169,7 @@ public:
 
 			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContentSuccess", "Content published successfully. Would you like to share it now?")))
 			{
-				FString LauncherCommandLine = TEXT("-CloudKey=ut -assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
+				FString LauncherCommandLine = TEXT("-assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
 
 				FString McpConfigOverride;
 				FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
