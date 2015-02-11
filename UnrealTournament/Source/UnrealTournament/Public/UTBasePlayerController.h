@@ -84,6 +84,8 @@ public:
 
 protected:
 	FOnFindSessionsCompleteDelegate OnFindGUIDSessionCompleteDelegate;
+	FDelegateHandle OnFindGUIDSessionCompleteDelegateHandle;
+
 	TSharedPtr<class FUTOnlineGameSearchBase> GUIDSessionSearchSettings;
 
 	FString GUIDJoin_CurrentGUID;

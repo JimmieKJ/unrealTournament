@@ -187,7 +187,7 @@ void AUTBasePlayerController::AttemptGUIDJoin()
 		if (!OnFindGUIDSessionCompleteDelegate.IsBound())
 		{
 			OnFindGUIDSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnFindSessionsComplete);
-			OnlineSessionInterface->AddOnFindSessionsCompleteDelegate(OnFindGUIDSessionCompleteDelegate);
+			OnFindGUIDSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegate);
 		}
 
 		OnlineSessionInterface->FindSessions(0, SearchSettingsRef);
@@ -203,7 +203,7 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 		if (OnlineSubsystem && GUIDSessionSearchSettings.IsValid()) 
 		{
 			IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
-			OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate(OnFindGUIDSessionCompleteDelegate);
+			OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegateHandle);
 
 			if (GUIDSessionSearchSettings->SearchResults.Num() > 0)
 			{
