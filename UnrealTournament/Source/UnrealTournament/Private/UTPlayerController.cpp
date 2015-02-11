@@ -1405,7 +1405,8 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 	ChangeState(FName(TEXT("GameOver")));
 	FinalViewTarget = EndGameFocus;
 	BehindView(true);
-	GetWorldTimerManager().SetTimer(this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
 	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
 
 	// free all Pawns locally
