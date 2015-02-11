@@ -780,6 +780,7 @@ void AUTCTFGameMode::HandleEnteringOvertime()
 {
 	CTFGameState->SetTimeLimit(OvertimeDuration);
 	SetMatchState(MatchState::MatchIsInOvertime);
+	CTFGameState->bPlayingAdvantage = false;
 }
 
 void AUTCTFGameMode::HandleEnteringSuddenDeath()
