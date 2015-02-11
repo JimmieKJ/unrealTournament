@@ -3032,8 +3032,16 @@ void AUTCharacter::Tick(float DeltaTime)
 		SetStatusAmbientSound(LowHealthAmbientSound, 0.f, 1.f, true);
 	}
 
-	if ((Role == ROLE_Authority) && GetCharacterMovement() && GetCharacterMovement()->IsInWater())
+	if ((Role == ROLE_Authority) && IsInWater())
 	{
+		if (IsRagdoll() && GetMesh())
+		{
+			// apply force to fake buoyancy and fluid friction
+			FVector FluidForce = -200.f*FVector(0.f, 0.f, GetWorld()->GetGravityZ()) - 300.f * GetVelocity();
+
+			GetMesh()->AddForce(0.67f*FluidForce, FName((TEXT("spine_02"))));
+			GetMesh()->AddForce(0.33f*FluidForce);
+		}
 		bool bHeadWasUnderwater = bHeadIsUnderwater;
 		bHeadIsUnderwater = HeadIsUnderWater();
 
@@ -3067,7 +3075,15 @@ void AUTCharacter::Tick(float DeltaTime)
 	{
 	UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
 	}*/
+}
 
+bool AUTCharacter::IsInWater() const
+{
+	if (IsRagdoll())
+	{
+		return PositionIsInWater(GetActorLocation());
+	}
+	return (GetCharacterMovement() && GetCharacterMovement()->IsInWater());
 }
 
 bool AUTCharacter::HeadIsUnderWater() const

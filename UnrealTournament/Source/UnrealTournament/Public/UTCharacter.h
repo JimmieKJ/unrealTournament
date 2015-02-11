@@ -1031,6 +1031,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void PlayWaterSound(USoundBase* WaterSound);
 
+	/** Returns true if core is in water. */
+	virtual bool IsInWater() const;
+
 	/** Returns true if BaseEyeHeight position is underwater */
 	virtual bool HeadIsUnderWater() const;
 
