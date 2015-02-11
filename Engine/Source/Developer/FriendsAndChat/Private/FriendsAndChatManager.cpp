@@ -638,11 +638,14 @@ bool FFriendsAndChatManager::IsInJoinableGameSession() const
 		OnlineSub->GetPresenceInterface().IsValid())
 	{
 		TSharedPtr<FUniqueNetId> CurrentUserId = OnlineSub->GetIdentityInterface()->GetUniquePlayerId(0);
-		TSharedPtr<FOnlineUserPresence> Presence;
-		OnlineSub->GetPresenceInterface()->GetCachedPresence(*CurrentUserId, Presence);
-		if (Presence.IsValid())
+		if (CurrentUserId.IsValid())
 		{
-			bIsGameJoinable = Presence->bIsJoinable;
+			TSharedPtr<FOnlineUserPresence> Presence;
+			OnlineSub->GetPresenceInterface()->GetCachedPresence(*CurrentUserId, Presence);
+			if (Presence.IsValid())
+			{
+				bIsGameJoinable = Presence->bIsJoinable;
+			}
 		}
 	}
 
