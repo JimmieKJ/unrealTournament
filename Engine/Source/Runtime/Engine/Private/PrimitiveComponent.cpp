@@ -51,7 +51,7 @@ static TAutoConsoleVariable<float> CVarInitialOverlapTolerance(
 	ECVF_Default);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-static TAutoConsoleVariable<int32> CVarShowInitialOverlaps(
+TAutoConsoleVariable<int32> CVarShowInitialOverlaps(
 	TEXT("p.ShowInitialOverlaps"),
 	0,
 	TEXT("Show initial overlaps when moving a component, including estimated 'exit' direction.\n")

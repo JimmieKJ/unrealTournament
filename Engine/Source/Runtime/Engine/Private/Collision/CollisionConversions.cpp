@@ -10,6 +10,9 @@
 #include "Components/DestructibleComponent.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 
+#define DRAW_OVERLAPPING_TRIS (!(UE_BUILD_SHIPPING || UE_BUILD_TEST))
+extern TAutoConsoleVariable<int32> CVarShowInitialOverlaps;
+
 // Sentinel for invalid query results.
 static const PxQueryHit InvalidQueryHit;
 
@@ -451,20 +454,21 @@ bool AddSweepResults(int32 NumHits, const PxSweepHit* Hits, float CheckLength, c
 	return bHadBlockingHit;
 }
 
-#define DRAW_OVERLAPPING_TRIS 0
-
 /* Function to find the best normal from the list of triangles that are overlapping our geom. */
 template<typename GeomType>
-FVector FindBestOverlappingNormal(const PxGeometry& Geom, const PxTransform& QueryTM, const GeomType& ShapeGeom, const PxTransform& PShapeWorldPose, PxU32* HitTris, int32 NumTrisHit)
+FVector FindBestOverlappingNormal(const PxGeometry& Geom, const PxTransform& QueryTM, const GeomType& ShapeGeom, const PxTransform& PShapeWorldPose, PxU32* HitTris, int32 NumTrisHit, bool bCanDrawOverlaps = false)
 {
 #if DRAW_OVERLAPPING_TRIS
-	TArray<FOverlapResult> Overlaps;
-	DrawGeomOverlaps(World, Geom, QueryTM, Overlaps);
-
-	TArray<FBatchedLine> Lines;
-	const FLinearColor LineColor = FLinearColor(1.f, 0.7f, 0.7f);
-	const FLinearColor NormalColor = FLinearColor(1.f, 1.f, 1.f);
 	const float Lifetime = 5.f;
+	bCanDrawOverlaps &= GWorld->IsGameWorld() && GWorld->PersistentLineBatcher && (GWorld->PersistentLineBatcher->BatchedLines.Num() < 2048);
+	if (bCanDrawOverlaps)
+	{
+		TArray<FOverlapResult> Overlaps;
+		DrawGeomOverlaps(GWorld, Geom, QueryTM, Overlaps, Lifetime);
+	}
+	const FLinearColor LineColor = FLinearColor::Green;
+	const FLinearColor NormalColor = FLinearColor::Red;
+	const FLinearColor PointColor = FLinearColor::Yellow;
 #endif // DRAW_OVERLAPPING_TRIS
 
 	// Track the best triangle plane distance
@@ -498,19 +502,23 @@ FVector FindBestOverlappingNormal(const PxGeometry& Geom, const PxTransform& Que
 		}
 
 #if DRAW_OVERLAPPING_TRIS
-		Lines.Add(FBatchedLine(A, B, LineColor, Lifetime, 0.1f, SDPG_Foreground));
-		Lines.Add(FBatchedLine(B, C, LineColor, Lifetime, 0.1f, SDPG_Foreground));
-		Lines.Add(FBatchedLine(C, A, LineColor, Lifetime, 0.1f, SDPG_Foreground));
-		Lines.Add(FBatchedLine(A, A + (50.f*TriNormal), NormalColor, Lifetime, 0.1f, SDPG_Foreground));
+		if (bCanDrawOverlaps && (GWorld->PersistentLineBatcher->BatchedLines.Num() < 2048))
+		{
+			static const float LineThickness = 0.9f;
+			static const float NormalThickness = 0.75f;
+			static const float PointThickness = 5.0f;
+			GWorld->PersistentLineBatcher->DrawLine(A, B, LineColor, SDPG_Foreground, LineThickness, Lifetime);
+			GWorld->PersistentLineBatcher->DrawLine(B, C, LineColor, SDPG_Foreground, LineThickness, Lifetime);
+			GWorld->PersistentLineBatcher->DrawLine(C, A, LineColor, SDPG_Foreground, LineThickness, Lifetime);
+			const FVector Centroid((A + B + C) / 3.f);
+			GWorld->PersistentLineBatcher->DrawLine(Centroid, Centroid + (35.0f*TriNormal), NormalColor, SDPG_Foreground, NormalThickness, Lifetime);
+			GWorld->PersistentLineBatcher->DrawPoint(Centroid + (35.0f*TriNormal), NormalColor, PointThickness, SDPG_Foreground, Lifetime);
+			GWorld->PersistentLineBatcher->DrawPoint(A, PointColor, PointThickness, SDPG_Foreground, Lifetime);
+			GWorld->PersistentLineBatcher->DrawPoint(B, PointColor, PointThickness, SDPG_Foreground, Lifetime);
+			GWorld->PersistentLineBatcher->DrawPoint(C, PointColor, PointThickness, SDPG_Foreground, Lifetime);
+		}
 #endif // DRAW_OVERLAPPING_TRIS
 	}
-
-#if DRAW_OVERLAPPING_TRIS
-	if (World->PersistentLineBatcher)
-	{
-		World->PersistentLineBatcher->DrawLines(Lines);
-	}
-#endif // DRAW_OVERLAPPING_TRIS
 
 	return BestPlaneNormal;
 }
@@ -620,6 +628,103 @@ static bool ComputeInflatedMTD(const float MtdInflation, const PxLocationHit& PH
 }
 
 
+
+static bool CanFindOverlappedTriangle(const PxShape* PShape)
+{
+	return (PShape && (PShape->getGeometryType() == PxGeometryType::eTRIANGLEMESH || PShape->getGeometryType() == PxGeometryType::eHEIGHTFIELD));
+}
+
+
+static bool FindOverlappedTriangleNormal_Internal(const PxGeometry& Geom, const PxTransform& QueryTM, const PxShape* PShape, const PxTransform& PShapeWorldPose, FVector& OutNormal, bool bCanDrawOverlaps = false)
+{
+	if (CanFindOverlappedTriangle(PShape))
+	{
+		PxTriangleMeshGeometry PTriMeshGeom;
+		PxHeightFieldGeometry PHeightfieldGeom;
+
+		if (PShape->getTriangleMeshGeometry(PTriMeshGeom) || PShape->getHeightFieldGeometry(PHeightfieldGeom))
+		{
+			PxGeometryType::Enum GeometryType = PShape->getGeometryType();
+			const bool bIsTriMesh = (GeometryType == PxGeometryType::eTRIANGLEMESH);
+			PxU32 HitTris[64];
+			bool bOverflow = false;
+
+			const int32 NumTrisHit = bIsTriMesh ?
+				PxMeshQuery::findOverlapTriangleMesh(Geom, QueryTM, PTriMeshGeom, PShapeWorldPose, HitTris, ARRAY_COUNT(HitTris), 0, bOverflow) :
+				PxMeshQuery::findOverlapHeightField(Geom, QueryTM, PHeightfieldGeom, PShapeWorldPose, HitTris, ARRAY_COUNT(HitTris), 0, bOverflow);
+
+			if (NumTrisHit > 0)
+			{
+				if (bIsTriMesh)
+				{
+					OutNormal = FindBestOverlappingNormal(Geom, QueryTM, PTriMeshGeom, PShapeWorldPose, HitTris, NumTrisHit, bCanDrawOverlaps);
+				}
+				else
+				{
+					OutNormal = FindBestOverlappingNormal(Geom, QueryTM, PHeightfieldGeom, PShapeWorldPose, HitTris, NumTrisHit, bCanDrawOverlaps);
+				}
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+
+static bool FindOverlappedTriangleNormal(const PxGeometry& Geom, const PxTransform& QueryTM, const PxShape* PShape, const PxTransform& PShapeWorldPose, FVector& OutNormal, float Inflation, bool bCanDrawOverlaps = false)
+{
+	bool bSuccess = false;
+
+	if (CanFindOverlappedTriangle(PShape))
+	{
+		if (Inflation <= 0.f)
+		{
+			bSuccess = FindOverlappedTriangleNormal_Internal(Geom, QueryTM, PShape, PShapeWorldPose, OutNormal, bCanDrawOverlaps);
+		}
+		else
+		{
+			// Try a slightly inflated test if possible.
+			switch (Geom.getType())
+			{
+				case PxGeometryType::eCAPSULE:
+				{
+					const PxCapsuleGeometry* InCapsule = static_cast<const PxCapsuleGeometry*>(&Geom);
+					PxCapsuleGeometry InflatedCapsule(InCapsule->radius + Inflation, InCapsule->halfHeight); // don't inflate halfHeight, radius is added all around.
+					bSuccess = FindOverlappedTriangleNormal_Internal(InflatedCapsule, QueryTM, PShape, PShapeWorldPose, OutNormal, bCanDrawOverlaps);
+					break;
+				}
+
+				case PxGeometryType::eBOX:
+				{
+					const PxBoxGeometry* InBox = static_cast<const PxBoxGeometry*>(&Geom);
+					PxBoxGeometry InflatedBox(InBox->halfExtents + PxVec3(Inflation));
+					bSuccess = FindOverlappedTriangleNormal_Internal(InflatedBox, QueryTM, PShape, PShapeWorldPose, OutNormal, bCanDrawOverlaps);
+					break;
+				}
+
+				case PxGeometryType::eSPHERE:
+				{
+					const PxSphereGeometry* InSphere = static_cast<const PxSphereGeometry*>(&Geom);
+					PxSphereGeometry InflatedSphere(InSphere->radius + Inflation);
+					bSuccess = FindOverlappedTriangleNormal_Internal(InflatedSphere, QueryTM, PShape, PShapeWorldPose, OutNormal, bCanDrawOverlaps);
+					break;
+				}
+
+				default:
+				{
+					// No inflation possible
+					break;
+				}
+			}
+		}
+	}
+
+	return bSuccess;
+}
+
+
 /** Util to convert an overlapped shape into a sweep hit result, returns whether it was a blocking hit. */
 static bool ConvertOverlappedShapeToImpactHit(const PxLocationHit& PHit, const FVector& StartLoc, const FVector& EndLoc, FHitResult& OutResult, const PxGeometry& Geom, const PxTransform& QueryTM, const PxFilterData& QueryFilter, bool bReturnPhysMat)
 {
@@ -665,7 +770,16 @@ static bool ConvertOverlappedShapeToImpactHit(const PxLocationHit& PHit, const F
 		}
 	}
 
-	// Zero-distance hits are often valid hits and we can extract the hit normal from a larger shape with MTD.
+#if DRAW_OVERLAPPING_TRIS
+	if (CVarShowInitialOverlaps.GetValueOnAnyThread() != 0 && GWorld->IsGameWorld())
+	{
+		FVector DummyNormal(0.f);
+		const PxTransform PShapeWorldPose = PxShapeExt::getGlobalPose(*PShape, *PActor);
+		FindOverlappedTriangleNormal(Geom, QueryTM, PShape, PShapeWorldPose, DummyNormal, 0.f, true);
+	}
+#endif
+
+	// Zero-distance hits are often valid hits and we can extract the hit normal.
 	// For invalid normals we can try other methods as well (get overlapping triangles).
 
 	if (PHit.distance == 0.f || !bValidNormal)
@@ -674,7 +788,7 @@ static bool ConvertOverlappedShapeToImpactHit(const PxLocationHit& PHit, const F
 
 		// Try MTD with a small inflation for better accuracy, then a larger one in case the first one fails due to precision issues.
 		static const float SmallMtdInflation = 0.250f;
-		static const float LargeMtdInflation = 2.500f;
+		static const float LargeMtdInflation = 1.750f;
 
 		if (ComputeInflatedMTD(SmallMtdInflation, PHit, OutResult, QueryTM, Geom, PShapeWorldPose) ||
 			ComputeInflatedMTD(LargeMtdInflation, PHit, OutResult, QueryTM, Geom, PShapeWorldPose))
@@ -683,35 +797,14 @@ static bool ConvertOverlappedShapeToImpactHit(const PxLocationHit& PHit, const F
 		}
 		else
 		{
-			PxTriangleMeshGeometry PTriMeshGeom;
-			PxHeightFieldGeometry PHeightfieldGeom;
-
-			if (PShape->getTriangleMeshGeometry(PTriMeshGeom) || PShape->getHeightFieldGeometry(PHeightfieldGeom))
+			static const float SmallOverlapInflation = 0.250f;
+			if (FindOverlappedTriangleNormal(Geom, QueryTM, PShape, PShapeWorldPose, OutResult.ImpactNormal, 0.f, false) ||
+				FindOverlappedTriangleNormal(Geom, QueryTM, PShape, PShapeWorldPose, OutResult.ImpactNormal, SmallOverlapInflation, false))
 			{
-				PxGeometryType::Enum GeometryType = PShape->getGeometryType();
-				const bool bIsTriMesh = (GeometryType == PxGeometryType::eTRIANGLEMESH);
-				PxU32 HitTris[64];
-				bool bOverflow = false;
-
-				const int32 NumTrisHit = bIsTriMesh ? PxMeshQuery::findOverlapTriangleMesh(Geom, QueryTM, PTriMeshGeom, PShapeWorldPose, HitTris, ARRAY_COUNT(HitTris), 0, bOverflow) :
-													  PxMeshQuery::findOverlapHeightField( Geom, QueryTM, PHeightfieldGeom, PShapeWorldPose, HitTris, ARRAY_COUNT(HitTris), 0, bOverflow);
-				if (NumTrisHit > 0)
-				{
-					if (bIsTriMesh)
-					{
-						OutResult.ImpactNormal = FindBestOverlappingNormal(Geom, QueryTM, PTriMeshGeom, PShapeWorldPose, HitTris, NumTrisHit);
-					}
-					else
-					{
-						OutResult.ImpactNormal = FindBestOverlappingNormal(Geom, QueryTM, PHeightfieldGeom, PShapeWorldPose, HitTris, NumTrisHit);
-					}
-
-				}
+				// Success
 			}
 			else
 			{
-				// Not a tri-mesh or heightfield
-
 				// MTD failed, use point distance. This is not ideal.
 				// Note: faceIndex seems to be unreliable for convex meshes in these cases, so not using FindGeomOpposingNormal() for them here.
 				PxGeometry& PGeom = PShape->getGeometry().any();

@@ -261,7 +261,7 @@ void ULineBatchComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 			if(Line.RemainingLifeTime <= 0.0f)
 			{
 				// The line has expired, remove it.
-				BatchedLines.RemoveAt(LineIndex--);
+				BatchedLines.RemoveAtSwap(LineIndex--);
 				bDirty = true;
 			}
 		}
@@ -277,7 +277,7 @@ void ULineBatchComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 			if(Pt.RemainingLifeTime <= 0.0f)
 			{
 				// The point has expired, remove it.
-				BatchedPoints.RemoveAt(PtIndex--);
+				BatchedPoints.RemoveAtSwap(PtIndex--);
 				bDirty = true;
 			}
 		}
@@ -293,7 +293,7 @@ void ULineBatchComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 			if(Mesh.RemainingLifeTime <= 0.0f)
 			{
 				// The mesh has expired, remove it.
-				BatchedMeshes.RemoveAt(MeshIndex--);
+				BatchedMeshes.RemoveAtSwap(MeshIndex--);
 				bDirty = true;
 			}
 		}
