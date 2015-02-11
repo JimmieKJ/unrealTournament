@@ -46,7 +46,7 @@ void ASampleGameMode::ScoreKill(AController* Killer, AController* Other, TSubcla
 		return;
 	}
 
-	ASamplePlayerState* KillerPlayerState = Cast<ASamplePlayerState>(Killer->PlayerState);
+	ASamplePlayerState* KillerPlayerState = Killer ? Cast<ASamplePlayerState>(Killer->PlayerState) : NULL;
 	if (KillerPlayerState)
 	{
 		int32 DamageIndex = KillerPlayerState->Score;
