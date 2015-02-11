@@ -71,6 +71,7 @@ public:
 	virtual void BeginInactiveState() override;
 	virtual void EndInactiveState() override;
 	virtual void SpectateKiller();
+	FTimerHandle SpectateKillerHandle;
 
 	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
 

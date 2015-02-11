@@ -1964,14 +1964,14 @@ void AUTPlayerController::BeginInactiveState()
 
 	AGameState const* const GameState = GetWorld()->GameState;
 
-	GetWorldTimerManager().SetTimer(this, &AUTPlayerController::SpectateKiller, KillerSpectateDelay);
+	GetWorldTimerManager().SetTimer(SpectateKillerHandle, this, &AUTPlayerController::SpectateKiller, KillerSpectateDelay);
 }
 
 void AUTPlayerController::EndInactiveState()
 {
 	Super::EndInactiveState();
 
-	GetWorldTimerManager().ClearTimer(this, &AUTPlayerController::SpectateKiller);
+	GetWorldTimerManager().ClearTimer(SpectateKillerHandle);
 }
 
 void AUTPlayerController::SpectateKiller()
