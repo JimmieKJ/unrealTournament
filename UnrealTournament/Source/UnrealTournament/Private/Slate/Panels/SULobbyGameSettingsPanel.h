@@ -131,6 +131,8 @@ protected:
 	TSharedRef<ITableRow> GenerateMapListWidget(TSharedPtr<FAllowedMapData> InItem, const TSharedRef<STableViewBase>& OwningList);
 	void OnMapListChanged(TSharedPtr<FAllowedMapData> SelectedItem, ESelectInfo::Type SelectInfo);
 
+	TSharedRef<SWidget> BuildELOBadgeForPlayer(TWeakObjectPtr<AUTPlayerState> PlayerState);
+
 };
 
 #endif

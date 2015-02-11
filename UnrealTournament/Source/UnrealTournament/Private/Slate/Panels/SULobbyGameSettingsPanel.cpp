@@ -59,7 +59,8 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 				+SOverlay::Slot()
 				[
 					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DarkBackground"))
+					//.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DarkBackground"))
+					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBar.Background"))
 				]
 
 				+SOverlay::Slot()
@@ -278,6 +279,7 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 					TSharedPtr<SWidget> Button;
 					TSharedPtr<SUTComboButton> ComboButton;
 					TSharedPtr<SImage> ReadyImage;
+
 					PlayerListBox->AddSlot()
 					[
 						SAssignNew(Button, SBox)
@@ -319,6 +321,22 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 											.Image(SUWindowsStyle::Get().GetBrush("UWindows.Match.ReadyImage"))
 											.Visibility(EVisibility::Hidden)
 										]
+										+SOverlay::Slot()
+										.VAlign(VAlign_Bottom)
+										.HAlign(HAlign_Center)
+										[
+											SNew(SHorizontalBox)
+											+SHorizontalBox::Slot()
+											.AutoWidth()
+											[
+												SNew(SVerticalBox)
+												+SVerticalBox::Slot()
+												.AutoHeight()
+												[
+													BuildELOBadgeForPlayer(MatchInfo->Players[i])
+												]
+											]
+										]
 									]
 								]
 								+SVerticalBox::Slot()
@@ -348,9 +366,45 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 		{
 			PlayerData[i].Get()->ComboButton->SetButtonStyle( !PS->bReadyToPlay ? &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.PlayerButton") : &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.ReadyPlayerButton") );
 			PlayerData[i].Get()->ReadyImage->SetVisibility( PS->bReadyToPlay ? EVisibility::Visible : EVisibility::Hidden);
+			if (PS->UniqueId == MatchInfo->OwnerId)
+			{
+				PlayerData[i].Get()->ReadyImage->SetVisibility( EVisibility::Visible);
+				PlayerData[i].Get()->ReadyImage->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Match.HostImage"));
+			}
 		}
 	}
 
+}
+
+TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildELOBadgeForPlayer(TWeakObjectPtr<AUTPlayerState> PlayerState)
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	if (PlayerOwner.IsValid() && MatchInfo.IsValid())
+	{
+		PlayerOwner->GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
+	}
+
+	FString BadgeStr = FString::Printf(TEXT("UT.Badge.%i"), Badge);
+	FString BadgeNumStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), Level+1);
+
+	return SNew(SBox) 
+		.WidthOverride(32)
+		.HeightOverride(32)
+		[
+			SNew(SOverlay)
+			+SOverlay::Slot()
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush(*BadgeStr))
+			]
+			+SOverlay::Slot()
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush(*BadgeNumStr))
+			]
+		];
 }
 
 TSharedRef<SWidget> SULobbyGameSettingsPanel::ConstructContents()

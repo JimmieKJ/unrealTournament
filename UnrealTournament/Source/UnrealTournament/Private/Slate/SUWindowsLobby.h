@@ -9,17 +9,18 @@
 
 
 #if !UE_SERVER
-class SUWindowsLobby : public SUInGameMenu
+class SUWindowsLobby : public SUTInGameMenu
 {
 
 protected:
 	
 	TSharedPtr<SButton> MatchButton;
-	virtual TSharedRef<SWidget> BuildMenuBar();
 
-	virtual void BuildTopBar();
-	virtual void BuildDesktop();
-	
+	virtual void SetInitialPanel();
+
+	virtual FText GetDisconnectButtonText() const;
+
+
 	FText GetMatchButtonText() const;
 	FString GetMatchCount() const;
 

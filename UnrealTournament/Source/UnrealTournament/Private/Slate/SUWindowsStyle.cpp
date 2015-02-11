@@ -103,6 +103,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("NewSchool.Background", new IMAGE_BRUSH( "NewSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("BadSchool.Background", new IMAGE_BRUSH( "BadSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UWindows.Match.ReadyImage", new IMAGE_BRUSH( "Match/UWindows.Match.ReadyImage", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UWindows.Match.HostImage", new IMAGE_BRUSH( "Match/UWindows.Match.HostImage", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("Testing.TestPortrait", new IMAGE_BRUSH( "Testing/Testing.TestPortrait", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("Testing.TestMapShot", new IMAGE_BRUSH( "Testing/Testing.TestMapShot", FVector2D(400.0f, 213.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
@@ -118,6 +119,20 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
+
+		Style.Set("UT.Badge.0", new IMAGE_BRUSH("Badges/Badge.0", Icon32x32));
+		Style.Set("UT.Badge.1", new IMAGE_BRUSH("Badges/Badge.1", Icon32x32));
+		Style.Set("UT.Badge.2", new IMAGE_BRUSH("Badges/Badge.2", Icon32x32));
+
+		Style.Set("UT.Badge.Numbers.1", new IMAGE_BRUSH("Badges/Badge.Numbers.1", Icon32x32));
+		Style.Set("UT.Badge.Numbers.2", new IMAGE_BRUSH("Badges/Badge.Numbers.2", Icon32x32));
+		Style.Set("UT.Badge.Numbers.3", new IMAGE_BRUSH("Badges/Badge.Numbers.3", Icon32x32));
+		Style.Set("UT.Badge.Numbers.4", new IMAGE_BRUSH("Badges/Badge.Numbers.4", Icon32x32));
+		Style.Set("UT.Badge.Numbers.5", new IMAGE_BRUSH("Badges/Badge.Numbers.5", Icon32x32));
+		Style.Set("UT.Badge.Numbers.6", new IMAGE_BRUSH("Badges/Badge.Numbers.6", Icon32x32));
+		Style.Set("UT.Badge.Numbers.7", new IMAGE_BRUSH("Badges/Badge.Numbers.7", Icon32x32));
+		Style.Set("UT.Badge.Numbers.8", new IMAGE_BRUSH("Badges/Badge.Numbers.8", Icon32x32));
+		Style.Set("UT.Badge.Numbers.9", new IMAGE_BRUSH("Badges/Badge.Numbers.9", Icon32x32));
 	}
 
 	{  // Icons
@@ -307,9 +322,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 	Style.Set("UWindows.Lobby.MatchBar.Button", FButtonStyle()
-		.SetNormal(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Normal", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
-		.SetHovered(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Hovered", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
-		.SetPressed(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Pressed", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+		.SetNormal(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHovered(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetPressed(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+//		.SetNormal(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Normal", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+//		.SetHovered(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Hovered", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
+//		.SetPressed(BOX_BRUSH("UWindows.Lobby.MatchBar.Button.Pressed", FMargin(12.0f / 64.0f, 8.0f / 32.0f, 5.0f / 64.0f, 8.0f / 32.0f)))
 		.SetDisabled(FSlateNoResource(FVector2D(128.0f, 128.0f)))
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)

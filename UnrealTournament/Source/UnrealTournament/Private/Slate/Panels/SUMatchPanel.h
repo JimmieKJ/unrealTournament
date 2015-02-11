@@ -35,9 +35,7 @@ protected:
 
 	// Used to store all of the attributes to be displayed.
 	TArray<TSharedPtr<TAttributePropertyBase>> DataStore;
-
-	TSharedPtr<SVerticalBox> BadgeBox;
-
+	
 	// Holds the match info associated with this match...
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo;
@@ -70,7 +68,7 @@ protected:
 	FText GetMatchBadgeText() const;
 
 	const FSlateBrush* GetELOBadgeImage() const;
-	FText GetELOBadgeText() const;
+	const FSlateBrush* GetELOBadgeNumberImage() const;
 };
 
 #endif

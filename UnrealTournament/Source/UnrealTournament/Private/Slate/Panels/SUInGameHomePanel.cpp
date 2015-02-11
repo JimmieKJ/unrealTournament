@@ -31,7 +31,8 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 			.FillHeight(1.0)
 			.HAlign(HAlign_Fill)
 			[
-				SNew(SCanvas)			// Create a widget to pass input to the scoreboard here!!!!
+				// Allow children to place things over chat....
+				SAssignNew(ChatArea,SOverlay)
 			]
 
 			+ SVerticalBox::Slot()
@@ -41,7 +42,7 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 				SNew(SOverlay)
 				+SOverlay::Slot()
 				[
-					SNew(SVerticalBox)
+					SAssignNew(MenuArea, SVerticalBox)
 					+SVerticalBox::Slot()
 					.AutoHeight()
 					[
@@ -157,11 +158,23 @@ TSharedRef<SWidget> SUInGameHomePanel::BuildChatDestinationsButton()
 			.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Chat36"))
 		];
 
-	TSharedPtr<SVerticalBox> ChatBox;
-	SAssignNew(ChatBox, SVerticalBox);
-	if (ChatBox.IsValid())
+	SAssignNew(ChatMenu, SVerticalBox);
+	if (ChatMenu.IsValid())
 	{
-		ChatBox->AddSlot()
+		BuildChatDestinationMenu();
+	}
+
+	ChatDestinationsButton->SetMenuContent(ChatMenu.ToSharedRef());
+	return ChatDestinationsButton.ToSharedRef();
+
+}
+
+void SUInGameHomePanel::BuildChatDestinationMenu()
+{
+	if (ChatMenu.IsValid())
+	{
+		ChatMenu->ClearChildren();
+		ChatMenu->AddSlot()
 		.AutoHeight()
 		[
 			SNew(SButton)
@@ -177,7 +190,7 @@ TSharedRef<SWidget> SUInGameHomePanel::BuildChatDestinationsButton()
 		{
 			if (GS->bTeamGame)
 			{
-				ChatBox->AddSlot()
+				ChatMenu->AddSlot()
 				.AutoHeight()
 				[
 					SNew(SButton)
@@ -191,7 +204,7 @@ TSharedRef<SWidget> SUInGameHomePanel::BuildChatDestinationsButton()
 
 			if (GS->bIsInstanceServer)
 			{
-				ChatBox->AddSlot()
+				ChatMenu->AddSlot()
 				.AutoHeight()
 				[
 					SNew(SButton)
@@ -205,7 +218,7 @@ TSharedRef<SWidget> SUInGameHomePanel::BuildChatDestinationsButton()
 
 			if (PlayerOwner->IsLoggedIn())
 			{
-				ChatBox->AddSlot()
+				ChatMenu->AddSlot()
 				.AutoHeight()
 				[
 					SNew(SButton)
@@ -218,9 +231,6 @@ TSharedRef<SWidget> SUInGameHomePanel::BuildChatDestinationsButton()
 			}
 		}
 	}
-
-	ChatDestinationsButton->SetMenuContent(ChatBox.ToSharedRef());
-	return ChatDestinationsButton.ToSharedRef();
 }
 
 FReply SUInGameHomePanel::ChangeChatDestination(TSharedPtr<SComboButton> Button, FName NewDestination)
@@ -251,10 +261,11 @@ void SUInGameHomePanel::OnHidePanel()
 
 FText SUInGameHomePanel::GetChatDestinationText() const
 {
-	if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Send to Team");
-	if (ChatDestination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Say in Game");
-	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper to Friends");
-	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Yell back to the Lobby");
+	if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","[Team]");
+	if (ChatDestination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","[Game]");
+	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","[Whisper]");
+	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","[HUB]");
+	if (ChatDestination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","[MATCH]");
 	
 	return NSLOCTEXT("Chat", "GlobalTag","Global Chat");
 }

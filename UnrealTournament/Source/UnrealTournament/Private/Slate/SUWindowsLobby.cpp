@@ -23,79 +23,23 @@
 
 #if !UE_SERVER
 
-void SUWindowsLobby::BuildTopBar()
+void SUWindowsLobby::SetInitialPanel()
 {
-	SUInGameMenu::BuildTopBar();
+	SAssignNew(HomePanel, SULobbyInfoPanel).PlayerOwner(PlayerOwner);
 
-	// Add the status text
-	if (TopOverlay.IsValid())
+	if (HomePanel.IsValid())
 	{
-		TopOverlay->AddSlot()
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.HAlign(HAlign_Fill)
-			.Padding(0,3,0,0)
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.HAlign(HAlign_Left)
-				.Padding(5,0,25,0)
-				[
-					SNew(STextBlock)
-					.Text(this, &SUWindowsLobby::GetMatchCount)
-					.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Status.TextStyle"))
-				]
-			]
-		];
+		ActivatePanel(HomePanel);
 	}
 }
 
-TSharedRef<SWidget> SUWindowsLobby::BuildMenuBar()
+
+FText SUWindowsLobby::GetDisconnectButtonText() const
 {
-	if (MenuBar.IsValid())
-	{
-
-		BuildInfoSubMenu();
-		BuildExitMatchSubMenu();
-		BuildServerBrowserSubMenu();
-		BuildOptionsSubMenu();
-
-		MenuBar->AddSlot()
-			.AutoWidth()
-			.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-			.HAlign(HAlign_Right)
-			.VAlign(VAlign_Fill)
-			[
-				SAssignNew(MatchButton,SButton)
-				.VAlign(VAlign_Center)
-				.OnClicked(this, &SUWindowsLobby::MatchButtonClicked)
-				.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button"))
-				[
-					SNew(STextBlock)
-					.Text(this, &SUWindowsLobby::GetMatchButtonText) //NSLOCTEXT("Gerneric","NewMatch","NEW MATCH"))
-					.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
-				]
-			];
-
-
-	}
-
-	return MenuBar.ToSharedRef();
+	return NSLOCTEXT("SUWindowsLobby","MenuBar_LeaveHUB","LEAVE HUB");
 }
 
-void SUWindowsLobby::BuildDesktop()
-{
-	if (!DesktopPanel.IsValid())
-	{
-		SAssignNew(DesktopPanel, SULobbyInfoPanel).PlayerOwner(PlayerOwner);
-	}
 
-	if (DesktopPanel.IsValid())
-	{
-		ActivatePanel(DesktopPanel);
-	}
-}
 
 FReply SUWindowsLobby::MatchButtonClicked()
 {

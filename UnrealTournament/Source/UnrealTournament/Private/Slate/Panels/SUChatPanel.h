@@ -8,23 +8,6 @@
 
 #if !UE_SERVER
 
-class FSimpleListData
-{
-public: 
-	FString DisplayText;
-	FLinearColor DisplayColor;
-
-	FSimpleListData(FString inDisplayText, FLinearColor inDisplayColor)
-		: DisplayText(inDisplayText)
-		, DisplayColor(inDisplayColor)
-	{
-	};
-
-	static TSharedRef<FSimpleListData> Make( FString inDisplayText, FLinearColor inDisplayColor)
-	{
-		return MakeShareable( new FSimpleListData( inDisplayText, inDisplayColor ) );
-	}
-};
 
 class SUChatPanel : public SUWPanel
 {

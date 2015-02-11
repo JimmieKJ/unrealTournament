@@ -4,6 +4,7 @@
 #include "Slate/SlateGameResources.h"
 #include "../SUWPanel.h"
 #include "../SUWindowsStyle.h"
+#include "SUInGameHomePanel.h"
 #include "SUMatchPanel.h"
 #include "UTLobbyMatchInfo.h"
 
@@ -27,11 +28,32 @@ public:
 	}
 };
 
-class SULobbyInfoPanel : public SUChatPanel
+class FPlayerData
 {
+public:
+	TWeakObjectPtr<AUTPlayerState> PlayerState;
+	
+	FPlayerData(AUTPlayerState* inPlayerState)
+	{
+		PlayerState = inPlayerState;
+	}
+
+	static TSharedRef<FPlayerData> Make(AUTPlayerState* inPlayerState)
+	{
+		return MakeShareable( new FPlayerData(inPlayerState));
+	}
+};
+
+
+
+class SULobbyInfoPanel : public SUInGameHomePanel
+{
+public:
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
 protected:
+
+	AUTPlayerState* GetOwnerPlayerState();
 
 	// Will be true if we are showing the match dock.  It will be set to false when the owner enters a match 
 	bool bShowingMatchDock;
@@ -41,9 +63,10 @@ protected:
 
 	TArray<TSharedPtr<FMatchData>> MatchData;
 	TSharedPtr<SHorizontalBox> MatchPanelDock;
-	virtual void BuildNonChatPanel();
-	virtual void BuildEmptyMatchMessage();
-	virtual void TickNonChatPanel(float DeltaTime);
+	
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+	
+	virtual TSharedRef<SWidget> BuildDefaultMatchMessage();
 
 	void OwnerCurrentMatchChanged(AUTLobbyPlayerState* LobbyPlayerState);
 	bool AlreadyTrackingMatch(AUTLobbyMatchInfo* TestMatch);
@@ -51,6 +74,32 @@ protected:
 
 	void ShowMatchSetupPanel();
 	void ShowMatchDock();
+
+	virtual void BuildChatDestinationMenu();
+
+	virtual void BuildMatchPanel();
+	virtual TSharedRef<SWidget> BuildMatchMenu();
+	virtual FReply MatchButtonClicked();
+
+	FText GetMatchButtonText() const;
+	FString GetMatchCount() const;
+
+	TSharedRef<SWidget> BuildChatArea();
+
+	TArray< TSharedPtr< FPlayerData > > UserList;
+
+	TSharedPtr<class SSplitter> Splitter;
+	TSharedPtr<class SRichTextBlock> ChatDisplay;
+	TSharedPtr<class SScrollBox> ChatScroller;
+	TSharedPtr<class SListView <TSharedPtr<FPlayerData>>> UserListView;
+	TSharedPtr<class SVerticalBox> MatchArea;
+
+	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FPlayerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
+
+	int32 LastChatCount;
+
+	virtual void UpdateUserList();
+	void UpdateChatText();
 
 };
 
