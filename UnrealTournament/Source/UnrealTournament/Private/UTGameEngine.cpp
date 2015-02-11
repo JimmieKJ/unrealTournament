@@ -178,6 +178,7 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 
 		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 
+		WorldContext.LastURL = URL;
 		// now remove "downloadfiles" options from LastURL so it doesn't get copied on to future URLs
 		WorldContext.LastURL.RemoveOption(TEXT("downloadfiles"));
 		

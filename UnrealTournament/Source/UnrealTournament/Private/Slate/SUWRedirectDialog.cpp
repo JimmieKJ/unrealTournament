@@ -200,6 +200,8 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 		if (HttpResponse.IsValid())
 		{
 			UE_LOG(UT, Warning, TEXT("HTTP Error: %d"), HttpResponse->GetResponseCode());
+			FString ErrorContent = HttpResponse->GetContentAsString();
+			UE_LOG(UT, Log, TEXT("%s"), *ErrorContent);
 		}
 		else
 		{

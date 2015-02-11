@@ -2224,7 +2224,7 @@ void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
 		if (UTEngine->FilesToDownload.Num() > 0)
 		{
 			// quit so we can download everything
-			UTEngine->SetClientTravel(GetWorld(), TEXT("?downloadfiles"), TRAVEL_Absolute);
+			UTEngine->SetClientTravel(GetWorld(), TEXT("?downloadfiles"), TRAVEL_Relative);
 		}
 	}
 }

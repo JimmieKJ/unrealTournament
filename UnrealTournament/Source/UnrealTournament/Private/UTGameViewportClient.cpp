@@ -40,6 +40,8 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 		if (UTEngine &&	!UTEngine->ContentDownloadCloudId.IsEmpty() && UTEngine->FilesToDownload.Num() > 0)
 		{
+			LastAttemptedURL = UTEngine->LastURLFromWorld(World);
+
 			TArray<FString> FileURLs;
 
 			for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
