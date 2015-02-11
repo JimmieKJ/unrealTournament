@@ -1108,7 +1108,7 @@ void UUTLocalPlayer::ShowContentLoadingMessage()
 							.HAlign(HAlign_Center)
 							[
 								SNew(STextBlock)
-								.Text(NSLOCTEXT("Loading","LoadingContent","Scanning for Custom Content..."))
+								.Text(NSLOCTEXT("MenuMessages","InitMenu","Initializing Menus"))
 								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 							]
 						]
