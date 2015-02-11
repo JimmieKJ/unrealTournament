@@ -21,12 +21,13 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	ProjectileMovement->Bounciness = 0.1f;
 	ProjectileMovement->Friction = 0.008f;
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 140.f;
+	ProjectileMovement->Buoyancy = 1.1f;
 
 	CollisionComp->bAbsoluteScale = true;
 	DamageParams.BaseDamage = 21.0f;
 
 	Momentum = 40000.0f;
-
+	MaxSpeedUnderWater = 3000.f;
 	SurfaceNormal = FVector(0.0f, 0.0f, 1.0f);
 	SurfaceType = EHitType::HIT_None;
 	SurfaceWallThreshold = 0.3f;
@@ -813,7 +814,13 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		return;
 	}
 
-	if (bTriggeringWeb)
+	APhysicsVolume* WaterVolume = Cast<APhysicsVolume>(OtherActor);
+	if (WaterVolume && WaterVolume->bWaterVolume)
+	{
+		ProjectileMovement->MaxSpeed = MaxSpeedUnderWater;
+	}
+
+	if (bTriggeringWeb || ShouldIgnoreHit(OtherActor, OtherComp))
 	{
 		return;
 	}

@@ -260,6 +260,10 @@ class AUTProj_BioShot : public AUTProjectile
 
 	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 
+	/** Max speed while underwater */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		float MaxSpeedUnderWater;
+
 	/** The target pawn being tracked */
 	UPROPERTY(BlueprintReadWrite, Category = Bio)
 	AUTCharacter* TrackedPawn;
