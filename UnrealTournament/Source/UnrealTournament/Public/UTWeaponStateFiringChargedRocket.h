@@ -55,13 +55,17 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 
 	virtual void LoadTimer()
 	{
+		if (!RocketLauncher)
+		{
+			return;
+		}
 		RocketLauncher->EndLoadRocket();
 
 		//If we are fully loaded or out of ammo start the grace timer
 		if (RocketLauncher->NumLoadedRockets >= RocketLauncher->MaxLoadedRockets || !RocketLauncher->HasAmmo(GetFireMode()))
 		{
 			// since ammo consumption is not locally simulated the client won't know if it needs to stop loading rockets early and thus we need to tell it
-			if (!GetUTOwner()->IsLocallyControlled() && GetWorld()->GetNetMode() != NM_Client)
+			if (GetUTOwner() && !GetUTOwner()->IsLocallyControlled() && GetWorld()->GetNetMode() != NM_Client)
 			{
 				RocketLauncher->ClientAbortLoad();
 			}
