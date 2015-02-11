@@ -1578,6 +1578,20 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 					{
 						return -5.f;
 					}
+					if (bTwoPlayerGame)
+					{
+						// avoid choosing starts near a pending start
+						if (UTPS->RespawnChoiceA)
+						{
+							float Dist = (UTPS->RespawnChoiceA->GetActorLocation() - StartLoc).Size();
+							Score -= 7.f * FMath::Max(0.f, (5000.f - Dist) / 5000.f);
+						}
+						if (UTPS->RespawnChoiceB)
+						{
+							float Dist = (UTPS->RespawnChoiceB->GetActorLocation() - StartLoc).Size();
+							Score -= 7.f * FMath::Max(0.f, (5000.f - Dist) / 5000.f);
+						}
+					}
 				}
 			}
 
