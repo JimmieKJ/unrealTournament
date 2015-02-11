@@ -3572,6 +3572,11 @@ void AUTCharacter::OnRepHat()
 			Hat->SetActorRelativeRotation(HatRelativeRotation);
 			Hat->SetActorRelativeLocation(HatRelativeLocation);
 			Hat->CosmeticWearer = this;
+
+			if (LeaderHat)
+			{
+				Hat->SetActorHiddenInGame(true);
+			}
 		}
 	}
 }
@@ -4089,6 +4094,48 @@ void AUTCharacter::OnRep_HasHighScore()
 	HasHighScoreChanged();
 }
 
+void AUTCharacter::HasHighScoreChanged_Implementation()
+{
+	if (bHasHighScore)
+	{
+		if (LeaderHatClass)
+		{
+			FActorSpawnParameters Params;
+			Params.Owner = this;
+			Params.Instigator = this;
+			Params.bNoCollisionFail = true;
+			Params.bNoFail = true;
+			LeaderHat = GetWorld()->SpawnActor<AUTHatLeader>(LeaderHatClass, GetActorLocation(), GetActorRotation(), Params);
+			if (LeaderHat != NULL)
+			{
+				FVector HatRelativeLocation = LeaderHat->GetRootComponent()->RelativeLocation;
+				FRotator HatRelativeRotation = LeaderHat->GetRootComponent()->RelativeRotation;
+				LeaderHat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
+				LeaderHat->SetActorRelativeRotation(HatRelativeRotation);
+				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
+				LeaderHat->CosmeticWearer = this;
+
+				if (Hat)
+				{
+					Hat->SetActorHiddenInGame(true);
+				}
+			}
+		}
+	}
+	else
+	{
+		if (LeaderHat)
+		{
+			LeaderHat->Destroy();
+			LeaderHat = nullptr;
+		}
+		if (Hat)
+		{
+			Hat->SetActorHiddenInGame(false);
+		}
+	}
+}
+
 void AUTCharacter::SetWalkMovementReduction(float InPct, float InDuration)
 {
 	WalkMovementReductionPct = (InDuration > 0.0f) ? InPct : 0.0f;
@@ -4103,7 +4150,19 @@ void AUTCharacter::OnRep_Invisible_Implementation()
 {
 	if (Hat)
 	{
-		Hat->SetActorHiddenInGame(bInvisible);
+		if (bInvisible)
+		{
+			Hat->SetActorHiddenInGame(bInvisible);
+		}
+		else if (!LeaderHat)
+		{
+			Hat->SetActorHiddenInGame(false);
+		}
+	}
+
+	if (LeaderHat)
+	{
+		LeaderHat->SetActorHiddenInGame(bInvisible);
 	}
 }
 

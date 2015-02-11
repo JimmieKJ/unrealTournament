@@ -5,6 +5,7 @@
 #include "UTCharacterMovement.h"
 #include "UTRecastNavMesh.h"
 #include "UTHat.h"
+#include "UTHatLeader.h"
 #include "UTEyewear.h"
 
 #include "UTCharacter.generated.h"
@@ -286,8 +287,14 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(replicatedUsing=OnRepHat)
 	TSubclassOf<AUTHat> HatClass;
 
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AUTHatLeader> LeaderHatClass;
+
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	AUTHat* Hat;
+
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	AUTHatLeader* LeaderHat;
 
 	UFUNCTION()
 	virtual void OnRepHat();
@@ -1305,9 +1312,9 @@ public:
 	UFUNCTION()
 	void OnRep_HasHighScore();
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintNativeEvent)
 	void HasHighScoreChanged();
-
+	
 	virtual void RecalculateBaseEyeHeight() override;
 
 	/** Returns offset to add to first person mesh for weapon bob. */

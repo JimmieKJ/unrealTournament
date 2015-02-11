@@ -265,14 +265,17 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 {
 	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
 	
-	AController* Controller = Cast<AController>(GetOwner());
-	if (Controller != NULL)
+	if (!HatClass->IsChildOf(AUTHatLeader::StaticClass()))
 	{
-		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-		if (Pawn != NULL)
+		AController* Controller = Cast<AController>(GetOwner());
+		if (Controller != NULL)
 		{
-			Pawn->HatClass = HatClass;
-			Pawn->OnRepHat();
+			AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+			if (Pawn != NULL)
+			{
+				Pawn->HatClass = HatClass;
+				Pawn->OnRepHat();
+			}
 		}
 	}
 }
