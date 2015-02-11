@@ -962,8 +962,8 @@ int32 UUTLocalPlayer::GetBaseELORank()
 
 	// Limit displayed Elo to 400 + 50 * number of matches played, except scaling to 100 * number of duels played if duels played > 10
 	float MaxElo = 400.f + 50.f * MatchCount + FMath::Max(0.f, float(DuelMatchesPlayed) - 10.f) * 50.f * FMath::Clamp((float(DuelMatchesPlayed)-10.f)/40.f, 0.f, 1.f);
-							
-	return (CurrentRating > 0.f) ? CurrentRating : 1000;
+		
+	return FMath::Min(CurrentRating, MaxElo);
 }
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
@@ -972,17 +972,17 @@ void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& 
 	if (EloRating  < 1750)
 	{
 		BadgeLevel = 0;
-		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 150.f, 1.f, 9.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 150.f, 0.f, 8.f);
 	}
 	else if (EloRating < 3550)
 	{
 		BadgeLevel = 1;
-		SubLevel = FMath::Clamp((float(EloRating) - 1750.f) / 200.f, 1.f, 9.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 1750.f) / 200.f, 0.f, 8.f);
 	}
 	else
 	{
 		BadgeLevel = 2;
-		SubLevel = FMath::Clamp((float(EloRating) - 3550.f) / 400.f, 1.f, 9.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 3550.f) / 400.f, 0.f, 8.f);
 	}
 }
 
