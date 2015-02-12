@@ -1369,7 +1369,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 			{
 				FVector ActorLocation = GetCapsuleComponent()->GetComponentLocation();
 				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 0.75f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());				
-				if (GetWorld()->SweepTest(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
+				if (IsInWater() || GetWorld()->SweepTest(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
 				{
 					bFeigningDeath = false;
 					PlayFeignDeath();
