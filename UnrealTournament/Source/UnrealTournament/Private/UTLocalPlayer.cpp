@@ -26,6 +26,8 @@
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "Base64.h"
+#include "UTGameEngine.h"
 
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
@@ -66,7 +68,7 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnReadUserFileCompleteDelegate = OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate_Handle(FOnReadUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadUserFileComplete));
 		OnWriteUserFileCompleteDelegate = OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate_Handle(FOnWriteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnWriteUserFileComplete));
 		OnDeleteUserFileCompleteDelegate = OnlineUserCloudInterface->AddOnDeleteUserFileCompleteDelegate_Handle(FOnDeleteUserFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnDeleteUserFileComplete));
-
+		OnEnumerateUserFilesCompleteDelegate = OnlineUserCloudInterface->AddOnEnumerateUserFilesCompleteDelegate_Handle(FOnEnumerateUserFilesCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEnumerateUserFilesComplete));
 	}
 
 	if (OnlineSessionInterface.IsValid())
@@ -562,11 +564,44 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	{
 		ReadELOFromCloud();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
+		ReadCloudFileListing();
 	}
 
 	for (int32 i=0; i< PlayerLoginStatusChangedListeners.Num(); i++)
 	{
 		PlayerLoginStatusChangedListeners[i].ExecuteIfBound(this, LoginStatus, UniqueID);
+	}
+}
+
+void UUTLocalPlayer::ReadCloudFileListing()
+{
+	if (OnlineUserCloudInterface.IsValid() && OnlineIdentityInterface.IsValid())
+	{
+		OnlineUserCloudInterface->EnumerateUserFiles(*OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()).Get());
+	}
+}
+
+void UUTLocalPlayer::OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId)
+{
+	UE_LOG(UT, Log, TEXT("OnEnumerateUserFilesComplete %d"), bWasSuccessful ? 1 : 0);
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine)
+	{
+		UTEngine->CloudContentChecksums.Empty();
+
+		if (OnlineUserCloudInterface.IsValid() && OnlineIdentityInterface.IsValid())
+		{
+			TArray<FCloudFileHeader> UserFiles;
+			OnlineUserCloudInterface->GetUserFileList(InUserId, UserFiles);
+			for (int32 i = 0; i < UserFiles.Num(); i++)
+			{
+				TArray<uint8> DecodedHash;
+				FBase64::Decode(UserFiles[i].Hash, DecodedHash);
+				FString Hash = BytesToHex(DecodedHash.GetData(), DecodedHash.Num());
+				UE_LOG(UT, Log, TEXT("%s %s"), *UserFiles[i].FileName, *Hash);
+				UTEngine->CloudContentChecksums.Add(FPaths::GetBaseFilename(UserFiles[i].FileName), Hash);
+			}
+		}		
 	}
 }
 

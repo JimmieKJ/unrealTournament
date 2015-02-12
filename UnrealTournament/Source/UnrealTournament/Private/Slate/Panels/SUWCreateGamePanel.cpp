@@ -8,6 +8,7 @@
 #include "UTLevelSummary.h"
 #include "UTMutator.h"
 #include "../SUWBotConfigDialog.h"
+#include "UTGameEngine.h"
 
 #if !UE_SERVER
 
@@ -865,10 +866,26 @@ FReply SUWCreateGamePanel::OfflineClick()
 }
 FReply SUWCreateGamePanel::HostClick()
 {
-	StartGame(DedicatedServerCheckBox->IsChecked() ? EServerStartMode::SERVER_Dedicated : EServerStartMode::SERVER_Listen);
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (!UTEngine->IsCloudAndLocalContentInSync())
+	{
+		PlayerOwner->ShowMessage(NSLOCTEXT("SUWCreateGamePanel", "CloudSyncErrorCaption", "Cloud Not Synced"), NSLOCTEXT("SUWCreateGamePanel", "CloudSyncErrorMsg", "Some files are not up to date on your cloud storage. Would you like to start anyway?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUWCreateGamePanel::CloudOutOfSyncResult));
+	}
+	else
+	{
+		StartGame(DedicatedServerCheckBox->IsChecked() ? EServerStartMode::SERVER_Dedicated : EServerStartMode::SERVER_Listen);
+	}
+
 	return FReply::Handled();
 }
 
+void SUWCreateGamePanel::CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		StartGame(DedicatedServerCheckBox->IsChecked() ? EServerStartMode::SERVER_Dedicated : EServerStartMode::SERVER_Listen);
+	}
+}
 
 FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 {

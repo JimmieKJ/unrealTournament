@@ -2021,7 +2021,7 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 	if (NewPlayer != LocalPC && PC && UTEngine)
 	{
 		PC->ClientRequireContentItemListBegin(CloudID);
-		for (auto It = UTEngine->MyContentCRCs.CreateConstIterator(); It; ++It)
+		for (auto It = UTEngine->LocalContentChecksums.CreateConstIterator(); It; ++It)
 		{
 			PC->ClientRequireContentItem(It.Key(), It.Value());
 		}

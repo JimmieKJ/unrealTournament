@@ -81,6 +81,7 @@ protected:
 	FReply GameSettingsClick();
 	FReply ServerSettingsClick();
 
+	virtual void CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{

@@ -67,11 +67,12 @@ class UUTGameEngine : public UGameEngine
 	/** Max prediction ping (used when negotiating with clients) */
 	float ServerMaxPredictionPing;
 
-	TMap<FString, uint32> DownloadedContentCRCs;
-	TMap<FString, uint32> MyContentCRCs;
+	TMap<FString, FString> DownloadedContentChecksums;
+	TMap<FString, FString> LocalContentChecksums;
+	TMap<FString, FString> CloudContentChecksums;
 
 	FString ContentDownloadCloudId;
-	TMap<FString, uint32> FilesToDownload;
+	TMap<FString, FString> FilesToDownload;
 
 	virtual void Init(IEngineLoop* InEngineLoop);
 	virtual void PreExit();
@@ -83,6 +84,9 @@ class UUTGameEngine : public UGameEngine
 	virtual void LoadDownloadedAssetRegistries();
 
 	virtual EBrowseReturnVal::Type Browse(FWorldContext& WorldContext, FURL URL, FString& Error) override;
+
+	FString MD5Sum(const TArray<uint8>& Data);
+	bool IsCloudAndLocalContentInSync();
 
 	virtual void SetupLoadingScreen();
 #define UT_LOADING_SCREEN_HOOK SetupLoadingScreen();

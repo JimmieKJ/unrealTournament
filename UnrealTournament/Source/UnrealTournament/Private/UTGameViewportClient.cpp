@@ -46,7 +46,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 			for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
 			{
-				if (UTEngine->DownloadedContentCRCs.Contains(It.Key()))
+				if (UTEngine->DownloadedContentChecksums.Contains(It.Key()))
 				{
 					FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads"), *It.Key()) + TEXT(".pak");
 
@@ -57,7 +57,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 					}
 
 					// Remove the CRC entry
-					UTEngine->DownloadedContentCRCs.Remove(It.Key());
+					UTEngine->DownloadedContentChecksums.Remove(It.Key());
 
 					// Delete the original file
 					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
@@ -307,14 +307,14 @@ void UUTGameViewportClient::CloudRedirectResult(TSharedPtr<SCompoundWidget> Widg
 		{
 			for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
 			{
-				if (!UTEngine->DownloadedContentCRCs.Contains(It.Key()))
+				if (!UTEngine->DownloadedContentChecksums.Contains(It.Key()))
 				{
 					// File failed to download at all.
 					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "DownloadFail", "Download Failed"), NSLOCTEXT("UTGameViewportClient", "DownloadFailMsg", "The download of cloud content failed."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
 					return;
 				}
 
-				if (UTEngine->DownloadedContentCRCs[It.Key()] != It.Value())
+				if (UTEngine->DownloadedContentChecksums[It.Key()] != It.Value())
 				{
 					// File was the wrong checksum.
 					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "WrongChecksum", "Checksum failed"), NSLOCTEXT("UTGameViewportClient", "WrongChecksumMsg", "The files downloaded from the cloud do not match the files the server is using."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));

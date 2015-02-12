@@ -182,11 +182,11 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 			FString FullFilePath = FPaths::Combine(*Path, *FPaths::GetCleanFilename(RedirectToURL));
 			bSucceeded = FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *FullFilePath);
 
-			uint32 CRC = FCrc::MemCrc32(HttpResponse->GetContent().GetData(), HttpResponse->GetContent().Num());
 			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 			if (UTEngine)
 			{
-				UTEngine->DownloadedContentCRCs.Add(FPaths::GetBaseFilename(RedirectToURL), CRC);
+				FString MD5 = UTEngine->MD5Sum(HttpResponse->GetContent());
+				UTEngine->DownloadedContentChecksums.Add(FPaths::GetBaseFilename(RedirectToURL), MD5);
 			}
 
 			if (FCoreDelegates::OnMountPak.IsBound())

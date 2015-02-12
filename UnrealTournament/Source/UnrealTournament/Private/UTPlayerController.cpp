@@ -2174,22 +2174,22 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 	}
 }
 
-void AUTPlayerController::ClientRequireContentItem_Implementation(const FString& PakFile, uint32 CRC)
+void AUTPlayerController::ClientRequireContentItem_Implementation(const FString& PakFile, const FString& MD5)
 {
 	bool bContentMatched = false;
 
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine)
 	{
-		if (UTEngine->MyContentCRCs.Contains(PakFile) && UTEngine->MyContentCRCs[PakFile] == CRC)
+		if (UTEngine->LocalContentChecksums.Contains(PakFile) && UTEngine->LocalContentChecksums[PakFile] == MD5)
 		{
 			UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s is my content"), *PakFile);
 			bContentMatched = true;
 		}
 
-		if (UTEngine->DownloadedContentCRCs.Contains(PakFile))
+		if (UTEngine->DownloadedContentChecksums.Contains(PakFile))
 		{
-			if (UTEngine->DownloadedContentCRCs[PakFile] == CRC)
+			if (UTEngine->DownloadedContentChecksums[PakFile] == MD5)
 			{
 				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded"), *PakFile);
 				bContentMatched = true;
@@ -2202,7 +2202,7 @@ void AUTPlayerController::ClientRequireContentItem_Implementation(const FString&
 
 		if (!bContentMatched)
 		{
-			UTEngine->FilesToDownload.Add(PakFile, CRC);
+			UTEngine->FilesToDownload.Add(PakFile, MD5);
 		}
 	}
 }

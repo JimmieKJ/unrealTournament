@@ -9,6 +9,7 @@
 #include "../Private/Slate/SUWDialog.h"
 #include "UTProfileSettings.h"
 #include "OnlinePresenceInterface.h"
+#include "Http.h"
 #include "UTLocalPlayer.generated.h"
 
 class SUWServerBrowser;
@@ -225,6 +226,7 @@ private:
 	FDelegateHandle OnLoginStatusChangedDelegate;
 	FDelegateHandle OnLogoutCompleteDelegate;
 
+	FDelegateHandle OnEnumerateUserFilesCompleteDelegate;
 	FDelegateHandle OnReadUserFileCompleteDelegate;
 	FDelegateHandle OnWriteUserFileCompleteDelegate;
 	FDelegateHandle OnDeleteUserFileCompleteDelegate;
@@ -254,6 +256,7 @@ protected:
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
+	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
 
 #if !UE_SERVER
 	TSharedPtr<class SUWDialog> HUDSettings;
@@ -279,6 +282,8 @@ private:
 
 	void ReadELOFromCloud();
 	void UpdateBaseELOFromCloudData();
+
+	void ReadCloudFileListing();
 public:
 
 	// Returns the filename for stats.

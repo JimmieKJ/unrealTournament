@@ -131,7 +131,7 @@ public:
 	virtual void ClientRequireContentItemListBegin(const FString& CloudId);
 
 	UFUNCTION(client, reliable)
-	virtual void ClientRequireContentItem(const FString& PakFile, uint32 CRC);
+	virtual void ClientRequireContentItem(const FString& PakFile, const FString& MD5);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListComplete();

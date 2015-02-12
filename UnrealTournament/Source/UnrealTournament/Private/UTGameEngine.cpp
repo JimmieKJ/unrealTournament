@@ -341,8 +341,8 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 			TArray<uint8> Data;
 			if (FFileHelper::LoadFileToArray(Data, *PakPath))
 			{
-				uint32 CRC32 = FCrc::MemCrc32(Data.GetData(), Data.Num());
-				DownloadedContentCRCs.Add(PakFilename, CRC32);
+				FString MD5 = MD5Sum(Data);
+				DownloadedContentChecksums.Add(PakFilename, MD5);
 			}
 		}
 
@@ -355,8 +355,8 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 			TArray<uint8> Data;
 			if (FFileHelper::LoadFileToArray(Data, *PakPath))
 			{
-				uint32 CRC32 = FCrc::MemCrc32(Data.GetData(), Data.Num());
-				MyContentCRCs.Add(PakFilename, CRC32);
+				FString MD5 = MD5Sum(Data);
+				LocalContentChecksums.Add(PakFilename, MD5);
 			}
 
 			FArrayReader SerializedAssetData;
@@ -396,4 +396,55 @@ void UUTGameEngine::SetupLoadingScreen()
 		FCoreUObjectDelegates::PreLoadMap.Broadcast();
 	}
 #endif
+}
+
+bool UUTGameEngine::IsCloudAndLocalContentInSync()
+{
+	bool bFoundFileInCloud = false;
+
+	for (auto LocalIt = LocalContentChecksums.CreateConstIterator(); LocalIt; ++LocalIt)
+	{
+		bFoundFileInCloud = false;
+		for (auto CloudIt = CloudContentChecksums.CreateConstIterator(); CloudIt; ++CloudIt)
+		{
+			if (CloudIt.Key() == LocalIt.Key())
+			{
+				if (CloudIt.Value() == LocalIt.Value())
+				{
+					bFoundFileInCloud = true;
+					UE_LOG(UT, Log, TEXT("%s is properly synced in the cloud"), *LocalIt.Key());
+				}
+				else
+				{
+					UE_LOG(UT, Log, TEXT("%s is on the cloud but out of date"), *LocalIt.Key());
+				}
+			}
+		}
+
+		if (!bFoundFileInCloud)
+		{
+			UE_LOG(UT, Log, TEXT("%s is not synced on the cloud"), *LocalIt.Key());
+			return false;
+		}
+	}
+
+	return true;
+}
+
+FString UUTGameEngine::MD5Sum(const TArray<uint8>& Data)
+{
+	uint8 Digest[16];
+
+	FMD5 Md5Gen;
+
+	Md5Gen.Update((uint8*)Data.GetData(), Data.Num());
+	Md5Gen.Final(Digest);
+
+	FString MD5;
+	for (int32 i = 0; i < 16; i++)
+	{
+		MD5 += FString::Printf(TEXT("%02x"), Digest[i]);
+	}
+
+	return MD5;
 }
