@@ -11,14 +11,22 @@ UCanvasRenderTarget2D::UCanvasRenderTarget2D( const FObjectInitializer& ObjectIn
 }
 
 void UCanvasRenderTarget2D::UpdateResource()
-{
-	// Call parent implementation
-	Super::UpdateResource();
-	
+{	
 	// Don't allocate canvas object for CRT2D CDO
-	if(IsTemplate())
+	// don't do anything on dedicated server
+	if (IsTemplate() || !FApp::CanEverRender())
 	{
 		return;
+	}
+
+	if (Resource == NULL)
+	{
+		// Create a new texture resource.
+		Resource = CreateResource();
+		if (Resource != NULL)
+		{
+			BeginInitResource(Resource);
+		}
 	}
 
 	// Create or find the canvas object to use to render onto the texture.  Multiple canvas render target textures can share the same canvas.
