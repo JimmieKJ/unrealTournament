@@ -511,12 +511,9 @@ void UK2Node_Variable::ReconstructNode()
 
 		if (!bRemappedProperty)
 		{
-			if (GetLinkerUE4Version() < VER_UE4_MOVEMENTCOMPONENT_UPDATEDSCENECOMPONENT)
-			{
-				static FName OldVariableName(TEXT("UpdatedComponent"));
-				static FName NewVariableName(TEXT("UpdatedPrimitive"));
-				bRemappedProperty = RemapRestrictedLinkReference(OldVariableName, NewVariableName, UMovementComponent::StaticClass(), UPrimitiveComponent::StaticClass(), true);
-			}
+			static FName OldVariableName(TEXT("UpdatedComponent"));
+			static FName NewVariableName(TEXT("UpdatedPrimitive"));
+			bRemappedProperty = RemapRestrictedLinkReference(OldVariableName, NewVariableName, UMovementComponent::StaticClass(), UPrimitiveComponent::StaticClass(), true);
 		}
 	}
 
