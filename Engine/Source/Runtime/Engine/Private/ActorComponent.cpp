@@ -139,7 +139,7 @@ void UActorComponent::PostLoad()
 
 	if (CreationMethod == EComponentCreationMethod::SimpleConstructionScript)
 	{
-		UBlueprintGeneratedClass* Class = CastChecked<UBlueprintGeneratedClass>(GetOuter()->GetClass());
+		UBlueprintGeneratedClass* Class = Cast/*Checked*/<UBlueprintGeneratedClass>(GetOuter()->GetClass());
 		while (Class)
 		{
 			USimpleConstructionScript* SCS = Class->SimpleConstructionScript;
@@ -422,7 +422,7 @@ bool UActorComponent::Modify( bool bAlwaysMarkDirty/*=true*/ )
 {
 	// If this is a construction script component we don't store them in the transaction buffer.  Instead, mark
 	// the Actor as modified so that we store of the transaction annotation that has the component properties stashed
-	if (IsCreatedByConstructionScript())
+	if (IsCreatedByConstructionScript() && GetOwner())
 	{
 		return GetOwner()->Modify(bAlwaysMarkDirty);
 	}
