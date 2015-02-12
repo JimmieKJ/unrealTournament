@@ -16,7 +16,14 @@ void UUTAIAction_TacticalMove::Started()
 	bFinalMove = false;
 	// TODO: originally this implemented a speed clamp for low skill bots... investigate
 
-	PickDestination();
+	if (GetEnemy() == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Bot %s in TacticalMove with no enemy"), *GetOuterAUTBot()->PlayerState->PlayerName);
+	}
+	else
+	{
+		PickDestination();
+	}
 }
 
 void UUTAIAction_TacticalMove::PickDestination()

@@ -2958,7 +2958,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 //		return UTVehicle(Pawn).Dodge(DCLICK_None);
 	//if (Pawn.bStationary)
 //		return false;
-	if (IsStopped())
+	if (IsStopped() && GetEnemy() != NULL)
 	{
 		StartNewAction(TacticalMoveAction);
 	}
