@@ -480,19 +480,6 @@ void ULinkerLoad::InvalidateExport(UObject* OldObject)
 	}
 }
 
-void ULinkerLoad::RefreshExportFlags(UObject* Object)
-{
-	ULinkerLoad* ObjectLinker = Object->GetLinker();
-	const int32 CachedLinkerIndex = Object->GetLinkerIndex();
-
-	if (ObjectLinker && ObjectLinker->ExportMap.IsValidIndex(CachedLinkerIndex))
-	{
-		FObjectExport& ObjExport = ObjectLinker->ExportMap[CachedLinkerIndex];
-		ObjExport.ObjectFlags = Object->GetMaskedFlags();
-	}
-}
-
-
 FName ULinkerLoad::FindSubobjectRedirectName(const FName& Name)
 {
 	FSubobjectRedirect *Redirect = SubobjectNameRedirects.Find(Name);
@@ -4243,6 +4230,25 @@ ULinkerLoad::ELinkerStatus ULinkerLoad::FixupExportMap()
 			FObjectExport &Export = ExportMap[ExportMapIdx];
 			FName NameClass = GetExportClassName(ExportMapIdx);
 			FName NamePackage = GetExportClassPackage(ExportMapIdx);
+
+			// ActorComponents outered to a BlueprintGeneratedClass need to be marked RF_Public, but older content was not created
+			// as such.  This updates the ExportTable such that they are correctly flagged when created and when other packages
+			// validate their imports
+			// TODO: Wrap this in a version check if possible. Mark up for future removal when minimum version is incremented
+			if ((Export.ObjectFlags & RF_Public) == 0)
+			{
+				static const FName NAME_BlueprintGeneratedClass("BlueprintGeneratedClass");
+				const FName OuterClassName = GetExportClassName(Export.OuterIndex);
+				if (OuterClassName == NAME_BlueprintGeneratedClass)
+				{
+					static const UClass* ActorComponentClass = FindObjectChecked<UClass>(ANY_PACKAGE, TEXT("ActorComponent"), true);
+					UClass* Class = FindObject<UClass>(ANY_PACKAGE, *NameClass.ToString());
+					if (Class && Class->IsChildOf(ActorComponentClass))
+					{
+						Export.ObjectFlags |= RF_Public;
+					}
+				}
+			}
 
 			{
 				FSubobjectRedirect *Redirect = SubobjectNameRedirects.Find(Export.ObjectName);

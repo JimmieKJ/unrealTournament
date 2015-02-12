@@ -1595,11 +1595,6 @@ public:
 	 */
 	COREUOBJECT_API static void InvalidateExport(UObject* OldObject);
 
-	/**
-	 * Updates the export table with an Object's object flags
-	 */
-	COREUOBJECT_API static void RefreshExportFlags(UObject* Object);
-
 	/** Used by Matinee to fixup component renaming */
 	COREUOBJECT_API static FName FindSubobjectRedirectName(const FName& Name);
 
