@@ -1342,7 +1342,7 @@ bool AUTPlayerController::CanRestartPlayer()
 
 void AUTPlayerController::BehindView(bool bWantBehindView)
 {
-	if (GetPawn() != NULL && !GetPawn()->bTearOff && !bAllowPlayingBehindView && GetNetMode() != NM_Standalone)
+	if (GetPawn() != NULL && !GetPawn()->bTearOff && !bAllowPlayingBehindView && GetNetMode() != NM_Standalone && (GetWorld()->WorldType != EWorldType::PIE))
 	{
 		bWantBehindView = false;
 	}
