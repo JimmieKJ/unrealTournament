@@ -115,7 +115,7 @@ void AUTGameSession::RegisterServer()
 				StartMatch();
 			}
 
-			TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 32));
+			TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, MaxPlayers));
 			if (OnlineGameSettings.IsValid() && UTGameMode)
 			{
 				InitHostBeacon(OnlineGameSettings.Get());
