@@ -942,6 +942,8 @@ public:
 	virtual bool IsEditorOnly() const override;
 	virtual bool ShouldCreatePhysicsState() const override;
 	virtual bool HasValidPhysicsState() const override;
+	virtual class FComponentInstanceDataBase* GetComponentInstanceData() const override;
+	virtual FName GetComponentInstanceDataType() const override;
 	// End UActorComponent Interface
 
 	/** @return true if the owner is selected and this component is selectable */
@@ -1624,4 +1626,21 @@ public:
 	void DispatchOnReleased();
 	void DispatchOnInputTouchBegin(const ETouchIndex::Type Key);
 	void DispatchOnInputTouchEnd(const ETouchIndex::Type Key);
+};
+
+/** 
+ *  Component instance cached data base class for primitive components. 
+ *  Stores a list of instance components attached to the 
+ */
+class ENGINE_API FPrimitiveComponentInstanceData : public FSceneComponentInstanceData
+{
+public:
+	FPrimitiveComponentInstanceData(const UPrimitiveComponent* SourceComponent);
+			
+	virtual ~FPrimitiveComponentInstanceData()
+	{}
+
+	virtual void ApplyToComponent(UActorComponent* Component) override;
+
+	bool ContainsData() const;
 };

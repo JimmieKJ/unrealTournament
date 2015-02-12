@@ -474,10 +474,10 @@ public:
 	virtual void PostNetReceive() { }
 
 	/** Called before we throw away components during RerunConstructionScripts, to cache any data we wish to persist across that operation */
-	virtual class FComponentInstanceDataBase* GetComponentInstanceData() const { return NULL; }
+	virtual class FComponentInstanceDataBase* GetComponentInstanceData() const;
 
 	/** The type of the component instance data that this component is interested in */
-	virtual FName GetComponentInstanceDataType() const { return NAME_None; }
+	virtual FName GetComponentInstanceDataType() const;
 
 	// Begin UObject interface.
 	virtual void BeginDestroy() override;

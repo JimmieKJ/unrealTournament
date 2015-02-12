@@ -551,6 +551,25 @@ void UActorComponent::UninitializeComponent()
 	bHasBeenInitialized = false;
 }
 
+FComponentInstanceDataBase* UActorComponent::GetComponentInstanceData() const
+{
+	FComponentInstanceDataBase* InstanceData = new FComponentInstanceDataBase(this);
+
+	if (!InstanceData->ContainsSavedProperties())
+	{
+		delete InstanceData;
+		InstanceData = nullptr;
+	}
+
+	return InstanceData;
+}
+
+FName UActorComponent::GetComponentInstanceDataType() const
+{
+	static const FName ActorComponentInstanceDataTypeName(TEXT("ActorComponentInstanceData"));
+	return ActorComponentInstanceDataTypeName;
+}
+
 void FActorComponentTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	if (Target && !Target->HasAnyFlags(RF_PendingKill | RF_Unreachable))

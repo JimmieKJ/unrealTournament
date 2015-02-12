@@ -28,6 +28,8 @@ public:
 	/** Replaces any references to old instances during Actor reinstancing */
 	virtual void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap) { };
 
+	bool ContainsSavedProperties() const { return SavedProperties.Num() > 0; }
+
 protected:
 	/** The name of the source component */
 	FName SourceComponentName;
