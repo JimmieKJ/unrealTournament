@@ -786,6 +786,7 @@ void AUTCTFGameMode::HandleEnteringOvertime()
 void AUTCTFGameMode::HandleEnteringSuddenDeath()
 {
 	BroadcastLocalized(this, UUTGameMessage::StaticClass(), 7, NULL, NULL, NULL);
+	CTFGameState->bPlayingAdvantage = false;
 }
 
 void AUTCTFGameMode::HandleSuddenDeath()
