@@ -216,7 +216,7 @@ void UChildActorComponent::CreateChildActor()
 void UChildActorComponent::DestroyChildActor()
 {
 	// If we own an Actor, kill it now
-	if(ChildActor != nullptr)
+	if(ChildActor != nullptr && !GExitPurge)
 	{
 		// if still alive, destroy, otherwise just clear the pointer
 		if(!ChildActor->IsPendingKill())
