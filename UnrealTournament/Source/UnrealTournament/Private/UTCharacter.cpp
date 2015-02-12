@@ -1217,6 +1217,24 @@ void AUTCharacter::PlayDying()
 		{
 			Hat->SetBodiesToSimulatePhysics();
 		}
+
+		Hat->SetLifeSpan(7.0f);
+	}
+
+	if (LeaderHat && LeaderHat->GetAttachParentActor())
+	{
+		LeaderHat->DetachRootComponentFromParent(true);
+
+		if (LastTakeHitInfo.DamageType->IsChildOf(UUTDmg_SniperHeadshot::StaticClass()))
+		{
+			LeaderHat->OnWearerHeadshot();
+		}
+		else
+		{
+			LeaderHat->SetBodiesToSimulatePhysics();
+		}
+
+		LeaderHat->SetLifeSpan(7.0f);
 	}
 
 	if (GetNetMode() != NM_DedicatedServer && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
@@ -1421,10 +1439,15 @@ void AUTCharacter::Destroyed()
 		HolsteredWeaponAttachment = NULL;
 	}
 
-	if (Hat != NULL)
+	if (Hat != nullptr && Hat->GetLifeSpan() == 0.0f)
 	{
 		Hat->Destroy();
 		Hat = NULL;
+	}
+	if (LeaderHat != nullptr && LeaderHat->GetLifeSpan() == 0.0f)
+	{
+		LeaderHat->Destroy();
+		LeaderHat = NULL;
 	}
 	if (Eyewear != NULL)
 	{
