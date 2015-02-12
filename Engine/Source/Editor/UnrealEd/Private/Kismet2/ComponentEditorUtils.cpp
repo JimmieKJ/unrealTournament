@@ -10,6 +10,12 @@
 #include "BlueprintEditorUtils.h"
 #include "Factories.h"
 #include "UnrealExporter.h"
+#include "GenericCommands.h"
+#include "SourceCodeNavigation.h"
+#include "ClassIconFinder.h"
+#include "AssetEditorManager.h"
+
+#define LOCTEXT_NAMESPACE "ComponentEditorUtils"
 
 // Text object factory for pasting components
 struct FComponentObjectTextFactory : public FCustomizableTextObjectFactory
@@ -112,7 +118,8 @@ bool FComponentEditorUtils::IsValidVariableNameString(const UActorComponent* InC
 	if(bIsValid && InComponent != NULL)
 	{
 		// Next test to make sure the string doesn't conflict with the format that MakeUniqueObjectName() generates
-		FString MakeUniqueObjectNamePrefix = FString::Printf(TEXT("%s_"), *InComponent->GetClass()->GetName());
+		const FString ClassNameThatWillBeUsedInGenerator = FBlueprintEditorUtils::GetClassNameWithoutSuffix(InComponent->GetClass());
+		const FString MakeUniqueObjectNamePrefix = FString::Printf(TEXT("%s_"), *ClassNameThatWillBeUsedInGenerator);
 		if(InString.StartsWith(MakeUniqueObjectNamePrefix))
 		{
 			bIsValid = !InString.Replace(*MakeUniqueObjectNamePrefix, TEXT("")).IsNumeric();
@@ -206,6 +213,31 @@ USceneComponent* FComponentEditorUtils::FindClosestParentInList(UActorComponent*
 	}
 
 	return ClosestParentComponent;
+}
+
+bool FComponentEditorUtils::CanCopyComponents(const TArray<UActorComponent*>& ComponentsToCopy)
+{
+	bool bCanCopy = ComponentsToCopy.Num() > 0;
+	if (bCanCopy)
+	{
+		for (int32 i = 0; i < ComponentsToCopy.Num() && bCanCopy; ++i)
+		{
+			// Check for the default scene root; that cannot be copied/duplicated
+			UActorComponent* Component = ComponentsToCopy[i];
+			bCanCopy = Component != nullptr && Component->GetFName() != USceneComponent::GetDefaultSceneRootVariableName();
+			if (bCanCopy)
+			{
+				UClass* ComponentClass = Component->GetClass();
+				check(ComponentClass != nullptr);
+
+				// Component class cannot be abstract and must also be tagged as BlueprintSpawnable
+				bCanCopy = !ComponentClass->HasAnyClassFlags(CLASS_Abstract)
+					&& ComponentClass->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent);
+			}
+		}
+	}
+
+	return bCanCopy;
 }
 
 void FComponentEditorUtils::CopyComponents(const TArray<UActorComponent*>& ComponentsToCopy)
@@ -322,10 +354,7 @@ void FComponentEditorUtils::PasteComponents(TArray<UActorComponent*>& OutPastedC
 				}
 			}
 
-			//So, if we're pasting a component that was the root, we want to attach keeping the world location
-			// Otherwise, we want to attach keeping the relative transform
-			// So how can we tell if a pasted component was a root?
-
+			//@todo: Fix pasting when the pasted component was a root
 			//NewSceneComponent->UpdateComponentToWorld();
 			if (NewComponentParent)
 			{
@@ -358,6 +387,23 @@ void FComponentEditorUtils::GetComponentsFromClipboard(TMap<FName, FName>& OutPa
 	// Return the created component mappings
 	OutParentMap = Factory->ParentMap;
 	OutNewObjectMap = Factory->NewObjectMap;
+}
+
+bool FComponentEditorUtils::CanDeleteComponents(const TArray<UActorComponent*>& ComponentsToDelete)
+{
+	bool bCanDelete = true;
+	for (auto ComponentToDelete : ComponentsToDelete)
+	{
+		// We can't delete non-instance components or the default scene root
+		if (ComponentToDelete->CreationMethod != EComponentCreationMethod::Instance 
+			|| ComponentToDelete->GetFName() == USceneComponent::GetDefaultSceneRootVariableName())
+		{
+			bCanDelete = false;
+			break;
+		}
+	}
+
+	return bCanDelete;
 }
 
 int32 FComponentEditorUtils::DeleteComponents(const TArray<UActorComponent*>& ComponentsToDelete, UActorComponent*& OutComponentToSelect)
@@ -443,22 +489,37 @@ UActorComponent* FComponentEditorUtils::DuplicateComponent(UActorComponent* Temp
 		FName NewComponentName = *FComponentEditorUtils::GenerateValidVariableName(ComponentClass, Actor);
 
 		bool bKeepWorldLocationOnAttach = false;
-		NewCloneComponent = ConstructObject<UActorComponent>(ComponentClass, Actor, NewComponentName, RF_Transactional, TemplateComponent);
+
+		const bool bTemplateTransactional = TemplateComponent->HasAllFlags(RF_Transactional);
+		TemplateComponent->SetFlags(RF_Transactional);
+
+		NewCloneComponent = DuplicateObject<UActorComponent>(TemplateComponent, Actor, *NewComponentName.ToString() );
 		
-		// ComponentToWorld is not a UPROPERTY, so make sure the clone has calculated it properly
-		NewCloneComponent->UpdateComponentToWorld();
-
-		// If the clone is a scene component without an attach parent, attach it to the root (can happen when duplicating the root component)
-		auto NewSceneComponent = Cast<USceneComponent>(NewCloneComponent);
-		if (NewSceneComponent && !NewSceneComponent->GetAttachParent())
+		if (!bTemplateTransactional)
 		{
-			USceneComponent* RootComponent = Actor->GetRootComponent();
-
-			// There should be no situation in which a scene component is duplicated when a root doesn't exist
-			check(RootComponent);
-
-			NewSceneComponent->AttachTo(RootComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+			TemplateComponent->ClearFlags(RF_Transactional);
 		}
+			
+		USceneComponent* NewSceneComponent = Cast<USceneComponent>(NewCloneComponent);
+		if (NewSceneComponent)
+		{
+			// Ensure the clone doesn't think it has children
+			NewSceneComponent->AttachChildren.Empty();
+
+			// If the clone is a scene component without an attach parent, attach it to the root (can happen when duplicating the root component)
+			if (!NewSceneComponent->GetAttachParent())
+			{
+				USceneComponent* RootComponent = Actor->GetRootComponent();
+				check(RootComponent);
+
+				// ComponentToWorld is not a UPROPERTY, so make sure the clone has calculated it properly before attachment
+				NewSceneComponent->UpdateComponentToWorld();
+
+				NewSceneComponent->AttachTo(RootComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+			}
+		}
+
+		NewCloneComponent->OnComponentCreated();
 
 		// Add to SerializedComponents array so it gets saved
 		Actor->AddInstanceComponent(NewCloneComponent);
@@ -539,7 +600,7 @@ bool FComponentEditorUtils::AttemptApplyMaterialToComponent(USceneComponent* Sce
 	if (MeshComponent || DecalComponent)
 	{
 		bResult = true;
-		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "DropTarget_UndoSetComponentMaterial", "Assign Material to Component (Drag and Drop)"));
+		const FScopedTransaction Transaction(LOCTEXT("DropTarget_UndoSetComponentMaterial", "Assign Material to Component (Drag and Drop)"));
 		SceneComponent->Modify();
 
 		if (MeshComponent)
@@ -623,3 +684,97 @@ FName FComponentEditorUtils::FindVariableNameGivenComponentInstance(UActorCompon
 
 	return NAME_None;
 }
+
+void FComponentEditorUtils::FillComponentContextMenuOptions(FMenuBuilder& MenuBuilder, const TArray<UActorComponent*>& SelectedComponents)
+{
+	// Basic commands
+	MenuBuilder.BeginSection("EditComponent", LOCTEXT("EditComponentHeading", "Edit"));
+	{
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Cut);
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Copy);
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Paste);
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Duplicate);
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete);
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Rename);
+	}
+	MenuBuilder.EndSection();
+
+	if (SelectedComponents.Num() == 1)
+	{
+		UActorComponent* Component = SelectedComponents[0];
+
+		if (Component->GetClass()->ClassGeneratedBy)
+		{
+			MenuBuilder.BeginSection("ComponentAsset", LOCTEXT("ComponentAssetHeading", "Asset"));
+			{
+				MenuBuilder.AddMenuEntry(
+					FText::Format(LOCTEXT("GoToBlueprintForComponent", "Edit {0}"), FText::FromString(Component->GetClass()->ClassGeneratedBy->GetName())),
+					LOCTEXT("EditBlueprintForComponent_ToolTip", "Edits the Blueprint Class that defines this component."),
+					FSlateIcon(FEditorStyle::GetStyleSetName(), FClassIconFinder::FindIconNameForClass(Component->GetClass())),
+					FUIAction(
+					FExecuteAction::CreateStatic(&FComponentEditorUtils::OnEditBlueprintComponent, Component->GetClass()->ClassGeneratedBy),
+					FCanExecuteAction()));
+
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("GoToAssetForComponent", "Find Class in Content Browser"),
+					LOCTEXT("GoToAssetForComponent_ToolTip", "Summons the content browser and goes to the class for this component."),
+					FSlateIcon(FEditorStyle::GetStyleSetName(), "SystemWideCommands.FindInContentBrowser"),
+					FUIAction(
+					FExecuteAction::CreateStatic(&FComponentEditorUtils::OnGoToComponentAssetInBrowser, Component->GetClass()->ClassGeneratedBy),
+					FCanExecuteAction()));
+			}
+			MenuBuilder.EndSection();
+		}
+		else
+		{
+			MenuBuilder.BeginSection("ComponentCode", LOCTEXT("ComponentCodeHeading", "C++"));
+			{
+				if (FSourceCodeNavigation::IsCompilerAvailable())
+				{
+					FString ClassHeaderPath;
+					if (FSourceCodeNavigation::FindClassHeaderPath(Component->GetClass(), ClassHeaderPath) && IFileManager::Get().FileSize(*ClassHeaderPath) != INDEX_NONE)
+					{
+						const FString CodeFileName = FPaths::GetCleanFilename(*ClassHeaderPath);
+
+						MenuBuilder.AddMenuEntry(
+							FText::Format(LOCTEXT("GoToCodeForComponent", "Open {0}"), FText::FromString(CodeFileName)),
+							FText::Format(LOCTEXT("GoToCodeForComponent_ToolTip", "Opens the header file for this component ({0}) in a code editing program"), FText::FromString(CodeFileName)),
+							FSlateIcon(),
+							FUIAction(
+							FExecuteAction::CreateStatic(&FComponentEditorUtils::OnOpenComponentCodeFile, ClassHeaderPath),
+							FCanExecuteAction()));
+					}
+
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("GoToAssetForComponent", "Find Class in Content Browser"),
+						LOCTEXT("GoToAssetForComponent_ToolTip", "Summons the content browser and goes to the class for this component."),
+						FSlateIcon(FEditorStyle::GetStyleSetName(), "SystemWideCommands.FindInContentBrowser"),
+						FUIAction(
+						FExecuteAction::CreateStatic(&FComponentEditorUtils::OnGoToComponentAssetInBrowser, (UObject*)Component->GetClass()),
+						FCanExecuteAction()));
+				}
+			}
+			MenuBuilder.EndSection();
+		}
+	}
+}
+
+void FComponentEditorUtils::OnGoToComponentAssetInBrowser(UObject* Asset)
+{
+	TArray<UObject*> Objects;
+	Objects.Add(Asset);
+	GEditor->SyncBrowserToObjects(Objects);
+}
+
+void FComponentEditorUtils::OnOpenComponentCodeFile(const FString CodeFileName)
+{
+	const FString AbsoluteHeaderPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*CodeFileName);
+	FSourceCodeNavigation::OpenSourceFile(AbsoluteHeaderPath);
+}
+
+void FComponentEditorUtils::OnEditBlueprintComponent(UObject* Blueprint)
+{
+	FAssetEditorManager::Get().OpenEditorForAsset(Blueprint);
+}
+
+#undef LOCTEXT_NAMESPACE

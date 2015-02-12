@@ -2202,14 +2202,20 @@ static void DispatchOnComponentsCreated(AActor* NewActor)
 	TInlineComponentArray<UActorComponent*> Components;
 	NewActor->GetComponents(Components);
 
-	for (int32 Idx = 0; Idx < Components.Num(); Idx++)
+	for (UActorComponent* ActorComp : Components)
 	{
-		UActorComponent* ActorComp = Components[Idx];
-		if (ActorComp != NULL)
+		if (ActorComp && !ActorComp->bHasBeenCreated)
 		{
 			ActorComp->OnComponentCreated();
 		}
 	}
+}
+
+void AActor::PostEditImport()
+{
+	Super::PostEditImport();
+
+	DispatchOnComponentsCreated(this);
 }
 
 void AActor::PostSpawnInitialize(FVector const& SpawnLocation, FRotator const& SpawnRotation, AActor* InOwner, APawn* InInstigator, bool bRemoteOwned, bool bNoFail, bool bDeferConstruction)

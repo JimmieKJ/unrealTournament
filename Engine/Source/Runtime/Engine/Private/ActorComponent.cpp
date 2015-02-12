@@ -468,7 +468,7 @@ void UActorComponent::PostEditUndo()
 	Super::PostEditUndo();
 }
 
-void UActorComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+void UActorComponent::ConsolidatedPostEditChange()
 {
 	FComponentReregisterContext* ReregisterContext = EditReregisterContexts.FindRef(this);
 	if(ReregisterContext)
@@ -481,13 +481,27 @@ void UActorComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	// Don't do do a full recreate in this situation, and instead simply detach.
 	if( IsPendingKill() )
 	{
-		// @todo UE4 james should this call UnregsiterComponent instead to remove itself from the RegisteteredComponents array on the owner?
+		// @todo UE4 james should this call UnregisterComponent instead to remove itself from the RegisteredComponents array on the owner?
 		ExecuteUnregisterEvents();
 		World = NULL;
 	}
+}
+
+void UActorComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	ConsolidatedPostEditChange();
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
+
+void UActorComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
+{
+	ConsolidatedPostEditChange();
+
+	Super::PostEditChangeChainProperty(PropertyChangedEvent);
+}
+
+
 #endif // WITH_EDITOR
 
 void UActorComponent::OnRegister()

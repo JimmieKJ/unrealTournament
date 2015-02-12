@@ -299,7 +299,10 @@ void AActor::PreEditUndo()
 
 	for (UChildActorComponent* ChildActorComponent : ChildActorComponents)
 	{
-		ChildActorComponent->DestroyChildActor();
+		if (ChildActorComponent->IsCreatedByConstructionScript())
+		{
+			ChildActorComponent->DestroyChildActor();
+		}
 	}
 
 	Super::PreEditUndo();

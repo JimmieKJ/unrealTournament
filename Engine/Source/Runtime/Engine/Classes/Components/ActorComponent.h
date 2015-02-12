@@ -231,6 +231,8 @@ private:
 	/** Calls OnRegister, CreateRenderState_Concurrent and CreatePhysicsState. */
 	void ExecuteRegisterEvents();
 
+	/* Utility function for each of the PostEditChange variations to call for the same behavior */
+	void ConsolidatedPostEditChange();
 protected:
 
 	friend class FComponentReregisterContextBase;
@@ -492,6 +494,7 @@ public:
 	virtual bool Modify( bool bAlwaysMarkDirty = true ) override;
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeChainProperty( FPropertyChangedChainEvent& PropertyChangedEvent ) override;
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
 	// End UObject interface.

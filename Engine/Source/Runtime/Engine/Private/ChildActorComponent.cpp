@@ -26,6 +26,21 @@ void UChildActorComponent::OnRegister()
 	}
 }
 
+#if WITH_EDITOR
+void UChildActorComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	static const FName NAME_ChildActorClass = GET_MEMBER_NAME_CHECKED(UChildActorComponent, ChildActorClass);
+
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == NAME_ChildActorClass)
+	{
+		DestroyChildActor();
+		CreateChildActor();
+	}
+}
+#endif
+
 void UChildActorComponent::OnComponentCreated()
 {
 	Super::OnComponentCreated();
@@ -190,7 +205,10 @@ void UChildActorComponent::CreateChildActor()
 				Params.bAllowDuringConstructionScript = true;
 				Params.OverrideLevel = GetOwner()->GetLevel();
 				Params.Name = ChildActorName;
-				Params.ObjectFlags &= ~RF_Transactional;
+				if (!HasAllFlags(RF_Transactional))
+				{
+					Params.ObjectFlags &= ~RF_Transactional;
+				}
 
 				// Spawn actor of desired class
 				FVector Location = GetComponentLocation();
@@ -204,6 +222,8 @@ void UChildActorComponent::CreateChildActor()
 
 					// Remember which actor spawned it (for selection in editor etc)
 					ChildActor->ParentComponentActor = GetOwner();
+
+					ChildActor->AttachRootComponentTo(this);
 
 					// Parts that we deferred from SpawnActor
 					ChildActor->FinishSpawning(ComponentToWorld);
