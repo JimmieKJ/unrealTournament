@@ -97,6 +97,9 @@ public:
 	/** Ensures that all nodes in the SCS have valid names for compilation/replication */
 	ENGINE_API void ValidateNodeVariableNames(class FCompilerResultsLog& MessageLog);
 
+	/** Ensures that all nodes in the SCS have valid templates */
+	ENGINE_API void ValidateNodeTemplates(class FCompilerResultsLog& MessageLog);
+
 	/** Called by the SCS editor to clear all SCS editor component references */
 	ENGINE_API void ClearEditorComponentReferences();
 

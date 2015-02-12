@@ -568,6 +568,9 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 	// Create a class property for any simple-construction-script created components that should be exposed
 	if (Blueprint->SimpleConstructionScript != NULL)
 	{
+		// Ensure that nodes have valid templates (This will remove nodes that have had the classes the inherited from removed
+		Blueprint->SimpleConstructionScript->ValidateNodeTemplates(MessageLog);
+
 		// Ensure that variable names are valid and that there are no collisions with a parent class
 		Blueprint->SimpleConstructionScript->ValidateNodeVariableNames(MessageLog);
 

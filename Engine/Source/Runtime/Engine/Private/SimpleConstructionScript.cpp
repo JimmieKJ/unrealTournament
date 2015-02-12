@@ -148,22 +148,10 @@ void USimpleConstructionScript::PreloadChain()
 void USimpleConstructionScript::PostLoad()
 {
 	Super::PostLoad();
-
+	
 	int32 NodeIndex;
 	TArray<USCS_Node*> Nodes = GetAllNodes();
-
-	if (GetLinkerUE4Version() < VER_UE4_REMOVE_INPUT_COMPONENTS_FROM_BLUEPRINTS)
-	{
-		for (NodeIndex=0; NodeIndex < Nodes.Num(); ++NodeIndex)
-		{
-			USCS_Node* Node = Nodes[NodeIndex];
-			if (!Node->bIsNative_DEPRECATED && Node->ComponentTemplate->IsA<UInputComponent>())
-			{
-				RemoveNodeAndPromoteChildren(Node);
-			}
-		}
-	}
-
+	
 #if WITH_EDITOR
 	// Get the Blueprint that owns the SCS
 	UBlueprint* Blueprint = GetBlueprint();
@@ -858,6 +846,31 @@ void USimpleConstructionScript::ValidateNodeVariableNames(FCompilerResultsLog& M
 
 				MessageLog.Warning(*FString::Printf(TEXT("Found a component variable with a conflicting name (%s) - changed to %s."), *OldName.ToString(), *Node->VariableName.ToString()));
 			}
+		}
+	}
+}
+
+void USimpleConstructionScript::ValidateNodeTemplates(FCompilerResultsLog& MessageLog)
+{
+	int32 NodeIndex;
+	TArray<USCS_Node*> Nodes = GetAllNodes();
+
+	for (NodeIndex = 0; NodeIndex < Nodes.Num(); ++NodeIndex)
+	{
+		USCS_Node* Node = Nodes[NodeIndex];
+
+		if (GetLinkerUE4Version() < VER_UE4_REMOVE_INPUT_COMPONENTS_FROM_BLUEPRINTS)
+		{
+			if (!Node->bIsNative_DEPRECATED && Node->ComponentTemplate->IsA<UInputComponent>())
+			{
+				RemoveNodeAndPromoteChildren(Node);
+			}
+		}
+
+		// Couldn't find the template the Blueprint or C++ class must have been deleted out from under us
+		if (Node->ComponentTemplate == nullptr)
+		{
+			RemoveNodeAndPromoteChildren(Node);
 		}
 	}
 }
