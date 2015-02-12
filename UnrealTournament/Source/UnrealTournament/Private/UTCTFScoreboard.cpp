@@ -37,6 +37,8 @@ void UUTCTFScoreboard::Draw_Implementation(float DeltaTime)
 		float YOffset = 0.0f;
 		DrawGamePanel(DeltaTime, YOffset);
 		DrawScoringPlays(DeltaTime, YOffset);
+		YOffset = 936.0f;
+		DrawServerPanel(DeltaTime, YOffset);
 	}
 	else
 	{
@@ -286,7 +288,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				Canvas->SetLinearDrawColor(FLinearColor::White);
 
 				YPos += YL * 0.25f;
-				if (YPos >= Canvas->ClipY)
+				if (YPos >= 775.0f)
 				{
 					// TODO: pagination
 					break;
