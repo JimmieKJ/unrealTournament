@@ -5,25 +5,32 @@
 class UActorComponent;
 class AActor;
 
+/** At what point in the rerun construction script process is ApplyToActor being called for */
+enum class ECacheApplyPhase
+{
+	PostSimpleConstructionScript,	// After the simple construction script has been run
+	PostUserConstructionScript,		// After the user construction script has been run
+};
+
 /** Base class for component instance cached data of a particular type. */
-class ENGINE_API FComponentInstanceDataBase
+class ENGINE_API FActorComponentInstanceData
 {
 public:
-	FComponentInstanceDataBase()
+	FActorComponentInstanceData()
 		: SourceComponentClass(nullptr)
 		, SourceComponentTypeSerializedIndex(-1)
 	{}
 
-	FComponentInstanceDataBase(const UActorComponent* SourceComponent);
+	FActorComponentInstanceData(const UActorComponent* SourceComponent);
 
-	virtual ~FComponentInstanceDataBase()
+	virtual ~FActorComponentInstanceData()
 	{}
 
 	/** Determines whether this component instance data matches the component */
 	bool MatchesComponent(const UActorComponent* Component) const;
 
 	/** Applies this component instance data to the supplied component */
-	virtual void ApplyToComponent(UActorComponent* Component);
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase);
 
 	/** Replaces any references to old instances during Actor reinstancing */
 	virtual void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap) { };
@@ -51,6 +58,7 @@ protected:
 class ENGINE_API FComponentInstanceDataCache
 {
 public:
+
 	FComponentInstanceDataCache() {}
 
 	/** Constructor that also populates cache from Actor */
@@ -59,7 +67,7 @@ public:
 	~FComponentInstanceDataCache();
 
 	/** Iterates over an Actor's components and applies the stored component instance data to each */
-	void ApplyToActor(AActor* Actor) const;
+	void ApplyToActor(AActor* Actor, const ECacheApplyPhase CacheApplyPhase) const;
 
 	/** Iterates over components and replaces any object references with the reinstanced information */
 	void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
@@ -68,7 +76,7 @@ public:
 
 private:
 	/** Map of data type name to data of that type */
-	TMultiMap< FName, FComponentInstanceDataBase* >	TypeToDataMap;
+	TMultiMap< FName, FActorComponentInstanceData* >	TypeToDataMap;
 
 	TMap< USceneComponent*, FTransform > InstanceComponentTransformToRootMap;
 };

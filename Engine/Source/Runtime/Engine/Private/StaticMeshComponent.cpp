@@ -33,9 +33,9 @@ public:
 	{
 	}
 
-	virtual void ApplyToComponent(UActorComponent* Component) override
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
 	{
-		FSceneComponentInstanceData::ApplyToComponent(Component);
+		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
 		CastChecked<UStaticMeshComponent>(Component)->ApplyComponentInstanceData(this);
 	}
 
@@ -1532,7 +1532,7 @@ FName UStaticMeshComponent::GetComponentInstanceDataType() const
 	return StaticMeshComponentInstanceDataName;
 }
 
-FComponentInstanceDataBase* UStaticMeshComponent::GetComponentInstanceData() const
+FActorComponentInstanceData* UStaticMeshComponent::GetComponentInstanceData() const
 {
 	FStaticMeshComponentInstanceData* StaticMeshInstanceData = nullptr;
 

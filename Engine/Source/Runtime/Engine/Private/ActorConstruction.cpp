@@ -472,7 +472,7 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 			// If we passed in cached data, we apply it now, so that the UserConstructionScript can use the updated values
 			if(InstanceDataCache)
 			{
-				InstanceDataCache->ApplyToActor(this);
+				InstanceDataCache->ApplyToActor(this, ECacheApplyPhase::PostSimpleConstructionScript);
 			}
 
 #if WITH_EDITOR
@@ -492,7 +492,7 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 			// @TODO Don't re-apply to components we already applied to above
 			if (InstanceDataCache)
 			{
-				InstanceDataCache->ApplyToActor(this);
+				InstanceDataCache->ApplyToActor(this, ECacheApplyPhase::PostUserConstructionScript);
 			}
 		}
 		else

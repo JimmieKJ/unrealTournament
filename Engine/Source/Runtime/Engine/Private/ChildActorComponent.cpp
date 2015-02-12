@@ -86,9 +86,9 @@ public:
 		}
 	}
 
-	virtual void ApplyToComponent(UActorComponent* Component) override
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
 	{
-		FSceneComponentInstanceData::ApplyToComponent(Component);
+		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
 		CastChecked<UChildActorComponent>(Component)->ApplyComponentInstanceData(this);
 	}
 
@@ -110,7 +110,7 @@ FName UChildActorComponent::GetComponentInstanceDataType() const
 	return ChildActorComponentInstanceDataName;
 }
 
-FComponentInstanceDataBase* UChildActorComponent::GetComponentInstanceData() const
+FActorComponentInstanceData* UChildActorComponent::GetComponentInstanceData() const
 {
 	FChildActorComponentInstanceData* InstanceData = CachedInstanceData;
 

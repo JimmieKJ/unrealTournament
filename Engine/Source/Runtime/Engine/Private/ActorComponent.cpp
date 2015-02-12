@@ -553,9 +553,9 @@ void UActorComponent::UninitializeComponent()
 	bHasBeenInitialized = false;
 }
 
-FComponentInstanceDataBase* UActorComponent::GetComponentInstanceData() const
+FActorComponentInstanceData* UActorComponent::GetComponentInstanceData() const
 {
-	FComponentInstanceDataBase* InstanceData = new FComponentInstanceDataBase(this);
+	FActorComponentInstanceData* InstanceData = new FActorComponentInstanceData(this);
 
 	if (!InstanceData->ContainsSavedProperties())
 	{

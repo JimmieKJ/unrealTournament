@@ -869,9 +869,9 @@ public:
 		, bPrecomputedLightingIsValid(SourceComponent->bPrecomputedLightingIsValid)
 	{}
 
-	virtual void ApplyToComponent(UActorComponent* Component) override
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
 	{
-		FSceneComponentInstanceData::ApplyToComponent(Component);
+		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
 		CastChecked<ULightComponent>(Component)->ApplyComponentInstanceData(this);
 	}
 
@@ -888,7 +888,7 @@ FName ULightComponent::GetComponentInstanceDataType() const
 	return PrecomputedLightInstanceDataTypeName;
 }
 
-FComponentInstanceDataBase* ULightComponent::GetComponentInstanceData() const
+FActorComponentInstanceData* ULightComponent::GetComponentInstanceData() const
 {
 	// Allocate new struct for holding light map data
 	return new FPrecomputedLightInstanceData(this);

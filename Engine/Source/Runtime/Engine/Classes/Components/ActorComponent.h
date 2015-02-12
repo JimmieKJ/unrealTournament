@@ -476,7 +476,7 @@ public:
 	virtual void PostNetReceive() { }
 
 	/** Called before we throw away components during RerunConstructionScripts, to cache any data we wish to persist across that operation */
-	virtual class FComponentInstanceDataBase* GetComponentInstanceData() const;
+	virtual class FActorComponentInstanceData* GetComponentInstanceData() const;
 
 	/** The type of the component instance data that this component is interested in */
 	virtual FName GetComponentInstanceDataType() const;

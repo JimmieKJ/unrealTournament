@@ -705,9 +705,9 @@ public:
 	virtual ~FAtmospherePrecomputeInstanceData()
 	{}
 
-	virtual void ApplyToComponent(UActorComponent* Component) override
+	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
 	{
-		FSceneComponentInstanceData::ApplyToComponent(Component);
+		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
 		CastChecked<UAtmosphericFogComponent>(Component)->ApplyComponentInstanceData(this);
 	}
 
@@ -725,9 +725,9 @@ FName UAtmosphericFogComponent::GetComponentInstanceDataType() const
 }
 
 // Backup the precomputed data before re-running Blueprint construction script
-FComponentInstanceDataBase* UAtmosphericFogComponent::GetComponentInstanceData() const
+FActorComponentInstanceData* UAtmosphericFogComponent::GetComponentInstanceData() const
 {
-	FComponentInstanceDataBase* InstanceData = nullptr;
+	FActorComponentInstanceData* InstanceData = nullptr;
 
 	if (TransmittanceData.GetElementCount() && IrradianceData.GetElementCount() && InscatterData.GetElementCount() && PrecomputeCounter.GetValue() == EValid)
 	{
