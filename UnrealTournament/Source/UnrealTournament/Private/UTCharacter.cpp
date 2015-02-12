@@ -487,7 +487,12 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 				{
 					ShotInstigator->HeadShotBlocked();
 				}
-				bHeadShot = false;
+
+				// @TODO FIXMESTEVE - hack - need more elegant way of keeping headshots w/ udamage
+				if (!ShotInstigator || (ShotInstigator->DamageScaling < 2.f))
+				{
+					bHeadShot = false;
+				}
 				break;
 			}
 		}
@@ -3209,6 +3214,7 @@ void AUTCharacter::StartDriving(APawn* Vehicle)
 	if (GetCharacterMovement() != nullptr)
 	{
 		GetCharacterMovement()->StopActiveMovement();
+		GetCharacterMovement()->bRunPhysicsWithNoController = true;
 	}
 }
 
