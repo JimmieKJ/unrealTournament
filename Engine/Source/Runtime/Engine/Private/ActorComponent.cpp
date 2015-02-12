@@ -157,7 +157,18 @@ void UActorComponent::PostLoad()
 			}
 		}
 	}
+// 	if (!HasAllFlags(RF_Public) && GetOuter()->IsA<UBlueprintGeneratedClass>())
+// 	{
+// 		SetFlags(RF_Public);
+// 		ULinkerLoad::RefreshExportFlags(this);
+// 	}
+}
 
+void UActorComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	// Fixup older blueprints that were private but now need to be public
 	if (!HasAllFlags(RF_Public) && GetOuter()->IsA<UBlueprintGeneratedClass>())
 	{
 		SetFlags(RF_Public);
