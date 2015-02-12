@@ -1337,7 +1337,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 
 bool AUTPlayerController::CanRestartPlayer()
 {
-	return Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f && (bShortConnectTimeOut || GetWorld()->TimeSeconds - CreationTime > 15.0f);
+	return Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f && (bShortConnectTimeOut || GetWorld()->TimeSeconds - CreationTime > 15.0f ||(GetNetMode() == NM_Standalone));
 }
 
 void AUTPlayerController::BehindView(bool bWantBehindView)
