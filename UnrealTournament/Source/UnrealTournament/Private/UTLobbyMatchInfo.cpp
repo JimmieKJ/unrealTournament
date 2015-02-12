@@ -44,8 +44,9 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchBadge);
 	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MaxPlayers);
-	DOREPLIFETIME(AUTLobbyMatchInfo, bJoinAnytime)
-	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable)
+	DOREPLIFETIME(AUTLobbyMatchInfo, bJoinAnytime);
+	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable);
+	DOREPLIFETIME(AUTLobbyMatchInfo, RankCeiling);
 
 }
 
@@ -56,6 +57,7 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 	MinPlayers = 2; // TODO: This should be pulled from the game type at some point
 
 	MatchBadge = TEXT("Loading...");
+	UpdateBadgeForNewGameMode();
 }
 
 bool AUTLobbyMatchInfo::CheckLobbyGameState()
@@ -81,14 +83,7 @@ void AUTLobbyMatchInfo::UpdateGameMode()
 	}
 	else
 	{
-#if !UE_SERVER
-		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
-		if (DefaultGame && CurrentState == ELobbyMatchState::WaitingForPlayers)
-		{
-			MatchBadge = DefaultGame->GetHUBPregameFormatString();
-		}
-#endif
-
+		UpdateBadgeForNewGameMode();
 	}
 }
 
@@ -492,7 +487,7 @@ bool AUTLobbyMatchInfo::IsInProgress()
 
 bool AUTLobbyMatchInfo::ShouldShowInDock()
 {
-	return CurrentState == ELobbyMatchState::InProgress || CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers;
+	return OwnerId.IsValid() && (Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && (CurrentState == ELobbyMatchState::InProgress || CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers);
 }
 
 bool AUTLobbyMatchInfo::ServerSetLobbyMatchState_Validate(FName NewMatchState) { return true; }
@@ -543,4 +538,46 @@ bool AUTLobbyMatchInfo::ServerSetAllowSpectating_Validate(bool bAllow) { return 
 void AUTLobbyMatchInfo::ServerSetAllowSpectating_Implementation(bool bAllow)
 {
 	bSpectatable = bAllow;
+}
+
+bool AUTLobbyMatchInfo::ServerSetRankCeiling_Validate(int32 NewRankCeiling) { return true; }
+void AUTLobbyMatchInfo::ServerSetRankCeiling_Implementation(int32 NewRankCeiling)
+{
+	RankCeiling = NewRankCeiling;
+}
+
+
+
+FText AUTLobbyMatchInfo::GetDebugInfo()
+{
+
+	FText Owner = NSLOCTEXT("UTLobbyMatchInfo","NoOwner","NONE");
+	if (OwnerId.IsValid())
+	{
+		if (Players.Num() > 0 && Players[0].IsValid()) Owner = FText::FromString(Players[0]->PlayerName);
+		else Owner = FText::FromString(OwnerId.ToString());
+	}
+
+
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("OwnerName"), Owner);
+	Args.Add(TEXT("CurrentState"), FText::FromName(CurrentState));
+	Args.Add(TEXT("ShouldShowInDock"), FText::AsNumber(ShouldShowInDock()));
+	Args.Add(TEXT("InProgress"), FText::AsNumber(IsInProgress()));
+	Args.Add(TEXT("MatchStats"), FText::FromString(MatchStats));
+
+
+	return FText::Format(NSLOCTEXT("UTLobbyMatchInfo","DebugFormat","Owner [{OwnerName}] State [{CurrentState}] Flags [{ShouldShowInDock}, {InProgress}]  Stats: {MatchStats}"), Args);
+}
+
+
+void AUTLobbyMatchInfo::UpdateBadgeForNewGameMode()
+{
+#if !UE_SERVER
+		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
+		if (DefaultGame && (CurrentState == ELobbyMatchState::Initializing || CurrentState == ELobbyMatchState::Setup || CurrentState == ELobbyMatchState::WaitingForPlayers))
+		{
+			MatchBadge = DefaultGame->GetHUBPregameFormatString();
+		}
+#endif
 }

@@ -182,10 +182,8 @@ const FSlateBrush* SUMatchPanel::GetELOBadgeImage() const
 			}
 		}
 	}
-
-	if (Badge == 0) return SUWindowsStyle::Get().GetBrush("UT.Badge.2");
-	if (Badge == 1) return SUWindowsStyle::Get().GetBrush("UT.Badge.1");
-	return SUWindowsStyle::Get().GetBrush("UT.Badge.0");
+	FString BadgeStr = FString::Printf(TEXT("UT.Badge.%i"), Badge);
+	return SUWindowsStyle::Get().GetBrush(*BadgeStr);
 }
 
 const FSlateBrush* SUMatchPanel::GetELOBadgeNumberImage() const
@@ -213,26 +211,24 @@ const FSlateBrush* SUMatchPanel::GetELOBadgeNumberImage() const
 		}
 	}
 
-	if (Level == 8) return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.9");
-	if (Level == 7) return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.8");
-	if (Level == 6) return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.7");
-	if (Level == 5) return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.6");
-	if (Level == 4) return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.5");
-	if (Level == 3) return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.4");
-	if (Level == 2) return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.3");
-	if (Level == 1) return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.2");
-	return SUWindowsStyle::Get().GetBrush("UT.Badge.Numbers.1");
-
+	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level+1,1,9));
+	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
 }
 
 FText SUMatchPanel::GetButtonText() const
 {
 	if (MatchInfo.IsValid())
 	{
+		if (!MatchInfo->SkillTest(PlayerOwner->GetBaseELORank()))
+		{
+			return NSLOCTEXT("SUMatchPanel","TooSkilled","SKILL LOCKED");
+		}
+
+
 		return MatchInfo->GetActionText();
 	}
 
-	return NSLOCTEXT("SUMatchPanel","Seutp","Initializing...");
+	return NSLOCTEXT("SUMatchPanel","Setup","Initializing...");
 }
 
 
@@ -241,7 +237,7 @@ void SUMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurre
 {
 	UpdateMatchInfo();
 }
-
+ 
 void SUMatchPanel::UpdateMatchInfo()
 {
 	if (MatchInfo.IsValid())

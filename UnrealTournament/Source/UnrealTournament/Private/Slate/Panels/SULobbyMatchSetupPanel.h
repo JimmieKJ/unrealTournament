@@ -93,6 +93,7 @@ protected:
 	TSharedRef<SWidget> BuildHostOptionWidgets();
 	void JoinAnyTimeChanged(ECheckBoxState NewState);
 	void AllowSpectatorChanged(ECheckBoxState NewState);
+	void RankCeilingChanged(ECheckBoxState NewState);
 
 	FText GetMaxPlayerLabel() const;
 	void OnMaxPlayersChanged(float NewValue);

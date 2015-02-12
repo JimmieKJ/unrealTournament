@@ -149,6 +149,23 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 		.Padding(0.0f, 0.0f, 20.0f, 0.0f )
 		[
 			SNew(SCheckBox)
+			.IsChecked(MatchInfo->RankCeiling > 0 ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::RankCeilingChanged)
+			.Content()
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+				.Text(NSLOCTEXT("SULobbySetup", "LimitSkill", "Limit Rank").ToString())
+			]
+		];
+
+
+		Container->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f, 20.0f, 0.0f )
+		[
+			SNew(SCheckBox)
 			.IsChecked((MatchInfo->bSpectatable ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked))
 			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::AllowSpectatorChanged)
 			.Content()
@@ -325,5 +342,11 @@ void SULobbyMatchSetupPanel::AllowSpectatorChanged(ECheckBoxState NewState)
 
 }
 
-
+void SULobbyMatchSetupPanel::RankCeilingChanged(ECheckBoxState NewState)
+{
+	if (MatchInfo.IsValid())
+	{
+		MatchInfo->SetRankCeiling(NewState == ESlateCheckBoxState::Checked ? PlayerOwner->GetBaseELORank() : 0);
+	}
+}
 #endif

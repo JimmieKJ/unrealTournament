@@ -966,7 +966,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 
 	float TotalRating = 0.f;
 	float RatingCount = 0.f;
-	float CurrentRating = 0.f;
+	float CurrentRating = 1.f;
 	int32 MatchCount = 0;
 	if (DUEL_ELO > 0)
 	{
@@ -1223,38 +1223,41 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
 {
-	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (UserId.IsValid())
+	if (OnlineIdentityInterface.IsValid() && OnlineSessionInterface.IsValid())
 	{
-		FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
-		if (GameSettings != NULL)
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		if (UserId.IsValid())
 		{
-			GameSettings->bAllowInvites = true;
-			GameSettings->bAllowJoinInProgress = true;
-			GameSettings->bAllowJoinViaPresence = true;
-			GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
-			OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
-		}
+			FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
+			if (GameSettings != NULL)
+			{
+				GameSettings->bAllowInvites = true;
+				GameSettings->bAllowJoinInProgress = true;
+				GameSettings->bAllowJoinViaPresence = true;
+				GameSettings->bAllowJoinViaPresenceFriendsOnly = false;
+				OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
+			}
 
-		TSharedPtr<FOnlineUserPresence> CurrentPresence;
-		OnlinePresenceInterface->GetCachedPresence(*UserId, CurrentPresence);
-		if (CurrentPresence.IsValid())
-		{
-			CurrentPresence->Status.StatusStr = NewPresenceString;
-			OnlinePresenceInterface->SetPresence(*UserId, CurrentPresence->Status, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
+			TSharedPtr<FOnlineUserPresence> CurrentPresence;
+			OnlinePresenceInterface->GetCachedPresence(*UserId, CurrentPresence);
+			if (CurrentPresence.IsValid())
+			{
+				CurrentPresence->Status.StatusStr = NewPresenceString;
+				OnlinePresenceInterface->SetPresence(*UserId, CurrentPresence->Status, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
+			}
+			else
+			{
+				FOnlineUserPresenceStatus NewStatus;
+				NewStatus.State = EOnlinePresenceState::Online;
+				NewStatus.StatusStr = NewPresenceString;
+				OnlinePresenceInterface->SetPresence(*UserId, NewStatus, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
+			}
 		}
 		else
 		{
-			FOnlineUserPresenceStatus NewStatus;
-			NewStatus.State = EOnlinePresenceState::Online;
-			NewStatus.StatusStr = NewPresenceString;
-			OnlinePresenceInterface->SetPresence(*UserId, NewStatus, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
+			LastPresenceUpdate = NewPresenceString;
+			bLastAllowInvites = bAllowInvites;
 		}
-	}
-	else
-	{
-		LastPresenceUpdate = NewPresenceString;
-		bLastAllowInvites = bAllowInvites;
 	}
 }
 

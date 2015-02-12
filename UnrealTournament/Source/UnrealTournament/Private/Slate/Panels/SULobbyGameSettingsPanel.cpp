@@ -323,7 +323,7 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 										]
 										+SOverlay::Slot()
 										.VAlign(VAlign_Bottom)
-										.HAlign(HAlign_Center)
+										.HAlign(HAlign_Right)
 										[
 											SNew(SHorizontalBox)
 											+SHorizontalBox::Slot()

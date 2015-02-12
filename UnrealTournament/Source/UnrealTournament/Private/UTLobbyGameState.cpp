@@ -190,6 +190,13 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 			return;
 		}
 	}
+
+	if (!MatchInfo->SkillTest(NewPlayer->AverageRank)) // MAKE THIS CONFIG
+	{
+		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchTooGood","Your skill rating is too high for this match."));	
+		return;
+	}
+
 	MatchInfo->AddPlayer(NewPlayer);
 }
 

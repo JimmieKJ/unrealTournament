@@ -23,7 +23,7 @@ protected:
 	FName ChatDestination;
 
 	// This is the portion of the UI that contains the chat area
-	TSharedPtr<SOverlay> ChatArea;
+	TSharedPtr<SVerticalBox> ChatArea;
 
 	// The Vertical Box that makes up the menu
 	TSharedPtr<SVerticalBox> ChatMenu;
@@ -31,15 +31,17 @@ protected:
 	// This is the portion of the UI that contains the menu area
 	TSharedPtr<SVerticalBox> MenuArea;
 
-
 	TSharedPtr<SComboButton> ChatDestinationsButton;
 	TSharedPtr<SEditableTextBox> ChatText;
 	TSharedRef<SWidget> BuildChatDestinationsButton();
 
 	virtual void BuildChatDestinationMenu();
 
-	void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
+	virtual void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 	FText GetChatDestinationText() const;
+	FText GetChatDestinationTag(FName Destination);
+
+
 };
 
 #endif

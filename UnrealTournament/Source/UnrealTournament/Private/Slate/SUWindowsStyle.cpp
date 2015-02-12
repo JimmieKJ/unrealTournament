@@ -152,7 +152,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{   // Top Menu
 
 		Style.Set("UT.TopMenu.Bar", new BOX_BRUSH("TopMenu/UT.TopMenu.Bar", FMargin(8.0f / 32.0f, 1.0f/8.0f, 8.0f / 32.0f, 1.0f/8.0f)));
-		Style.Set("UT.TopMenu.TileBar", new BOX_BRUSH("TopMenu/UT.TopMenu.TileBar", FMargin(1.0f / 32.0f, 1, 1.0f / 32.0f, 0)));
+		Style.Set("UT.TopMenu.TileBar", new BOX_BRUSH("TopMenu/UT.TopMenu.TileBar", FMargin(1.0f / 32.0f, 0.0f, 1.0f / 32.0f, 0.0f)));
 		Style.Set("UT.TopMenu.LightFill", new IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ));
 		Style.Set("UT.TopMenu.DarkFill", new IMAGE_BRUSH("TopMenu/UT.TopMenu.DarkFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ));
 
@@ -232,6 +232,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetBackgroundImageReadOnly( FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			);
 
+			Style.Set("UT.Vertical.Playerlist.Background", new BOX_BRUSH("/ChatBar/UT.Vertical.Playerlist.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 	}
 
 

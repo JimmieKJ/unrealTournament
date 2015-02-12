@@ -26,7 +26,7 @@ void AUTLobbyHUD::PostRender()
 			{
 				if (GS->AvailableMatches[i])
 				{
-					DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD","LobbyDebugA","Lobby {0} - {1}"), FText::AsNumber(i), FText::FromString(GS->AvailableMatches[i]->MatchStats)), 10,Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+					DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD","LobbyDebugA","Lobby {0} - {1}"), FText::AsNumber(i), GS->AvailableMatches[i]->GetDebugInfo()), 10,Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
 					Y+= 20;
 					for (int32 j=0; j < GS->AvailableMatches[i]->Players.Num(); j++)
 					{

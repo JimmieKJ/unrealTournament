@@ -32,7 +32,7 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 			.HAlign(HAlign_Fill)
 			[
 				// Allow children to place things over chat....
-				SAssignNew(ChatArea,SOverlay)
+				SAssignNew(ChatArea,SVerticalBox)
 			]
 
 			+ SVerticalBox::Slot()
@@ -261,11 +261,11 @@ void SUInGameHomePanel::OnHidePanel()
 
 FText SUInGameHomePanel::GetChatDestinationText() const
 {
-	if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","[Team]");
-	if (ChatDestination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","[Game]");
-	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","[Whisper]");
-	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","[HUB]");
-	if (ChatDestination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","[MATCH]");
+	if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Team");
+	if (ChatDestination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Game");
+	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper");
+	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","HUB");
+	if (ChatDestination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","MAtch");
 	
 	return NSLOCTEXT("Chat", "GlobalTag","Global Chat");
 }
@@ -290,11 +290,20 @@ void SUInGameHomePanel::ChatTextCommited(const FText& NewText, ETextCommit::Type
 		{
 			// Add code to change chat mode here.
 		}
-		
-
 	}
 }
 
+FText SUInGameHomePanel::GetChatDestinationTag(FName Destination)
+{
+	if (Destination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Team");
+	if (Destination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Local");
+	if (Destination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper");
+	if (Destination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","HUB");
+	if (Destination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Lobby");
+	if (Destination == FName(TEXT("debug")))		return NSLOCTEXT("Chat", "DebugTag","DEBUG");
+	
+	return NSLOCTEXT("Chat", "GlobalTag","Global");
+}
 
 
 #endif

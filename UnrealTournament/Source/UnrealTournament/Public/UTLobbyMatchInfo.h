@@ -76,6 +76,10 @@ public:
 	UPROPERTY(Replicated)
 	uint32 bJoinAnytime:1;
 
+	// If true, please must be under the rank of the host
+	UPROPERTY(Replicated)
+	int32 RankCeiling;
+
 	// Holds data about the match.  In matches that are not started yet, it holds the description of the match.  In matches in progress, it's 
 	// replicated data from the instance about the state of the match.  NOTE: Player information is not replicated from the instance to the server here
 	// it's replicated in the PlayersInMatchInstance array.
@@ -177,6 +181,15 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetAllowSpectating(bool bAllow);
 
+	void SetRankCeiling(int32 NewRankCeiling)
+	{
+		ServerSetRankCeiling(NewRankCeiling);
+	}
+
+	
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetRankCeiling(int32 NewRankCeiling);
+
 
 	// Allows the current panel to trigger when something has changed
 	FOnMatchInfoGameModeChanged OnMatchGameModeChanged;
@@ -240,6 +253,13 @@ public:
 	// This will be true if this match is a dedicated match and shouldn't ever go down
 	bool bDedicatedMatch;
 
+	FText GetDebugInfo();
+
+	bool SkillTest(int32 Rank)
+	{
+		return RankCeiling > 0 && Rank < RankCeiling + 400; // MAKE ME CONFIG
+	}
+
 protected:
 
 	// Only available on the server, this holds a cached reference to the GameState.
@@ -270,7 +290,6 @@ protected:
 	UFUNCTION()
 	virtual void OnRep_MatchBadge();
 
-
 	// The client has received the OwnerID so we are good to go
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchIsReadyForPlayers();
@@ -295,6 +314,7 @@ protected:
 	void RecycleMatchInfo();
 
 	bool CheckLobbyGameState();
+	void UpdateBadgeForNewGameMode();
 };
 
 

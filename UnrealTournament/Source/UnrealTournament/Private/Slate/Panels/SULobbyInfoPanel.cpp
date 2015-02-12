@@ -4,6 +4,7 @@
 #include "../Public/UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
+#include "SlateExtras.h"
 #include "Slate/SlateGameResources.h"
 #include "../SUWPanel.h"
 #include "../SUWindowsStyle.h"
@@ -11,6 +12,8 @@
 #include "SULobbyMatchSetupPanel.h"
 #include "SULobbyInfoPanel.h"
 #include "UTLobbyPC.h"
+#include "Engine/UserInterfaceSettings.h"
+#include "../Public/UTLobbyHUD.h"
 
 
 
@@ -36,40 +39,39 @@ void SULobbyInfoPanel::ConstructPanel(FVector2D ViewportSize)
 		.VAlign(VAlign_Bottom)
 		.HAlign(HAlign_Fill)
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
+			SNew(SBox)
+			.HeightOverride(64)
 			[
-				SNew(SBox)
-				.HeightOverride(8)
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Bar"))
-				]
-			]
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				// Buttom Menu Bar
-				SNew(SOverlay)
-				+ SOverlay::Slot()
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.HAlign(HAlign_Fill)
+					SNew(SBox)
+					.HeightOverride(8)
 					[
 						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
+						.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Bar"))
 					]
 				]
-				+SOverlay::Slot()
+				+SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.AutoHeight()
+					SNew(SBox)
+					.HeightOverride(56)
 					[
-						SNew(SBox)
-						.HeightOverride(56)
+						// Buttom Menu Bar
+						SNew(SOverlay)
+						+ SOverlay::Slot()
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.HAlign(HAlign_Fill)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
+							]
+						]
+						+SOverlay::Slot()
 						[
 							SNew(SHorizontalBox)
 							+SHorizontalBox::Slot()
@@ -88,8 +90,8 @@ void SULobbyInfoPanel::ConstructPanel(FVector2D ViewportSize)
 
 	if (ChatArea.IsValid())
 	{
-
 		ChatArea->AddSlot()
+		.AutoHeight()
 		[
 			SAssignNew(MatchArea, SVerticalBox)
 		];
@@ -97,13 +99,9 @@ void SULobbyInfoPanel::ConstructPanel(FVector2D ViewportSize)
 		BuildMatchPanel();
 
 		ChatArea->AddSlot()
+		.FillHeight(1.0)
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()		
-			.FillHeight(1.0)
-			[
-				BuildChatArea()
-			]
+			BuildChatArea()
 		];
 	}
 
@@ -315,7 +313,7 @@ void SULobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InC
 				AUTLobbyMatchInfo* Match = LobbyGameState->AvailableMatches[i];
 				if (Match && Match->CurrentState != ELobbyMatchState::Dead && Match->CurrentState != ELobbyMatchState::Recycling)
 				{
-					if (!AlreadyTrackingMatch(LobbyGameState->AvailableMatches[i]))
+					if (Match->ShouldShowInDock() && !AlreadyTrackingMatch(LobbyGameState->AvailableMatches[i]))
 					{
 						bDockRequiresUpdate = true;
 					}
@@ -410,7 +408,7 @@ void SULobbyInfoPanel::BuildChatDestinationMenu()
 			SNew(SButton)
 			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("Chat", "ChatDestination_HUB", "EVERYONE").ToString())
+			.Text(NSLOCTEXT("Chat", "ChatDestination_HUB", "Everyone").ToString())
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Global)
 		];
@@ -483,11 +481,15 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildChatArea()
 				+SVerticalBox::Slot()
 				.AutoHeight()
 				[
-					SAssignNew(ChatDisplay, SRichTextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
-					.Justification(ETextJustify::Left)
-					.DecoratorStyleSet( &SUWindowsStyle::Get() )
-					.AutoWrapText( true )
+					SNew(SDPIScaler)
+					.DPIScale(this, &SULobbyInfoPanel::GetReverseScale)
+					[
+						SAssignNew(ChatDisplay, SRichTextBlock)
+						.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
+						.Justification(ETextJustify::Left)
+						.DecoratorStyleSet( &SUWindowsStyle::Get() )
+						.AutoWrapText( true )
+					]
 				]
 			]
 		]
@@ -502,7 +504,7 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildChatArea()
 		+SOverlay::Slot()
 		[
 			SNew(SImage)
-			.Image(SUWindowsStyle::Get().GetBrush(PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.UserList.Background")))
+			.Image(SUWindowsStyle::Get().GetBrush("UT.Vertical.Playerlist.Background"))
 		]
 		+SOverlay::Slot()
 		.Padding(10.0f)
@@ -554,7 +556,7 @@ void SULobbyInfoPanel::UpdateUserList()
 				// Look to see if this player is in the list.
 				for (int32 j=0; j < UserList.Num(); j++)
 				{
-					if (UserList[i]->PlayerState.Get() == PS)
+					if (UserList[j]->PlayerState.IsValid() && UserList[j]->PlayerState.Get() == PS)
 					{
 						bFound = true;
 					}
@@ -630,12 +632,143 @@ void SULobbyInfoPanel::UpdateChatText()
 				Style = TEXT("UWindows.Chat.Text.Global"); 
 			}
 
-			RichText += FString::Printf(TEXT("[%s]%s</>"), *Msg->Type.ToString(), *Msg->Message);
+			RichText += FString::Printf(TEXT("<%s>[%s]%s</>"), *Style, *(GetChatDestinationTag(Msg->Type).ToString()), *Msg->Message);
 		}
 
 		ChatDisplay->SetText(FText::FromString(RichText));
 		ChatScroller->SetScrollOffset(290999);
 	}
+}
+
+float SULobbyInfoPanel::GetReverseScale() const
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->ViewportClient)
+	{
+		FVector2D ViewportSize;
+		PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+
+		float AntiScale = 1.0f / GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+
+		return AntiScale;
+	}
+	return 1.0f;
+}
+
+void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
+{
+	FString Cmd = NewText.ToString();
+	if (Cmd.Left(1) == TEXT("@"))
+	{
+		if (Cmd.ToLower() == TEXT("@debugmatch"))
+		{
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+			if (GS)
+			{
+				if (GS->AvailableMatches.Num() > 0)
+				{
+					for (int32 i=0; i < GS->AvailableMatches.Num(); i++)
+					{
+						if (GS->AvailableMatches[i])
+						{
+							FText Text = FText::Format(NSLOCTEXT("UTLOBBYHUD","LobbyDebugA","Lobby {0} - {1}"), FText::AsNumber(i), GS->AvailableMatches[i]->GetDebugInfo());
+							PlayerOwner->SaveChat(FName(TEXT("Debug")), Text.ToString(), FLinearColor::White);
+							if (GS->AvailableMatches[i]->Players.Num() > 0)
+							{
+								FString Players = TEXT("");
+								for (int32 j=0; j < GS->AvailableMatches[i]->Players.Num(); j++)
+								{
+									AUTLobbyPlayerState* PS = GS->AvailableMatches[i]->Players[j].Get();
+									Players += Players == TEXT("") ? PS->PlayerName : FString::Printf(TEXT(", %s"), *PS->PlayerName);
+								}
+								PlayerOwner->SaveChat(FName(TEXT("Debug")), Players, FLinearColor::White);
+
+							}
+							else
+							{
+								PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT("No Active Players"), FLinearColor::White);
+							}
+
+							if (GS->AvailableMatches[i]->PlayersInMatchInstance.Num() > 0)
+							{
+								FString Players = TEXT("");
+								for (int32 j=0; j < GS->AvailableMatches[i]->PlayersInMatchInstance.Num(); j++)
+								{
+									FString PlayerName = GS->AvailableMatches[i]->PlayersInMatchInstance[j].PlayerName;
+									Players += Players == TEXT("") ?  PlayerName : FString::Printf(TEXT(", %s"), *PlayerName);
+								}
+								PlayerOwner->SaveChat(FName(TEXT("Debug")), Players, FLinearColor::Gray);
+
+							}
+							else
+							{
+								PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT("No Active Players"), FLinearColor::Gray);
+							}
+
+						}
+					}
+				}
+				else
+				{
+					PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT("No Matches to list!"), FLinearColor::White);
+				}
+			}
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			ChatText->SetText(FText::GetEmpty());
+			return;
+		}
+
+		if (Cmd.ToLower() == TEXT("@debugcontent"))
+		{
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+			if (GS)
+			{
+				for (int32 i=0;i < GS->ClientAvailbleGameModes.Num();i++)
+				{
+					FText Text3 = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugC", " Available Game Mode {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailbleGameModes[i]->DisplayName));
+					PlayerOwner->SaveChat(FName(TEXT("Debug")), Text3.ToString(), FLinearColor::White);
+				}
+
+				for (int32 i = 0; i < GS->ClientAvailableMaps.Num(); i++)
+				{
+					FText Text4 = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugD", " Available Maps {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailableMaps[i]->MapName));
+					PlayerOwner->SaveChat(FName(TEXT("Debug")), Text4.ToString(), FLinearColor::White);
+				}
+		
+			}
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			ChatText->SetText(FText::GetEmpty());
+			return;
+		}
+
+		if (Cmd.ToLower() == TEXT("@debugplayers"))
+		{
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+			if (GS)
+			{
+				for (int32 i=0;i < GS->PlayerArray.Num();i++)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+					if (PS)
+					{
+						FText Text3 = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugG", " Player {0} = {1} - {2}"), FText::AsNumber(i), FText::FromString(PS->PlayerName), FText::AsNumber(PS->AverageRank));
+						PlayerOwner->SaveChat(FName(TEXT("Debug")), Text3.ToString(), FLinearColor::White);
+					}
+				}
+			}
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			ChatText->SetText(FText::GetEmpty());
+			return;
+		}
+
+
+
+	}
+
+
+	SUInGameHomePanel::ChatTextCommited(NewText, CommitType);
 }
 
 #endif

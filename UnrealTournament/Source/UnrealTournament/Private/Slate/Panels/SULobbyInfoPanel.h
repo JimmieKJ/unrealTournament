@@ -101,6 +101,10 @@ protected:
 	virtual void UpdateUserList();
 	void UpdateChatText();
 
+	float GetReverseScale() const;
+
+	virtual void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
+
 };
 
 #endif
