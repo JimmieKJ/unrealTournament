@@ -18,17 +18,7 @@ class UUTWeaponStateFiring_Enforcer : public UUTWeaponStateFiring
 	virtual void BeginState(const UUTWeaponState* PrevState) override;
 	virtual void EndState() override;
 
-	/** called to fire the shot and consume ammo */
-	virtual void FireShot() override;
-
 	virtual void UpdateTiming() override;
 
-	/** Reset the timer if the time remaining on it is greater than the new FireRate */
-	virtual void ResetTiming();
-
 	virtual void PutDown() override;
-
-private:
-
-	float LastFiredTime;
 };

@@ -14,6 +14,8 @@ public:
 	/** third person left hand mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	USkeletalMeshComponent* LeftMesh;
+	UPROPERTY()
+	USkeletalMeshComponent* LeftOverlayMesh;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FName LeftAttachSocket;
@@ -31,4 +33,6 @@ public:
 	virtual void AttachToOwnerNative() override;
 	virtual void PlayFiringEffects() override;
 	virtual void StopFiringEffects(bool bIgnoreCurrentMode) override;
+	virtual void UpdateOverlays() override;
+	virtual void SetSkin(UMaterialInterface* NewSkin) override;
 };

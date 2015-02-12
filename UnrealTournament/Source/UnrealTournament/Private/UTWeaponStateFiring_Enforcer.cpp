@@ -20,36 +20,10 @@ void UUTWeaponStateFiring_Enforcer::EndState()
 	GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(PutDownHandle);
 }
 
-
-void UUTWeaponStateFiring_Enforcer::ResetTiming()
-{
-	if (GetOuterAUTWeapon()->GetUTOwner())
-	{
-		if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() == NULL && GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) && GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
-		{
-			if (GetWorld()->GetTimeSeconds() - LastFiredTime > GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()))
-			{
-				GetOuterAUTWeapon()->OnContinuedFiring();
-				FireShot();
-				UpdateTiming();
-			}
-		
-			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(RefireCheckHandle);
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()) - (GetWorld()->GetTimeSeconds() - LastFiredTime), true);
-		}
-	}
-}
-
 void UUTWeaponStateFiring_Enforcer::UpdateTiming()
 {
 	// TODO: we should really restart the timer at the percentage it currently is, but FTimerManager has no facility to do this
 	GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(RefireCheckHandle, this, &UUTWeaponStateFiring_Enforcer::RefireCheckTimer, GetOuterAUTWeapon()->GetRefireTime(GetOuterAUTWeapon()->GetCurrentFireMode()), true);
-}
-
-void UUTWeaponStateFiring_Enforcer::FireShot()
-{
-	LastFiredTime = GetWorld()->GetTimeSeconds();
-	Super::FireShot();
 }
 
 void UUTWeaponStateFiring_Enforcer::PutDown()

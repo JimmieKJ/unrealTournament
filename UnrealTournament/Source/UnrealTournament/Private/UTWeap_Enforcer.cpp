@@ -318,17 +318,13 @@ void AUTWeap_Enforcer::DualEquipFinished()
 		FireInterval = FireIntervalDualWield;
 
 		//Reset the FireRate timer
-		if (Cast<UUTWeaponStateFiring_Enforcer>(CurrentState) != NULL)
+		if (Cast<UUTWeaponStateFiring>(CurrentState) != NULL)
 		{
-			((UUTWeaponStateFiring_Enforcer*)CurrentState)->ResetTiming();
-		}
-		else if (Cast<UUTWeaponStateFiringBurstEnforcer>(CurrentState) != NULL)
-		{
-			((UUTWeaponStateFiringBurstEnforcer*)CurrentState)->ResetTiming();
+			((UUTWeaponStateFiring*)CurrentState)->UpdateTiming();
 		}
 
 		//Update the animation since the stance has changed
-		//Change the weapon attachement
+		//Change the weapon attachment
 		AttachmentType = DualWieldAttachmentType;
 
 		if (UTOwner != NULL && UTOwner->GetWeapon() == this)

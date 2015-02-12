@@ -37,7 +37,6 @@ void AUTWeapAttachment_Enforcer::BeginPlay()
 
 void AUTWeapAttachment_Enforcer::AttachToOwnerNative()
 {
-
 	LeftMesh->AttachTo(UTOwner->GetMesh(), LeftAttachSocket);
 
 	LeftMesh->SetRelativeLocation(LeftAttachOffset);
@@ -49,9 +48,33 @@ void AUTWeapAttachment_Enforcer::AttachToOwnerNative()
 	Super::AttachToOwnerNative();
 }
 
+void AUTWeapAttachment_Enforcer::UpdateOverlays()
+{
+	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayMesh);
+	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, LeftMesh, LeftOverlayMesh);
+}
+
+void AUTWeapAttachment_Enforcer::SetSkin(UMaterialInterface* NewSkin)
+{
+	Super::SetSkin(NewSkin);
+	if (NewSkin != NULL)
+	{
+		for (int32 i = 0; i < LeftMesh->GetNumMaterials(); i++)
+		{
+			LeftMesh->SetMaterial(i, NewSkin);
+		}
+	}
+	else
+	{
+		for (int32 i = 0; i < LeftMesh->GetNumMaterials(); i++)
+		{
+			LeftMesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTWeapAttachment_Enforcer>()->LeftMesh->GetMaterial(i));
+		}
+	}
+}
+
 void AUTWeapAttachment_Enforcer::PlayFiringEffects()
 {
-
 	//Find out if we're in burst fire mode
 	if (GetNetMode() != NM_DedicatedServer)
 	{
