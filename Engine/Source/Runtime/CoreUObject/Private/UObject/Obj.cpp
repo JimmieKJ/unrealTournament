@@ -3606,8 +3606,12 @@ void StaticExit()
 		// Valid object.
 		GObjectCountDuringLastMarkPhase++;
 
-		// Mark as unreachable so purge phase will kill it.
-		It->SetFlags( RF_Unreachable );
+		UObject* Obj = *It;
+		if (Obj && !Obj->IsA<UField>()) // Skip Structures, properties, etc.. They could be still necessary while GC.
+		{
+			// Mark as unreachable so purge phase will kill it.
+			It->SetFlags(RF_Unreachable);
+		}
 	}
 
 	// Fully purge all objects, not using time limit.
@@ -3628,6 +3632,27 @@ void StaticExit()
 	}
 
 	IncrementalPurgeGarbage( false );
+
+	{
+		//Repeat GC for every object, including structures and properties.
+		for (FRawObjectIterator It; It; ++It)
+		{
+			// Mark as unreachable so purge phase will kill it.
+			It->SetFlags(RF_Unreachable);
+		}
+
+		for (FRawObjectIterator It; It; ++It)
+		{
+			UObject* Object = *It;
+			if (Object->HasAnyFlags(RF_Unreachable))
+			{
+				// Begin the object's asynchronous destruction.
+				Object->ConditionalBeginDestroy();
+			}
+		}
+
+		IncrementalPurgeGarbage(false);
+	}
 
 	UObjectBaseShutdown();
 	// Empty arrays to prevent falsely-reported memory leaks.
