@@ -2211,12 +2211,14 @@ static void DispatchOnComponentsCreated(AActor* NewActor)
 	}
 }
 
+#if WITH_EDITOR
 void AActor::PostEditImport()
 {
 	Super::PostEditImport();
 
 	DispatchOnComponentsCreated(this);
 }
+#endif
 
 void AActor::PostSpawnInitialize(FVector const& SpawnLocation, FRotator const& SpawnRotation, AActor* InOwner, APawn* InInstigator, bool bRemoteOwned, bool bNoFail, bool bDeferConstruction)
 {
