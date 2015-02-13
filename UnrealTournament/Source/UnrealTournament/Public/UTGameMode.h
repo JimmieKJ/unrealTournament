@@ -254,6 +254,8 @@ public:
 	 */
 	virtual void AssignDefaultSquadFor(AController* C);
 
+	virtual void EntitlementQueryComplete(bool bWasSuccessful, const class FUniqueNetId& UniqueId, const FString& ErrorMessage);
+
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	UFUNCTION(BlueprintImplementableEvent)
 	void PostInitGame(const FString& Options);
@@ -262,7 +264,7 @@ public:
 	virtual void AddMutator(const FString& MutatorPath);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
 	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
-	virtual void InitGameState();
+	virtual void InitGameState() override;
 	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void Reset();
 	virtual void RestartGame();
@@ -353,10 +355,10 @@ public:
 	virtual void SetBotCount(uint8 NewCount);
 	/** adds num bots to current total */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
-		virtual void AddBots(uint8 Num);
+	virtual void AddBots(uint8 Num);
 	/** Remove all bots */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
-		virtual void KillBots();
+	virtual void KillBots();
 
 	UFUNCTION(BlueprintNativeEvent)
 	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);

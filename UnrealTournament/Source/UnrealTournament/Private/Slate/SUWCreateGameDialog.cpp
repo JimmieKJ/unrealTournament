@@ -585,7 +585,10 @@ void SUWCreateGameDialog::OnGameSelected(UClass* NewSelection, ESelectInfo::Type
 						TSharedPtr<FString> BaseName = MakeShareable(new FString(FPaths::GetBaseFilename(List[j])));
 						if (GameDefaults->SupportsMap(*BaseName.Get()))
 						{
-							AllMaps.Add(BaseName);
+							if (LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(**BaseName.Get()))))
+							{
+								AllMaps.Add(BaseName);
+							}
 						}
 					}
 				}

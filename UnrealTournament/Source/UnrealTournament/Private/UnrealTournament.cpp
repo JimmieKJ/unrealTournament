@@ -100,7 +100,73 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 	return NewVolume;
 }
 
-void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList)
+static TMap<FName, FString> HackedEntitlementTable = []()
+{
+	TMap<FName, FString> Result;
+	Result.Add(TEXT("BP_BobLife"), TEXT("c3ac025adbed4252abfee08a4b1d635a"));
+	Result.Add(TEXT("BP_BobLife_C"), TEXT("c3ac025adbed4252abfee08a4b1d635a"));
+	return Result;
+}();
+
+FString GetRequiredEntitlementFromAsset(const FAssetData& Asset)
+{
+	// FIXME: total temp hack since we don't have any way to embed entitlement IDs with the asset yet...
+	FString* Found = HackedEntitlementTable.Find(Asset.AssetName);
+	return (Found != NULL) ? *Found : FString();
+}
+FString GetRequiredEntitlementFromObj(UObject* Asset)
+{
+	if (Asset == NULL)
+	{
+		return FString();
+	}
+	else
+	{
+		// FIXME: total temp hack since we don't have any way to embed entitlement IDs with the asset yet...
+		FString* Found = HackedEntitlementTable.Find(Asset->GetFName());
+		return (Found != NULL) ? *Found : FString();
+	}
+}
+FString GetRequiredEntitlementFromPackageName(FName PackageName)
+{
+	FAssetData Asset;
+	Asset.AssetName = PackageName;
+	return GetRequiredEntitlementFromAsset(Asset);
+}
+
+bool LocallyHasEntitlement(const FString& Entitlement)
+{
+	if (Entitlement.IsEmpty())
+	{
+		// no entitlement required
+		return true;
+	}
+	else
+	{
+		if (IOnlineSubsystem::Get() != NULL)
+		{
+			IOnlineIdentityPtr IdentityInterface = IOnlineSubsystem::Get()->GetIdentityInterface();
+			IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+			if (IdentityInterface.IsValid() && EntitlementInterface.IsValid())
+			{
+				for (int32 i = 0; i < MAX_LOCAL_PLAYERS; i++)
+				{
+					TSharedPtr<FUniqueNetId> Id = IdentityInterface->GetUniquePlayerId(i);
+					if (Id.IsValid())
+					{
+						if (EntitlementInterface->GetItemEntitlement(*Id.Get(), Entitlement).IsValid())
+						{
+							return true;
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
+}
+
+void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
@@ -203,5 +269,17 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList)
 				}
 			}
 		} while (bFoundAny && LocalAssetList.Num() > 0);
+	}
+
+	// query entitlements for any assets and remove those that are not usable
+	if (bRequireEntitlements)
+	{
+		for (int32 i = AssetList.Num() - 1; i >= 0; i--)
+		{
+			if (!LocallyHasEntitlement(GetRequiredEntitlementFromAsset(AssetList[i])))
+			{
+				AssetList.RemoveAt(i);
+			}
+		}
 	}
 }

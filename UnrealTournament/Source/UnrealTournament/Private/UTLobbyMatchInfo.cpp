@@ -515,7 +515,11 @@ void AUTLobbyMatchInfo::BuildAllowedMapsList()
 		{
 			if (CurrentGameModeData->DefaultObject->SupportsMap(LobbyGameState->ClientAvailableMaps[i]->MapName))
 			{
-				AvailableMaps.Add(LobbyGameState->ClientAvailableMaps[i]);
+				// TODO: we should modify the server to not send unentitled things in the first place
+				if (LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*LobbyGameState->ClientAvailableMaps[i]->MapName))))
+				{
+					AvailableMaps.Add(LobbyGameState->ClientAvailableMaps[i]);
+				}
 			}
 		}
 	}

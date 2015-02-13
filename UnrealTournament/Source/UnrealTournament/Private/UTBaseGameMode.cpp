@@ -67,6 +67,35 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 	{
 		UTGameSession->ValidatePlayer(Address, UniqueId, ErrorMessage);
 	}
+
+	if (ErrorMessage.IsEmpty() && UniqueId.IsValid())
+	{
+		// precache the user's entitlements now so that we'll hopefully have them by the time they get in
+		if (IOnlineSubsystem::Get() != NULL)
+		{
+			IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+			if (EntitlementInterface.IsValid())
+			{
+				EntitlementInterface->QueryEntitlements(*UniqueId.Get());
+			}
+		}
+	}
+}
+
+APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+{
+	// local players don't go through PreLogin()
+	if (UniqueId.IsValid() && Cast<ULocalPlayer>(NewPlayer) != NULL && IOnlineSubsystem::Get() != NULL)
+	{
+		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+		if (EntitlementInterface.IsValid())
+		{
+			// note that we need to redundantly query even if we already got this user's entitlements because they might have quit, bought some stuff, then come back
+			EntitlementInterface->QueryEntitlements(*UniqueId.Get());
+		}
+	}
+
+	return Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
 }
 
 void AUTBaseGameMode::GenericPlayerInitialization(AController* C)

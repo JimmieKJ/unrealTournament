@@ -46,6 +46,7 @@ DECLARE_LOG_CATEGORY_EXTERN(UTNet, Log, All);
 #include "UTTeamGameMode.h"
 #include "Stat.h"
 #include "StatManager.h"
+#include "OnlineEntitlementsInterface.h"
 
 /** handy response params for world-only checks */
 extern FCollisionResponseParams WorldResponseParams;
@@ -71,10 +72,19 @@ FORCEINLINE FCanvasIcon MakeCanvasIcon(UTexture* Tex, float InU, float InV, floa
 	return Result;
 }
 
+/** returns entitlement ID required for the given asset, if any */
+extern UNREALTOURNAMENT_API FString GetRequiredEntitlementFromAsset(const FAssetData& Asset);
+extern UNREALTOURNAMENT_API FString GetRequiredEntitlementFromObj(UObject* Asset);
+extern UNREALTOURNAMENT_API FString GetRequiredEntitlementFromPackageName(FName PackageName);
+
+/** returns whether any locally logged in player (via OSS) has the specified entitlement */
+extern UNREALTOURNAMENT_API bool LocallyHasEntitlement(const FString& Entitlement);
+
 /** returns asset data for all blueprints of the specified base class in the asset registry
  * this does not actually load assets, so it's fast in a cooked build, although the first time it is run
  * in an uncooked build it will hitch while scanning the asset registry
+ * if bRequireEntitlements is set, assets on disk for which no local player has the required entitlement will not be returned
  */
-extern UNREALTOURNAMENT_API void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList);
+extern UNREALTOURNAMENT_API void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements = true);
 
 #endif

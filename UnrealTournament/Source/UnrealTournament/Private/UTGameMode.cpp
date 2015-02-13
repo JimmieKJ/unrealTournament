@@ -132,6 +132,17 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	UE_LOG(UT,Log,TEXT("==============="));
 	UE_LOG(UT,Log,TEXT("  Init Game Option: %s"), *Options);
 
+	if (IOnlineSubsystem::Get() != NULL)
+	{
+		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+		if (EntitlementInterface.IsValid())
+		{
+			FOnQueryEntitlementsCompleteDelegate Delegate;
+			Delegate.BindUObject(this, &AUTGameMode::EntitlementQueryComplete);
+			EntitlementInterface->AddOnQueryEntitlementsCompleteDelegate_Handle(Delegate);
+		}
+	}
+
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	GameDifficulty = FMath::Max(0, GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
@@ -414,8 +425,7 @@ void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 	// Allow subclasses to track game objectives as they are initialized
 }
 
-
-APlayerController* AUTGameMode::Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	FString ModdedPortal = Portal;
 	FString ModdedOptions = Options;
@@ -442,8 +452,27 @@ APlayerController* AUTGameMode::Login(class UPlayer* NewPlayer, const FString& P
 		{
 			PS->ServerReceiveEyewearClass(InOpt);
 		}
+		// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
+		PS->ValidateEntitlements();
 	}
 	return Result;
+}
+
+void AUTGameMode::EntitlementQueryComplete(bool bWasSuccessful, const FUniqueNetId& UniqueId, const FString& ErrorMessage)
+{
+	// validate player's custom options
+	// note that it is possible that they have not entered the game yet, since this is started via PreLogin() - in that case we'll validate from Login()
+	for (APlayerState* PS : GameState->PlayerArray)
+	{
+		if (*PS->UniqueId.GetUniqueNetId().Get() == UniqueId)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+			if (UTPS != NULL)
+			{
+				UTPS->ValidateEntitlements();
+			}
+		}
+	}
 }
 
 AUTBot* AUTGameMode::AddBot(uint8 TeamNum)

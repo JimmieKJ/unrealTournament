@@ -796,3 +796,34 @@ void AUTPlayerState::ServerRecieveCountryFlag_Implementation(uint32 NewCountryFl
 	CountryFlag = NewCountryFlag;
 }
 
+void AUTPlayerState::ValidateEntitlements()
+{
+	if (IOnlineSubsystem::Get() != NULL && UniqueId.IsValid())
+	{
+		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+		if (EntitlementInterface.IsValid())
+		{
+			// we assume that any successful entitlement query is going to return at least one - the entitlement to play the game
+			TArray< TSharedRef<FOnlineEntitlement> > AllEntitlements;
+			EntitlementInterface->GetAllEntitlements(*UniqueId.GetUniqueNetId().Get(), AllEntitlements);
+			if (AllEntitlements.Num() > 0)
+			{
+				FUniqueEntitlementId Entitlement = GetRequiredEntitlementFromObj(HatClass);
+				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				{
+					ServerReceiveHatClass(FString());
+				}
+				Entitlement = GetRequiredEntitlementFromObj(EyewearClass);
+				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				{
+					ServerReceiveEyewearClass(FString());
+				}
+				Entitlement = GetRequiredEntitlementFromObj(SelectedCharacter);
+				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				{
+					ServerSetCharacter(FString());
+				}
+			}
+		}
+	}
+}

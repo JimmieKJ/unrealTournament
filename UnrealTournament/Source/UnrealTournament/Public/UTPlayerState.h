@@ -232,7 +232,8 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	uint32 CountryFlag;
 
-public:
+	virtual void ValidateEntitlements();
+
 	void WriteStatsToCloud();
 	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 

@@ -565,6 +565,12 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		ReadELOFromCloud();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
+		// query entitlements for UI
+		IOnlineEntitlementsPtr EntitlementsInterface = OnlineSubsystem->GetEntitlementsInterface();
+		if (EntitlementsInterface.IsValid())
+		{
+			EntitlementsInterface->QueryEntitlements(UniqueID);
+		}
 	}
 
 	for (int32 i=0; i< PlayerLoginStatusChangedListeners.Num(); i++)
