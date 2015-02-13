@@ -25,6 +25,13 @@ public:
 	static FString GenerateValidVariableNameFromAsset(UObject* Asset, AActor* ComponentOwner);
 
 	/**
+	 * Checks whether it is valid to copy the indicated components
+	 * @param ComponentsToCopy The list of components to check
+	 * @return Whether the indicated components can be copied
+	*/
+	static bool CanCopyComponents(const TArray<UActorComponent*>& ComponentsToCopy);
+
+	/**
 	 * Copies the selected components to the clipboard
 	 * @param ComponentsToCopy The list of components to copy
 	 */
@@ -52,6 +59,13 @@ public:
 	 * @param OutNewObjectMap Contains the name->instance object mapping of the copied components
 	 */
 	static void GetComponentsFromClipboard(TMap<FName, FName>& OutParentMap, TMap<FName, UActorComponent*>& OutNewObjectMap, bool bGetComponentsAsArchetypes);
+
+	/**
+	 * Determines whether the indicated components can be deleted
+	 * @param ComponentsToDelete The list of components to determine can be deleted
+	 * @return Whether the indicated components can be deleted
+	 */
+	static bool CanDeleteComponents(const TArray<UActorComponent*>& ComponentsToDelete);
 
 	/**
 	 * Deletes the indicated components and identifies the component that should be selected following the operation.
@@ -179,5 +193,17 @@ public:
 	// Try to find the correct variable name for a given native component template or instance (which can have a mismatch)
 	static FName FindVariableNameGivenComponentInstance(UActorComponent* ComponentInstance);
 
+	/**
+	 * Populates the given menu with basic options for operations on components in the world.
+	 * @param MenuBuilder Used to create the menu options
+	 * @param SelectedComponents The selected components to create menu options for
+	 */
+	static void FillComponentContextMenuOptions(FMenuBuilder& MenuBuilder, const TArray<UActorComponent*>& SelectedComponents);
+
+private:
 	static USceneComponent* FindClosestParentInList(UActorComponent* ChildComponent, const TArray<UActorComponent*>& ComponentList);
+
+	static void OnGoToComponentAssetInBrowser(UObject* Asset);
+	static void OnOpenComponentCodeFile(const FString CodeFileName);
+	static void OnEditBlueprintComponent(UObject* Blueprint);
 };
