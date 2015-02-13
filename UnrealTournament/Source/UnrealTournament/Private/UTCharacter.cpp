@@ -3071,7 +3071,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			GetMesh()->AddForce(0.33f*FluidForce);
 		}
 		bool bHeadWasUnderwater = bHeadIsUnderwater;
-		bHeadIsUnderwater = HeadIsUnderWater();
+		bHeadIsUnderwater = IsRagdoll() || HeadIsUnderWater();
 
 		// handle being in or out of water
 		if (bHeadIsUnderwater)
