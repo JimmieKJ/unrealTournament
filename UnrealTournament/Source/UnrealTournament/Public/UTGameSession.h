@@ -52,10 +52,10 @@ protected:
 	UPROPERTY(Transient)
 	AUTServerBeaconHost* BeaconHost;
 
-	FOnCreateSessionCompleteDelegate OnCreateSessionCompleteDelegate;
-	FOnStartSessionCompleteDelegate OnStartSessionCompleteDelegate;
-	FOnEndSessionCompleteDelegate OnEndSessionCompleteDelegate;
-	FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
+	FDelegateHandle OnCreateSessionCompleteDelegate;
+	FDelegateHandle OnStartSessionCompleteDelegate;
+	FDelegateHandle OnEndSessionCompleteDelegate;
+	FDelegateHandle OnDestroySessionCompleteDelegate;
 	
 	
 	virtual void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);

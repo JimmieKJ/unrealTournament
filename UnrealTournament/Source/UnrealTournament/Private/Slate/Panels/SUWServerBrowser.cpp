@@ -83,6 +83,13 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
+	if (OnlineSessionInterface.IsValid())
+	{
+		FOnFindSessionsCompleteDelegate Delegate;
+		Delegate.BindSP(this, &SUWServerBrowser::OnFindSessionsComplete);
+		OnFindSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
+	}
+
 	this->ChildSlot
 	[
 		SNew(SOverlay)
@@ -942,12 +949,6 @@ void SUWServerBrowser::RefreshServers()
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = SearchSettings.ToSharedRef();
 
-		if (!OnFindSessionCompleteDelegate.IsBound())
-		{
-			OnFindSessionCompleteDelegate.BindSP(this, &SUWServerBrowser::OnFindSessionsComplete);
-			OnlineSessionInterface->AddOnFindSessionsCompleteDelegate(OnFindSessionCompleteDelegate);
-		}
-
 		OnlineSessionInterface->FindSessions(0, SearchSettingsRef);
 	}
 	else
@@ -1010,8 +1011,12 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				int32 ServerNoSpecs = 0;
 				Result.Session.SessionSettings.Get(SETTING_SPECTATORSONLINE, ServerNoSpecs);
 				
-				int32 ServerMaxPlayers = Result.Session.SessionSettings.NumPublicConnections;
+				int32 ServerMaxPlayers = 0;
+				Result.Session.SessionSettings.Get(SETTING_UTMAXPLAYERS, ServerMaxPlayers);
 				
+				int32 ServerMaxSpectators = 0;
+				Result.Session.SessionSettings.Get(SETTING_UTMAXSPECTATORS, ServerMaxSpectators);
+
 				int32 ServerNumMatches = 0;
 				Result.Session.SessionSettings.Get(SETTING_NUMMATCHES, ServerNumMatches);
 				
@@ -1031,7 +1036,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 				FString BeaconIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags);
+				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags);
 				NewServer->SearchResult = Result;
 				PingList.Add( NewServer );
 			}
@@ -1203,7 +1208,7 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
-	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
+	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate, true);
 	CleanupQoS();
 	PlayerOwner->HideMenu();
 
@@ -1359,7 +1364,11 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 
 	if (!RandomHUB.IsValid() && InternetServers.Num() > 0)
 	{
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
+		int32 NumPlayers = 0;
+		int32 NumSpectators = 0;
+		TallyInternetServers(NumPlayers, NumSpectators);
+
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
 
@@ -1370,8 +1379,12 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 
 	if (RandomHUB.IsValid() && RandomHUB->NumMatches != InternetServers.Num())
 	{
+		int32 NumPlayers = 0;
+		int32 NumSpectators = 0;
+		TallyInternetServers(NumPlayers, NumSpectators);
+
 		HUBServers.Remove(RandomHUB);
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),0,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
 		HUBServers.Add(RandomHUB);
@@ -1380,6 +1393,18 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 	}		
 
 }
+
+void SUWServerBrowser::TallyInternetServers(int32& Players, int32& Spectators)
+{
+	Players = 0;
+	Spectators = 0;
+	for (int32 i=0;i<InternetServers.Num();i++)
+	{
+		Players += InternetServers[i]->NumPlayers;
+		Spectators += InternetServers[i]->NumSpectators;
+	}
+}
+
 
 void SUWServerBrowser::VertSplitterResized()
 {

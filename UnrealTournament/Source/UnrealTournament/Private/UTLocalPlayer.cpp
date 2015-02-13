@@ -1183,8 +1183,9 @@ TSharedPtr<SWidget> UUTLocalPlayer::GetFriendsPopup()
 
 #endif
 
-void UUTLocalPlayer::JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate)
+void UUTLocalPlayer::JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate, bool bRememberSession)
 {
+	bWantsToConnectAsSpectator = bSpectate;
 	OnlineSessionInterface->JoinSession(0,GameSessionName,SearchResult);
 }
 
@@ -1208,6 +1209,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 		FString ConnectionString;
 		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
 		{
+			if (bWantsToConnectAsSpectator) ConnectionString += TEXT("?SpectatorOnly=1");
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 		}
 	}
@@ -1219,6 +1221,10 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	{
 		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "SessionFull", "The session you are attempting to join is full."));
 	}
+
+	bWantsToConnectAsSpectator = false;
+
+
 }
 
 void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
@@ -1301,3 +1307,5 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 		}
 	}
 }
+
+

@@ -208,6 +208,9 @@ public:
 	int32 MaxPlayers;
 
 	// Max. # of players allowed on this server
+	int32 MaxSpectators;
+
+	// # of friends on this server
 	int32 NumFriends;
 
 	// HUB - returns the # of matches currently happening in this hub
@@ -241,7 +244,7 @@ public:
 	TArray<TSharedPtr<FServerRuleData>> Rules;
 	TArray<TSharedPtr<FServerPlayerData>> Players;
 
-	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags)
+	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inMaxSpectators, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags)
 	: Name( inName )
 	, IP( inIP )
 	, BeaconIP( inBeaconIP )
@@ -251,6 +254,7 @@ public:
 	, NumPlayers( inNumPlayers )
 	, NumSpectators( inNumSpecators )
 	, MaxPlayers( inMaxPlayers )
+	, MaxSpectators( inMaxSpectators )
 	, NumMatches( inNumMatches) 
 	, MinRank ( inMinRank )
 	, MaxRank ( inMaxRank )
@@ -265,9 +269,9 @@ public:
 		bFakeHUB = false;
 	}
 
-	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags)
+	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers,  int32 inMaxSpectators, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags)
 	{
-		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inNumMatches, inMinRank, inMaxRank, inVersion, inPing, inFlags ) );
+		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inMaxSpectators, inNumMatches, inMinRank, inMaxRank, inVersion, inPing, inFlags ) );
 	}
 
 	void AddPlayer(const FString& PlayerName, const FString& Score, const FString& PlayerId)
@@ -325,7 +329,7 @@ public:
 			else if (ColumnName == FName(TEXT("ServerMap"))) ColumnText = FText::FromString(ServerData->Map);
 			else if (ColumnName == FName(TEXT("ServerVer"))) ColumnText = FText::FromString(ServerData->Version);
 			else if (ColumnName == FName(TEXT("ServerNumPlayers"))) ColumnText = FText::Format(NSLOCTEXT("SUWServerBrowser","NumPlayers","{0}/{1}"), FText::AsNumber(ServerData->NumPlayers), FText::AsNumber(ServerData->MaxPlayers));
-			else if (ColumnName == FName(TEXT("ServerNumSpecs"))) ColumnText = FText::AsNumber(ServerData->NumSpectators);
+			else if (ColumnName == FName(TEXT("ServerNumSpecs"))) ColumnText = FText::Format(NSLOCTEXT("SUWServerBrowser","NumPlayers","{0}/{1}"), FText::AsNumber(ServerData->NumSpectators), FText::AsNumber(ServerData->MaxSpectators));
 			else if (ColumnName == FName(TEXT("ServerPing"))) 
 			{
 				ColumnText = bErrorPing ? NSLOCTEXT("SUWServerBrowser","BadPing", "--") : FText::AsNumber(ServerData->Ping);
@@ -539,6 +543,7 @@ protected:
 	virtual FReply OnConnectIP();
 	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
+	virtual void TallyInternetServers(int32& Players, int32& Spectators);
 
 private:
 	bool bAutoRefresh;
@@ -551,13 +556,15 @@ private:
 	FName CurrentRulesSortColumn;
 	FName CurrentPlayersSortColumn;
 
-	FOnFindSessionsCompleteDelegate OnFindSessionCompleteDelegate;
+	FDelegateHandle OnFindSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
 
 	TSharedPtr<FServerData> RandomHUB;
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
 
 	float GetReverseScale() const;
+
+
 
 };
 

@@ -108,6 +108,7 @@ protected:
 	void WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
+	bool bWantsToConnectAsSpectator;
 
 public:
 	FProcHandle DedicatedServerProcessHandle;
@@ -296,7 +297,7 @@ public:
 	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id
-	virtual void JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate);
+	virtual void JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate, bool bRememberSession);
 	virtual void LeaveSession();
 
 	// Updates this user's online presence
@@ -329,7 +330,7 @@ protected:
 public:
 	virtual uint32 GetCountryFlag();
 	virtual void SetCountryFlag(uint32 NewFlag, bool bSave=false);
-	
+
 };
 
 

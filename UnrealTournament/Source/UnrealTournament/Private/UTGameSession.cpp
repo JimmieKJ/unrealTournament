@@ -74,10 +74,10 @@ void AUTGameSession::CleanUpOnlineSubsystem()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			SessionInterface->ClearOnCreateSessionCompleteDelegate(OnCreateSessionCompleteDelegate);
-			SessionInterface->ClearOnStartSessionCompleteDelegate(OnStartSessionCompleteDelegate);
-			SessionInterface->ClearOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
-			SessionInterface->ClearOnDestroySessionCompleteDelegate(OnDestroySessionCompleteDelegate);
+			SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
+			SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(OnStartSessionCompleteDelegate);
+			SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
+			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
 		}
 
 	}
@@ -107,15 +107,14 @@ void AUTGameSession::RegisterServer()
 			EOnlineSessionState::Type State = SessionInterface->GetSessionState(FName(TEXT("Game")));
 			if (State == EOnlineSessionState::NoSession)
 			{
-				OnCreateSessionCompleteDelegate = FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnCreateSessionComplete);
-				SessionInterface->AddOnCreateSessionCompleteDelegate(OnCreateSessionCompleteDelegate);
+				OnCreateSessionCompleteDelegate = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnCreateSessionComplete));
 			}
 			else if (State == EOnlineSessionState::Ended)
 			{
 				StartMatch();
 			}
 
-			TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, MaxPlayers));
+			TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 10000));
 			if (OnlineGameSettings.IsValid() && UTGameMode)
 			{
 				InitHostBeacon(OnlineGameSettings.Get());
@@ -140,8 +139,7 @@ void AUTGameSession::UnRegisterServer(bool bShuttingDown)
 		{
 			if (SessionInterface.IsValid())
 			{
-				OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnDestroySessionComplete);
-				SessionInterface->AddOnDestroySessionCompleteDelegate(OnDestroySessionCompleteDelegate);
+				OnDestroySessionCompleteDelegate = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(FOnDestroySessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnDestroySessionComplete));
 				SessionInterface->DestroySession(GameSessionName);
 			}
 		}
@@ -160,8 +158,7 @@ void AUTGameSession::StartMatch()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			OnStartSessionCompleteDelegate = FOnStartSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnStartSessionComplete);
-			SessionInterface->AddOnStartSessionCompleteDelegate(OnStartSessionCompleteDelegate);
+			OnStartSessionCompleteDelegate = SessionInterface->AddOnStartSessionCompleteDelegate_Handle(FOnStartSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnStartSessionComplete));
 			SessionInterface->StartSession(GameSessionName);
 		}
 	}
@@ -178,8 +175,7 @@ void AUTGameSession::EndMatch()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			OnEndSessionCompleteDelegate = FOnEndSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnEndSessionComplete);
-			SessionInterface->AddOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
+			OnEndSessionCompleteDelegate = SessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnEndSessionComplete));
 			SessionInterface->EndSession(GameSessionName);
 		}
 	}
@@ -208,7 +204,7 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			SessionInterface->ClearOnCreateSessionCompleteDelegate(OnCreateSessionCompleteDelegate);
+			SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
 		}
 	}
 
@@ -237,7 +233,7 @@ void AUTGameSession::OnStartSessionComplete(FName SessionName, bool bWasSuccessf
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			SessionInterface->ClearOnStartSessionCompleteDelegate(OnStartSessionCompleteDelegate);
+			SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(OnStartSessionCompleteDelegate);
 			UpdateGameState();		// Immediately perform an update so as to pickup any players that have joined since.
 		}
 	}
@@ -259,7 +255,7 @@ void AUTGameSession::OnEndSessionComplete(FName SessionName, bool bWasSuccessful
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			SessionInterface->ClearOnEndSessionCompleteDelegate(OnEndSessionCompleteDelegate);
+			SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
 		}
 	}
 }
@@ -277,7 +273,7 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			SessionInterface->ClearOnDestroySessionCompleteDelegate(OnDestroySessionCompleteDelegate);
+			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
 		}
 	}
 }
@@ -294,6 +290,8 @@ void AUTGameSession::UpdateGameState()
 			{
 				FUTOnlineGameSettingsBase* OGS = (FUTOnlineGameSettingsBase*)SessionInterface->GetSessionSettings(GameSessionName);
 
+				OGS->Set(SETTING_UTMAXPLAYERS, MaxPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_UTMAXSPECTATORS, MaxSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 				OGS->Set(SETTING_NUMMATCHES, UTGameMode->GetNumMatches(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 				OGS->Set(SETTING_PLAYERSONLINE, UTGameMode->GetNumPlayers(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 				OGS->Set(SETTING_SPECTATORSONLINE, UTGameMode->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);

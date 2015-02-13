@@ -64,5 +64,6 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTBaseGameMode* CurrentGame)
 	int32 NumMatches = CurrentGame->GetNumMatches();
 	Set(SETTING_NUMMATCHES, NumMatches, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
+
 }
 
