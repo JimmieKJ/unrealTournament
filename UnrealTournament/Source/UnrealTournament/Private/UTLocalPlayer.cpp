@@ -559,6 +559,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)
 	{
 		CurrentProfileSettings = NULL;
+		FUTAnalytics::LoginStatusChanged(FString());
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
@@ -571,6 +572,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		{
 			EntitlementsInterface->QueryEntitlements(UniqueID);
 		}
+		FUTAnalytics::LoginStatusChanged(UniqueID.ToString());
 	}
 
 	for (int32 i=0; i< PlayerLoginStatusChangedListeners.Num(); i++)

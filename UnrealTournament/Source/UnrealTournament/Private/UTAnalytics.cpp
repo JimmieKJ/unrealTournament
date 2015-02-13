@@ -7,6 +7,9 @@
 
 bool FUTAnalytics::bIsInitialized = false;
 TSharedPtr<IAnalyticsProvider> FUTAnalytics::Analytics = NULL;
+// initialize to a dummy value to ensure the first time we set the AccountID it detects it as a change.
+FString FUTAnalytics::CurrentAccountID(TEXT("__UNINITIALIZED__"));
+FUTAnalytics::EAccountSource FUTAnalytics::CurrentAccountSource = FUTAnalytics::EAccountSource::EFromRegistry;
 
 /**
  * On-demand construction of the singleton. 
@@ -42,12 +45,9 @@ void FUTAnalytics::Initialize()
 	Analytics = FAnalytics::Get().CreateAnalyticsProvider(
 		FName(*DefaultUTAnalyticsConfig.Execute(TEXT("ProviderModuleName"), true)), 
 		DefaultUTAnalyticsConfig);
-	
-	if (Analytics.IsValid())
-	{
-		Analytics->SetUserID(FPlatformMisc::GetUniqueDeviceId());
-		Analytics->StartSession();
-	}
+	// Set the UserID using the AccountID regkey if present.
+	LoginStatusChanged(FString());
+
 	bIsInitialized = true;
 }
 
@@ -61,4 +61,39 @@ void FUTAnalytics::Shutdown()
 
 	Analytics.Reset();
 	bIsInitialized = false;
+}
+
+void FUTAnalytics::LoginStatusChanged(FString NewAccountID)
+{
+	if (IsAvailable())
+	{
+		// track the source of the account ID. If we get one, it's from OSS. Otherwise, we'll get it from the registry.
+		EAccountSource AccountSource = EAccountSource::EFromOnlineSubsystem;
+		// empty AccountID tells us we are logged out, and get the cached one from the registry.
+		if (NewAccountID.IsEmpty())
+		{
+			NewAccountID = FPlatformMisc::GetEpicAccountId();
+			AccountSource = EAccountSource::EFromRegistry;
+		}
+		// Restart the session if the AccountID or AccountSource is changing. This prevents spuriously creating new sessions.
+		// We restart the session if the AccountSource is changing because it is part of the UserID. This way the analytics
+		// system will know that our source for the AccountID is different, even if the ID itself is the same.
+		if (NewAccountID != CurrentAccountID || AccountSource != CurrentAccountSource)
+		{
+			// this will do nothing if a session is not already started.
+			Analytics->EndSession();
+			PrivateSetUserID(NewAccountID, AccountSource);
+			Analytics->StartSession();
+		}
+	}
+}
+
+void FUTAnalytics::PrivateSetUserID(const FString& AccountID, EAccountSource AccountSource)
+{
+	// Set the UserID to "MachineID|AccountID|OSID|AccountIDSource".
+	const TCHAR* AccountSourceStr = AccountSource == EAccountSource::EFromRegistry ? TEXT("Reg") : TEXT("OSS");
+	Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *AccountID, *FPlatformMisc::GetOperatingSystemId(), AccountSourceStr));
+	// remember the current value so we don't spuriously restart the session if the user logs in later with the same ID.
+	CurrentAccountID = AccountID;
+	CurrentAccountSource = AccountSource;
 }
