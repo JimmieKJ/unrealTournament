@@ -5,7 +5,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "UTOnlineGameSettingsBase.h"
 #include "UTBaseGameMode.h"
-
+#include "UTLobbyGameMode.h"
 
 AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -36,7 +36,7 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 
 	FString LocalAddress = NetDriver->LowLevelGetNetworkNumber();
 
-	if ( !UniqueId.IsValid() && Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) )
+	if (!UniqueId.IsValid() && Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) && Cast<AUTLobbyGameMode>(UTGameMode) == NULL)
 	{
 		ErrorMessage = TEXT("NOTLOGGEDIN");
 	}
