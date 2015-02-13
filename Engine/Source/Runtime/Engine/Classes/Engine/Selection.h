@@ -467,7 +467,7 @@ public:
 	bool IsObjectValid(const UObject* Object) const
 	{
 		const UActorComponent* Comp = Cast<UActorComponent>( Object );
-		return Comp && Comp->CreationMethod != EComponentCreationMethod::UserConstructionScript;
+		return Comp && !Comp->IsCreatedByConstructionScript();
 	}
 };
 

@@ -36,7 +36,7 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 		}
 	}
 
-	if (SourceComponent->CreationMethod == EComponentCreationMethod::SimpleConstructionScript)
+	/*if (SourceComponent->CreationMethod == EComponentCreationMethod::SimpleConstructionScript)
 	{
 		class FComponentPropertyWriter : public FObjectWriter
 		{
@@ -55,7 +55,7 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 			}
 
 		} ComponentPropertyWriter(SourceComponent, SavedProperties);
-	}
+	}*/
 }
 
 bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Component) const
