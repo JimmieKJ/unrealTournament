@@ -607,9 +607,6 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 		// Call function to notify component it has been created
 		NewActorComp->OnComponentCreated();
 
-		// Keep track of the new component during UCS execution. This also does a temporary mobility swap during UCS execution in order to allow attachment and other things to succeed within that context.
-		FUCSComponentManager::Get().AddComponent(this, NewActorComp);
-
 		// The user has the option of doing attachment manually where they have complete control or via the automatic rule
 		// that the first component added becomes the root component, with subsequent components attached to the root.
 		USceneComponent* NewSceneComp = Cast<USceneComponent>(NewActorComp);
@@ -632,6 +629,13 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 
 		// Register component, which will create physics/rendering state, now component is in correct position
 		NewActorComp->RegisterComponent();
+
+		// Keep track of the new component during UCS execution. This also does a temporary mobility swap during UCS execution in order to allow dynamic data to be changed within that context.
+		// Note: This should only be done AFTER registration.
+		if(bRunningUserConstructionScript)
+		{
+			FUCSComponentManager::Get().AddComponent(this, NewActorComp);
+		}
 	}
 
 	return NewActorComp;

@@ -886,7 +886,8 @@ void USceneComponent::AttachTo(class USceneComponent* Parent, FName InSocketName
 			return;
 		}
 
-		if(Mobility == EComponentMobility::Static && Parent->Mobility != EComponentMobility::Static )
+		// Don't allow components with static mobility to be attached to non-static parents (except during UCS)
+		if(!IsRunningUserConstructionScript() && Mobility == EComponentMobility::Static && Parent->Mobility != EComponentMobility::Static)
 		{
 			FString ExtraBlueprintInfo;
 #if WITH_EDITORONLY_DATA

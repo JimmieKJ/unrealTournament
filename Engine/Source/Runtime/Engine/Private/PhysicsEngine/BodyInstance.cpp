@@ -1014,8 +1014,8 @@ void FBodyInstance::InitBody(UBodySetup* Setup, const FTransform& Transform, UPr
 		}
 	}
 
-	// See if we are 'static' - note that we use the PhysicsMobility setting here which "shadows" the actual Mobility setting in most cases but also will remain constant e.g. during UCS execution
-	const bool bPhysicsStatic = (OwnerComponent == NULL) || (OwnerComponent->PhysicsMobility != EComponentMobility::Movable);
+	// See if we are 'static'
+	const bool bPhysicsStatic = (OwnerComponent == NULL) || (OwnerComponent->Mobility != EComponentMobility::Movable);
 
 	// In skeletal case, we need both our bone and skelcomponent flag to be true.
 	// This might be 'and'ing us with ourself, but thats fine.

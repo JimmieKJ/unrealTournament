@@ -394,12 +394,6 @@ public:
 	/** Cached navigation relevancy flag for collision updates */
 	uint32 bNavigationRelevant : 1;
 
-	/** 
-	 * Shadowed mobility setting used e.g. to assist with physics scene initialization at runtime.
-	 * It will usually match the value of the 'Mobility' property, except e.g. during UCS execution.
-	 */
-	TEnumAsByte<EComponentMobility::Type> PhysicsMobility;
-
 protected:
 
 	/** Returns true if all descendant components that we can possibly collide with use relative location and rotation. */
@@ -937,7 +931,6 @@ public:
 #endif
 
 	// Begin UActorComponent Interface
-	virtual void OnComponentCreated() override;
 	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;
 	virtual bool IsEditorOnly() const override;
 	virtual bool ShouldCreatePhysicsState() const override;
@@ -1293,7 +1286,6 @@ public:
 	virtual ECollisionChannel GetCollisionObjectType() const override;
 	virtual const FCollisionResponseContainer& GetCollisionResponseToChannels() const override;
 	virtual FVector GetComponentVelocity() const override;
-	virtual void SetMobility(EComponentMobility::Type NewMobility) override;
 	//End USceneComponent Interface
 
 	/**
