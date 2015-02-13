@@ -79,13 +79,13 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 				}
 			}
 		}
-		XOffset = 645;
+		XOffset = Size.X - ((Size.X * 0.5) - CenterBuffer);
 	}
 
 	if (UTGameState->PlayerArray.Num() <= 28 && NumSpectators > 0)
 	{
 		FText SpectatorCount = FText::Format(NSLOCTEXT("UTScoreboard", "SpectatorFormat", "{0} spectators are watching this match"), FText::AsNumber(NumSpectators));
-		DrawText(SpectatorCount, 635, 765, SmallFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Bottom);
+		DrawText(SpectatorCount, Size.X * 0.5, 765, SmallFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Bottom);
 	}
 }
 

@@ -234,6 +234,7 @@ private:
 
 	FDelegateHandle OnJoinSessionCompleteDelegate;
 	FDelegateHandle OnEndSessionCompleteDelegate;
+	FDelegateHandle OnDestroySessionCompleteDelegate;
 	
 public:
 	virtual void LoadProfileSettings();
@@ -297,8 +298,9 @@ public:
 	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id
-	virtual void JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate, bool bRememberSession);
+	virtual void JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate);
 	virtual void LeaveSession();
+	virtual void ReturnToMainMenu();
 
 	// Updates this user's online presence
 	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
@@ -306,8 +308,14 @@ public:
 protected:
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 	virtual void OnEndSessionComplete(FName SessionName, bool bWasSuccessful);
+	virtual void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
+
 	virtual void OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful);
 	virtual void OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence);
+
+	bool bPendingSession;
+	FOnlineSessionSearchResult PendingSession;
+
 
 #if !UE_SERVER
 

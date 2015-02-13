@@ -1183,11 +1183,72 @@ TSharedPtr<SWidget> UUTLocalPlayer::GetFriendsPopup()
 
 #endif
 
-void UUTLocalPlayer::JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate, bool bRememberSession)
+void UUTLocalPlayer::ReturnToMainMenu()
 {
-	bWantsToConnectAsSpectator = bSpectate;
-	OnlineSessionInterface->JoinSession(0,GameSessionName,SearchResult);
+	Exec(GetWorld(), TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"), *GLog);
 }
+
+void UUTLocalPlayer::JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate)
+{
+	UE_LOG(UT,Log, TEXT("##########################"));
+	UE_LOG(UT,Log, TEXT("Joining a New Session"));
+	UE_LOG(UT,Log, TEXT("##########################"));
+
+	bWantsToConnectAsSpectator = bSpectate;
+	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
+	if (OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UniqueId))
+	{
+		UE_LOG(UT,Log, TEXT("--- Alreadyt in a Session -- Deferring while I clean it up"));
+		bPendingSession = true;
+		PendingSession = SearchResult;
+		LeaveSession();
+	}
+	else
+	{
+		OnlineSessionInterface->JoinSession(0,GameSessionName,SearchResult);
+	}
+}
+
+void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+{
+	bPendingSession = false;
+
+	UE_LOG(UT,Log, TEXT("----------- [OnJoinSessionComplete %i"), (Result == EOnJoinSessionCompleteResult::Success));
+
+
+	// If we successed, nothing else needs to be done.
+	if (Result == EOnJoinSessionCompleteResult::Success)
+	{
+		FString ConnectionString;
+		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
+		{
+			if (bWantsToConnectAsSpectator) ConnectionString += TEXT("?SpectatorOnly=1");
+			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
+	
+			bWantsToConnectAsSpectator = false;
+			return;
+
+		}
+	}
+
+	// Any failures, return to the main menu.
+	bWantsToConnectAsSpectator = false;
+
+	if (Result == EOnJoinSessionCompleteResult::AlreadyInSession)
+	{
+		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "AlreadyInSession", "You are already in a session and can't join another."));
+	}
+
+
+	if (Result == EOnJoinSessionCompleteResult::SessionIsFull)
+	{
+		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "SessionFull", "The session you are attempting to join is full."));
+	}
+
+	// Force back to the main menu.
+	ReturnToMainMenu();
+}
+
 
 void UUTLocalPlayer::LeaveSession()
 {
@@ -1198,34 +1259,24 @@ void UUTLocalPlayer::LeaveSession()
 void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	OnlineSessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
+	OnDestroySessionCompleteDelegate = OnlineSessionInterface->AddOnDestroySessionCompleteDelegate_Handle(FOnDestroySessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnDestroySessionComplete));
 	OnlineSessionInterface->DestroySession(GameSessionName);
 }
 
 
-void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	if (Result == EOnJoinSessionCompleteResult::Success)
+	UE_LOG(UT,Log, TEXT("----------- [OnDestroySessionComplete %i"), bPendingSession);
+	
+	OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
+	if (bPendingSession)
 	{
-		FString ConnectionString;
-		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
-		{
-			if (bWantsToConnectAsSpectator) ConnectionString += TEXT("?SpectatorOnly=1");
-			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
-		}
+		bPendingSession = false;
+		OnlineSessionInterface->JoinSession(0,GameSessionName,PendingSession);
 	}
-	else if (Result == EOnJoinSessionCompleteResult::AlreadyInSession)
-	{
-		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "AlreadyInSession", "You are already in a session and can't join another."));
-	}
-	else if (Result == EOnJoinSessionCompleteResult::SessionIsFull)
-	{
-		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "SessionFull", "The session you are attempting to join is full."));
-	}
-
-	bWantsToConnectAsSpectator = false;
-
-
 }
+
+
 
 void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
 {

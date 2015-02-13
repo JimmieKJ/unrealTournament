@@ -208,27 +208,14 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 			if (GUIDSessionSearchSettings->SearchResults.Num() > 0)
 			{
 				FOnlineSessionSearchResult Result = GUIDSessionSearchSettings->SearchResults[0];
-				FString ServerIP;
-				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("GamePort")), ServerIP);
-			
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-				LP->HideMenu();
-
-				// FAKE IT-- Change it to 127:0.0.1 for testing
-				if ( FParse::Param(FCommandLine::Get(), TEXT("locallobby")) )
+				if (LP)
 				{
-					TArray<FString> Tmp;
-					ServerIP.ParseIntoArray(&Tmp, TEXT(":"), true);
-					ServerIP = FString::Printf(TEXT("127.0.0.1:%s"),*Tmp[1]);
+					LP->HideMenu();
+					LP->JoinSession(Result, GUIDJoinWantsToSpectate);
 				}
 
-				FString Command = FString::Printf(TEXT("open %s"), *ServerIP);
-				if (GUIDJoinWantsToSpectate)
-				{
-					Command += FString(TEXT("?spectatoronly=1"));
-				}
-
-				LP->Exec(GetWorld(), *Command, *GLog);
+				GUIDJoinWantsToSpectate = false;
 				GUIDSessionSearchSettings.Reset();
 				return;
 			}

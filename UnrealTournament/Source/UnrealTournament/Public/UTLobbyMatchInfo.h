@@ -257,7 +257,7 @@ public:
 
 	bool SkillTest(int32 Rank)
 	{
-		return RankCeiling > 0 && Rank < RankCeiling + 400; // MAKE ME CONFIG
+		return RankCeiling < 1 || Rank <= RankCeiling + 400; // MAKE ME CONFIG
 	}
 
 protected:

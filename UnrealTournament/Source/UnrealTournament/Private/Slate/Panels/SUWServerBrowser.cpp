@@ -1208,7 +1208,7 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
-	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate, true);
+	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
 	CleanupQoS();
 	PlayerOwner->HideMenu();
 

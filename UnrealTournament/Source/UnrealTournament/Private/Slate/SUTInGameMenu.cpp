@@ -114,12 +114,13 @@ FReply SUTInGameMenu::OnDisconnect()
 		if (PC)
 		{
 			PC->ConnectToServerViaGUID(PlayerOwner->LastLobbyServerGUID, false);
+			PlayerOwner->LastLobbyServerGUID = TEXT("");
 		}
 	}
 
 	else
 	{
-		ConsoleCommand(TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"));
+		PlayerOwner->ReturnToMainMenu();
 	}
 
 	return FReply::Handled();
