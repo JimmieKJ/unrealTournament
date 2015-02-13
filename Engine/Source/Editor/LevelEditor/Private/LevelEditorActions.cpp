@@ -1350,7 +1350,25 @@ bool FLevelEditorActionCallbacks::Duplicate_CanExecute()
 			return false;
 		}
 	}
-	return GUnrealEd->CanCopySelectedActorsToClipboard( GetWorld() );	// If we can copy, we can duplicate
+	
+	// If we can copy, we can duplicate
+	bool bCanCopy = false;
+	if (GEditor->GetSelectedComponentCount() > 0)
+	{
+		TArray<UActorComponent*> SelectedComponents;
+		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		{
+			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
+		}
+
+		bCanCopy = FComponentEditorUtils::CanCopyComponents(SelectedComponents);
+	}
+	else
+	{
+		bCanCopy = GUnrealEd->CanCopySelectedActorsToClipboard(GetWorld());
+	}
+
+	return bCanCopy;
 }
 
 bool FLevelEditorActionCallbacks::Delete_CanExecute()
@@ -1369,7 +1387,24 @@ bool FLevelEditorActionCallbacks::Delete_CanExecute()
 			return false;
 		}
 	}
-	return GUnrealEd->CanDeleteSelectedActors( GetWorld(), true, false );
+
+	bool bCanDelete = false;
+	if (GEditor->GetSelectedComponentCount() > 0)
+	{
+		TArray<UActorComponent*> SelectedComponents;
+		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		{
+			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
+		}
+
+		bCanDelete = FComponentEditorUtils::CanDeleteComponents(SelectedComponents);
+	}
+	else
+	{
+		bCanDelete = GUnrealEd->CanDeleteSelectedActors(GetWorld(), true, false);
+	}
+
+	return bCanDelete;
 }
 
 void FLevelEditorActionCallbacks::Rename_Execute()
@@ -1391,7 +1426,21 @@ void FLevelEditorActionCallbacks::Rename_Execute()
 
 bool FLevelEditorActionCallbacks::Rename_CanExecute()
 {
-	return GEditor->GetSelectedActorCount() == 1;
+	bool bCanRename = false;
+	if (GEditor->GetSelectedComponentCount() == 1)
+	{
+		if (UActorComponent* ComponentToRename = GEditor->GetSelectedComponents()->GetTop<UActorComponent>())
+		{
+			// We can't edit non-instance components or the default scene root
+			bCanRename = ComponentToRename->CreationMethod == EComponentCreationMethod::Instance && ComponentToRename->GetFName() != USceneComponent::GetDefaultSceneRootVariableName();
+		}
+	}
+	else
+	{
+		bCanRename = GEditor->GetSelectedActorCount() == 1;
+	}
+
+	return bCanRename;
 }
 
 bool FLevelEditorActionCallbacks::Cut_CanExecute()
@@ -1410,7 +1459,26 @@ bool FLevelEditorActionCallbacks::Cut_CanExecute()
 			return false;
 		}
 	}
-	return GUnrealEd->CanCopySelectedActorsToClipboard( GetWorld() );	// If we can copy, we can cut
+
+	bool bCanCut = false;
+	if (GEditor->GetSelectedComponentCount() > 0)
+	{
+		// Make sure the components can be copied and deleted
+		TArray<UActorComponent*> SelectedComponents;
+		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		{
+			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
+		}
+
+		bCanCut = FComponentEditorUtils::CanCopyComponents(SelectedComponents) && FComponentEditorUtils::CanDeleteComponents(SelectedComponents);
+	}
+	else
+	{
+		// For actors, if we can copy, we can cut
+		bCanCut = GUnrealEd->CanCopySelectedActorsToClipboard(GetWorld());
+	}
+
+	return bCanCut;
 }
 
 bool FLevelEditorActionCallbacks::Copy_CanExecute()
@@ -1429,7 +1497,24 @@ bool FLevelEditorActionCallbacks::Copy_CanExecute()
 			return false;
 		}
 	}
-	return GUnrealEd->CanCopySelectedActorsToClipboard( GetWorld() );
+
+	bool bCanCopy = false;
+	if (GEditor->GetSelectedComponentCount() > 0)
+	{
+		TArray<UActorComponent*> SelectedComponents;
+		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		{
+			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
+		}
+
+		bCanCopy = FComponentEditorUtils::CanCopyComponents(SelectedComponents);
+	}
+	else
+	{
+		bCanCopy = GUnrealEd->CanCopySelectedActorsToClipboard(GetWorld());
+	}
+
+	return bCanCopy;
 }
 
 bool FLevelEditorActionCallbacks::Paste_CanExecute()
@@ -2765,7 +2850,7 @@ void FLevelEditorCommands::RegisterCommands()
 
 	UI_COMMAND( GoHere, "Go Here", "Moves the camera to the current mouse position", EUserInterfaceActionType::Button, FInputGesture() );
 
-	UI_COMMAND( SnapCameraToActor, "Snap View to Actor", "Snaps the view to the selected actors", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( SnapCameraToObject, "Snap View to Object", "Snaps the view to the selected object", EUserInterfaceActionType::Button, FInputGesture() );
 
 	UI_COMMAND( GoToCodeForActor, "Go to C++ Code for Actor", "Opens a code editing IDE and navigates to the source file associated with the seleced actor", EUserInterfaceActionType::Button, FInputGesture() );
 	UI_COMMAND( GoToDocsForActor, "Go to Documentation for Actor", "Opens documentation for the Actor in the default web browser", EUserInterfaceActionType::Button, FInputGesture() );

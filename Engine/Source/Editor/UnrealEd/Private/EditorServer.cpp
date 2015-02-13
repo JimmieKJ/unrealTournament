@@ -4641,7 +4641,7 @@ void UEditorEngine::MoveActorInFrontOfCamera( AActor& InActor, const FVector& In
 }
 
 
-void UEditorEngine::SnapViewToActor(const AActor &Actor)
+void UEditorEngine::SnapViewTo(const FActorOrComponent& Object)
 {
 	for(int32 ViewportIndex = 0; ViewportIndex < LevelViewportClients.Num(); ++ViewportIndex)
 	{
@@ -4649,8 +4649,8 @@ void UEditorEngine::SnapViewToActor(const AActor &Actor)
 
 		if ( ViewportClient->IsPerspective()  )
 		{
-			ViewportClient->SetViewLocation( Actor.GetActorLocation() );
-			ViewportClient->SetViewRotation( Actor.GetActorRotation() );
+			ViewportClient->SetViewLocation( Object.GetWorldLocation() );
+			ViewportClient->SetViewRotation( Object.GetWorldRotation() );
 			ViewportClient->Invalidate();
 		}
 	}
@@ -4754,13 +4754,17 @@ bool UEditorEngine::Exec_Camera( const TCHAR* Str, FOutputDevice& Ar )
 	}
 	else if ( bSnap )
 	{
-		TargetSelectedActor = GEditor->GetSelectedActors()->GetTop<AActor>();
-
-		if (TargetSelectedActor)
+		FActorOrComponent SelectedObject(GEditor->GetSelectedComponents()->GetTop<USceneComponent>());
+		if (!SelectedObject.IsValid())
+		{
+			SelectedObject.Actor = GEditor->GetSelectedActors()->GetTop<AActor>();
+		}
+		
+		if (SelectedObject.IsValid())
 		{
 			// Set perspective viewport camera parameters to that of the selected camera.
-			SnapViewToActor(*TargetSelectedActor);
-			Ar.Log( TEXT("Snapped camera to the first selected actor.") );
+			SnapViewTo(SelectedObject);
+			Ar.Log( TEXT("Snapped camera to the first selected object.") );
 		}
 	}
 

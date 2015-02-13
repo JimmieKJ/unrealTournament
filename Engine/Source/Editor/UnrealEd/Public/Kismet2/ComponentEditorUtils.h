@@ -28,7 +28,7 @@ public:
 	 * Checks whether it is valid to copy the indicated components
 	 * @param ComponentsToCopy The list of components to check
 	 * @return Whether the indicated components can be copied
-	*/
+	 */
 	static bool CanCopyComponents(const TArray<UActorComponent*>& ComponentsToCopy);
 
 	/**
@@ -200,7 +200,7 @@ public:
 	 */
 	static void FillComponentContextMenuOptions(FMenuBuilder& MenuBuilder, const TArray<UActorComponent*>& SelectedComponents);
 
-private:
+private:	
 	static USceneComponent* FindClosestParentInList(UActorComponent* ChildComponent, const TArray<UActorComponent*>& ComponentList);
 
 	static void OnGoToComponentAssetInBrowser(UObject* Asset);

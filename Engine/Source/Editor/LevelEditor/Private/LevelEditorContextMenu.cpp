@@ -31,6 +31,7 @@
 #include "GenericCommands.h"
 #include "Engine/Selection.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "ComponentEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "LevelViewportContextMenu"
 
@@ -155,10 +156,15 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 
 	if (GEditor->GetSelectedComponentCount() > 0)
 	{
-		// Show component-specific context menu
-		MenuBuilder.BeginSection("Component", LOCTEXT("ComponentHeading", "Component"));
+		TArray<UActorComponent*> SelectedComponents;
+		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
 		{
-			auto OwnerActor = Cast<AActor>(*(GEditor->GetSelectedActorIterator()));
+			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
+		}
+
+		MenuBuilder.BeginSection("ComponentControl", LOCTEXT("ComponentControlHeading", "Component"));
+		{
+			auto OwnerActor = GEditor->GetSelectedActors()->GetTop<AActor>();
 			check(OwnerActor);
 
 			MenuBuilder.AddMenuEntry(
@@ -168,8 +174,20 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 				TAttribute<FText>(),
 				FSlateIcon(FEditorStyle::GetStyleSetName(), FClassIconFinder::FindIconNameForClass(OwnerActor->GetClass()))
 				);
+
+			MenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().FocusViewportToSelection);
+
+
+			const FVector* ClickLocation = &GEditor->ClickLocation;
+			FUIAction GoHereAction;
+			GoHereAction.ExecuteAction = FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::GoHere_Clicked, ClickLocation);
+
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GoHere);
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().SnapCameraToObject);
 		}
 		MenuBuilder.EndSection();
+
+		FComponentEditorUtils::FillComponentContextMenuOptions(MenuBuilder, SelectedComponents);
 	}
 	else
 	{
@@ -262,7 +280,7 @@ void FLevelEditorContextMenu::FillMenu( FMenuBuilder& MenuBuilder, TWeakPtr<SLev
 			GoHereAction.ExecuteAction = FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::GoHere_Clicked, ClickLocation);
 
 			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().GoHere);
-			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().SnapCameraToActor);
+			MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().SnapCameraToObject);
 		}
 		MenuBuilder.EndSection();
 

@@ -113,8 +113,8 @@ public:
 	/** Moves the camera to the current mouse position */
 	TSharedPtr< FUICommandInfo > GoHere;
 
-	/** Snaps the camera to the selected actors. */
-	TSharedPtr< FUICommandInfo > SnapCameraToActor;
+	/** Snaps the camera to the selected object. */
+	TSharedPtr< FUICommandInfo > SnapCameraToObject;
 
 	/** Goes to the source code for the selected actor's class. */
 	TSharedPtr< FUICommandInfo > GoToCodeForActor;

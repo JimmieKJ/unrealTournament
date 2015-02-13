@@ -3364,24 +3364,6 @@ void SSCSEditor::GetSelectedItemsForContextMenu(TArray<FComponentEventConstructi
 	}
 }
 
-void SSCSEditor::OnGoToAssetInBrowser(UObject* Asset) const
-{
-	TArray<UObject*> Objects;
-	Objects.Add(Asset);
-	GEditor->SyncBrowserToObjects( Objects );
-}
-
-void SSCSEditor::OnEditBlueprint(UObject* Asset) const
-{
-	FAssetEditorManager::Get().OpenEditorForAsset(Asset);
-}
-
-void SSCSEditor::OnOpenCodeFile(const FString CodeFileName) const
-{
-	const FString AbsoluteHeaderPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*CodeFileName);
-	FSourceCodeNavigation::OpenSourceFile( AbsoluteHeaderPath );
-}
-
 TSharedPtr< SWidget > SSCSEditor::CreateContextMenu()
 {
 	TArray<FSCSEditorTreeNodePtrType> SelectedNodes = SCSTreeWidget->GetSelectedItems();
@@ -3420,103 +3402,52 @@ TSharedPtr< SWidget > SSCSEditor::CreateContextMenu()
 				}
 				if (!bShowJustPasteOption)
 				{
-					MenuBuilder.BeginSection("ComponentActions", LOCTEXT("ComponentContextMenu", "Component Actions") );
+					TArray<UActorComponent*> SelectedComponents;
+					TArray<FSCSEditorTreeNodePtrType> SelectedNodes = GetSelectedNodes();
+					for (int32 i = 0; i < SelectedNodes.Num(); ++i)
 					{
-						MenuBuilder.AddMenuEntry( FGenericCommands::Get().Cut) ;
-						MenuBuilder.AddMenuEntry( FGenericCommands::Get().Copy );
-						MenuBuilder.AddMenuEntry( FGenericCommands::Get().Paste );
-						MenuBuilder.AddMenuEntry( FGenericCommands::Get().Duplicate );
-						MenuBuilder.AddMenuEntry( FGenericCommands::Get().Delete );
-						MenuBuilder.AddMenuEntry( FGenericCommands::Get().Rename );
+						// Get the current selected node reference
+						FSCSEditorTreeNodePtrType SelectedNodePtr = SelectedNodes[i];
+						check(SelectedNodePtr.IsValid());
 
-						if (EditorMode == EComponentEditorMode::BlueprintSCS)
+						// Get the component template associated with the selected node
+						UActorComponent* ComponentTemplate = SelectedNodePtr->GetComponentTemplate();
+						if (ComponentTemplate)
 						{
-							// Collect the classes of all selected objects
-							TArray<UClass*> SelectionClasses;
-							for( auto NodeIter = SelectedNodes.CreateConstIterator(); NodeIter; ++NodeIter )
-							{
-								auto TreeNode = *NodeIter;
-								if( UActorComponent* ComponentTemplate = TreeNode->GetComponentTemplate() )
-								{
-									SelectionClasses.Add(ComponentTemplate->GetClass());
-								}
-							}
-
-							if ( SelectionClasses.Num() )
-							{
-								// Find the common base class of all selected classes
-								UClass* SelectedClass = UClass::FindCommonBase( SelectionClasses );
-								// Build an event submenu if we can generate events
-								if( FBlueprintEditorUtils::CanClassGenerateEvents( SelectedClass ))
-								{
-									MenuBuilder.AddSubMenu(	LOCTEXT("AddEventSubMenu", "Add Event"), 
-										LOCTEXT("ActtionsSubMenu_ToolTip", "Add Event"), 
-										FNewMenuDelegate::CreateStatic( &SSCSEditor::BuildMenuEventsSection,
-										GetBlueprint(), SelectedClass, FCanExecuteAction::CreateSP(this, &SSCSEditor::IsEditingAllowed),
-										FGetSelectedObjectsDelegate::CreateSP(this, &SSCSEditor::GetSelectedItemsForContextMenu)));
-								}
-							}
-						}					
-					}
-					MenuBuilder.EndSection();
-
-					if (SelectedNodes.Num() == 1)
-					{
-						UActorComponent* ComponentTemplate = SelectedNodes[0]->GetComponentTemplate();
-						if (ComponentTemplate->GetClass()->ClassGeneratedBy)
-						{
-							MenuBuilder.BeginSection("ComponentAsset", LOCTEXT("ComponentAssetHeading", "Asset"));
-							{
-								MenuBuilder.AddMenuEntry(
-									FText::Format(LOCTEXT("GoToBlueprintForComponent", "Edit {0}"), FText::FromString(ComponentTemplate->GetClass()->ClassGeneratedBy->GetName())),
-									LOCTEXT("EditBlueprintForComponent_ToolTip", "Edits the Blueprint Class that defines this component."),
-									FSlateIcon(FEditorStyle::GetStyleSetName(), FClassIconFinder::FindIconNameForClass(ComponentTemplate->GetClass())),
-									FUIAction(
-										FExecuteAction::CreateSP(this, &SSCSEditor::OnEditBlueprint, ComponentTemplate->GetClass()->ClassGeneratedBy),
-										FCanExecuteAction()));
-
-								MenuBuilder.AddMenuEntry(
-									LOCTEXT("GoToAssetForComponent", "Find Class in Content Browser"),
-									LOCTEXT("GoToAssetForComponent_ToolTip", "Summons the content browser and goes to the class for this component."),
-									FSlateIcon(FEditorStyle::GetStyleSetName(), "SystemWideCommands.FindInContentBrowser"),
-									FUIAction(
-										FExecuteAction::CreateSP(this, &SSCSEditor::OnGoToAssetInBrowser, ComponentTemplate->GetClass()->ClassGeneratedBy),
-										FCanExecuteAction()));
-							}
-							MenuBuilder.EndSection();			
-						}
-						else
-						{
-							MenuBuilder.BeginSection("ComponentCode", LOCTEXT("ComponentCodeHeading", "C++"));
-							{
-								if (FSourceCodeNavigation::IsCompilerAvailable())
-								{
-									FString ClassHeaderPath;
-									if (FSourceCodeNavigation::FindClassHeaderPath(ComponentTemplate->GetClass(), ClassHeaderPath) && IFileManager::Get().FileSize(*ClassHeaderPath) != INDEX_NONE)
-									{
-										const FString CodeFileName = FPaths::GetCleanFilename(*ClassHeaderPath);
-
-										MenuBuilder.AddMenuEntry(
-											FText::Format(LOCTEXT("GoToCodeForComponent", "Open {0}"), FText::FromString(CodeFileName)),
-											FText::Format(LOCTEXT("GoToCodeForComponent_ToolTip", "Opens the header file for this component ({0}) in a code editing program"), FText::FromString(CodeFileName)),
-											FSlateIcon(),
-											FUIAction(
-												FExecuteAction::CreateSP(this, &SSCSEditor::OnOpenCodeFile, ClassHeaderPath),
-												FCanExecuteAction()));
-									}
-
-									MenuBuilder.AddMenuEntry(
-										LOCTEXT("GoToAssetForComponent", "Find Class in Content Browser"),
-										LOCTEXT("GoToAssetForComponent_ToolTip", "Summons the content browser and goes to the class for this component."),
-										FSlateIcon(FEditorStyle::GetStyleSetName(), "SystemWideCommands.FindInContentBrowser"),
-										FUIAction(
-											FExecuteAction::CreateSP(this, &SSCSEditor::OnGoToAssetInBrowser, (UObject*)ComponentTemplate->GetClass()),
-											FCanExecuteAction()));
-								}
-							}
-							MenuBuilder.EndSection();
+							SelectedComponents.Add(ComponentTemplate);
 						}
 					}
+
+					if (EditorMode == EComponentEditorMode::BlueprintSCS)
+					{
+						// Collect the classes of all selected objects
+						TArray<UClass*> SelectionClasses;
+						for( auto NodeIter = SelectedNodes.CreateConstIterator(); NodeIter; ++NodeIter )
+						{
+							auto TreeNode = *NodeIter;
+							if( UActorComponent* ComponentTemplate = TreeNode->GetComponentTemplate() )
+							{
+								SelectionClasses.Add(ComponentTemplate->GetClass());
+							}
+						}
+
+						if ( SelectionClasses.Num() )
+						{
+							// Find the common base class of all selected classes
+							UClass* SelectedClass = UClass::FindCommonBase( SelectionClasses );
+							// Build an event submenu if we can generate events
+							if( FBlueprintEditorUtils::CanClassGenerateEvents( SelectedClass ))
+							{
+								MenuBuilder.AddSubMenu(	LOCTEXT("AddEventSubMenu", "Add Event"), 
+									LOCTEXT("ActtionsSubMenu_ToolTip", "Add Event"), 
+									FNewMenuDelegate::CreateStatic( &SSCSEditor::BuildMenuEventsSection,
+									GetBlueprint(), SelectedClass, FCanExecuteAction::CreateSP(this, &SSCSEditor::IsEditingAllowed),
+									FGetSelectedObjectsDelegate::CreateSP(this, &SSCSEditor::GetSelectedItemsForContextMenu)));
+							}
+						}
+					}					
+
+					FComponentEditorUtils::FillComponentContextMenuOptions(MenuBuilder, SelectedComponents);
 				}
 			}
 		}
@@ -4551,28 +4482,24 @@ void SSCSEditor::CutSelectedNodes()
 
 bool SSCSEditor::CanCopyNodes() const
 {
-	TArray<FSCSEditorTreeNodePtrType> SelectedNodes = SCSTreeWidget->GetSelectedItems();
-	bool bCanCopy = SelectedNodes.Num() > 0;
-	if(bCanCopy)
+	TArray<UActorComponent*> ComponentsToCopy;
+	TArray<FSCSEditorTreeNodePtrType> SelectedNodes = GetSelectedNodes();
+	for (int32 i = 0; i < SelectedNodes.Num(); ++i)
 	{
-		for (int32 i = 0; i < SelectedNodes.Num() && bCanCopy; ++i)
-		{
-			// Check for the default scene root; that cannot be copied/duplicated
-			UActorComponent* ComponentTemplate = SelectedNodes[i]->GetComponentTemplate();
-			bCanCopy = ComponentTemplate != nullptr && !SelectedNodes[i]->IsDefaultSceneRoot();
-			if (bCanCopy)
-			{
-				UClass* ComponentTemplateClass = ComponentTemplate->GetClass();
-				check(ComponentTemplateClass != nullptr);
+		// Get the current selected node reference
+		FSCSEditorTreeNodePtrType SelectedNodePtr = SelectedNodes[i];
+		check(SelectedNodePtr.IsValid());
 
-				// Component class cannot be abstract and must also be tagged as BlueprintSpawnable
-				bCanCopy = !ComponentTemplateClass->HasAnyClassFlags(CLASS_Abstract)
-					&& ComponentTemplateClass->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent);
-			}
+		// Get the component template associated with the selected node
+		UActorComponent* ComponentTemplate = SelectedNodePtr->GetComponentTemplate();
+		if (ComponentTemplate)
+		{
+			ComponentsToCopy.Add(ComponentTemplate);
 		}
 	}
 
-	return bCanCopy;
+	// Copy the components to the clipboard
+	return FComponentEditorUtils::CanCopyComponents(ComponentsToCopy);
 }
 
 void SSCSEditor::CopySelectedNodes()

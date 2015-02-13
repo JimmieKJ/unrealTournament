@@ -241,6 +241,11 @@ struct FActorOrComponent
 		return Actor ? Actor->GetActorLocation() : Component->GetComponentLocation();
 	}
 
+	FRotator GetWorldRotation() const
+	{
+		return Actor ? Actor->GetActorRotation() : Component->GetComponentRotation();
+	}
+
 	void SetWorldLocation( const FVector& NewLocation )
 	{
 		if( Actor )
@@ -954,7 +959,7 @@ public:
 	 *
 	 * @param	Actor	The actor the camera is going to be snapped to.
 	 */
-	void SnapViewToActor(const AActor &Actor);
+	void SnapViewTo(const FActorOrComponent& Object);
 
 	/**
 	 * Remove the roll, pitch and/or yaw from the perspective viewports' cameras.

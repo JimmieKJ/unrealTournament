@@ -826,12 +826,6 @@ public:
 	 */
 	static void BuildMenuEventsSection( FMenuBuilder& Menu, UBlueprint* Blueprint, UClass* SelectedClass, FCanExecuteAction CanExecuteActionDelegate, FGetSelectedObjectsDelegate GetSelectedObjectsDelegate );
 
-	void OnEditBlueprint(UObject* Blueprint) const;
-
-	void OnGoToAssetInBrowser(UObject* Asset) const;
-
-	void OnOpenCodeFile(const FString CodeFileName) const;
-
 	/**
 	 * Given an actor component, attempts to find an associated tree node.
 	 *
