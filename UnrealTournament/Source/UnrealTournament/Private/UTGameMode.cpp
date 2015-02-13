@@ -464,7 +464,7 @@ void AUTGameMode::EntitlementQueryComplete(bool bWasSuccessful, const FUniqueNet
 	// note that it is possible that they have not entered the game yet, since this is started via PreLogin() - in that case we'll validate from Login()
 	for (APlayerState* PS : GameState->PlayerArray)
 	{
-		if (*PS->UniqueId.GetUniqueNetId().Get() == UniqueId)
+		if (PS->UniqueId.IsValid() && *PS->UniqueId.GetUniqueNetId().Get() == UniqueId)
 		{
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
 			if (UTPS != NULL)
