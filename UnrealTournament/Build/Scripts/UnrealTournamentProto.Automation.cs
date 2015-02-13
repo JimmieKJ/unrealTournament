@@ -1459,7 +1459,7 @@ public partial class EditorProject : Project
         }
         else
         {
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UE4Editor*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UE4Editor*", true, new string[] { "*-Debug.dll", "*.pdb", "*Simplygon*" }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "libfbxsdk.dll", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "ShaderCompileWorker*", true, new string[] { "*.pdb" }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "CrashReportClient*", true, new string[] { "*.pdb" }, null, false, false, null, false);
