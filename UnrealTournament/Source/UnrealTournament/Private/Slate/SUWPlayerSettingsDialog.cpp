@@ -115,6 +115,26 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	CountyFlagNames.Add(MakeShareable(new FString(TEXT("South Africa"))));
 	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Canada"))));
 
+	// Flags by _Lynx
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Armenia"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Azerbaijan"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Chile"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Estonia"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("EU"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Iceland"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("India"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Israel"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Jamaica"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Japan"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Latvija"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Lithuania"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Luxembourg"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Malaysia"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Peru"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Scotland"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("South Korea"))));
+
+
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
 
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));

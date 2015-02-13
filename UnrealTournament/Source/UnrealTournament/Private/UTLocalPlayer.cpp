@@ -1275,7 +1275,7 @@ uint32 UUTLocalPlayer::GetCountryFlag()
 {
 	if (CurrentProfileSettings)
 	{
-		return FMath::Clamp<uint32>(CurrentProfileSettings->CountryFlag,0,20);
+		return FMath::Clamp<uint32>(CurrentProfileSettings->CountryFlag,0,39);
 	}
 	return 0;
 }
