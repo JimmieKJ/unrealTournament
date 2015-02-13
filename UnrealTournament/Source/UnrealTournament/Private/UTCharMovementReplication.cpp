@@ -212,7 +212,7 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 			// For now, pretend 0 accel if walking on ground
 			if (MovementMode != MOVE_Falling)
 			{
-				bHasCheckedAgainstWall = false;
+				LastCheckedAgainstWall = 0.f;
 			}
 			if (MovementMode == MOVE_Walking)
 			{
@@ -397,13 +397,14 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 
 	if (Hit.IsValidBlockingHit())
 	{
+		LastCheckedAgainstWall = GetWorld()->GetTimeSeconds();
 		bIsAgainstWall = true;
 		WallSlideNormal = Hit.Normal;
 		SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, false);
 	}
-	else if (!bHasCheckedAgainstWall)
+	else if (GetWorld()->GetTimeSeconds() - LastCheckedAgainstWall > 0.07f)
 	{
-		bHasCheckedAgainstWall = true;
+		LastCheckedAgainstWall = GetWorld()->GetTimeSeconds();
 		static const FName FallingTraceParamsTag = FName(TEXT("PhysFalling"));
 		const float TestWalkTime = FMath::Max(DeltaSeconds, 0.05f);
 		const FVector TestWalk = (FVector(0.f, 0.f, GetGravityZ()) * TestWalkTime + Velocity) * TestWalkTime;

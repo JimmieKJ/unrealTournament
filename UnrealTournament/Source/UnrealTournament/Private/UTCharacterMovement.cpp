@@ -102,7 +102,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bExplicitJump = false;
 	CurrentWallDodgeCount = 0;				
 	bWantsSlideRoll = false;				
-	bHasCheckedAgainstWall = false;			
+	LastCheckedAgainstWall = 0.f;
 	bIsSettingUpFirstReplayMove = false;
 
 	EasyImpactImpulse = 1100.f;

@@ -529,7 +529,7 @@ public:
 
 	/** Used to gate client=side checking whether other characters are falling against a wall. */
 	UPROPERTY()
-	bool bHasCheckedAgainstWall;
+	float LastCheckedAgainstWall;
 
 	/** Normal of the wall we are sliding against. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)
