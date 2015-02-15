@@ -53,7 +53,8 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 				PSC->bAutoActivate = true;
 				PSC->bAutoDestroy = true;
 				PSC->SetTemplate(HitEffect);
-				HitPawn->GetWorldTimerManager().SetTimer(PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
+				FTimerHandle TempHandle;
+				HitPawn->GetWorldTimerManager().SetTimer(TempHandle, PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
 				PSC->RegisterComponent();
 				PSC->AttachTo(HitPawn->GetMesh(), HitPawn->GetMesh()->FindClosestBone(HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation), EAttachLocation::SnapToTarget);
 			}
@@ -68,7 +69,8 @@ class UUTDmgType_AttachParticles : public UUTDamageType
 			PSC->bAutoActivate = true;
 			PSC->bAutoDestroy = true;
 			PSC->SetTemplate(HitEffect);
-			Gib->GetWorldTimerManager().SetTimer(PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
+			FTimerHandle TempHandle;
+			Gib->GetWorldTimerManager().SetTimer(TempHandle, PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
 			PSC->RegisterComponent();
 			PSC->AttachTo(Gib->GetRootComponent(), NAME_None, EAttachLocation::SnapToTarget);
 		}
