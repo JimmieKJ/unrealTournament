@@ -460,6 +460,8 @@ private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);
 
+	FString GetCloudID() const;
+
 public:
 	/**
 	 *	Tells an associated lobby that this game is ready for joins.

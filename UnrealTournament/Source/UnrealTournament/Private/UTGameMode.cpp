@@ -2005,22 +2005,10 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 
 }
 
-void AUTGameMode::PostLogin( APlayerController* NewPlayer )
+FString AUTGameMode::GetCloudID() const
 {
-	Super::PostLogin(NewPlayer);
-
-	NewPlayer->ClientSetLocation(NewPlayer->GetFocalLocation(), NewPlayer->GetControlRotation());
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->UpdateGameState();
-		}
-	}
-	
-
 	FString CloudID;
+
 	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
 
 	// For dedicated server, will need to pass stats id as a commandline parameter
@@ -2045,6 +2033,27 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 		}
 	}
 
+	return CloudID;
+}
+
+void AUTGameMode::PostLogin( APlayerController* NewPlayer )
+{
+	Super::PostLogin(NewPlayer);
+
+	NewPlayer->ClientSetLocation(NewPlayer->GetFocalLocation(), NewPlayer->GetControlRotation());
+	if (GameSession != NULL)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession != NULL)
+		{
+			UTGameSession->UpdateGameState();
+		}
+	}
+	
+
+	FString CloudID = GetCloudID();
+
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
 	AUTPlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (NewPlayer != LocalPC && PC && UTEngine)
@@ -2530,7 +2539,23 @@ FString AUTGameMode::GetRedirectURL(const FString& MapName) const
 		}
 	}
 
-	return FString(TEXT(""));
+	FString CloudID = GetCloudID();
+	FString RedirectURL;
+
+	if (!CloudID.IsEmpty())
+	{
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+		FString McpConfigOverride;
+		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+		if (McpConfigOverride == TEXT("gamedev"))
+		{
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+		}
+	
+		RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapName + TEXT("-WindowsNoEditor.pak");
+	}
+
+	return RedirectURL;
 }
 
 void AUTGameMode::UpdateLobbyMatchStats()
