@@ -161,7 +161,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
 	ViewState.Allocate();
 	{
-		UDirectionalLightComponent* PreviewLight = ConstructObject<UDirectionalLightComponent>(UDirectionalLightComponent::StaticClass(), PlayerPreviewWorld);
+		PreviewLight = ConstructObject<UDirectionalLightComponent>(UDirectionalLightComponent::StaticClass(), PlayerPreviewWorld);
 		PreviewLight->SetLightColor(FLinearColor::White);
 		PreviewLight->SetWorldRotation(FVector(1.0f, 0.0f, -1.0f).Rotation());
 		PreviewLight->RegisterComponentWithWorld(PlayerPreviewWorld);
@@ -387,14 +387,6 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					]
 				]
 			]
-
-
-
-
-
-
-
-
 			+ SVerticalBox::Slot()
 			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
 			.AutoHeight()
@@ -782,7 +774,6 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		uint32 CountryFlag = GetPlayerOwner()->GetCountryFlag();
 		CountryFlagComboBox->SetSelectedItem(CountyFlagNames[CountryFlag]);
 	}
-
 }
 
 SUWPlayerSettingsDialog::~SUWPlayerSettingsDialog()
@@ -854,6 +845,7 @@ FReply SUWPlayerSettingsDialog::WeaponPriorityUp()
 	}
 	return FReply::Handled();
 }
+
 FReply SUWPlayerSettingsDialog::WeaponPriorityDown()
 {
 	TArray<UClass*> SelectedItems = WeaponPriorities->GetSelectedItems();
@@ -904,7 +896,7 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	
 	GetPlayerOwner()->SetCountryFlag(NewFlag,false);
 
-	// If we have a valid PC then tell the PC to set it's name
+	// If we have a valid PC then tell the PC to set its name
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (UTPlayerController != NULL)
 	{
@@ -934,7 +926,6 @@ FReply SUWPlayerSettingsDialog::OKClick()
 			ProfileSettings->SetWeaponPriority(GetNameSafe(WeaponList[i]), WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
 		}
 	}
-
 
 	int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetHatPath(HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString());
@@ -1036,7 +1027,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		PlayerPreviewMesh->Destroy();
 	}
 
-	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(GetDefault<AUTGameMode>()->DefaultPawnClass, FRotator::ZeroRotator.Vector() * 175.0f, FRotator(0.0f, 180.0f, 0.0f));
+	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(GetDefault<AUTGameMode>()->DefaultPawnClass, FVector(265.f, 0.f, 4.f), FRotator(0.0f, 180.0f, 0.0f));
 	
 	// set character mesh
 	// NOTE: important this is first since it may affect the following items (socket locations, etc)
@@ -1095,7 +1086,7 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	FSceneViewInitOptions PlayerPreviewInitOptions;
 	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
 	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(FVector::ZeroVector) * FInverseRotationMatrix(FRotator::ZeroRotator) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
-	PlayerPreviewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(90.0f * (float)PI / 360.0f, 90.0f * (float)PI / 360.0f, 1.0f, 1.0f, GNearClippingPlane, GNearClippingPlane);
+	PlayerPreviewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(45.0f * (float)PI / 360.0f, 45.0f * (float)PI / 360.0f, 1.0f, 1.0f, GNearClippingPlane, GNearClippingPlane);
 	PlayerPreviewInitOptions.ViewFamily = &ViewFamily;
 	PlayerPreviewInitOptions.SceneViewStateInterface = ViewState.GetReference();
 	PlayerPreviewInitOptions.BackgroundColor = FLinearColor::Black;

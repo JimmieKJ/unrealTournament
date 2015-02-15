@@ -49,6 +49,8 @@ protected:
 	/** Slate brush to render the preview */
 	FSlateBrush* PlayerPreviewBrush;
 
+	class UDirectionalLightComponent* PreviewLight;
+
 	TSharedPtr<SEditableTextBox> PlayerName;
 	TSharedPtr<SCheckBox> AutoWeaponSwitch;
 	TArray<UClass*> WeaponList;
