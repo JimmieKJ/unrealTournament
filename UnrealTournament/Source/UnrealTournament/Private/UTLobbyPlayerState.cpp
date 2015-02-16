@@ -81,6 +81,7 @@ void AUTLobbyPlayerState::RemovedFromMatch(AUTLobbyMatchInfo* Match)
 {
 	CurrentMatch = NULL;
 	bIsInMatch = false;
+	bReadyToPlay = false;
 }
 
 void AUTLobbyPlayerState::ClientMatchError_Implementation(const FText &MatchErrorMessage)
