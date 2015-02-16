@@ -74,6 +74,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bClearPlayerInventory = false;
 	bDelayedStart = true;
 	bDamageHurtsHealth = true;
+	bAllowOvertime = true;
+	bForceRespawn = false;
 
 	DefaultPlayerName = FString("Malcolm");
 	MapPrefix = TEXT("DM");

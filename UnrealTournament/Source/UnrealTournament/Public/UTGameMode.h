@@ -70,18 +70,18 @@ public:
 	UPROPERTY(globalconfig)
 	float EndScoreboardDelay;			
 
-	UPROPERTY(config)
+	UPROPERTY()
 	uint32 bAllowOvertime:1;
 
 	/** If TRUE, force dead players to respawn immediately */
-	UPROPERTY(globalconfig)
+	UPROPERTY()
 	bool bForceRespawn;
 
 	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
-	UPROPERTY(Config)
+	UPROPERTY()
 	bool bOnlyTheStrongSurvive;
 
-	UPROPERTY(Config)
+	UPROPERTY()
 	bool bHasRespawnChoices;
 
 	/** maximum amount of time (in seconds) to wait for players to be ready before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
