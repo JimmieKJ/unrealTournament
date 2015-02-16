@@ -163,7 +163,7 @@ void AUTGameState::DefaultTimer()
 			RemainingTime--;
 			if (GetWorld()->GetNetMode() != NM_Client)
 			{
-				if (RemainingTime % 60 == 0)
+				if ((RemainingTime % 60 == 0) || (RemainingTime < 60))
 				{
 					RemainingMinute = RemainingTime;
 				}
