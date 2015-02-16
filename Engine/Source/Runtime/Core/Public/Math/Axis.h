@@ -2,6 +2,7 @@
 
 #pragma once
 
+
 // Generic axis enum (mirrored for property use in Object.h)
 namespace EAxis
 {
@@ -13,6 +14,7 @@ namespace EAxis
 		Z,
 	};
 }
+
 
 // Extended axis enum for more specialized usage
 namespace EAxisList

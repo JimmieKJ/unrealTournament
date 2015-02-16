@@ -1,12 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	FloatPacker.h:
-=============================================================================*/
-
 #pragma once
 
+
 DECLARE_LOG_CATEGORY_EXTERN(LogFloatPacker, Log, All);
+
 
 /**
  *
@@ -36,6 +34,7 @@ public:
 		return *(FloatType*)&Value;
 	}
 };
+
 
 /**
  *
@@ -201,4 +200,3 @@ public:
 	}
 #endif
 };
-

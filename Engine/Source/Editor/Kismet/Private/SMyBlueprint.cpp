@@ -807,7 +807,7 @@ void SMyBlueprint::Refresh()
 {
 	bNeedsRefresh = false;
 
-	GraphActionMenu->RefreshAllActions(true);
+	GraphActionMenu->RefreshAllActions(/*bPreserveExpansion=*/ true);
 }
 
 TSharedRef<SWidget> SMyBlueprint::OnCreateWidgetForAction(FCreateWidgetForActionData* const InCreateData)
@@ -1505,18 +1505,15 @@ void SMyBlueprint::OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaActi
 
 	TSharedPtr<FBlueprintEditor> BlueprintEditor = BlueprintEditorPtr.Pin();
 
-	if ( BlueprintEditor.IsValid() )
+	if (BlueprintEditor.IsValid())
 	{
-		if ( InAction.IsValid() )
-		{
-			BlueprintEditor->SetUISelectionState(FBlueprintEditor::SelectionState_MyBlueprint);
-		}
+		BlueprintEditor->SetUISelectionState(FBlueprintEditor::SelectionState_MyBlueprint);
 
 		CurrentBlueprint = BlueprintEditor->GetBlueprintObj();
 		CurrentInspector = BlueprintEditor->GetInspector();
-	}
 
-	OnActionSelectedHelper( InAction, Blueprint, CurrentInspector.ToSharedRef() );
+		OnActionSelectedHelper(InAction, Blueprint, CurrentInspector.ToSharedRef());
+	}
 }
 
 void SMyBlueprint::OnActionSelectedHelper(TSharedPtr<FEdGraphSchemaAction> InAction, UBlueprint* Blueprint, TSharedRef<SKismetInspector> Inspector)
@@ -1547,6 +1544,7 @@ void SMyBlueprint::OnActionSelectedHelper(TSharedPtr<FEdGraphSchemaAction> InAct
 			FEdGraphSchemaAction_K2Var* VarAction = (FEdGraphSchemaAction_K2Var*)InAction.Get();
 
 			SKismetInspector::FShowDetailsOptions Options(FText::FromName(VarAction->GetVariableName()));
+			Options.bForceRefresh = true;
 
 			Inspector->ShowDetailsForSingleObject(VarAction->GetProperty(), Options);
 		}

@@ -10235,7 +10235,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 
 	// Bad idea to write data to an actor while its components are registered
 	AActor* NewActor = Cast<AActor>(NewObject);
-	if(NewActor != NULL)
+	if (NewActor != nullptr)
 	{
 		TInlineComponentArray<UActorComponent*> Components;
 		NewActor->GetComponents(Components);
@@ -10247,12 +10247,12 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	}
 
 	// If the new object is an Actor, save the root component reference, to be restored later
-	USceneComponent* SavedRootComponent = NULL;
-	UObjectProperty* RootComponentProperty = NULL;
-	if(NewActor != NULL)
+	USceneComponent* SavedRootComponent = nullptr;
+	UObjectProperty* RootComponentProperty = nullptr;
+	if (NewActor != nullptr)
 	{
 		RootComponentProperty = FindField<UObjectProperty>(NewActor->GetClass(), "RootComponent");
-		if(RootComponentProperty != NULL)
+		if (RootComponentProperty != nullptr)
 		{
 			SavedRootComponent = Cast<USceneComponent>(RootComponentProperty->GetObjectPropertyValue_InContainer(NewActor));
 		}
@@ -10271,7 +10271,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	{
 		// Find all instanced objects of the old CDO, and save off their modified properties to be later applied to the newly instanced objects of the new CDO
 		TArray<UObject*> Components;
-		OldObject->CollectDefaultSubobjects(Components,true);
+		OldObject->CollectDefaultSubobjects(Components, true);
 
 		for (int32 Index = 0; Index < Components.Num(); Index++)
 		{
@@ -10394,9 +10394,9 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	}
 
 	// Restore the root component reference
-	if(NewActor != NULL)
+	if (NewActor != nullptr)
 	{
-		if(RootComponentProperty != NULL)
+		if (RootComponentProperty != nullptr)
 		{
 			RootComponentProperty->SetObjectPropertyValue_InContainer(NewActor, SavedRootComponent);
 		}
@@ -10406,15 +10406,15 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 
 	bool bDumpProperties = CVarDumpCopyPropertiesForUnrelatedObjects.GetValueOnGameThread() != 0;
 	// Uncomment the next line to debug CPFUO for a specific object:
-	// bDumpProperties |= (NewObject->GetName().InStr(TEXT("Charm_Vim")) != INDEX_NONE);
+	// bDumpProperties |= (NewObject->GetName().Find(TEXT("SpinTree")) != INDEX_NONE);
 	if (bDumpProperties)
 	{
-		DumpObject(TEXT("CopyPropertiesForUnrelatedObjects: Old"), OldObject);
-		DumpObject(TEXT("CopyPropertiesForUnrelatedObjects: New"), NewObject);
+		DumpObject(*FString::Printf(TEXT("CopyPropertiesForUnrelatedObjects: Old (%s)"), *OldObject->GetFullName()), OldObject);
+		DumpObject(*FString::Printf(TEXT("CopyPropertiesForUnrelatedObjects: New (%s)"), *NewObject->GetFullName()), NewObject);
 	}
 
 	// Now notify any tools that aren't already updated via the FArchiveReplaceObjectRef path
-	if( GEngine != NULL )
+	if (GEngine != nullptr)
 	{
 		GEngine->NotifyToolsOfObjectReplacement(ReferenceReplacementMap);
 	}

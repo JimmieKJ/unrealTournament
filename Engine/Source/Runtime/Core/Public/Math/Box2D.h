@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Box2D.h: Declares the FBox2D class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -24,10 +20,8 @@ public:
 
 public:
 
-	/**
-	 * Default constructor (no initialization).
-	 */
-	FBox2D( ) { }
+	/** Default constructor (no initialization). */
+	FBox2D() { }
 
 	/**
 	 * Creates and initializes a new box.
@@ -198,7 +192,7 @@ public:
 	 * @return Box area.
 	 * @see GetCenter, GetCenterAndExtents, GetExtent, GetSize
 	 */
-	float GetArea( ) const
+	float GetArea() const
 	{
 		return (Max.X - Min.X) * (Max.Y - Min.Y);
 	}
@@ -209,7 +203,7 @@ public:
 	 * @return Th center point.
 	 * @see GetArea, GetCenterAndExtents, GetExtent, GetSize
 	 */
-	FVector2D GetCenter( ) const
+	FVector2D GetCenter() const
 	{
 		return FVector2D((Min + Max) * 0.5f);
 	}
@@ -230,7 +224,7 @@ public:
 	/**
 	 * Calculates the closest point on or inside the box to a given point in space.
 	 *
-	 * @param Point - The point in space.
+	 * @param Point The point in space.
 	 *
 	 * @return The closest point on or inside the box.
 	 */
@@ -242,7 +236,7 @@ public:
 	 * @return Box extents.
 	 * @see GetArea, GetCenter, GetCenterAndExtents, GetSize
 	 */
-	FVector2D GetExtent( ) const
+	FVector2D GetExtent() const
 	{
 		return 0.5f * (Max - Min);
 	}
@@ -254,7 +248,7 @@ public:
 	 * @return Box size.
 	 * @see GetArea, GetCenter, GetCenterAndExtents, GetExtent
 	 */
-	FVector2D GetSize( ) const
+	FVector2D GetSize() const
 	{
 		return (Max - Min);
 	}
@@ -262,7 +256,7 @@ public:
 	/**
 	 * Set the initial values of the bounding box to Zero.
 	 */
-	void Init( )
+	void Init()
 	{
 		Min = Max = FVector2D::ZeroVector;
 		bIsValid = false;
@@ -314,15 +308,15 @@ public:
 	 *
 	 * @return A string describing the box.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 public:
 
 	/**
 	 * Serializes the bounding box.
 	 *
-	 * @param Ar - The archive to serialize into.
-	 * @param Box - The box to serialize.
+	 * @param Ar The archive to serialize into.
+	 * @param Box The box to serialize.
 	 *
 	 * @return Reference to the Archive after serialization.
 	 */
@@ -404,6 +398,7 @@ FORCEINLINE FVector2D FBox2D::GetClosestPointTo( const FVector2D& Point ) const
 	return ClosestPoint;
 }
 
+
 FORCEINLINE bool FBox2D::Intersect( const FBox2D & Other ) const
 {
 	if ((Min.X > Other.Max.X) || (Other.Min.X > Max.X))
@@ -419,7 +414,8 @@ FORCEINLINE bool FBox2D::Intersect( const FBox2D & Other ) const
 	return true;
 }
 
-FORCEINLINE FString FBox2D::ToString( ) const
+
+FORCEINLINE FString FBox2D::ToString() const
 {
 	return FString::Printf(TEXT("bIsValid=%s, Min=(%s), Max=(%s)"), bIsValid ? TEXT("true") : TEXT("false"), *Min.ToString(), *Max.ToString());
 }

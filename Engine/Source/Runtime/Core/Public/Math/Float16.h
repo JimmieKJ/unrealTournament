@@ -2,6 +2,7 @@
 
 #pragma once
 
+
 /**
 * 16 bit float components and conversion
 *
@@ -87,20 +88,23 @@ public:
 	}
 };
 
+
 FORCEINLINE FFloat16::FFloat16( )
 	:	Encoded(0)
-{
-}
+{ }
+
 
 FORCEINLINE FFloat16::FFloat16( const FFloat16& FP16Value )
 {
 	Encoded = FP16Value.Encoded;
 }
 
+
 FORCEINLINE FFloat16::FFloat16( float FP32Value )
 {
 	Set( FP32Value );
 }	
+
 
 FORCEINLINE FFloat16& FFloat16::operator=( float FP32Value )
 {
@@ -108,16 +112,19 @@ FORCEINLINE FFloat16& FFloat16::operator=( float FP32Value )
 	return *this;
 }
 
+
 FORCEINLINE FFloat16& FFloat16::operator=( const FFloat16& FP16Value )
 {
 	Encoded = FP16Value.Encoded;
 	return *this;
 }
 
+
 FORCEINLINE FFloat16::operator float() const
 {
 	return GetFloat();
 }
+
 
 FORCEINLINE void FFloat16::Set( float FP32Value )
 {
@@ -148,6 +155,7 @@ FORCEINLINE void FFloat16::Set( float FP32Value )
 	}
 }
 
+
 FORCEINLINE void FFloat16::SetWithoutBoundsChecks( const float FP32Value )
 {
 	const FFloat32 FP32(FP32Value);
@@ -160,6 +168,7 @@ FORCEINLINE void FFloat16::SetWithoutBoundsChecks( const float FP32Value )
 	Components.Exponent = int32(FP32.Components.Exponent) - 127 + 15;
 	Components.Mantissa = uint16(FP32.Components.Mantissa >> 13);
 }
+
 
 FORCEINLINE float FFloat16::GetFloat() const
 {

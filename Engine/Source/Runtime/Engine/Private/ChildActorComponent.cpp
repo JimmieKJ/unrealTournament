@@ -39,6 +39,23 @@ void UChildActorComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 		CreateChildActor();
 	}
 }
+
+void UChildActorComponent::PostEditUndo()
+{
+	Super::PostEditUndo();
+
+	// This hack exists to fix up known cases where the AttachChildren array is broken in very problematic ways.
+	// The correct fix will be to use a Transaction Annotation at the SceneComponent level, however, it is too risky
+	// to do right now, so this will go away when that is done.
+	for (USceneComponent*& Component : AttachChildren)
+	{
+		if (Component->IsPendingKill() && Component->GetOwner() == ChildActor)
+		{
+			Component = ChildActor->GetRootComponent();
+		}
+	}
+	
+}
 #endif
 
 void UChildActorComponent::OnComponentCreated()

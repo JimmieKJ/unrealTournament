@@ -46,7 +46,8 @@ void SCommentBubble::Construct( const FArguments& InArgs )
 	IsGraphNodeHovered		= InArgs._IsGraphNodeHovered;
 	HintText				= InArgs._HintText.IsSet() ? InArgs._HintText : NSLOCTEXT( "CommentBubble", "EditCommentHint", "Click to edit" );
 	OpacityValue			= SCommentBubbleDefs::FadeDelay;
-
+	// Ensue this value is set to something sensible
+	ForegroundColor = SCommentBubbleDefs::LightForegroundClr;
 	// Create Widget
 	UpdateBubble();
 }

@@ -893,7 +893,7 @@ FString DumpComponentsToString(UObject *Object)
 
 
 
-void DumpObject(const TCHAR *Label, UObject* Object)
+void DumpObject(const TCHAR* Label, UObject* Object)
 {
 	FString const ExportedText = DumpObjectToString(Object);
 	UE_LOG(LogExporter, Display, TEXT("%s"), Label);

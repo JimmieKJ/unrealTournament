@@ -8,52 +8,11 @@
 #include "PropertyTag.h"
 #include "HotReloadInterface.h"
 #include "LinkerPlaceholderClass.h"
+#include "StructScriptLoader.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogScriptSerialization, Log, All);
 DEFINE_LOG_CATEGORY(LogScriptSerialization);
 DEFINE_LOG_CATEGORY(LogClass);
-
-
-/*----------------------------------------------------------------------------
-	FArchiveScriptReferenceCollector.
-----------------------------------------------------------------------------*/
-
-class FArchiveScriptReferenceCollector : public FArchiveUObject
-{
-public:
-	/**
-	 * Constructor
-	 *
-	 * @param	InObjectArray			Array to add object references to
-	 */
-	FArchiveScriptReferenceCollector( TArray<UObject*>& InObjectArray )
-	:	ObjectArray( InObjectArray )
-	{
-		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = false;
-		ArIgnoreArchetypeRef = false;
-	}
-protected:
-	/** 
-	 * UObject serialize operator implementation
-	 *
-	 * @param Object	reference to Object reference
-	 * @return reference to instance of this class
-	 */
-	FArchive& operator<<( UObject*& Object )
-	{
-		// Avoid duplicate entries.
-		if ( Object != NULL && !ObjectArray.Contains(Object) )
-		{
-			check( Object->IsValidLowLevel() );
-			ObjectArray.Add( Object );
-		}
-		return *this;
-	}
-
-	/** Stored reference to array of objects we add object references to */
-	TArray<UObject*>&		ObjectArray;
-};
 
 //////////////////////////////////////////////////////////////////////////
 // FPropertySpecifier
@@ -1322,82 +1281,54 @@ void UStruct::Serialize( FArchive& Ar )
 	Ar << SuperStruct;
 	Ar << Children;
 
-	// Script code.
-	// Skip serialization if we're duplicating classes for reinstancing, since we only need the memory layout
-	int32 ScriptBytecodeSize = !GIsDuplicatingClassForReinstancing ? Script.Num() : 0;
-	int32 ScriptStorageSize = 0;
-	int32 ScriptStorageSizeOffset = 0;
-	if ( Ar.IsLoading() )
+	if (Ar.IsLoading())
 	{
-		Ar << ScriptBytecodeSize;
-		Ar << ScriptStorageSize;
+		FStructScriptLoader ScriptLoadHelper(/*TargetScriptContainer =*/this, Ar);
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+		bool const bAllowDeferredScriptSerialization = true;
+#else  // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+		bool const bAllowDeferredScriptSerialization = false;
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
-		Script.Empty( ScriptBytecodeSize );
-		Script.AddUninitialized( ScriptBytecodeSize );
-	}
+		// NOTE: if bAllowDeferredScriptSerialization is set to true, then this
+		//       could temporarily skip script serialization (as it could 
+		//       introduce unwanted dependency loads at this time)
+		ScriptLoadHelper.LoadStructWithScript(this, Ar, bAllowDeferredScriptSerialization);
 
-	// Ensure that last byte in script code is EX_EndOfScript to work around script debugger implementation.
-	else if( Ar.IsSaving() )
-	{
-		Ar << ScriptBytecodeSize;
-
-		// drop a zero here.  will seek back later and re-write it when we know it
-		ScriptStorageSizeOffset = Ar.Tell();
-		Ar << ScriptStorageSize;
-	}
-
-	// If we're duplicating for reinstancing, we only need memory layout, and cyclic dependencies within object literals can potentially cause problems, so do not serialize bytecode
-	if( !GIsDuplicatingClassForReinstancing )
-	{
-		// no bytecode patch for this struct - serialize normally [i.e. from disk]
-		int32 iCode = 0;
-		int32 const BytecodeStartOffset = Ar.Tell();
-
-		if (Ar.IsPersistent() && Ar.GetLinker())
+		if (!dynamic_cast<UClass*>(this) && !(Ar.GetPortFlags() & PPF_Duplicate)) // classes are linked in the UClass serializer, which just called me
 		{
-			if (Ar.IsLoading())
-			{
-				// make sure this is a ULinkerLoad
-				ULinkerLoad* LinkerLoad = CastChecked<ULinkerLoad>(Ar.GetLinker());
+			// Link the properties.
+			Link(Ar, true);
+		}
+	}
+	else
+	{
+		int32 ScriptBytecodeSize = Script.Num();
+		int32 ScriptStorageSizeOffset = INDEX_NONE;
 
-				// preload the bytecode
-				TArray<uint8> TempScript;
-				TempScript.AddUninitialized(ScriptStorageSize);
-				int32 ScriptStart = Ar.Tell();
-				Ar.Serialize(TempScript.GetData(), ScriptStorageSize);
-				const int32 ScriptEnd = Ar.Tell();
+		if (Ar.IsSaving())
+		{
+			Ar << ScriptBytecodeSize;
 
-				bool bSkipByteCodeSerialization = false;
-#if WITH_EDITOR
-				static const FBoolConfigValueHelper SkipByteCodeHelper(TEXT("StructSerialization"), TEXT("SkipByteCodeSerialization"));
-				bSkipByteCodeSerialization = SkipByteCodeHelper;
-#endif // WITH_EDITOR
-				if (bSkipByteCodeSerialization || (Ar.UE4Ver() < VER_MIN_SCRIPTVM_UE4) || (Ar.LicenseeUE4Ver() < VER_MIN_SCRIPTVM_LICENSEEUE4))
-				{
-					// Discard the bytecode as it's too old and might cause serialization errors
-					ScriptStorageSize = 0;
-					ScriptBytecodeSize = 0;
-					TempScript.Empty();
-					Script.Empty();
-				}
-				else
-				{
-					Ar.Seek(ScriptStart); // seek back and load it again
-					// now, use the linker to load the byte code, but reading from memory
-					while( iCode < ScriptBytecodeSize )
-					{	
-						SerializeExpr( iCode, Ar );
-					}
-					ensure(Ar.Tell() == ScriptEnd);
-				}
-				// and update the SHA (does nothing if not currently calculating SHA)
-				LinkerLoad->UpdateScriptSHAKey(TempScript);
-			}
-			else
+			int32 ScriptStorageSize = 0;
+			// drop a zero here.  will seek back later and re-write it when we know it
+			ScriptStorageSizeOffset = Ar.Tell();
+			Ar << ScriptStorageSize;
+		}
+
+		// Skip serialization if we're duplicating classes for reinstancing, since we only need the memory layout
+		if (!GIsDuplicatingClassForReinstancing)
+		{
+
+			// no bytecode patch for this struct - serialize normally [i.e. from disk]
+			int32 iCode = 0;
+			int32 const BytecodeStartOffset = Ar.Tell();
+
+			if (Ar.IsPersistent() && Ar.GetLinker())
 			{
 				// make sure this is a ULinkerSave
 				ULinkerSave* LinkerSave = CastChecked<ULinkerSave>(Ar.GetLinker());
-			
+
 				// remember how we were saving
 				FArchive* SavedSaver = LinkerSave->Saver;
 
@@ -1407,9 +1338,9 @@ void UStruct::Serialize( FArchive& Ar )
 				LinkerSave->Saver = &MemWriter;
 
 				// now, use the linker to save the byte code, but writing to memory
-				while( iCode < ScriptBytecodeSize )
-				{	
-					SerializeExpr( iCode, Ar );
+				while (iCode < ScriptBytecodeSize)
+				{
+					SerializeExpr(iCode, Ar);
 				}
 
 				// restore the saver
@@ -1421,54 +1352,32 @@ void UStruct::Serialize( FArchive& Ar )
 				// and update the SHA (does nothing if not currently calculating SHA)
 				LinkerSave->UpdateScriptSHAKey(TempScript);
 			}
-		}
-		else
-		{
-			while( iCode < ScriptBytecodeSize )
-			{	
-				SerializeExpr( iCode, Ar );
-			}
-		}
-
-		if( iCode != ScriptBytecodeSize )
-		{	
-			UE_LOG(LogClass, Fatal, TEXT("Script serialization mismatch: Got %i, expected %i"), iCode, ScriptBytecodeSize );
-		}
-
-		if (Ar.IsSaving())
-		{
-			int32 const BytecodeEndOffset = Ar.Tell();
-
-			// go back and write on-disk size
-			Ar.Seek(ScriptStorageSizeOffset);
-			ScriptStorageSize = BytecodeEndOffset - BytecodeStartOffset;
-			Ar << ScriptStorageSize;
-
-			// back to where we were
-			Ar.Seek(BytecodeEndOffset);
-		}
-		if( Ar.IsLoading() )
-		{
-			// Collect references to objects embedded in script and store them in easily accessible array. This is skipped if
-			// the struct is disregarded for GC as the references won't be of any use.
-			ScriptObjectReferences.Empty();
-			if( !GUObjectArray.IsDisregardForGC(this) )
+			else
 			{
-				FArchiveScriptReferenceCollector ObjectReferenceCollector( ScriptObjectReferences );
-
-				int32 iCode2 = 0;
-				while( iCode2 < Script.Num() )
-				{	
-					SerializeExpr( iCode2, ObjectReferenceCollector );
+				while (iCode < ScriptBytecodeSize)
+				{
+					SerializeExpr(iCode, Ar);
 				}
 			}
-		}	
-	}
 
-	if (Ar.IsLoading() && !dynamic_cast<UClass*>(this) && !(Ar.GetPortFlags() & PPF_Duplicate)) // classes are linked in the UClass serializer, which just called me
-	{
-		// Link the properties.
-		Link( Ar, true );
+			if (iCode != ScriptBytecodeSize)
+			{
+				UE_LOG(LogClass, Fatal, TEXT("Script serialization mismatch: Got %i, expected %i"), iCode, ScriptBytecodeSize);
+			}
+
+			if (Ar.IsSaving())
+			{
+				int32 const BytecodeEndOffset = Ar.Tell();
+
+				// go back and write on-disk size
+				Ar.Seek(ScriptStorageSizeOffset);
+				int32 ScriptStorageSize = BytecodeEndOffset - BytecodeStartOffset;
+				Ar << ScriptStorageSize;
+
+				// back to where we were
+				Ar.Seek(BytecodeEndOffset);
+			}
+		} // if !GIsDuplicatingClassForReinstancing
 	}
 }
 
@@ -3430,6 +3339,10 @@ bool UClass::HotReloadPrivateStaticClass(
 		UClass::GetDefaultPropertiesFeedbackContext().Logf(ELogVerbosity::Warning, TEXT("Property size mismatch. Will not update class %s (was %d, new %d)."), *GetName(), PropertiesSize, InSize);
 		return false;
 	}
+	//We could do this later, but might as well get it before we start corrupting the object
+	UObject* CDO = GetDefaultObject();
+	void* OldVTable = *(void**)CDO;
+
 
 	//@todo safe? ClassFlags = InClassFlags | CLASS_Native;
 	//@todo safe? ClassCastFlags = InClassCastFlags;
@@ -3450,23 +3363,51 @@ bool UClass::HotReloadPrivateStaticClass(
 	ClassWithin = TClass_WithinClass_StaticClass;
 	*/
 
-	int32 CountClass = 0;
-	for (FRawObjectIterator It; It; ++It)
+	UE_LOG(LogClass, Verbose, TEXT("Attempting to change VTable for class %s."),*GetName());
+	ClassWithin = UPackage::StaticClass();  // We are just avoiding error checks with this...we don't care about this temp object other than to get the vtable.
+	UObject* TempObjectForVTable = StaticConstructObject(this, GetTransientPackage(), NAME_None, RF_NeedLoad | RF_ClassDefaultObject);
+
+	if( !TempObjectForVTable->IsRooted() )
 	{
-		UObject* Target = *It;
-		if (dynamic_cast<UClass*>(Target))
+		TempObjectForVTable->MarkPendingKill();
+	}
+	else
+	{
+		UE_LOG(LogClass, Warning, TEXT("Hot Reload:  Was not expecting temporary object '%s' for class '%s' to become rooted during construction.  This object cannot be marked pending kill." ), *TempObjectForVTable->GetFName().ToString(), *this->GetName() );
+	}
+
+	ClassWithin = TClass_WithinClass_StaticClass;
+
+	void* NewVTable = *(void**)TempObjectForVTable;
+	if (NewVTable != OldVTable)
+	{
+		int32 Count = 0;
+		int32 CountClass = 0;
+		for ( FRawObjectIterator It; It; ++It )
 		{
-			UClass *Class = CastChecked<UClass>(Target);
-			if (Class->ClassConstructor == OldClassConstructor)
+			UObject* Target = *It;
+			if (OldVTable == *(void**)Target)
 			{
-				Class->ClassConstructor = ClassConstructor;
-				Class->ClassAddReferencedObjects = ClassAddReferencedObjects;
-				CountClass++;
+				*(void**)Target = NewVTable;
+				Count++;
+			}
+			else if (dynamic_cast<UClass*>(Target))
+			{
+				UClass *Class = CastChecked<UClass>(Target);
+				if (Class->ClassConstructor == OldClassConstructor)
+				{
+					Class->ClassConstructor = ClassConstructor;
+					Class->ClassAddReferencedObjects = ClassAddReferencedObjects;
+					CountClass++;
+				}
 			}
 		}
+		UE_LOG(LogClass, Verbose, TEXT("Updated the vtable for %d live objects and %d blueprint classes.  %016llx -> %016llx"), Count, CountClass, PTRINT(OldVTable), PTRINT(NewVTable));
 	}
-	UE_LOG(LogClass, Verbose, TEXT("Updated the internal methods %d blueprint classes."), CountClass);
-
+	else
+	{
+		UE_LOG(LogClass, Error, TEXT("VTable for class %s did not change?"),*GetName());
+	}
 	return true;
 }
 

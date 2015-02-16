@@ -1,10 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	UnMathSSE.h: Intel SSE specific vector intrinsics
-
-=============================================================================*/
-
 #pragma once
 
 #if __cplusplus_cli
@@ -14,6 +9,7 @@
 
 // We require SSE2
 #include <emmintrin.h>
+
 
 /*=============================================================================
  *	Helpers:

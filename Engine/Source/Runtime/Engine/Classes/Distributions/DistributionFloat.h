@@ -57,7 +57,7 @@ public:
 		/**
 		 * Get the value at the specified F
 		 */
-		ENGINE_API float GetValue(float F=0.0f, UObject* Data=NULL, class FRandomStream* InRandomStream = NULL);
+		ENGINE_API float GetValue(float F=0.0f, UObject* Data=NULL, struct FRandomStream* InRandomStream = NULL);
 
 		/**
 		 * Get the min and max values
@@ -115,7 +115,7 @@ class UDistributionFloat : public UDistribution
 	virtual uint32 InitializeRawEntry(float Time, float* Values) const;
 
 	/** @todo document */
-	virtual float GetValue( float F = 0.f, UObject* Data = NULL, class FRandomStream* InRandomStream = NULL ) const;
+	virtual float GetValue( float F = 0.f, UObject* Data = NULL, struct FRandomStream* InRandomStream = NULL ) const;
 
 	// Begin FCurveEdInterface Interface
 	virtual void GetInRange(float& MinIn, float& MaxIn) const override;

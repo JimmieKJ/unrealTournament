@@ -1,10 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	UnMathNeon.h: ARM-NEON-specific vector intrinsics
-
-=============================================================================*/
-
 #pragma once
 
 // Include the intrinsic functions header

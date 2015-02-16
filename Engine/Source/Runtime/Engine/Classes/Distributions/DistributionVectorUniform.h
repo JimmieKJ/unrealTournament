@@ -37,7 +37,7 @@ class UDistributionVectorUniform : public UDistributionVector
 	virtual void PostLoad() override;
 	// End UObject Interface
 
-	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, class FRandomStream* InRandomStream = NULL ) const override;
+	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, struct FRandomStream* InRandomStream = NULL ) const override;
 
 	//Begin UDistributionVector Interface
 

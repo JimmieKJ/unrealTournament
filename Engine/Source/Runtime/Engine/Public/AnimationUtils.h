@@ -16,7 +16,7 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAnimNotify, Warning, All);
 // Forward declarations.
 class UAnimCompress;
 class UAnimSet;
-class FTransform;
+struct FTransform;
 
 /**
  * Encapsulates commonly useful data about bones.

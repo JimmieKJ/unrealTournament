@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	OrientedBox.h: Declares the FOrientedBox structure.
-=============================================================================*/
-
 #pragma once
 
 
@@ -40,7 +36,7 @@ public:
 	 *
 	 * Constructs a unit-sized, origin-centered box with axes aligned to the coordinate system.
 	 */
-	FOrientedBox ()
+	FOrientedBox()
 		: Center(0.0f)
 		, AxisX(1.0f, 0.0f, 0.0f)
 		, AxisY(0.0f, 1.0f, 0.0f)
@@ -57,14 +53,14 @@ public:
 	 *
 	 * @param Verts The array to fill in with the vertices.
 	 */
-	FORCEINLINE void CalcVertices (FVector* Verts) const;
+	FORCEINLINE void CalcVertices(FVector* Verts) const;
 
 	/**
 	 * Finds the projection interval of the box when projected onto Axis.
 	 *
 	 * @param Axis The unit vector defining the axis to project the box onto.
 	 */
-	FORCEINLINE FInterval Project (const FVector& Axis) const;
+	FORCEINLINE FFloatInterval Project(const FVector& Axis) const;
 };
 
 
@@ -88,7 +84,7 @@ FORCEINLINE void FOrientedBox::CalcVertices( FVector* Verts ) const
 }
 
 
-FORCEINLINE FInterval FOrientedBox::Project( const FVector& Axis ) const
+FORCEINLINE FFloatInterval FOrientedBox::Project( const FVector& Axis ) const
 {
 	static const float Signs[] = {-1.0f, 1.0f};
 
@@ -98,7 +94,7 @@ FORCEINLINE FInterval FOrientedBox::Project( const FVector& Axis ) const
 	float ProjectedAxisY = Axis | (ExtentY * AxisY);
 	float ProjectedAxisZ = Axis | (ExtentZ * AxisZ);
 
-	FInterval ProjectionInterval;
+	FFloatInterval ProjectionInterval;
 
 	for (int32 i = 0; i < 2; i++)
 	{

@@ -18,7 +18,7 @@ class APawn;
 class UAnimationAsset;
 class UCanvas;
 class UWorld;
-class FTransform;
+struct FTransform;
 class FDebugDisplayInfo;
 
 DECLARE_DELEGATE_TwoParams(FOnMontageEnded, UAnimMontage*, bool /*bInterrupted*/)

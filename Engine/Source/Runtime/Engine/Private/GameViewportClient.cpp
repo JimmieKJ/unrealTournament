@@ -1861,6 +1861,8 @@ void UGameViewportClient::RemoveViewportWidgetContent( TSharedRef<SWidget> Viewp
 
 void UGameViewportClient::RemoveAllViewportWidgets()
 {
+	CursorWidgets.Empty();
+
 	TSharedPtr< SOverlay > PinnedViewportOverlayWidget( ViewportOverlayWidget.Pin() );
 	if( PinnedViewportOverlayWidget.IsValid() )
 	{

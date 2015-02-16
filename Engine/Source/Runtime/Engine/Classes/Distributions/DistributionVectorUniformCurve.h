@@ -30,7 +30,7 @@ class UDistributionVectorUniformCurve : public UDistributionVector
 	UPROPERTY(EditAnywhere, Category=DistributionVectorUniformCurve)
 	uint32 bUseExtremes:1;
 
-	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, class FRandomStream* InRandomStream = NULL ) const override;
+	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, struct FRandomStream* InRandomStream = NULL ) const override;
 
 	//Begin UDistributionVector Interface
 	//@todo.CONSOLE: Currently, consoles need this? At least until we have some sort of cooking/packaging step!

@@ -414,7 +414,7 @@ void InstallSignalHandlers()
 		[ImageString appendString:@"-IPhone6"];
 		if (!self.bDeviceInPortraitMode)
 		{
-			orient = UIImageOrientationLeft;
+			orient = UIImageOrientationRight;
 		}
 	}
 	else if (Device == FPlatformMisc::IOS_IPhone6Plus)
@@ -434,11 +434,11 @@ void InstallSignalHandlers()
 		if (MainFrame.size.height == 320 && MainFrame.size.width != 480 && !self.bDeviceInPortraitMode)
 		{
 			[ImageString appendString:@"-568h"];
-			orient = UIImageOrientationLeft;
+			orient = UIImageOrientationRight;
 		}
 		else if (MainFrame.size.height == 320 && MainFrame.size.width == 480 && !self.bDeviceInPortraitMode)
 		{
-			orient = UIImageOrientationLeft;
+			orient = UIImageOrientationRight;
 		}
 		else if (MainFrame.size.height == 568)
 		{

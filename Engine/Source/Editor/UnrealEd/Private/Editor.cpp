@@ -6043,8 +6043,11 @@ void UEditorEngine::NotifyToolsOfObjectReplacement(const TMap<UObject*, UObject*
 			// If the component corresponds to a new instance in the map, update the selection accordingly
 			if (OldToNewInstanceMap.Contains(Component))
 			{
-				ComponentSelection->Deselect(Component);
-				SelectComponent(CastChecked<UActorComponent>(OldToNewInstanceMap[Component]), true, false);
+				if (UActorComponent* NewComponent = CastChecked<UActorComponent>(OldToNewInstanceMap[Component], ECastCheckedType::NullAllowed))
+				{
+					ComponentSelection->Deselect(Component);
+					SelectComponent(NewComponent, true, false);
+				}
 			}
 		}
 		ComponentSelection->EndBatchSelectOperation();

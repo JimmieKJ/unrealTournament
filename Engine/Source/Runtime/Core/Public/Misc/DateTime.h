@@ -61,7 +61,7 @@ enum class EMonthOfYear
  * calculate the number of days in a given month and year, check for leap years and determine the
  * time of day, day of week and month of year of a given date and time.
  *
- * The companion class FTimespan is provided for enabling date and time based arithmetic, such as
+ * The companion struct FTimespan is provided for enabling date and time based arithmetic, such as
  * calculating the difference between two dates or adding a certain amount of time to a given date.
  *
  * Ranges of dates and times can be represented by the FDateRange class.

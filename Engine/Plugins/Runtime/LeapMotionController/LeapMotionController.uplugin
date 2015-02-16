@@ -16,7 +16,7 @@
 		{
 			"Name" : "LeapMotionController",
 			"Type" : "Runtime",
-			"WhitelistPlatforms" : [ "Win64" ]
+			"WhitelistPlatforms" : [ "Win64", "Win32" ]
 		}
 	],
 	"CanContainContent" : true

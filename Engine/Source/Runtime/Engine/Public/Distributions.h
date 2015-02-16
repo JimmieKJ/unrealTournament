@@ -178,11 +178,11 @@ struct ENGINE_API FRawDistribution
 	 * @param NumCoords The number of floats in the Value array
 	 * @param Extreme For distributions that use one of the extremes, this is which extreme to use
 	 */
-	void GetValue(float Time, float* Value, int32 NumCoords, int32 Extreme, class FRandomStream* InRandomStream) const;
+	void GetValue(float Time, float* Value, int32 NumCoords, int32 Extreme, struct FRandomStream* InRandomStream) const;
 
 	// prebaked versions of these
-	void GetValue1(float Time, float* Value, int32 Extreme, class FRandomStream* InRandomStream) const;
-	void GetValue3(float Time, float* Value, int32 Extreme, class FRandomStream* InRandomStream) const;
+	void GetValue1(float Time, float* Value, int32 Extreme, struct FRandomStream* InRandomStream) const;
+	void GetValue3(float Time, float* Value, int32 Extreme, struct FRandomStream* InRandomStream) const;
 	inline void GetValue1None(float Time, float* InValue) const
 	{
 		float* Value = InValue;
@@ -210,10 +210,10 @@ struct ENGINE_API FRawDistribution
 		Value[1] = T1;
 		Value[2] = T2;
 	}
-	void GetValue1Extreme(float Time, float* Value, int32 Extreme, class FRandomStream* InRandomStream) const;
-	void GetValue3Extreme(float Time, float* Value, int32 Extreme, class FRandomStream* InRandomStream) const;
-	void GetValue1Random(float Time, float* Value, class FRandomStream* InRandomStream) const;
-	void GetValue3Random(float Time, float* Value, class FRandomStream* InRandomStream) const;
+	void GetValue1Extreme(float Time, float* Value, int32 Extreme, struct FRandomStream* InRandomStream) const;
+	void GetValue3Extreme(float Time, float* Value, int32 Extreme, struct FRandomStream* InRandomStream) const;
+	void GetValue1Random(float Time, float* Value, struct FRandomStream* InRandomStream) const;
+	void GetValue3Random(float Time, float* Value, struct FRandomStream* InRandomStream) const;
 
 	FORCEINLINE bool IsSimple() 
 	{

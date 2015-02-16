@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Rotator.h: Declares the FRotator class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -12,7 +8,7 @@
  *
  * All rotation values are stored in degrees.
  */
-class FRotator
+struct FRotator
 {
 public:
 
@@ -35,7 +31,7 @@ public:
 	/**
 	 * Default constructor (no initialization).
 	 */
-	FORCEINLINE FRotator( ) { };
+	FORCEINLINE FRotator() { };
 
 	/**
 	 * Constructor
@@ -110,7 +106,7 @@ public:
 	 *
 	 * @return A negated copy of the rotator.
 	 */
-	FORCEINLINE FRotator operator-( ) const;
+	FORCEINLINE FRotator operator-() const;
 
 	// Binary comparison operators.
 
@@ -165,7 +161,7 @@ public:
 	 *
 	 * @return true if this has exactly zero rotation, otherwise false.
 	 */
-	bool IsZero( ) const;
+	bool IsZero() const;
 
 	/**
 	 * Checks whether two rotators are equal, within specified tolerance.
@@ -199,21 +195,21 @@ public:
 	 *
 	 * @return Rotation as a direction vector.
 	 */
-	CORE_API FVector Vector( ) const;
+	CORE_API FVector Vector() const;
 
 	/**
 	 * Get Rotation as a quaternion.
 	 *
 	 * @return Rotation as a quaternion.
 	 */
-	CORE_API FQuat Quaternion( ) const;
+	CORE_API FQuat Quaternion() const;
 
 	/**
 	 * Convert a Rotator into floating-point Euler angles (in degrees). Rotator now stored in degrees.
 	 *
 	 * @return Rotation as a Euler angle vector.
 	 */
-	CORE_API FVector Euler( ) const;
+	CORE_API FVector Euler() const;
 
 	/**
 	 * Rotate a vector rotated by this rotator.
@@ -236,26 +232,26 @@ public:
 	 *
 	 * @return Clamped version of rotator.
 	 */
-	FRotator Clamp( ) const;
+	FRotator Clamp() const;
 
 	/** 
 	 * Create a copy of this rotator and normalize, removes all winding and creates the "shortest route" rotation. 
 	 *
 	 * @return Normalized copy of this rotator
 	 */
-	FRotator GetNormalized( ) const;
+	FRotator GetNormalized() const;
 
 	/** 
 	 * Create a copy of this rotator and denormalize, clamping each axis to 0 - 360. 
 	 *
 	 * @return Denormalized copy of this rotator
 	 */
-	FRotator GetDenormalized( ) const;
+	FRotator GetDenormalized() const;
 
 	/**
 	 * In-place normalize, removes all winding and creates the "shortest route" rotation.
 	 */
-	void Normalize( );
+	void Normalize();
 
 	/** 
 	 * Decompose this Rotator into a Winding part (multiples of 360) and a Remainder part. 
@@ -271,10 +267,10 @@ public:
 	 *
 	 * @return Text describing the vector.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 	/** Get a short textural representation of this vector, for compact readable logging. */
-	FString ToCompactString( ) const;
+	FString ToCompactString() const;
 
 	/**
 	 * Initialize this Rotator based on an FString. The String is expected to contain P=, Y=, R=.
@@ -290,7 +286,7 @@ public:
 	 *
 	 * @return true if there are any NaNs in this Rotator, otherwise false.
 	 */
-	bool ContainsNaN( ) const;
+	bool ContainsNaN() const;
 
 	/**
 	 * Serializes the rotator compressed for e.g. network transmission.
@@ -525,7 +521,7 @@ FORCEINLINE FRotator FRotator::GridSnap( const FRotator &RotGrid ) const
 }
 
 
-FORCEINLINE FRotator FRotator::Clamp( ) const
+FORCEINLINE FRotator FRotator::Clamp() const
 {
 	return FRotator(ClampAxis(Pitch), ClampAxis(Yaw), ClampAxis(Roll));
 }
@@ -589,7 +585,7 @@ FORCEINLINE float FRotator::DecompressAxisFromShort( uint16 Angle )
 }
 
 
-FORCEINLINE FRotator FRotator::GetNormalized( ) const
+FORCEINLINE FRotator FRotator::GetNormalized() const
 {
 	FRotator Rot = *this;
 	Rot.Normalize();
@@ -597,7 +593,7 @@ FORCEINLINE FRotator FRotator::GetNormalized( ) const
 }
 
 
-FORCEINLINE FRotator FRotator::GetDenormalized( ) const
+FORCEINLINE FRotator FRotator::GetDenormalized() const
 {
 	FRotator Rot = *this;
 	Rot.Pitch	= ClampAxis(Rot.Pitch);
@@ -607,20 +603,20 @@ FORCEINLINE FRotator FRotator::GetDenormalized( ) const
 }
 
 
-FORCEINLINE void FRotator::Normalize( )
+FORCEINLINE void FRotator::Normalize()
 {
 	Yaw = NormalizeAxis(Yaw);
 	Pitch = NormalizeAxis(Pitch);
 	Roll = NormalizeAxis(Roll);
 }
 
-FORCEINLINE FString FRotator::ToString( ) const
+FORCEINLINE FString FRotator::ToString() const
 {
 	return FString::Printf(TEXT("P=%f Y=%f R=%f"), Pitch, Yaw, Roll );
 }
 
 
-FORCEINLINE FString FRotator::ToCompactString( ) const
+FORCEINLINE FString FRotator::ToCompactString() const
 {
 	if( IsNearlyZero() )
 	{
@@ -668,7 +664,7 @@ FORCEINLINE bool FRotator::InitFromString( const FString& InSourceString )
 }
 
 
-FORCEINLINE bool FRotator::ContainsNaN( ) const
+FORCEINLINE bool FRotator::ContainsNaN() const
 {
 	return (FMath::IsNaN(Pitch) || !FMath::IsFinite(Pitch) 
 			|| FMath::IsNaN(Yaw) || !FMath::IsFinite(Yaw) 

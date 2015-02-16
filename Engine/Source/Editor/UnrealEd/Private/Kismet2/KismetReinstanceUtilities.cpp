@@ -287,32 +287,41 @@ void FBlueprintCompileReinstancer::ReinstanceObjects(bool bAlwaysReinstance)
 	if (ClassToReinstance && DuplicatedClass)
 	{
 		bool bShouldReinstance = true;
+		
+		// See if we need to do a full reinstance or can do the faster refresh path (when enabled or no values were modified, and the structures match)
 		if (!bAlwaysReinstance)
 		{
 			BP_SCOPED_COMPILER_EVENT_STAT(EKismetReinstancerStats_ReplaceClassNoReinsancing);
 
-			auto BPClassA = Cast<const UBlueprintGeneratedClass>(DuplicatedClass);
-			auto BPClassB = Cast<const UBlueprintGeneratedClass>(ClassToReinstance);
-			auto BP = Cast<const UBlueprint>(ClassToReinstance->ClassGeneratedBy);
+			const UBlueprintGeneratedClass* BPClassA = Cast<const UBlueprintGeneratedClass>(DuplicatedClass);
+			const UBlueprintGeneratedClass* BPClassB = Cast<const UBlueprintGeneratedClass>(ClassToReinstance);
+			const UBlueprint* BP = Cast<const UBlueprint>(ClassToReinstance->ClassGeneratedBy);
 
 			static const FBoolConfigValueHelper ChangeDefaultValueWithoutReinstancing(TEXT("Kismet"), TEXT("bChangeDefaultValueWithoutReinstancing"), GEngineIni);
-			const bool bTheSameDefaultValues = BP && ClassToReinstanceDefaultValuesCRC && (BP->CrcPreviousCompiledCDO == ClassToReinstanceDefaultValuesCRC);
-			const bool bTheSame = (ChangeDefaultValueWithoutReinstancing || bTheSameDefaultValues) && BPClassA && BPClassB && FStructUtils::TheSameLayout(BPClassA, BPClassB, true);
-			if (bTheSame)
+			const bool bTheSameDefaultValues = (BP != nullptr) && (ClassToReinstanceDefaultValuesCRC != 0) && (BP->CrcPreviousCompiledCDO == ClassToReinstanceDefaultValuesCRC);
+
+			const bool bTheSameLayout = (BPClassA != nullptr) && (BPClassB != nullptr) && FStructUtils::TheSameLayout(BPClassA, BPClassB, true);
+
+			const bool bAllowedToDoFastPath = (ChangeDefaultValueWithoutReinstancing || bTheSameDefaultValues) && bTheSameLayout;
+			if (bAllowedToDoFastPath)
 			{
-				UE_LOG(LogBlueprint, Log, TEXT("BlueprintCompileReinstancer: class '%s' is replaced without reinstancing (the optimized way)."), *GetPathNameSafe(ClassToReinstance));
+
+				UE_LOG(LogBlueprint, Log, TEXT("BlueprintCompileReinstancer: Doing a fast path refresh on class '%s'."), *GetPathNameSafe(ClassToReinstance));
 
 				TArray<UObject*> ObjectsToReplace;
-				GetObjectsOfClass(DuplicatedClass, ObjectsToReplace, false);
+				GetObjectsOfClass(DuplicatedClass, ObjectsToReplace, /*bIncludeDerivedClasses=*/ false);
 
 				const bool bIsActor = ClassToReinstance->IsChildOf<AActor>();
 				const bool bIsAnimInstance = ClassToReinstance->IsChildOf<UAnimInstance>();
 				const bool bIsComponent = ClassToReinstance->IsChildOf<UActorComponent>();
 				for (auto Obj : ObjectsToReplace)
 				{
+					UE_LOG(LogBlueprint, Log, TEXT("  Fast path is refreshing (not replacing) %s"), *Obj->GetFullName());
+
 					if ((!Obj->IsTemplate() || bIsComponent) && !Obj->IsPendingKill())
 					{
 						Obj->SetClass(ClassToReinstance);
+
 						if (bIsActor)
 						{
 							auto Actor = CastChecked<AActor>(Obj);
@@ -344,6 +353,7 @@ void FBlueprintCompileReinstancer::ReinstanceObjects(bool bAlwaysReinstance)
 
 		if (bShouldReinstance)
 		{
+			UE_LOG(LogBlueprint, Log, TEXT("BlueprintCompileReinstancer: Doing a full reinstance on class '%s'"), *GetPathNameSafe(ClassToReinstance));
 			ReplaceInstancesOfClass(DuplicatedClass, ClassToReinstance, OriginalCDO, &ObjectsThatShouldUseOldStuff);
 		}
 		else if (ClassToReinstance->IsChildOf<UActorComponent>())
@@ -422,6 +432,14 @@ struct FActorReplacementHelper
 	{
 		CachedActorData = StaticCastSharedPtr<AActor::FActorTransactionAnnotation>(OldActor->GetTransactionAnnotation());
 		CacheAttachInfo(OldActor);
+
+		for (UActorComponent* OldActorComponent : OldActor->GetComponents())
+		{
+			if (OldActorComponent)
+			{
+				OldActorComponentNameMap.Add(OldActorComponent->GetFName(), OldActorComponent);
+			}
+		}
 	}
 
 	/**
@@ -482,6 +500,8 @@ private:
 
 	/** Holds actor component data, etc. that we use to apply */
 	TSharedPtr<AActor::FActorTransactionAnnotation> CachedActorData;
+
+	TMap<FName, UActorComponent*> OldActorComponentNameMap;
 };
 
 void FActorReplacementHelper::Finalize(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
@@ -523,8 +543,21 @@ void FActorReplacementHelper::Finalize(const TMap<UObject*, UObject*>& OldToNewI
 
 	if (bSelectNewActor)
 	{
-		GEditor->SelectActor(NewActor, /*bInSelected =*/true, /*bNotify =*/false);
+		GEditor->SelectActor(NewActor, /*bInSelected =*/true, /*bNotify =*/true);
 	}
+
+	TMap<UObject*, UObject*> ConstructedComponentReplacementMap;
+	for (UActorComponent* NewActorComponent : NewActor->GetComponents())
+	{
+		if (NewActorComponent)
+		{
+			if (UActorComponent** OldActorComponent = OldActorComponentNameMap.Find(NewActorComponent->GetFName()))
+			{
+				ConstructedComponentReplacementMap.Add(*OldActorComponent, NewActorComponent);
+			}
+		}
+	}
+	GEditor->NotifyToolsOfObjectReplacement(ConstructedComponentReplacementMap);
 	
 	// Destroy actor and clear references.
 	NewActor->Modify();

@@ -172,17 +172,32 @@ FString FComponentEditorUtils::GenerateValidVariableName(TSubclassOf<UActorCompo
 
 FString FComponentEditorUtils::GenerateValidVariableNameFromAsset(UObject* Asset, AActor* ComponentOwner)
 {
-	check(ComponentOwner);
-
 	int32 Counter = 1;
 	FString AssetName = Asset->GetName();
 
+	UClass* Class = Cast<UClass>(Asset);
+	if (Class)
+	{
+		if (!Class->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
+		{
+			AssetName.RemoveFromEnd(TEXT("Component"));
+		}
+		else
+		{
+			AssetName.RemoveFromEnd("_C");
+		}
+	}
+
 	// Try to create a name without any numerical suffix first
 	FString ComponentInstanceName = AssetName;
-	while (!IsComponentNameAvailable(ComponentInstanceName, ComponentOwner))
+
+	if (ComponentOwner)
 	{
-		// Assign the lowest possible numerical suffix
-		ComponentInstanceName = FString::Printf(TEXT("%s%d"), *AssetName, Counter++);
+		while (!IsComponentNameAvailable(ComponentInstanceName, ComponentOwner))
+		{
+			// Assign the lowest possible numerical suffix
+			ComponentInstanceName = FString::Printf(TEXT("%s%d"), *AssetName, Counter++);
+		}
 	}
 
 	return ComponentInstanceName;

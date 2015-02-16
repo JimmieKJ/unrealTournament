@@ -2,6 +2,7 @@
 
 #pragma once
 
+
 /**
  * 4x4 matrix of floating point values.
  * Matrix-matrix multiplication happens with a pre-multiple of the transpose --
@@ -9,7 +10,7 @@
  * opposed to Res = Mat1 * Mat2.
  * Matrix elements are accessed with M[RowIndex][ColumnIndex].
  */
-class FMatrix
+struct FMatrix
 {
 public:
 	union
@@ -60,57 +61,51 @@ public:
 	 * Gets the result of multiplying a Matrix to this.
 	 *
 	 * @param Other The matrix to multiply this by.
-	 *
 	 * @return The result of multiplication.
 	 */
-	FORCEINLINE FMatrix		operator* (const FMatrix& Other) const;
+	FORCEINLINE FMatrix operator* (const FMatrix& Other) const;
 
 	/**
-	 * Multiply this by a matix.
+	 * Multiply this by a matrix.
 	 *
 	 * @param Other the matrix to multiply by this.
-	 *
 	 * @return reference to this after multiply.
 	 */
-	FORCEINLINE void		operator*=(const FMatrix& Other);
+	FORCEINLINE void operator*=(const FMatrix& Other);
 
 	/**
 	 * Gets the result of adding a matrix to this.
 	 *
 	 * @param Other The Matrix to add.
-	 *
 	 * @return The result of addition.
 	 */
-	FORCEINLINE FMatrix		operator+ (const FMatrix& Other) const;
+	FORCEINLINE FMatrix operator+ (const FMatrix& Other) const;
 
 	/**
 	 * Adds to this matrix.
 	 *
 	 * @param Other The matrix to add to this.
-	 *
 	 * @return Reference to this after addition.
 	 */
-	FORCEINLINE void		operator+=(const FMatrix& Other);
+	FORCEINLINE void operator+=(const FMatrix& Other);
 
 	/** 
 	  * This isn't applying SCALE, just multiplying float to all members - i.e. weighting
 	  */
-	FORCEINLINE FMatrix		operator* (float Other) const;
+	FORCEINLINE FMatrix operator* (float Other) const;
 
 	/**
 	 * Multiply this matrix by a weighting factor.
 	 *
 	 * @param other The weight.
-	 *
 	 * @return a reference to this after weighting.
 	 */
-	FORCEINLINE void		operator*=(float Other);
+	FORCEINLINE void operator*=(float Other);
 
  	/**
 	 * Checks whether two matrix are identical.
 	 *
 	 * @param Other The other matrix.
-	 *
 	 * @return true if two matrix are identical, otherwise false.
 	 */
 	inline bool operator==(const FMatrix& Other) const;
@@ -120,7 +115,6 @@ public:
 	 *
 	 * @param Other The other Matrix.
 	 * @param Tolerance Error Tolerance.
-	 *
 	 * @return true if two Matrix are equal, within specified tolerance, otherwise false.
 	 */
 	inline bool Equals(const FMatrix& Other, float Tolerance=KINDA_SMALL_NUMBER) const;
@@ -129,12 +123,10 @@ public:
 	 * Checks whether another Matrix is not equal to this, within specified tolerance.
 	 *
 	 * @param Other The other Matrix.
-	 *
 	 * @return true if two Matrix are not equal, within specified tolerance, otherwise false.
 	 */
 	inline bool operator!=(const FMatrix& Other) const;
 
-	
 	// Homogeneous transform.
 	FORCEINLINE FVector4 TransformFVector4(const FVector4& V) const;
 
@@ -156,7 +148,6 @@ public:
 	 */
 	FORCEINLINE FVector InverseTransformVector(const FVector &V) const;
 
-
 	// Transpose.
 
 	FORCEINLINE FMatrix GetTransposed() const;
@@ -170,6 +161,7 @@ public:
 
 	/** Fast path, doesn't check for nil matrices in final release builds */
 	inline FMatrix InverseFast() const;
+
 	/** Fast path, and handles nil matrices. */
 	inline FMatrix Inverse() const;
 
@@ -230,7 +222,7 @@ public:
 	 * get unit length axis of this matrix
 	 *
 	 * @param i index into the axis of the matrix
-	 * @ return vector of the axis
+	 * @return vector of the axis
 	 */
 	inline FVector GetUnitAxis(EAxis::Type Axis) const;
 
@@ -278,6 +270,7 @@ public:
 
 	/** 
 	 * Transform a rotation matrix into a quaternion.
+	 *
 	 * @warning rotation part will need to be unit length for this to be right!
 	 */
 	CORE_API FQuat ToQuat() const;
@@ -302,8 +295,7 @@ public:
 	FORCEINLINE bool GetFrustumBottomPlane(FPlane& OutPlane) const;
 
 	/**
-	 * Utility for mirroring this transform across a certain plane,
-	 * and flipping one of the axis as well.
+	 * Utility for mirroring this transform across a certain plane, and flipping one of the axis as well.
 	 */
 	inline void Mirror(EAxis::Type MirrorAxis, EAxis::Type FlipAxis);
 
@@ -322,14 +314,13 @@ public:
 	 *
 	 * @param Ar Reference to the serialization archive.
 	 * @param M Reference to the matrix being serialized.
-	 *
 	 * @return Reference to the Archive after serialization.
 	 */
 	friend CORE_API FArchive& operator<<(FArchive& Ar,FMatrix& M);
 
 	/**
-	* Convert this Atom to the 3x4 transpose of the transformation matrix.
-	*/
+	 * Convert this Atom to the 3x4 transpose of the transformation matrix.
+	 */
 	void To3x4MatrixTranspose( float* Out ) const
 	{
 		const float* RESTRICT Src = &(M[0][0]);
@@ -351,6 +342,7 @@ public:
 		Dest[11] = Src[14]; // [3][2]
 	}	
 };
+
 
 /**
  * A storage class for compile-time fixed size matrices.
@@ -374,10 +366,10 @@ public:
 	TMatrix(const FMatrix& InMatrix);
 };
 
+
 template<uint32 NumRows,uint32 NumColumns>
-FORCEINLINE TMatrix<NumRows,NumColumns>::TMatrix()
-{
-}
+FORCEINLINE TMatrix<NumRows,NumColumns>::TMatrix() { }
+
 
 template<uint32 NumRows,uint32 NumColumns>
 FORCEINLINE TMatrix<NumRows,NumColumns>::TMatrix(const FMatrix& InMatrix)
@@ -397,6 +389,7 @@ struct FBasisVectorMatrix: FMatrix
 	// Create Basis matrix from 3 axis vectors and the origin
 	FBasisVectorMatrix(const FVector& XAxis,const FVector& YAxis,const FVector& ZAxis,const FVector& Origin);
 };
+
 
 FORCEINLINE FBasisVectorMatrix::FBasisVectorMatrix(const FVector& XAxis,const FVector& YAxis,const FVector& ZAxis,const FVector& Origin)
 {
@@ -423,6 +416,7 @@ struct FLookAtMatrix : FMatrix
 	FLookAtMatrix(const FVector& EyePosition, const FVector& LookAtPosition, const FVector& UpVector);
 };
 
+
 FORCEINLINE FLookAtMatrix::FLookAtMatrix(const FVector& EyePosition, const FVector& LookAtPosition, const FVector& UpVector)
 {
 	const FVector ZAxis = (LookAtPosition - EyePosition).GetSafeNormal();
@@ -444,6 +438,7 @@ FORCEINLINE FLookAtMatrix::FLookAtMatrix(const FVector& EyePosition, const FVect
 
 
 template <> struct TIsPODType<FMatrix> { enum { Value = true }; };
+
 
 // very high quality 4x4 matrix inverse
 static inline void Inverse4x4( double* dst, const float* src )

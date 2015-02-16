@@ -74,7 +74,7 @@ void ALeapMotionBoneActor::Init(ELeapBone LeapBone, float Scale, float Width, fl
 		Length = 0.0f;
 		break;
 	default: 
-		SetMeshForArm(); 
+		SetMeshForFinger();
 		break;
 	}
 

@@ -1,10 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	UnrealMathDirectX.h: DirectX specific vector intrinsics
-
-=============================================================================*/
-
 #pragma once
 
 #if __cplusplus_cli

@@ -603,14 +603,50 @@ void FBlueprintEditor::AnalyticsTrackCompileEvent( UBlueprint* Blueprint, int32 
 
 void FBlueprintEditor::RefreshEditors(ERefreshBlueprintEditorReason::Type Reason)
 {
-	if( Reason != ERefreshBlueprintEditorReason::BlueprintCompiled )
+	bool bForceFocusOnSelectedNodes = false;
+
+	if (CurrentUISelection == SelectionState_MyBlueprint)
+	{
+		// Handled below, here to avoid tripping the ensure
+	}
+	else if (CurrentUISelection == SelectionState_Components)
+	{
+		if (SCSEditor.IsValid())
+		{
+			SCSEditor->RefreshSelectionDetails();
+		}
+	}
+	else if (CurrentUISelection == SelectionState_Graph)
+	{
+		bForceFocusOnSelectedNodes = true;
+	}
+	else if (CurrentUISelection == SelectionState_ClassSettings)
+	{
+		// No need for a refresh, the Blueprint object didn't change
+	}
+	else if (CurrentUISelection == SelectionState_ClassDefaults)
+	{
+		StartEditingDefaults(/*bAutoFocus=*/ false, true);
+	}
+	else if (CurrentUISelection != FName())
+	{
+		ensureMsgf(false, TEXT("Unknown UI selection state in FBlueprintEditor::RefreshEditors"));
+	}
+
+	//@TODO: Should determine when we need to do the invalid/refresh business and if the graph node selection change
+	// under non-compiles is necessary (except when the selection mode is appropriate, as already detected above)
+	if (Reason != ERefreshBlueprintEditorReason::BlueprintCompiled)
 	{
 		DocumentManager->CleanInvalidTabs();
 
 		DocumentManager->RefreshAllTabs();
 
-		// The workflow manager only tracks document tabs.
-		FocusInspectorOnGraphSelection(GetSelectedNodes(), true);
+		bForceFocusOnSelectedNodes = true;
+	}
+
+	if (bForceFocusOnSelectedNodes)
+	{
+		FocusInspectorOnGraphSelection(GetSelectedNodes(), /*bForceRefresh=*/ true);
 	}
 
 	if (MyBlueprintWidget.IsValid())
@@ -618,7 +654,7 @@ void FBlueprintEditor::RefreshEditors(ERefreshBlueprintEditorReason::Type Reason
 		MyBlueprintWidget->Refresh();
 	}
 
-	if(SCSEditor.IsValid())
+	if (SCSEditor.IsValid())
 	{
 		SCSEditor->UpdateTree();
 		
@@ -631,14 +667,8 @@ void FBlueprintEditor::RefreshEditors(ERefreshBlueprintEditorReason::Type Reason
 	// that the selection does not really change, we force it to refresh and skip the optimization. Otherwise, some things may not work correctly in Defaults mode. For
 	// example, transform details are customized and the rotation value is cached at customization time; if we don't force refresh here, then after an undo of a previous
 	// rotation edit, transform details won't be re-customized and thus the cached rotation value will be stale, resulting in an invalid rotation value on the next edit.
-	if ( CurrentUISelection == FBlueprintEditor::SelectionState_ClassDefaults )
-	{
-		StartEditingDefaults(true, true);
-	}
-	else
-	{
-		RefreshStandAloneDefaultsEditor();
-	}
+	//@TODO: Probably not always necessary
+	RefreshStandAloneDefaultsEditor();
 
 	// Update associated controls like the function editor
 	BroadcastRefresh();
@@ -786,14 +816,7 @@ void FBlueprintEditor::OnSelectionUpdated(const TArray<FSCSEditorTreeNodePtrType
 					InspectorTitle = FText::FromString(Title);
 					bShowComponents = false;
 
-					// Show the details panel if it doesn't exist.
-					TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
-
-					TSharedPtr<SDockTab> OwnerTab = Inspector->GetOwnerTab();
-					if ( OwnerTab.IsValid() )
-					{
-						OwnerTab->FlashTab();
-					}
+					TryInvokingDetailsTab();
 				}
 				else
 				{
@@ -1984,7 +2007,7 @@ void FBlueprintEditor::SetupViewForBlueprintEditingMode()
 
 	// Make sure the inspector is always on top
 	//@TODO: This is necessary right now because of a bug in restoring layouts not remembering which tab is on top (to get it right initially), but do we want this behavior always?
-	TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
+	TryInvokingDetailsTab();
 
 	UBlueprint* Blueprint = GetBlueprintObj();
 	if ((Blueprint != nullptr) && (Blueprint->Status == EBlueprintStatus::BS_Error))
@@ -2578,14 +2601,7 @@ void FBlueprintEditor::EditGlobalOptions_Clicked()
 		// Show details for the Blueprint instance we're editing
 		Inspector->ShowDetailsForSingleObject(Blueprint);
 
-		// Show the details panel if it doesn't exist.
-		TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
-
-		TSharedPtr<SDockTab> OwnerTab = Inspector->GetOwnerTab();
-		if ( OwnerTab.IsValid() )
-		{
-			OwnerTab->FlashTab();
-		}
+		TryInvokingDetailsTab();
 	}
 }
 
@@ -6301,13 +6317,9 @@ void FBlueprintEditor::StartEditingDefaults(bool bAutoFocus, bool bForceRefresh)
 
 					Inspector->ShowDetailsForSingleObject(DefaultObject, Options);
 
-					// Show the details panel if it doesn't exist.
-					TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
-
-					TSharedPtr<SDockTab> OwnerTab = Inspector->GetOwnerTab();
-					if ( OwnerTab.IsValid() )
+					if ( bAutoFocus )
 					{
-						OwnerTab->FlashTab();
+						TryInvokingDetailsTab();
 					}
 				}
 			}
@@ -6341,7 +6353,7 @@ void FBlueprintEditor::RefreshStandAloneDefaultsEditor()
 void FBlueprintEditor::RenameNewlyAddedAction(FName InActionName)
 {
 	TabManager->InvokeTab(FBlueprintEditorTabs::MyBlueprintID);
-	TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
+	TryInvokingDetailsTab(/*Flash*/false);
 
 	if (MyBlueprintWidget.IsValid())
 	{
@@ -7544,10 +7556,33 @@ void FBlueprintEditor::SaveAsset_Execute()
 	IBlueprintEditor::SaveAsset_Execute();
 }
 
-/////////////////////////////////////////////////////
-/////////////////////////////////////////////////////
-/////////////////////////////////////////////////////
+void FBlueprintEditor::TryInvokingDetailsTab(bool bFlash)
+{
+	if ( TabManager->CanSpawnTab(FBlueprintEditorTabs::DetailsID) )
+	{
+		TSharedPtr<SDockTab> BlueprintTab = FGlobalTabmanager::Get()->GetMajorTabForTabManager(TabManager.ToSharedRef());
 
+		// We don't want to force this tab into existance when the blueprint editor isn't in the foreground and actively
+		// being interacted with.  So we make sure the window it's in is focused and the tab is in the foreground.
+		if ( BlueprintTab.IsValid() && BlueprintTab->IsForeground() && BlueprintTab->GetParentWindow()->HasFocusedDescendants() )
+		{
+			// Show the details panel if it doesn't exist.
+			TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
+
+			if ( bFlash )
+			{
+				TSharedPtr<SDockTab> OwnerTab = Inspector->GetOwnerTab();
+				if ( OwnerTab.IsValid() )
+				{
+					OwnerTab->FlashTab();
+				}
+			}
+		}
+	}
+}
+
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 
 #undef LOCTEXT_NAMESPACE
-

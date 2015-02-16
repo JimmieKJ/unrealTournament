@@ -242,32 +242,6 @@ FString UStructProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 
 
 FString UStructProperty::GetCPPTypeForwardDeclaration() const
 {
-	// The following types are classes, but reflection system sees them as structs.
-	static FName ClassNames[] =
-	{
-		NAME_Box,
-		NAME_Color,
-		FName(TEXT("Guid")),
-		NAME_Plane,
-		NAME_Quat,
-		FName(TEXT("RandomStream")),
-		FName(TEXT("Rotator")),
-		FName(TEXT("Timespan")),
-		NAME_Transform,
-		NAME_Vector,
-		NAME_Matrix
-	};
-
-	auto Name = Struct->GetFName();
-
-	for (auto ClassName : ClassNames)
-	{
-		if (ClassName == Name)
-		{
-			return FString::Printf(TEXT("class F%s;"), *Struct->GetName());
-		}
-	}
-
 	return FString::Printf(TEXT("struct F%s;"), *Struct->GetName());
 }
 

@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Sphere.h: Declares the FSphere class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -22,10 +18,8 @@ public:
 
 public:
 
-	/**
-	 * Default constructor (no initialization).
-	 */
-	FSphere( ) { }
+	/** Default constructor (no initialization). */
+	FSphere() { }
 
 	/**
 	 * Creates and initializes a new sphere.

@@ -164,6 +164,8 @@ void SActorDetails::SetObjects(const TArray<UObject*>& InObjects)
 				// Update the tree if a new actor is selected
 				if(GEditor->GetSelectedComponentCount() == 0)
 				{
+					// Enable the selection guard to prevent OnTreeSelectionChanged() from altering the editor's component selection
+					TGuardValue<bool> SelectionGuard(bSelectionGuard, true);
 					SCSEditor->UpdateTree();
 				}
 			}

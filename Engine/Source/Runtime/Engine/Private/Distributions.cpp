@@ -651,7 +651,7 @@ static void OptimizeLookupTable( FDistributionLookupTable* Table, float ErrorThr
 	*Table = OriginalTable;
 }
 
-void FRawDistribution::GetValue1(float Time, float* Value, int32 Extreme, class FRandomStream* InRandomStream) const
+void FRawDistribution::GetValue1(float Time, float* Value, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	switch (LookupTable.Op)
 	{
@@ -671,7 +671,7 @@ void FRawDistribution::GetValue1(float Time, float* Value, int32 Extreme, class 
 	}
 }
 
-void FRawDistribution::GetValue3(float Time, float* Value, int32 Extreme, class FRandomStream* InRandomStream) const
+void FRawDistribution::GetValue3(float Time, float* Value, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	switch (LookupTable.Op)
 	{
@@ -687,7 +687,7 @@ void FRawDistribution::GetValue3(float Time, float* Value, int32 Extreme, class 
 	}
 }
 
-void FRawDistribution::GetValue1Extreme(float Time, float* InValue, int32 Extreme, class FRandomStream* InRandomStream) const
+void FRawDistribution::GetValue1Extreme(float Time, float* InValue, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	float* RESTRICT Value = InValue;
 	const float* Entry1;
@@ -701,7 +701,7 @@ void FRawDistribution::GetValue1Extreme(float Time, float* InValue, int32 Extrem
 	Value[0] = FMath::Lerp(NewEntry1[InitialElement + 0], NewEntry2[InitialElement + 0], LerpAlpha);
 }
 
-void FRawDistribution::GetValue3Extreme(float Time, float* InValue, int32 Extreme, class FRandomStream* InRandomStream) const
+void FRawDistribution::GetValue3Extreme(float Time, float* InValue, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	float* RESTRICT Value = InValue;
 	const float* Entry1;
@@ -721,7 +721,7 @@ void FRawDistribution::GetValue3Extreme(float Time, float* InValue, int32 Extrem
 	Value[2] = T2;
 }
 
-void FRawDistribution::GetValue1Random(float Time, float* InValue, class FRandomStream* InRandomStream) const
+void FRawDistribution::GetValue1Random(float Time, float* InValue, struct FRandomStream* InRandomStream) const
 {
 	float* RESTRICT Value = InValue;
 	const float* Entry1;
@@ -737,7 +737,7 @@ void FRawDistribution::GetValue1Random(float Time, float* InValue, class FRandom
 	Value[0] = Value1 + (Value2 - Value1) * RandValue;
 }
 
-void FRawDistribution::GetValue3Random(float Time, float* InValue, class FRandomStream* InRandomStream) const
+void FRawDistribution::GetValue3Random(float Time, float* InValue, struct FRandomStream* InRandomStream) const
 {
 	float* RESTRICT Value = InValue;
 	const float* Entry1;
@@ -783,7 +783,7 @@ void FRawDistribution::GetValue3Random(float Time, float* InValue, class FRandom
 	Value[2] = Z0 + (Z1 - Z0) * RandValues[2];
 }
 
-void FRawDistribution::GetValue(float Time, float* Value, int32 NumCoords, int32 Extreme, class FRandomStream* InRandomStream) const
+void FRawDistribution::GetValue(float Time, float* Value, int32 NumCoords, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	checkSlow(NumCoords == 3 || NumCoords == 1);
 	switch (LookupTable.Op)
@@ -894,7 +894,7 @@ void FRawDistributionFloat::Initialize()
 }
 #endif // WITH_EDITOR
 
-float FRawDistributionFloat::GetValue(float F, UObject* Data, class FRandomStream* InRandomStream)
+float FRawDistributionFloat::GetValue(float F, UObject* Data, struct FRandomStream* InRandomStream)
 {
 #if WITH_EDITOR
 	// make sure it's up to date
@@ -989,7 +989,7 @@ void UDistributionFloat::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 }
 #endif	// WITH_EDITOR
 
-float UDistributionFloat::GetValue( float F, UObject* Data, class FRandomStream* InRandomStream ) const
+float UDistributionFloat::GetValue( float F, UObject* Data, struct FRandomStream* InRandomStream ) const
 {
 	return 0.0;
 }
@@ -1072,7 +1072,7 @@ void FRawDistributionVector::Initialize()
 }
 #endif
 
-FVector FRawDistributionVector::GetValue(float F, UObject* Data, int32 Extreme, class FRandomStream* InRandomStream)
+FVector FRawDistributionVector::GetValue(float F, UObject* Data, int32 Extreme, struct FRandomStream* InRandomStream)
 {
 #if WITH_EDITOR
 	// make sure it's up to date
@@ -1165,7 +1165,7 @@ void UDistributionVector::PostEditChangeProperty(FPropertyChangedEvent& Property
 }
 #endif // WITH_EDITOR
 
-FVector UDistributionVector::GetValue(float F, UObject* Data, int32 Extreme, class FRandomStream* InRandomStream) const
+FVector UDistributionVector::GetValue(float F, UObject* Data, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	return FVector::ZeroVector;
 }
@@ -1575,7 +1575,7 @@ void UDistributionFloatConstant::PostLoad()
 	}
 }
 
-float UDistributionFloatConstant::GetValue( float F, UObject* Data, class FRandomStream* InRandomStream ) const
+float UDistributionFloatConstant::GetValue( float F, UObject* Data, struct FRandomStream* InRandomStream ) const
 {
 	return Constant;
 }
@@ -1688,7 +1688,7 @@ UDistributionFloatConstantCurve::UDistributionFloatConstantCurve(const FObjectIn
 {
 }
 
-float UDistributionFloatConstantCurve::GetValue( float F, UObject* Data, class FRandomStream* InRandomStream ) const
+float UDistributionFloatConstantCurve::GetValue( float F, UObject* Data, struct FRandomStream* InRandomStream ) const
 {
 	return ConstantCurve.Eval(F, 0.f);
 }
@@ -1873,7 +1873,7 @@ void UDistributionFloatUniform::PostLoad()
 	}
 }
 
-float UDistributionFloatUniform::GetValue( float F, UObject* Data, class FRandomStream* InRandomStream ) const
+float UDistributionFloatUniform::GetValue( float F, UObject* Data, struct FRandomStream* InRandomStream ) const
 {
 	return Max + (Min - Max) * DIST_GET_RANDOM_VALUE(InRandomStream);
 }
@@ -2049,7 +2049,7 @@ UDistributionFloatUniformCurve::UDistributionFloatUniformCurve(const FObjectInit
 {
 }
 
-float UDistributionFloatUniformCurve::GetValue(float F, UObject* Data, class FRandomStream* InRandomStream) const
+float UDistributionFloatUniformCurve::GetValue(float F, UObject* Data, struct FRandomStream* InRandomStream) const
 {
 	FVector2D Val = ConstantCurve.Eval(F, FVector2D(0.f, 0.f));
 	return Val.X + (Val.Y - Val.X) * DIST_GET_RANDOM_VALUE(InRandomStream);
@@ -2337,7 +2337,7 @@ void UDistributionVectorConstant::PostLoad()
 	}
 }
 
-FVector UDistributionVectorConstant::GetValue(float F, UObject* Data, int32 Extreme, class FRandomStream* InRandomStream) const
+FVector UDistributionVectorConstant::GetValue(float F, UObject* Data, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	switch (LockedAxes)
 	{
@@ -2576,7 +2576,7 @@ UDistributionVectorConstantCurve::UDistributionVectorConstantCurve(const FObject
 {
 }
 
-FVector UDistributionVectorConstantCurve::GetValue(float F, UObject* Data, int32 Extreme, class FRandomStream* InRandomStream) const
+FVector UDistributionVectorConstantCurve::GetValue(float F, UObject* Data, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	FVector Val = ConstantCurve.Eval(F, FVector::ZeroVector);
 	switch (LockedAxes)
@@ -2961,7 +2961,7 @@ void UDistributionVectorUniform::PostLoad()
 	}
 }
 
-FVector UDistributionVectorUniform::GetValue(float F, UObject* Data, int32 Extreme, class FRandomStream* InRandomStream) const
+FVector UDistributionVectorUniform::GetValue(float F, UObject* Data, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	FVector LocalMax = Max;
 	FVector LocalMin = Min;
@@ -3537,7 +3537,7 @@ UDistributionVectorUniformCurve::UDistributionVectorUniformCurve(const FObjectIn
 	bUseExtremes = false;
 }
 
-FVector UDistributionVectorUniformCurve::GetValue(float F, UObject* Data, int32 Extreme, class FRandomStream* InRandomStream) const
+FVector UDistributionVectorUniformCurve::GetValue(float F, UObject* Data, int32 Extreme, struct FRandomStream* InRandomStream) const
 {
 	FTwoVectors	Val = ConstantCurve.Eval(F, FTwoVectors());
 
@@ -4098,7 +4098,7 @@ UDistributionFloatParameterBase::UDistributionFloatParameterBase(const FObjectIn
 	MaxOutput = 1.0f;
 }
 
-float UDistributionFloatParameterBase::GetValue( float F, UObject* Data, class FRandomStream* InRandomStream ) const
+float UDistributionFloatParameterBase::GetValue( float F, UObject* Data, struct FRandomStream* InRandomStream ) const
 {
 	float ParamFloat = 0.f;
 	bool bFoundParam = GetParamValue(Data, ParameterName, ParamFloat);
@@ -4137,7 +4137,7 @@ UDistributionVectorParameterBase::UDistributionVectorParameterBase(const FObject
 
 }
 
-FVector UDistributionVectorParameterBase::GetValue( float F, UObject* Data, int32 Extreme, class FRandomStream* InRandomStream ) const
+FVector UDistributionVectorParameterBase::GetValue( float F, UObject* Data, int32 Extreme, struct FRandomStream* InRandomStream ) const
 {
 	FVector ParamVector(0.f);
 	bool bFoundParam = GetParamValue(Data, ParameterName, ParamVector);

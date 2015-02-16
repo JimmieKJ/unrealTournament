@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	IntVector.h: Declares the FIntVector structure.
-=============================================================================*/
-
 #pragma once
 
 
@@ -34,7 +30,7 @@ public:
 	/**
 	 * Default constructor (no initialization).
 	 */
-	FIntVector( );
+	FIntVector();
 
 	/**
 	 * Creates and initializes a new instance with the specified coordinates.
@@ -172,28 +168,28 @@ public:
 	 *
 	 * @return The maximum value in the point.
 	 */
-	float GetMax( ) const;
+	float GetMax() const;
 
 	/**
 	 * Gets the minimum value in the point.
 	 *
 	 * @return The minimum value in the point.
 	 */
-	float GetMin( ) const;
+	float GetMin() const;
 
 	/**
 	 * Gets the distance of this point from (0,0).
 	 *
 	 * @return The distance of this point from (0,0).
 	 */
-	int32 Size( ) const;
+	int32 Size() const;
 
 	/**
 	 * Get a textual representation of this vector.
 	 *
 	 * @return A string describing the vector.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 public:
 
@@ -211,7 +207,7 @@ public:
 	 *
 	 * @return Number of components point has.
 	 */
-	static int32 Num( );
+	static int32 Num();
 
 public:
 
@@ -232,7 +228,7 @@ public:
 /* FIntVector inline functions
  *****************************************************************************/
 
-FORCEINLINE FIntVector::FIntVector( )
+FORCEINLINE FIntVector::FIntVector()
 { }
 
 
@@ -360,31 +356,31 @@ FORCEINLINE FIntVector FIntVector::DivideAndRoundUp( FIntVector lhs, int32 Divis
 }
 
 
-FORCEINLINE float FIntVector::GetMax( ) const
+FORCEINLINE float FIntVector::GetMax() const
 {
 	return FMath::Max(FMath::Max(X, Y), Z);
 }
 
 
-FORCEINLINE float FIntVector::GetMin( ) const
+FORCEINLINE float FIntVector::GetMin() const
 {
 	return FMath::Min(FMath::Min(X, Y), Z);
 }
 
 
-FORCEINLINE int32 FIntVector::Num( )
+FORCEINLINE int32 FIntVector::Num()
 {
 	return 2;
 }
 
 
-FORCEINLINE int32 FIntVector::Size( ) const
+FORCEINLINE int32 FIntVector::Size() const
 {
 	return int32(FMath::Sqrt(float(X * X + Y * Y + Z * Z)));
 }
 
 
-FORCEINLINE FString FIntVector::ToString( ) const
+FORCEINLINE FString FIntVector::ToString() const
 {
 	return FString::Printf(TEXT("X=%3.3f Y=%3.3f Z=%3.3f"), X, Y, Z);
 }

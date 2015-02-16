@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Vector2DHalf.h: Declares the FVector2DHalf class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -20,12 +16,11 @@ struct FVector2DHalf
 
 public:
 
-	/**
-	 * Default Constructor (no initialization).
-	 */
-	FORCEINLINE FVector2DHalf( ) { }
+	/** Default Constructor (no initialization). */
+	FORCEINLINE FVector2DHalf() { }
 
-	/** Constructor 
+	/**
+	 * Constructor.
 	 *
 	 * InX half float X value
 	 * Iny half float Y value
@@ -54,10 +49,8 @@ public:
 	 */
  	FVector2DHalf& operator=( const FVector2D& Vector2D );
 
-	/**
-	 * Implicit conversion operator for conversion to FVector2D.
-	 */
-	operator FVector2D( ) const;
+	/** Implicit conversion operator for conversion to FVector2D. */
+	operator FVector2D() const;
 
 public:
 
@@ -66,7 +59,7 @@ public:
 	 *
 	 * @return Text describing the vector.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 public:
 
@@ -91,6 +84,7 @@ FORCEINLINE FVector2DHalf::FVector2DHalf( const FFloat16& InX, const FFloat16& I
  	:	X(InX), Y(InY)
 { }
 
+
 FORCEINLINE FVector2DHalf::FVector2DHalf( float InX, float InY )
 	:	X(InX), Y(InY)
 { }
@@ -110,13 +104,13 @@ FORCEINLINE FVector2DHalf& FVector2DHalf::operator=( const FVector2D& Vector2D )
 }
 
 
-FORCEINLINE FString FVector2DHalf::ToString( ) const
+FORCEINLINE FString FVector2DHalf::ToString() const
 {
 	return FString::Printf(TEXT("X=%3.3f Y=%3.3f"), (float)X, (float)Y );
 }
 
 
-FORCEINLINE FVector2DHalf::operator FVector2D( ) const
+FORCEINLINE FVector2DHalf::operator FVector2D() const
 {
 	return FVector2D((float)X,(float)Y);
 }

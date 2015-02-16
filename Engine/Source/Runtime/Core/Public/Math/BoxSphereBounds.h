@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	BoxSphereBounds.h: Declares the FBoxSphereBounds structure.
-=============================================================================*/
-
 #pragma once
 
 
@@ -23,10 +19,8 @@ struct FBoxSphereBounds
 
 public:
 
-	/**
-	 * Default constructor.
-	 */
-	FBoxSphereBounds( ) { }
+	/** Default constructor. */
+	FBoxSphereBounds() { }
 
 	/**
 	 * Creates and initializes a new instance.
@@ -165,7 +159,7 @@ public:
 	 *
 	 * @return The bounding box.
 	 */
-	FORCEINLINE FBox GetBox( ) const
+	FORCEINLINE FBox GetBox() const
 	{
 		return FBox(Origin - BoxExtent,Origin + BoxExtent);
 	}
@@ -191,7 +185,7 @@ public:
 	 *
 	 * @return The bounding sphere.
 	 */
-	FORCEINLINE FSphere GetSphere( ) const
+	FORCEINLINE FSphere GetSphere() const
 	{
 		return FSphere(Origin,SphereRadius);
 	}
@@ -228,7 +222,7 @@ public:
 	 *
 	 * @return Text describing the bounding box.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 	/**
 	 * Constructs a bounding volume containing both A and B.
@@ -254,14 +248,14 @@ public:
 	}
 
 #if ENABLE_NAN_DIAGNOSTIC
-	FORCEINLINE void DiagnosticCheckNaN( ) const
+	FORCEINLINE void DiagnosticCheckNaN() const
 	{
 		checkf(!Origin.ContainsNaN(), TEXT("Origin contains NaN: %s"), *Origin.ToString());
 		checkf(!BoxExtent.ContainsNaN(), TEXT("BoxExtent contains NaN: %s"), *BoxExtent.ToString());
 		checkf(!FMath::IsNaN(SphereRadius) && FMath::IsFinite(SphereRadius), TEXT("SphereRadius contains NaN: %f"), SphereRadius);
 	}
 #else
-	FORCEINLINE void DiagnosticCheckNaN( ) const {}
+	FORCEINLINE void DiagnosticCheckNaN() const {}
 #endif
 
 public:
@@ -326,7 +320,7 @@ FORCEINLINE FBoxSphereBounds FBoxSphereBounds::operator+( const FBoxSphereBounds
 }
 
 
-FORCEINLINE FString FBoxSphereBounds::ToString( ) const
+FORCEINLINE FString FBoxSphereBounds::ToString() const
 {
 	return FString::Printf(TEXT("Origin=%s, BoxExtent=(%s), SphereRadius=(%f)"), *Origin.ToString(), *BoxExtent.ToString(), SphereRadius);
 }

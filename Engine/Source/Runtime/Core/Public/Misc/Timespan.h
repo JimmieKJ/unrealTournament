@@ -49,7 +49,7 @@ namespace ETimespan
  *
  * @see FDateTime
  */
-class FTimespan
+struct FTimespan
 {
 public:
 

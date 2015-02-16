@@ -802,6 +802,14 @@ namespace ObjectTools
 				UPackage* CurObjPackage = CurObjToConsolidate->GetOutermost();
 				FName CurObjName = CurObjToConsolidate->GetFName();
 
+				// null out the CDO of our current generated class so that DeleteSingleObject does not find it and set it's ClassGeneratedBy to the replacing type.
+				// That would trigger a type mismatch assertion...
+				UBlueprint* BlueprintToConsolidate = Cast<UBlueprint>(CurObjToConsolidate);
+				if (BlueprintToConsolidateTo != nullptr && BlueprintToConsolidate != nullptr && BlueprintToConsolidate->GeneratedClass != nullptr)
+				{
+					BlueprintToConsolidate->GeneratedClass->ClassDefaultObject = nullptr;
+				}
+
 				// Attempt to delete the object that was consolidated
 				if ( DeleteSingleObject( CurObjToConsolidate ) )
 				{

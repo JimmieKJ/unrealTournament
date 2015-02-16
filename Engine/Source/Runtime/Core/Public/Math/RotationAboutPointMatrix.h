@@ -2,11 +2,15 @@
 
 #pragma once
 
+
 /** Rotates about an Origin point. */
-class FRotationAboutPointMatrix : public FRotationTranslationMatrix
+class FRotationAboutPointMatrix
+	: public FRotationTranslationMatrix
 {
 public:
-	/** Constructor
+
+	/**
+	 * Constructor.
 	 *
 	 * @param Rot rotation
 	 * @param Origin about which to rotate.
@@ -23,8 +27,9 @@ public:
 	static CORE_API FMatrix Make(const FQuat& Rot, const FVector& Origin);
 };
 
+
 FORCEINLINE FRotationAboutPointMatrix::FRotationAboutPointMatrix(const FRotator& Rot, const FVector& Origin)
-	:FRotationTranslationMatrix(Rot, Origin)
+	: FRotationTranslationMatrix(Rot, Origin)
 {
 	// FRotationTranslationMatrix generates R * T.
 	// We need -T * R * T, so prepend that translation:

@@ -2,20 +2,23 @@
 
 #pragma once
 
+
 /**
  * Mirrors a point about an abitrary plane 
  */
-class FMirrorMatrix : public FMatrix
+class FMirrorMatrix
+	: public FMatrix
 {
 public:
+
 	/** 
-	 * Constructor.
-	 * Updated for the fact that our FPlane uses Ax+By+Cz=D.
+	 * Constructor. Updated for the fact that our FPlane uses Ax+By+Cz=D.
 	 * 
-	 * @param	Plane - source plane for mirroring (assumed normalized)
+	 * @param Plane source plane for mirroring (assumed normalized)
 	 */
 	FMirrorMatrix( const FPlane& Plane );
 };
+
 
 FORCEINLINE FMirrorMatrix::FMirrorMatrix( const FPlane& Plane ) :
 FMatrix(

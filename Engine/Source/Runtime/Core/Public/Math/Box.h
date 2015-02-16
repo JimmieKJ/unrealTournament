@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Box.h: Declares the FBox class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -13,7 +9,7 @@
  * Boxes describe an axis-aligned extent in three dimensions. They are used for many different things in the
  * Engine and in games, such as bounding volumes, collision detection and visibility calculation.
  */
-class FBox
+struct FBox
 {
 public:
 
@@ -28,14 +24,10 @@ public:
 
 public:
 
-	/**
-	 * Default constructor (no initialization).
-	 */
-	FBox( ) { }
+	/** Default constructor (no initialization). */
+	FBox() { }
 
-	/**
-	 * Creates and initializes a new box with zero extent and marks it as invalid.
-	 */
+	/** Creates and initializes a new box with zero extent and marks it as invalid. */
 	FBox( int32 )
 	{
 		Init();
@@ -210,7 +202,7 @@ public:
 	 * @return The center point.
 	 * @see GetCenterAndExtents, GetExtent, GetSize, GetVolume
 	 */
-	FVector GetCenter( ) const
+	FVector GetCenter() const
 	{
 		return FVector((Min + Max) * 0.5f);
 	}
@@ -242,7 +234,7 @@ public:
 	 * @return The box extents.
 	 * @see GetCenter, GetCenterAndExtents, GetSize, GetVolume
 	 */
-	FVector GetExtent( ) const
+	FVector GetExtent() const
 	{
 		return 0.5f * (Max - Min);
 	}
@@ -275,7 +267,7 @@ public:
 	 * @return The box size.
 	 * @see GetCenter, GetCenterAndExtents, GetExtent, GetVolume
 	 */
-	FVector GetSize( ) const
+	FVector GetSize() const
 	{
 		return (Max - Min);
 	}
@@ -286,7 +278,7 @@ public:
 	 * @return The box volume.
 	 * @see GetCenter, GetCenterAndExtents, GetExtent, GetSize
 	 */
-	float GetVolume( ) const
+	float GetVolume() const
 	{
 		return ((Max.X - Min.X) * (Max.Y - Min.Y) * (Max.Z - Min.Z));
 	}
@@ -294,7 +286,7 @@ public:
 	/**
 	 * Set the initial values of the bounding box to Zero.
 	 */
-	void Init( )
+	void Init()
 	{
 		Min = Max = FVector::ZeroVector;
 		IsValid = 0;
@@ -402,7 +394,7 @@ public:
 	 *
 	 * @return A string describing the box.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 public:
 
@@ -564,7 +556,7 @@ FORCEINLINE bool FBox::IntersectXY( const FBox& Other ) const
 }
 
 
-FORCEINLINE FString FBox::ToString( ) const
+FORCEINLINE FString FBox::ToString() const
 {
 	return FString::Printf(TEXT("IsValid=%s, Min=(%s), Max=(%s)"), IsValid ? TEXT("true") : TEXT("false"), *Min.ToString(), *Max.ToString());
 }

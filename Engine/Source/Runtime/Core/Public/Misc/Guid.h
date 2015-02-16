@@ -59,7 +59,7 @@ enum class EGuidFormats
 /**
  * Implements a globally unique identifier.
  */
-class FGuid
+struct FGuid
 {
 public:
 

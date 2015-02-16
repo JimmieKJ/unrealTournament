@@ -73,7 +73,7 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	static const TCHAR* GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error);
 	static void ClipboardCopy(const TCHAR* Str);
 	static void ClipboardPaste(class FString& Dest);
-	static void CreateGuid(class FGuid& Result);
+	static void CreateGuid(struct FGuid& Result);
 	static EAppReturnType::Type MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption );
 	static bool ControlScreensaver(EScreenSaverAction Action);
 	static bool CommandLineCommands();

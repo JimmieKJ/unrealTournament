@@ -884,6 +884,9 @@ protected:
 	/** Used to get the apperance of a specific graph, GetGraphAppearance() uses the currently focused graph. */
 	FGraphAppearanceInfo GetGraphAppearance(class UEdGraph* InGraph) const;
 
+	/** Attempts to invoke the details tab if it's currently possible to. */
+	void TryInvokingDetailsTab(bool bFlash = true);
+
 private:
 
 	/** Returns true if modules can be recompiled */

@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Vector2D.h: Declares the FVector2D class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -31,7 +27,7 @@ public:
 	/**
 	 * Default constructor (no initialization).
 	 */
-	FORCEINLINE FVector2D( ) { }
+	FORCEINLINE FVector2D() { }
 
 	/**
 	 * Constructor using initial values for each component.
@@ -342,35 +338,35 @@ public:
 	 *
 	 * @return The maximum value of the vector's components.
 	 */
-	float GetMax( ) const;
+	float GetMax() const;
 
 	/**
 	 * Get the maximum absolute value of the vector's components.
 	 *
 	 * @return The maximum absolute value of the vector's components.
 	 */
-	float GetAbsMax( ) const;
+	float GetAbsMax() const;
 
 	/**
 	 * Get the minimum value of the vector's components.
 	 *
 	 * @return The minimum value of the vector's components.
 	 */
-	float GetMin( ) const;
+	float GetMin() const;
 
 	/**
 	 * Get the length (magnitude) of this vector.
 	 *
 	 * @return The length of this vector.
 	 */
-	float Size( ) const;
+	float Size() const;
 
 	/**
 	 * Get the squared length of this vector.
 	 *
 	 * @return The squared length of this vector.
 	 */
-	float SizeSquared( ) const;
+	float SizeSquared() const;
 
 	/**
 	 * Gets a normalized copy of the vector, checking it is safe to do so based on the length.
@@ -405,14 +401,14 @@ public:
 	 *
 	 * @return true if vector is exactly zero, otherwise false.
 	 */
-	bool IsZero( ) const;
+	bool IsZero() const;
 
 	/**
 	 * Get this vector as an Int Point.
 	 *
 	 * @return New Int Point from this vector.
 	 */
-	FIntPoint IntPoint( ) const;
+	FIntPoint IntPoint() const;
 
 	/**
 	 * Creates a copy of this vector with both axes clamped to the given range.
@@ -433,7 +429,7 @@ public:
 	 *
 	 * @return Text describing the vector.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 	/**
 	 * Initialize this Vector based on an FString. The String is expected to contain X=, Y=.
@@ -459,12 +455,12 @@ public:
 	}
 
 #if ENABLE_NAN_DIAGNOSTIC
-	FORCEINLINE void DiagnosticCheckNaN( ) const
+	FORCEINLINE void DiagnosticCheckNaN() const
 	{
 		checkf(!ContainsNaN(), TEXT("FVector contains NaN: %s"), *ToString());
 	}
 #else
-	FORCEINLINE void DiagnosticCheckNaN( ) const {}
+	FORCEINLINE void DiagnosticCheckNaN() const {}
 #endif
 
 	/**
@@ -485,7 +481,7 @@ public:
 	CORE_API bool NetSerialize( FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess );
 
 	/** Converts spherical coordinates on the unit sphere into a Cartesian unit length vector. */
-	inline FVector SphericalToUnitCartesian( ) const;
+	inline FVector SphericalToUnitCartesian() const;
 };
 
 

@@ -1,16 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Vector.h: Declares the FVector class.
-=============================================================================*/
-
 #pragma once
 
 
 /**
  * A vector in 3-D space composed of components (X, Y, Z) with floating point precision.
  */
-class FVector 
+struct FVector 
 {
 public:
 
@@ -45,9 +41,7 @@ public:
 	FORCEINLINE void DiagnosticCheckNaN() const {}
 #endif
 
-	/**
-	 * Default constructor (no initialization).
-	 */
+	/** Default constructor (no initialization). */
 	FORCEINLINE FVector();
 
 	/**
@@ -114,7 +108,6 @@ public:
 	* Copy another FVector into this one
 	*
 	* @param Other The other vector.
-	*
 	* @return Reference to vector after copy.
 	*/
 	FORCEINLINE FVector& operator=(const FVector& Other);
@@ -709,9 +702,9 @@ public:
 	 * but it won't change the direction of the Z axis.
 	 * All axes will be normalized.
 	 *
-	 * @param XAxis - The input basis' XAxis, and upon return the orthonormal basis' XAxis.
-	 * @param YAxis - The input basis' YAxis, and upon return the orthonormal basis' YAxis.
-	 * @param ZAxis - The input basis' ZAxis, and upon return the orthonormal basis' ZAxis.
+	 * @param XAxis The input basis' XAxis, and upon return the orthonormal basis' XAxis.
+	 * @param YAxis The input basis' YAxis, and upon return the orthonormal basis' YAxis.
+	 * @param ZAxis The input basis' ZAxis, and upon return the orthonormal basis' ZAxis.
 	 */
 	static CORE_API void CreateOrthonormalBasis(FVector& XAxis,FVector& YAxis,FVector& ZAxis);
 
@@ -931,7 +924,6 @@ public:
  *
  * @param Scale Scaling factor.
  * @param V Vector to scale.
- *
  * @return Result of multiplication.
  */
 FORCEINLINE FVector operator*( float Scale, const FVector& V )
@@ -943,7 +935,6 @@ FORCEINLINE FVector operator*( float Scale, const FVector& V )
  * Creates a hash value from a FVector. 
  *
  * @param Vector the vector to create a hash value for
- *
  * @return The hash value from the components
  */
 FORCEINLINE uint32 GetTypeHash(const FVector& Vector)
@@ -956,7 +947,6 @@ FORCEINLINE uint32 GetTypeHash(const FVector& Vector)
  * Creates a hash value from a FVector2D. 
  *
  * @param Vector the vector to create a hash value for
- *
  * @return The hash value from the components
  */
 FORCEINLINE uint32 GetTypeHash(const FVector2D& Vector)
@@ -981,7 +971,6 @@ FORCEINLINE uint32 GetTypeHash(const FVector2D& Vector)
  * @param Mins 3D Point defining the lower values of the axis of the bound box
  * @param Max 3D Point defining the lower values of the axis of the bound box
  * @param Point 3D position of interest
- * 
  * @return the distance from the Point to the bounding box.
  */
 FORCEINLINE float ComputeSquaredDistanceFromBoxToPoint( const FVector& Mins, const FVector& Maxs, const FVector& Point )
@@ -1021,12 +1010,12 @@ FORCEINLINE float ComputeSquaredDistanceFromBoxToPoint( const FVector& Mins, con
 	return DistSquared;
 }
 
+
 FORCEINLINE FVector::FVector( const FVector2D V, float InZ )
 	: X(V.X), Y(V.Y), Z(InZ)
 {
 	DiagnosticCheckNaN();
 }
-
 
 
 inline FVector FVector::RotateAngleAxis( const float AngleDeg, const FVector& Axis ) const

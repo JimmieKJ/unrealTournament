@@ -406,6 +406,15 @@ void USCS_Node::GenerateListOfExistingNames( TArray<FName>& CurrentNames ) const
 	// <<< End Backwards Compatibility
 	check(Blueprint);
 
+	TArray<UObject*> NativeCDOChildren;
+	UClass* FirstNativeClass = FBlueprintEditorUtils::FindFirstNativeClass(Blueprint->ParentClass);
+	GetObjectsWithOuter(FirstNativeClass->GetDefaultObject(), NativeCDOChildren, false);
+
+	for (UObject* NativeCDOChild : NativeCDOChildren)
+	{
+		CurrentNames.Add(NativeCDOChild->GetFName());
+	}
+
 	if(Blueprint->SkeletonGeneratedClass)
 	{
 		// First add the class variables.

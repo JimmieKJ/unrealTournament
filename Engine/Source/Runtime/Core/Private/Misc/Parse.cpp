@@ -544,7 +544,7 @@ bool FParse::Bool( const TCHAR* Stream, const TCHAR* Match, bool& OnOff )
 //
 // Get a globally unique identifier.
 //
-bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, class FGuid& Guid )
+bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, struct FGuid& Guid )
 {
 	TCHAR Temp[256];
 	if( !FParse::Value( Stream, Match, Temp, ARRAY_COUNT(Temp) ) )

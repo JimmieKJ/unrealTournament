@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Quat.h: Declares the FQuat class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -18,7 +14,7 @@
  * Example: LocalToWorld = (LocalToWorld * DeltaRotation) will change rotation in local space by DeltaRotation.
  * Example: LocalToWorld = (DeltaRotation * LocalToWorld) will change rotation in world space by DeltaRotation.
  */
-MS_ALIGN(16) class FQuat 
+MS_ALIGN(16) struct FQuat 
 {
 public:
 
@@ -44,7 +40,7 @@ public:
 	/**
 	 * Default constructor (no initialization).
 	 */
-	FORCEINLINE FQuat( ) { }
+	FORCEINLINE FQuat() { }
 
 	/**
 	 * Creates and initializes a new quaternion, with the W component either 0 or 1.
@@ -252,7 +248,7 @@ public:
 	static CORE_API FQuat MakeFromEuler( const FVector& Euler );
 
 	/** Convert a Quaternion into floating-point Euler angles (in degrees). */
-	CORE_API FVector Euler( ) const;
+	CORE_API FVector Euler() const;
 
 	/**
 	 * Normalize this quaternion if it is large enough.
@@ -262,21 +258,21 @@ public:
 	FORCEINLINE void Normalize( float Tolerance=SMALL_NUMBER );
 
 	// Return true if this quaternion is normalized
-	bool IsNormalized( ) const;
+	bool IsNormalized() const;
 
 	/**
 	 * Get the length of this quaternion.
 	 *
 	 * @return The length of this quaternion.
 	 */
-	FORCEINLINE float Size( ) const;
+	FORCEINLINE float Size() const;
 
 	/**
 	 * Get the length squared of this quaternion.
 	 *
 	 * @return The length of this quaternion.
 	 */
-	FORCEINLINE float SizeSquared( ) const;
+	FORCEINLINE float SizeSquared() const;
 
 	/** 
 	 * get the axis and angle of rotation of this quaternion
@@ -298,16 +294,16 @@ public:
 	/**
 	 * @return quaternion with W=0 and V=theta*v.
 	 */
-	CORE_API FQuat Log( ) const;
+	CORE_API FQuat Log() const;
 
 	/**
 	 * @note Exp should really only be used after Log.
 	 * Assumes a quaternion with W=0 and V=theta*v (where |v| = 1).
 	 * Exp(q) = (sin(theta)*v, cos(theta))
 	 */
-	CORE_API FQuat Exp( ) const;
+	CORE_API FQuat Exp() const;
 
-	FORCEINLINE FQuat Inverse( ) const;
+	FORCEINLINE FQuat Inverse() const;
 
 	/**
 	 * Enforce that the delta between this Quaternion and another one represents
@@ -316,19 +312,19 @@ public:
 	void EnforceShortestArcWith( const FQuat& OtherQuat );
 	
 	/** Get X Rotation Axis. */
-	FORCEINLINE FVector GetAxisX( ) const;
+	FORCEINLINE FVector GetAxisX() const;
 
 	/** Get Y Rotation Axis. */
-	FORCEINLINE FVector GetAxisY( ) const;
+	FORCEINLINE FVector GetAxisY() const;
 
 	/** Get Z Rotation Axis. */
-	FORCEINLINE FVector GetAxisZ( ) const;
+	FORCEINLINE FVector GetAxisZ() const;
 
 	/** @return rotator representation of this quaternion */
-	FRotator Rotator( ) const;
+	FRotator Rotator() const;
 
 	/** @return Vector of the axis of the quaternion */
-	FORCEINLINE FVector GetRotationAxis( ) const;
+	FORCEINLINE FVector GetRotationAxis() const;
 
 	/**
 	 * Serializes the vector compressed for e.g. network transmission.
@@ -342,19 +338,19 @@ public:
 	 *
 	 * @return true if there are any NaNs in this Quaternion, otherwise false.
 	 */
-	bool ContainsNaN( ) const;
+	bool ContainsNaN() const;
 
 	/**
 	 * Get a textual representation of the vector.
 	 *
 	 * @return Text describing the vector.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 public:
 
 #if ENABLE_NAN_DIAGNOSTIC
-	FORCEINLINE void DiagnosticCheckNaN( ) const
+	FORCEINLINE void DiagnosticCheckNaN() const
 	{
 		checkf(!ContainsNaN(), TEXT("FQuat contains NaN: %s"), *ToString());
 	}
@@ -660,7 +656,7 @@ FORCEINLINE FQuat::FQuat( const FQuat& Q )
 { }
 
 
-FORCEINLINE FString FQuat::ToString( ) const
+FORCEINLINE FString FQuat::ToString() const
 {
 	return FString::Printf(TEXT("X=%3.3f Y=%3.3f Z=%3.3f W=%3.3f"), X, Y, Z, W);
 }
@@ -830,19 +826,19 @@ FORCEINLINE void FQuat::Normalize(float Tolerance)
 }
 
 
-FORCEINLINE bool FQuat::IsNormalized( ) const
+FORCEINLINE bool FQuat::IsNormalized() const
 {
 	return (FMath::Abs(1.f - SizeSquared()) < THRESH_QUAT_NORMALIZED);
 }
 
 
-FORCEINLINE float FQuat::Size( ) const
+FORCEINLINE float FQuat::Size() const
 {
 	return FMath::Sqrt(X * X + Y * Y + Z * Z + W * W);
 }
 
 
-FORCEINLINE float FQuat::SizeSquared( ) const
+FORCEINLINE float FQuat::SizeSquared() const
 {
 	return (X * X + Y * Y + Z * Z + W * W);
 }
@@ -855,7 +851,7 @@ FORCEINLINE void FQuat::ToAxisAndAngle( FVector& Axis, float& Angle ) const
 }
 
 
-FORCEINLINE FVector FQuat::GetRotationAxis( ) const
+FORCEINLINE FVector FQuat::GetRotationAxis() const
 {
 	// Ensure we never try to sqrt a neg number
 	const float S = FMath::Sqrt(FMath::Max(1.f - (W * W), 0.f));
@@ -882,7 +878,7 @@ FORCEINLINE FVector FQuat::RotateVector( FVector V ) const
 }
 
 
-FORCEINLINE FQuat FQuat::Inverse( ) const
+FORCEINLINE FQuat FQuat::Inverse() const
 {
 	checkSlow(IsNormalized());
 
@@ -902,19 +898,19 @@ FORCEINLINE void FQuat::EnforceShortestArcWith( const FQuat& OtherQuat )
 }
 
 	
-FORCEINLINE FVector FQuat::GetAxisX( ) const
+FORCEINLINE FVector FQuat::GetAxisX() const
 {
 	return RotateVector(FVector(1.f, 0.f, 0.f));
 }
 
 
-FORCEINLINE FVector FQuat::GetAxisY( ) const
+FORCEINLINE FVector FQuat::GetAxisY() const
 {
 	return RotateVector(FVector(0.f, 1.f, 0.f));
 }
 
 
-FORCEINLINE FVector FQuat::GetAxisZ( ) const
+FORCEINLINE FVector FQuat::GetAxisZ() const
 {
 	return RotateVector(FVector(0.f, 0.f, 1.f));
 }
@@ -958,7 +954,7 @@ FORCEINLINE FQuat FQuat::FastBilerp( const FQuat& P00, const FQuat& P10, const F
 }
 
 
-FORCEINLINE bool FQuat::ContainsNaN( ) const
+FORCEINLINE bool FQuat::ContainsNaN() const
 {
 	return (FMath::IsNaN(X) || !FMath::IsFinite(X) ||
 			FMath::IsNaN(Y) || !FMath::IsFinite(Y) ||

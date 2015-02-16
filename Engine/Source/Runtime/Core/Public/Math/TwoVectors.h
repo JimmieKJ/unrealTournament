@@ -1,31 +1,25 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	TwoVectors.h: Declares the FTwoVectors class.
-=============================================================================*/
-
 #pragma once
 
 
 /**
  * A pair of 3D vectors.
  */
-class FTwoVectors
+struct FTwoVectors
 {
 public:
 
-	/**  Holds the first vector. */
+	/** Holds the first vector. */
 	FVector	v1;
 
-	/**  Holds the second vector. */
+	/** Holds the second vector. */
 	FVector	v2;
 
 public:
 
-	/**
-	 * Default constructor.
-	 */
-	FORCEINLINE	FTwoVectors( );
+	/** Default constructor. */
+	FORCEINLINE	FTwoVectors();
 
 	/**
 	 * Creates and initializes a new instance with the specified vectors.
@@ -126,7 +120,7 @@ public:
 	 *
 	 * @return A negated copy of the pair.
 	 */
-	FORCEINLINE FTwoVectors operator-( ) const;
+	FORCEINLINE FTwoVectors operator-() const;
 
 	// Assignment operators.
 
@@ -182,8 +176,7 @@ public:
 	 * Get a specific component from the pair.
 	 *
 	 * @param i The index of the component, even indices are for the first vector,
-	 * odd ones are for the second. Returns index 5 if out of range.
-	 *
+	 *			odd ones are for the second. Returns index 5 if out of range.
 	 * @return Reference to the specified component.
 	 */
     float& operator[]( int32 i );
@@ -195,30 +188,29 @@ public:
 	 *
 	 * @return The maximum value of all the vector coordinates.
 	 */
-	float GetMax( ) const;
+	float GetMax() const;
 
 	/**
 	 * Get the minimum value of all the vector coordinates.
 	 *
 	 * @return The minimum value of all the vector coordinates.
 	 */
-	float GetMin( ) const;
+	float GetMin() const;
 
 	/**
 	 * Get a textual representation of this two-vector.
 	 *
 	 * @return A string describing the two-vector.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 public:
 
 	/**
 	 * Serializes the two-vector.
 	 *
-	 * @param Ar - The archive to serialize into.
-	 * @param TwoVectors - The two-vector to serialize.
-	 *
+	 * @param Ar The archive to serialize into.
+	 * @param TwoVectors The two-vector to serialize.
 	 * @return Reference to the Archive after serialization.
 	 */
 	friend FArchive& operator<<( FArchive& Ar, FTwoVectors& TwoVectors )
@@ -237,7 +229,7 @@ FORCEINLINE FTwoVectors operator*( float Scale, const FTwoVectors& V )
 }
 
 
-FORCEINLINE	FTwoVectors::FTwoVectors( ) :
+FORCEINLINE	FTwoVectors::FTwoVectors() :
 	v1(0.0f),
 	v2(0.0f)
 { }
@@ -329,7 +321,7 @@ FORCEINLINE bool FTwoVectors::Equals( const FTwoVectors& V, float Tolerance ) co
 }
 
 
-FORCEINLINE FTwoVectors FTwoVectors::operator-( ) const
+FORCEINLINE FTwoVectors FTwoVectors::operator-() const
 {
 	return FTwoVectors(
 		FVector(-v1),
@@ -393,7 +385,7 @@ FORCEINLINE FTwoVectors FTwoVectors::operator/=( const FTwoVectors& V )
 }
 
 
-FORCEINLINE float FTwoVectors::GetMax( ) const
+FORCEINLINE float FTwoVectors::GetMax() const
 {
 	const float MaxMax = FMath::Max(FMath::Max(v1.X, v1.Y), v1.Z);
 	const float MaxMin = FMath::Max(FMath::Max(v2.X, v2.Y), v2.Z);
@@ -402,7 +394,7 @@ FORCEINLINE float FTwoVectors::GetMax( ) const
 }
 
 
-FORCEINLINE float FTwoVectors::GetMin( ) const
+FORCEINLINE float FTwoVectors::GetMin() const
 {
 	const float MinMax = FMath::Min(FMath::Min(v1.X, v1.Y), v1.Z);
 	const float MinMin = FMath::Min(FMath::Min(v2.X, v2.Y), v2.Z);
@@ -428,7 +420,7 @@ FORCEINLINE float& FTwoVectors::operator[]( int32 i )
 }
 
 
-FORCEINLINE FString FTwoVectors::ToString( ) const
+FORCEINLINE FString FTwoVectors::ToString() const
 {
 	return FString::Printf(TEXT("V1=(%s) V2=(%s)"), *v1.ToString(), *v2.ToString());
 }

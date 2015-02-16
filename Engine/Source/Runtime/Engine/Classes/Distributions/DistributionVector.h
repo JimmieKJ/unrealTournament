@@ -87,7 +87,7 @@ public:
 		/**
 		 * Get the value at the specified F
 		 */
-		ENGINE_API FVector GetValue(float F=0.0f, UObject* Data=NULL, int32 LastExtreme=0, class FRandomStream* InRandomStream = NULL);
+		ENGINE_API FVector GetValue(float F=0.0f, UObject* Data=NULL, int32 LastExtreme=0, struct FRandomStream* InRandomStream = NULL);
 
 		/**
 		 * Get the min and max values
@@ -145,7 +145,7 @@ class ENGINE_API UDistributionVector : public UDistribution
 	 */
 	virtual uint32 InitializeRawEntry(float Time, float* Values) const;
 
-	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, class FRandomStream* InRandomStream = NULL ) const;
+	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, struct FRandomStream* InRandomStream = NULL ) const;
 
 	// Begin FCurveEdInterface Interface
 	virtual void GetInRange(float& MinIn, float& MaxIn) const;

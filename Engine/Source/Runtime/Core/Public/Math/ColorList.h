@@ -1,12 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ColorList.h: List of common colors definitions.
-=============================================================================*/
-
 #pragma once
 
-class CORE_API FColorList : public FExec
+
+class CORE_API FColorList
+	: public FExec
 {
 public:
 	typedef TMap< FString, const FColor* > TColorsMap;
@@ -153,5 +151,5 @@ protected:
 	TColorsLookup ColorsLookup;
 };
 
-extern CORE_API FColorList GColorList;
 
+extern CORE_API FColorList GColorList;

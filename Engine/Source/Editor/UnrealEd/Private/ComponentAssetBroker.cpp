@@ -215,10 +215,17 @@ public:
 	{
 		if (UChildActorComponent* ChildActorComp = Cast<UChildActorComponent>(InComponent))
 		{
-			UBlueprint* BP = Cast<UBlueprint>(InAsset);
-			if (BP != NULL)
+			UClass* Class = Cast<UClass>(InAsset);
+			if (Class == nullptr)
 			{
-				ChildActorComp->ChildActorClass = TSubclassOf<AActor>(*(BP->GeneratedClass));
+				if (UBlueprint* BP = Cast<UBlueprint>(InAsset))
+				{
+					Class = *(BP->GeneratedClass);
+				}
+			}
+			if (Class && Class->IsChildOf<AActor>())
+			{
+				ChildActorComp->ChildActorClass = Class;
 				return true;
 			}
 		}

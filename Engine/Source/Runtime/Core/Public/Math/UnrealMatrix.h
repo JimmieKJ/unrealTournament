@@ -1,8 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	UnMath.inl: Unreal inlined math functions
-
 	NOTE: This file should ONLY be included by UnrealMath.h!
 =============================================================================*/
 
@@ -11,10 +9,10 @@
 #include "OutputDevices.h"
 #include "AssertionMacros.h"
 
+
 /**
  * FMatrix inline functions.
  */
-
 
 // Constructors.
 

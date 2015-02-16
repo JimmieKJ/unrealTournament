@@ -1865,6 +1865,16 @@ private:
 	bool DeferExportCreation(const int32 ExportIndex);
 
 	/**
+	 * Iterates through this linker's ExportMap, looking for the corresponding
+	 * class-default-object for the specified class (assumes that the supplied 
+	 * class is an export itself, making this a Blueprint package).
+	 * 
+	 * @param  LoadClass    The Blueprint class that this linker is in charge of loading (also belonging to its ExportMap).
+	 * @return An index into this linker's ExportMap array (INDEX_NONE if the CDO wasn't found).
+	 */
+	int32 FindCDOExportIndex(UClass* LoadClass);
+
+	/**
 	 * Combs the ImportMap for any imports that were deferred, and then creates 
 	 * them (via CreateImport).
 	 * 

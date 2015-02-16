@@ -132,16 +132,16 @@ public:
 		return RawData.GetData();
 	}
 
-	class FColor* AsBGRA8()
+	struct FColor* AsBGRA8()
 	{
 		check(Format == ERawImageFormat::BGRA8);
-		return (class FColor*)RawData.GetData();
+		return (struct FColor*)RawData.GetData();
 	}
 
-	class FColor* AsBGRE8()
+	struct FColor* AsBGRE8()
 	{
 		check(Format == ERawImageFormat::BGRE8);
-		return (class FColor*)RawData.GetData();
+		return (struct FColor*)RawData.GetData();
 	}
 
 	uint16* AsRGBA16()
@@ -170,16 +170,16 @@ public:
 		return RawData.GetData();
 	}
 
-	const class FColor* AsBGRA8() const
+	const struct FColor* AsBGRA8() const
 	{
 		check(Format == ERawImageFormat::BGRA8);
-		return (const class FColor*)RawData.GetData();
+		return (const struct FColor*)RawData.GetData();
 	}
 
-	const class FColor* AsBGRE8() const
+	const struct FColor* AsBGRE8() const
 	{
 		check(Format == ERawImageFormat::BGRE8);
-		return (class FColor*)RawData.GetData();
+		return (struct FColor*)RawData.GetData();
 	}
 
 	const uint16* AsRGBA16() const

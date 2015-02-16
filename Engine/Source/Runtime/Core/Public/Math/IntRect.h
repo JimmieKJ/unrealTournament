@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	IntRect.h: Declares the FIntRect structure.
-=============================================================================*/
-
 #pragma once
 
 
@@ -23,7 +19,7 @@ struct FIntRect
 public:
 
 	/** Constructor */
-	FIntRect( );
+	FIntRect();
 
 	/**
 	 * Constructor
@@ -164,7 +160,7 @@ public:
 	 *
 	 * @return The area of this rectangle.
 	 */
-	int32 Area( ) const;
+	int32 Area() const;
 
 	/**
 	 * Creates a rectangle from the bottom part of this rectangle.
@@ -176,6 +172,7 @@ public:
 
 	/**
 	 * Clip a rectangle using the bounds of another rectangle.
+	 *
 	 * @param Other The other rectangle to clip against.
 	 */
 	void Clip( const FIntRect& Other );
@@ -201,7 +198,7 @@ public:
 	 *
 	 * @return The Height of the rectangle.
 	 */
-	int32 Height( ) const;
+	int32 Height() const;
 
 	/**
 	 * Inflates or deflates the rectangle.
@@ -246,21 +243,21 @@ public:
 	 *
 	 * @return The distance from one corner of the rectangle to the other.
 	 */
-	FIntPoint Size( ) const;
+	FIntPoint Size() const;
 
 	/**
 	 * Get a textual representation of this rectangle.
 	 *
 	 * @return A string describing the rectangle.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 	/**
 	 * Gets the width of the rectangle.
 	 *
 	 * @return The width of the rectangle.
 	 */
-	int32 Width( ) const;
+	int32 Width() const;
 
 	/**
 	 * Returns true if the rectangle is 0 x 0.
@@ -285,16 +282,15 @@ public:
 	 *
 	 * @return Number of points in the Rectangle.
 	 */
-	static int32 Num( );
+	static int32 Num();
 
 public:
 
 	/**
 	 * Serializes the Rectangle.
 	 *
-	 * @param Ar - The archive to serialize into.
-	 * @param Rect - The rectangle to serialize.
-	 *
+	 * @param Ar The archive to serialize into.
+	 * @param Rect The rectangle to serialize.
 	 * @return Reference to the Archive after serialization.
 	 */
 	friend FArchive& operator<<( FArchive& Ar, FIntRect& Rect )
@@ -316,7 +312,7 @@ FORCEINLINE FIntRect FIntRect::Scale( float Fraction ) const
 /* FIntRect inline functions
  *****************************************************************************/
 
-FORCEINLINE FIntRect::FIntRect( )
+FORCEINLINE FIntRect::FIntRect()
 	: Min(ForceInit)
 	, Max(ForceInit)
 { }
@@ -427,7 +423,7 @@ FORCEINLINE FIntRect FIntRect::operator-( const FIntRect& Other ) const
 }
 
 
-FORCEINLINE int32 FIntRect::Area( ) const
+FORCEINLINE int32 FIntRect::Area() const
 {
 	return (Max.X - Min.X) * (Max.Y - Min.Y);
 }
@@ -474,7 +470,7 @@ FORCEINLINE void FIntRect::GetCenterAndExtents( FIntPoint& OutCenter, FIntPoint&
 }
 
 
-FORCEINLINE int32 FIntRect::Height( ) const
+FORCEINLINE int32 FIntRect::Height() const
 {
 	return (Max.Y - Min.Y);
 }
@@ -487,6 +483,7 @@ FORCEINLINE void FIntRect::InflateRect( int32 Amount )
 	Max.X += Amount;
 	Max.Y += Amount;
 }
+
 
 FORCEINLINE void FIntRect::Include( FIntPoint Point )
 {
@@ -514,19 +511,19 @@ FORCEINLINE FIntRect FIntRect::Right( int32 InWidth ) const
 }
 
 
-FORCEINLINE FIntPoint FIntRect::Size( ) const
+FORCEINLINE FIntPoint FIntRect::Size() const
 {
 	return FIntPoint( Max.X-Min.X, Max.Y-Min.Y );
 }
 
 
-FORCEINLINE FString FIntRect::ToString( ) const
+FORCEINLINE FString FIntRect::ToString() const
 {
 	return FString::Printf(TEXT("Min=(%s) Max=(%s)"), *Min.ToString(), *Max.ToString());
 }
 
 
-FORCEINLINE int32 FIntRect::Width( ) const
+FORCEINLINE int32 FIntRect::Width() const
 {
 	return Max.X-Min.X;
 }

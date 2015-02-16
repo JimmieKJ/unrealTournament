@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	RandomStream.h: Declares the FRandomStream class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -12,7 +8,7 @@
  *
  * Very bad quality in the lower bits. Don't use the modulus (%) operator.
  */
-class FRandomStream
+struct FRandomStream
 {
 #if !defined(COREUOBJECT_API)
 	#define MAYBE_COREUOBJECT_API
@@ -28,7 +24,7 @@ public:
 	 *
 	 * The seed should be set prior to use.
 	 */
-	FRandomStream( )
+	FRandomStream()
 		: InitialSeed(0)
 		, Seed(0)
 	{ }
@@ -59,7 +55,7 @@ public:
 	/**
 	 * Resets this random stream to the initial seed value.
 	 */
-	void Reset( ) const
+	void Reset() const
 	{
 		Seed = InitialSeed;
 	}
@@ -72,7 +68,7 @@ public:
 	/**
 	 * Generates a new random seed.
 	 */
-	void GenerateNewSeed( )
+	void GenerateNewSeed()
 	{
 		Initialize(FMath::Rand());
 	}
@@ -82,7 +78,7 @@ public:
 	 *
 	 * @return Random number.
 	 */
-	float GetFraction( ) const
+	float GetFraction() const
 	{
 		MutateSeed();
 
@@ -99,7 +95,7 @@ public:
 	 *
 	 * @return Random number.
 	 */
-	uint32 GetUnsignedInt( ) const
+	uint32 GetUnsignedInt() const
 	{
 		MutateSeed();
 
@@ -111,7 +107,7 @@ public:
 	 *
 	 * @return Random unit vector.
 	 */
-	FVector GetUnitVector( ) const
+	FVector GetUnitVector() const
 	{
 		FVector Result;
 		float L;
@@ -134,7 +130,7 @@ public:
 	 *
 	 * @return Current seed.
 	 */
-	int32 GetCurrentSeed( ) const
+	int32 GetCurrentSeed() const
 	{
 		return Seed;
 	}
@@ -144,7 +140,7 @@ public:
 	 *
 	 * @return Random number.
 	 */
-	FORCEINLINE float FRand( ) const
+	FORCEINLINE float FRand() const
 	{
 		return GetFraction();
 	}
@@ -187,7 +183,7 @@ public:
 	 *
 	 * @return Random unit vector.
 	 */
-	FORCEINLINE FVector VRand( ) const
+	FORCEINLINE FVector VRand() const
 	{
 		return GetUnitVector();
 	}
@@ -291,7 +287,7 @@ protected:
 	/**
 	 * Mutates the current seed into the next seed.
 	 */
-	void MutateSeed( ) const
+	void MutateSeed() const
 	{
 		Seed = (Seed * 196314165) + 907633515; 
 	}

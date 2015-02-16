@@ -13,7 +13,7 @@ class UParticleModuleLocationWorldOffset : public UParticleModuleLocation
 
 protected:
 	//Begin UParticleModuleLocation Interface
-	virtual void SpawnEx(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, class FRandomStream* InRandomStream, FBaseParticle* ParticleBase) override;
+	virtual void SpawnEx(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, struct FRandomStream* InRandomStream, FBaseParticle* ParticleBase) override;
 	//End UParticleModuleLocation Interface
 };
 

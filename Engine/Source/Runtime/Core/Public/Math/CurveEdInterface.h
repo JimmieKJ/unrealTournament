@@ -2,6 +2,7 @@
 
 #pragma once
 
+
 /** Interface that allows the CurveEditor to edit this type of object. */
 class CORE_API FCurveEdInterface
 {
@@ -102,5 +103,3 @@ public:
 	 */
 	virtual void	SetTangents(int32 SubIndex, int32 KeyIndex, float ArriveTangent, float LeaveTangent) {}
 };
-
-

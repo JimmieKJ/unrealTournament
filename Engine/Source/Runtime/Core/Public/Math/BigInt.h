@@ -1,5 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
+
 
 /**
  * n-bit integer. @todo: optimize
@@ -62,9 +64,7 @@ class TBigInt
 
 public:
 
-	/**
-	 * Sets this integer to 0.
-	 */
+	/** Sets this integer to 0. */
 	FORCEINLINE void Zero()
 	{
 		FMemory::Memset(Bits, 0, sizeof(Bits));
@@ -72,6 +72,8 @@ public:
 
 	/**
 	 * Initializes this big int with a 64 bit integer value.
+	 *
+	 * @param Value The value to set.
 	 */
 	FORCEINLINE void Set(int64 Value)
 	{
@@ -80,9 +82,7 @@ public:
 		Bits[1] = (Value >> BitsPerWord) & 0xffffffff;
 	}
 
-	/**
-	 * Default constructor. Initializes the number to zero.
-	 */
+	/** Default constructor. Initializes the number to zero. */
 	TBigInt()
 	{
 		Zero();
@@ -90,6 +90,8 @@ public:
 
 	/**
 	 * Constructor. Initializes this big int with a 64 bit integer value.
+	 *
+	 * @parma Other The value to set.
 	 */
 	TBigInt(int64 Other)
 	{

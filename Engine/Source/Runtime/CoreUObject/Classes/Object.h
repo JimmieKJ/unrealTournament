@@ -848,6 +848,30 @@ struct FInt32Range
 	FInt32RangeBound UpperBound;
 };
 
+// A float interval
+
+USTRUCT(noexport)
+struct FFloatInterval
+{
+	UPROPERTY(EditAnywhere, Category=Interval)
+	float Min;
+
+	UPROPERTY(EditAnywhere, Category=Interval)
+	float Max;
+};
+
+// An int32 interval
+
+USTRUCT(noexport)
+struct FInt32Interval
+{
+	UPROPERTY(EditAnywhere, Category=Interval)
+	int32 Min;
+
+	UPROPERTY(EditAnywhere, Category=Interval)
+	int32 Max;
+};
+
 //=============================================================================
 /**
  * Object: The base class all objects.

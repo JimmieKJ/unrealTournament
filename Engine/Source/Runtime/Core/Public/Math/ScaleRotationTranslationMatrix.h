@@ -2,19 +2,23 @@
 
 #pragma once
 
+
 /** Combined Scale rotation and translation matrix */
-class FScaleRotationTranslationMatrix : public FMatrix
+class FScaleRotationTranslationMatrix
+	: public FMatrix
 {
 public:
 
-	/** Constructor
-	*
-	* @param Scale scale to apply to matrix
-	* @param Rot rotation
-	* @param Origin translation to apply
-	*/
+	/**
+	 * Constructor.
+	 *
+	 * @param Scale scale to apply to matrix
+	 * @param Rot rotation
+	 * @param Origin translation to apply
+	 */
 	FScaleRotationTranslationMatrix(const FVector& Scale, const FRotator& Rot, const FVector& Origin);
 };
+
 
 FORCEINLINE FScaleRotationTranslationMatrix::FScaleRotationTranslationMatrix(const FVector& Scale, const FRotator& Rot, const FVector& Origin)
 {

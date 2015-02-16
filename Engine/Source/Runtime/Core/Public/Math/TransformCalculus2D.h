@@ -4,6 +4,7 @@
 
 #include "TransformCalculus.h"
 
+
 //////////////////////////////////////////////////////////////////////////
 // Transform calculus for 2D types. UE4 already has a 2D Vector class that we
 // will adapt to be interpreted as a translate transform. The rest we create

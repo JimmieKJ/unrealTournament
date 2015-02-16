@@ -2,10 +2,13 @@
 
 #pragma once
 
+
 /** Rotation and translation matrix using quaternion rotation */
-class FQuatRotationTranslationMatrix : public FMatrix
+class FQuatRotationTranslationMatrix
+	: public FMatrix
 {
 public:
+
 	/** Constructor
 	*
 	* @param Q rotation
@@ -18,8 +21,8 @@ public:
 	{
 		return FQuatRotationTranslationMatrix(Q, Origin);
 	}
-
 };
+
 
 FORCEINLINE FQuatRotationTranslationMatrix::FQuatRotationTranslationMatrix(const FQuat& Q, const FVector& Origin)
 {

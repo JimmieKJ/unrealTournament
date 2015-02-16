@@ -35,7 +35,7 @@ public:
 	 * @param	MaterialInstance	The material instance that contains all parameter overrides.
 	 * @param	VisisbleExpressions	The array that will contain the id's of the visible parameter expressions.
 	 */
-	virtual void GetVisibleMaterialParameters(const class UMaterial* Material, class UMaterialInstance* MaterialInstance, TArray<class FGuid>& VisibleExpressions) = 0;
+	virtual void GetVisibleMaterialParameters(const class UMaterial* Material, class UMaterialInstance* MaterialInstance, TArray<struct FGuid>& VisibleExpressions) = 0;
 
 	/** Delegates to be called to extend the material menus */
 	DECLARE_DELEGATE_RetVal_OneParam( TSharedRef<FExtender>, FMaterialMenuExtender, const TSharedRef<FUICommandList>);

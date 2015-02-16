@@ -2,12 +2,14 @@
 
 #pragma once
 
+
 /**
  *	RGBA Color made up of FFloat16
  */
 class FFloat16Color
 {
 public:
+
 	FFloat16 R;
 	FFloat16 G;
 	FFloat16 B;
@@ -29,15 +31,14 @@ public:
 	 * Checks whether two colors are identical.
 	 *
 	 * @param Src The other color.
-	 *
 	 * @return true if the two colors are identical, otherwise false.
 	 */
 	bool operator==(const FFloat16Color& Src);
 };
 
-FORCEINLINE FFloat16Color::FFloat16Color()
-{
-}
+
+FORCEINLINE FFloat16Color::FFloat16Color() { }
+
 
 FORCEINLINE FFloat16Color::FFloat16Color(const FFloat16Color& Src)
 {
@@ -47,13 +48,14 @@ FORCEINLINE FFloat16Color::FFloat16Color(const FFloat16Color& Src)
 	A = Src.A;
 }
 
+
 FORCEINLINE FFloat16Color::FFloat16Color(const FLinearColor& Src) :
 	R(Src.R),
 	G(Src.G),
 	B(Src.B),
 	A(Src.A)
-{
-}
+{ }
+
 
 FORCEINLINE FFloat16Color& FFloat16Color::operator=(const FFloat16Color& Src)
 {
@@ -63,6 +65,7 @@ FORCEINLINE FFloat16Color& FFloat16Color::operator=(const FFloat16Color& Src)
 	A = Src.A;
 	return *this;
 }
+
 
 FORCEINLINE bool FFloat16Color::operator==(const FFloat16Color& Src)
 {

@@ -65,7 +65,7 @@ class UParticleModuleLocationPrimitiveBase : public UParticleModuleLocationBase
 	//End UObject Interface
 
 	//@todo document
-	virtual void	DetermineUnitDirection(FParticleEmitterInstance* Owner, FVector& vUnitDir, class FRandomStream* InRandomStream);
+	virtual void	DetermineUnitDirection(FParticleEmitterInstance* Owner, FVector& vUnitDir, struct FRandomStream* InRandomStream);
 };
 
 

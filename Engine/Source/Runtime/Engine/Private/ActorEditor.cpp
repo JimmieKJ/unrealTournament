@@ -249,6 +249,8 @@ AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* A
 		if (RootComponent->AttachParent)
 		{
 			RootComponentData.AttachedParentInfo.Actor = RootComponent->AttachParent->GetOwner();
+			RootComponentData.AttachedParentInfo.AttachParent = RootComponent->AttachParent;
+			RootComponentData.AttachedParentInfo.AttachParentName = RootComponent->AttachParent->GetFName();
 			RootComponentData.AttachedParentInfo.SocketName = RootComponent->AttachSocketName;
 			RootComponentData.AttachedParentInfo.RelativeTransform = RootComponent->GetRelativeTransform();
 		}

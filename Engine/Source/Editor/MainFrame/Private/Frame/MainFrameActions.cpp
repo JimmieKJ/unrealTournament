@@ -309,20 +309,16 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 		return;
 	}
 
-	if (PlatformInfo->TargetPlatformName == FName("MacNoEditor"))
-	{
-		OptionalParams += TEXT(" -targetplatform=Mac");
-	}
-	else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor"))
-	{
-		OptionalParams += TEXT(" -targetplatform=Linux");
-	}
-
 	// Append any extra UAT flags specified for this platform flavor
 	if (!PlatformInfo->UATCommandLine.IsEmpty())
 	{
 		OptionalParams += TEXT(" ");
 		OptionalParams += PlatformInfo->UATCommandLine;
+	}
+	else
+	{
+		OptionalParams += TEXT(" -targetplatform=");
+		OptionalParams += *PlatformInfo->TargetPlatformName.ToString();
 	}
 
 	const bool bRunningDebug = FParse::Param(FCommandLine::Get(), TEXT("debug"));
@@ -333,13 +329,12 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 	}
 
 	FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()) : FPaths::RootDir() / FApp::GetGameName() / FApp::GetGameName() + TEXT(".uproject");
-	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s%s%s -nop4 -project=\"%s\" -cook -allmaps -platform=%s -ue4exe=%s %s"),
+	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s%s%s -nop4 -project=\"%s\" -cook -allmaps -ue4exe=%s %s"),
 		FRocketSupport::IsRocket() ? TEXT("-rocket ") : TEXT(""),
 		GetUATCompilationFlags(),
 		GetUATNoCodeProjectFlag(),
 		FApp::IsEngineInstalled() ? TEXT(" -installed") : TEXT(""),
 		*ProjectPath,
-		*PlatformInfo->TargetPlatformName.ToString(),
 		*FUnrealEdMisc::Get().GetExecutableForCommandlets(),
 		*OptionalParams
 	);
@@ -519,15 +514,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		OptionalParams += TEXT(" -distribution");
 	}
 
-	if (PlatformInfo->TargetPlatformName == FName("MacNoEditor"))
-	{
-		OptionalParams += TEXT(" -targetplatform=Mac");
-	}
-	else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor"))
-	{
-		OptionalParams += TEXT(" -targetplatform=Linux");
-	}
-	else if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") && PlatformInfo->PlatformFlavor == TEXT("Win32"))
+	if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") && PlatformInfo->PlatformFlavor == TEXT("Win32"))
 	{
 		FString MinumumSupportedWindowsOS;
 		GConfig->GetString(TEXT("/Script/WindowsTargetPlatform.WindowsTargetSettings"), TEXT("MinimumOSVersion"), MinumumSupportedWindowsOS, GEngineIni);
@@ -542,6 +529,11 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	{
 		OptionalParams += TEXT(" ");
 		OptionalParams += PlatformInfo->UATCommandLine;
+	}
+	else
+	{
+		OptionalParams += TEXT(" -targetplatform=");
+		OptionalParams += *PlatformInfo->TargetPlatformName.ToString();
 	}
 
 	// only build if the project has code that might need to be built
@@ -580,14 +572,13 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	Configuration = Configuration.Replace(TEXT("PPBC_"), TEXT(""));
 
 	FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()) : FPaths::RootDir() / FApp::GetGameName() / FApp::GetGameName() + TEXT(".uproject");
-	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s%s%s -nop4 -project=\"%s\" -cook -allmaps -stage -archive -archivedirectory=\"%s\" -package -platform=%s -clientconfig=%s -ue4exe=%s %s -utf8output"),
+	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s%s%s -nop4 -project=\"%s\" -cook -allmaps -stage -archive -archivedirectory=\"%s\" -package -clientconfig=%s -ue4exe=%s %s -utf8output"),
 		FRocketSupport::IsRocket() ? TEXT("-rocket ") : TEXT(""),
 		GetUATCompilationFlags(),
 		GetUATNoCodeProjectFlag(),
 		FApp::IsEngineInstalled() ? TEXT(" -installed") : TEXT(""),
 		*ProjectPath,
 		*PackagingSettings->StagingDirectory.Path,
-		*PlatformInfo->TargetPlatformName.ToString(),
 		*Configuration,
 		*ExecutableName,
 		*OptionalParams

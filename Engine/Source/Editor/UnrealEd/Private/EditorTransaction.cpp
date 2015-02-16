@@ -265,6 +265,13 @@ void FTransaction::Apply()
 		Records[i].Restore( this );
 	}
 
+	// An Actor's components must always get its PostEditUndo before the owning Actor so do a quick sort
+	ChangedObjects.KeySort([](UObject& A, UObject& B)
+	{
+		UActorComponent* BAsComponent = Cast<UActorComponent>(&B);
+		return (BAsComponent ? (BAsComponent->GetOwner() != &A) : true);
+	});
+
 	NumModelsModified = 0;		// Count the number of UModels that were changed.
 	for (auto ChangedObjectIt : ChangedObjects)
 	{

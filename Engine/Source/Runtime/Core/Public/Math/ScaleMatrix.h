@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ScaleMatrix.h: Declares the FScaleMatrix class.
-=============================================================================*/
-
 #pragma once
 
 

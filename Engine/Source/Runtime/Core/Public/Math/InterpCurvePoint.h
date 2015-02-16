@@ -1,10 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	InterpCurvePoint.h: Declares the FInterpCurvePoint class and related types.
-=============================================================================*/
-
 #pragma once
+
 
 enum EInterpCurveMode
 {
@@ -65,7 +62,7 @@ public:
 	/**
 	 * Default constructor (no initialization).
 	 */
-	FInterpCurvePoint( ) { };
+	FInterpCurvePoint() { };
 
 	/** 
 	 * Constructor 
@@ -90,7 +87,7 @@ public:
 public:
 
 	/** @return true if the key value is using a curve interp mode, otherwise false */
-	FORCEINLINE bool IsCurveKey( ) const;
+	FORCEINLINE bool IsCurveKey() const;
 
 public:
 
@@ -138,7 +135,7 @@ FORCEINLINE FInterpCurvePoint<T>::FInterpCurvePoint( const float In, const T &Ou
 
 
 template< class T > 
-FORCEINLINE bool FInterpCurvePoint<T>::IsCurveKey( ) const
+FORCEINLINE bool FInterpCurvePoint<T>::IsCurveKey() const
 {
 	return ((InterpMode == CIM_CurveAuto) || (InterpMode == CIM_CurveAutoClamped) || (InterpMode == CIM_CurveUser) || (InterpMode == CIM_CurveBreak));
 }

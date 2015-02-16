@@ -1154,6 +1154,8 @@ public:
 		struct FAttachedActorInfo
 		{
 			TWeakObjectPtr<AActor> Actor;
+			TWeakObjectPtr<USceneComponent> AttachParent;
+			FName AttachParentName;
 			FName SocketName;
 			FTransform RelativeTransform;
 		};

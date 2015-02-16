@@ -1,7 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
 
 #include "TransformCalculus.h"
+
 
 //////////////////////////////////////////////////////////////////////////
 // Transform calculus for 3D types. Since UE4 already has existing 3D transform

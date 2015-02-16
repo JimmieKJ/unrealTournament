@@ -5,7 +5,7 @@
 #include "Templates/SharedPointer.h"
 #include "UObject/NameTypes.h"
 
-class FTimespan;
+struct FTimespan;
 struct FDateTime;
 
 #define ENABLE_TEXT_ERROR_CHECKING_RESULTS (UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT | UE_BUILD_TEST )

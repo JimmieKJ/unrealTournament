@@ -5,7 +5,7 @@
 #include "UObject/LinkerPlaceholderExportObject.h"
 #include "Linker.h"
 #include "PropertyTag.h"
-
+#include "UObject/StructScriptLoader.h"
 
 /** 
  * Defined in BlueprintSupport.cpp
@@ -359,6 +359,12 @@ bool ULinkerLoad::DeferPotentialCircularImport(const int32 Index)
 				}
 			}
 		}
+
+		// not the best way to check this (but we don't have ObjectFlags on an 
+		// import), but we don't want non-native (blueprint) CDO refs slipping 
+		// through... we've only seen these needed when serializing a class's 
+		// bytecode, and we resolved that by deferring script serialization
+		DEFERRED_DEPENDENCY_CHECK(!Import.ObjectName.ToString().StartsWith("Default__"));
 	}
 	return (Import.XObject != nullptr);
 #else // !USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -523,6 +529,24 @@ bool ULinkerLoad::DeferExportCreation(const int32 Index)
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 	return true;
+}
+
+int32 ULinkerLoad::FindCDOExportIndex(UClass* LoadClass)
+{
+	DEFERRED_DEPENDENCY_CHECK(LoadClass->GetLinker() == this);
+	int32 const ClassExportIndex = LoadClass->GetLinkerIndex();
+
+	// @TODO: the cdo SHOULD be listed after the class in the ExportMap, so we 
+	//        could start with ClassExportIndex to save on some cycles
+	for (int32 ExportIndex = 0; ExportIndex < ExportMap.Num(); ++ExportIndex)
+	{
+		FObjectExport& Export = ExportMap[ExportIndex];
+		if ((Export.ObjectFlags & RF_ClassDefaultObject) && Export.ClassIndex.IsExport() && (Export.ClassIndex.ToExport() == ClassExportIndex))
+		{
+			return ExportIndex;
+		}
+	}
+	return INDEX_NONE;
 }
 
 /**
@@ -959,6 +983,14 @@ void ULinkerLoad::FinalizeBlueprint(UClass* LoadClass)
 		DEFERRED_DEPENDENCY_CHECK(BlueprintClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
+		// for cooked builds (we skip script serialization for editor builds), 
+		// certain scripts can contain references to external dependencies; and 
+		// since the script is serialized in with the class (functions) we want 
+		// those dependencies deferred until now (we expect this to be the right 
+		// spot, because in editor builds, with RegenerateBlueprintClass(), this 
+		// is where script code is regenerated)
+		FStructScriptLoader::ResolveDeferredScriptLoads(this);
+
 		DEFERRED_DEPENDENCY_CHECK(LoadClass->GetOutermost() != GetTransientPackage());
 		// just in case we choose to enable the deferred dependency loading for 
 		// cooked builds... we want to keep from regenerating in that scenario
@@ -1017,9 +1049,9 @@ void ULinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 			if (ULinkerPlaceholderExportObject* PlaceholderExport = Cast<ULinkerPlaceholderExportObject>(Export.Object))
 			{
 				DEFERRED_DEPENDENCY_CHECK(Export.ClassIndex.IsImport());
-				UClass* ImportClass = GetExportLoadClass(ExportIndex);
-				DEFERRED_DEPENDENCY_CHECK((ImportClass != nullptr) && !ImportClass->HasAnyClassFlags(CLASS_Intrinsic) && ImportClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
-				ULinkerLoad* ClassLinker = ImportClass->GetLinker();
+				UClass* ExportClass = GetExportLoadClass(ExportIndex);
+				DEFERRED_DEPENDENCY_CHECK((ExportClass != nullptr) && !ExportClass->HasAnyClassFlags(CLASS_Intrinsic) && ExportClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
+				ULinkerLoad* ClassLinker = ExportClass->GetLinker();
 				DEFERRED_DEPENDENCY_CHECK((ClassLinker != nullptr) && (ClassLinker != this));
 
 				{
@@ -1030,7 +1062,7 @@ void ULinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 
 					// make sure this export's class is fully regenerated before  
 					// we instantiate it (so we don't have to re-inst on load)
-					ForceRegenerateClass(ImportClass);
+					ForceRegenerateClass(ExportClass);
 				}
 
 				// replace the placeholder with the proper object instance

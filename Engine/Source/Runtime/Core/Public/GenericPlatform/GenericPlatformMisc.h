@@ -422,11 +422,11 @@ public:
 	/**
 	 * Platform specific function for adding a named event that can be viewed in PIX
 	 */
-	FORCEINLINE static void BeginNamedEvent(const class FColor& Color,const TCHAR* Text)
+	FORCEINLINE static void BeginNamedEvent(const struct FColor& Color,const TCHAR* Text)
 	{
 	}
 
-	FORCEINLINE static void BeginNamedEvent(const class FColor& Color,const ANSICHAR* Text)
+	FORCEINLINE static void BeginNamedEvent(const struct FColor& Color,const ANSICHAR* Text)
 	{
 	}
 
@@ -515,7 +515,7 @@ public:
 	static void ClipboardPaste(class FString& Dest);
 
 	/** Create a new globally unique identifier. **/
-	static void CreateGuid(class FGuid& Result);
+	static void CreateGuid(struct FGuid& Result);
 
 	/** 
 	 * Show a message box if possible, otherwise print a message and return the default

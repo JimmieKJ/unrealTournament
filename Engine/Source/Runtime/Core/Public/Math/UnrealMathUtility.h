@@ -1,12 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	UnrealMathUtility.h: Unreal math utility routines
-=============================================================================*/
-
 #pragma once
+
 #include "HAL/Platform.h"
 #include "HAL/PlatformMath.h"
+
 
 //#define IMPLEMENT_ASSIGNMENT_OPERATOR_MANUALLY
 
@@ -20,15 +18,15 @@
 -----------------------------------------------------------------------------*/
 
 // Forward declarations.
-class  FVector;
-class  FVector4;
-class  FPlane;
-class  FBox;
-class  FRotator;
-class  FMatrix;
-class  FQuat;
-class  FTwoVectors;
-class  FTransform;
+struct  FVector;
+struct  FVector4;
+struct  FPlane;
+struct  FBox;
+struct  FRotator;
+struct  FMatrix;
+struct  FQuat;
+struct  FTwoVectors;
+struct  FTransform;
 class  FSphere;
 struct FVector2D;
 struct FLinearColor;

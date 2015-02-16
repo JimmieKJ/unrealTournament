@@ -761,7 +761,6 @@ void FTabManager::PopulateTabSpawnerMenu_Helper( FMenuBuilder& PopulateMe, FPopu
 	}
 }
 
-
 void FTabManager::MakeSpawnerMenuEntry( FMenuBuilder &PopulateMe, const TSharedPtr<FTabSpawnerEntry> &SpawnerNode ) 
 {
 	auto CanExecuteMenuEntry = [](TAttribute<ETabSpawnerMenuType::Type> InMenuType) -> bool
@@ -863,7 +862,6 @@ void FTabManager::DrawAttention( const TSharedRef<SDockTab>& TabToHighlight )
 	TabToHighlight->FlashTab();
 }
 
-
 void FTabManager::InsertNewDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab )
 {
 	InsertDocumentTab(PlaceholderId, SearchPreference, UnmanagedTab, true);
@@ -873,7 +871,6 @@ void FTabManager::RestoreDocumentTab( FName PlaceholderId, ESearchPreference::Ty
 {
 	InsertDocumentTab(PlaceholderId, SearchPreference, UnmanagedTab, false);
 }
-
 
 TSharedRef<SDockTab> FTabManager::InvokeTab( const FTabId& TabId )
 {
@@ -1039,7 +1036,6 @@ FTabManager::FTabManager( const TSharedPtr<SDockTab>& InOwnerTab, const TSharedR
 	LocalWorkspaceMenuRoot = FWorkspaceItem::NewGroup(LOCTEXT("LocalWorkspaceRoot", "Local Workspace Root"));
 }
 
-
 TSharedRef<SDockingArea> FTabManager::RestoreArea( const TSharedRef<FArea>& AreaToRestore, const TSharedPtr<SWindow>& InParentWindow, const bool bEmbedTitleAreaContent  )
 {
 	TSharedRef<SDockingNode> RestoredNode = RestoreArea_Helper( AreaToRestore, InParentWindow, bEmbedTitleAreaContent );	
@@ -1153,8 +1149,6 @@ TSharedRef<SDockingNode> FTabManager::RestoreArea_Helper( const TSharedRef<FLayo
 			RestoreSplitterContent( NodeAsArea.ToSharedRef(), NewDockAreaWidget.ToSharedRef(), ParentWindow );
 		}
 		
-		
-
 		return NewDockAreaWidget.ToSharedRef();
 	}
 	else if ( NodeAsSplitter.IsValid() ) 
@@ -1175,8 +1169,6 @@ TSharedRef<SDockingNode> FTabManager::RestoreArea_Helper( const TSharedRef<FLayo
 	}
 }
 
-
-
 void FTabManager::RestoreSplitterContent( const TSharedRef<FSplitter>& SplitterNode, const TSharedRef<SDockingSplitter>& SplitterWidget, const TSharedPtr<SWindow>& ParentWindow )
 {
 	// Restore the contents of this splitter.
@@ -1190,6 +1182,11 @@ void FTabManager::RestoreSplitterContent( const TSharedRef<FSplitter>& SplitterN
 	}
 }
 
+bool FTabManager::CanSpawnTab(FName TabId)
+{
+	TSharedPtr<FTabSpawnerEntry> Spawner = FindTabSpawnerFor(TabId);
+	return Spawner.IsValid();
+}
 
 bool FTabManager::IsValidTabForSpawning( const FTab& SomeTab ) const
 {
@@ -1197,7 +1194,6 @@ bool FTabManager::IsValidTabForSpawning( const FTab& SomeTab ) const
 	TSharedRef<FTabSpawnerEntry>* NomadSpawner = NomadTabSpawner->Find( SomeTab.TabId.TabType );
 	return ( !NomadSpawner || !NomadSpawner->Get().IsSoleTabInstanceSpawned() );
 }
-
 
 TSharedRef<SDockTab> FTabManager::SpawnTab( const FTabId& TabId, const TSharedPtr<SWindow>& ParentWindow )
 {
@@ -1242,8 +1238,6 @@ TSharedRef<SDockTab> FTabManager::SpawnTab( const FTabId& TabId, const TSharedPt
 	return NewTabWidget.ToSharedRef();
 }
 
-
-
 TSharedPtr<SDockTab> FTabManager::FindExistingLiveTab( const FTabId& TabId ) const
 {
 	for ( int32 AreaIndex = 0; AreaIndex < DockAreas.Num(); ++AreaIndex )
@@ -1264,7 +1258,6 @@ TSharedPtr<SDockTab> FTabManager::FindExistingLiveTab( const FTabId& TabId ) con
 
 	return TSharedPtr<SDockTab>();
 }
-
 
 TSharedPtr<class SDockingTabStack> FTabManager::FindTabInLiveAreas( const FTabMatcher& TabMatcher ) const
 {
@@ -1663,17 +1656,26 @@ bool FGlobalTabmanager::CanCloseManager( const TSet< TSharedRef<SDockTab> >& Tab
 	}
 
 	return bCanCloseManager;
+}
 
+TSharedPtr<SDockTab> FGlobalTabmanager::GetMajorTabForTabManager(const TSharedRef<FTabManager>& ChildManager)
+{
+	const int32 MajorTabIndex = SubTabManagers.IndexOfByPredicate(FindByManager(ChildManager));
+	if ( MajorTabIndex != INDEX_NONE )
+	{
+		return SubTabManagers[MajorTabIndex].MajorTab.Pin();
+	}
+
+	return TSharedPtr<SDockTab>();
 }
 
 void FGlobalTabmanager::DrawAttentionToTabManager( const TSharedRef<FTabManager>& ChildManager )
 {
-	const int32 MajorTabIndex = SubTabManagers.IndexOfByPredicate(FindByManager(ChildManager));
-	if (MajorTabIndex != INDEX_NONE)
+	TSharedPtr<SDockTab> Tab = GetMajorTabForTabManager(ChildManager);
+	if ( Tab.IsValid() )
 	{
-		this->DrawAttention( SubTabManagers[MajorTabIndex].MajorTab.Pin().ToSharedRef() );
+		this->DrawAttention(Tab.ToSharedRef());
 	}
-	
 }
 
 TSharedRef<FTabManager> FGlobalTabmanager::NewTabManager( const TSharedRef<SDockTab>& InOwnerTab )

@@ -2,6 +2,7 @@
 
 #pragma once
 
+
 /** Various ways to interpolate TAlphaBlend. */
 enum EAlphaBlendType
 {
@@ -14,6 +15,7 @@ enum EAlphaBlendType
     ABT_EaseInOutExponent5  =6,
     ABT_MAX                 =7,
 };
+
 
 /** Turn a linear interpolated alpha into the corresponding AlphaBlendType */
 FORCEINLINE float AlphaToBlendType(float InAlpha, uint8 BlendType)
@@ -30,6 +32,7 @@ FORCEINLINE float AlphaToBlendType(float InAlpha, uint8 BlendType)
 
 	return InAlpha;
 }
+
 
 /**
  * Alpha Blend Type
@@ -99,15 +102,19 @@ struct FTAlphaBlend
 	void Update(float InDeltaTime);
 };
 
+
 FORCEINLINE FTAlphaBlend::FTAlphaBlend() {}
+
 
 FORCEINLINE FTAlphaBlend::FTAlphaBlend(float InAlphaIn, float InAlphaOut, float InAlphaTarget, float InBlendTime, float InBlendTimeToGo, uint8 InBlendType): 
 	AlphaIn(InAlphaIn), AlphaOut(InAlphaOut), AlphaTarget(InAlphaTarget), BlendTime(InBlendTime), BlendTimeToGo(InBlendTimeToGo), BlendType(InBlendType) {}
+
 
 FORCEINLINE void FTAlphaBlend::SetBlendTime(float InBlendTime)
 {
 	BlendTime = FMath::Max(InBlendTime, 0.f);
 }
+
 
 FORCEINLINE void FTAlphaBlend::Reset()
 {
@@ -117,15 +124,18 @@ FORCEINLINE void FTAlphaBlend::Reset()
 	BlendTimeToGo = 0.f;
 }
 
+
 FORCEINLINE bool FTAlphaBlend::GetToggleStatus()
 {
 	return (AlphaTarget > 0.f);
 }
 
+
 FORCEINLINE void FTAlphaBlend::Toggle(bool bEnable)
 {
 	ConditionalSetTarget(bEnable ? 1.f : 0.f);
 }
+
 
 FORCEINLINE void FTAlphaBlend::ConditionalSetTarget(float InAlphaTarget)
 {
@@ -134,6 +144,7 @@ FORCEINLINE void FTAlphaBlend::ConditionalSetTarget(float InAlphaTarget)
 		SetTarget(InAlphaTarget);
 	}
 }
+
 
 FORCEINLINE void FTAlphaBlend::SetTarget(float InAlphaTarget)
 {
@@ -153,6 +164,7 @@ FORCEINLINE void FTAlphaBlend::SetTarget(float InAlphaTarget)
 		BlendTimeToGo = BlendTime * FMath::Abs(AlphaTarget - AlphaIn);
 	}
 }
+
 
 FORCEINLINE void FTAlphaBlend::Update(float InDeltaTime)
 {

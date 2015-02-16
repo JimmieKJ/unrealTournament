@@ -350,7 +350,7 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	glGetObjectLabelEXT = (PFNGLGETOBJECTLABELEXTPROC)((void*)eglGetProcAddress("glGetObjectLabelEXT"));
 
 	bSupportsETC2 = bES30Support;
-	bUseES30ShadingLanguage = bES30Support;
+//	bUseES30ShadingLanguage = bES30Support;  // this was causing a problem on some drivers with Android 5.0.1
 
 	// Attempt to find ES 3.0 glTexStorage2D if we're on an Adreno device that supports it.
 	if( FString(ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_RENDERER))).Contains(TEXT("Adreno")) )

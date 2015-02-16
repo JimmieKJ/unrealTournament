@@ -2,7 +2,9 @@
 
 #pragma once
 
-class FTranslationMatrix : public FMatrix
+
+class FTranslationMatrix
+	: public FMatrix
 {
 public:
 
@@ -16,11 +18,12 @@ public:
 	}
 };
 
-FORCEINLINE FTranslationMatrix::FTranslationMatrix(const FVector& Delta) :
-FMatrix(
-	FPlane(1.0f,	0.0f,	0.0f,	0.0f),
-	FPlane(0.0f,	1.0f,	0.0f,	0.0f),
-	FPlane(0.0f,	0.0f,	1.0f,	0.0f),
-	FPlane(Delta.X,	Delta.Y,Delta.Z,1.0f))
-{
-}
+
+FORCEINLINE FTranslationMatrix::FTranslationMatrix(const FVector& Delta)
+	: FMatrix(
+		FPlane(1.0f,	0.0f,	0.0f,	0.0f),
+		FPlane(0.0f,	1.0f,	0.0f,	0.0f),
+		FPlane(0.0f,	0.0f,	1.0f,	0.0f),
+		FPlane(Delta.X,	Delta.Y,Delta.Z,1.0f)
+	)
+{ }

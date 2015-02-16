@@ -1,10 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ConvexHull2d.h: Declares utilites for creating convex hulls in 2d.
-=============================================================================*/
-
 #pragma once
+
 
 namespace ConvexHull2D
 {

@@ -36,7 +36,7 @@ class UDistributionFloatParameterBase : public UDistributionFloatConstant
 
 
 	// Begin UDistributionFloat Interface
-	virtual float GetValue( float F = 0.f, UObject* Data = NULL, class FRandomStream* InRandomStream = NULL ) const override;
+	virtual float GetValue( float F = 0.f, UObject* Data = NULL, struct FRandomStream* InRandomStream = NULL ) const override;
 	// End UDistributionFloat Interface
 	
 	

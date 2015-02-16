@@ -1,16 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Vector.h: Declares the FVector class.
-=============================================================================*/
-
 #pragma once
 
 
 /**
  * A 4D homogeneous vector, 4x1 FLOATs, 16-byte aligned.
  */
-MS_ALIGN(16) class FVector4
+MS_ALIGN(16) struct FVector4
 {
 public:
 
@@ -74,7 +70,6 @@ public:
 	 * Access a specific component of the vector.
 	 *
 	 * @param ComponentIndex The index of the component.
-	 *
 	 * @return Reference to the desired component.
 	 */
 	FORCEINLINE float& operator[]( int32 ComponentIndex );
@@ -83,7 +78,6 @@ public:
 	 * Access a specific component of the vector.
 	 *
 	 * @param ComponentIndex The index of the component.
-	 *
 	 * @return Copy of the desired component.
 	 */
 	FORCEINLINE float operator[]( int32 ComponentIndex ) const;
@@ -95,13 +89,12 @@ public:
 	 *
 	 * @return A negated copy of the vector.
 	 */
-	FORCEINLINE FVector4 operator-( ) const;
+	FORCEINLINE FVector4 operator-() const;
 
 	/**
 	 * Gets the result of adding a vector to this.
 	 *
 	 * @param V The vector to add.
-	 *
 	 * @return The result of vector addition.
 	 */
 	FORCEINLINE FVector4 operator+( const FVector4& V ) const;
@@ -272,7 +265,7 @@ public:
 	 *
 	 * @return Text describing the vector.
 	 */
-	FString ToString( ) const;
+	FString ToString() const;
 
 	/**
 	 * Initialize this Vector based on an FString. The String is expected to contain X=, Y=, Z=, W=.
@@ -302,7 +295,7 @@ public:
 	FORCEINLINE FVector4 GetUnsafeNormal3() const;
 
 	DEPRECATED(4.7, "Deprecated due to unclear name, use GetUnsafeNormal3 instead.")
-	FORCEINLINE FVector4 UnsafeNormal3( ) const;
+	FORCEINLINE FVector4 UnsafeNormal3() const;
 
 	/**
 	 * Return the FRotator corresponding to the direction that the vector
@@ -311,7 +304,7 @@ public:
 	 *
 	 * @return The FRotator of the vector's direction.
 	 */
-	CORE_API FRotator Rotation( ) const;
+	CORE_API FRotator Rotation() const;
 
 	/**
 	 * Set all of the vectors coordinates.
@@ -328,7 +321,7 @@ public:
 	 *
 	 * @return The length of this vector.
 	 */
-	float Size3( ) const;
+	float Size3() const;
 
 	/**
 	 * Get the squared length of this vector not taking W component into account.
@@ -353,12 +346,12 @@ public:
 	void FindBestAxisVectors3( FVector4& Axis1, FVector4& Axis2 ) const;
 
 #if ENABLE_NAN_DIAGNOSTIC
-	FORCEINLINE void DiagnosticCheckNaN( ) const
+	FORCEINLINE void DiagnosticCheckNaN() const
 	{
 		checkf(!ContainsNaN(), TEXT("FVector contains NaN: %s"), *ToString());
 	}
 #else
-	FORCEINLINE void DiagnosticCheckNaN( ) const { }
+	FORCEINLINE void DiagnosticCheckNaN() const { }
 #endif
 
 public:
@@ -376,6 +369,7 @@ public:
 	}
 
 } GCC_ALIGN(16);
+
 
 /**
  * Creates a hash value from a FVector4.
@@ -467,7 +461,7 @@ FORCEINLINE void FVector4::Set( float InX, float InY, float InZ, float InW )
 }
 
 
-FORCEINLINE FVector4 FVector4::operator-( ) const
+FORCEINLINE FVector4 FVector4::operator-() const
 {
 	return FVector4( -X, -Y, -Z, -W );
 }
@@ -547,7 +541,7 @@ FORCEINLINE bool FVector4::Equals( const FVector4& V, float Tolerance ) const
 }
 
 
-FORCEINLINE FString FVector4::ToString( ) const
+FORCEINLINE FString FVector4::ToString() const
 {
 	return FString::Printf(TEXT("X=%3.3f Y=%3.3f Z=%3.3f W=%3.3f"), X, Y, Z, W);
 }
@@ -586,7 +580,7 @@ FORCEINLINE FVector4 FVector4::SafeNormal(float Tolerance) const
 }
 
 
-FORCEINLINE FVector4 FVector4::GetUnsafeNormal3( ) const
+FORCEINLINE FVector4 FVector4::GetUnsafeNormal3() const
 {
 	const float Scale = FMath::InvSqrt(X*X+Y*Y+Z*Z);
 	return FVector4( X*Scale, Y*Scale, Z*Scale, 0.0f );
@@ -599,13 +593,13 @@ FORCEINLINE FVector4 FVector4::UnsafeNormal3() const
 }
 
 
-FORCEINLINE float FVector4::Size3( ) const
+FORCEINLINE float FVector4::Size3() const
 {
 	return FMath::Sqrt( X*X + Y*Y + Z*Z );
 }
 
 
-FORCEINLINE float FVector4::SizeSquared3( ) const
+FORCEINLINE float FVector4::SizeSquared3() const
 {
 	return X*X + Y*Y + Z*Z;
 }
@@ -617,7 +611,7 @@ FORCEINLINE bool FVector4::IsUnit3( float LengthSquaredTolerance ) const
 }
 
 
-FORCEINLINE bool FVector4::ContainsNaN( ) const
+FORCEINLINE bool FVector4::ContainsNaN() const
 {
 	return (FMath::IsNaN(X) || !FMath::IsFinite(X) || 
 			FMath::IsNaN(Y) || !FMath::IsFinite(Y) ||

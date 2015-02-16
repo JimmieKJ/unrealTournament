@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Plane.h: Declares the FPlane class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -13,7 +9,7 @@
  * Stores the coeffecients as Ax+By+Cz=D.
  * Note that this is different than many other Plane classes that use Ax+By+Cz+D=0.
  */
-MS_ALIGN(16) class FPlane
+MS_ALIGN(16) struct FPlane
 	: public FVector
 {
 public:
@@ -22,10 +18,8 @@ public:
 
 public:
 
-	/**
-	 * Default constructor (no initialization).
-	 */
-	FORCEINLINE FPlane( );
+	/** Default constructor (no initialization). */
+	FORCEINLINE FPlane();
 
 	/**
 	 * Copy Constructor.

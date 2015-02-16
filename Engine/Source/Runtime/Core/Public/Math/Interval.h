@@ -1,37 +1,31 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Interval.h: Declares the FInterval structure.
-=============================================================================*/
-
 #pragma once
 
 
 /**
- * Structure for intervals of floating-point numbers.
+ * Template for numeric interval
  */
-struct FInterval
+template<typename ElementType> struct TInterval
 {
+	static_assert(TIsArithmeticType<ElementType>::Value, "Interval can be used only with numeric types");
+	
 	/** Holds the lower bound of the interval. */
-	float Min;
+	ElementType Min;
 	
 	/** Holds the upper bound of the interval. */
-	float Max;
-	
-	/** Holds a flag indicating whether the interval is empty. */
-	bool bIsEmpty;
-
+	ElementType Max;
+		
 public:
 
 	/**
 	 * Default constructor.
 	 *
-	 * The interval is initialized to [0, 0].
+	 * The interval is invalid
 	 */
-	FInterval( )
-		: Min(0.0f)
-		, Max(0.0f)
-		, bIsEmpty(true)
+	TInterval()
+		: Min(TNumericLimits<ElementType>::Max())
+		, Max(TNumericLimits<ElementType>::Lowest())
 	{ }
 
     /**
@@ -40,10 +34,9 @@ public:
 	 * @param InMin The lower bound of the constructed interval.
 	 * @param InMax The upper bound of the constructed interval.
 	 */
-	FInterval( float InMin, float InMax )
+	TInterval( ElementType InMin, ElementType InMax )
 		: Min(InMin)
 		, Max(InMax)
-		, bIsEmpty(InMin >= InMax)
 	{ }
 
 public:
@@ -53,9 +46,9 @@ public:
 	 *
 	 * @param X The offset.
 	 */
-	void operator+= ( float X )
+	void operator+= ( ElementType X )
 	{
-		if (!bIsEmpty)
+		if (IsValid())
 		{
 			Min += X;
 			Max += X;
@@ -67,9 +60,9 @@ public:
 	 *
 	 * @param X The offset.
 	 */
-	void operator-= ( float X )
+	void operator-= ( ElementType X )
 	{
-		if (!bIsEmpty)
+		if (IsValid())
 		{
 			Min -= X;
 			Max -= X;
@@ -77,15 +70,46 @@ public:
 	}
 
 public:
+	
+	/**
+	 * Computes the size of this interval.
+	 *
+	 * @return Interval size.
+	 */
+	ElementType Size() const
+	{
+		return (Max - Min);
+	}
+
+	/**
+	 * Whether interval is valid (Min <= Max).
+	 *
+	 * @return false when interval is invalid, true otherwise
+	 */
+	ElementType IsValid() const
+	{
+		return (Min <= Max);
+	}
+	
+	/**
+	 * Checks whether this interval contains the specified element.
+	 *
+	 * @param Element The element to check.
+	 * @return true if the range interval the element, false otherwise.
+	 */
+	bool Contains( const ElementType& Element ) const
+	{
+		return IsValid() && (Element >= Min && Element <= Max);
+	}
 
 	/**
 	 * Expands this interval to both sides by the specified amount.
 	 *
 	 * @param ExpandAmount The amount to expand by.
 	 */
-	void Expand( float ExpandAmount )
+	void Expand( ElementType ExpandAmount )
 	{
-		if (!bIsEmpty)
+		if (IsValid())
 		{
 			Min -= ExpandAmount;
 			Max += ExpandAmount;
@@ -97,7 +121,42 @@ public:
 	 *
 	 * @param X The element to include.
 	 */
-	FORCEINLINE void Include( float X );
+	void Include( ElementType X )
+	{
+		if (!IsValid())
+		{
+			Min = X;
+			Max = X;
+		}
+		else
+		{
+			if (X < Min)
+			{
+				Min = X;
+			}
+
+			if (X > Max)
+			{
+				Max = X;
+			}
+		}
+	}
+
+	/**
+	 * Interval interpolation
+	 *
+	 * @param Alpha interpolation amount
+	 * @return interpolation result
+	 */
+	ElementType Interpolate( float Alpha ) const
+	{
+		if (IsValid())
+		{
+			return Min + ElementType(Alpha*Size());
+		}
+		
+		return ElementType();
+	}
 
 public:
 
@@ -106,42 +165,86 @@ public:
 	 *
 	 * @param A The first interval.
 	 * @param B The second interval.
-	 *
 	 * @return The intersection.
 	 */
-	friend FInterval Intersect( const FInterval& A, const FInterval& B )
+	friend TInterval Intersect( const TInterval& A, const TInterval& B )
 	{
-		if (A.bIsEmpty || B.bIsEmpty)
+		if (A.IsValid() && B.IsValid())
 		{
-			return FInterval();
+			return TInterval(FMath::Max(A.Min, B.Min), FMath::Min(A.Max, B.Max));
 		}
 
-		return FInterval(FMath::Max(A.Min, B.Min), FMath::Min(A.Max, B.Max));
+		return TInterval();
+	}
+
+	/**
+	 * Serializes the interval.
+	 *
+	 * @param Ar The archive to serialize into.
+	 * @param Interval The interval to serialize.
+	 * @return Reference to the Archive after serialization.
+	 */
+	friend class FArchive& operator<<( class FArchive& Ar, TInterval& Interval )
+	{
+		return Ar << Interval.Min << Interval.Max;
+	}
+	
+	/**
+	 * Gets the hash for the specified interval.
+	 *
+	 * @param Interval The Interval to get the hash for.
+	 * @return Hash value.
+	 */
+	friend uint32 GetTypeHash(const TInterval& Interval)
+	{
+		return HashCombine(GetTypeHash(Interval.Min), GetTypeHash(Interval.Max));
 	}
 };
 
-
-/* FInterval inline functions
+/* Default intervals for built-in types
  *****************************************************************************/
 
-FORCEINLINE void FInterval::Include( float X )
-{
-	if (bIsEmpty)
-	{
-		Min = X;
-		Max = X;
-		bIsEmpty = false;
-	}
-	else
-	{
-		if (X < Min)
-		{
-			Min = X;
-		}
+#define DEFINE_INTERVAL_WRAPPER_STRUCT(Name, ElementType) \
+	struct Name : TInterval<ElementType> \
+	{ \
+	private: \
+		typedef TInterval<ElementType> Super; \
+		 \
+	public:  \
+		Name() \
+			: Super() \
+		{ \
+		} \
+		 \
+		Name( const Super& Other ) \
+			: Super( Other ) \
+		{ \
+		} \
+		 \
+		Name( ElementType InMin, ElementType InMax ) \
+			: Super( InMin, InMax ) \
+		{ \
+		} \
+		 \
+		friend Name Intersect( const Name& A, const Name& B ) \
+		{ \
+			return Intersect( static_cast<const Super&>( A ), static_cast<const Super&>( B ) ); \
+		} \
+	}; \
+	 \
+	template <> \
+	struct TIsBitwiseConstructible<Name, TInterval<ElementType>> \
+	{ \
+		enum { Value = true }; \
+	}; \
+	 \
+	template <> \
+	struct TIsBitwiseConstructible<TInterval<ElementType>, Name> \
+	{ \
+		enum { Value = true }; \
+	};
 
-		if (X > Max)
-		{
-			Max = X;
-		}
-	}
-}
+DEFINE_INTERVAL_WRAPPER_STRUCT(FFloatInterval, float)
+DEFINE_INTERVAL_WRAPPER_STRUCT(FInt32Interval, int32)
+
+struct DEPRECATED(4.8, "FInterval is deprecated, please use FFloatInterval instead.") FInterval : public FFloatInterval { } ;

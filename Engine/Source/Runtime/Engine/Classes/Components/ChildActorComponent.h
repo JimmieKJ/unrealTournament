@@ -30,6 +30,7 @@ class UChildActorComponent : public USceneComponent
 	// Begin Object interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditUndo() override;
 #endif
 	// End Object interface.
 
