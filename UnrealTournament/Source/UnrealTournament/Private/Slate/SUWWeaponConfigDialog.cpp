@@ -3,6 +3,8 @@
 #include "SUWWeaponConfigDialog.h"
 #include "SUWindowsStyle.h"
 
+#if !UE_SERVER
+
 void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 {
 	SUWDialog::Construct(SUWDialog::FArguments()
@@ -240,3 +242,5 @@ FReply SUWWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 	}
 	return FReply::Handled();
 }
+
+#endif
