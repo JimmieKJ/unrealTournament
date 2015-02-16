@@ -1098,11 +1098,10 @@ void AUTWeapon::PlayPredictedImpactEffects(FVector ImpactLoc)
 	}
 	else
 	{
-		UTOwner->SetFlashLocation(ImpactLoc, CurrentFireMode);
 		FVector SpawnLocation;
 		FRotator SpawnRotation;
 		GetImpactSpawnPosition(ImpactLoc, SpawnLocation, SpawnRotation);
-		PlayImpactEffects(ImpactLoc, CurrentFireMode, SpawnLocation, SpawnRotation);
+		UTOwner->SetFlashLocation(ImpactLoc, CurrentFireMode);
 	}
 }
 
@@ -1111,7 +1110,6 @@ void AUTWeapon::PlayDelayedImpactEffects()
 	if (UTOwner)
 	{
 		UTOwner->SetFlashLocation(DelayedHitScan.ImpactLocation, DelayedHitScan.FireMode);
-		PlayImpactEffects(DelayedHitScan.ImpactLocation, DelayedHitScan.FireMode, DelayedHitScan.SpawnLocation, DelayedHitScan.SpawnRotation);
 	}
 }
 
