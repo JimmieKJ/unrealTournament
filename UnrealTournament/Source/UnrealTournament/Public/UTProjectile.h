@@ -289,7 +289,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UFUNCTION(BlueprintCallable, Category = Projectile)
 	virtual bool InteractsWithProj(AUTProjectile* OtherProj);
 
-	/** Projectile size for hitting pawns */
+	/** Projectile size for hitting pawns
+	 * if set to zero, the extra component used for this feature will not be attached (perf improvement) but means you can't go from 0 at spawn -> 1+ after spawn
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Projectile)
 	float OverlapRadius;
 

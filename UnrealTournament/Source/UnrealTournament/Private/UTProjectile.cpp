@@ -96,7 +96,15 @@ void AUTProjectile::PreInitializeComponents()
 
 	if (PawnOverlapSphere != NULL)
 	{
-		PawnOverlapSphere->SetSphereRadius(OverlapRadius);
+		if (OverlapRadius == 0.0f)
+		{
+			PawnOverlapSphere->DestroyComponent();
+			PawnOverlapSphere = NULL;
+		}
+		else
+		{
+			PawnOverlapSphere->SetSphereRadius(OverlapRadius);
+		}
 	}
 }
 

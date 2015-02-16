@@ -47,7 +47,13 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 	else
 	{
 		// make sure elements are valid
-		AddlUpdatedComponents.Remove(NULL);
+		for (int32 i = AddlUpdatedComponents.Num() - 1; i >= 0; i--)
+		{
+			if (AddlUpdatedComponents[i] == NULL || AddlUpdatedComponents[i]->IsPendingKill())
+			{
+				AddlUpdatedComponents.RemoveAt(i);
+			}
+		}
 
 		struct FNewableScopedMovementUpdate : public FScopedMovementUpdate
 		{
