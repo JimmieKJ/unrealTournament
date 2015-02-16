@@ -753,7 +753,7 @@ FReply SUInGameMenu::OpenSettingsDialog(TSharedPtr<SComboButton> MenuButton, FNa
 	}
 
 	TSharedPtr<SUWDialog> Dialog;
-	if (SettingsToOpen == SettingsDialogs::SettingPlayer) SAssignNew(Dialog, SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","PlayerSettings","Player Settings"));
+	if (SettingsToOpen == SettingsDialogs::SettingPlayer) SAssignNew(Dialog, SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner);
 	else if (SettingsToOpen == SettingsDialogs::SettingsSystem) SAssignNew(Dialog, SUWSystemSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","System","System Settings"));
 	else if (SettingsToOpen == SettingsDialogs::SettingsControls) SAssignNew(Dialog, SUWControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","Controls","Control Settings"));
 

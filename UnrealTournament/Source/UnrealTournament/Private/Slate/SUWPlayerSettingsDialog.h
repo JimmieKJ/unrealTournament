@@ -10,21 +10,18 @@ class SUWPlayerSettingsDialog : public SUWDialog, public FGCObject
 public:
 
 	SLATE_BEGIN_ARGS(SUWPlayerSettingsDialog)
-	: _DialogSize(FVector2D(0.5f,0.9f))
+	: _DialogSize(FVector2D(0.5f,0.8f))
 	, _bDialogSizeIsRelative(true)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
-	, _ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 	{}
-	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
-	SLATE_ARGUMENT(FText, DialogTitle)											
+	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)												
 	SLATE_ARGUMENT(FVector2D, DialogSize)										
 	SLATE_ARGUMENT(bool, bDialogSizeIsRelative)									
 	SLATE_ARGUMENT(FVector2D, DialogPosition)									
 	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)								
 	SLATE_ARGUMENT(FVector2D, ContentPadding)									
-	SLATE_ARGUMENT(uint16, ButtonMask)
 	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)							
 	SLATE_END_ARGS()
 
@@ -49,12 +46,12 @@ protected:
 	/** Slate brush to render the preview */
 	FSlateBrush* PlayerPreviewBrush;
 
+	/** counter for displaying weapon dialog since we need to display the "Loading Content" message first */
+	int32 WeaponConfigDelayFrames;
+
 	class UDirectionalLightComponent* PreviewLight;
 
 	TSharedPtr<SEditableTextBox> PlayerName;
-	TSharedPtr<SCheckBox> AutoWeaponSwitch;
-	TArray<UClass*> WeaponList;
-	TSharedPtr< SListView<UClass*> > WeaponPriorities;
 	TSharedPtr<SSlider> WeaponBobScaling, ViewBobScaling;
 	FLinearColor SelectedPlayerColor;
 
@@ -92,12 +89,11 @@ protected:
 	TOptional<int32> GetEmote2Value() const;
 	TOptional<int32> GetEmote3Value() const;
 
-	virtual FReply OnButtonClick(uint16 ButtonID);	
+	virtual FReply OnButtonClick(uint16 ButtonID);
 
 	FReply OKClick();
 	FReply CancelClick();
-	FReply WeaponPriorityUp();
-	FReply WeaponPriorityDown();
+	FReply WeaponConfigClick();
 	FReply PlayerColorClicked(const FGeometry& Geometry, const FPointerEvent& Event);
 	FLinearColor GetSelectedPlayerColor() const
 	{
@@ -105,7 +101,6 @@ protected:
 	}
 	void PlayerColorChanged(FLinearColor NewValue);
 	void OnNameTextChanged(const FText& NewText);
-	TSharedRef<ITableRow> GenerateWeaponListRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
 
 	virtual void DragPlayerPreview(FVector2D MouseDelta);
 	virtual void RecreatePlayerPreview();
@@ -113,10 +108,10 @@ protected:
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
-		Collector.AddReferencedObjects(WeaponList);
 		Collector.AddReferencedObject(PlayerPreviewTexture);
 		Collector.AddReferencedObject(PlayerPreviewMID);
 		Collector.AddReferencedObject(PlayerPreviewWorld);
+		Collector.AddReferencedObject(PreviewLight);
 	}
 };
 #endif

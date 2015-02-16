@@ -725,7 +725,7 @@ void SUTMenuBase::OpenDelayedMenu()
 {
 	if (bNeedsPlayerOptions)
 	{
-		PlayerOwner->OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","PlayerSettings","Player Settings")));
+		PlayerOwner->OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner));
 		bNeedsPlayerOptions = false;
 		PlayerOwner->HideContentLoadingMessage();
 	}

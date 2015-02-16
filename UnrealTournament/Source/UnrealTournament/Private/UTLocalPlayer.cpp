@@ -877,7 +877,7 @@ void UUTLocalPlayer::WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uin
 {
 	if (ButtonID == UTDIALOG_BUTTON_YES)
 	{
-		OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(this).DialogTitle(NSLOCTEXT("SUWindowsDesktop","PlayerSettings","Player Settings")));			
+		OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(this));			
 	}
 }
 #endif
