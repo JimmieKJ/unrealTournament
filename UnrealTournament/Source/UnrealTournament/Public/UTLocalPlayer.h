@@ -235,6 +235,7 @@ private:
 	FDelegateHandle OnJoinSessionCompleteDelegate;
 	FDelegateHandle OnEndSessionCompleteDelegate;
 	FDelegateHandle OnDestroySessionCompleteDelegate;
+	FDelegateHandle OnFindFriendSessionCompleteDelegate;
 	
 public:
 	virtual void LoadProfileSettings();
@@ -298,7 +299,7 @@ public:
 	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id
-	virtual void JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate);
+	virtual void JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate);
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
@@ -316,6 +317,13 @@ protected:
 	bool bPendingSession;
 	FOnlineSessionSearchResult PendingSession;
 
+	// friend join functionality
+	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FString& SessionId);
+	virtual void OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult);
+	virtual void HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId);
+	virtual bool AllowFriendsJoinGame();
+	FString PendingFriendInviteSessionId;	
+	
 
 #if !UE_SERVER
 

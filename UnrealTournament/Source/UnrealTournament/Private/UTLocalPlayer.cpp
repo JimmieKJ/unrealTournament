@@ -513,6 +513,15 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 
 		// Init the Friends And Chat system
 		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->Login();
+
+		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().IsBoundToObject(this))
+		{
+			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
+		}
+		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
+		{
+			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
+		}
 	}
 
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
@@ -1196,7 +1205,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	Exec(GetWorld(), TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"), *GLog);
 }
 
-void UUTLocalPlayer::JoinSession(FOnlineSessionSearchResult SearchResult, bool bSpectate)
+void UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
@@ -1288,7 +1297,6 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	ReturnToMainMenu();
 }
 
-
 void UUTLocalPlayer::LeaveSession()
 {
 	OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
@@ -1302,7 +1310,6 @@ void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful
 	OnlineSessionInterface->DestroySession(GameSessionName);
 }
 
-
 void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	UE_LOG(UT,Log, TEXT("----------- [OnDestroySessionComplete %i"), bPendingSession);
@@ -1314,8 +1321,6 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 		OnlineSessionInterface->JoinSession(0,GameSessionName,PendingSession);
 	}
 }
-
-
 
 void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
 {
@@ -1365,6 +1370,46 @@ void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bW
 void UUTLocalPlayer::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
 	UE_LOG(UT,Log,TEXT("Presence Recieved %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
+}
+
+void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId)
+{
+	JoinFriendSession(FriendId, SessionId);
+}
+
+bool UUTLocalPlayer::AllowFriendsJoinGame()
+{
+	// determine when to disable "join game" option in friends/chat UI
+	return true;
+}
+
+void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FString& SessionId)
+{
+	//@todo samz - use FindSessionById instead of FindFriendSession with a pending SessionId
+	PendingFriendInviteSessionId = SessionId;
+	OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
+	OnlineSessionInterface->FindFriendSession(0, FriendId);
+}
+
+void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult)
+{
+	OnlineSessionInterface->ClearOnFindFriendSessionCompleteDelegate_Handle(LocalUserNum, OnFindFriendSessionCompleteDelegate);
+	if (bWasSuccessful)
+	{
+		if (SearchResult.Session.SessionInfo.IsValid() &&
+			SearchResult.Session.SessionInfo->GetSessionId().ToString().Equals(PendingFriendInviteSessionId))
+		{
+			JoinSession(SearchResult, false);
+		}
+		else
+		{
+			MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "InvalidFriendSession", "Friend no longer in session."));
+		}
+	}
+	else
+	{
+		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "NoFriendSession", "Couldn't find friend session to join."));
+	}
 }
 
 uint32 UUTLocalPlayer::GetCountryFlag()
