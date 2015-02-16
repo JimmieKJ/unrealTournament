@@ -3237,7 +3237,6 @@ void AUTCharacter::StartDriving(APawn* Vehicle)
 	if (GetCharacterMovement() != nullptr)
 	{
 		GetCharacterMovement()->StopActiveMovement();
-		GetCharacterMovement()->bRunPhysicsWithNoController = true;
 	}
 }
 

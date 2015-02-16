@@ -341,6 +341,11 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 				MaybeUpdateBasedMovement(DeltaTime);
 				SaveBaseLocation();
 			}
+			else if (!CharacterOwner->Controller && (CharacterOwner->Role == ROLE_Authority))
+			{
+				// still update forces
+				ApplyAccumulatedForces(DeltaTime);
+			}
 		}
 		else if (CharacterOwner->Role == ROLE_SimulatedProxy)
 		{
