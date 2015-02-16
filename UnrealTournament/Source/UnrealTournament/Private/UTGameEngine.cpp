@@ -448,3 +448,8 @@ FString UUTGameEngine::MD5Sum(const TArray<uint8>& Data)
 
 	return MD5;
 }
+
+bool UUTGameEngine::ShouldShutdownWorldNetDriver()
+{
+	return false;
+}

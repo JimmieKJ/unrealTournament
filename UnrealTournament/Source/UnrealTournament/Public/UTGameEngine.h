@@ -95,4 +95,9 @@ class UUTGameEngine : public UGameEngine
 #endif
 	UT_LOADMAP_DEFINITION()
 #undef UT_LOADING_SCREEN_HOOK
+
+protected:
+	virtual bool ShouldShutdownWorldNetDriver() override;
+
 };
+

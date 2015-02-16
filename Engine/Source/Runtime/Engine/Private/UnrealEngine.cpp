@@ -7722,6 +7722,8 @@ void UEngine::HandleNetworkFailure(UWorld *World, UNetDriver *NetDriver, ENetwor
 			break;
 		case ENetworkFailure::PendingConnectionFailure:
 			// TODO stop the connecting movie
+			bShouldTravel = false;
+			CancelPending(NetDriver);
 			break;
 		case ENetworkFailure::ConnectionLost:
 			// Hosts don't travel when clients disconnect
@@ -8152,7 +8154,7 @@ EBrowseReturnVal::Type UEngine::Browse( FWorldContext& WorldContext, FURL URL, F
 		}
 
 		// Clean up the netdriver/socket so that the pending level succeeds
-		if (WorldContext.World())
+		if (WorldContext.World() && ShouldShutdownWorldNetDriver())
 		{
 			ShutdownWorldNetDriver(WorldContext.World());
 		}

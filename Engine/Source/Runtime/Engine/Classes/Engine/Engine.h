@@ -2487,6 +2487,13 @@ protected:
 
 	virtual void MovePendingLevel(FWorldContext &Context);
 
+	/**
+	 *	Returns true if BROWSE should shuts down the current network driver.
+	 **/
+	virtual bool ShouldShutdownWorldNetDriver()
+	{
+		return true;
+	}
 
 	bool WorldHasValidContext(UWorld *InWorld);
 
