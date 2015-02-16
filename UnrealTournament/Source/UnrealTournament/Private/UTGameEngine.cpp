@@ -64,6 +64,8 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 		IConsoleVariable* BypassVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RHICmdBypass"));
 		BypassVar->Set(1);
 	}
+
+	FParse::Value(FCommandLine::Get(), TEXT("ClientProcID="), OwningProcessID);
 }
 
 void UUTGameEngine::PreExit()
@@ -148,6 +150,11 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 	}
 	
 	Super::Tick(DeltaSeconds, bIdleMode);
+
+	if (OwningProcessID != 0 && !FPlatformProcess::IsApplicationRunning(OwningProcessID))
+	{
+		FPlatformMisc::RequestExit(false);
+	}
 }
 
 EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL URL, FString& Error )

@@ -910,17 +910,17 @@ FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 	}
 	GConfig->SetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni);
 
-	if (Mode == SERVER_Dedicated)
+	if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
 	{
-		if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
+		if (FPlatformProcess::IsProcRunning(GetPlayerOwner()->DedicatedServerProcessHandle))
 		{
-			if (FPlatformProcess::IsProcRunning(GetPlayerOwner()->DedicatedServerProcessHandle))
-			{
-				FPlatformProcess::TerminateProc(GetPlayerOwner()->DedicatedServerProcessHandle);
-			}
-			GetPlayerOwner()->DedicatedServerProcessHandle.Reset();
+			FPlatformProcess::TerminateProc(GetPlayerOwner()->DedicatedServerProcessHandle);
 		}
+		GetPlayerOwner()->DedicatedServerProcessHandle.Reset();
+	}
 
+	if (Mode == SERVER_Dedicated || Mode == SERVER_Listen)
+	{
 		GConfig->Flush(false);
 		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
 		FString Options = FString::Printf(TEXT("unrealtournament %s -log -server"), *NewURL);
@@ -946,13 +946,24 @@ FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 		}
 
 		UE_LOG(UT, Log, TEXT("Run dedicated server with command line: %s %s"), *ExecPath, *Options);
-		GetPlayerOwner()->DedicatedServerProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
-
-		if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
+		if (Mode == SERVER_Listen)
 		{
-			GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), TEXT("127.0.0.1"), TRAVEL_Absolute);
+			GetPlayerOwner()->DedicatedServerProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *(Options + FString::Printf(TEXT(" -ClientProcID=%u"), FPlatformProcess::GetCurrentProcessId())), true, false, false, NULL, 0, NULL, NULL);
 
-			PlayerOwner->HideMenu();
+			if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
+			{
+				GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), TEXT("127.0.0.1"), TRAVEL_Absolute);
+
+				PlayerOwner->HideMenu();
+			}
+		}
+		else
+		{
+			FProcHandle ServerHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
+			if (ServerHandle.IsValid())
+			{
+				FPlatformMisc::RequestExit(false);
+			}
 		}
 	}
 	else if (GetPlayerOwner()->PlayerController != NULL)

@@ -67,6 +67,9 @@ class UUTGameEngine : public UGameEngine
 	/** Max prediction ping (used when negotiating with clients) */
 	float ServerMaxPredictionPing;
 
+	/** set to process ID of owning game client when running a "listen" server (which is really dedicated + client on same machine) */
+	uint32 OwningProcessID;
+
 	TMap<FString, FString> DownloadedContentChecksums;
 	TMap<FString, FString> LocalContentChecksums;
 	TMap<FString, FString> CloudContentChecksums;
