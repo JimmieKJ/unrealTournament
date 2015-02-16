@@ -61,6 +61,8 @@ protected:
 	// Holds the last match state if the player owner has a current match.  It's used to detect state changes and rebuild the menu as needed.
 	FName LastMatchState;
 
+	FString LastGameMode;
+
 	TArray<TSharedPtr<FMatchData>> MatchData;
 	TSharedPtr<SHorizontalBox> MatchPanelDock;
 	

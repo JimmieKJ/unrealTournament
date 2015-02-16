@@ -197,6 +197,8 @@ void SULobbyInfoPanel::BuildMatchPanel()
 						]
 					]			
 				];
+
+			LastGameMode = PlayerState->CurrentMatch->MatchGameMode;
 		}
 	}
 }
@@ -352,6 +354,16 @@ void SULobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InC
 					];
 				}
 			}
+		}
+	}
+	else
+	{
+		// Look to see if the game mode has changed.  If it has and we are not the host, rebuild the match menu.
+	
+		if (PlayerState->CurrentMatch && PlayerState->CurrentMatch->MatchGameMode != LastGameMode && PlayerState->CurrentMatch->OwnerId != PlayerState->UniqueId)
+		{
+			// Rebuild the match panel.
+			BuildMatchPanel();
 		}
 	}
 
