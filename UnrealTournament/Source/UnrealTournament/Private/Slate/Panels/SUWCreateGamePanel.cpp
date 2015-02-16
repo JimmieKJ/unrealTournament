@@ -939,6 +939,12 @@ FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 			}
 		}
 
+		FString McpConfigOverride;
+		if (FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride))
+		{
+			Options += FString::Printf(TEXT(" -MCPCONFIG=%s"), *McpConfigOverride);
+		}
+
 		UE_LOG(UT, Log, TEXT("Run dedicated server with command line: %s %s"), *ExecPath, *Options);
 		GetPlayerOwner()->DedicatedServerProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
 

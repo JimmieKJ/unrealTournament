@@ -247,6 +247,7 @@ void SUWRedirectDialog::CancelDownload()
 
 		if (GetPlayerOwner() != nullptr)
 		{
+			OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
 			GetPlayerOwner()->CloseDialog(SharedThis(this));
 		}
 	}

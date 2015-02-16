@@ -2552,7 +2552,8 @@ FString AUTGameMode::GetRedirectURL(const FString& MapName) const
 			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
 		}
 	
-		RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapName + TEXT("-WindowsNoEditor.pak");
+		FString MapBaseFilename = FPaths::GetBaseFilename(MapName);
+		RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapBaseFilename + TEXT("-WindowsNoEditor.pak");
 	}
 
 	return RedirectURL;
