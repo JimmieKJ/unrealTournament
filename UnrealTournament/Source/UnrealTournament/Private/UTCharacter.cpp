@@ -211,7 +211,14 @@ void AUTCharacter::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		BodyMI = GetMesh()->CreateAndSetMaterialInstanceDynamic(0);
+		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
+		{
+			// FIXME: NULL check is hack for editor reimport bug breaking number of materials
+			if (GetMesh()->GetMaterial(i) != NULL)
+			{
+				BodyMIs.Add(GetMesh()->CreateAndSetMaterialInstanceDynamic(i));
+			}
+		}
 	}
 }
 
@@ -2825,7 +2832,7 @@ void AUTCharacter::UpdateSkin()
 	{
 		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
 		{
-			GetMesh()->SetMaterial(i, (i == 0 && BodyMI != NULL) ? BodyMI : GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->GetMaterial(i));
+			GetMesh()->SetMaterial(i, BodyMIs.IsValidIndex(i) ? BodyMIs[i] : GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->GetMaterial(i));
 		}
 	}
 	if (Weapon != NULL)
@@ -2846,10 +2853,13 @@ void AUTCharacter::SetBodyColorFlash(const UCurveLinearColor* ColorCurve, bool b
 {
 	BodyColorFlashCurve = ColorCurve;
 	BodyColorFlashElapsedTime = 0.0f;
-	if (BodyMI != NULL)
+	for (UMaterialInstanceDynamic* MI : BodyMIs)
 	{
 		static FName NAME_FullBodyFlashPct(TEXT("FullBodyFlashPct"));
-		BodyMI->SetScalarParameterValue(NAME_FullBodyFlashPct, bRimOnly ? 0.0f : 1.0f);
+		if (MI != NULL)
+		{
+			MI->SetScalarParameterValue(NAME_FullBodyFlashPct, bRimOnly ? 0.0f : 1.0f);
+		}
 	}
 }
 
@@ -2860,14 +2870,20 @@ void AUTCharacter::UpdateBodyColorFlash(float DeltaTime)
 	BodyColorFlashElapsedTime += DeltaTime;
 	float MinTime, MaxTime;
 	BodyColorFlashCurve->GetTimeRange(MinTime, MaxTime);
-	if (BodyColorFlashElapsedTime > MaxTime)
+	for (UMaterialInstanceDynamic* MI : BodyMIs)
 	{
-		BodyColorFlashCurve = NULL;
-		BodyMI->SetVectorParameterValue(NAME_HitFlashColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
-	}
-	else
-	{
-		BodyMI->SetVectorParameterValue(NAME_HitFlashColor, BodyColorFlashCurve->GetLinearColorValue(BodyColorFlashElapsedTime));
+		if (MI != NULL)
+		{
+			if (BodyColorFlashElapsedTime > MaxTime)
+			{
+				BodyColorFlashCurve = NULL;
+				MI->SetVectorParameterValue(NAME_HitFlashColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
+			}
+			else
+			{
+				MI->SetVectorParameterValue(NAME_HitFlashColor, BodyColorFlashCurve->GetLinearColorValue(BodyColorFlashElapsedTime));
+			}
+		}
 	}
 }
 
@@ -2886,41 +2902,44 @@ void AUTCharacter::Tick(float DeltaTime)
 		}
 	}
 
-	if (BodyMI != NULL)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL)
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS != NULL)
+		static FName NAME_SpawnProtectionPct(TEXT("SpawnProtectionPct"));
+		float ShaderValue = 0.0f;
+		if (bSpawnProtectionEligible && GS->SpawnProtectionTime > 0.0f)
 		{
-			static FName NAME_SpawnProtectionPct(TEXT("SpawnProtectionPct"));
-			float ShaderValue = 0.0f;
-			if (bSpawnProtectionEligible && GS->SpawnProtectionTime > 0.0f)
+			float Pct = 1.0f - (GetWorld()->TimeSeconds - CreationTime) / GS->SpawnProtectionTime;
+			if (Pct > 0.0f)
 			{
-				float Pct = 1.0f - (GetWorld()->TimeSeconds - CreationTime) / GS->SpawnProtectionTime;
-				if (Pct > 0.0f)
+				// clamp remaining time so that the final portion of the effect snaps instead of fading
+				// this makes sure it's always clear that spawn protection is still active
+				ShaderValue = FMath::Max(Pct, 0.25f);
+				// skip spawn protection visual if local player is on same team
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					// clamp remaining time so that the final portion of the effect snaps instead of fading
-					// this makes sure it's always clear that spawn protection is still active
-					ShaderValue = FMath::Max(Pct, 0.25f);
-					// skip spawn protection visual if local player is on same team
-					for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+					if (It->PlayerController)
 					{
-						if (It->PlayerController)
+						if (GS->OnSameTeam(this, It->PlayerController))
 						{
-							if (GS->OnSameTeam(this, It->PlayerController))
-							{
-								ShaderValue = 0.f;
-							}
-							break;
+							ShaderValue = 0.f;
 						}
+						break;
 					}
 				}
 			}
-			BodyMI->SetScalarParameterValue(NAME_SpawnProtectionPct, ShaderValue);
 		}
-		if (BodyColorFlashCurve != NULL)
+		for (UMaterialInstanceDynamic* MI : BodyMIs)
 		{
-			UpdateBodyColorFlash(DeltaTime);
+			if (MI != NULL)
+			{
+				MI->SetScalarParameterValue(NAME_SpawnProtectionPct, ShaderValue);
+			}
 		}
+	}
+	if (BodyColorFlashCurve != NULL)
+	{
+		UpdateBodyColorFlash(DeltaTime);
 	}
 
 	// tick ragdoll recovery
@@ -3272,8 +3291,16 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());
 		GetMesh()->OverrideMaterials = Data->Mesh->OverrideMaterials;
-		BodyMI = GetMesh()->CreateAndSetMaterialInstanceDynamic(0);
 		GetMesh()->SkeletalMesh = Data->Mesh->SkeletalMesh;
+		BodyMIs.Empty();
+		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
+		{
+			// FIXME: NULL check is hack for editor reimport bug breaking number of materials
+			if (GetMesh()->GetMaterial(i) != NULL)
+			{
+				BodyMIs.Add(GetMesh()->CreateAndSetMaterialInstanceDynamic(i));
+			}
+		}
 		GetMesh()->PhysicsAssetOverride = Data->Mesh->PhysicsAssetOverride;
 		GetMesh()->RelativeScale3D = Data->Mesh->RelativeScale3D;
 		GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
@@ -3290,24 +3317,27 @@ void AUTCharacter::NotifyTeamChanged()
 		{
 			ApplyCharacterData(PS->GetSelectedCharacter());
 		}
-		if (BodyMI != NULL)
+		for (UMaterialInstanceDynamic* MI : BodyMIs)
 		{
-			static FName NAME_TeamColor(TEXT("TeamColor"));
-			if (PS->Team != NULL)
+			if (MI != NULL)
 			{
-				BodyMI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-			}
-			else
-			{
-				// in FFA games, let the local player decide the team coloring
-				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+				static FName NAME_TeamColor(TEXT("TeamColor"));
+				if (PS->Team != NULL)
 				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-					if (PC != NULL && PC->FFAPlayerColor.A > 0.0f)
+					MI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+				}
+				else
+				{
+					// in FFA games, let the local player decide the team coloring
+					for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 					{
-						BodyMI->SetVectorParameterValue(NAME_TeamColor, PC->FFAPlayerColor);
-						// NOTE: no splitscreen support, first player wins
-						break;
+						AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+						if (PC != NULL && PC->FFAPlayerColor.A > 0.0f)
+						{
+							MI->SetVectorParameterValue(NAME_TeamColor, PC->FFAPlayerColor);
+							// NOTE: no splitscreen support, first player wins
+							break;
+						}
 					}
 				}
 			}

@@ -894,10 +894,14 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 	}
 
 	// set FFA color
-	if (PlayerPreviewMesh->GetBodyMI() != NULL)
+	const TArray<UMaterialInstanceDynamic*>& BodyMIs = PlayerPreviewMesh->GetBodyMIs();
+	for (UMaterialInstanceDynamic* MI : BodyMIs)
 	{
 		static FName NAME_TeamColor(TEXT("TeamColor"));
-		PlayerPreviewMesh->GetBodyMI()->SetVectorParameterValue(NAME_TeamColor, SelectedPlayerColor);
+		if (MI != NULL)
+		{
+			MI->SetVectorParameterValue(NAME_TeamColor, SelectedPlayerColor);
+		}
 	}
 
 	// set hat

@@ -1549,11 +1549,11 @@ protected:
 
 	/** runtime material instance for setting body material parameters (team color, etc) */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
-	UMaterialInstanceDynamic* BodyMI;
+	TArray<UMaterialInstanceDynamic*> BodyMIs;
 public:
-	inline UMaterialInstanceDynamic* GetBodyMI() const
+	inline const TArray<UMaterialInstanceDynamic*>& GetBodyMIs() const
 	{
-		return BodyMI;
+		return BodyMIs;
 	}
 	/** legacy command for dropping the flag.  Just redirects to UseCarriedObject */
 	UFUNCTION(Exec)
