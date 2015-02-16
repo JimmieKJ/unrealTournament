@@ -791,7 +791,13 @@ void AUTCTFGameMode::HandleEnteringSuddenDeath()
 
 void AUTCTFGameMode::HandleSuddenDeath()
 {
+	CTFGameState->bPlayingAdvantage = false;
+}
 
+void AUTCTFGameMode::HandleMatchInOvertime()
+{
+	Super::HandleMatchInOvertime();
+	CTFGameState->bPlayingAdvantage = false;
 }
 
 void AUTCTFGameMode::DefaultTimer()
