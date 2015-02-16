@@ -3065,10 +3065,10 @@ void AUTCharacter::Tick(float DeltaTime)
 		if (IsRagdoll() && GetMesh())
 		{
 			// apply force to fake buoyancy and fluid friction
-			FVector FluidForce = -200.f*FVector(0.f, 0.f, GetWorld()->GetGravityZ()) - 300.f * GetVelocity();
-
-			GetMesh()->AddForce(0.67f*FluidForce, FName((TEXT("spine_02"))));
-			GetMesh()->AddForce(0.33f*FluidForce);
+			float FloatMag = (IsDead() || !PositionIsInWater(GetActorLocation() + FVector(0.f, 0.f, 30.f))) ? 80.f : 190.f;
+			FVector FluidForce = -500.f * GetVelocity() - FVector(0.f, 0.f, FloatMag*GetWorld()->GetGravityZ());
+			GetMesh()->AddForce(0.7f*FluidForce, FName((TEXT("spine_02"))));
+			GetMesh()->AddForce(0.3f*FluidForce);
 		}
 		bool bHeadWasUnderwater = bHeadIsUnderwater;
 		bHeadIsUnderwater = IsRagdoll() || HeadIsUnderWater();
