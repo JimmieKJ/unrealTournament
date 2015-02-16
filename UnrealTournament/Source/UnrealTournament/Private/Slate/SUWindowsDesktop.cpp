@@ -83,6 +83,10 @@ FReply SUWindowsDesktop::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& 
 			CloseMenus();
 		}
 	}
+	else if (InKeyboardEvent.GetKey() == EKeys::F9)
+	{
+		ConsoleCommand(TEXT("SHOT SHOWUI"));
+	}
 	return FReply::Handled();
 }
 
@@ -93,7 +97,6 @@ void SUWindowsDesktop::CloseMenus()
 		PlayerOwner->HideMenu();
 	}
 }
-
 
 FReply SUWindowsDesktop::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent)
 {
@@ -109,7 +112,6 @@ FReply SUWindowsDesktop::OnMouseWheel(const FGeometry& MyGeometry, const FPointe
 {
 	return FReply::Handled();
 }
-
 
 FReply SUWindowsDesktop::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
