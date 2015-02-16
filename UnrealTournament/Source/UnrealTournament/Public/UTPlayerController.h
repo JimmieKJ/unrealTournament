@@ -424,6 +424,10 @@ public:
 	UPROPERTY(globalconfig)
 		bool bUseClassicGroups;
 
+	/** Switch between teams 0 and 1 */
+	UFUNCTION(exec)
+	virtual void SwitchTeam();
+
 protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)
 	float LastTapLeftTime;

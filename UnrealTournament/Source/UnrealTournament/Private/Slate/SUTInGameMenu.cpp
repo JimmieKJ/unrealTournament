@@ -127,8 +127,14 @@ FReply SUTInGameMenu::OnDisconnect()
 }
 FReply SUTInGameMenu::OnTeamChangeClick()
 {
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC)
+	{
+		PC->SwitchTeam();
+	}
 	return FReply::Handled();
 }
+
 FReply SUTInGameMenu::OnSpectateClick()
 {
 	ConsoleCommand(TEXT("ChangeTeam 255"));

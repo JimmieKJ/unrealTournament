@@ -1618,6 +1618,14 @@ void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> 
 	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
+void AUTPlayerController::SwitchTeam()
+{
+	if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
+	{
+		ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+	}
+}
+
 void AUTPlayerController::ChangeTeam(uint8 NewTeamIndex)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
