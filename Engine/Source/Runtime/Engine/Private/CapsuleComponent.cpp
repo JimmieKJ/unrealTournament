@@ -37,14 +37,18 @@ FPrimitiveSceneProxy* UCapsuleComponent::CreateSceneProxy()
 		{
 			QUICK_SCOPE_CYCLE_COUNTER( STAT_GetDynamicMeshElements_DrawDynamicElements );
 
-			const FLinearColor DrawCapsuleColor = GetSelectionColor(ShapeColor, IsSelected(), IsHovered(), /*bUseOverlayIntensity=*/false);
+		
 			const FMatrix& LocalToWorld = GetLocalToWorld();
 			const int32 CapsuleSides =  FMath::Clamp<int32>(CapsuleRadius/4.f, 16, 64);
 
 			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 			{
+
 				if (VisibilityMap & (1 << ViewIndex))
 				{
+					const FSceneView* View = Views[ViewIndex];
+					const FLinearColor DrawCapsuleColor = GetViewSelectionColor(ShapeColor, *View, IsSelected(), IsHovered(), false, IsIndividuallySelected() );
+
 					FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);
 					DrawWireCapsule( PDI, LocalToWorld.GetOrigin(), LocalToWorld.GetScaledAxis( EAxis::X ), LocalToWorld.GetScaledAxis( EAxis::Y ), LocalToWorld.GetScaledAxis( EAxis::Z ), DrawCapsuleColor, CapsuleRadius, CapsuleHalfHeight, CapsuleSides, SDPG_World );
 				}

@@ -762,6 +762,12 @@ public:
 	/** Unsubscribe to notifications about the active tab changing */
 	void OnActiveTabChanged_Unsubscribe( FDelegateHandle Handle );
 
+	/** Subscribe to notifications about a foreground tab changing */
+	FDelegateHandle OnTabForegrounded_Subscribe(const FOnActiveTabChanged::FDelegate& InDelegate);
+
+	/** Unsubscribe to notifications about a foreground tab changing */
+	void OnTabForegrounded_Unsubscribe(FDelegateHandle Handle);
+
 	/** @return the currently active tab; NULL pointer if there is no active tab */
 	TSharedPtr<SDockTab> GetActiveTab() const;
 
@@ -887,6 +893,8 @@ private:
 	TWeakPtr<SDockTab> ActiveTabPtr;
 
 	FOnActiveTabChanged OnActiveTabChanged;
+
+	FOnActiveTabChanged TabForegrounded;
 
 	FText AppTitle;
 

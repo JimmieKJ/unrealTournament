@@ -1309,7 +1309,7 @@ public:
 	virtual void PawnLeavingGame();
 
 	/** Takes ping updates from the net driver (both clientside and serverside), and passes them on to PlayerState::UpdatePing */
-	void UpdatePing(float InPing);
+	virtual void UpdatePing(float InPing);
 
 	/**
 	 * Get next active viewable player in PlayerArray.

@@ -34,12 +34,15 @@ struct FComponentEntryCustomizationArgs
 	FOnComponentCreated OnComponentCreated;
 	/** Brush icon to use instead of the class icon */
 	FName IconOverrideBrushName;
+	/** Custom sort priority to use (smaller means sorted first) */
+	int32 SortPriority;
 
 	FComponentEntryCustomizationArgs()
 		: AssetOverride( nullptr )
 		, ComponentNameOverride()
 		, OnComponentCreated()
 		, IconOverrideBrushName( NAME_None )
+		, SortPriority(0)
 	{
 	
 	}
@@ -125,6 +128,8 @@ public:
 	}
 
 	FName GetIconOverrideBrushName() const { return CustomizationArgs.IconOverrideBrushName; }
+
+	int32 GetSortPriority() const { return CustomizationArgs.SortPriority; }
 private:
 	TSubclassOf<UActorComponent> ComponentClass;
 	// For components that are not loaded we just keep the name of the component,
@@ -185,11 +190,6 @@ public:
 
 	/** Returns a component name without the substring "Component" and sanitized for display */
 	static FString GetSanitizedComponentName(FComponentClassComboEntryPtr Entry);
-
-protected:
-
-	/** Called when a project is hot reloaded to refresh the components list */
-	void OnProjectHotReloaded( bool bWasTriggeredAutomatically );
 
 private:
 

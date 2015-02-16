@@ -367,7 +367,7 @@ void UUnrealEdEngine::NoteSelectionChange()
 		ActiveModes[ModeIndex]->ActorSelectionChangeNotify();
 	}
 
-	bool bComponentSelectionChanged = GetSelectedComponentCount() > 0;
+	const bool bComponentSelectionChanged = GetSelectedComponentCount() > 0;
 	USelection* Selection = bComponentSelectionChanged ? GetSelectedComponents() : GetSelectedActors();
 	USelection::SelectionChangedEvent.Broadcast(Selection);
 	

@@ -1570,26 +1570,30 @@ FDelegateHandle FGlobalTabmanager::OnActiveTabChanged_Subscribe( const FOnActive
 	return OnActiveTabChanged.Add( InDelegate );
 }
 
-
-
 void FGlobalTabmanager::OnActiveTabChanged_Unsubscribe( const FOnActiveTabChanged::FDelegate& InDelegate )
 {
 	OnActiveTabChanged.DEPRECATED_Remove( InDelegate );
 }
-
 
 void FGlobalTabmanager::OnActiveTabChanged_Unsubscribe( FDelegateHandle Handle )
 {
 	OnActiveTabChanged.Remove( Handle );
 }
 
+FDelegateHandle FGlobalTabmanager::OnTabForegrounded_Subscribe(const FOnActiveTabChanged::FDelegate& InDelegate)
+{
+	return TabForegrounded.Add(InDelegate);
+}
+
+void FGlobalTabmanager::OnTabForegrounded_Unsubscribe(FDelegateHandle Handle)
+{
+	TabForegrounded.Remove(Handle);
+}
 
 TSharedPtr<class SDockTab> FGlobalTabmanager::GetActiveTab() const
 {
 	return ActiveTabPtr.Pin();
 }
-
-
 
 void FGlobalTabmanager::SetActiveTab( const TSharedPtr<class SDockTab>& NewActiveTab )
 {
@@ -1769,6 +1773,8 @@ void FGlobalTabmanager::OnTabForegrounded( const TSharedPtr<SDockTab>& NewForegr
 			BackgroundedTabManager->GetPrivateApi().HideWindows();
 		}
 	}
+
+	TabForegrounded.Broadcast(NewForegroundTab, BackgroundedTab);
 }
 
 void FGlobalTabmanager::OnTabRelocated( const TSharedRef<SDockTab>& RelocatedTab, const TSharedPtr<SWindow>& NewOwnerWindow )

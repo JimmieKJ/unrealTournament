@@ -120,8 +120,6 @@ void ARecastNavMesh::Serialize( FArchive& Ar )
 
 #define DO_NAVMESH_DEBUG_DRAWING_PER_TILE 0
 
-static const FColor NavMeshRenderColor_RecastMesh(72,255,64);
-
 //----------------------------------------------------------------------//
 // FRecastDebugGeometry
 //----------------------------------------------------------------------//

@@ -176,11 +176,6 @@ public:
 		ConstructorHelpers::StripObjectClass(StrippedClassName);
 
 		const UClass* GameModeClass = FindObject<UClass>(ANY_PACKAGE, *StrippedClassName);
-		if (!GameModeClass)
-		{
-			GameModeClass = LoadObject<UClass>(NULL, *ClassName);
-		}
-
 		return GameModeClass;
 	}
 

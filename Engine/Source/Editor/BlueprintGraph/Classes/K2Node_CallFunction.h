@@ -200,5 +200,8 @@ private:
 protected:
 	/** Helper function to ensure function is called in our context */
 	virtual void EnsureFunctionIsInBlueprint();
+
+	/** Helper function to find UFunction entries from the skeleton class, use with caution.. */
+	UFunction* GetTargetFunctionFromSkeletonClass() const;
 };
 

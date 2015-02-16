@@ -659,7 +659,14 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 					for (auto DeviceProxyIt = DeviceProxies.CreateIterator(); DeviceProxyIt; ++DeviceProxyIt)
 					{
 						ITargetDeviceProxyPtr DeviceProxy = *DeviceProxyIt;
-
+#if PLATFORM_WINDOWS
+						if (VanillaPlatform.PlatformInfo->VanillaPlatformName == TEXT("HTML5") && 
+							DeviceProxy->GetOperatingSystemName().Contains("chrome"))
+						{
+							// For HTML5 skip Chrome as a device
+							continue;
+						}
+#endif
 						// ... create an action...
 						FUIAction LaunchDeviceAction(
 							FExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::HandleLaunchOnDeviceActionExecute, DeviceProxy->GetTargetDeviceId(NAME_None), DeviceProxy->GetName()),

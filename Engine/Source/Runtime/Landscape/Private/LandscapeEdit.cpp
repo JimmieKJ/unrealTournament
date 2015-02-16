@@ -46,9 +46,9 @@ DEFINE_LOG_CATEGORY(LogLandscape);
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
-ULandscapeLayerInfoObject* ALandscapeProxy::VisibilityLayer = NULL;
-
 #if WITH_EDITOR
+
+ULandscapeLayerInfoObject* ALandscapeProxy::VisibilityLayer = NULL;
 
 void ULandscapeComponent::Init(int32 InBaseX, int32 InBaseY, int32 InComponentSizeQuads, int32 InNumSubsections, int32 InSubsectionSizeQuads)
 {

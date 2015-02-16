@@ -39,8 +39,7 @@ TSharedRef<SWidget> SGetSuggestedIDEWidget::CreateGetSuggestedIDEWidget() const
 
 EVisibility SGetSuggestedIDEWidget::GetVisibility() const
 {
-	/*return FSourceCodeNavigation::IsCompilerAvailable() ? EVisibility::Collapsed : EVisibility::Visible;*/
-	return EVisibility::Visible;
+	return FSourceCodeNavigation::IsCompilerAvailable() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 void SGetSuggestedIDEWidget::OnDownloadIDEClicked(FString URL)

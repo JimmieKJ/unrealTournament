@@ -53,7 +53,7 @@ public:
 
 	/** If set, then the new refactored menu system will be replaced with the old (legacy) system (as a fallback, in case the new system has unforeseen problems)*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=Workflow)
-	bool bUseLegacyMenuingSystem;
+	bool bForceLegacyMenuingSystem;
 
 	/** If true will show the viewport tab when simulate is clicked. */
 	UPROPERTY(EditAnywhere, config, Category=Workflow)

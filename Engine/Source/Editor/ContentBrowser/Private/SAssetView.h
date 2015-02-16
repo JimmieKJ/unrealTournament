@@ -18,7 +18,7 @@ public:
 		, _ThumbnailLabel( EThumbnailLabel::ClassName )
 		, _AllowThumbnailHintLabel(true)
 		, _InitialViewType(EAssetViewType::Tile)
-		, _ThumbnailScale(0.25f) // A reasonable scale
+		, _ThumbnailScale(0.1f)
 		, _ShowBottomToolbar(true)
 		, _AllowThumbnailEditMode(false)
 		, _CanShowClasses(true)
@@ -246,6 +246,12 @@ public:
 	void OnAssetRegistryPathRemoved(const FString& Path);
 
 private:
+
+	/** @return the thumbnail scale setting path to use when looking up the setting in an ini. */
+	FString GetThumbnailScaleSettingPath(const FString& SettingsString) const;
+
+	/** @return the view type setting path to use when looking up the setting in an ini. */
+	FString GetCurrentViewTypeSettingPath(const FString& SettingsString) const;
 
 	/** Calculates a new filler scale used to adjust the thumbnails to fill empty space. */
 	void CalculateFillScale( const FGeometry& AllottedGeometry );

@@ -138,7 +138,12 @@ public:
 public:
 
 	SLATE_BEGIN_ARGS(SWizard)
-		: _CanFinish(true)
+		: _ButtonStyle(&FCoreStyle::Get().GetWidgetStyle<FButtonStyle>("Button"))
+		, _CancelButtonStyle(&FCoreStyle::Get().GetWidgetStyle<FButtonStyle>("Button"))
+		, _FinishButtonStyle(&FCoreStyle::Get().GetWidgetStyle<FButtonStyle>("Button"))
+		, _ButtonTextStyle(&FCoreStyle::Get().GetWidgetStyle< FTextBlockStyle >("NormalText"))
+		, _ForegroundColor(FCoreStyle::Get().GetSlateColor("InvertedForeground"))
+		, _CanFinish(true)
 		, _FinishButtonText(NSLOCTEXT("SWizard", "DefaultFinishButtonText", "Finish"))
 		, _FinishButtonToolTip(NSLOCTEXT("SWizard", "DefaultFinishButtonTooltip", "Finish the wizard"))
 		, _InitialPageIndex(0)
@@ -149,6 +154,21 @@ public:
 	{ }
 
 		SLATE_SUPPORTS_SLOT_WITH_ARGS(FWizardPage)
+
+		/** The button style used by next and back. */
+		SLATE_STYLE_ARGUMENT(FButtonStyle, ButtonStyle)
+
+		/** The button style used by the cancel button. */
+		SLATE_STYLE_ARGUMENT(FButtonStyle, CancelButtonStyle)
+
+		/** The button style used by the finish button. */
+		SLATE_STYLE_ARGUMENT(FButtonStyle, FinishButtonStyle)
+
+		/** The text style used by the buttons. */
+		SLATE_STYLE_ARGUMENT(FTextBlockStyle, ButtonTextStyle)
+
+		/** The text style used by the buttons. */
+		SLATE_ARGUMENT(FSlateColor, ForegroundColor)
 
 		/** Holds a flag indicating whether the 'Finish' button is enabled. */
 		SLATE_ATTRIBUTE(bool, CanFinish)

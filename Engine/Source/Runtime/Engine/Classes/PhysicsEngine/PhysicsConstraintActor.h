@@ -7,7 +7,7 @@
 #include "PhysicsEngine/RigidBodyBase.h"
 #include "PhysicsConstraintActor.generated.h"
 
-UCLASS(ConversionRoot, MinimalAPI)
+UCLASS(ConversionRoot, MinimalAPI, ComponentWrapperClass)
 class APhysicsConstraintActor : public ARigidBodyBase
 {
 	GENERATED_UCLASS_BODY()

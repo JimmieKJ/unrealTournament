@@ -85,6 +85,8 @@ struct FSelectedActorInfo
 	uint32 bAllSelectedStaticMeshesHaveCollisionModels:1;
 	/** true if a brush is in the selection */
 	uint32 bHaveBrush:1;
+	/** true if there is a bsp brush in the selection */
+	uint32 bHaveBSPBrush:1;
 	/** true if a volume brush is in the selection */
 	uint32 bHaveVolume:1;
 	/** true if a builder brush is in the selection */
@@ -131,6 +133,7 @@ struct FSelectedActorInfo
 		, bAllSelectedActorsBelongToSameWorld(true)
 		, bAllSelectedStaticMeshesHaveCollisionModels(true)
 		, bHaveBrush(false)
+		, bHaveBSPBrush(false)
 		, bHaveVolume(false)
 		, bHaveBuilderBrush(false)
 		, bHaveStaticMeshComponent(false)

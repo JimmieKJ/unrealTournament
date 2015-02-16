@@ -98,7 +98,14 @@ class FAutoReimportManager : public FTickableEditorObject, public FGCObject, pub
 public:
 
 	FAutoReimportManager();
+
+	/** Get a list of currently monitored directories */
 	TArray<FPathAndMountPoint> GetMonitoredDirectories() const;
+
+	/** Report an external change to the manager, such that a subsequent equal change reported by the os be ignored */
+	void ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action);
+
+	/** Destroy this manager */
 	void Destroy();
 
 private:
@@ -177,9 +184,6 @@ private:
 	/** A list of packages to save when we've added a bunch of assets */
 	TArray<UPackage*> PackagesToSave;
 
-	/** Set when we are processing changes to avoid reentrant logic for asset deletions etc */
-	bool bIsProcessingChanges;
-
 	/** The time when the last change to the cache was reported */
 	FTimeLimit StartProcessingDelay;
 
@@ -189,7 +193,6 @@ private:
 
 FAutoReimportManager::FAutoReimportManager()
 	: StateMachine(ECurrentState::Idle)
-	, bIsProcessingChanges(false)
 	, StartProcessingDelay(0.5)
 {
 	// @todo: arodham: update this when modules are reloaded or new factory types are available?
@@ -229,6 +232,17 @@ TArray<FPathAndMountPoint> FAutoReimportManager::GetMonitoredDirectories() const
 		Dirs.Emplace(Monitor.GetDirectory(), Monitor.GetMountPoint());
 	}
 	return Dirs;
+}
+
+void FAutoReimportManager::ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action)
+{
+	for (auto& Monitor : DirectoryMonitors)
+	{
+		if (Filename.StartsWith(Monitor.GetDirectory()))
+		{
+			Monitor.ReportExternalChange(Filename, Action);
+		}
+	}
 }
 
 void FAutoReimportManager::Destroy()
@@ -318,9 +332,11 @@ TOptional<ECurrentState> FAutoReimportManager::ProcessAdditions(const FTimeLimit
 		Pair.Value.Sort([](const UFactory& A, const UFactory& B) { return A.ImportPriority > B.ImportPriority; });
 	}
 
+	const IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+
 	for (auto& Monitor : DirectoryMonitors)
 	{
-		Monitor.ProcessAdditions(PackagesToSave, TimeLimit, Factories, *FeedbackContextOverride);
+		Monitor.ProcessAdditions(Registry, PackagesToSave, TimeLimit, Factories, *FeedbackContextOverride);
 		yield TOptional<ECurrentState>();
 	}
 
@@ -380,11 +396,12 @@ TOptional<ECurrentState> FAutoReimportManager::ProcessDeletions()
 
 	if (AssetsToDelete.Num() > 0)
 	{
-		ObjectTools::DeleteAssets(AssetsToDelete);
 		for (const auto& AssetData : AssetsToDelete)
 		{
-			FeedbackContextOverride->AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Success_DeletedAsset", "Deleted {0}."), FText::FromName(AssetData.AssetName)));
+			FeedbackContextOverride->AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Success_DeletedAsset", "Attempting to delete {0} (its source file has been removed)."), FText::FromName(AssetData.AssetName)));
 		}
+
+		ObjectTools::DeleteAssets(AssetsToDelete);
 	}
 
 	Cleanup();
@@ -416,7 +433,8 @@ TOptional<ECurrentState> FAutoReimportManager::Idle(const FTimeLimit& TimeLimit)
 		}
 		else
 		{
-			if (StartProcessingDelay.Exceeded())
+			const IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+			if (StartProcessingDelay.Exceeded() && !AssetRegistry.IsLoadingAssets())
 			{
 				// Deal with changes to the file system second
 				for (auto& Monitor : DirectoryMonitors)
@@ -614,6 +632,11 @@ UAutoReimportManager::~UAutoReimportManager()
 void UAutoReimportManager::Initialize()
 {
 	Implementation = MakeShareable(new FAutoReimportManager);
+}
+
+void UAutoReimportManager::ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action)
+{
+	Implementation->ReportExternalChange(Filename, Action);
 }
 
 TArray<FPathAndMountPoint> UAutoReimportManager::GetMonitoredDirectories() const

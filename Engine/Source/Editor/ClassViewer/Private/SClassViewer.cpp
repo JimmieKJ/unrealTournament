@@ -2987,4 +2987,9 @@ void SClassViewer::Tick( const FGeometry& AllottedGeometry, const double InCurre
 	}
 }
 
+bool SClassViewer::IsClassAllowed(const UClass* InClass) const
+{
+	return ClassViewer::Helpers::IsClassAllowed(InitOptions, InClass);
+}
+
 #undef LOCTEXT_NAMESPACE

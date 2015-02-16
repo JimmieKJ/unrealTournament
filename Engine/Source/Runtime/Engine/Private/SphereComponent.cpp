@@ -111,7 +111,7 @@ FPrimitiveSceneProxy* USphereComponent::CreateSceneProxy()
 					}
 					else
 					{
-						const FLinearColor DrawSphereColor = GetSelectionColor(SphereColor, IsSelected(), IsHovered(), /*bUseOverlayIntensity=*/false);
+						const FLinearColor DrawSphereColor = GetViewSelectionColor(SphereColor, *View, IsSelected(), IsHovered(), false, IsIndividuallySelected() );
 
 						float AbsScaleX = LocalToWorld.GetScaledAxis(EAxis::X).Size();
 						float AbsScaleY = LocalToWorld.GetScaledAxis(EAxis::Y).Size();

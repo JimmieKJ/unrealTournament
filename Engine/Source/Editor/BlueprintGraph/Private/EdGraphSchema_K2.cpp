@@ -42,6 +42,10 @@ const FName FBlueprintMetadata::MD_NotAllowableBlueprintVariableType(TEXT("NotBl
 const FName FBlueprintMetadata::MD_BlueprintSpawnableComponent(TEXT("BlueprintSpawnableComponent"));
 const FName FBlueprintMetadata::MD_IsBlueprintBase(TEXT("IsBlueprintBase"));
 const FName FBlueprintMetadata::MD_RestrictedToClasses(TEXT("RestrictedToClasses"));
+const FName FBlueprintMetadata::MD_ChildCanTick(TEXT("ChildCanTick"));
+const FName FBlueprintMetadata::MD_ChildCannotTick(TEXT("ChildCannotTick"));
+const FName FBlueprintMetadata::MD_IgnoreCategoryKeywordsInSubclasses(TEXT("IgnoreCategoryKeywordsInSubclasses"));
+
 
 const FName FBlueprintMetadata::MD_Protected(TEXT("BlueprintProtected"));
 const FName FBlueprintMetadata::MD_Latent(TEXT("Latent"));

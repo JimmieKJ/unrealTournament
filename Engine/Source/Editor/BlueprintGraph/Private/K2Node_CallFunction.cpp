@@ -966,6 +966,18 @@ UFunction* UK2Node_CallFunction::GetTargetFunction() const
 	return Function;
 }
 
+UFunction* UK2Node_CallFunction::GetTargetFunctionFromSkeletonClass() const
+{
+	UFunction* TargetFunction = nullptr;
+	UClass* ParentClass = FunctionReference.GetMemberParentClass( this );
+	UBlueprint* OwningBP = ParentClass ? Cast<UBlueprint>( ParentClass->ClassGeneratedBy ) : nullptr;
+	if( UClass* SkeletonClass = OwningBP ? OwningBP->SkeletonGeneratedClass : nullptr )
+	{
+		TargetFunction = SkeletonClass->FindFunctionByName( FunctionReference.GetMemberName() );
+	}
+	return TargetFunction;
+}
+
 UEdGraphPin* UK2Node_CallFunction::GetThenPin() const
 {
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
@@ -1031,8 +1043,12 @@ bool UK2Node_CallFunction::CanPasteHere(const UEdGraph* TargetGraph) const
 		{
 			AllowedFunctionTypes |= UEdGraphSchema_K2::EFunctionType::FT_Imperative;
 		}
-
-		bCanPaste = K2Schema->CanFunctionBeUsedInGraph(FBlueprintEditorUtils::FindBlueprintForGraphChecked(TargetGraph)->GeneratedClass, GetTargetFunction(), TargetGraph, AllowedFunctionTypes, false, FFunctionTargetInfo());
+		UFunction* TargetFunction = GetTargetFunction();
+		if( !TargetFunction )
+		{
+			TargetFunction = GetTargetFunctionFromSkeletonClass();
+		}
+		bCanPaste = K2Schema->CanFunctionBeUsedInGraph(FBlueprintEditorUtils::FindBlueprintForGraphChecked(TargetGraph)->GeneratedClass, TargetFunction, TargetGraph, AllowedFunctionTypes, false, FFunctionTargetInfo());
 	}
 	
 	return bCanPaste;
@@ -2034,7 +2050,7 @@ FName UK2Node_CallFunction::GetPaletteIcon(FLinearColor& OutColor) const
 
 bool UK2Node_CallFunction::ReconnectPureExecPins(TArray<UEdGraphPin*>& OldPins)
 {
-	if (bIsPureFunc)
+	if (IsNodePure())
 	{
 		// look for an old exec pin
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();

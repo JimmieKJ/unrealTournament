@@ -101,10 +101,9 @@ void SCreateAssetFromObject::Construct(const FArguments& InArgs, TSharedPtr<SWin
 				.ContentPadding(FMargin(8, 2, 8, 2))
 				.OnClicked(this, &SCreateAssetFromObject::OnCreateAssetFromActorClicked)
 				.IsEnabled(this, &SCreateAssetFromObject::IsCreateAssetFromActorEnabled)
-				[
-					SNew(STextBlock)
-					.Text(CreateButtonText)
-				]
+				.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+				.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
+				.Text(CreateButtonText)
 			]
 			+ SHorizontalBox::Slot()
 			.Padding(0, 2, 0, 0)
@@ -114,10 +113,9 @@ void SCreateAssetFromObject::Construct(const FArguments& InArgs, TSharedPtr<SWin
 				.VAlign(VAlign_Bottom)
 				.ContentPadding(FMargin(8, 2, 8, 2))
 				.OnClicked(this, &SCreateAssetFromObject::OnCancelCreateAssetFromActor)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("CancelButtonText", "Cancel"))
-				]
+				.ButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
+				.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
+				.Text(LOCTEXT("CancelButtonText", "Cancel"))
 			]
 		]
 	];

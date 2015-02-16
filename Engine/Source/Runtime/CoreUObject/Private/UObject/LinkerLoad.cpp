@@ -2193,7 +2193,6 @@ bool ULinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 
 		if (!bWasFullyLoaded)
 		{
-
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 			// when LOAD_DeferDependencyLoads is in play, we usually head off 
 			// dependency loads before we get to this point, but there are two 
@@ -2632,10 +2631,28 @@ void ULinkerLoad::LoadAllObjects( bool bForcePreload )
 #if WITH_EDITOR
 		SlowTask.EnterProgressFrame(1);
 #endif
-		if(ExportIndex == MetaDataIndex)
+		if (ExportIndex == MetaDataIndex)
 		{
 			continue;
 		}
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+		// this is here to prevent infinite recursion; if IsExportBeingResolved() 
+		// returns true, then that means the export's class is currently being 
+		// force-generated... in that scenario, the export's Object member would 
+		// not have been set yet, and the call below to CreateExport() would put 
+		// us right back here in the same situation (CreateExport() needs the 
+		// export's Object set in order to return early... it's what makes this 
+		// function reentrant)
+		//
+		// since we don't actually use the export object here at this point, 
+		// then it is safe to skip over it (it's already being created further 
+		// up the callstack, so don't worry about it being missed)
+		if (IsExportBeingResolved(ExportIndex))
+		{
+			continue;
+		}
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 		CreateExportAndPreload(ExportIndex, bForcePreload);
 	}
@@ -3224,9 +3241,13 @@ UObject* ULinkerLoad::CreateExport( int32 Index )
 			}
 			else if ((Export.Object == nullptr) && !(Export.ObjectFlags & RF_ClassDefaultObject))
 			{
-				if (UObject* PlaceholderObj = DeferExportCreation(Index))
+				bool const bExportWasDeferred = DeferExportCreation(Index);
+				if (bExportWasDeferred)
 				{
-					return PlaceholderObj; 
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+					check(Export.Object != nullptr);
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+					return Export.Object;
 				}				
 			}
 #else  // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
@@ -3256,23 +3277,6 @@ UObject* ULinkerLoad::CreateExport( int32 Index )
 				}
 			}
 		}
-#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
-		else if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(LoadClass))
-		{
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			// this blueprint package's CDO should NOT be using a placeholder 
-			// class (its class should be internal to this package)
-			check(!(Export.ObjectFlags & RF_ClassDefaultObject));
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			if (Export.Object == nullptr)
-			{
-				if (UObject* PlaceholderObj = DeferExportCreation(Index))
-				{
-					return PlaceholderObj;
-				}
-			}
-		}
-#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 		// we're going to have troubles if we're attempting to create an export 
@@ -3496,26 +3500,30 @@ UObject* ULinkerLoad::CreateExport( int32 Index )
 		
 		if( Export.Object )
 		{
-			// Check to see if LoadClass is a blueprint, which potentially needs to be refreshed and regenerated.  If so, regenerate and patch it back into the export table
-			if( !LoadClass->bCooked
-				&& LoadClass->ClassGeneratedBy 
-				&& (LoadClass->GetOutermost() != GetTransientPackage()) 
-				&& ((Export.ObjectFlags&RF_ClassDefaultObject) != 0) )
-			{
-#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
-				if ( (LoadFlags & LOAD_DeferDependencyLoads) != 0
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-					&& !FBlueprintSupport::IsDeferredCDOSerializationDisabled()
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-				   )
-				{
-					// if LOAD_DeferDependencyLoads is set, then we're already
-					// serializing the blueprint's class somewhere up the chain,
-					DeferredCDOIndex = Index;
-					return Export.Object;
-				}
-#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+			bool const bIsBlueprintCDO = ((Export.ObjectFlags & RF_ClassDefaultObject) != 0) && (LoadClass->ClassGeneratedBy != nullptr);
 
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+			bool bDeferCDOSerialization = bIsBlueprintCDO && ((LoadFlags & LOAD_DeferDependencyLoads) != 0);
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+			bDeferCDOSerialization &= !FBlueprintSupport::IsDeferredCDOSerializationDisabled();
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS	
+
+			if (bDeferCDOSerialization)			
+			{
+				// if LOAD_DeferDependencyLoads is set, then we're already
+				// serializing the blueprint's class somewhere up the chain... 
+				// we don't want the class regenerated while it in the middle of
+				// serializing
+				DeferredCDOIndex = Index;
+				return Export.Object;
+			}
+			else 
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+			// Check to see if LoadClass is a blueprint, which potentially needs 
+			// to be refreshed and regenerated.  If so, regenerate and patch it 
+			// back into the export table
+			if( !LoadClass->bCooked && bIsBlueprintCDO && (LoadClass->GetOutermost() != GetTransientPackage()) )
+			{			
 				{
 					// For classes that are about to be regenerated, make sure we register them with the linker, so future references to this linker index will be valid
 					const EObjectFlags OldFlags = Export.Object->GetFlags();
@@ -3826,6 +3834,10 @@ void ULinkerLoad::Detach( bool bEnsureAllBulkDataIsLoaded )
 	NameMap.Empty();
 	ImportMap.Empty();
 	ExportMap.Empty();
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	ResetDeferredLoadingState();
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 	// Make sure we're never associated with LinkerRoot again.
 	LinkerRoot = NULL;

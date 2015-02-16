@@ -151,8 +151,9 @@ public:
 	 * Move all nodes from this graph to another graph
 	 * @param DestinationGraph	The graph to move the nodes too 
 	 * @param bIsLoading		If true, the node move is occurring during a blueprint load
+	 * @param bInIsCompiling	TRUE if the function is being called during compilation, this will eliminate some nodes that will not be compiled
 	 */
-	void MoveNodesToAnotherGraph(UEdGraph* DestinationGraph, bool bIsLoading);
+	void MoveNodesToAnotherGraph(UEdGraph* DestinationGraph, bool bIsLoading, bool bInIsCompiling = false);
 
 	/** Finds all the nodes of a given minimum type in the graph */
 	template<class MinRequiredType, class ArrayElementType>

@@ -279,7 +279,7 @@ FVector UAnimGraphNode_SkeletalControlBase::ConvertWidgetLocation(const USkeleta
 	return WidgetLoc;
 }
 
-void UAnimGraphNode_SkeletalControlBase::SetDefaultValue(FString& UpdateDefaultValueName, FVector& Value)
+void UAnimGraphNode_SkeletalControlBase::GetDefaultValue(const FString& UpdateDefaultValueName, FVector& OutVec)
 {
 	for (UEdGraphPin* Pin : Pins)
 	{
@@ -287,8 +287,37 @@ void UAnimGraphNode_SkeletalControlBase::SetDefaultValue(FString& UpdateDefaultV
 		{
 			if (GetSchema()->IsCurrentPinDefaultValid(Pin).IsEmpty())
 			{
-				FVector& V = Value;
-				FString Str = FString::Printf(TEXT("%.3f,%.3f,%.3f"), V.X, V.Y, V.Z);
+				FString DefaultString = Pin->GetDefaultAsString();
+				TArray<FString> ResultString;
+
+				//Parse string to split its contents separated by ','
+				DefaultString.Trim();
+				DefaultString.TrimTrailing();
+				DefaultString.ParseIntoArray(&ResultString, TEXT(","), true);
+
+				check(ResultString.Num() == 3);
+
+				OutVec.Set(
+							FCString::Atof(*ResultString[0]),
+							FCString::Atof(*ResultString[1]),
+							FCString::Atof(*ResultString[2])
+							);
+				return;
+			}
+		}
+	}
+	OutVec = FVector::ZeroVector;
+}
+
+void UAnimGraphNode_SkeletalControlBase::SetDefaultValue(const FString& UpdateDefaultValueName, const FVector& Value)
+{
+	for (UEdGraphPin* Pin : Pins)
+	{
+		if (Pin->PinName == UpdateDefaultValueName)
+		{
+			if (GetSchema()->IsCurrentPinDefaultValid(Pin).IsEmpty())
+			{
+				FString Str = FString::Printf(TEXT("%.3f,%.3f,%.3f"), Value.X, Value.Y, Value.Z);
 				if (Pin->DefaultValue != Str)
 				{
 					PreEditChange(NULL);
@@ -299,6 +328,18 @@ void UAnimGraphNode_SkeletalControlBase::SetDefaultValue(FString& UpdateDefaultV
 			}
 		}
 	}
+}
+
+bool UAnimGraphNode_SkeletalControlBase::IsPinShown(const FString& PinName) const
+{
+	for (const FOptionalPinFromProperty& Pin : ShowPinForProperties)
+	{
+		if (Pin.PropertyName.ToString() == PinName)
+		{
+			return Pin.bShowPin;
+		}
+	}
+	return false;
 }
 
 #undef LOCTEXT_NAMESPACE

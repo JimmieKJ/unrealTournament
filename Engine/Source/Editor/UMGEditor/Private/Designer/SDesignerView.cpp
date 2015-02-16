@@ -1681,13 +1681,14 @@ UWidget* SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, con
 			}
 
 			UWidget* Widget = bIsPreview ? SelectedDragDropOp->Preview : SelectedDragDropOp->Template;
-			if ( !Widget )
-			{
-				Widget = bIsPreview ? SelectedDragDropOp->Preview : SelectedDragDropOp->Template;
-			}
 
 			if ( ensure(Widget) )
 			{
+				if ( !bIsPreview )
+				{
+					Widget->Modify();
+				}
+
 				if ( Widget->GetParent() )
 				{
 					if ( !bIsPreview )
@@ -1787,11 +1788,11 @@ UWidget* SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, con
 					// TODO UMG ERROR Slot can not be created because maybe the max children has been reached.
 					//          Maybe we can traverse the hierarchy and add it to the first parent that will accept it?
 				}
+			}
 
-				if ( bIsPreview )
-				{
-					Transaction.Cancel();
-				}
+			if ( bIsPreview )
+			{
+				Transaction.Cancel();
 			}
 		}
 		else

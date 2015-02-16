@@ -124,14 +124,12 @@ public:
 
 	virtual void OnTabActivated(TSharedPtr<SDockTab> Tab) const override;
 
+	virtual void OnTabBackgrounded(TSharedPtr<SDockTab> Tab) const override;
+
 	virtual void OnTabRefreshed(TSharedPtr<SDockTab> Tab) const override;
 
 	virtual void SaveState(TSharedPtr<SDockTab> Tab, TSharedPtr<FTabPayload> Payload) const override;
 
-//	virtual void OnTabClosed(TSharedRef<SDockTab> Tab, TSharedPtr<FTabPayload> Payload) const override
-//	{
-//		BlueprintEditorPtr.Pin()->RequestSaveEditedObjectState();
-//	}
 protected:
 	virtual TAttribute<FText> ConstructTabNameForObject(UEdGraph* DocumentID) const override
 	{

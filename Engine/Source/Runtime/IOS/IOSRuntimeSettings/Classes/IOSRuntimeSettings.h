@@ -169,19 +169,19 @@ public:
 	uint32 bSupportsLandscapeRightOrientation : 1;
 
 	// Specifies the the display name for the application. This will be displayed under the icon on the device.
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInfo)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInformation)
 	FString BundleDisplayName;
 
 	// Specifies the the name of the application bundle. This is the short name for the application bundle.
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInfo)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInformation)
 	FString BundleName;
 
 	// Specifies the bundle identifier for the application.
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInfo)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInformation)
 	FString BundleIdentifier;
 
 	// Specifies the version for the application.
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInfo)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInformation)
 	FString VersionInfo;
     
     /** Set the maximum frame rate to save on power consumption */

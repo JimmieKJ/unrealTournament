@@ -331,8 +331,10 @@ bool FModuleDescriptor::IsLoadedInCurrentConfiguration() const
 
 void FModuleDescriptor::LoadModulesForPhase(ELoadingPhase::Type LoadingPhase, const TArray<FModuleDescriptor>& Modules, TMap<FName, EModuleLoadResult>& ModuleLoadErrors)
 {
+	FScopedSlowTask SlowTask(Modules.Num());
 	for(int Idx = 0; Idx < Modules.Num(); Idx++)
 	{
+		SlowTask.EnterProgressFrame(1);
 		const FModuleDescriptor& Descriptor = Modules[Idx];
 
 		// Don't need to do anything if this module is already loaded

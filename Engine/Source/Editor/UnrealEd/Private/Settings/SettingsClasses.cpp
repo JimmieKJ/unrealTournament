@@ -55,6 +55,7 @@ UEditorExperimentalSettings::UEditorExperimentalSettings( const FObjectInitializ
 	: Super(ObjectInitializer)
 	, bInWorldBPEditing(true)
 	, bUnifiedBlueprintEditor(true)
+	, bBlueprintableComponents(true)
 
 {
 }

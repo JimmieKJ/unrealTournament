@@ -3,8 +3,6 @@
 #include "EnginePrivate.h"
 #include "GameFramework/DefaultPhysicsVolume.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogVolume, Log, All);
-
 ADefaultPhysicsVolume::ADefaultPhysicsVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {

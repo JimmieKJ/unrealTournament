@@ -2377,6 +2377,12 @@ bool FBlueprintEditorUtils::IsDataOnlyBlueprint(const UBlueprint* Blueprint)
 		return false;
 	}
 
+
+	if( Blueprint->ParentClass->IsChildOf( UActorComponent::StaticClass() ) )
+	{
+		return false;
+	}
+
 	// No new variables defined
 	if (Blueprint->NewVariables.Num() > 0)
 	{
@@ -2433,7 +2439,14 @@ bool FBlueprintEditorUtils::IsDataOnlyBlueprint(const UBlueprint* Blueprint)
 	UEdGraph* EventGraph = (Blueprint->UbergraphPages.Num() == 1) ? Blueprint->UbergraphPages[0] : NULL;
 	if( EventGraph && EventGraph->Nodes.Num() > 0 )
 	{
-		return false;
+		for(UEdGraphNode* GraphNode : EventGraph->Nodes)
+		{
+			// If there is an enabled node in the event graph, the Blueprint is not data only
+			if (GraphNode->bIsNodeEnabled)
+			{
+				return false;
+			}
+		}
 	}
 
 	// No implemented interfaces
@@ -3382,21 +3395,22 @@ void FBlueprintEditorUtils::GetNewVariablesOfType( const UBlueprint* Blueprint, 
 
 void FBlueprintEditorUtils::GetLocalVariablesOfType( const UEdGraph* Graph, const FEdGraphPinType& Type, TArray<FName>& OutVars)
 {
-	if(Graph && Graph->GetSchema()->GetGraphType(Graph) == GT_Function)
+	if ((Graph != nullptr) && (Graph->GetSchema()->GetGraphType(Graph) == GT_Function))
 	{
 		TArray<UK2Node_FunctionEntry*> GraphNodes;
 		Graph->GetNodesOfClass<UK2Node_FunctionEntry>(GraphNodes);
 
-		bool bFoundLocalVariable = false;
-
-		// There is only ever 1 function entry
-		check(GraphNodes.Num() == 1);
-
-		for( auto& LocalVar : GraphNodes[0]->LocalVariables )
+		if (GraphNodes.Num() > 0)
 		{
-			if(LocalVar.VarType == Type)
+			// If there is an entry node, there should only be one
+			check(GraphNodes.Num() == 1);
+
+			for (const FBPVariableDescription& LocalVar : GraphNodes[0]->LocalVariables)
 			{
-				OutVars.Add(LocalVar.VarName);
+				if (LocalVar.VarType == Type)
+				{
+					OutVars.Add(LocalVar.VarName);
+				}
 			}
 		}
 	}

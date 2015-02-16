@@ -47,7 +47,7 @@ public:
 	UNetDriver * Driver;
 };
 
-static bool IsCustomDeltaProperty( UProperty * Property )
+bool IsCustomDeltaProperty( UProperty * Property )
 {
 	UStructProperty * StructProperty = Cast< UStructProperty >( Property );
 

@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "SComponentClassCombo.h"
-
 DECLARE_MULTICAST_DELEGATE(FOnComponentTypeListChanged);
 
 typedef TSharedPtr<class FComponentClassComboEntry> FComponentClassComboEntryPtr;
@@ -25,16 +23,24 @@ struct UNREALED_API FComponentTypeRegistry
 	static FComponentTypeRegistry& Get();
 
 	/**
-	* Called when the user changes the text in the search box.
-	* @OutComponentList Pointer that will be set to the (globally shared) component type list
-	* @return Deleate that can be used to handle change notifications. change notifications are raised when entries are 
-	*	added or removed from the component type list
-	*/
+	 * Called when the user changes the text in the search box.
+	 * @OutComponentList Pointer that will be set to the (globally shared) component type list
+	 * @return Deleate that can be used to handle change notifications. change notifications are raised when entries are 
+	 *	added or removed from the component type list
+	 */
 	FOnComponentTypeListChanged& SubscribeToComponentList(TArray<FComponentClassComboEntryPtr>*& OutComponentList);
 	FOnComponentTypeListChanged& SubscribeToComponentList(const TArray<FComponentTypeEntry>*& OutComponentList);
 	FOnComponentTypeListChanged& GetOnComponentTypeListChanged();
 
+	/**
+	 * Called when a specific class has been updated and should force the component type registry to update as well
+	 */
+	void InvalidateClass(TSubclassOf<UActorComponent> ClassToUpdate);
+private:
+	void OnProjectHotReloaded( bool bWasTriggeredAutomatically );
+
 private:
 	FComponentTypeRegistry();
+	~FComponentTypeRegistry();
 	struct FComponentTypeRegistryData* Data;
 };

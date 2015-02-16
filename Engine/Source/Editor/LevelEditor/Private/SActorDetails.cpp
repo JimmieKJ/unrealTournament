@@ -178,6 +178,17 @@ void SActorDetails::PostUndo(bool bSuccess)
 	// Enable the selection guard to prevent OnTreeSelectionChanged() from altering the editor's component selection
 	TGuardValue<bool> SelectionGuard(bSelectionGuard, true);
 
+	if (!DetailsView->IsLocked())
+	{
+		// Make sure the locked actor selection matches the editor selection
+		AActor* SelectedActor = GetSelectedActorInEditor();
+		if (SelectedActor && SelectedActor != LockedActorSelection.Get())
+		{
+			LockedActorSelection = SelectedActor;
+		}
+	}
+	
+
 	// Refresh the tree and update the selection to match the world
 	SCSEditor->UpdateTree();
 	UpdateComponentTreeFromEditorSelection();
@@ -231,8 +242,8 @@ void SActorDetails::OnEditorSelectionChanged(UObject* Object)
 
 AActor* SActorDetails::GetSelectedActorInEditor() const
 {
-	//@todo this won't work w/ multi-select
-	return Cast<AActor>(*GEditor->GetSelectedActorIterator());
+	//@todo this doesn't work w/ multi-select
+	return GEditor->GetSelectedActors()->GetTop<AActor>();
 }
 
 AActor* SActorDetails::GetActorContext() const

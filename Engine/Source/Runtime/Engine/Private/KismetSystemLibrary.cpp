@@ -220,6 +220,13 @@ void UKismetSystemLibrary::PrintString(UObject* WorldContextObject, const FStrin
 #endif
 }
 
+void UKismetSystemLibrary::PrintText(UObject* WorldContextObject, const FText& InText, bool bPrintToScreen, bool bPrintToLog, FLinearColor TextColor)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) // Do not Print in Shipping or Test
+	PrintString(WorldContextObject, InText.ToString(), bPrintToScreen, bPrintToLog, TextColor);
+#endif
+}
+
 void UKismetSystemLibrary::PrintWarning(const FString& InString)
 {
 	PrintString(NULL, InString, true, true);

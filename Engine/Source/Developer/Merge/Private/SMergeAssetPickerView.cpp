@@ -255,7 +255,6 @@ TSharedRef<SWidget> SMergeAssetPickerPanel::MakeAssetPickerMenu()
 	AssetPickerConfig.bAllowNullSelection = true;
 	AssetPickerConfig.Filter.bRecursiveClasses = true;
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SMergeAssetPickerPanel::OnAssetSelected);
-	AssetPickerConfig.ThumbnailScale = 0;
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 	AssetPickerConfig.bAllowDragging = false;
 

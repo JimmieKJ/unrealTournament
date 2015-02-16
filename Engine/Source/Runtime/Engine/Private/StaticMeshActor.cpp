@@ -111,6 +111,8 @@ void AStaticMeshActor::PostEditChangeChainProperty(FPropertyChangedChainEvent& P
 
 bool AStaticMeshActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 {
+	Super::GetReferencedContentObjects(Objects);
+
 	if (StaticMeshComponent && StaticMeshComponent->StaticMesh)
 	{
 		Objects.Add(StaticMeshComponent->StaticMesh);

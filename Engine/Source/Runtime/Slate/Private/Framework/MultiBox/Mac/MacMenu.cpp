@@ -152,7 +152,7 @@ void FSlateMacMenu::UpdateWithMultiBox(const TSharedPtr< FMultiBox > MultiBox)
 		}
 
 		FPlatformMisc::bChachedMacMenuStateNeedsUpdate = true;
-	});
+	}, NSDefaultRunLoopMode, false);
 }
 
 void FSlateMacMenu::UpdateMenu(FMacMenu* Menu)

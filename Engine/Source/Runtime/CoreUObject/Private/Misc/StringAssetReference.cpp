@@ -102,7 +102,17 @@ bool FStringAssetReference::SerializeFromMismatchedTag(struct FPropertyTag const
 	return SerializeFromMismatchedTagTemplate<UObjectTypePolicy>(AssetLongPathname, Tag, Ar);
 }
 
-UObject *FStringAssetReference::ResolveObject() const
+UObject* FStringAssetReference::TryLoad() const
+{
+	if ( IsValid() )
+	{
+		return LoadObject<UObject>(nullptr, *ToString());
+	}
+
+	return nullptr;
+}
+
+UObject* FStringAssetReference::ResolveObject() const
 {
 	// Don't try to resolve if we're saving a package because StaticFindObject can't be used here
 	// and we usually don't want to force references to weak pointers while saving.

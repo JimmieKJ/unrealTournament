@@ -72,8 +72,6 @@ TSharedRef<SWidget> SPropertyAssetPicker::OnGenerateAssetPicker()
 	AssetPickerConfig.Filter.bRecursiveClasses = true;
 	// Set a delegate for setting the asset from the picker
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SPropertyAssetPicker::OnAssetSelectedFromPicker);
-	// Use the smallest size thumbnails
-	AssetPickerConfig.ThumbnailScale = 0;
 	AssetPickerConfig.bAllowDragging = false;
 	// Use the list view by default
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;

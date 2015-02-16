@@ -33,8 +33,34 @@ namespace EVariableReplication
 	};
 }
 
+class FBlueprintDetails : public IDetailCustomization
+{
+public:
+	FBlueprintDetails(TWeakPtr<SMyBlueprint> InMyBlueprint)
+		: Blueprint(InMyBlueprint.Pin()->GetBlueprintObj())
+	{
+	}
+
+	FBlueprintDetails(TWeakPtr<FBlueprintEditor> InBlueprintEditorPtr)
+		: Blueprint(InBlueprintEditorPtr.Pin()->GetBlueprintObj())
+	{
+	}
+
+protected:
+
+	UBlueprint* GetBlueprintObj() const { return Blueprint.Get(); }
+
+	void AddEventsCategory(IDetailLayoutBuilder& DetailBuilder, UProperty* VariableProperty);
+	FReply HandleAddOrViewEventForVariable(const FName EventName, FName PropertyName, TWeakObjectPtr<UClass> PropertyClass);
+	int32 HandleAddOrViewIndexForButton(const FName EventName, FName PropertyName) const;
+
+private:
+	/** Pointer back to my parent tab */
+	TWeakObjectPtr<UBlueprint> Blueprint;
+};
+
 /** Details customization for variables selected in the MyBlueprint panel */
-class FBlueprintVarActionDetails : public IDetailCustomization
+class FBlueprintVarActionDetails : public FBlueprintDetails
 {
 public:
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
@@ -44,7 +70,8 @@ public:
 	}
 
 	FBlueprintVarActionDetails(TWeakPtr<SMyBlueprint> InMyBlueprint)
-		: MyBlueprint(InMyBlueprint)
+		: FBlueprintDetails(InMyBlueprint)
+		, MyBlueprint(InMyBlueprint)
 		, bIsVarNameInvalid(false)
 	{
 	}
@@ -56,7 +83,6 @@ public:
 
 private:
 	/** Accessors passed to parent */
-	UBlueprint* GetBlueprintObj() const {return MyBlueprint.Pin()->GetBlueprintObj();}
 	FEdGraphSchemaAction_K2Var* MyBlueprintSelectionAsVar() const {return MyBlueprint.Pin()->SelectionAsVar();}
 	FEdGraphSchemaAction_K2LocalVar* MyBlueprintSelectionAsLocalVar() const {return MyBlueprint.Pin()->SelectionAsLocalVar();}
 	UK2Node_Variable* EdGraphSelectionAsVar() const;
@@ -646,12 +672,13 @@ private:
 
 
 /** Details customization for Blueprint Component settings */
-class FBlueprintComponentDetails : public IDetailCustomization
+class FBlueprintComponentDetails : public FBlueprintDetails
 {
 public:
 	/** Constructor */
 	FBlueprintComponentDetails(TWeakPtr<FBlueprintEditor> InBlueprintEditorPtr)
-		: BlueprintEditorPtr(InBlueprintEditorPtr)
+		: FBlueprintDetails(InBlueprintEditorPtr)
+		, BlueprintEditorPtr(InBlueprintEditorPtr)
 		, bIsVariableNameInvalid(false)
 	{
 
@@ -667,9 +694,6 @@ public:
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailLayout ) override;
 
 protected:
-	/** Accessors passed to parent */
-	UBlueprint* GetBlueprintObj() const {return BlueprintEditorPtr.Pin()->GetBlueprintObj();}
-
 	/** Callbacks for widgets */
 	FText OnGetVariableText() const;
 	void OnVariableTextChanged(const FText& InNewText);
@@ -681,12 +705,6 @@ protected:
 	void OnVariableCategoryTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit, FName VarName);
 	void OnVariableCategorySelectionChanged(TSharedPtr<FString> ProposedSelection, ESelectInfo::Type /*SelectInfo*/);
 	TSharedRef<ITableRow> MakeVariableCategoryViewWidget(TSharedPtr<FString> Item, const TSharedRef< STableViewBase >& OwnerTable);
-
-	/** Find common base class from current selection */
-	UClass* FindCommonBaseClassFromSelected() const;
-
-	/** Build Event Menu for currently selected components */
-	TSharedRef<SWidget> BuildEventsMenuForComponents() const;
 
 	FText GetSocketName() const;
 	void OnBrowseSocket();

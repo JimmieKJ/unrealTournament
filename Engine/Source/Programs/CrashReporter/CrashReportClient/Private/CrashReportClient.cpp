@@ -40,6 +40,7 @@ FCrashReportClient::FCrashReportClient(const FPlatformErrorReport& InErrorReport
 	, bBeginUploadCalled(false)
 	, bShouldWindowBeHidden(false)
 	, bAllowToBeContacted(true)
+	, bSendData(false)
 {
 
 	if (!ErrorReport.TryReadDiagnosticsFile(DiagnosticText) && !FParse::Param(FCommandLine::Get(), TEXT("no-local-diagnosis")))
@@ -65,6 +66,7 @@ FCrashReportClient::~FCrashReportClient()
 
 FReply FCrashReportClient::Submit()
 {
+	bSendData = true;
 	StoreCommentAndUpload();
 	bShouldWindowBeHidden = true;
 	return FReply::Handled();
@@ -94,6 +96,9 @@ void FCrashReportClient::UserCommentChanged(const FText& Comment, ETextCommit::T
 
 void FCrashReportClient::RequestCloseWindow(const TSharedRef<SWindow>& Window)
 {
+	// Don't send the data.
+	bSendData = false;
+
 	// We may still processing minidump etc. so start the main ticker.
 	StartTicker();
 	bShouldWindowBeHidden = true;
@@ -133,19 +138,23 @@ bool FCrashReportClient::Tick(float UnusedDeltaTime)
 	{
 		return true;
 	}
-	else if( !bBeginUploadCalled )
+	
+	if( bSendData )
 	{
-		// Can be called only when we have all files.
-		Uploader.BeginUpload(ErrorReport);
-		bBeginUploadCalled = true;
-	}
+		if( !bBeginUploadCalled )
+		{
+			// Can be called only when we have all files.
+			Uploader.BeginUpload( ErrorReport );
+			bBeginUploadCalled = true;
+		}
 
-	// IsWorkDone will always return true here (since uploader can't finish until the diagnosis has been sent), but it
-	//  has the side effect of joining the worker thread.
-	if( !Uploader.IsFinished() )
-	{
-		// More ticks, please
-		return true;
+		// IsWorkDone will always return true here (since uploader can't finish until the diagnosis has been sent), but it
+		//  has the side effect of joining the worker thread.
+		if( !Uploader.IsFinished() )
+		{
+			// More ticks, please
+			return true;
+		}
 	}
 
 	FPlatformMisc::RequestExit(false);

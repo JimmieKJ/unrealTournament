@@ -31,10 +31,25 @@ struct COREUOBJECT_API FStringClassReference : public FStringAssetReference
 	{ }
 
 	/**
+	* Attempts to load the class.
+	* @return Loaded UObject, or null if the class fails to load, or if the reference is not valid.
+	*/
+	template<typename T>
+	UClass* TryLoadClass() const
+	{
+		if ( IsValid() )
+		{
+			return LoadClass<T>(nullptr, *ToString(), nullptr, LOAD_None, nullptr);
+		}
+
+		return nullptr;
+	}
+
+	/**
 	 * Attempts to find a currently loaded object that matches this object ID
 	 * @return Found UClass, or NULL if not currently loaded
 	 */
-	UClass *ResolveClass() const;
+	UClass* ResolveClass() const;
 
 	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
 

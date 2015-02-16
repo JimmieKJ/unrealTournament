@@ -705,7 +705,7 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily)
 
 	FSceneView* View = new FSceneView(ViewInitOptions);
 
-	View->SubduedSelectionOutlineColor = GetDefault<UEditorStyleSettings>()->GetSubduedSelectionColor();
+	View->SubduedSelectionOutlineColor = GEngine->GetSubduedSelectionOutlineColor();
 
 	ViewFamily->Views.Add(View);
 
@@ -2032,15 +2032,17 @@ void FEditorViewportClient::StopTracking()
 		Widget->SetCurrentAxis( EAxisList::None );
 		Invalidate( true, true );
 
-	/*	if ( !MouseDeltaTracker->UsingDragTool() )
-		{
-			Widget->SetCurrentAxis( AXIS_None );
-			Invalidate( true, true );
-		}*/
-
 		SetRequiredCursorOverride( false );
 
 		bWidgetAxisControlledByDrag = false;
+
+		// Update the hovered hit proxy here.  If the user didnt move the mouse
+		// they still need to be able to pick up the gizmo without moving the mouse again
+		Viewport->InvalidateHitProxy();
+		HHitProxy* HitProxy = Viewport->GetHitProxy(CachedMouseX,CachedMouseY);
+
+		CheckHoveredHitProxy(HitProxy);
+
 		bIsTracking = false;	
 	}
 

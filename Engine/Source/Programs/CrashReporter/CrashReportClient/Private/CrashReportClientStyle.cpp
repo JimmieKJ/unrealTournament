@@ -25,7 +25,7 @@ void FCrashReportClientStyle::Shutdown()
 }
 
 #define TTF_FONT(RelativePath, ...) FSlateFontInfo(ContentFromEngine(TEXT(RelativePath), TEXT(".ttf")), __VA_ARGS__)
-#define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(Style.RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
+#define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(ContentFromEngine(RelativePath, TEXT(".png")), __VA_ARGS__)
 
 namespace
 {
@@ -42,7 +42,7 @@ TSharedRef< FSlateStyleSet > FCrashReportClientStyle::Create()
 	FSlateStyleSet& Style = StyleRef.Get();
 
 	const FTextBlockStyle DefaultText = FTextBlockStyle()
-		.SetFont(TTF_FONT("Fonts/Roboto-Black", 10))
+		.SetFont(TTF_FONT("Fonts/Roboto-Bold", 10))
 		.SetColorAndOpacity(FSlateColor::UseForeground())
 		.SetShadowOffset(FVector2D::ZeroVector)
 		.SetShadowColorAndOpacity(FLinearColor::Black);
@@ -65,11 +65,13 @@ TSharedRef< FSlateStyleSet > FCrashReportClientStyle::Create()
 	FSlateBrush* GenericWhiteBox = new IMAGE_BRUSH( "Old/White", Icon16x16 );
 
 	// SEditableTextBox defaults...
+	const FScrollBarStyle& ScrollBarStyle = FCoreStyle::Get().GetWidgetStyle<FScrollBarStyle>( "ScrollBar" );
 	const FEditableTextBoxStyle NormalEditableTextBoxStyle = FEditableTextBoxStyle()
 		.SetBackgroundImageNormal( *GenericWhiteBox )
 		.SetBackgroundImageHovered( *GenericWhiteBox )
 		.SetBackgroundImageFocused( *GenericWhiteBox )
-		.SetBackgroundImageReadOnly( *GenericWhiteBox );
+		.SetBackgroundImageReadOnly( *GenericWhiteBox )
+		.SetScrollBarStyle( ScrollBarStyle );
 	{
 		Style.Set( "NormalEditableTextBox", NormalEditableTextBoxStyle );
 	}

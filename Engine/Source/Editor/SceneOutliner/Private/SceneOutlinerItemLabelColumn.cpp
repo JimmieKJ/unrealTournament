@@ -266,7 +266,7 @@ private:
 		if (TreeItem->GetSharedData().bRepresentingPlayWorld && !TreeItem->bExistsInCurrentWorldAndPIE)
 		{
 			// Highlight actors that are exclusive to PlayWorld
-			return FLinearColor(0.12f, 0.56f, 1.0f);
+			return FLinearColor(0.9f, 0.8f, 0.4f);
 		}
 
 		// also darken items that are non selectable in the active mode(s)

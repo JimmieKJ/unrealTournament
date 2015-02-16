@@ -54,6 +54,8 @@ void STutorialOverlay::Construct(const FArguments& InArgs, UEditorTutorial* InTu
 					.IsNextEnabled(InArgs._IsNextEnabled)
 					.IsStandalone(InArgs._IsStandalone)
 					.WrapTextAt(600.0f)
+					.NextButtonText(InStage->NextButtonText)
+					.BackButtonText(InStage->BackButtonText)
 				]
 			];
 		}
@@ -83,8 +85,7 @@ void STutorialOverlay::Construct(const FArguments& InArgs, UEditorTutorial* InTu
 						.WrapTextAt(WidgetContent.ContentWidth)
 						.Anchor(WidgetContent.WidgetAnchor)
 						.AllowNonWidgetContent(InArgs._AllowNonWidgetContent)
-						.OnWasWidgetDrawn(InArgs._OnWasWidgetDrawn)
-						.NextButtonText(InStage->NextButtonText);
+						.OnWasWidgetDrawn(InArgs._OnWasWidgetDrawn);
 					
 					PerformWidgetInteractions(InTutorial, WidgetContent); 					
 

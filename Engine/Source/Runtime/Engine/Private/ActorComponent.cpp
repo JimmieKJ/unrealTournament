@@ -127,45 +127,63 @@ void UActorComponent::PostLoad()
 {
 	Super::PostLoad();
 
-	// TODO: Wrap all this up with an engine version
-	if (bCreatedByConstructionScript_DEPRECATED)
+	// TODO: Wrap all this up with an engine version, for now just don't do it in cooked builds since we know they are good
+	if (!FPlatformProperties::RequiresCookedData())
 	{
-		CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
-	}
-	else if (bInstanceComponent_DEPRECATED)
-	{
-		CreationMethod = EComponentCreationMethod::Instance;
-	}
-
-	if (CreationMethod == EComponentCreationMethod::SimpleConstructionScript)
-	{
-		UBlueprintGeneratedClass* Class = Cast/*Checked*/<UBlueprintGeneratedClass>(GetOuter()->GetClass());
-		while (Class)
+		if (bCreatedByConstructionScript_DEPRECATED)
 		{
-			USimpleConstructionScript* SCS = Class->SimpleConstructionScript;
-			if (SCS != nullptr && SCS->FindSCSNode(GetFName()))
+			CreationMethod = EComponentCreationMethod::SimpleConstructionScript;
+		}
+		else if (bInstanceComponent_DEPRECATED)
+		{
+			CreationMethod = EComponentCreationMethod::Instance;
+		}
+
+		if (CreationMethod == EComponentCreationMethod::SimpleConstructionScript)
+		{
+			UBlueprintGeneratedClass* Class = Cast/*Checked*/<UBlueprintGeneratedClass>(GetOuter()->GetClass());
+			while (Class)
 			{
-				break;
-			}
-			else
-			{
-				Class = Cast<UBlueprintGeneratedClass>(Class->GetSuperClass());
-				if (Class == nullptr)
+				USimpleConstructionScript* SCS = Class->SimpleConstructionScript;
+				if (SCS != nullptr && SCS->FindSCSNode(GetFName()))
 				{
-					CreationMethod = EComponentCreationMethod::UserConstructionScript;
+					break;
+				}
+				else
+				{
+					Class = Cast<UBlueprintGeneratedClass>(Class->GetSuperClass());
+					if (Class == nullptr)
+					{
+						CreationMethod = EComponentCreationMethod::UserConstructionScript;
+					}
 				}
 			}
 		}
 	}
-// 	if (!HasAllFlags(RF_Public) && GetOuter()->IsA<UBlueprintGeneratedClass>())
-// 	{
-// 		SetFlags(RF_Public);
-// 		ULinkerLoad::RefreshExportFlags(this);
-// 	}
+}
+
+bool UActorComponent::Rename( const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags )
+{
+	bRoutedPostRename = false;
+
+	const FName OldName = GetFName();
+	const UObject* OldOuter = GetOuter();
+	
+	const bool bRenameSuccessful = Super::Rename(InName, NewOuter, Flags);
+	
+	const bool bMoved = (OldName != GetFName()) || (OldOuter != GetOuter());
+	if (!bRoutedPostRename && ((Flags & REN_Test) == 0) && bMoved)
+	{
+		UE_LOG(LogActorComponent, Fatal, TEXT("%s failed to route PostRename.  Please call Super::PostRename() in your <className>::PostRename() function. "), *GetFullName() );
+	}
+
+	return bRenameSuccessful;
 }
 
 void UActorComponent::PostRename(UObject* OldOuter, const FName OldName)
 {
+	Super::PostRename(OldOuter, OldName);
+
 	if (OldOuter != GetOuter())
 	{
 		AActor* Owner = GetOwner();
@@ -183,6 +201,8 @@ void UActorComponent::PostRename(UObject* OldOuter, const FName OldName)
 			}
 		}
 	}
+
+	bRoutedPostRename = true;
 }
 
 bool UActorComponent::IsCreatedByConstructionScript() const

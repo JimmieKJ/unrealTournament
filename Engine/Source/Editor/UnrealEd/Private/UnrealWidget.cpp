@@ -1440,7 +1440,8 @@ void FWidget::DrawPartialRotationArc(const FSceneView* View, FPrimitiveDrawInter
 	}
 	PDI->SetHitProxy( NULL );
 
-	if (bIsPerspective)
+	const bool bIsHitProxyView = View->Family->EngineShowFlags.HitProxies;
+	if (bIsPerspective && !bIsHitProxyView && !PDI->IsHitTesting())
 	{
 		FThickArcParams InnerArcParams(PDI, InLocation, GridMaterial, 0.0f, InnerRadius);
 		FColor InnerColor = InColor;

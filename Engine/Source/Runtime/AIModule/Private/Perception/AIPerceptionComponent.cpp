@@ -208,10 +208,13 @@ void UAIPerceptionComponent::CleanUp()
 			AIPerceptionSys->UnregisterListener(*this);
 		}
 
-		AActor* Owner = GetOwner();
-		if (Owner != nullptr)
+		if (HasAnyFlags(RF_BeginDestroyed) == false)
 		{
-			Owner->OnEndPlay.RemoveDynamic(this, &UAIPerceptionComponent::OnOwnerEndPlay);
+			AActor* Owner = GetOwner();
+			if (Owner != nullptr)
+			{
+				Owner->OnEndPlay.RemoveDynamic(this, &UAIPerceptionComponent::OnOwnerEndPlay);
+			}
 		}
 
 		bCleanedUp = true;

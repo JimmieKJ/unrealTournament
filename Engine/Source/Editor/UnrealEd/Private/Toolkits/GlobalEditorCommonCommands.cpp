@@ -25,7 +25,6 @@ public:
 		FAssetPickerConfig AssetPickerConfig;
 		AssetPickerConfig.OnAssetDoubleClicked = FOnAssetSelected::CreateSP(this, &SGlobalOpenAssetDialog::OnAssetSelectedFromPicker);
 		AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateSP(this, &SGlobalOpenAssetDialog::OnPressedEnterOnAssetsInPicker);
-		AssetPickerConfig.ThumbnailScale = 0.1f;
 		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 		AssetPickerConfig.bAllowNullSelection = false;
 		AssetPickerConfig.bShowBottomToolbar = true;

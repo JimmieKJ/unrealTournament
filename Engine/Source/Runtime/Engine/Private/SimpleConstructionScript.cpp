@@ -151,7 +151,7 @@ void USimpleConstructionScript::PostLoad()
 	
 	int32 NodeIndex;
 	TArray<USCS_Node*> Nodes = GetAllNodes();
-	
+
 #if WITH_EDITOR
 	// Get the Blueprint that owns the SCS
 	UBlueprint* Blueprint = GetBlueprint();

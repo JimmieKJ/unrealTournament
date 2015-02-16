@@ -72,6 +72,9 @@ void UK2Node_Timeline::AllocateDefaultPins()
 	UTimelineTemplate* Timeline = Blueprint->FindTimelineTemplateByVariableName(TimelineName);
 	if(Timeline)
 	{
+		// Ensure the timeline template is fully loaded or the node representation will be wrong.
+		PreloadObject(Timeline);
+
 		for(int32 i=0; i<Timeline->FloatTracks.Num(); i++)
 		{
 			FTTFloatTrack& FloatTrack = Timeline->FloatTracks[i];

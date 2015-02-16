@@ -633,6 +633,9 @@ private:
 	/** Delegate handler for when an actor is spawned */
 	void ShowCollisionOnSpawnedActors(AActor* Actor);
 
+	/** Adds a cursor to the set based on the enum and the class reference to it. */
+	void AddCursor(EMouseCursor::Type Cursor, const FStringClassReference& CursorClass);
+
 private:
 	/** Slate window associated with this viewport client.  The same window may host more than one viewport client. */
 	TWeakPtr<SWindow> Window;

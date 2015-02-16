@@ -97,8 +97,9 @@
 #include "Components/BrushComponent.h"
 #include "GameFramework/GameUserSettings.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Engine/UserInterfaceSettings.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogEngine, Log, All);
+DEFINE_LOG_CATEGORY(LogEngine);
 
 IMPLEMENT_MODULE( FEngineModule, Engine );
 
@@ -1451,6 +1452,9 @@ void UEngine::InitializeObjectReferences()
 
 		checkf(DefaultPreviewPawnClass != NULL, TEXT("Engine config value DefaultPreviewPawnClass is not a valid class name."));
 	}
+
+	UUserInterfaceSettings* UISettings = GetMutableDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
+	UISettings->LoadCursors();
 }
 
 //
@@ -10377,13 +10381,14 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	}
 
 	// Replace references to old classes and instances on this object with the corresponding new ones
-	FArchiveReplaceObjectRef<UObject> ReplaceInCDOAr(NewObject, ReferenceReplacementMap, /*bNullPrivateRefs=*/ false, /*bIgnoreOuterRef=*/ false, /*bIgnoreArchetypeRef=*/ false);
+	UPackage* NewPackage = Cast<UPackage>(NewObject->GetOutermost());
+	FArchiveReplaceOrClearExternalReferences<UObject> ReplaceInCDOAr(NewObject, ReferenceReplacementMap, NewPackage);
 
 	// Replace references inside each individual component. This is always required because if something is in ReferenceReplacementMap, the above replace code will skip fixing child properties
 	for (int32 ComponentIndex = 0; ComponentIndex < ComponentsOnNewObject.Num(); ++ComponentIndex)
 	{
 		UObject* NewComponent = ComponentsOnNewObject[ComponentIndex];
-		FArchiveReplaceObjectRef<UObject> ReplaceInComponentAr(NewComponent, ReferenceReplacementMap, /*bNullPrivateRefs=*/ false, /*bIgnoreOuterRef=*/ false, /*bIgnoreArchetypeRef=*/ false);
+		FArchiveReplaceOrClearExternalReferences<UObject> ReplaceInComponentAr(NewComponent, ReferenceReplacementMap, NewPackage);
 	}
 
 	// Restore the root component reference

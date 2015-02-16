@@ -533,6 +533,10 @@ struct FTargetDeviceServicePong
 	UPROPERTY()
 	FString Type;
 
+	/** Holds the device operating system name. */
+	UPROPERTY()
+	FString OperatingSystemName;
+
 	/** Holds the variant name of the default device. */
 	UPROPERTY()
 	FName DefaultVariant;

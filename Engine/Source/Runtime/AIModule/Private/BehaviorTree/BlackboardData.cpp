@@ -109,10 +109,10 @@ bool UBlackboardData::IsValid() const
 
 void UBlackboardData::UpdateIfHasSynchronizedKeys()
 {
-	bHasSyncronizedKeys = Parent != nullptr && Parent->bHasSyncronizedKeys;
-	for (int32 KeyIndex = 0; KeyIndex < Keys.Num() && bHasSyncronizedKeys == false; ++KeyIndex)
+	bHasSynchronizedKeys = Parent != nullptr && Parent->bHasSynchronizedKeys;
+	for (int32 KeyIndex = 0; KeyIndex < Keys.Num() && bHasSynchronizedKeys == false; ++KeyIndex)
 	{
-		bHasSyncronizedKeys |= Keys[KeyIndex].bInstanceSynced;
+		bHasSynchronizedKeys |= Keys[KeyIndex].bInstanceSynced;
 	}
 }
 

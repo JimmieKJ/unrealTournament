@@ -1598,6 +1598,8 @@ void AMatineeActor::InitGroupActorForGroup(class UInterpGroup* InGroup, class AA
 
 bool AMatineeActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 {
+	Super::GetReferencedContentObjects(Objects);
+
 	if (MatineeData)
 	{
 		Objects.Add(MatineeData);

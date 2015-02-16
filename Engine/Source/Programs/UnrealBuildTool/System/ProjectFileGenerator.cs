@@ -1489,8 +1489,10 @@ namespace UnrealBuildTool
 					{
 						if( IncludeEngineSource )
 						{
-							// This is an engine module, so strip out private code from the Rocket projects.  Rocket users only need public headers to compile
-							IncludePrivateSourceCode &= !bGeneratingRocketProjectFiles;
+				            // Always include all engine source files unless we were asked to only find public header files via command-line option.  In older releases
+				            // of Unreal Engine, we only included public header files in binary distributions, but this is no longer the case.  You might get
+				            // faster solution load times if you use '-OnlyPublic' though.
+				            IncludePrivateSourceCode &= !UnrealBuildTool.CommandLineContains( "-OnlyPublic" );
 						}
 						else
 						{

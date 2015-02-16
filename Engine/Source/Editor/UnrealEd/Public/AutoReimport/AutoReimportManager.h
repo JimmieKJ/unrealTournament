@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "IDirectoryWatcher.h"
 #include "AutoReimportManager.generated.h"
 
 /** Struct representing a path on disk, and its virtual mount point */
@@ -31,6 +32,9 @@ public:
 
 	/** Get a list of absolute directories that we are monitoring */
 	TArray<FPathAndMountPoint> GetMonitoredDirectories() const;
+
+	/** Report an external change to the manager, such that a subsequent equal change reported by the os be ignored */
+	void ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action);
 
 private:
 

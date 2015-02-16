@@ -670,7 +670,6 @@ void FAnimationViewportClient::FindSelectedAnimGraphNode()
 
 						// make same values to ensure data consistency
 						AnimGraphNode->CopyNodeDataTo(AnimNode);
-						AnimGraphNode->UpdateAllDefaultValues(AnimNode);
 
 						WidgetMode = (FWidget::EWidgetMode)AnimGraphNode->GetWidgetMode(PreviewSkelMeshComp.Get());
 						if (WidgetMode == FWidget::WM_Scale)
@@ -688,8 +687,6 @@ void FAnimationViewportClient::FindSelectedAnimGraphNode()
 						{
 							// copy updated values into internal node to ensure data consistency
 							AnimGraphNode->CopyNodeDataFrom(AnimNode);
-
-							AnimGraphNode->UpdateDefaultValues(AnimNode);
 							bShouldUpdateDefaultValues = false;
 						}
 					}
@@ -741,8 +738,6 @@ void FAnimationViewportClient::PostUndo()
 				{
 					// copy undo data
 					AnimGraphNode->CopyNodeDataTo(AnimNode);
-					// update all literal values in anim node
-					AnimGraphNode->UpdateAllDefaultValues(AnimNode);
 				}
 			}
 		}

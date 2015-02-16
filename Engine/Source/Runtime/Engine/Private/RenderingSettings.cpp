@@ -9,8 +9,7 @@ URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer
 	TranslucentSortAxis = FVector(0.0f, -1.0f, 0.0f);
 }
 
-static FName ConsoleVariableFName(TEXT("ConsoleVariable"));
-static FName ToolTipFName(TEXT("ConsoleVariable"));
+static FName RenderingConsoleVariableFName(TEXT("ConsoleVariable"));
 
 void URendererSettings::PostInitProperties()
 {
@@ -43,7 +42,7 @@ void URendererSettings::PostInitProperties()
 				continue;
 			}
 
-			FString CVarName = Property->GetMetaData(ConsoleVariableFName);
+			FString CVarName = Property->GetMetaData(RenderingConsoleVariableFName);
 			if (!CVarName.IsEmpty())
 			{
 				IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*CVarName);
@@ -71,7 +70,7 @@ void URendererSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 
 	if (PropertyChangedEvent.Property)
 	{
-		FString CVarName = PropertyChangedEvent.Property->GetMetaData(ConsoleVariableFName);
+		FString CVarName = PropertyChangedEvent.Property->GetMetaData(RenderingConsoleVariableFName);
 		if (!CVarName.IsEmpty())
 		{
 			IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*CVarName);

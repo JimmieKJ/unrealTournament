@@ -59,6 +59,15 @@ public:
 	/** A listing of classes that this class is accessible from (and only those classes, if present).  Note that this determines the GRAPH CONTEXTS in which the node cannot be placed (e.g. right click menu, palette), and does NOT control menus when dragging off of a context pin (i.e. contextual drag) */
 	static const FName MD_RestrictedToClasses;
 
+	/// [ClassMetadata] Used for Actor and Component classes. If the native class cannot tick, Blueprint generated classes based this Actor or Component can have bCanEverTick flag overridden even if bCanBlueprintsTickByDefault is false.
+	static const FName MD_ChildCanTick;
+
+	/// [ClassMetadata] Used for Actor and Component classes. If the native class cannot tick, Blueprint generated classes based this Actor or Component can never tick even if bCanBlueprintsTickByDefault is true.
+	static const FName MD_ChildCannotTick;
+
+	/// [ClassMetadata] Used to make the first subclass of a class ignore all inherited showCategories and hideCategories commands
+	static const FName MD_IgnoreCategoryKeywordsInSubclasses;
+
 	//    function metadata
 	/** Specifies a UFUNCTION as Kismet protected, which can only be called from itself */
 	static const FName MD_Protected;

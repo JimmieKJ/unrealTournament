@@ -4660,7 +4660,18 @@ bool UTextureFactory::IsImportResolutionValid(int32 Width, int32 Height, bool bA
 	if( bAllowOneTimeWarningMessages && !bSuppressImportResolutionWarnings && bAllowNonPowerOfTwo && !bIsPowerOfTwo && bValid )
 	{
 		bAllowOneTimeWarningMessages = false;
-		if( EAppReturnType::Yes != FMessageDialog::Open( EAppMsgType::YesNo, NSLOCTEXT("UnrealEd", "Warning_NPTTexture", "The texture you are importing is not a power of two.  Non power of two textures are never streamed and have no mipmaps. Proceed?") ) )
+
+		FText MessageText;
+		if (GetCurrentFilename().IsEmpty())
+		{
+			MessageText = NSLOCTEXT("UnrealEd", "Warning_NPTTexture", "The texture you are importing is not a power of two.  Non power of two textures are never streamed and have no mipmaps. Proceed?");
+		}
+		else
+		{
+			MessageText = FText::Format(NSLOCTEXT("UnrealEd", "Warning_NPTTexture_Filename", "{0} is not a power of two.  Non power of two textures are never streamed and have no mipmaps. Proceed?"), FText::FromString(FPaths::GetCleanFilename(GetCurrentFilename())));
+		}
+
+		if( EAppReturnType::Yes != FMessageDialog::Open( EAppMsgType::YesNo, MessageText ) )
 		{
 			bValid = false;
 		}
@@ -6871,27 +6882,25 @@ UBlendSpaceFactoryNew::UBlendSpaceFactoryNew(const FObjectInitializer& ObjectIni
 		}
 
 bool UBlendSpaceFactoryNew::ConfigureProperties()
-	{
+{
 	// Null the parent class so we can check for selection later
 	TargetSkeleton = nullptr;
 
-		// Load the content browser module to display an asset picker
+	// Load the content browser module to display an asset picker
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 
-		FAssetPickerConfig AssetPickerConfig;
+	FAssetPickerConfig AssetPickerConfig;
 
 	/** The asset picker will only show skeletal meshes */
-		AssetPickerConfig.Filter.ClassNames.Add(USkeleton::StaticClass()->GetFName());
-		AssetPickerConfig.Filter.bRecursiveClasses = true;
+	AssetPickerConfig.Filter.ClassNames.Add(USkeleton::StaticClass()->GetFName());
+	AssetPickerConfig.Filter.bRecursiveClasses = true;
 
-		/** The delegate that fires when an asset was selected */
+	/** The delegate that fires when an asset was selected */
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateUObject(this, &UBlendSpaceFactoryNew::OnTargetSkeletonSelected);
 
-		/** The default view mode should be a list view */
-		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
+	/** The default view mode should be a list view */
+	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 
-		/** The default scale for thumbnails. [0-1] range */
-		AssetPickerConfig.ThumbnailScale = 0.25f;
 
 	PickerWindow = SNew(SWindow)
 	.Title(LOCTEXT("CreateBlendSpaceOptions", "Pick Skeleton"))
@@ -6948,7 +6957,7 @@ bool UBlendSpaceFactory1D::ConfigureProperties()
 	// Null the parent class so we can check for selection later
 	TargetSkeleton = nullptr;
 
-		// Load the content browser module to display an asset picker
+	// Load the content browser module to display an asset picker
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 
 	FAssetPickerConfig AssetPickerConfig;
@@ -6962,9 +6971,6 @@ bool UBlendSpaceFactory1D::ConfigureProperties()
 
 	/** The default view mode should be a list view */
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-
-	/** The default scale for thumbnails. [0-1] range */
-	AssetPickerConfig.ThumbnailScale = 0.25f;
 
 	PickerWindow = SNew(SWindow)
 	.Title(LOCTEXT("CreateBlendSpaceOptions", "Pick Skeleton"))

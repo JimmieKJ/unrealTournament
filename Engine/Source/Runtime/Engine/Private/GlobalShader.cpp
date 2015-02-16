@@ -349,11 +349,14 @@ TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform, bool
 	// If the global shader map hasn't been created yet, create it.
 	if(!GGlobalShaderMap[Platform])
 	{
-		// verify that all shader source files are intact
-		VerifyShaderSourceFiles();
-
 		// GetGlobalShaderMap is called the first time during startup in the main thread.
 		check(IsInGameThread());
+
+		FScopedSlowTask SlowTask(70);
+
+		// verify that all shader source files are intact
+		SlowTask.EnterProgressFrame(20);
+		VerifyShaderSourceFiles();
 
 		GGlobalShaderMap[Platform] = new TShaderMap<FGlobalShaderType>();
 
@@ -363,6 +366,8 @@ TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform, bool
 		// This method is used exclusively with cooked content, since the DDC is not present
 		if (FPlatformProperties::RequiresCookedData())
 		{
+			SlowTask.EnterProgressFrame(50);
+
 			TArray<uint8> GlobalShaderData;
 			FString GlobalShaderCacheFilename = FPaths::GetRelativePathToRoot() / GetGlobalShaderCacheFilename(Platform);
 			FPaths::MakeStandardFilename(GlobalShaderCacheFilename);
@@ -396,9 +401,11 @@ TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform, bool
 			FGlobalShaderMapId ShaderMapId(Platform);
 
 			TArray<uint8> CachedData;
+			SlowTask.EnterProgressFrame(40);
 			const FString DataKey = GetGlobalShaderMapKeyString(ShaderMapId, Platform);
 
 			// Find the shader map in the derived data cache
+			SlowTask.EnterProgressFrame(10);
 			if (GetDerivedDataCacheRef().GetSynchronous(*DataKey, CachedData))
 			{
 				FMemoryReader Ar(CachedData, true);

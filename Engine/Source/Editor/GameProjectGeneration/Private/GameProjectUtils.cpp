@@ -251,19 +251,27 @@ FString FNewClassInfo::GetHeaderTemplateFilename() const
 	{
 		case EClassType::UObject:
 		{
-			if( BaseClass != nullptr && ( BaseClass == UActorComponent::StaticClass() || BaseClass == USceneComponent::StaticClass() ) )
+			if (BaseClass != nullptr)
 			{
-				return TEXT( "ActorComponentClass.h.template" );
+				if ((BaseClass == UActorComponent::StaticClass()) || (BaseClass == USceneComponent::StaticClass()))
+				{
+					return TEXT("ActorComponentClass.h.template");
+				}
+				else if (BaseClass == AActor::StaticClass())
+				{
+					return TEXT("ActorClass.h.template");
+				}
+				else if (BaseClass == APawn::StaticClass())
+				{
+					return TEXT("PawnClass.h.template");
+				}
+				else if (BaseClass == ACharacter::StaticClass())
+				{
+					return TEXT("CharacterClass.h.template");
+				}
 			}
-			else if( BaseClass != nullptr && BaseClass == AActor::StaticClass() )
-			{
-				return TEXT( "ActorClass.h.template" );
-			}
-			else
-			{
-				// Some other non-actor, non-component UObject class
-				return TEXT( "UObjectClass.h.template" );
-			}
+			// Some other non-actor, non-component UObject class
+			return TEXT( "UObjectClass.h.template" );
 		}
 
 	case EClassType::EmptyCpp:
@@ -286,19 +294,27 @@ FString FNewClassInfo::GetSourceTemplateFilename() const
 	switch(ClassType)
 	{
 		case EClassType::UObject:
-			if( BaseClass != nullptr && ( BaseClass == UActorComponent::StaticClass() || BaseClass == USceneComponent::StaticClass() ) )
+			if (BaseClass != nullptr)
 			{
-				return TEXT( "ActorComponentClass.cpp.template" );
+				if ((BaseClass == UActorComponent::StaticClass()) || (BaseClass == USceneComponent::StaticClass()))
+				{
+					return TEXT("ActorComponentClass.cpp.template");
+				}
+				else if (BaseClass == AActor::StaticClass())
+				{
+					return TEXT("ActorClass.cpp.template");
+				}
+				else if (BaseClass == APawn::StaticClass())
+				{
+					return TEXT("PawnClass.cpp.template");
+				}
+				else if (BaseClass == ACharacter::StaticClass())
+				{
+					return TEXT("CharacterClass.cpp.template");
+				}
 			}
-			else if( BaseClass != nullptr && BaseClass == AActor::StaticClass() )
-			{
-				return TEXT( "ActorClass.cpp.template" );
-			}
-			else
-			{
-				// Some other non-actor, non-component UObject class
-				return TEXT( "UObjectClass.cpp.template" );
-			}
+			// Some other non-actor, non-component UObject class
+			return TEXT( "UObjectClass.cpp.template" );
 	
 	case EClassType::EmptyCpp:
 		return TEXT("EmptyClass.cpp.template");

@@ -38,7 +38,21 @@ public:
 	 * 
 	 * @param  ReferencingProperty    A property that uses and stores this class.
 	 */
-	void AddTrackedReference(UProperty* ReferencingProperty);
+	void AddReferencingProperty(UProperty* ReferencingProperty);
+
+	/**
+	 * Records a raw pointer, directly to the UClass* script expression (so that
+	 * we can switch-out its value in ReplaceTrackedReferences). 
+	 *
+	 * NOTE: We don't worry about creating some kind of weak ref to the script 
+	 *       pointer (or facilitate a way for this tracked reference to be 
+	 *       removed). We're not worried about the script ref being deleted 
+	 *       before we call ReplaceTrackedReferences (because we expect that we
+	 *       do this all within the same frame; before GC can be ran).
+	 * 
+	 * @param  ExpressionPtr    A direct pointer to the UClass* that is now referencing this placeholder.
+	 */
+	void AddReferencingScriptExpr(ULinkerPlaceholderClass** ExpressionPtr);
 
 	/**
 	 * A query method that let's us check to see if this class is currently 
@@ -73,7 +87,7 @@ public:
 	 * 
 	 * @param  ReferencingProperty    A property that used to use this class, and now no longer does.
 	 */
-	void RemoveTrackedReference(UProperty* ReferencingProperty);
+	void RemovePropertyReference(UProperty* ReferencingProperty);
 
 	/**
 	 * Iterates over all referencing properties and attempts to replace their 
@@ -94,4 +108,7 @@ private:
 
 	/** Used to catch references that are added after we've already resolved all references */
 	bool bResolvedReferences;
+
+	/** Points directly at UClass* refs that we're serialized in as part of script bytecode */
+	TSet<UClass**> ReferencingScriptExpressions;
 }; 

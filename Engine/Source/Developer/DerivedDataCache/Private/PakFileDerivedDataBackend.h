@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Compression.h"
+
 /** 
  * A simple thread safe, pak file based backend. 
 **/
@@ -363,13 +365,15 @@ public:
 		TArray<uint8> Buffer;
 		for(int32 Idx = 0; Idx < KeyNames.Num(); Idx++)
 		{
-			Buffer.Reset();
-
-			UE_LOG(LogDerivedDataCache, Display, TEXT("[%d/%d] Reading %s..."), Idx + 1, KeyNames.Num(), *KeyNames[Idx]);
-			OtherPak->GetCachedData(*KeyNames[Idx], Buffer);
-
-			UE_LOG(LogDerivedDataCache, Display, TEXT("[%d/%d] Writing %d bytes..."), Idx + 1, KeyNames.Num(), Buffer.Num());
-			PutCachedData(*KeyNames[Idx], Buffer, false);
+			if(!CachedDataProbablyExists(*KeyNames[Idx]))
+			{
+				Buffer.Reset();
+				if(OtherPak->GetCachedData(*KeyNames[Idx], Buffer))
+				{
+					UE_LOG(LogDerivedDataCache, Display, TEXT("[%d/%d] Copying %s (%d bytes)..."), Idx + 1, KeyNames.Num(), *KeyNames[Idx], Buffer.Num());
+					PutCachedData(*KeyNames[Idx], Buffer, false);
+				}
+			}
 		}
 	}
 	
@@ -437,3 +441,45 @@ private:
 	};
 };
 
+class FCompressedPakFileDerivedDataBackend : public FPakFileDerivedDataBackend
+{
+public:
+	FCompressedPakFileDerivedDataBackend(const TCHAR* InFilename, bool bInWriting) 
+		: FPakFileDerivedDataBackend(InFilename, bInWriting)
+	{
+	}
+
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists) override
+	{
+		int32 UncompressedSize = InData.Num();
+		int32 CompressedSize = FCompression::CompressMemoryBound(CompressionFlags, UncompressedSize);
+
+		TArray<uint8> CompressedData;
+		CompressedData.AddUninitialized(CompressedSize + sizeof(UncompressedSize));
+
+		FMemory::Memcpy(&CompressedData[0], &UncompressedSize, sizeof(UncompressedSize));
+		verify(FCompression::CompressMemory(CompressionFlags, CompressedData.GetData() + sizeof(UncompressedSize), CompressedSize, InData.GetData(), InData.Num()));
+		CompressedData.SetNum(CompressedSize + sizeof(UncompressedSize), false);
+
+		FPakFileDerivedDataBackend::PutCachedData(CacheKey, CompressedData, bPutEvenIfExists);
+	}
+
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
+	{
+		TArray<uint8> CompressedData;
+		if(!FPakFileDerivedDataBackend::GetCachedData(CacheKey, CompressedData))
+		{
+			return false;
+		}
+
+		int32 UncompressedSize;
+		FMemory::Memcpy(&UncompressedSize, &CompressedData[0], sizeof(UncompressedSize));
+		OutData.SetNum(UncompressedSize);
+		verify(FCompression::UncompressMemory(CompressionFlags, OutData.GetData(), UncompressedSize, CompressedData.GetData() + sizeof(UncompressedSize), CompressedData.Num() - sizeof(UncompressedSize)));
+
+		return true;
+	}
+
+private:
+	static const ECompressionFlags CompressionFlags = (ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasMemory);
+};

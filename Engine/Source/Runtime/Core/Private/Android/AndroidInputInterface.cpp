@@ -123,7 +123,7 @@ void FAndroidInputInterface::SetForceFeedbackChannelValues(int32 ControllerId, c
 	UpdateVibeMotors(NewControllerData[ControllerId]);
 }
 
-extern void AndroidThunkCpp_Vibrate(int64_t Duration);
+extern void AndroidThunkCpp_Vibrate(int32 Duration);
 
 void FAndroidInputInterface::UpdateVibeMotors(FAndroidControllerData &State)
 {

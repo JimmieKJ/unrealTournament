@@ -45,6 +45,7 @@ void STutorialContent::Construct(const FArguments& InArgs, UEditorTutorial* InTu
 	bAllowNonWidgetContent = InArgs._AllowNonWidgetContent;
 	OnWasWidgetDrawn = InArgs._OnWasWidgetDrawn;
 	NextButtonText = InArgs._NextButtonText;
+	BackButtonText = InArgs._BackButtonText;
 
 	BorderIntroAnimation.AddCurve(0.0f, TutorialConstants::BorderIntroAnimationLength, ECurveEaseFunction::CubicOut);
 	BorderPulseAnimation.AddCurve(0.0f, TutorialConstants::BorderPulseAnimationLength, ECurveEaseFunction::Linear);
@@ -140,7 +141,37 @@ void STutorialContent::Construct(const FArguments& InArgs, UEditorTutorial* InTu
 					]
 				]
 			]
-			+SOverlay::Slot()
+			+ SOverlay::Slot()
+			.VAlign(VAlign_Bottom)
+			.HAlign(HAlign_Left)
+			.Padding(12.0f)
+			[
+				SAssignNew(BackButton, SButton)
+				.ToolTipText(this, &STutorialContent::GetBackButtonTooltip)
+				.OnClicked(this, &STutorialContent::HandleBackButtonClicked)
+				.Visibility(this, &STutorialContent::GetBackButtonVisibility)
+				.ButtonStyle(&FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Tutorials.Content.NavigationButtonWrapper"))
+				.ContentPadding(0.0f)
+				[
+					SNew(SBox)
+					.Padding(8.0f)
+					[
+						SNew(SBorder)
+						.BorderImage(this, &STutorialContent::GetBackButtonBorder)
+						[
+ 							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									SNew(SImage)
+									.Image(this, &STutorialContent::GetBackButtonBrush)
+									.ColorAndOpacity(FLinearColor::White)
+								]
+						]
+					]
+				]
+			] 
+			+ SOverlay::Slot()
 			.VAlign(VAlign_Bottom)
 			.HAlign(HAlign_Right)
 			.Padding(12.0f)
@@ -656,6 +687,16 @@ FReply STutorialContent::HandleNextClicked()
 	return FReply::Handled();
 }
 
+FReply STutorialContent::HandleBackButtonClicked()
+{
+	if (IsBackEnabled.Get())
+	{
+		OnBackClicked.ExecuteIfBound();
+	}
+
+	return FReply::Handled();
+}
+
 const FSlateBrush* STutorialContent::GetNextButtonBrush() const
 {
 	if(IsNextEnabled.Get())
@@ -702,6 +743,51 @@ FText STutorialContent::GetNextButtonLabel() const
 const FSlateBrush* STutorialContent::GetNextButtonBorder() const
 {
 	return NextButton->IsHovered() ? &FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Tutorials.Content.NavigationButton").Hovered : &FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Tutorials.Content.NavigationButton").Normal;
+}
+
+const FSlateBrush* STutorialContent::GetBackButtonBrush() const
+{
+	if (IsBackEnabled.Get())
+	{
+		return FEditorStyle::GetBrush("Tutorials.Navigation.BackButton");
+	}
+	return FEditorStyle::GetDefaultBrush();
+}
+
+EVisibility STutorialContent::GetBackButtonVisibility() const
+{
+	return IsBackEnabled.Get() == true ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+FText STutorialContent::GetBackButtonTooltip() const
+{
+	if (IsBackEnabled.Get())
+	{
+		return LOCTEXT("BackButtonTooltip", "Go to the previous stage of this tutorial.");
+	}
+	return FText::GetEmpty();
+}
+
+FText STutorialContent::GetBackButtonLabel() const
+{
+	if (!BackButtonText.Get().IsEmpty())
+	{
+		return BackButtonText.Get();
+	}
+	else
+	{
+		if (IsBackEnabled.Get())
+		{
+			return LOCTEXT("DefaultBackButtonLabel", "Back");
+		}	
+		
+	}
+	return FText::GetEmpty();
+}
+
+const FSlateBrush* STutorialContent::GetBackButtonBorder() const
+{
+	return BackButton->IsHovered() ? &FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Tutorials.Content.NavigationBackButton").Hovered : &FEditorStyle::Get().GetWidgetStyle<FButtonStyle>("Tutorials.Content.NavigationBackButton").Normal;
 }
 
 FReply STutorialContent::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )

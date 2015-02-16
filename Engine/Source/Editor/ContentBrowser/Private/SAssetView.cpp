@@ -666,16 +666,26 @@ void SAssetView::RequestAddNewAssetsNextFrame()
 	LastProcessAddsTime = FPlatformTime::Seconds() - TimeBetweenAddingNewAssets;
 }
 
+FString SAssetView::GetThumbnailScaleSettingPath(const FString& SettingsString) const
+{
+	return SettingsString + TEXT(".ThumbnailSizeScale");
+}
+
+FString SAssetView::GetCurrentViewTypeSettingPath(const FString& SettingsString) const
+{
+	return SettingsString + TEXT(".CurrentViewType");
+}
+
 void SAssetView::SaveSettings(const FString& IniFilename, const FString& IniSection, const FString& SettingsString) const
 {
-	GConfig->SetFloat(*IniSection, *(SettingsString + TEXT(".ThumbnailScale")), ThumbnailScaleSliderValue.Get(), IniFilename);
-	GConfig->SetInt(*IniSection, *(SettingsString + TEXT(".CurrentViewType")), CurrentViewType, IniFilename);
+	GConfig->SetFloat(*IniSection, *GetThumbnailScaleSettingPath(SettingsString), ThumbnailScaleSliderValue.Get(), IniFilename);
+	GConfig->SetInt(*IniSection, *GetCurrentViewTypeSettingPath(SettingsString), CurrentViewType, IniFilename);
 }
 
 void SAssetView::LoadSettings(const FString& IniFilename, const FString& IniSection, const FString& SettingsString)
 {
 	float Scale = 0.f;
-	if ( GConfig->GetFloat(*IniSection, *(SettingsString + TEXT(".ThumbnailScale")), Scale, IniFilename) )
+	if ( GConfig->GetFloat(*IniSection, *GetThumbnailScaleSettingPath(SettingsString), Scale, IniFilename) )
 	{
 		// Clamp value to normal range and update state
 		Scale = FMath::Clamp<float>(Scale, 0.f, 1.f);
@@ -683,7 +693,7 @@ void SAssetView::LoadSettings(const FString& IniFilename, const FString& IniSect
 	}
 
 	int32 ViewType = EAssetViewType::Tile;
-	if ( GConfig->GetInt(*IniSection, *(SettingsString + TEXT(".CurrentViewType")), ViewType, IniFilename) )
+	if ( GConfig->GetInt(*IniSection, *GetCurrentViewTypeSettingPath(SettingsString), ViewType, IniFilename) )
 	{
 		// Clamp value to normal range and update state
 		if ( ViewType < 0 || ViewType >= EAssetViewType::MAX)

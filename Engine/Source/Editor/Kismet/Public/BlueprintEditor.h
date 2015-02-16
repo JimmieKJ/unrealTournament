@@ -68,7 +68,7 @@ struct FComponentEventConstructionData
 	// The name of the event handler to create.
 	FName VariableName;
 	// The template component that the handler applies to.
-	TWeakObjectPtr<UActorComponent> Component;
+	TWeakObjectPtr<UObject> Component;
 };
 
 /** The delegate that the caller must supply to BuildComponentActionsSubMenu that returns the currently selected items */
@@ -197,7 +197,9 @@ public:
 	TSharedRef<class SBlueprintPalette> GetPalette() const {return Palette.ToSharedRef();}
 	TSharedRef<class SWidget> GetCompilerResults() const {return CompilerResults.ToSharedRef();}
 	TSharedRef<class SFindInBlueprints> GetFindResults() const {return FindResults.ToSharedRef();}
-	TSharedRef<class SSCSEditor> GetSCSEditor() const {return SCSEditor.ToSharedRef();}
+
+	/** Getters for the various optional Kismet2 widgets */
+	TSharedPtr<class SSCSEditor> GetSCSEditor() const {return SCSEditor;}
 	TSharedPtr<class SSCSEditorViewport> GetSCSViewport() const {return SCSViewport;}
 	TSharedPtr<class SMyBlueprint> GetMyBlueprintWidget() const {return MyBlueprintWidget;}
 
@@ -272,9 +274,6 @@ public:
 
 	/** Returns true if able to compile */
 	bool IsCompilingEnabled() const;
-
-	/** Returns true if property editing is allowed */
-	bool IsPropertyEditingEnabled() const;
 
 	/** Returns true if the parent class is also a Blueprint */
 	bool IsParentClassOfObjectABlueprint( const UBlueprint* Blueprint ) const;
@@ -378,6 +377,9 @@ public:
 
 	/** Called when graph editor focus is changed */
 	virtual void OnGraphEditorFocused(const TSharedRef<class SGraphEditor>& InGraphEditor);
+
+	/** Called when the graph editor tab is backgrounded */
+	virtual void OnGraphEditorBackgrounded(const TSharedRef<SGraphEditor>& InGraphEditor);
 
 	/** Enable/disable the SCS editor preview viewport */
 	void EnableSCSPreview(bool bEnable);

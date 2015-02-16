@@ -32,6 +32,8 @@
 #include "GameFramework/GameUserSettings.h"
 #include "Runtime/Engine/Classes/Engine/UserInterfaceSettings.h"
 
+#define LOCTEXT_NAMESPACE "GameViewport"
+
 /** This variable allows forcing full screen of the first player controller viewport, even if there are multiple controllers plugged in and no cinematic playing. */
 bool GForceFullscreen = false;
 
@@ -229,20 +231,12 @@ void UGameViewportClient::Init(struct FWorldContext& WorldContext, UGameInstance
 	// Create the cursor Widgets
 	UUserInterfaceSettings* UISettings = GetMutableDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
 
-#define ADD_CURSOR(enumeration, variable) \
-	if (UISettings->variable.IsValid()) { \
-	UClass* Class = LoadObject<UClass>(NULL, *UISettings->variable.ToString()); \
-	UUserWidget * UserWidget = CreateWidget<UUserWidget>(GetWorld(), Class); \
-	CursorWidgets.Add(enumeration, UserWidget->TakeWidget()); }
-
-	ADD_CURSOR(EMouseCursor::Default, DefaultCursor);
-	ADD_CURSOR(EMouseCursor::TextEditBeam, TextEditBeamCursor);
-	ADD_CURSOR(EMouseCursor::Crosshairs, CrosshairsCursor);
-	ADD_CURSOR(EMouseCursor::GrabHand, GrabHandCursor);
-	ADD_CURSOR(EMouseCursor::GrabHandClosed, GrabHandClosedCursor);
-	ADD_CURSOR(EMouseCursor::SlashedCircle, SlashedCircleCursor);
-
-#undef ADD_CURSOR
+	AddCursor(EMouseCursor::Default, UISettings->DefaultCursor);
+	AddCursor(EMouseCursor::TextEditBeam, UISettings->TextEditBeamCursor);
+	AddCursor(EMouseCursor::Crosshairs, UISettings->CrosshairsCursor);
+	AddCursor(EMouseCursor::GrabHand, UISettings->GrabHandCursor);
+	AddCursor(EMouseCursor::GrabHandClosed, UISettings->GrabHandClosedCursor);
+	AddCursor(EMouseCursor::SlashedCircle, UISettings->SlashedCircleCursor);
 }
 
 UWorld* UGameViewportClient::GetWorld() const
@@ -554,6 +548,26 @@ EMouseCursor::Type UGameViewportClient::GetCursor(FViewport* InViewport, int32 X
 	}
 
 	return FViewportClient::GetCursor(InViewport, X, Y);
+}
+
+void UGameViewportClient::AddCursor(EMouseCursor::Type Cursor, const FStringClassReference& CursorClass)
+{
+	if ( CursorClass.IsValid() )
+	{
+		UClass* Class = CursorClass.TryLoadClass<UUserWidget>();
+		if ( Class )
+		{
+			UUserWidget* UserWidget = CreateWidget<UUserWidget>(GetGameInstance(), Class);
+			if ( ensure(UserWidget) )
+			{
+				CursorWidgets.Add(Cursor, UserWidget->TakeWidget());
+			}
+		}
+		else
+		{
+			FMessageLog("PIE").Error(FText::Format(LOCTEXT("CursorClassNotFoundFormat", "The cursor class '{0}' was not found, check your custom cursor settings."), FText::FromString(CursorClass.ToString())));
+		}
+	}
 }
 
 TOptional<TSharedRef<SWidget>> UGameViewportClient::MapCursor(FViewport* Viewport, const FCursorReply& CursorReply)
@@ -3000,3 +3014,4 @@ void UGameViewportClient::HandleViewportStatDisableAll(const bool bInAnyViewport
 	}
 }
 
+#undef LOCTEXT_NAMESPACE

@@ -105,11 +105,20 @@ public:
 	/** @return the editable title for a node */
 	FText GetEditableNodeTitleAsText() const;
 
-	/** @return the tint for the node's title */
+	/** @return the tint for the node's title image */
 	FSlateColor GetNodeTitleColor() const;
 
 	/** @return the tint for the node's comment */
 	FSlateColor GetNodeCommentColor() const;
+
+	/** @return the tint for the node's main body */
+	FSlateColor GetNodeBodyColor() const;
+
+	/** @return the tint for the node's title icon */
+	FSlateColor GetNodeTitleIconColor() const;
+
+	/** @return the tint for the node's title text */
+	FLinearColor GetNodeTitleTextColor() const;
 
 	/** @return the tooltip to display when over the node */
 	FText GetNodeTooltip() const;
@@ -356,6 +365,9 @@ protected:
 
 	/** Caches true position of node */
 	FVector2D CachedUnscaledPosition;
+
+	/** Cached icon color for the node */
+	FLinearColor IconColor;
 
 	/** Cached pointer to graph editor settings */
 	const class UGraphEditorSettings* Settings;

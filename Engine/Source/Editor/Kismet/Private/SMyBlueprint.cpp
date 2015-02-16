@@ -229,6 +229,7 @@ void SMyBlueprint::Construct(const FArguments& InArgs, TWeakPtr<FBlueprintEditor
 			.HasDownArrow(true)
 			.ContentPadding(FMargin(1, 0, 2, 0))
 			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("MyBlueprintAddNewCombo")))
+			.IsEnabled(this, &SMyBlueprint::IsEditingMode)
 			.ButtonContent()
 			[
 				SNew(SHorizontalBox)
@@ -486,7 +487,7 @@ void SMyBlueprint::OnCategoryNameCommitted(const FText& InNewText, ETextCommit::
 		}
 		Refresh();
 		FBlueprintEditorUtils::MarkBlueprintAsModified(GetBlueprintObj());
-		BlueprintEditorPtr.Pin()->GetMyBlueprintWidget()->SelectItemByName(FName(*CategoryName.ToString()), ESelectInfo::OnMouseClick, InAction.Pin()->SectionID, true);
+		SelectItemByName(FName(*CategoryName.ToString()), ESelectInfo::OnMouseClick, InAction.Pin()->SectionID, true);
 	}
 }
 
@@ -503,7 +504,15 @@ FText SMyBlueprint::OnGetSectionTitle( int32 InSectionID )
 		SeperatorTitle = NSLOCTEXT("GraphActionNode", "Components", "Components");
 		break;
 	case NodeSectionID::FUNCTION:
-		SeperatorTitle = NSLOCTEXT("GraphActionNode", "Functions", "Functions");
+		if ( OverridableFunctionActions.Num() > 0 )
+		{
+			SeperatorTitle = FText::Format(NSLOCTEXT("GraphActionNode", "FunctionsOverridableFormat", "Functions <TinyText.Subdued>({0} Overridable)</>"), FText::AsNumber(OverridableFunctionActions.Num()));
+		}
+		else
+		{
+			SeperatorTitle = NSLOCTEXT("GraphActionNode", "Functions", "Functions");
+		}
+
 		break;
 	case NodeSectionID::FUNCTION_OVERRIDABLE:
 		SeperatorTitle = NSLOCTEXT("GraphActionNode", "OverridableFunctions", "Overridable Functions");
@@ -524,8 +533,15 @@ FText SMyBlueprint::OnGetSectionTitle( int32 InSectionID )
 		SeperatorTitle = NSLOCTEXT("GraphActionNode", "Userenums", "User Enums");
 		break;	
 	case NodeSectionID::LOCAL_VARIABLE:
-		SeperatorTitle = NSLOCTEXT("GraphActionNode", "LocalVariables", "Local Variables");
-		break;	
+		if ( GetFocusedGraph() )
+		{
+			SeperatorTitle = FText::Format(NSLOCTEXT("GraphActionNode", "LocalVariables", "Local Variables <TinyText.Subdued>({0})</>"), FText::FromName(GetFocusedGraph()->GetFName()));
+		}
+		else
+		{
+			SeperatorTitle = NSLOCTEXT("GraphActionNode", "LocalVariables", "Local Variables");
+		}
+		break;
 	case NodeSectionID::USER_STRUCT:
 		SeperatorTitle = NSLOCTEXT("GraphActionNode", "Userstructs", "User Structs");
 		break;	
@@ -542,14 +558,17 @@ TSharedRef<SWidget> SMyBlueprint::OnGetSectionWidget(TSharedRef<SWidget> RowWidg
 	TWeakPtr<SWidget> WeakRowWidget = RowWidget;
 
 	FText AddNewText;
+	FName MetaDataTag;
 
 	switch ( InSectionID )
 	{
 	case NodeSectionID::VARIABLE:
 		AddNewText = LOCTEXT("AddNewVariable", "Variable");
+		MetaDataTag = TEXT("AddNewVariable");
 		break;
 	case NodeSectionID::FUNCTION:
 		AddNewText = LOCTEXT("AddNewFunction", "Function");
+		MetaDataTag = TEXT("AddNewFunction");
 
 		if ( OverridableFunctionActions.Num() > 0 )
 		{
@@ -558,6 +577,7 @@ TSharedRef<SWidget> SMyBlueprint::OnGetSectionWidget(TSharedRef<SWidget> RowWidg
 				.AutoWidth()
 				[
 					SAssignNew(FunctionSectionButton, SComboButton)
+					.IsEnabled(this, &SMyBlueprint::IsEditingMode)
 					.Visibility(this, &SMyBlueprint::OnGetSectionTextVisibility, WeakRowWidget, InSectionID)
 					.ButtonStyle(FEditorStyle::Get(), "RoundButton")
 					.ForegroundColor(FEditorStyle::GetSlateColor("DefaultForeground"))
@@ -577,39 +597,45 @@ TSharedRef<SWidget> SMyBlueprint::OnGetSectionWidget(TSharedRef<SWidget> RowWidg
 				.AutoWidth()
 				.Padding(2, 0,0,0)
 				[
-					CreateAddToSectionButton(InSectionID, WeakRowWidget, AddNewText)
+					CreateAddToSectionButton(InSectionID, WeakRowWidget, AddNewText, MetaDataTag)
 				];
 		}
 
 		break;
 	case NodeSectionID::MACRO:
 		AddNewText = LOCTEXT("AddNewMacro", "Macro");
+		MetaDataTag = TEXT("AddNewMacro");
 		break;
 	case NodeSectionID::DELEGATE:
 		AddNewText = LOCTEXT("AddNewDelegate", "Event Dispatcher");
+		MetaDataTag = TEXT("AddNewDelegate");
 		break;
 	case NodeSectionID::GRAPH:
 		AddNewText = LOCTEXT("AddNewGraph", "New Graph");
+		MetaDataTag = TEXT("AddNewGraph");
 		break;
 	case NodeSectionID::LOCAL_VARIABLE:
 		AddNewText = LOCTEXT("AddNewLocalVariable", "Local Variable");
+		MetaDataTag = TEXT("AddNewLocalVariable");
 		break;
 	default:
 		return SNullWidget::NullWidget;
 	}
 
-	return CreateAddToSectionButton(InSectionID, WeakRowWidget, AddNewText);
+	return CreateAddToSectionButton(InSectionID, WeakRowWidget, AddNewText, MetaDataTag);
 }
 
-TSharedRef<SWidget> SMyBlueprint::CreateAddToSectionButton(int32 InSectionID, TWeakPtr<SWidget> WeakRowWidget, FText AddNewText)
+TSharedRef<SWidget> SMyBlueprint::CreateAddToSectionButton(int32 InSectionID, TWeakPtr<SWidget> WeakRowWidget, FText AddNewText, FName MetaDataTag)
 {
 	return SNew(SButton)
 		.ButtonStyle(FEditorStyle::Get(), "RoundButton")
 		.ForegroundColor(FEditorStyle::GetSlateColor("DefaultForeground"))
 		.ContentPadding(FMargin(2, 0))
 		.OnClicked(this, &SMyBlueprint::OnAddButtonClickedOnSection, InSectionID)
+		.IsEnabled(this, &SMyBlueprint::IsEditingMode)
 		.HAlign(HAlign_Center)
 		.VAlign(VAlign_Center)
+		.AddMetaData<FTagMetaData>(FTagMetaData(MetaDataTag))
 		[
 			SNew(SHorizontalBox)
 
@@ -637,22 +663,24 @@ TSharedRef<SWidget> SMyBlueprint::CreateAddToSectionButton(int32 InSectionID, TW
 
 FReply SMyBlueprint::OnAddButtonClickedOnSection(int32 InSectionID)
 {
+	TSharedPtr<FBlueprintEditor> BlueprintEditor = BlueprintEditorPtr.Pin();
+
 	switch ( InSectionID )
 	{
 	case NodeSectionID::VARIABLE:
-		BlueprintEditorPtr.Pin()->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewVariable.ToSharedRef());
+		BlueprintEditor->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewVariable.ToSharedRef());
 		break;
 	case NodeSectionID::FUNCTION:
-		BlueprintEditorPtr.Pin()->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewFunction.ToSharedRef());
+		BlueprintEditor->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewFunction.ToSharedRef());
 		break;
 	case NodeSectionID::MACRO:
-		BlueprintEditorPtr.Pin()->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewMacroDeclaration.ToSharedRef());
+		BlueprintEditor->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewMacroDeclaration.ToSharedRef());
 		break;
 	case NodeSectionID::DELEGATE:
-		BlueprintEditorPtr.Pin()->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewDelegate.ToSharedRef());
+		BlueprintEditor->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewDelegate.ToSharedRef());
 		break;
 	case NodeSectionID::GRAPH:
-		BlueprintEditorPtr.Pin()->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewEventGraph.ToSharedRef());
+		BlueprintEditor->GetToolkitCommands()->ExecuteAction(FBlueprintEditorCommands::Get().AddNewEventGraph.ToSharedRef());
 		break;
 	case NodeSectionID::LOCAL_VARIABLE:
 		OnAddNewLocalVariable();
@@ -772,7 +800,7 @@ bool SMyBlueprint::CanRequestRenameOnActionNode(TWeakPtr<FGraphActionNode> InSel
 		bIsReadOnly = FBlueprintEditorUtils::IsPaletteActionReadOnly(InSelectedNode.Pin()->Actions[0], BlueprintEditorPtr.Pin());
 	}
 
-	return BlueprintEditorPtr.Pin()->InEditingMode() && !bIsReadOnly;
+	return IsEditingMode() && !bIsReadOnly;
 }
 
 void SMyBlueprint::Refresh()
@@ -1295,24 +1323,25 @@ void SMyBlueprint::CollectStaticSections(TArray<int32>& StaticSectionIDs)
 	if ( IsShowingEmptySections() )
 	{
 		TSharedPtr<FBlueprintEditor> BlueprintEditor = BlueprintEditorPtr.Pin();
-		
-		if ( BlueprintEditor->NewDocument_IsVisibleForType(FBlueprintEditor::CGT_NewEventGraph) )
+		const bool bIsEditor = BlueprintEditor.IsValid();
+
+		if (!bIsEditor || BlueprintEditor->NewDocument_IsVisibleForType(FBlueprintEditor::CGT_NewEventGraph))
 		{
 			StaticSectionIDs.Add(NodeSectionID::GRAPH);
 		}
-		if ( BlueprintEditor->NewDocument_IsVisibleForType(FBlueprintEditor::CGT_NewMacroGraph) )
+		if (!bIsEditor || BlueprintEditor->NewDocument_IsVisibleForType(FBlueprintEditor::CGT_NewMacroGraph))
 		{
 			StaticSectionIDs.Add(NodeSectionID::MACRO);
 		}
-		if ( BlueprintEditor->NewDocument_IsVisibleForType(FBlueprintEditor::CGT_NewFunctionGraph) )
+		if (!bIsEditor || BlueprintEditor->NewDocument_IsVisibleForType(FBlueprintEditor::CGT_NewFunctionGraph))
 		{
 			StaticSectionIDs.Add(NodeSectionID::FUNCTION);
 		}
-		if ( BlueprintEditor->NewDocument_IsVisibleForType(FBlueprintEditor::CGT_NewVariable) )
+		if (!bIsEditor || BlueprintEditor->NewDocument_IsVisibleForType(FBlueprintEditor::CGT_NewVariable))
 		{
 			StaticSectionIDs.Add(NodeSectionID::VARIABLE);
 		}
-		if ( BlueprintEditor->FBlueprintEditor::AddNewDelegateIsVisible() )
+		if (!bIsEditor || BlueprintEditor->FBlueprintEditor::AddNewDelegateIsVisible())
 		{
 			StaticSectionIDs.Add(NodeSectionID::DELEGATE);
 		}
@@ -1800,7 +1829,7 @@ TSharedPtr<SWidget> SMyBlueprint::OnContextMenuOpening()
 											LOCTEXT("AddEventSubMenu_ToolTip", "Add Event"), 
 											FNewMenuDelegate::CreateStatic(	&SSCSEditor::BuildMenuEventsSection,
 												BlueprintEditor->GetBlueprintObj(), ComponentProperty->PropertyClass, 
-												FCanExecuteAction::CreateSP(BlueprintEditor.Get(), &FBlueprintEditor::InEditingMode),
+												FCanExecuteAction::CreateRaw(this, &SMyBlueprint::IsEditingMode),
 												FGetSelectedObjectsDelegate::CreateSP(this, &SMyBlueprint::GetSelectedItemsForContextMenu)));
 				}
 			}
@@ -2084,6 +2113,12 @@ void SMyBlueprint::OnObjectPropertyChanged(UObject* InObject, FPropertyChangedEv
 	bNeedsRefresh = ( InObject == Blueprint );
 }
 
+bool SMyBlueprint::IsEditingMode() const
+{
+	auto BlueprintEditorSPtr = BlueprintEditorPtr.Pin();
+	return BlueprintEditorSPtr.IsValid() && BlueprintEditorSPtr->InEditingMode();
+}
+
 void SMyBlueprint::OnDeleteDelegate(FEdGraphSchemaAction_K2Delegate* InDelegateAction)
 {
 	UEdGraph* EdGraph = InDelegateAction->EdGraph;
@@ -2271,7 +2306,7 @@ struct FDeleteEntryHelper
 bool SMyBlueprint::CanDeleteEntry() const
 {
 	// Cannot delete entries while not in editing mode
-	if(!BlueprintEditorPtr.Pin()->InEditingMode())
+	if(!IsEditingMode())
 	{
 		return false;
 	}
@@ -2516,6 +2551,11 @@ void SMyBlueprint::SelectItemByName(const FName& ItemName, ESelectInfo::Type Sel
 	if(ItemName == NAME_None)
 	{
 		ClearGraphActionMenuSelection();
+	}
+	else
+	{
+		// Attempt to select the item in the main graph action menu
+		GraphActionMenu->SelectItemByName(ItemName, SelectInfo, SectionId, bIsCategory);
 	}
 }
 

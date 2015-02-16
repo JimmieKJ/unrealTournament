@@ -2154,17 +2154,7 @@ uint16 FRepLayout::AddParentProperty( UProperty * Property, int32 ArrayIndex )
 	return Parents.Add( FRepParentCmd( Property, ArrayIndex ) );
 }
 
-static bool IsCustomDeltaProperty( UProperty * Property )
-{
-	UStructProperty * StructProperty = Cast< UStructProperty >( Property );
-
-	if ( StructProperty != NULL && StructProperty->Struct->StructFlags & STRUCT_NetDeltaSerializeNative )
-	{
-		return true;
-	}
-
-	return false;
-}
+extern bool IsCustomDeltaProperty( UProperty * Property );
 
 void FRepLayout::InitFromObjectClass( UClass * InObjectClass )
 {

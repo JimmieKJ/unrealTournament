@@ -483,6 +483,7 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	// Needs to be set early as materials can be cached with selected material color baked in
 	GEngine->SetSelectedMaterialColor(ViewportSettings->bHighlightWithBrackets ? FLinearColor::Black : StyleSettings->SelectionColor);
 	GEngine->SetSelectionOutlineColor(StyleSettings->SelectionColor);
+	GEngine->SetSubduedSelectionOutlineColor(StyleSettings->GetSubduedSelectionColor());
 	GEngine->SelectionHighlightIntensity = ViewportSettings->SelectionHighlightIntensity;
 	GEngine->BSPSelectionHighlightIntensity = ViewportSettings->BSPSelectionHighlightIntensity;
 	GEngine->HoverHighlightIntensity = ViewportSettings->HoverHighlightIntensity;
@@ -546,6 +547,7 @@ void UEditorEngine::HandleSettingChanged( FName Name )
 		// Selection outline color and material color use the same color but sometimes the selected material color can be overidden so these need to be set independently
 		GEngine->SetSelectedMaterialColor(GetDefault<UEditorStyleSettings>()->SelectionColor);
 		GEngine->SetSelectionOutlineColor(GetDefault<UEditorStyleSettings>()->SelectionColor);
+		GEngine->SetSubduedSelectionOutlineColor(GetDefault<UEditorStyleSettings>()->GetSubduedSelectionColor());
 	}
 }
 
@@ -576,6 +578,8 @@ extern void StripUnusedPackagesFromList(TArray<FString>& PackageList, const FStr
 
 void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 {
+	FScopedSlowTask SlowTask(100);
+
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Editor Engine Initialized"), STAT_EditorEngineStartup, STATGROUP_LoadTime);
 
 	check(!HasAnyFlags(RF_ClassDefaultObject));
@@ -591,6 +595,7 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	FLevelStreamingGCHelper::OnGCStreamedOutLevels.AddUObject(this, &UEditorEngine::OnGCStreamedOutLevels);
 	
 	// Init editor.
+	SlowTask.EnterProgressFrame(40);
 	GEditor = this;
 	InitEditor(InEngineLoop);
 
@@ -602,60 +607,71 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	// Load all of the runtime modules that the game needs.  The game is part of the editor, so we'll need these loaded.
 	UGameEngine::LoadRuntimeEngineStartupModules();
 
+	SlowTask.EnterProgressFrame(50);
 
 	// Load all editor modules here
 	{
-		FModuleManager::Get().LoadModule(TEXT("Documentation"));
-		FModuleManager::Get().LoadModule(TEXT("WorkspaceMenuStructure"));
-		FModuleManager::Get().LoadModule(TEXT("MainFrame"));
-		FModuleManager::Get().LoadModule(TEXT("GammaUI"));
-		FModuleManager::Get().LoadModule(TEXT("OutputLog"));
-		FModuleManager::Get().LoadModule(TEXT("SourceControl"));
-		FModuleManager::Get().LoadModule(TEXT("TextureCompressor"));
-		FModuleManager::Get().LoadModule(TEXT("MeshUtilities"));
-		FModuleManager::Get().LoadModule(TEXT("MovieSceneTools"));
-		FModuleManager::Get().LoadModule(TEXT("ModuleUI"));
-		FModuleManager::Get().LoadModule(TEXT("Toolbox"));
-		FModuleManager::Get().LoadModule(TEXT("ClassViewer"));
-		FModuleManager::Get().LoadModule(TEXT("ContentBrowser"));
-		FModuleManager::Get().LoadModule(TEXT("AssetTools"));
-		FModuleManager::Get().LoadModule(TEXT("GraphEditor"));
-		FModuleManager::Get().LoadModule(TEXT("KismetCompiler"));
-		FModuleManager::Get().LoadModule(TEXT("Kismet"));
-		FModuleManager::Get().LoadModule(TEXT("Persona"));
-		FModuleManager::Get().LoadModule(TEXT("LevelEditor"));
-		FModuleManager::Get().LoadModule(TEXT("MainFrame"));
-		FModuleManager::Get().LoadModule(TEXT("PropertyEditor"));
-		FModuleManager::Get().LoadModule(TEXT("EditorStyle"));
-		FModuleManager::Get().LoadModule(TEXT("PackagesDialog"));
-		FModuleManager::Get().LoadModule(TEXT("AssetRegistry"));
-		FModuleManager::Get().LoadModule(TEXT("DetailCustomizations"));
-		FModuleManager::Get().LoadModule(TEXT("ComponentVisualizers"));
-		FModuleManager::Get().LoadModule(TEXT("Layers"));
-		FModuleManager::Get().LoadModule(TEXT("AutomationWindow"));
-		FModuleManager::Get().LoadModule(TEXT("AutomationController"));
-		FModuleManager::Get().LoadModule(TEXT("DeviceManager"));
-		FModuleManager::Get().LoadModule(TEXT("ProfilerClient"));
-//		FModuleManager::Get().LoadModule(TEXT("Search"));
-		FModuleManager::Get().LoadModule(TEXT("SessionFrontend"));
-		FModuleManager::Get().LoadModule(TEXT("ProjectLauncher"));
-		FModuleManager::Get().LoadModule(TEXT("SettingsEditor"));
-		FModuleManager::Get().LoadModule(TEXT("EditorSettingsViewer"));
-		FModuleManager::Get().LoadModule(TEXT("ProjectSettingsViewer"));
-		FModuleManager::Get().LoadModule(TEXT("AndroidRuntimeSettings"));
-		FModuleManager::Get().LoadModule(TEXT("AndroidPlatformEditor"));
-		FModuleManager::Get().LoadModule(TEXT("IOSRuntimeSettings"));
-		FModuleManager::Get().LoadModule(TEXT("IOSPlatformEditor"));
-		FModuleManager::Get().LoadModule(TEXT("Blutility"));
-		FModuleManager::Get().LoadModule(TEXT("OnlineBlueprintSupport"));
-		FModuleManager::Get().LoadModule(TEXT("XmlParser"));
-		FModuleManager::Get().LoadModule(TEXT("UserFeedback"));
-		FModuleManager::Get().LoadModule(TEXT("GameplayTagsEditor"));
-		FModuleManager::Get().LoadModule(TEXT("UndoHistory"));
-		FModuleManager::Get().LoadModule(TEXT("DeviceProfileEditor"));
-		FModuleManager::Get().LoadModule(TEXT("SourceCodeAccess"));
-		FModuleManager::Get().LoadModule(TEXT("BehaviorTreeEditor"));
-		FModuleManager::Get().LoadModule(TEXT("HardwareTargeting"));
+		static const TCHAR* ModuleNames[] =
+		{
+			TEXT("Documentation"),
+			TEXT("WorkspaceMenuStructure"),
+			TEXT("MainFrame"),
+			TEXT("GammaUI"),
+			TEXT("OutputLog"),
+			TEXT("SourceControl"),
+			TEXT("TextureCompressor"),
+			TEXT("MeshUtilities"),
+			TEXT("MovieSceneTools"),
+			TEXT("ModuleUI"),
+			TEXT("Toolbox"),
+			TEXT("ClassViewer"),
+			TEXT("ContentBrowser"),
+			TEXT("AssetTools"),
+			TEXT("GraphEditor"),
+			TEXT("KismetCompiler"),
+			TEXT("Kismet"),
+			TEXT("Persona"),
+			TEXT("LevelEditor"),
+			TEXT("MainFrame"),
+			TEXT("PropertyEditor"),
+			TEXT("EditorStyle"),
+			TEXT("PackagesDialog"),
+			TEXT("AssetRegistry"),
+			TEXT("DetailCustomizations"),
+			TEXT("ComponentVisualizers"),
+			TEXT("Layers"),
+			TEXT("AutomationWindow"),
+			TEXT("AutomationController"),
+			TEXT("DeviceManager"),
+			TEXT("ProfilerClient"),
+//			TEXT("Search"),
+			TEXT("SessionFrontend"),
+			TEXT("ProjectLauncher"),
+			TEXT("SettingsEditor"),
+			TEXT("EditorSettingsViewer"),
+			TEXT("ProjectSettingsViewer"),
+			TEXT("AndroidRuntimeSettings"),
+			TEXT("AndroidPlatformEditor"),
+			TEXT("IOSRuntimeSettings"),
+			TEXT("IOSPlatformEditor"),
+			TEXT("Blutility"),
+			TEXT("OnlineBlueprintSupport"),
+			TEXT("XmlParser"),
+			TEXT("UserFeedback"),
+			TEXT("GameplayTagsEditor"),
+			TEXT("UndoHistory"),
+			TEXT("DeviceProfileEditor"),
+			TEXT("SourceCodeAccess"),
+			TEXT("BehaviorTreeEditor"),
+			TEXT("HardwareTargeting")
+		};
+
+		FScopedSlowTask SlowTask(ARRAY_COUNT(ModuleNames));
+		for (const TCHAR* ModuleName : ModuleNames)
+		{
+			SlowTask.EnterProgressFrame(1);
+			FModuleManager::Get().LoadModule(ModuleName);
+		}
 
 		if (!IsRunningCommandlet())
 		{
@@ -686,6 +702,8 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 		FModuleManager::Get().LoadModule(TEXT("LogVisualizer"));
 		FModuleManager::Get().LoadModule(TEXT("HotReload"));
 	}
+
+	SlowTask.EnterProgressFrame(10);
 
 	float BSPTexelScale = 100.0f;
 	if( GetDefault<ULevelEditorViewportSettings>()->bUsePowerOf2SnapSize )
@@ -1802,11 +1820,22 @@ void UEditorEngine::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 
 	const FName PropertyName = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None;
 
-	if( PropertyName == FName( TEXT( "MaximumLoopIterationCount" )))
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UEngine, MaximumLoopIterationCount))
 	{
 		// Clamp to a reasonable range and feed the new value to the script core
 		MaximumLoopIterationCount = FMath::Clamp( MaximumLoopIterationCount, 100, 10000000 );
 		FBlueprintCoreDelegates::SetScriptMaximumLoopIterations( MaximumLoopIterationCount );
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UEngine, bCanBlueprintsTickByDefault))
+	{
+		FScopedSlowTask SlowTask(100, LOCTEXT("DirtyingBlueprintsDueToTickChange", "InvalidatingAllBlueprints"));
+
+		// Flag all Blueprints as out of date (this doesn't dirty the package as needs saving but will force a recompile during PIE)
+		for (TObjectIterator<UBlueprint> BlueprintIt; BlueprintIt; ++BlueprintIt)
+		{
+			UBlueprint* Blueprint = *BlueprintIt;
+			Blueprint->Status = BS_Dirty;
+		}
 	}
 }
 
@@ -3124,7 +3153,7 @@ void UEditorEngine::SyncToContentBrowser()
 }
 
 
-void UEditorEngine::GetReferencedAssetsForEditorSelection( TArray<UObject*>& Objects )
+void UEditorEngine::GetReferencedAssetsForEditorSelection(TArray<UObject*>& Objects, const bool bIgnoreOtherAssetsIfBPReferenced)
 {
 	for ( TSelectedSurfaceIterator<> It(GWorld) ; It ; ++It )
 	{
@@ -3141,7 +3170,25 @@ void UEditorEngine::GetReferencedAssetsForEditorSelection( TArray<UObject*>& Obj
 		AActor* Actor = static_cast<AActor*>( *It );
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
 
-		Actor->GetReferencedContentObjects(Objects);
+		TArray<UObject*> ActorObjects;
+		Actor->GetReferencedContentObjects(ActorObjects);
+
+		// If Blueprint assets should take precedence over any other referenced asset, check if there are any blueprints in this actor's list
+		// and if so, add only those.
+		if (bIgnoreOtherAssetsIfBPReferenced && ActorObjects.ContainsByPredicate([](UObject* Obj) { return Obj->IsA(UBlueprint::StaticClass()); }))
+		{
+			for (UObject* Object : ActorObjects)
+			{
+				if (Object->IsA(UBlueprint::StaticClass()))
+				{
+					Objects.Add(Object);
+				}
+			}
+		}
+		else
+		{
+			Objects.Append(ActorObjects);
+		}
 	}
 }
 
@@ -5085,7 +5132,8 @@ void UEditorEngine::ReplaceActors(UActorFactory* Factory, const FAssetData& Asse
 		AActor* NewActor = NULL;
 
 		const FName OldActorName = OldActor->GetFName();
-		OldActor->Rename(*FString::Printf(TEXT("%s_REPLACED"), *OldActorName.ToString()));
+		const FName RenamedActorName = MakeUniqueObjectName( OldActor->GetOuter(), OldActor->GetClass(), *FString::Printf(TEXT("%s_REPLACED"), *OldActorName.ToString()) );
+		OldActor->Rename(*RenamedActorName.ToString());
 
 		const FTransform OldTransform = OldActor->ActorToWorld();
 
@@ -5973,13 +6021,35 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 void UEditorEngine::NotifyToolsOfObjectReplacement(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
 {
 	// This can be called early on during startup if blueprints need to be compiled.  
-	// If the property module isn't loaded then there arent any property windows to update
+	// If the property module isn't loaded then there aren't any property windows to update
 	if( FModuleManager::Get().IsModuleLoaded( "PropertyEditor" ) )
 	{
 		FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>( "PropertyEditor" );
 		PropertyEditorModule.ReplaceViewedObjects( OldToNewInstanceMap );
 	}
 
+	// Check to see if any selected components were reinstanced
+	USelection* ComponentSelection = GetSelectedComponents();
+	if (ComponentSelection)
+	{
+		TArray<TWeakObjectPtr<UObject> > SelectedComponents;
+		ComponentSelection->GetSelectedObjects(SelectedComponents);
+
+		ComponentSelection->BeginBatchSelectOperation();
+		for (int32 i = 0; i < SelectedComponents.Num(); ++i)
+		{
+			UObject* Component = SelectedComponents[i].GetEvenIfUnreachable();
+
+			// If the component corresponds to a new instance in the map, update the selection accordingly
+			if (OldToNewInstanceMap.Contains(Component))
+			{
+				ComponentSelection->Deselect(Component);
+				SelectComponent(CastChecked<UActorComponent>(OldToNewInstanceMap[Component]), true, false);
+			}
+		}
+		ComponentSelection->EndBatchSelectOperation();
+	}
+	
 	BroadcastObjectsReplaced(OldToNewInstanceMap);
 }
 

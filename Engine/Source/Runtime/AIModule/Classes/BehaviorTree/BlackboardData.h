@@ -54,11 +54,11 @@ class AIMODULE_API UBlackboardData : public UDataAsset
 
 private:
 	UPROPERTY()
-	uint32 bHasSyncronizedKeys : 1;
+	uint32 bHasSynchronizedKeys : 1;
 
 public:
 
-	FORCEINLINE bool HasSyncronizedKeys() const { return bHasSyncronizedKeys; }
+	FORCEINLINE bool HasSynchronizedKeys() const { return bHasSynchronizedKeys; }
 
 	/** @return true if the key is instance synced */
 	bool IsKeyInstanceSynced(FBlackboard::FKey KeyID) const;

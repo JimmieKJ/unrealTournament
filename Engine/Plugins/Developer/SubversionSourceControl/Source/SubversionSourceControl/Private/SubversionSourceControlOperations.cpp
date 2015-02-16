@@ -514,7 +514,39 @@ bool FSubversionUpdateStatusWorker::Execute(FSubversionSourceControlCommand& InC
 		Parameters.Add(TEXT("--show-updates"));
 		Parameters.Add(TEXT("--verbose"));
 
-		InCommand.bCommandSuccessful = SubversionSourceControlUtils::RunCommand(TEXT("status"), InCommand.Files, Parameters, ResultsXml, InCommand.ErrorMessages, InCommand.UserName);
+		TArray<FString> Files;
+		if(InCommand.Files.Num() > 1)
+		{
+			// Prime the resultant states here depending on whether the files are under the 
+			// working copy or not.
+			// This works because these states will be processed first when they come to be updated on
+			// the main thread, before being updated with any later on in the array by any that were 
+			// returned from the svn status command.
+
+			Files.Add(InCommand.WorkingCopyRoot);
+
+			for(auto Iter(InCommand.Files.CreateConstIterator()); Iter; ++Iter)
+			{
+				FSubversionSourceControlState State(*Iter);
+
+				if(State.GetFilename().StartsWith(InCommand.WorkingCopyRoot))
+				{
+					State.WorkingCopyState = EWorkingCopyState::NotControlled;
+				}
+				else
+				{
+					State.WorkingCopyState = EWorkingCopyState::NotAWorkingCopy;
+				}
+
+				OutStates.Add(State);
+			}
+		}
+		else
+		{
+			Files.Append(InCommand.Files);
+		}
+
+		InCommand.bCommandSuccessful = SubversionSourceControlUtils::RunCommand(TEXT("status"), Files, Parameters, ResultsXml, InCommand.ErrorMessages, InCommand.UserName);
 		SubversionSourceControlUtils::ParseStatusResults(ResultsXml, InCommand.ErrorMessages, InCommand.UserName, InCommand.WorkingCopyRoot, OutStates);
 		SubversionSourceControlUtils::RemoveRedundantErrors(InCommand, TEXT("' is not a working copy"));
 	}

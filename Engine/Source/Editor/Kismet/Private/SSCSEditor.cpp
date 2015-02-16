@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 
 #include "BlueprintEditorPrivatePCH.h"
@@ -188,6 +188,7 @@ FReply SSCSEditor::TryHandleAssetDragDropOperation(const FDragDropEvent& DragDro
 					if (UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(AddNewComponent(UChildActorComponent::StaticClass(), nullptr)))
 					{
 						ChildActorComponent->ChildActorClass = PotentialActorClass;
+						ChildActorComponent->CreateChildActor();
 					}
 				}
 			}
@@ -1265,13 +1266,12 @@ TSharedRef<SWidget> SSCS_RowWidget::GenerateWidgetForColumn( const FName& Column
 			ComponentIcon = FClassIconFinder::FindIconForClass( NodePtr->GetComponentTemplate()->GetClass(), TEXT("SCS.Component") );
 		}
 
-		TSharedPtr<SInlineEditableTextBlock> InlineWidget = 
+		InlineWidget =
 			SNew(SInlineEditableTextBlock)
 				.Text(this, &SSCS_RowWidget::GetNameLabel)
 				.OnVerifyTextChanged( this, &SSCS_RowWidget::OnNameTextVerifyChanged )
 				.OnTextCommitted( this, &SSCS_RowWidget::OnNameTextCommit )
 				.IsSelected( this, &SSCS_RowWidget::IsSelectedExclusively )
-				.ColorAndOpacity( this, &SSCS_RowWidget::GetColorTintForText )
 				.IsReadOnly(!NodePtr->CanRename() || (SCSEditor.IsValid() && !SCSEditor.Pin()->IsEditingAllowed()));
 
 		NodePtr->SetRenameRequestedDelegate(FSCSEditorTreeNode::FOnRenameRequested::CreateSP(InlineWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode));
@@ -1710,35 +1710,6 @@ FSlateColor SSCS_RowWidget::GetColorTintForIcon() const
 	}
 }
 
-FSlateColor SSCS_RowWidget::GetColorTintForText() const
-{
-	const FLinearColor InheritedBlueprintComponentColor(0.6f, 0.6f, 0.8f);
-	const FLinearColor InstancedInheritedBlueprintComponentColor(InheritedBlueprintComponentColor);
-	const FLinearColor InheritedNativeComponentColor(0.7f, 0.9f, 0.7f);
-	const FLinearColor IntroducedHereColor(FLinearColor::White);
-
-	FSCSEditorTreeNodePtrType NodePtr = GetNode();
-	if (NodePtr->IsInherited())
-	{
-		if (NodePtr->IsNative())
-		{
-			return InheritedNativeComponentColor;
-		}
-		else if (NodePtr->IsInstanced())
-		{
-			return InstancedInheritedBlueprintComponentColor;
-		}
-		else
-		{
-			return InheritedBlueprintComponentColor;
-		}
-	}
-	else
-	{
-		return IntroducedHereColor;
-	}
-}
-
 TSharedPtr<SWidget> SSCS_RowWidget::BuildSceneRootDropActionMenu(FSCSEditorTreeNodePtrType DroppedNodePtr)
 {
 	check(SCSEditor.IsValid());
@@ -1810,7 +1781,7 @@ FReply SSCS_RowWidget::OnDragDetected( const FGeometry& MyGeometry, const FPoint
 		{
 			UBlueprint* Blueprint = FirstNode->GetBlueprint();
 			const FName VariableName = FirstNode->GetVariableName();
- 			UStruct* VariableScope = (Blueprint != nullptr) ? Blueprint->SkeletonGeneratedClass : nullptr;
+			UStruct* VariableScope = (Blueprint != nullptr) ? Blueprint->SkeletonGeneratedClass : nullptr;
 
 			TSharedRef<FSCSRowDragDropOp> Operation = FSCSRowDragDropOp::New(VariableName, VariableScope, FNodeCreationAnalytic());
 			Operation->SetCtrlDrag(true); // Always put a getter
@@ -2580,6 +2551,15 @@ void SSCS_RowWidget::PostDragDropAction(bool bRegenerateTreeNodes)
 
 FText SSCS_RowWidget::GetNameLabel() const
 {
+	if( InlineWidget.IsValid() && !InlineWidget->IsInEditMode() )
+	{
+		FSCSEditorTreeNodePtrType NodePtr = GetNode();
+		if(NodePtr->IsInherited())
+		{
+			return FText::Format(LOCTEXT("NativeComponentFormatString","{0} (Inherited)"), FText::FromString(GetNode()->GetDisplayString()));
+		}
+	}
+
 	// NOTE: Whatever this returns also becomes the variable name
 	return FText::FromString(GetNode()->GetDisplayString());
 }
@@ -3088,9 +3068,18 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 		LOCTEXT("OpenBlueprintEditor", "Open Blueprint Editor"),
 		LOCTEXT("OpenBlueprintEditor_ToolTip", "Opens the blueprint editor for this asset"),
 		FSlateIcon(),
-		FUIAction(FExecuteAction::CreateSP(this, &SSCSEditor::OnOpenBlueprintEditor))
+		FUIAction(FExecuteAction::CreateSP(this, &SSCSEditor::OnOpenBlueprintEditor, /*bForceCodeEditing=*/ false))
 	);
 
+	EditBlueprintMenuBuilder.AddMenuEntry
+	(
+		LOCTEXT("OpenBlueprintEditorScriptMode", "Add or Edit Script"),
+		LOCTEXT("OpenBlueprintEditorScriptMode_ToolTip", "Opens the blueprint editor for this asset, showing the event graph"),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateSP(this, &SSCSEditor::OnOpenBlueprintEditor, /*bForceCodeEditing=*/ true))
+	);
+
+	EditBlueprintMenuBuilder.BeginSection(NAME_None, LOCTEXT("EditBlueprintMenu_InstanceHeader", "Instance modifications"));
 
 	EditBlueprintMenuBuilder.AddMenuEntry
 	(
@@ -3113,8 +3102,8 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 
 	EditBlueprintMenuBuilder.AddMenuEntry
 	(
-		LOCTEXT("PromoteToBlueprint", "Convert to Blueprint Class"),
-		LOCTEXT("PromoteToBluerprintTooltip","Converts the existing Blueprint into a new SubClass Blueprint" ),
+		LOCTEXT("CreateChildBlueprint", "Create Child Blueprint Class"),
+		LOCTEXT("CreateChildBlueprintTooltip", "Creates a Child Blueprint Class based on the current Blueprint, allowing you to create variants easily.  This replaces the current actor instance with a new one based on the new Child Blueprint Class." ),
 		FSlateIcon(),
 		FUIAction(FExecuteAction::CreateSP(this, &SSCSEditor::PromoteToBlueprint))
 	);
@@ -3132,30 +3121,37 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 		.Padding(0)
 		[
 			SNew(SBorder)
-			.Padding(2.0f)
+			.Padding(0)
 			.BorderImage(FEditorStyle::GetBrush("DetailsView.CategoryTop"))
 			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("ComponentsPanel")))
 			.BorderBackgroundColor( FLinearColor( .6,.6,.6, 1.0f ) )
 			[
 				SNew(SHorizontalBox)
+				
 				+ SHorizontalBox::Slot()
-				.HAlign(HAlign_Left)
+				.Padding( 3.0f, 3.0f )
 				.AutoWidth()
+				.HAlign(HAlign_Left)
 				[
 					SNew(SComponentClassCombo)
+					.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Actor.AddComponent")))
 					.Visibility(bHideComponentClassCombo ? EVisibility::Hidden : EVisibility::Visible)
 					.OnComponentClassSelected(this, &SSCSEditor::PerformComboAddClass)
 					.ToolTipText(LOCTEXT("AddComponent_Tooltip", "Adds a new component to this actor"))
+					.IsEnabled(AllowEditing)
 				]
+
 				+ SHorizontalBox::Slot()
-				.Padding( 4.f, 0.0f )
+				.FillWidth(1.0f)
 				.HAlign(HAlign_Right)
+				.Padding( 3.0f, 3.0f )
 				[
 					SNew( SButton )
+					.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Actor.ConvertToBlueprint")))
 					.Visibility( this, &SSCSEditor::GetPromoteToBlueprintButtonVisibility )
 					.OnClicked( this, &SSCSEditor::OnPromoteToBlueprintClicked )
-					.ButtonStyle(FEditorStyle::Get(), "ToggleButton")
-					.ContentPadding(0)
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton.Primary")
+					.ContentPadding(FMargin(10,0))
 					.ToolTip(IDocumentation::Get()->CreateToolTip(
 						LOCTEXT("PromoteToBluerprintTooltip","Converts this actor into a reusable Blueprint Class that can have script behavior" ),
 						NULL,
@@ -3163,53 +3159,64 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 						TEXT("ConvertToBlueprint")))
 					[
 						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.VAlign(VAlign_Center)
-						.AutoWidth()
-						.Padding(2.f, 1.f)
-						[
-							SNew(SImage)
-							.Image( FEditorStyle::Get().GetBrush( "ClassIcon.BlueprintCore" ) )
-						]
+						
 						+ SHorizontalBox::Slot()
 						.VAlign(VAlign_Center)
-						.Padding(1.f)
+						.Padding(3.f)
+						.AutoWidth()
 						[
 							SNew(STextBlock)
 							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
-							.Text( LOCTEXT("PromoteToBlueprint", "Convert to Blueprint Class") )
+							.Font( FEditorStyle::Get().GetFontStyle( "FontAwesome.10" ) )
+							.Text(FString(TEXT("\xf085")) /*fa-cogs*/)
+						]
+
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.Padding(3.f)
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							//.Text( LOCTEXT("PromoteToBlueprint", "Add Script") )
+							.Text(LOCTEXT("PromoteToBlueprint", "Blueprint/Add Script"))
 						]
 					]
 				]
 				+ SHorizontalBox::Slot()
-				.Padding(4.f, 0.0f)
+				.FillWidth(1.0f)
+				.Padding( 3.0f, 3.0f )
 				.HAlign(HAlign_Right)
+				.Padding(3.0f, 3.0f)
 				[
 					SNew(SComboButton)
+					.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Actor.EditBlueprint")))
 					.Visibility(this, &SSCSEditor::GetEditBlueprintButtonVisibility)
-					.ContentPadding(FMargin(0))
-					.ComboButtonStyle(FEditorStyle::Get(), "ContentBrowser.NewAsset.Style")
+					.ContentPadding(FMargin(10, 0))
+					.ComboButtonStyle(FEditorStyle::Get(), "ToolbarComboButton")
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton.Primary")
 					.ForegroundColor(FLinearColor::White)
 					.ButtonContent()
 					[
 						SNew( SHorizontalBox )
+
 						+ SHorizontalBox::Slot()
 						.AutoWidth()
-						.HAlign(HAlign_Center)
 						.VAlign(VAlign_Center)
-						.Padding( 2.0f, 0.0f )
+						.Padding(3.f)
 						[
-							SNew( SImage )
-							.Image( FEditorStyle::Get().GetBrush( "ClassIcon.BlueprintCore" ) )
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+							.Text(FString(TEXT("\xf085")) /*fa-cogs*/)
 						]
-						.Padding( 2.0f, 0.0f )
+						
 						+ SHorizontalBox::Slot()
 						[
 							SNew(STextBlock)
 							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 							.Text(LOCTEXT("EditBlueprint", "Edit Blueprint"))
 						]
-
 					]
 					.MenuContent()
 					[
@@ -3747,24 +3754,32 @@ FSCSEditorTreeNodePtrType SSCSEditor::GetNodeFromActorComponent(const UActorComp
 				// If the given component is one that's created during Blueprint construction
 				if (ActorComponent->IsCreatedByConstructionScript())
 				{
-					// Get the Blueprint object associated with the owner's class
-					UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(OwnerClass);
-					if (Blueprint && Blueprint->SimpleConstructionScript)
-					{
-						// Attempt to locate an SCS node with a variable name that matches the name of the given component
-						TArray<USCS_Node*> AllNodes = Blueprint->SimpleConstructionScript->GetAllNodes();
-						for (int32 i = 0; i < AllNodes.Num(); ++i)
-						{
-							USCS_Node* SCS_Node = AllNodes[i];
+					TArray<UBlueprint*> ParentBPStack;
 
-							check(SCS_Node != NULL);
-							if (SCS_Node->VariableName == ActorComponent->GetFName())
+					// Check the entire Class hierarchy for the node
+					UBlueprint::GetBlueprintHierarchyFromClass(OwnerClass, ParentBPStack);
+
+					for(int32 StackIndex = ParentBPStack.Num() - 1; StackIndex >= 0; --StackIndex)
+					{
+						if(ParentBPStack[StackIndex]->SimpleConstructionScript)
+						{
+							// Attempt to locate an SCS node with a variable name that matches the name of the given component
+							TArray<USCS_Node*> AllNodes = ParentBPStack[StackIndex]->SimpleConstructionScript->GetAllNodes();
+							for (int32 i = 0; i < AllNodes.Num(); ++i)
 							{
-								// We found a match; redirect to the component archetype instance that may be associated with a tree node
-								ActorComponent = SCS_Node->ComponentTemplate;
-								break;
+								USCS_Node* SCS_Node = AllNodes[i];
+
+								check(SCS_Node != NULL);
+								if (SCS_Node->VariableName == ActorComponent->GetFName())
+								{
+									// We found a match; redirect to the component archetype instance that may be associated with a tree node
+									ActorComponent = SCS_Node->ComponentTemplate;
+									break;
+								}
 							}
+
 						}
+
 					}
 				}
 				else
@@ -4147,10 +4162,10 @@ TSharedPtr<FSCSEditorTreeNode> SSCSEditor::AddRootComponentTreeNode(UActorCompon
 	return NewTreeNode;
 }
 
-class FClassParentFilter : public IClassViewerFilter
+class FComponentClassParentFilter : public IClassViewerFilter
 {
 public:
-	FClassParentFilter(const TSubclassOf<UActorComponent>& InComponentClass) : ComponentClass(InComponentClass) {}
+	FComponentClassParentFilter(const TSubclassOf<UActorComponent>& InComponentClass) : ComponentClass(InComponentClass) {}
 
 	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs ) override
 	{
@@ -4163,6 +4178,19 @@ public:
 	}
 
 	TSubclassOf<UActorComponent> ComponentClass;
+};
+
+typedef FComponentClassParentFilter FNativeComponentClassParentFilter;
+
+class FBlueprintComponentClassParentFilter : public FComponentClassParentFilter
+{
+public:
+	FBlueprintComponentClassParentFilter(const TSubclassOf<UActorComponent>& InComponentClass) : FComponentClassParentFilter(InComponentClass) {}
+
+	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs ) override
+	{
+		return FComponentClassParentFilter::IsClassAllowed(InInitOptions, InClass, InFilterFuncs) && FKismetEditorUtilities::CanCreateBlueprintOfClass(InClass);
+	}
 };
 
 UClass* SSCSEditor::CreateNewCPPComponent( TSubclassOf<UActorComponent> ComponentClass )
@@ -4185,7 +4213,7 @@ UClass* SSCSEditor::CreateNewCPPComponent( TSubclassOf<UActorComponent> Componen
 		.Modal()
 		.OnAddedToProject(FOnAddedToProject::CreateLambda(OnCodeAddedToProject))
 		.FeatureComponentClasses()
-		.AllowableParents(MakeShareable( new FClassParentFilter(ComponentClass) ))
+		.AllowableParents(MakeShareable( new FNativeComponentClassParentFilter(ComponentClass) ))
 		.DefaultClassPrefix(TEXT("New"))
 	);
 
@@ -4223,7 +4251,7 @@ UClass* SSCSEditor::CreateNewBPComponent(TSubclassOf<UActorComponent> ComponentC
 		.WindowTitle(LOCTEXT("AddNewBlueprintComponent", "Add Blueprint Component"))
 		.ParentWindow(FSlateApplication::Get().FindWidgetWindow(SharedThis(this)))
 		.Modal()
-		.AllowableParents(MakeShareable( new FClassParentFilter(ComponentClass) ))
+		.AllowableParents(MakeShareable( new FBlueprintComponentClassParentFilter(ComponentClass) ))
 		.FeatureComponentClasses()
 		.OnAddedToProject(FOnAddedToProject::CreateLambda(OnAddedToProject))
 		.DefaultClassPrefix(TEXT("New"))
@@ -4351,6 +4379,7 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 
 			// Add to SerializedComponents array so it gets saved
 			ActorInstance->AddInstanceComponent(NewInstanceComponent);
+			NewInstanceComponent->OnComponentCreated();
 			NewInstanceComponent->RegisterComponent();
 
 			NewComponent = AddNewNodeForInstancedComponent(NewInstanceComponent, Asset);
@@ -5265,12 +5294,22 @@ FText SSCSEditor::OnGetResetToBlueprintDefaultsTooltip() const
 	}
 }
 
-void SSCSEditor::OnOpenBlueprintEditor() const
+void SSCSEditor::OnOpenBlueprintEditor(bool bForceCodeEditing) const
 {
-	AActor* ActorInstance = GetActorContext();
-	UBlueprint* Blueprint = (ActorInstance != nullptr) ? Cast<UBlueprint>( ActorInstance->GetClass()->ClassGeneratedBy ) : nullptr;
-
-	FAssetEditorManager::Get().OpenEditorForAsset(Blueprint);
+	if (AActor* ActorInstance = GetActorContext())
+	{
+		if (UBlueprint* Blueprint = Cast<UBlueprint>(ActorInstance->GetClass()->ClassGeneratedBy))
+		{
+			if (bForceCodeEditing && (Blueprint->UbergraphPages.Num() > 0))
+			{
+				FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(Blueprint->UbergraphPages[0]);
+			}
+			else
+			{
+				FAssetEditorManager::Get().OpenEditorForAsset(Blueprint);
+			}
+		}
+	}
 }
 
 void SSCSEditor::OnApplyChangesToBlueprint() const

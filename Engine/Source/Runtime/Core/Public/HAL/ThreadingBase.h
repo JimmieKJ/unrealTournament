@@ -633,6 +633,13 @@ public:
 	 * Allocates a thread pool
 	 */
 	static FQueuedThreadPool* Allocate();
+
+	/**
+	 *	Stack size for threads created for the thread pool. 
+	 *	Can be overridden by other projects.
+	 *	If 0 means to use the value passed in the Create method.
+	 */
+	static uint32 OverrideStackSize;
 };
 
 

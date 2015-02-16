@@ -12,11 +12,18 @@ public:
 	DECLARE_DELEGATE_RetVal_OneParam( FString, FGetTextComboLabel, TSharedPtr<FString> );
 	typedef TSlateDelegates< TSharedPtr<FString> >::FOnSelectionChanged FOnTextSelectionChanged;
 
-	SLATE_BEGIN_ARGS( STextComboBox ) 
-		: _ColorAndOpacity( FSlateColor::UseForeground() )
+	SLATE_BEGIN_ARGS( STextComboBox )
+		: _ComboBoxStyle(&FCoreStyle::Get().GetWidgetStyle< FComboBoxStyle >("ComboBox"))
+		, _ButtonStyle(nullptr)
+		, _ColorAndOpacity( FSlateColor::UseForeground() )
 		, _ContentPadding(FMargin(4.0, 2.0))
 		, _OnGetTextLabelForItem()
 		{}
+
+		SLATE_STYLE_ARGUMENT(FComboBoxStyle, ComboBoxStyle)
+
+		/** The visual style of the button part of the combo box (overrides ComboBoxStyle) */
+		SLATE_STYLE_ARGUMENT(FButtonStyle, ButtonStyle)
 
 		/** Selection of strings to pick from */
 		SLATE_ARGUMENT( TArray< TSharedPtr<FString> >*, OptionsSource )

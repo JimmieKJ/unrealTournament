@@ -238,17 +238,20 @@ void FMacPlatformSplash::Show()
 
 				// Set version info
 				{
-#if PLATFORM_64BITS
-					//These are invariant strings so they don't need to be localized
-					const FText PlatformBits = FText::FromString( TEXT( "64" ) );
-#else	//PLATFORM_64BITS
-					const FText PlatformBits = FText::FromString( TEXT( "32" ) );
-#endif	//PLATFORM_64BITS
-
 					const FText Version = FText::FromString( GEngineVersion.ToString( FEngineBuildSettings::IsPerforceBuild() ? EVersionComponent::Branch : EVersionComponent::Patch ) );
 
-					FText VersionInfo = FText::Format( NSLOCTEXT("UnrealEd", "UnrealEdTitleWithVersion_F", "Unreal Editor - {0} ({1}-bit) [Version {2}]" ), GameName, PlatformBits, Version );
-					FText AppName =     FText::Format( NSLOCTEXT("UnrealEd", "UnrealEdTitle_F",            "Unreal Editor - {0} ({1}-bit)" ), GameName, PlatformBits );
+					FText VersionInfo;
+					FText AppName;
+					if( GameName.IsEmpty() )
+					{
+						VersionInfo = FText::Format( NSLOCTEXT( "UnrealEd", "UnrealEdTitleWithVersionNoGameName_F", "Unreal Editor {0}" ), Version );
+						AppName = NSLOCTEXT( "UnrealEd", "UnrealEdTitleNoGameName_F", "Unreal Editor" );
+					}
+					else
+					{
+						VersionInfo = FText::Format( NSLOCTEXT( "UnrealEd", "UnrealEdTitleWithVersion_F", "Unreal Editor {0}  -  {1}" ), Version, GameName );
+						AppName = FText::Format( NSLOCTEXT( "UnrealEd", "UnrealEdTitle_F", "Unreal Editor - {0}" ), GameName );
+					}
 
 					StartSetSplashText( SplashTextType::VersionInfo1, VersionInfo );
 
@@ -349,6 +352,11 @@ void FMacPlatformSplash::Hide()
 
 		FPlatformMisc::PumpMessages(true);
 	}
+}
+
+bool FMacPlatformSplash::IsShown()
+{
+	return (GSplashWindow != NULL);
 }
 
 void FMacPlatformSplash::SetSplashText(const SplashTextType::Type InType, const TCHAR* InText)

@@ -67,6 +67,31 @@ bool FEdGraphPinType::Serialize(FArchive& Ar)
 }
 
 /////////////////////////////////////////////////////
+// GraphPinHelpers
+namespace GraphPinHelpers
+{
+	void EnableAllConnectedNodes(UEdGraphNode* InNode)
+	{
+		if(InNode && !InNode->bIsNodeEnabled)
+		{
+			// Enable the node and clear the comment
+			InNode->Modify();
+			InNode->bIsNodeEnabled = true;
+			InNode->NodeComment.Empty();
+
+			// Go through all pin connections and enable the nodes. Enabled nodes will prevent further iteration
+			for (UEdGraphPin* Pin : InNode->Pins)
+			{
+				for (UEdGraphPin* OtherPin : Pin->LinkedTo)
+				{
+					EnableAllConnectedNodes(OtherPin->GetOwningNode());
+				}
+			}
+		}
+	};
+}
+
+/////////////////////////////////////////////////////
 // UEdGraphPin
 
 UEdGraphPin::UEdGraphPin(const FObjectInitializer& ObjectInitializer)
@@ -99,6 +124,9 @@ void UEdGraphPin::MakeLinkTo(UEdGraphPin* ToPin)
 			// Add to both lists
 			LinkedTo.Add(ToPin);
 			ToPin->LinkedTo.Add(this);
+
+			GraphPinHelpers::EnableAllConnectedNodes(MyNode);
+			GraphPinHelpers::EnableAllConnectedNodes(ToPin->GetOwningNode());
 		}
 	}
 }

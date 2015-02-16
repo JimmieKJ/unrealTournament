@@ -95,6 +95,9 @@ protected:
 	/** Returns the color for the toggle bubble including the opacity value */
 	FSlateColor GetToggleButtonColor() const;
 
+	/** Returns the color of the main bubble */
+	FSlateColor GetBubbleColor() const;
+
 	/** Returns the current background color for the textbox */
 	FSlateColor GetTextBackgroundColor() const;
 	

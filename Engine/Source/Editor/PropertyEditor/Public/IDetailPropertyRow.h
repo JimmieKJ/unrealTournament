@@ -78,7 +78,7 @@ public:
 	 * @param OutValueWidget	The default value widget
 	 * @param OutCustomRow		The default widget row
 	 */
-	virtual void GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row ) = 0;
+	virtual void GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, class FDetailWidgetRow& Row ) = 0;
 
 	/**
 	 * Overrides the property widget
@@ -86,6 +86,6 @@ public:
 	 * @param bShowChildren	Whether or not to still show any children of this property
 	 * @return a row for the property that custom widgets can be added to
 	 */
-	virtual FDetailWidgetRow& CustomWidget( bool bShowChildren = false ) = 0;
+	virtual class FDetailWidgetRow& CustomWidget( bool bShowChildren = false ) = 0;
 
 };

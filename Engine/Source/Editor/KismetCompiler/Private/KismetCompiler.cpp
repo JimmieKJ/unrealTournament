@@ -12,6 +12,7 @@
 #include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 #include "Editor/UnrealEd/Public/ScriptDisassembler.h"
+#include "Editor/UnrealEd/Public/ComponentTypeRegistry.h"
 #include "K2Node_PlayMovieScene.h"
 #include "RuntimeMovieScenePlayer.h"
 #include "MovieSceneBindings.h"
@@ -297,6 +298,17 @@ void FKismetCompilerContext::ValidateLink(const UEdGraphPin* PinA, const UEdGrap
 	if (Schema->CanCreateConnection(PinA, PinB).Response == CONNECT_RESPONSE_DISALLOW)
 	{
 		MessageLog.Warning(*LOCTEXT("PinTypeMismatch_Error", "Type mismatch between pins @@ and @@").ToString(), PinA, PinB); 
+	}
+
+	if (PinA && PinB && PinA->Direction != PinB->Direction)
+	{
+		const UEdGraphPin* InputPin = (EEdGraphPinDirection::EGPD_Input == PinA->Direction) ? PinA : PinB;
+		const UEdGraphPin* OutputPin = (EEdGraphPinDirection::EGPD_Output == PinA->Direction) ? PinA : PinB;
+		const bool bForbiddenConnection = InputPin && OutputPin && (OutputPin->PinType.PinCategory == Schema->PC_Interface) && (InputPin->PinType.PinCategory == Schema->PC_Object);
+		if (bForbiddenConnection)
+		{
+			MessageLog.Error(*LOCTEXT("PinTypeMismatch_Error", "Can't connect pins @@ (Interface) and @@ (Object). Use an explicit cast node.").ToString(), OutputPin, InputPin);
+		}
 	}
 }
 
@@ -1685,22 +1697,26 @@ void FKismetCompilerContext::FinishCompilingClass(UClass* Class)
 
 		// Copy the category info from the parent class
 #if WITH_EDITORONLY_DATA
-		FEditorCategoryUtils::GetClassHideCategories(ParentClass, AllHideCategories);
-		if (ParentClass->HasMetaData(TEXT("ShowCategories")))
+		if (!ParentClass->HasMetaData(FBlueprintMetadata::MD_IgnoreCategoryKeywordsInSubclasses))
 		{
-			Class->SetMetaData(TEXT("ShowCategories"), *ParentClass->GetMetaData("ShowCategories"));
+			FEditorCategoryUtils::GetClassHideCategories(ParentClass, AllHideCategories);
+			if (ParentClass->HasMetaData(TEXT("ShowCategories")))
+			{
+				Class->SetMetaData(TEXT("ShowCategories"), *ParentClass->GetMetaData("ShowCategories"));
+			}
+			if (ParentClass->HasMetaData(TEXT("AutoExpandCategories")))
+			{
+				Class->SetMetaData(TEXT("AutoExpandCategories"), *ParentClass->GetMetaData("AutoExpandCategories"));
+			}
+			if (ParentClass->HasMetaData(TEXT("AutoCollapseCategories")))
+			{
+				Class->SetMetaData(TEXT("AutoCollapseCategories"), *ParentClass->GetMetaData("AutoCollapseCategories"));
+			}
 		}
+
 		if (ParentClass->HasMetaData(TEXT("HideFunctions")))
 		{
 			Class->SetMetaData(TEXT("HideFunctions"), *ParentClass->GetMetaData("HideFunctions"));
-		}
-		if (ParentClass->HasMetaData(TEXT("AutoExpandCategories")))
-		{
-			Class->SetMetaData(TEXT("AutoExpandCategories"), *ParentClass->GetMetaData("AutoExpandCategories"));
-		}
-		if (ParentClass->HasMetaData(TEXT("AutoCollapseCategories")))
-		{
-			Class->SetMetaData(TEXT("AutoCollapseCategories"), *ParentClass->GetMetaData("AutoCollapseCategories"));
 		}
 		
 		// Blueprinted Components are always Blueprint Spawnable
@@ -1708,9 +1724,17 @@ void FKismetCompilerContext::FinishCompilingClass(UClass* Class)
 		{
 			static const FName NAME_ClassGroupNames(TEXT("ClassGroupNames"));
 			Class->SetMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent, TEXT("true"));
-			Class->SetMetaData(NAME_ClassGroupNames, *NSLOCTEXT("BlueprintableComponents", "CategoryName", "Custom").ToString());
-		}
 
+			FString ClassGroupCategory = NSLOCTEXT("BlueprintableComponents", "CategoryName", "Custom").ToString();
+			if (!Blueprint->BlueprintCategory.IsEmpty())
+			{
+				ClassGroupCategory = Blueprint->BlueprintCategory;
+			}
+
+			Class->SetMetaData(NAME_ClassGroupNames, *ClassGroupCategory);
+
+			FComponentTypeRegistry::Get().InvalidateClass(Class);
+		}
 
 		// Add a category if one has been specified
 		if(Blueprint->BlueprintCategory.Len() > 0)
@@ -2490,7 +2514,7 @@ void FKismetCompilerContext::MergeUbergraphPagesIn(UEdGraph* Ubergraph)
 		if (CompileOptions.bSaveIntermediateProducts)
 		{
 			TArray<UEdGraphNode*> ClonedNodeList;
-			FEdGraphUtilities::CloneAndMergeGraphIn(Ubergraph, SourceGraph, MessageLog, /*bRequireSchemaMatch=*/ true, &ClonedNodeList);
+			FEdGraphUtilities::CloneAndMergeGraphIn(Ubergraph, SourceGraph, MessageLog, /*bRequireSchemaMatch=*/ true, /*bIsCompiling*/ true, &ClonedNodeList);
 
 			// Create a comment block around the ubergrapgh contents before anything else got started
 			int32 OffsetX = 0;
@@ -2508,7 +2532,7 @@ void FKismetCompilerContext::MergeUbergraphPagesIn(UEdGraph* Ubergraph)
 		}
 		else
 		{
-			FEdGraphUtilities::CloneAndMergeGraphIn(Ubergraph, SourceGraph, MessageLog, /*bRequireSchemaMatch=*/ true);
+			FEdGraphUtilities::CloneAndMergeGraphIn(Ubergraph, SourceGraph, MessageLog, /*bRequireSchemaMatch=*/ true, /*bIsCompiling*/ true);
 		}
 	}
 }
@@ -3742,28 +3766,71 @@ void FKismetCompilerContext::SetCanEverTick() const
 	// RECEIVE TICK
 	if (!TickFunction->bCanEverTick)
 	{
+		// Make sure that both AActor and UActorComponent have the same name for their tick method
 		static FName ReceiveTickName(GET_FUNCTION_NAME_CHECKED(AActor, ReceiveTick));
-		static FName ComponentReceiveTickName(GET_FUNCTION_NAME_CHECKED(UActorComponent, ReceiveTick)); // Only doing this to ensure that both classes have the correct, same name
-		const UFunction* ReciveTickEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(ReceiveTickName, NewClass);
-		if (ReciveTickEvent)
+		static FName ComponentReceiveTickName(GET_FUNCTION_NAME_CHECKED(UActorComponent, ReceiveTick));
+
+		if (const UFunction* ReceiveTickEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(ReceiveTickName, NewClass))
 		{
-			static const FName ChildCanTickName = TEXT("ChildCanTick");
+			// We have a tick node, but are we allowed to?
+
+			const UEngine* EngineSettings = GetDefault<UEngine>();
+			const bool bAllowTickingByDefault = EngineSettings->bCanBlueprintsTickByDefault;
+
 			const UClass* FirstNativeClass = FBlueprintEditorUtils::FindFirstNativeClass(NewClass);
-			const bool bOverrideFlags = (AActor::StaticClass() == FirstNativeClass) || (UActorComponent::StaticClass() == FirstNativeClass) || (FirstNativeClass && FirstNativeClass->HasMetaData(ChildCanTickName));
-			if (bOverrideFlags)
+			const bool bHasCanTickMetadata = (FirstNativeClass != nullptr) && FirstNativeClass->HasMetaData(FBlueprintMetadata::MD_ChildCanTick);
+			const bool bHasCannotTickMetadata = (FirstNativeClass != nullptr) && FirstNativeClass->HasMetaData(FBlueprintMetadata::MD_ChildCannotTick);
+			const bool bHasUniversalParent = (FirstNativeClass != nullptr) && ((AActor::StaticClass() == FirstNativeClass) || (UActorComponent::StaticClass() == FirstNativeClass));
+
+			if (bHasCanTickMetadata && bHasCannotTickMetadata)
 			{
-				TickFunction->bCanEverTick = true;
+				// User error: The C++ class has conflicting metadata
+				const FString ConlictingMetadataWarning = FString::Printf(
+					*LOCTEXT("HasBothCanAndCannotMetadata", "Native class %s has both '%s' and '%s' metadata specified, they are mutually exclusive and '%s' will win.").ToString(),
+					*FirstNativeClass->GetPathName(),
+					*FBlueprintMetadata::MD_ChildCanTick.ToString(),
+					*FBlueprintMetadata::MD_ChildCannotTick.ToString(),
+					*FBlueprintMetadata::MD_ChildCannotTick.ToString());
+				MessageLog.Warning(*ConlictingMetadataWarning);
 			}
-			else if (!TickFunction->bCanEverTick)
+
+			if (bHasCannotTickMetadata)
 			{
-				const FString ReceivTickEventWarning = FString::Printf( 
-					*LOCTEXT("ReceiveTick_CanNeverTick", "Blueprint %s has the ReceiveTick @@ event, but it can never tick.  Please consider using a Timer instead of a tick or you can enable Tick using code in one of the following ways: set ChildCanTick in the metadata on the parent class, or set bCanEverTick to true.").ToString(), *NewClass->GetName());
-				MessageLog.Warning( *ReceivTickEventWarning, FindLocalEntryPoint(ReciveTickEvent) );
+				// This could only happen if someone adds bad metadata to AActor or UActorComponent directly
+				check(!bHasUniversalParent);
+
+				// Parent class has forbidden us to tick
+				const FString NativeClassSaidNo = FString::Printf(
+					*LOCTEXT("NativeClassProhibitsTicking", "@@ is not allowed as the C++ parent class %s has disallowed Blueprint subclasses from ticking.  Please consider using a Timer instead of Tick.").ToString(),
+					*FirstNativeClass->GetPathName(),
+					*FBlueprintMetadata::MD_ChildCannotTick.ToString());
+				MessageLog.Warning(*NativeClassSaidNo, FindLocalEntryPoint(ReceiveTickEvent));
+			}
+			else
+			{
+				if (bAllowTickingByDefault || bHasUniversalParent || bHasCanTickMetadata)
+				{
+					// We're allowed to tick for one reason or another
+					TickFunction->bCanEverTick = true;
+				}
+				else
+				{
+					// Nothing allowing us to tick
+					const FString ReceiveTickEventWarning = FString::Printf(
+						*LOCTEXT("ReceiveTick_CanNeverTick", "@@ is not allowed for Blueprints based on the C++ parent class %s, so it will never Tick!").ToString(),
+						*FirstNativeClass->GetPathName());
+					MessageLog.Warning(*ReceiveTickEventWarning, FindLocalEntryPoint(ReceiveTickEvent));
+
+					const FString ReceiveTickEventRemedies = FString::Printf(
+						*LOCTEXT("RecieveTick_CanNeverTickRemedies", "You can solve this in several ways:\n  1) Consider using a Timer instead of Tick.\n  2) Add meta=(%s) to the parent C++ class\n  3) Reparent the Blueprint to AActor or UActorComponent, which can always tick.").ToString(),
+						*FBlueprintMetadata::MD_ChildCanTick.ToString());
+					MessageLog.Warning(*ReceiveTickEventRemedies);
+				}
 			}
 		}
 	}
 
-	if(TickFunction->bCanEverTick != bOldFlag)
+	if (TickFunction->bCanEverTick != bOldFlag)
 	{
 		UE_LOG(LogK2Compiler, Verbose, TEXT("Overridden flag for class '%s': CanEverTick %s "), *NewClass->GetName(),
 			TickFunction->bCanEverTick ? *(GTrue.ToString()) : *(GFalse.ToString()) );

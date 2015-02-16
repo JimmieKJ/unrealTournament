@@ -27,6 +27,11 @@ public:
 	 */
 	void DoWork();
 
+	FORCEINLINE TStatId GetStatId() const
+	{
+		return TStatId();
+	}
+
 	/** 
 	 * @return The name to display in external event viewers
 	 */
@@ -153,6 +158,9 @@ private:
 
 	/** Whether the user allowed us to be contacted. */
 	bool bAllowToBeContacted;
+
+	/** Whether we send the data. */
+	bool bSendData;
 
 };
 

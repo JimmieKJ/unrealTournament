@@ -335,8 +335,8 @@ TSharedRef< SWidget > SMenuEntryBlock::BuildMenuEntryWidget( const FMenuEntryBui
 		else
 		{
 			// This will silently pad the offending items
-			IconWidget = SNew(SSpacer)
-				.Size(FVector2D(MultiBoxConstants::MenuIconSize, MultiBoxConstants::MenuIconSize));
+			// 	IconWidget = SNew(SSpacer)
+			// 		.Size(FVector2D(MultiBoxConstants::MenuIconSize, MultiBoxConstants::MenuIconSize));
 		}
 	}
 

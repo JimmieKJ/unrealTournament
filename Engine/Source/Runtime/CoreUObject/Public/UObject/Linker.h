@@ -1860,9 +1860,9 @@ private:
 	 * scenarios involving Blueprinted components.
 	 * 
 	 * @param  ExportIndex    Identifies the export you want deferred.
-	 * @return The specified FObjectExport's Object member (unchanged if the deferral failed, or wasn't required).
+	 * @return True if the export has been deferred (and should not be loaded).
 	 */
-	UObject* DeferExportCreation(const int32 ExportIndex);
+	bool DeferExportCreation(const int32 ExportIndex);
 
 	/**
 	 * Combs the ImportMap for any imports that were deferred, and then creates 
@@ -1923,6 +1923,40 @@ private:
 	 * @return True if FinalizeBlueprint() is currently being ran (or about to be ran) for an export (Blueprint) class.
 	 */
 	bool IsBlueprintFinalizationPending() const;
+
+	/**
+	 * Sometimes we have to instantiate an export object that is of an imported 
+	 * type, and sometimes in those scenarios (thanks to cyclic dependencies) 
+	 * the type class could be a Blueprint type that is half resolved. To avoid
+	 * having to re-instance objects on load, we have to ensure that the class
+	 * is fully regenerated before we spawn any instances of it. That's where 
+	 * this function comes in. It will make sure that the specified class is 
+	 * fully loaded, finalized, and regenerated.
+	 *
+	 * NOTE: be wary, if called in the wrong place, then this could introduce 
+	 *       nasty infinite recursion!
+	 * 
+	 * @param  ImportClass    The class you want to make sure is fully regenerated.
+	 * @return True if the class could be regenerated (false if it didn't have its linker set).
+	 */
+	bool ForceRegenerateClass(UClass* ImportClass);
+
+	/**
+	 * Checks to see if an export (or one up its outer chain) is currently 
+	 * in the middle of having its class dependency force-regenerated. This 
+	 * function is meant to help avoid unnecessary recursion, as 
+	 * ForceRegenerateClass() does nothing itself to stave off infinite 
+	 * recursion.
+	 * 
+	 * @param  ExportIndex    Identifies the export you're about to call CreateExport() on.
+	 * @return True if the specified export's class (or one up its outer chain) is currently being force-regenerated.
+	 */
+	bool IsExportBeingResolved(int32 ExportIndex);
+
+
+	void ResetDeferredLoadingState();
+public:
+	bool HasPerformedFullExportResolvePass();
 
 #if	USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	/** 

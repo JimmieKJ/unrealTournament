@@ -466,6 +466,8 @@ void AEmitter::SetMaterialParameter(FName ParameterName, UMaterialInterface* Par
 
 bool AEmitter::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 {
+	Super::GetReferencedContentObjects(Objects);
+
 	if (ParticleSystemComponent->Template)
 	{
 		Objects.Add(ParticleSystemComponent->Template);

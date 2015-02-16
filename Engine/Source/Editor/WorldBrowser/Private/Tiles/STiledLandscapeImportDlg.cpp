@@ -256,8 +256,7 @@ TSharedRef<SWidget> STiledLandcapeImportDlg::CreateLandscapeMaterialPicker()
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &STiledLandcapeImportDlg::OnLandscapeMaterialChanged);
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 	AssetPickerConfig.bAllowNullSelection = true;
-	AssetPickerConfig.ThumbnailScale = 0.0f;
-		
+	
 	return SNew(SBox)
 		.WidthOverride(250)
 		.HeightOverride(300)

@@ -65,9 +65,9 @@ FVector UAnimGraphNode_ModifyBone::GetWidgetLocation(const USkeletalMeshComponen
 	if (CurWidgetMode == FWidget::WM_Translate)
 	{
 		FA2CSPose& MeshBases = AnimNode->ForwardedPose;
-		WidgetLoc = ConvertWidgetLocation(SkelComp, MeshBases, Node.BoneToModify.BoneName, Node.Translation, Node.TranslationSpace);
+		WidgetLoc = ConvertWidgetLocation(SkelComp, MeshBases, Node.BoneToModify.BoneName, GetNodeValue(FString("Translation"), Node.Translation), Node.TranslationSpace);
 
-		if(Node.TranslationMode == BMM_Additive)
+		if (MeshBases.IsValid() && Node.TranslationMode == BMM_Additive)
 		{
 			if(Node.TranslationSpace == EBoneControlSpace::BCS_WorldSpace ||
 				Node.TranslationSpace == EBoneControlSpace::BCS_ComponentSpace)
@@ -193,67 +193,6 @@ FName UAnimGraphNode_ModifyBone::FindSelectedBone()
 	return Node.BoneToModify.BoneName;
 }
 
-void UAnimGraphNode_ModifyBone::UpdateDefaultValues(const FAnimNode_Base* AnimNode)
-{
-	FString UpdateDefaultValueName;
-	FVector UpdateValue;
-
-	const FAnimNode_ModifyBone* ModifyBone = static_cast<const FAnimNode_ModifyBone*>(AnimNode);
-
-	if (!ModifyBone)
-	{
-		return;
-	}
-
-	switch (CurWidgetMode)
-	{
-	case FWidget::WM_Translate:
-
-		UpdateDefaultValueName = FString("Translation");
-		UpdateValue = ModifyBone->Translation;
-		break;
-	case FWidget::WM_Rotate:
-		UpdateDefaultValueName = FString("Rotation");
-		UpdateValue.X = ModifyBone->Rotation.Pitch;
-		UpdateValue.Y = ModifyBone->Rotation.Yaw;
-		UpdateValue.Z = ModifyBone->Rotation.Roll;
-		break;
-	case FWidget::WM_Scale:
-		UpdateDefaultValueName = FString("Scale");
-		UpdateValue = ModifyBone->Scale;
-		break;
-	}
-
-	SetDefaultValue(UpdateDefaultValueName, UpdateValue);
-}
-
-void UAnimGraphNode_ModifyBone::UpdateAllDefaultValues(const FAnimNode_Base* AnimNode)
-{
-	FString UpdateDefaultValueName;
-	FVector UpdateValue;
-
-	const FAnimNode_ModifyBone* ModifyBone = static_cast<const FAnimNode_ModifyBone*>(AnimNode);
-
-	if (!ModifyBone)
-	{
-		return;
-	}
-
-	UpdateDefaultValueName = FString("Translation");
-	UpdateValue = ModifyBone->Translation;
-	SetDefaultValue(UpdateDefaultValueName, UpdateValue);
-
-	UpdateDefaultValueName = FString("Rotation");
-	UpdateValue.X = ModifyBone->Rotation.Pitch;
-	UpdateValue.Y = ModifyBone->Rotation.Yaw;
-	UpdateValue.Z = ModifyBone->Rotation.Roll;
-	SetDefaultValue(UpdateDefaultValueName, UpdateValue);
-
-	UpdateDefaultValueName = FString("Scale");
-	UpdateValue = ModifyBone->Scale;
-	SetDefaultValue(UpdateDefaultValueName, UpdateValue);
-}
-
 void UAnimGraphNode_ModifyBone::DoTranslation(const USkeletalMeshComponent* SkelComp, FVector& Drag, FAnimNode_Base* InOutAnimNode)
 {
 	FAnimNode_ModifyBone* ModifyBone = static_cast<FAnimNode_ModifyBone*>(InOutAnimNode);
@@ -300,9 +239,9 @@ void UAnimGraphNode_ModifyBone::CopyNodeDataTo(FAnimNode_Base* OutAnimNode)
 	FAnimNode_ModifyBone* ModifyBone = static_cast<FAnimNode_ModifyBone*>(OutAnimNode);
 
 	// copies Pin values from the internal node to get data which are not compiled yet
-	ModifyBone->Translation = Node.Translation;
-	ModifyBone->Rotation = Node.Rotation;
-	ModifyBone->Scale = Node.Scale;
+	ModifyBone->Translation = GetNodeValue(FString("Translation"), Node.Translation);
+	ModifyBone->Rotation = GetNodeValue(FString("Rotation"), Node.Rotation);
+	ModifyBone->Scale = GetNodeValue(FString("Scale"), Node.Scale);
 
 	// copies Modes
 	ModifyBone->TranslationMode = Node.TranslationMode;
@@ -319,9 +258,17 @@ void UAnimGraphNode_ModifyBone::CopyNodeDataFrom(const FAnimNode_Base* InNewAnim
 {
 	const FAnimNode_ModifyBone* ModifyBone = static_cast<const FAnimNode_ModifyBone*>(InNewAnimNode);
 
-	// copies Pin data from updated values
-	Node.Translation = ModifyBone->Translation;
-	Node.Rotation = ModifyBone->Rotation;
-	Node.Scale = ModifyBone->Scale;
+	switch (CurWidgetMode)
+	{
+	case FWidget::WM_Translate:
+		SetNodeValue(FString("Translation"), Node.Translation, ModifyBone->Translation);
+		break;
+	case FWidget::WM_Rotate:
+		SetNodeValue(FString("Rotation"), Node.Rotation, ModifyBone->Rotation);
+		break;
+	case FWidget::WM_Scale:
+		SetNodeValue(FString("Scale"), Node.Scale, ModifyBone->Scale);
+		break;
+	}
 }
 #undef LOCTEXT_NAMESPACE

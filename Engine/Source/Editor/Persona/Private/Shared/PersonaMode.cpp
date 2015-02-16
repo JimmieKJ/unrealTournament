@@ -22,7 +22,7 @@ const FName FPersonaTabs::RetargetManagerID("RetargetManager");
 // Anim Blueprint params
 // Explorer
 // Class Defaults
-const FName FPersonaTabs::AnimBlueprintDefaultsEditorID("AnimBlueprintDefaultsEditor");
+const FName FPersonaTabs::AnimBlueprintPreviewEditorID("AnimBlueprintPreviewEditor");
 
 const FName FPersonaTabs::AnimBlueprintParentPlayerEditorID("AnimBlueprintParentPlayerEditor");
 // Anim Document
@@ -248,24 +248,24 @@ TSharedRef<SWidget> FRetargetManagerTabSummoner::CreateTabBody(const FWorkflowTa
 
 
 /////////////////////////////////////////////////////
-// FAnimBlueprintDefaultsEditorSummoner
+// FAnimBlueprintPreviewEditorSummoner
 
 #include "SKismetInspector.h"
 
-FAnimBlueprintDefaultsEditorSummoner::FAnimBlueprintDefaultsEditorSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)
-	: FWorkflowTabFactory(FPersonaTabs::AnimBlueprintDefaultsEditorID, InHostingApp)
+FAnimBlueprintPreviewEditorSummoner::FAnimBlueprintPreviewEditorSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)
+	: FWorkflowTabFactory(FPersonaTabs::AnimBlueprintPreviewEditorID, InHostingApp)
 {
-	TabLabel = LOCTEXT("AnimBlueprintDefaultsTabTitle", "Anim Blueprint Editor");
+	TabLabel = LOCTEXT("AnimBlueprintPreviewTabTitle", "Anim Preview Editor");
 
 	bIsSingleton = true;
 
 	CurrentMode = EAnimBlueprintEditorMode::PreviewMode;
 
-	ViewMenuDescription = LOCTEXT("AnimBlueprintDefaultsView", "Defaults");
-	ViewMenuTooltip = LOCTEXT("AnimBlueprintDefaultsView_ToolTip", "Shows the animation class defaults/preview editor view");
+	ViewMenuDescription = LOCTEXT("AnimBlueprintPreviewView", "Preview");
+	ViewMenuTooltip = LOCTEXT("AnimBlueprintPreviewView_ToolTip", "Shows the animation preview editor view (as well as class defaults)");
 }
 
-TSharedRef<SWidget> FAnimBlueprintDefaultsEditorSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+TSharedRef<SWidget> FAnimBlueprintPreviewEditorSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {
 	TSharedPtr<FPersona> PersonaPtr = StaticCastSharedPtr<FPersona>(HostingApp.Pin());
 
@@ -278,13 +278,13 @@ TSharedRef<SWidget> FAnimBlueprintDefaultsEditorSummoner::CreateTabBody(const FW
 				.Padding(FMargin( 0.f, 0.f, 2.f, 0.f ))
 				[
 					SNew(SBorder)
-					.BorderImage(this, &FAnimBlueprintDefaultsEditorSummoner::GetBorderBrushByMode, EAnimBlueprintEditorMode::PreviewMode )
+					.BorderImage(this, &FAnimBlueprintPreviewEditorSummoner::GetBorderBrushByMode, EAnimBlueprintEditorMode::PreviewMode)
 					.Padding(0)
 					[
 						SNew(SCheckBox)
 						.Style(FEditorStyle::Get(), "RadioButton")
-						.IsChecked( this, &FAnimBlueprintDefaultsEditorSummoner::IsChecked, EAnimBlueprintEditorMode::PreviewMode )
-						.OnCheckStateChanged( this, &FAnimBlueprintDefaultsEditorSummoner::OnCheckedChanged, EAnimBlueprintEditorMode::PreviewMode )
+						.IsChecked(this, &FAnimBlueprintPreviewEditorSummoner::IsChecked, EAnimBlueprintEditorMode::PreviewMode)
+						.OnCheckStateChanged(this, &FAnimBlueprintPreviewEditorSummoner::OnCheckedChanged, EAnimBlueprintEditorMode::PreviewMode)
 						.ToolTip(IDocumentation::Get()->CreateToolTip(	LOCTEXT("AnimBlueprintPropertyEditorPreviewMode", "Switch to editing the preview instance properties"),
 																		NULL,
 																		TEXT("Shared/Editors/Persona"),
@@ -300,13 +300,13 @@ TSharedRef<SWidget> FAnimBlueprintDefaultsEditorSummoner::CreateTabBody(const FW
 				.Padding(FMargin( 2.f, 0.f, 0.f, 0.f ))
 				[
 					SNew(SBorder)
-					.BorderImage(this, &FAnimBlueprintDefaultsEditorSummoner::GetBorderBrushByMode, EAnimBlueprintEditorMode::DefaultsMode )
+					.BorderImage(this, &FAnimBlueprintPreviewEditorSummoner::GetBorderBrushByMode, EAnimBlueprintEditorMode::DefaultsMode)
 					.Padding(0)
 					[
 						SNew(SCheckBox)
 						.Style(FEditorStyle::Get(), "RadioButton")
-						.IsChecked( this, &FAnimBlueprintDefaultsEditorSummoner::IsChecked, EAnimBlueprintEditorMode::DefaultsMode )
-						.OnCheckStateChanged( this, &FAnimBlueprintDefaultsEditorSummoner::OnCheckedChanged, EAnimBlueprintEditorMode::DefaultsMode )
+						.IsChecked(this, &FAnimBlueprintPreviewEditorSummoner::IsChecked, EAnimBlueprintEditorMode::DefaultsMode)
+						.OnCheckStateChanged(this, &FAnimBlueprintPreviewEditorSummoner::OnCheckedChanged, EAnimBlueprintEditorMode::DefaultsMode)
 						.ToolTip(IDocumentation::Get()->CreateToolTip(	LOCTEXT("AnimBlueprintPropertyEditorDefaultMode", "Switch to editing the class defaults"),
 																		NULL,
 																		TEXT("Shared/Editors/Persona"),
@@ -327,27 +327,9 @@ TSharedRef<SWidget> FAnimBlueprintDefaultsEditorSummoner::CreateTabBody(const FW
 					SNew(SBorder)
 					.Padding(0)
 					.BorderImage( FEditorStyle::GetBrush("NoBorder") )
-					.Visibility( this, &FAnimBlueprintDefaultsEditorSummoner::IsEditorVisible, EAnimBlueprintEditorMode::PreviewMode)
+					.Visibility(this, &FAnimBlueprintPreviewEditorSummoner::IsEditorVisible, EAnimBlueprintEditorMode::PreviewMode)
 					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(0.f, 8.f, 0.f, 0.f)
-						[
-							SNew(SBorder)
-							.BorderImage(FEditorStyle::GetBrush("Persona.PreviewPropertiesWarning"))
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("AnimBlueprintEditPreviewText", "Changes to preview options are not saved in the asset."))
-								.Font(FEditorStyle::GetFontStyle("PropertyWindow.NormalFont"))
-								.ShadowColorAndOpacity(FLinearColor::Black.CopyWithNewOpacity(0.3f))
-								.ShadowOffset(FVector2D::UnitVector)
-							]
-						]
-						+SVerticalBox::Slot()
-						[
-							PersonaPtr->GetPreviewEditor()
-						]
+						PersonaPtr->GetPreviewEditor()
 					]
 				]
 				+SOverlay::Slot()
@@ -355,7 +337,7 @@ TSharedRef<SWidget> FAnimBlueprintDefaultsEditorSummoner::CreateTabBody(const FW
 					SNew(SBorder)
 					.Padding(0)
 					.BorderImage( FEditorStyle::GetBrush("NoBorder") )
-					.Visibility( this, &FAnimBlueprintDefaultsEditorSummoner::IsEditorVisible, EAnimBlueprintEditorMode::DefaultsMode)
+					.Visibility(this, &FAnimBlueprintPreviewEditorSummoner::IsEditorVisible, EAnimBlueprintEditorMode::DefaultsMode)
 					[
 						PersonaPtr->GetDefaultEditor()
 					]
@@ -363,22 +345,22 @@ TSharedRef<SWidget> FAnimBlueprintDefaultsEditorSummoner::CreateTabBody(const FW
 			];
 }
 
-FText FAnimBlueprintDefaultsEditorSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
+FText FAnimBlueprintPreviewEditorSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
 {
-	return LOCTEXT("AnimBlueprintDefaultsEditorTooltip", "The editor lets you set the default values for all variables in your Blueprint or lets you change the values of the preview instance, depending on mode");
+	return LOCTEXT("AnimBlueprintPreviewEditorTooltip", "The editor lets you change the values of the preview instance");
 }
 
-EVisibility FAnimBlueprintDefaultsEditorSummoner::IsEditorVisible(EAnimBlueprintEditorMode::Type Mode) const
+EVisibility FAnimBlueprintPreviewEditorSummoner::IsEditorVisible(EAnimBlueprintEditorMode::Type Mode) const
 {
 	return CurrentMode == Mode ? EVisibility::Visible: EVisibility::Hidden;
 }
 
-ECheckBoxState FAnimBlueprintDefaultsEditorSummoner::IsChecked(EAnimBlueprintEditorMode::Type Mode) const
+ECheckBoxState FAnimBlueprintPreviewEditorSummoner::IsChecked(EAnimBlueprintEditorMode::Type Mode) const
 {
 	return CurrentMode == Mode ? ECheckBoxState::Checked: ECheckBoxState::Unchecked;
 }
 
-const FSlateBrush* FAnimBlueprintDefaultsEditorSummoner::GetBorderBrushByMode(EAnimBlueprintEditorMode::Type Mode) const
+const FSlateBrush* FAnimBlueprintPreviewEditorSummoner::GetBorderBrushByMode(EAnimBlueprintEditorMode::Type Mode) const
 {
 	if(Mode == CurrentMode)
 	{
@@ -390,7 +372,7 @@ const FSlateBrush* FAnimBlueprintDefaultsEditorSummoner::GetBorderBrushByMode(EA
 	}
 }
 
-void FAnimBlueprintDefaultsEditorSummoner::OnCheckedChanged(ECheckBoxState NewType, EAnimBlueprintEditorMode::Type Mode)
+void FAnimBlueprintPreviewEditorSummoner::OnCheckedChanged(ECheckBoxState NewType, EAnimBlueprintEditorMode::Type Mode)
 {
 	if(NewType == ECheckBoxState::Checked)
 	{

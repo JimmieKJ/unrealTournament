@@ -1387,6 +1387,23 @@ void DrawWireDiamond(FPrimitiveDrawInterface* PDI,const FMatrix& DiamondMatrix, 
 	PDI->DrawLine(SquarePoints[3], SquarePoints[0], InColor, DepthPriority);
 }
 
+static FLinearColor ApplySelectionIntensity(const FLinearColor& FinalColor, bool bSelected, bool bHovered, bool bUseOverlayIntensity)
+{
+	static const float BaseIntensity = 0.5f;
+	static const float SelectedIntensity = 0.5f;
+	static const float HoverIntensity = 0.15f;
+
+	const float OverlayIntensity = bUseOverlayIntensity ? GEngine->SelectionHighlightIntensity : 1.0f;
+	float ResultingIntensity = bSelected ? SelectedIntensity : (bHovered ? HoverIntensity : 0.0f);
+
+	ResultingIntensity = (ResultingIntensity * OverlayIntensity) + BaseIntensity;
+
+	FLinearColor ret = FinalColor * FMath::Pow(ResultingIntensity, 2.2f);
+	ret.A = FinalColor.A;
+
+	return ret;
+}
+
 FLinearColor GetSelectionColor(const FLinearColor& BaseColor,bool bSelected,bool bHovered, bool bUseOverlayIntensity)
 {
 	FLinearColor FinalColor = BaseColor;
@@ -1395,19 +1412,25 @@ FLinearColor GetSelectionColor(const FLinearColor& BaseColor,bool bSelected,bool
 		FinalColor = GEngine->GetSelectedMaterialColor();
 	}
 
-	static const float BaseIntensity = 0.5f;
-	static const float SelectedIntensity = 0.5f;
-	static const float HoverIntensity = 0.15f;
+	return ApplySelectionIntensity(FinalColor, bSelected, bHovered, bUseOverlayIntensity );
 
-	const float OverlayIntensity = bUseOverlayIntensity ? GEngine->SelectionHighlightIntensity : 1.0f;
-	float ResultingIntensity = bSelected ? SelectedIntensity : ( bHovered ? HoverIntensity : 0.0f );
+}
 
-	ResultingIntensity = ( ResultingIntensity * OverlayIntensity ) + BaseIntensity;
+FLinearColor GetViewSelectionColor(const FLinearColor& BaseColor, const FSceneView& View, bool bSelected, bool bHovered, bool bUseOverlayIntensity, bool bIndividuallySelected)
+{
+	FLinearColor FinalColor = BaseColor;
+#if WITH_EDITOR
+	if (View.bHasSelectedComponents && !bIndividuallySelected)
+	{
+		FinalColor = GEngine->GetSubduedSelectionOutlineColor();
+	}
+	else
+#endif
+	{
+		FinalColor = GEngine->GetSelectedMaterialColor();
+	}
 
-	FLinearColor ret = FinalColor * FMath::Pow(ResultingIntensity, 2.2f);
-	ret.A = FinalColor.A;
-
-	return ret;
+	return ApplySelectionIntensity(FinalColor, bSelected, bHovered, bUseOverlayIntensity );
 }
 
 bool IsRichView(const FSceneViewFamily& ViewFamily)

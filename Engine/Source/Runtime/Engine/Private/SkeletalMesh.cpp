@@ -3871,6 +3871,8 @@ void ASkeletalMeshActor::FinishAnimControl(UInterpGroup* InInterpGroup)
 
 bool ASkeletalMeshActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 {
+	Super::GetReferencedContentObjects(Objects);
+
 	if (SkeletalMeshComponent->SkeletalMesh)
 	{
 		Objects.Add(SkeletalMeshComponent->SkeletalMesh);

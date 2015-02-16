@@ -35,10 +35,9 @@ public:
 	// to keep data consistency between anim nodes 
 	ANIMGRAPH_API virtual void	CopyNodeDataTo(FAnimNode_Base* OutAnimNode){}
 	ANIMGRAPH_API virtual void	CopyNodeDataFrom(const FAnimNode_Base* NewAnimNode){}
-	// update literal values in Pins
-	ANIMGRAPH_API virtual void	UpdateDefaultValues(const FAnimNode_Base* AnimNode){}
-	// update all literal values for Undo/Redo
-	ANIMGRAPH_API virtual void UpdateAllDefaultValues(const FAnimNode_Base* AnimNode){}
+
+	/** Are we currently showing this pin */
+	ANIMGRAPH_API bool IsPinShown(const FString& PinName) const;
 
 	// return current widget mode this anim graph node supports
 	ANIMGRAPH_API virtual int32 GetWidgetMode(const USkeletalMeshComponent* SkelComp);
@@ -81,5 +80,44 @@ protected:
 	// convert widget location according to bone control space
 	FVector ConvertWidgetLocation(const USkeletalMeshComponent* InSkelComp, FA2CSPose& InMeshBases, const FName& BoneName, const FVector& InLocation, const EBoneControlSpace Space);
 	// set literal value for FVector
-	void SetDefaultValue(FString& InDefaultValueName, FVector& InValue);
+	void SetDefaultValue(const FString& InDefaultValueName, const FVector& InValue);
+	// get literal value for vector
+	void GetDefaultValue(const FString& UpdateDefaultValueName, FVector& OutVec);
+
+	void GetDefaultValue(const FString& PropName, FRotator& OutValue)
+	{
+		FVector Value;
+		GetDefaultValue(PropName, Value);
+		OutValue.Pitch = Value.X;
+		OutValue.Yaw = Value.Y;
+		OutValue.Roll = Value.Z;
+	}
+
+	template<class ValueType>
+	ValueType GetNodeValue(const FString& PropName, const ValueType& CompileNodeValue)
+	{
+		if (IsPinShown(PropName))
+		{
+			ValueType Val;
+			GetDefaultValue(PropName, Val);
+			return Val;
+		}
+		return CompileNodeValue;
+	}
+
+	void SetDefaultValue(const FString& PropName, const FRotator& InValue)
+	{
+		FVector VecValue(InValue.Pitch, InValue.Yaw, InValue.Roll);
+		SetDefaultValue(PropName, VecValue);
+	}
+
+	template<class ValueType>
+	void SetNodeValue(const FString& PropName, ValueType& CompileNodeValue, const ValueType& InValue)
+	{
+		if (IsPinShown(PropName))
+		{
+			SetDefaultValue(PropName, InValue);
+		}
+		CompileNodeValue = InValue;
+	}
 };

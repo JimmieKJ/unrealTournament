@@ -246,8 +246,10 @@ void VerifyShaderSourceFiles()
 		// get the list of shader files that can be used
 		TArray<FString> ShaderSourceFiles;
 		GetAllShaderSourceFiles(ShaderSourceFiles);
+		FScopedSlowTask SlowTask(ShaderSourceFiles.Num());
 		for( int32 ShaderFileIdx=0; ShaderFileIdx < ShaderSourceFiles.Num(); ShaderFileIdx++ )
 		{
+			SlowTask.EnterProgressFrame(1);
 			FString FileContents;
 			// load each shader source file. This will cache the shader source data after it has been verified
 			LoadShaderSourceFileChecked(*ShaderSourceFiles[ShaderFileIdx], FileContents);
@@ -503,8 +505,11 @@ void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& Sha
 		TArray<FString> ShaderSourceFiles;
 		GetAllShaderSourceFiles(ShaderSourceFiles);
 
+		FScopedSlowTask SlowTask(ShaderSourceFiles.Num());
+
 		for (int32 FileIndex = 0; FileIndex < ShaderSourceFiles.Num(); FileIndex++)
 		{
+			SlowTask.EnterProgressFrame(1);
 			FString ShaderFileContents;
 
 			LoadShaderSourceFileChecked(*ShaderSourceFiles[FileIndex], ShaderFileContents);

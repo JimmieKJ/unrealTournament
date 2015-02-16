@@ -205,6 +205,16 @@ TArray<FUpdateCacheTransaction> FFileCache::GetOutstandingChanges()
 	return Moved;
 }
 
+void FFileCache::ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action)
+{
+	auto Transaction = ProcessChange(Filename, Action, IFileManager::Get());
+	if (Transaction.IsSet())
+	{
+		// Just complete the transaction immediately without notifying the client
+		CompleteTransaction(MoveTemp(Transaction.GetValue()));
+	}
+}
+
 void FFileCache::CompleteTransaction(FUpdateCacheTransaction&& Transaction)
 {
 	auto* CachedData = CachedDirectoryState.Files.Find(Transaction.Filename);
@@ -307,82 +317,106 @@ void FFileCache::OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges)
 
 	OutstandingChanges.Reserve(OutstandingChanges.Num() + FileChanges.Num());
 
-	const int32 RootPathLen = Config.Directory.Len();
 	for (const auto& ThisEntry : FileChanges)
 	{
-		// If it's a directory or is not applicable, ignore it
-		if (FileManager.DirectoryExists(*ThisEntry.Filename) || !IsFileApplicable(ThisEntry.Filename))
+		auto Transaction = ProcessChange(ThisEntry.Filename, ThisEntry.Action, FileManager);
+		if (Transaction.IsSet())
 		{
-			continue;
-		}
-
-		FImmutableString TransactionFilename;
-		{
-			FString Temp = FPaths::ConvertRelativePathToFull(ThisEntry.Filename);
-			if (Config.PathType == EPathType::Relative)
-			{
-				TransactionFilename = FString(*Temp + RootPathLen);
-			}
-			else
-			{
-				TransactionFilename = MoveTemp(Temp);
-			}
-		}
-		
-		switch (ThisEntry.Action)
-		{
-		case FFileChangeData::FCA_Added:
-			{
-				const int32 NumRemoved = OutstandingChanges.RemoveAll([&](const FUpdateCacheTransaction& X){
-					return X.Action == FFileChangeData::FCA_Removed && X.Filename == TransactionFilename;
-				});
-
-				const auto Action = NumRemoved == 0 ? FFileChangeData::FCA_Added : FFileChangeData::FCA_Modified;
-				OutstandingChanges.Add(FUpdateCacheTransaction(TransactionFilename, Action, FileManager.GetTimeStamp(*ThisEntry.Filename)));
-			}
-			break;
-
-		case FFileChangeData::FCA_Removed:
-			{
-				bool bPreviouslyAdded = false;
-				const int32 NumRemoved = OutstandingChanges.RemoveAll([&](const FUpdateCacheTransaction& X){
-					if (X.Filename == TransactionFilename)
-					{
-						bPreviouslyAdded = X.Action == FFileChangeData::FCA_Added || bPreviouslyAdded;
-						return true;
-					}
-					return false;
-				});
-
-				if (!bPreviouslyAdded)
-				{
-					OutstandingChanges.Add(FUpdateCacheTransaction(TransactionFilename, FFileChangeData::FCA_Removed));
-				}
-			}
-			
-			break;
-
-		case FFileChangeData::FCA_Modified:
-			{
-				const bool bPreviouslyAdded = OutstandingChanges.ContainsByPredicate([&](const FUpdateCacheTransaction& X){
-					return X.Filename == TransactionFilename && X.Action == FFileChangeData::FCA_Added;
-				});
-
-				if (!bPreviouslyAdded)
-				{
-					OutstandingChanges.Add(FUpdateCacheTransaction(TransactionFilename, FFileChangeData::FCA_Modified, FileManager.GetTimeStamp(*ThisEntry.Filename)));
-				}
-			}
-			break;
-
-		default:
-			break;
+			OutstandingChanges.Add(MoveTemp(Transaction.GetValue()));
 		}
 	}
 
 	Utils::RemoveDuplicates(OutstandingChanges, [](const FUpdateCacheTransaction& A, const FUpdateCacheTransaction& B){
 		return A.Action == B.Action && A.Filename == B.Filename;
 	});
+}
+
+TOptional<FUpdateCacheTransaction> FFileCache::ProcessChange(const FString& Filename, FFileChangeData::EFileChangeAction Action, IFileManager& FileManager)
+{
+	// If it's a directory or is not applicable, ignore it
+	if (FileManager.DirectoryExists(*Filename) || !IsFileApplicable(Filename))
+	{
+		return TOptional<FUpdateCacheTransaction>();
+	}
+
+	FImmutableString TransactionFilename;
+	{
+		FString Temp = FPaths::ConvertRelativePathToFull(Filename);
+		if (Config.PathType == EPathType::Relative)
+		{
+			TransactionFilename = FString(*Temp + Config.Directory.Len());
+		}
+		else
+		{
+			TransactionFilename = MoveTemp(Temp);
+		}
+	}
+	
+	switch (Action)
+	{
+	case FFileChangeData::FCA_Added:
+		{
+			// Collapse Remove -> Add into a modification
+			const int32 NumRemoved = OutstandingChanges.RemoveAll([&](const FUpdateCacheTransaction& X){
+				return X.Action == FFileChangeData::FCA_Removed && X.Filename == TransactionFilename;
+			});
+
+			const auto Action = NumRemoved == 0 ? FFileChangeData::FCA_Added : FFileChangeData::FCA_Modified;
+
+			// If it's a modification (remove then add) or the file doesn't already exist in the cache, we can create a transaction
+			if (Action == FFileChangeData::FCA_Modified || !CachedDirectoryState.Files.Find(TransactionFilename))
+			{
+				return FUpdateCacheTransaction(TransactionFilename, Action, FileManager.GetTimeStamp(*Filename));
+			}
+		}
+		break;
+
+	case FFileChangeData::FCA_Removed:
+		{
+			bool bPreviouslyAdded = false;
+			const int32 NumRemoved = OutstandingChanges.RemoveAll([&](const FUpdateCacheTransaction& X){
+				if (X.Filename == TransactionFilename)
+				{
+					bPreviouslyAdded = X.Action == FFileChangeData::FCA_Added || bPreviouslyAdded;
+					return true;
+				}
+				return false;
+			});
+
+			// We only create the transaction if there is net change, and the file actually exists in the cache
+			if (!bPreviouslyAdded && CachedDirectoryState.Files.Find(TransactionFilename))
+			{
+				return FUpdateCacheTransaction(TransactionFilename, FFileChangeData::FCA_Removed);
+			}
+		}
+		
+		break;
+
+	case FFileChangeData::FCA_Modified:
+		{
+			const bool bPreviouslyAdded = OutstandingChanges.ContainsByPredicate([&](const FUpdateCacheTransaction& X){
+				return X.Filename == TransactionFilename && X.Action == FFileChangeData::FCA_Added;
+			});
+
+			const FDateTime& Timestamp = FileManager.GetTimeStamp(*Filename);
+
+			// Don't report subsequent modifications if an addition is still waiting to be handled
+			if (!bPreviouslyAdded)
+			{
+				auto* ExistingFileData = CachedDirectoryState.Files.Find(TransactionFilename);
+				if (ExistingFileData && ExistingFileData->Timestamp < Timestamp)
+				{
+					return FUpdateCacheTransaction(TransactionFilename, FFileChangeData::FCA_Modified, Timestamp);
+				}
+			}
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return TOptional<FUpdateCacheTransaction>();
 }
 
 bool FFileCache::IsFileApplicable(const FString& Filename)

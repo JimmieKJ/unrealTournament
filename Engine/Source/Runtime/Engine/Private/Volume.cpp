@@ -12,7 +12,7 @@
 AVolume::FOnVolumeShapeChanged AVolume::OnVolumeShapeChanged;
 #endif
 
-DEFINE_LOG_CATEGORY_STATIC(LogVolume, Log, All);
+DEFINE_LOG_CATEGORY(LogVolume);
 
 AVolume::AVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

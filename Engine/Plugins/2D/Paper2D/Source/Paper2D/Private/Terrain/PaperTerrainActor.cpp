@@ -21,6 +21,8 @@ APaperTerrainActor::APaperTerrainActor(const FObjectInitializer& ObjectInitializ
 #if WITH_EDITOR
 bool APaperTerrainActor::GetReferencedContentObjects(TArray<UObject*>& Objects) const
 {
+	Super::GetReferencedContentObjects(Objects);
+
 	if (RenderComponent->TerrainMaterial != nullptr)
 	{
 		Objects.Add(RenderComponent->TerrainMaterial);

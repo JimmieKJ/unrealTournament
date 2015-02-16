@@ -207,6 +207,10 @@ struct INTROTUTORIALS_API FTutorialStage
 	/** Text to display on the next button */
 	UPROPERTY(EditAnywhere, Category="Stage")
 	FText NextButtonText;
+	
+	/** Text to display on the back button */
+	UPROPERTY(EditAnywhere, Category = "Stage")
+	FText BackButtonText;	
 };
 
 /** An asset used to build a stage-by-stage tutorial in the editor */

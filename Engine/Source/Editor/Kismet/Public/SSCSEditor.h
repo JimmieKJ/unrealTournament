@@ -574,7 +574,7 @@ private:
 public:
 	/** Pointer back to owning SCSEditor 2 tool */
 	TWeakPtr<SSCSEditor> SCSEditor;
-
+	TSharedPtr<SInlineEditableTextBlock> InlineWidget;
 private:
 	/** Pointer to node we represent */
 	FSCSEditorTreeNodePtrType TreeNodePtr;
@@ -973,7 +973,7 @@ protected:
 	FText OnGetResetToBlueprintDefaultsTooltip() const;
 
 	/** Opens the blueprint editor for the blueprint being viewed by the scseditor */
-	void OnOpenBlueprintEditor() const;
+	void OnOpenBlueprintEditor(bool bForceCodeEditing) const;
 
 	/** Propagates instance changes to the blueprint */
 	void OnApplyChangesToBlueprint() const;

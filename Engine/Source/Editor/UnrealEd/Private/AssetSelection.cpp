@@ -92,6 +92,7 @@ namespace AssetSelectionUtils
 							ActorInfo.bHaveBuilderBrush = FActorEditorUtils::IsABuilderBrush(Brush);
 						}
 						ActorInfo.bHaveBrush |= true;
+						ActorInfo.bHaveBSPBrush |= (!Brush->IsVolumeBrush());
 						ActorInfo.bHaveVolume |= Brush->IsVolumeBrush();
 					}
 

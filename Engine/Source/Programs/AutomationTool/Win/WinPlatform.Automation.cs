@@ -85,6 +85,9 @@ public abstract class BaseWinPlatform : Platform
 			}
 		}
 
+        // Leap files
+        StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Leap", SC.PlatformDir), "Leap.", false, null, null, true);
+        
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 

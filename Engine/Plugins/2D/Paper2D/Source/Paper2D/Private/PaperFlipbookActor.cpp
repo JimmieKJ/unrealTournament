@@ -17,6 +17,8 @@ APaperFlipbookActor::APaperFlipbookActor(const FObjectInitializer& ObjectInitial
 #if WITH_EDITOR
 bool APaperFlipbookActor::GetReferencedContentObjects(TArray<UObject*>& Objects) const
 {
+	Super::GetReferencedContentObjects(Objects);
+
 	if (UPaperFlipbook* FlipbookAsset = RenderComponent->GetFlipbook())
 	{
 		Objects.Add(FlipbookAsset);

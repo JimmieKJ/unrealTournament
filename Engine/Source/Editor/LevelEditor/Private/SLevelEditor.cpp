@@ -94,8 +94,18 @@ void SLevelEditor::BindCommands()
 		FExecuteAction::CreateStatic< TWeakPtr< SLevelEditor > >( &FLevelEditorActionCallbacks::OpenLevelBlueprint, SharedThis( this ) ) );
 	
 	LevelEditorCommands->MapAction(
-		Actions.CreateBlueprintClass,
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CreateBlueprintClass ) );
+		Actions.CreateBlankBlueprintClass,
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CreateBlankBlueprintClass ) );
+
+	LevelEditorCommands->MapAction(
+		Actions.ConvertSelectionToBlueprintViaHarvest,
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::HarvestSelectedActorsIntoBlueprintClass ),
+		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CanHarvestSelectedActorsIntoBlueprintClass ) );
+
+	LevelEditorCommands->MapAction(
+		Actions.ConvertSelectionToBlueprintViaSubclass,
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SubclassSelectedActorIntoBlueprintClass ),
+		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CanSubclassSelectedActorIntoBlueprintClass ) );
 
 	LevelEditorCommands->MapAction(
 		Actions.OpenContentBrowser,

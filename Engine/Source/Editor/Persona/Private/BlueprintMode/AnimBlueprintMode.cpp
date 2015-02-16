@@ -18,7 +18,7 @@
 FAnimBlueprintEditAppMode::FAnimBlueprintEditAppMode(TSharedPtr<FPersona> InPersona)
 	: FBlueprintEditorApplicationMode(StaticCastSharedPtr<FBlueprintEditor>(InPersona), FPersonaModes::AnimBlueprintEditMode, FPersonaModes::GetLocalizedMode, false, false)
 {
-	TabLayout = FTabManager::NewLayout( "Persona_AnimBlueprintEditMode_Layout_v6" )
+	TabLayout = FTabManager::NewLayout( "Persona_AnimBlueprintEditMode_Layout_v7" )
 		->AddArea
 		(
 			FTabManager::NewPrimaryArea()
@@ -54,7 +54,7 @@ FAnimBlueprintEditAppMode::FAnimBlueprintEditAppMode(TSharedPtr<FPersona> InPers
 						//	Left bottom - preview settings
 						FTabManager::NewStack()
 						->SetSizeCoefficient(0.5f)
-						->AddTab( FPersonaTabs::AnimBlueprintDefaultsEditorID, ETabState::OpenedTab )
+						->AddTab( FPersonaTabs::AnimBlueprintPreviewEditorID, ETabState::OpenedTab )
 						->AddTab( FPersonaTabs::AnimBlueprintParentPlayerEditorID, ETabState::ClosedTab )
 					)
 				)
@@ -110,7 +110,7 @@ FAnimBlueprintEditAppMode::FAnimBlueprintEditAppMode(TSharedPtr<FPersona> InPers
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FAnimationAssetBrowserSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FPreviewViewportSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FSkeletonAnimNotifiesSummoner(InPersona)));
-	PersonaTabFactories.RegisterFactory(MakeShareable(new FAnimBlueprintDefaultsEditorSummoner(InPersona)));
+	PersonaTabFactories.RegisterFactory(MakeShareable(new FAnimBlueprintPreviewEditorSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FAnimBlueprintParentPlayerEditorSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FSkeletonSlotNamesSummoner(InPersona)));
 

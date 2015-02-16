@@ -179,7 +179,18 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 
 	ClassViewer = StaticCastSharedRef<SClassViewer>(FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, FOnClassPicked::CreateSP(this, &SNewClassDialog::OnAdvancedClassSelected)));
 
-	SetupParentClassItems(InArgs._FeaturedClasses);
+	// Make sure the featured classes all pass the active class filter
+	TArray<FNewClassInfo> ValidatedFeaturedClasses;
+	ValidatedFeaturedClasses.Reserve(InArgs._FeaturedClasses.Num());
+	for (const FNewClassInfo& FeaturedClassInfo : InArgs._FeaturedClasses)
+	{
+		if (FeaturedClassInfo.ClassType != FNewClassInfo::EClassType::UObject || ClassViewer->IsClassAllowed(FeaturedClassInfo.BaseClass))
+		{
+			ValidatedFeaturedClasses.Add(FeaturedClassInfo);
+		}
+	}
+
+	SetupParentClassItems(ValidatedFeaturedClasses);
 	UpdateInputValidity();
 
 	TSharedRef<SWidget> DocWidget = IDocumentation::Get()->CreateAnchor(TAttribute<FString>(this, &SNewClassDialog::GetSelectedParentDocLink));
@@ -428,8 +439,7 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 							.Padding(0.0f, 0.0f, 0.0f, 0.0f)
 							[
 								SNew(SHyperlink)
-								.Style(FCoreStyle::Get(), "Hyperlink")
-								.TextStyle(FEditorStyle::Get(), "DetailsView.GoToCodeHyperlinkStyle")
+								.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
 								.OnNavigate(this, &SNewClassDialog::OnEditCodeClicked)
 								.Text(this, &SNewClassDialog::GetSelectedParentClassFilename)
 								.ToolTipText(LOCTEXT("GoToCode_ToolTip", "Click to open this source file in a text editor"))

@@ -87,7 +87,7 @@ public:
 	static bool CanCreateBlueprintOfClass(const UClass* Class);
 
 	/** Take a list of components that belong to a single Actor and add them to a blueprint as SCSNodes */
-	static void AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components);
+	static void AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components, bool bHarvesting = false, class USCS_Node* OptionalNewRootNode = nullptr);
 
 	/** 
 	 * Take an Actor and generate a blueprint based on it. Uses the Actors type as the parent class. 
@@ -151,7 +151,10 @@ public:
 	static void CreateNewBoundEventForActor(AActor* Actor, FName EventName);
 
 	/** Create a new event node in the  blueprint, for the supplied component, event name and blueprint */
-	static void CreateNewBoundEventForComponent(UActorComponent* Component, FName EventName, UBlueprint* Blueprint, UObjectProperty* ComponentProperty);
+	static void CreateNewBoundEventForComponent(UObject* Component, FName EventName, UBlueprint* Blueprint, UObjectProperty* ComponentProperty);
+
+	/** Create a new event node in the  blueprint, for the supplied class, event name and blueprint */
+	static void CreateNewBoundEventForClass(UClass* Class, FName EventName, UBlueprint* Blueprint, UObjectProperty* ComponentProperty);
 
 	/** Can we paste to this graph? */
 	static bool CanPasteNodes(const class UEdGraph* Graph);
@@ -208,6 +211,19 @@ public:
 	 * @param	OutTags			Array to add tags to
 	 */
 	static void AddInterfaceTags(const UBlueprint* Blueprint, TArray<UObject::FAssetRegistryTag>& OutTags);
+
+	/**
+	 * Add a default event node to the graph, this node will also be in a disabled state and will spawn
+	 * with a call to it's parent if available
+	 *
+	 * @param InBlueprint		Blueprint this event will be a part of
+	 * @param InGraph			The graph to spawn the event node in
+	 * @param InEventName		The name of the event function
+	 * @param InEventClass		The class this event can be found in
+	 * @param InNodePosY		Optional Y-position to spawn the node at to easily spawn in a line
+	 * @return					The K2Node_Event will be returned
+	 */
+	static class UK2Node_Event* AddDefaultEventNode(UBlueprint* InBlueprint, UEdGraph* InGraph, FName InEventName, UClass* InEventClass, int32 InNodePosY = 0);
 
 private:
 	/** Stores whether we are already listening for kismet clicks */

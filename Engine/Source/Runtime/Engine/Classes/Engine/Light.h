@@ -5,7 +5,7 @@
 #include "Components/LightComponent.h"
 #include "Light.generated.h"
 
-UCLASS(Abstract, ClassGroup=Lights, hidecategories=(Input,Collision,Replication), showcategories=("Input|MouseInput", "Input|TouchInput"), ConversionRoot, meta=(ChildCanTick))
+UCLASS(Abstract, ClassGroup=Lights, hideCategories=(Input,Collision,Replication), showCategories=("Input|MouseInput", "Input|TouchInput"), ComponentWrapperClass, ConversionRoot, meta=(ChildCanTick))
 class ENGINE_API ALight : public AActor
 {
 	GENERATED_UCLASS_BODY()

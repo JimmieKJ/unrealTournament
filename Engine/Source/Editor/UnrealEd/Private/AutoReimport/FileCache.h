@@ -87,11 +87,15 @@ struct FUpdateCacheTransaction
 
 private:
 	friend class FFileCache;
-	
+
 	/** Construction responsibility is held by FFileCache */
 	FUpdateCacheTransaction(FImmutableString InFilename, FFileChangeData::EFileChangeAction InAction, const FDateTime& InTimestamp = 0)
 		: Filename(MoveTemp(InFilename)), Timestamp(InTimestamp), Action(InAction)
 	{}
+	
+	/** Not Copyable */
+	FUpdateCacheTransaction(const FUpdateCacheTransaction&) = delete;
+	FUpdateCacheTransaction& operator=(const FUpdateCacheTransaction&) = delete;
 };
 
 /** Enum specifying whether a path should be relative or absolute */
@@ -217,6 +221,9 @@ public:
 	 */
 	void CompleteTransaction(FUpdateCacheTransaction&& Transaction);
 
+	/** Report an external change to the manager, such that a subsequent equal change reported by the os be ignored */
+	void ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action);
+
 	/** Get the number of pending changes to the cache. */
 	int32 GetNumOutstandingChanges() const { return OutstandingChanges.Num(); }
 
@@ -227,6 +234,9 @@ private:
 
 	/** Called when the directory we are monitoring has been changed in some way */
 	void OnDirectoryChanged(const TArray<FFileChangeData>& FileChanges);
+
+	/** Process a change, creating an outstanding change transaction if necessary */
+	TOptional<FUpdateCacheTransaction> ProcessChange(const FString& Filename, FFileChangeData::EFileChangeAction Action, IFileManager& FileManager);
 
 	/** Check whether a file is applicable to our cache */
 	bool IsFileApplicable(const FString& InPath);

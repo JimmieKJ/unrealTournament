@@ -11,7 +11,7 @@ class UDestructibleComponent;
 /** Delegate for notification when fracture occurs */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActorFractureSignature, const FVector &, HitPoint, const FVector &, HitDirection);
 
-UCLASS(MinimalAPI, hidecategories=(Input), showcategories=("Input|MouseInput", "Input|TouchInput"))
+UCLASS(MinimalAPI, hideCategories=(Input), showCategories=("Input|MouseInput", "Input|TouchInput"), ComponentWrapperClass)
 class ADestructibleActor : public AActor
 {
 	GENERATED_UCLASS_BODY()

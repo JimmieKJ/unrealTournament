@@ -151,6 +151,10 @@ class ENGINE_API UEdGraphNode : public UObject
 	UPROPERTY()
 	TEnumAsByte<ENodeAdvancedPins::Type> AdvancedPinDisplay;
 
+	/** FALSE if the node is a disabled, which eliminates it from being compiled */
+	UPROPERTY()
+	bool bIsNodeEnabled;
+
 #if WITH_EDITOR
 
 private:

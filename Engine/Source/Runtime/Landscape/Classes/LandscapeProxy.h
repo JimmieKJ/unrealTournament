@@ -335,7 +335,10 @@ public:
 #endif
 
 public:
+
+#if WITH_EDITOR
 	LANDSCAPE_API static ULandscapeLayerInfoObject* VisibilityLayer;
+#endif
 
 	/** Map of material instance constants used to for the components. Key is generated with ULandscapeComponent::GetLayerAllocationKey() */
 	TMap<FString, UMaterialInstanceConstant*> MaterialInstanceConstantMap;

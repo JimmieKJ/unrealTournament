@@ -7,6 +7,7 @@
 #include "CoreUObjectPrivate.h"
 #include "PropertyTag.h"
 #include "HotReloadInterface.h"
+#include "LinkerPlaceholderClass.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogScriptSerialization, Log, All);
 DEFINE_LOG_CATEGORY(LogScriptSerialization);
@@ -1554,6 +1555,37 @@ bool UStruct::GetStringMetaDataHierarchical(const FName& Key, FString* OutValue)
 }
 
 #endif
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	/**
+	 * If we're loading, then the value of the script's UObject* expression 
+	 * could be pointing at a ULinkerPlaceholderClass (used by the linker to 
+	 * fight cyclic dependency issues on load). So here, if that's the case, we
+	 * have the placeholder track this ref (so it'll replace it once the real 
+	 * class is loaded).
+	 * 
+	 * @param  ScriptPtr    Reference to the point in the bytecode buffer, where a UObject* has been stored (for us to check).
+	 */
+	static void HandlePlaceholderScriptRef(ScriptPointerType& ScriptPtr)
+	{
+		UObject*& ExprPtrRef = (UObject*&)ScriptPtr;
+		if (ULinkerPlaceholderClass* PlaceholderObj = Cast<ULinkerPlaceholderClass>(ExprPtrRef)) \
+		{
+			PlaceholderObj->AddReferencingScriptExpr((ULinkerPlaceholderClass**)(&ExprPtrRef));
+		}
+	}
+
+	#define FIXUP_EXPR_OBJECT_POINTER(Type) \
+	{ \
+		if (!Ar.IsSaving()) \
+		{ \
+			int32 const ExprIndex = iCode - sizeof(ScriptPointerType); \
+			ScriptPointerType& ScriptPtr = (ScriptPointerType&)Script[ExprIndex]; \
+			HandlePlaceholderScriptRef(ScriptPtr); \
+		} \
+	}
+#endif // #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
 //
 // Serialize an expression to an archive.
 // Returns expression token.
@@ -1571,6 +1603,7 @@ EExprToken UStruct::SerializeExpr( int32& iCode, FArchive& Ar )
 #undef XFER_FUNC_POINTER
 #undef XFER_FUNC_NAME
 #undef XFER_PROP_POINTER
+#undef FIXUP_EXPR_OBJECT_POINTER
 }
 
 void UStruct::InstanceSubobjectTemplates( void* Data, void const* DefaultData, UStruct* DefaultStruct, UObject* Owner, FObjectInstancingGraph* InstanceGraph )

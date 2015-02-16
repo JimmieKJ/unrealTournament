@@ -601,6 +601,8 @@ namespace UC
 		showCategories,
 		/// Hides the specified categories in a property viewer. Usage: hideCategories=CategoryName or hideCategories=(category0, category1, ...)
 		hideCategories,
+		/// Indicates that this class is a wrapper class for a component with little intrinsic functionality (this causes things like hideCategories and showCategories to be ignored if the class is subclassed in a Blueprint)
+		ComponentWrapperClass,
 		/// Shows the specified function in a property viewer. Usage: showFunctions=FunctionName or showFunctions=(category0, category1, ...)
 		showFunctions,
 		/// Hides the specified function in a property viewer. Usage: hideFunctions=FunctionName or hideFunctions=(category0, category1, ...)
@@ -878,8 +880,14 @@ namespace UM
 		/// [ClassMetadata] Used for Actor Component classes. If present indicates that it can be spawned by a Blueprint.
 		BlueprintSpawnableComponent,
 
-		/// [ClassMetadata] Used for Actor classes. If the native class cannot tick, Blueprint generated classes based this Actor can have bCanEverTick flag overridden.
+		/// [ClassMetadata] Used for Actor and Component classes. If the native class cannot tick, Blueprint generated classes based this Actor or Component can have bCanEverTick flag overridden even if bCanBlueprintsTickByDefault is false.
 		ChildCanTick,
+
+		/// [ClassMetadata] Used for Actor and Component classes. If the native class cannot tick, Blueprint generated classes based this Actor or Component can never tick even if bCanBlueprintsTickByDefault is true.
+		ChildCannotTick,
+
+		/// [ClassMetadata] Used to make the first subclass of a class ignore all inherited showCategories and hideCategories commands
+		IgnoreCategoryKeywordsInSubclasses,
 
 		/// [ClassMetadata] For BehaviorTree nodes indicates that the class is deprecated and will display a warning when compiled.
 		DeprecatedNode,

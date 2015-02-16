@@ -24,6 +24,10 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 {
 	CrashReportClient = Client;
 
+	TSharedPtr<SScrollBar> HiddenScrollbar;
+	SAssignNew( HiddenScrollbar, SScrollBar );
+	HiddenScrollbar->SetVisibility( EVisibility::Collapsed );
+
 	auto CrashedAppName = CrashReportClient->GetCrashedAppName();
 
 	// Set the text displaying the name of the crashed app, if available
@@ -152,6 +156,7 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 					.BackgroundColor( FSlateColor( FLinearColor::Black ) )
 					.ForegroundColor( FSlateColor( FLinearColor::White * 0.8f ) )
 					.Text( Client, &FCrashReportClient::GetDiagnosticText )
+					.HScrollBar( HiddenScrollbar )
 				]
 
 

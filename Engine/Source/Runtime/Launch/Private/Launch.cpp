@@ -115,15 +115,26 @@ int32 GuardedMain( const TCHAR* CmdLine )
 		return ErrorLevel;
 	}
 
+	{
+		FScopedSlowTask SlowTask(100, NSLOCTEXT("EngineInit", "EngineInit_Loading", "Loading..."));
+
+		// EnginePreInit leaves 20% unused in its slow task.
+		// Here we consume 80% immediately so that the percentage value on the splash screen doesn't change from one slow task to the next.
+		// (Note, we can't include the call to EnginePreInit in this ScopedSlowTask, because the engine isn't fully initialized at that point)
+		SlowTask.EnterProgressFrame(80);
+
+		SlowTask.EnterProgressFrame(20);
+
 #if WITH_EDITOR
-	if( GIsEditor )
-	{
-		ErrorLevel = EditorInit( GEngineLoop );
-	}
-	else
+		if (GIsEditor)
+		{
+			ErrorLevel = EditorInit(GEngineLoop);
+		}
+		else
 #endif
-	{
-		ErrorLevel = EngineInit();
+		{
+			ErrorLevel = EngineInit();
+		}
 	}
 
 	UE_LOG(LogLoad, Log, TEXT("Full Startup: %.2f seconds (BP compile: %.2f seconds)"), FPlatformTime::Seconds() - GStartTime, GBlueprintCompileTime);

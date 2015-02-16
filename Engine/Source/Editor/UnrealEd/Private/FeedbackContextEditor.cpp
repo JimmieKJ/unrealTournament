@@ -461,16 +461,41 @@ void FFeedbackContextEditor::ProgressReported( const float TotalProgressInterp, 
 				break;
 			}
 		}
+	}
 
-		if (!DisplayMessage.IsEmpty() && TotalProgressInterp > 0)
+	if (FPlatformSplash::IsShown())
+	{
+		if (!DisplayMessage.IsEmpty())
 		{
-            FFormatOrderedArguments Args;
-            Args.Add(DisplayMessage);
-            Args.Add(int(TotalProgressInterp * 100.f));
+			const int32 DotCount = 4;
+			const float MinTimeBetweenUpdates = 0.2f;
+			static double LastUpdateTime = -100000.0;
+			static int32 DotProgress = 0;
+			const double CurrentTime = FPlatformTime::Seconds();
+			if( CurrentTime - LastUpdateTime >= MinTimeBetweenUpdates )
+			{
+				LastUpdateTime = CurrentTime;
+				DotProgress = ( DotProgress + 1 ) % DotCount;
+			}
 
-            DisplayMessage = FText::Format(NSLOCTEXT("FeedbackContextEditor", "ProgressDisplayText", "{0} ({1}%)"), Args);
+			FString NewDisplayMessage = DisplayMessage.ToString();
+			NewDisplayMessage.RemoveFromEnd( TEXT( "..." ) );
+			for( int32 DotIndex = 0; DotIndex <= DotCount; ++DotIndex )
+			{
+				if( DotIndex <= DotProgress )
+				{
+					NewDisplayMessage.AppendChar( TCHAR( '.' ) );
+				}
+				else
+				{
+					NewDisplayMessage.AppendChar( TCHAR( ' ' ) );
+				}				
+			}
+			NewDisplayMessage.Append( FString::Printf( TEXT( " %i%%" ), int(TotalProgressInterp * 100.f) ) );
+			DisplayMessage = FText::FromString( NewDisplayMessage );
 		}
-		FPlatformSplash::SetSplashText( SplashTextType::StartupProgress, *DisplayMessage.ToString() );
+
+		FPlatformSplash::SetSplashText(SplashTextType::StartupProgress, *DisplayMessage.ToString());
 	}
 }
 

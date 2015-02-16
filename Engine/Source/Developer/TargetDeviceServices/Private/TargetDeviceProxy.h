@@ -135,6 +135,11 @@ public:
 		return Type;
 	}
 
+	virtual const FString& GetOperatingSystemName() const override
+	{
+		return OperatingSystemName;
+	}
+
 	virtual bool HasDeviceId(const FString& InDeviceId) const override;
 	virtual bool HasVariant(FName InVariant) const override;
 	virtual bool HasTargetPlatform(FName InTargetPlatformId) const override;
@@ -240,6 +245,9 @@ private:
 
 	/** Holds the device type. */
 	FString Type;
+
+	/** Holds the operating system name */
+	FString OperatingSystemName;
 
 	/** Holds default variant name. */
 	FName DefaultVariant;

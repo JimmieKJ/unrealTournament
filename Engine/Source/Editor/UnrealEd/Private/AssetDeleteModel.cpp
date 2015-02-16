@@ -166,7 +166,8 @@ void FAssetDeleteModel::DiscoverSourceFileReferences(FPendingDelete& PendingDele
 		}
 		else
 		{
-			SourceFileToAssetCount.Add(SourcePath, Utils::FindAssetsPertainingToFile(AssetRegistry, SourcePath).Num());
+			const int32 NumReferencingAssets = Utils::FindAssetsPertainingToFile(AssetRegistry, SourcePath).Num();
+			SourceFileToAssetCount.Add(SourcePath, NumReferencingAssets - 1);
 		}
 	}
 }
@@ -197,6 +198,9 @@ void FAssetDeleteModel::DeleteSourceContentFiles()
 		{
 			continue;
 		}
+
+		// One way or another this file is going to be deleted, but we don't want the import manager to react to the deletion
+		GUnrealEd->AutoReimportManager->ReportExternalChange(Path, FFileChangeData::FCA_Removed);
 
 		if (ISourceControlModule::Get().IsEnabled())
 		{
@@ -286,7 +290,7 @@ bool FAssetDeleteModel::ComputeCanReplaceReferences()
 		PendingDeletedObjects.Add(PendingDelete->GetObject());
 	}
 
-	return ObjectTools::AreObjectsOfEquivalantType( PendingDeletedObjects );
+	return ObjectTools::AreObjectsValidForReplace(PendingDeletedObjects) && ObjectTools::AreObjectsValidForReplace(PendingDeletedObjects);
 }
 
 bool FAssetDeleteModel::CanReplaceReferences() const

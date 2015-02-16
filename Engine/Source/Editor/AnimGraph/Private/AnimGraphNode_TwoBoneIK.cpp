@@ -119,17 +119,22 @@ void UAnimGraphNode_TwoBoneIK::CopyNodeDataTo(FAnimNode_Base* AnimNode)
 	FAnimNode_TwoBoneIK* TwoBoneIK = static_cast<FAnimNode_TwoBoneIK*>(AnimNode);
 
 	// copies Pin values from the internal node to get data which are not compiled yet
-	TwoBoneIK->EffectorLocation = Node.EffectorLocation;
-	TwoBoneIK->JointTargetLocation = Node.JointTargetLocation;
+	TwoBoneIK->EffectorLocation = GetNodeValue(FString("EffectorLocation"), Node.EffectorLocation);
+	TwoBoneIK->JointTargetLocation = GetNodeValue(FString("JointTargetLocation"), Node.JointTargetLocation);
 }
 
 void UAnimGraphNode_TwoBoneIK::CopyNodeDataFrom(const FAnimNode_Base* InNewAnimNode)
 {
 	const FAnimNode_TwoBoneIK* TwoBoneIK = static_cast<const FAnimNode_TwoBoneIK*>(InNewAnimNode);
 	
-	// copies Pin data from updated values
-	Node.EffectorLocation = TwoBoneIK->EffectorLocation;
-	Node.JointTargetLocation = TwoBoneIK->JointTargetLocation;
+	if (BoneSelectMode == BSM_EndEffector)
+	{
+		SetNodeValue(FString("EffectorLocation"), Node.EffectorLocation, TwoBoneIK->EffectorLocation);
+	}
+	else
+	{
+		SetNodeValue(FString("JointTargetLocation"), Node.JointTargetLocation, TwoBoneIK->JointTargetLocation);
+	}
 }
 
 
@@ -142,7 +147,7 @@ FVector UAnimGraphNode_TwoBoneIK::GetWidgetLocation(const USkeletalMeshComponent
 	if (BoneSelectMode == BSM_EndEffector)
 	{
 		Space = Node.EffectorLocationSpace;
-		Location = Node.EffectorLocation;
+		Location = GetNodeValue(FString("EffectorLocation"), Node.EffectorLocation);
 		BoneName = Node.EffectorSpaceBoneName;
 
 	}
@@ -154,60 +159,12 @@ FVector UAnimGraphNode_TwoBoneIK::GetWidgetLocation(const USkeletalMeshComponent
 		{
 			return FVector::ZeroVector;
 		}
-		Location = Node.JointTargetLocation;
+		Location = GetNodeValue(FString("JointTargetLocation"), Node.JointTargetLocation);
 		BoneName = Node.JointTargetSpaceBoneName;
 	}
 
 	return ConvertWidgetLocation(SkelComp, AnimNode->ForwardedPose, BoneName, Location, Space);
 }
-
-void UAnimGraphNode_TwoBoneIK::UpdateDefaultValues(const FAnimNode_Base* AnimNode)
-{
-	FString UpdateDefaultValueName;
-	FVector UpdateValue;
-
-	const FAnimNode_TwoBoneIK* TwoBoneIK = static_cast<const FAnimNode_TwoBoneIK*>(AnimNode);
-
-	if (TwoBoneIK == NULL)
-	{
-		return;
-	}
-
-	if (BoneSelectMode == BSM_EndEffector)
-	{
-		UpdateDefaultValueName = FString("EffectorLocation");
-		UpdateValue = TwoBoneIK->EffectorLocation;
-	}
-	else
-	{
-		UpdateDefaultValueName = FString("JointTargetLocation");
-		UpdateValue = TwoBoneIK->JointTargetLocation;
-	}
-
-	SetDefaultValue(UpdateDefaultValueName, UpdateValue);
-}
-
-void UAnimGraphNode_TwoBoneIK::UpdateAllDefaultValues(const FAnimNode_Base* AnimNode)
-{
-	FString UpdateDefaultValueName;
-	FVector UpdateValue;
-
-	const FAnimNode_TwoBoneIK* TwoBoneIK = static_cast<const FAnimNode_TwoBoneIK*>(AnimNode);
-
-	if (TwoBoneIK == NULL)
-	{
-		return;
-	}
-
-	UpdateDefaultValueName = FString("EffectorLocation");
-	UpdateValue = TwoBoneIK->EffectorLocation;
-	SetDefaultValue(UpdateDefaultValueName, UpdateValue);
-
-	UpdateDefaultValueName = FString("JointTargetLocation");
-	UpdateValue = TwoBoneIK->JointTargetLocation;
-	SetDefaultValue(UpdateDefaultValueName, UpdateValue);
-}
-
 
 int32 UAnimGraphNode_TwoBoneIK::GetWidgetMode(const USkeletalMeshComponent* SkelComp)
 {

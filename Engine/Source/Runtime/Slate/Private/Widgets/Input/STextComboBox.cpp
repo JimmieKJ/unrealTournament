@@ -14,6 +14,8 @@ void STextComboBox::Construct( const FArguments& InArgs )
 	this->ChildSlot
 	[
 		SAssignNew(StringCombo, SComboBox< TSharedPtr<FString> > )
+		.ComboBoxStyle(InArgs._ComboBoxStyle)
+		.ButtonStyle(InArgs._ButtonStyle)
 		.OptionsSource(InArgs._OptionsSource)
 		.OnGenerateWidget(this, &STextComboBox::MakeItemWidget)
 		.OnSelectionChanged(this, &STextComboBox::OnSelectionChanged)

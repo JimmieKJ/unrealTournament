@@ -5,7 +5,7 @@
 #include "RigidBodyBase.h"
 #include "RadialForceActor.generated.h"
 
-UCLASS(MinimalAPI, hidecategories=(Collision, Input), showcategories=("Input|MouseInput", "Input|TouchInput"))
+UCLASS(MinimalAPI, hideCategories=(Collision, Input), showCategories=("Input|MouseInput", "Input|TouchInput"), ComponentWrapperClass)
 class ARadialForceActor : public ARigidBodyBase
 {
 	GENERATED_UCLASS_BODY()

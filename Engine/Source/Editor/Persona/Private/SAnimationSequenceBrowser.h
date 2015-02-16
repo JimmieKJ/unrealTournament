@@ -148,6 +148,9 @@ protected:
 	 */
 	bool IsToolTipPreviewVisible();
 
+	/** Returns visible when not in a Blueprint mode (anim mode, etc...) */
+	EVisibility GetNonBlueprintModeVisibility() const;
+protected:
 	/**
 	 * The actual viewport widget
 	 */	
@@ -172,8 +175,6 @@ protected:
 	 * The scene to show in the asset previews
 	 */
 	FPreviewScene PreviewScene;
-
-protected:
 
 	// Pointer back to persona tool that owns us
 	TWeakPtr<class FPersona> PersonaPtr;

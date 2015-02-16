@@ -15,6 +15,16 @@ UUserInterfaceSettings::UUserInterfaceSettings(const FObjectInitializer& ObjectI
 {
 }
 
+void UUserInterfaceSettings::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	if ( HasAnyFlags(RF_ClassDefaultObject) == false )
+	{
+		LoadCursors();
+	}
+}
+
 float UUserInterfaceSettings::GetDPIScaleBasedOnSize(FIntPoint Size) const
 {
 	float Scale = 1;
@@ -47,6 +57,25 @@ float UUserInterfaceSettings::GetDPIScaleBasedOnSize(FIntPoint Size) const
 	}
 
 	return FMath::Max(Scale, 0.01f);
+}
+
+void UUserInterfaceSettings::LoadCursors()
+{
+	TArray<UObject*> LoadedClasses;
+	LoadedClasses.Add(DefaultCursor.TryLoad());
+	LoadedClasses.Add(TextEditBeamCursor.TryLoad());
+	LoadedClasses.Add(CrosshairsCursor.TryLoad());
+	LoadedClasses.Add(GrabHandCursor.TryLoad());
+	LoadedClasses.Add(GrabHandClosedCursor.TryLoad());
+	LoadedClasses.Add(SlashedCircleCursor.TryLoad());
+
+	for ( UObject* Cursor : LoadedClasses )
+	{
+		if ( Cursor )
+		{
+			CursorClasses.Add(Cursor);
+		}
+	}
 }
 
 #if WITH_EDITOR

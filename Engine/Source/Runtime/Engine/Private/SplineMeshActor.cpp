@@ -43,6 +43,8 @@ void ASplineMeshActor::SetMobility(EComponentMobility::Type InMobility)
 
 bool ASplineMeshActor::GetReferencedContentObjects(TArray<UObject*>& Objects) const
 {
+	Super::GetReferencedContentObjects(Objects);
+
 	check(SplineMeshComponent != nullptr);
 	if (SplineMeshComponent->StaticMesh != nullptr)
 	{

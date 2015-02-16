@@ -502,7 +502,8 @@ public:
 	FTakePointDamageSignature OnTakePointDamage;
 	
 	/** 
-	 *	Called when another actor begins to overlap this actor. 
+	 *	Called when another actor begins to overlap this actor, for example a player walking into a trigger.
+	 *	For events when objects have a blocking collision, for example a player hitting a wall, see 'Hit' events.
 	 *	@note Components on both this and the other Actor must have bGenerateOverlapEvents set to true to generate overlap events.
 	 */
 	UPROPERTY(BlueprintAssignable, Category="Collision")
@@ -548,7 +549,8 @@ public:
 	FActorEndTouchOverSignature OnInputTouchLeave;
 
 	/** 
-	 *	Called when this Actor hits (or is hit by) something solid. 
+	 *	Called when this Actor hits (or is hit by) something solid. This could happen due to things like Character movement, using Set Location with 'sweep' enabled, or physics simulation.
+	 *	For events when objects overlap (e.g. walking into a trigger) see the 'Overlap' event.
 	 *	@note For collisions during physics simulation to generate hit events, 'Simulation Generates Hit Events' must be enabled.
 	 */
 	UPROPERTY(BlueprintAssignable, Category="Collision")
@@ -1014,7 +1016,8 @@ public:
 	virtual void ReceiveTick(float DeltaSeconds);
 
 	/** 
-	 *	Event when this actor overlaps another actor. 
+	 *	Event when this actor overlaps another actor, for example a player walking into a trigger.
+	 *	For events when objects have a blocking collision, for example a player hitting a wall, see 'Hit' events.
 	 *	@note Components on both this and the other Actor must have bGenerateOverlapEvents set to true to generate overlap events.
 	 */
 	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "ActorBeginOverlap"), Category="Collision")
@@ -1076,7 +1079,8 @@ public:
 	void GetOverlappingComponents(TArray<UPrimitiveComponent*>& OverlappingComponents) const;
 
 	/** 
-	 *	Event when this actor bumps into a blocking object, or blocks another actor that bumps into it. 
+	 *	Event when this actor bumps into a blocking object, or blocks another actor that bumps into it. This could happen due to things like Character movement, using Set Location with 'sweep' enabled, or physics simulation.
+	 *	For events when objects overlap (e.g. walking into a trigger) see the 'Overlap' event.
 	 *	@note For collisions during physics simulation to generate hit events, 'Simulation Generates Hit Events' must be enabled.
 	 */
 	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "Hit"), Category="Collision")

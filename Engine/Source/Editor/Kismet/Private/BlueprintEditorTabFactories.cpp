@@ -29,6 +29,12 @@ void FGraphEditorSummoner::OnTabActivated(TSharedPtr<SDockTab> Tab) const
 	BlueprintEditorPtr.Pin()->OnGraphEditorFocused(GraphEditor);
 }
 
+void FGraphEditorSummoner::OnTabBackgrounded(TSharedPtr<SDockTab> Tab) const
+{
+	TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
+	BlueprintEditorPtr.Pin()->OnGraphEditorBackgrounded(GraphEditor);
+}
+
 void FGraphEditorSummoner::OnTabRefreshed(TSharedPtr<SDockTab> Tab) const
 {
 	TSharedRef<SGraphEditor> GraphEditor = StaticCastSharedRef<SGraphEditor>(Tab->GetContent());
@@ -43,9 +49,9 @@ void FGraphEditorSummoner::SaveState(TSharedPtr<SDockTab> Tab, TSharedPtr<FTabPa
 	float ZoomAmount;
 	GraphEditor->GetViewLocation(ViewLocation, ZoomAmount);
 
-	UEdGraph* Graph = FTabPayload_UObject::CastChecked<UEdGraph>(Payload);
+	UEdGraph* Graph = Payload->IsValid() ? FTabPayload_UObject::CastChecked<UEdGraph>(Payload) : nullptr;
 
-	if (BlueprintEditorPtr.Pin()->IsGraphInCurrentBlueprint(Graph))
+	if (Graph && BlueprintEditorPtr.Pin()->IsGraphInCurrentBlueprint(Graph))
 	{
 		// Don't save references to external graphs.
 		BlueprintEditorPtr.Pin()->GetBlueprintObj()->LastEditedDocuments.Add(FEditedDocumentInfo(Graph, ViewLocation, ZoomAmount));
@@ -188,8 +194,7 @@ TSharedRef<SWidget> FDefaultsEditorSummoner::CreateOptionalDataOnlyMessage() con
 					+ SWrapBox::Slot()
 					[
 						SNew(SHyperlink)
-						.Style(FEditorStyle::Get(), "EditBPHyperlink")
-						.TextStyle(FEditorStyle::Get(), "DetailsView.EditBlueprintHyperlinkStyle")
+						.Style(FEditorStyle::Get(), "Common.GotoBlueprintHyperlink")
 						.OnNavigate(this, &FDefaultsEditorSummoner::OnChangeBlueprintToNotDataOnly)
 						.Text(LOCTEXT("FullEditor", "Open Full Blueprint Editor"))
 						.ToolTipText(LOCTEXT("FullEditorToolTip", "This opens the blueprint in the full editor."))
@@ -238,7 +243,7 @@ TSharedRef<SWidget> FConstructionScriptEditorSummoner::CreateTabBody(const FWork
 {
 	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
 
-	return BlueprintEditorPtr->GetSCSEditor();
+	return BlueprintEditorPtr->GetSCSEditor().ToSharedRef();
 }
 
 FSCSViewportSummoner::FSCSViewportSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)

@@ -253,7 +253,6 @@ bool UMatineeTrackAnimControlHelper::PreCreateKeyframe( UInterpTrack *Track, flo
 			AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateUObject( this, &UMatineeTrackAnimControlHelper::OnAddKeyTextEntry, Mode->InterpEd, Track );
 			AssetPickerConfig.bAllowNullSelection = false;
 			AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-			AssetPickerConfig.ThumbnailScale = 0.0f;
 
 			// Filter config
 			AssetPickerConfig.Filter.ClassNames.Add(UAnimSequence::StaticClass()->GetFName());

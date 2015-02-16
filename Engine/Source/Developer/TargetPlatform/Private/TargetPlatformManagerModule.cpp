@@ -569,8 +569,10 @@ protected:
 			UE_LOG(LogTargetPlatformManager, Error, TEXT("No target platforms found!"));
 		}
 
+		FScopedSlowTask SlowTask(Modules.Num());
 		for (int32 Index = 0; Index < Modules.Num(); Index++)
 		{
+			SlowTask.EnterProgressFrame(1);
 			ITargetPlatformModule* Module = FModuleManager::LoadModulePtr<ITargetPlatformModule>(Modules[Index]);
 			if (Module)
 			{

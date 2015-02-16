@@ -28,7 +28,7 @@ FText UAnimGraphNode_Slot::GetTooltipText() const
 
 FText UAnimGraphNode_Slot::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	if (Node.SlotName == NAME_None)
+	if (Node.SlotName == NAME_None || !HasValidBlueprint() )
 	{
 		if (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle)
 		{

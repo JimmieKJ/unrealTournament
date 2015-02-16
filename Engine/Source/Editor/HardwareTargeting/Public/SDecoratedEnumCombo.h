@@ -41,7 +41,7 @@ public:
 		ChildSlot
 		[
 			SNew(SComboButton)
-			.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
 			.ForegroundColor(FSlateColor::UseForeground())
 			.ContentPadding(ContentPadding)
 			.OnGetMenuContent(this, &SDecoratedEnumCombo::OnGetComboContent)

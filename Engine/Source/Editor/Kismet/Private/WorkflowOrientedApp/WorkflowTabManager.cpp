@@ -372,11 +372,13 @@ FDocumentTracker::FDocumentTracker()
 {
 	// Make sure we know when tabs become active
 	OnActiveTabChangedDelegateHandle = FGlobalTabmanager::Get()->OnActiveTabChanged_Subscribe( FOnActiveTabChanged::FDelegate::CreateRaw( this, &FDocumentTracker::OnActiveTabChanged ) );
+	TabForegroundedDelegateHandle = FGlobalTabmanager::Get()->OnTabForegrounded_Subscribe(FOnActiveTabChanged::FDelegate::CreateRaw(this, &FDocumentTracker::OnTabForegrounded));
 }
 
 FDocumentTracker::~FDocumentTracker()
 {
-	FGlobalTabmanager::Get()->OnActiveTabChanged_Unsubscribe( OnActiveTabChangedDelegateHandle );
+	FGlobalTabmanager::Get()->OnActiveTabChanged_Unsubscribe(OnActiveTabChangedDelegateHandle);
+	FGlobalTabmanager::Get()->OnTabForegrounded_Unsubscribe(TabForegroundedDelegateHandle);
 }
 
 // Called by the global active tab changed callback; dispatches to individually registered callbacks
@@ -396,6 +398,43 @@ void FDocumentTracker::OnActiveTabChanged(TSharedPtr<SDockTab> PreviouslyActive,
 				Factory->OnTabActivated(Tab);
 			}
 		}
+	}
+}
+
+void FDocumentTracker::OnTabForegrounded(TSharedPtr<SDockTab> ForegroundedTab, TSharedPtr<SDockTab> BackgroundedTab)
+{
+	TSharedPtr<SDockTab> OwnedForeground, OwnedBackground;
+	TSharedPtr<FDocumentTabFactory> ForegroundFactory, BackgroundFactory;
+
+	FTabList& List = GetSpawnedList();
+	for ( auto ListIt = List.CreateIterator(); ListIt; ++ListIt )
+	{
+		// Get the factory (can't fail; the tabs had to come from somewhere; failing means a tab survived a mode transition to a mode where it is not allowed!)
+		TSharedPtr<FDocumentTabFactory> Factory = ( *ListIt )->GetFactory().Pin();
+		if ( ensure(Factory.IsValid()) )
+		{
+			TSharedPtr<SDockTab> Tab = ( *ListIt )->GetTab().Pin();
+			if ( Tab == ForegroundedTab )
+			{
+				OwnedForeground = Tab;
+				ForegroundFactory = Factory;
+			}
+			else if ( Tab == BackgroundedTab )
+			{
+				OwnedBackground = Tab;
+				BackgroundFactory = Factory;
+			}
+		}
+	}
+
+	if ( OwnedBackground.IsValid() )
+	{
+		BackgroundFactory->OnTabBackgrounded(OwnedBackground);
+	}
+
+	if ( OwnedForeground.IsValid() )
+	{
+		ForegroundFactory->OnTabForegrounded(OwnedForeground);
 	}
 }
 
@@ -530,6 +569,8 @@ TSharedPtr<SDockTab> FDocumentTracker::NavigateCurrentTab(TSharedPtr<FTabPayload
 			TSharedPtr<FDocumentTabFactory> Factory = FindSupportingFactory(InPayload.ToSharedRef());
 			// If doing a Quick navigate of the document, do not save history data as it's likely still at the default values. The object is always saved
 			LastEditedTabInfo.Pin()->AddTabHistory(Factory->CreateTabHistoryNode(InPayload), InNavigateCause != QuickNavigateCurrentDocument);
+			// Ensure that the tab appears if the tab isn't currently in the foreground.
+			LastEditedTabInfo.Pin()->GetTab().Pin()->ActivateInParent(ETabActivationCause::SetDirectly);
 		}
 		else if(InNavigateCause == NavigateBackwards)
 		{

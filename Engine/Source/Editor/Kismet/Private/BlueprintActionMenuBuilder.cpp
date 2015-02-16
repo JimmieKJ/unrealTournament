@@ -16,7 +16,7 @@
 #include "SMyBlueprint.h"				// for SelectionAsVar()
 #include "BlueprintEditorUtils.h"		// for FindBlueprintForGraphChecked()
 #include "BlueprintEditor.h"			// for GetFocusedGraph()
-#include "BlueprintEditorSettings.h"	// for bUseLegacyMenuingSystem
+#include "BlueprintEditorSettings.h"	// for bForceLegacyMenuingSystem
 
 #define LOCTEXT_NAMESPACE "BlueprintActionMenuBuilder"
 
@@ -542,7 +542,7 @@ void FBlueprintActionMenuBuilder::RebuildActionList()
 	}
 	
 	const UBlueprintEditorSettings* BlueprintSettings = GetDefault<UBlueprintEditorSettings>();
-	if (!BlueprintSettings->bUseLegacyMenuingSystem)
+	if (!BlueprintSettings->bForceLegacyMenuingSystem)
 	{
 		FBlueprintActionDatabase::FActionRegistry const& ActionDatabase = FBlueprintActionDatabase::Get().GetAllActions();
 		for (auto const& ActionEntry : ActionDatabase)

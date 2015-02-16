@@ -3037,7 +3037,6 @@ TSharedRef<SWidget> FPhAT::BuildStaticMeshAssetPicker()
 	AssetPickerConfig.OnAssetDoubleClicked = FOnAssetDoubleClicked::CreateSP(this, &FPhAT::OnAssetSelectedFromStaticMeshAssetPicker);
 	AssetPickerConfig.bAllowNullSelection = true;
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-	AssetPickerConfig.ThumbnailScale = 0.0f;
 	AssetPickerConfig.bFocusSearchBoxWhenOpened = true;
 	AssetPickerConfig.bShowBottomToolbar = false;
 	AssetPickerConfig.SelectionMode = ESelectionMode::Single;

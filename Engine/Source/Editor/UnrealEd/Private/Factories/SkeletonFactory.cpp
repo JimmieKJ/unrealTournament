@@ -43,9 +43,6 @@ bool USkeletonFactory::ConfigureProperties()
 	/** The default view mode should be a list view */
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 
-	/** The default scale for thumbnails. [0-1] range */
-	AssetPickerConfig.ThumbnailScale = 0.25f;
-
 	PickerWindow = SNew(SWindow)
 	.Title( LOCTEXT("CreateSkeletonOptions", "Pick Skeletal Mesh") )
 	.ClientSize(FVector2D(500, 600))

@@ -457,6 +457,12 @@ namespace UnrealBuildTool
                 Result += string.Format(" -Wl,--unresolved-symbols=ignore-in-shared-libs");
             }
 
+            if (UnrealBuildTool.BuildingRocket())
+            {
+                // strip symbols for Rocket in every configuration
+                Result += " -Wl,-s";
+            }
+
             // RPATH for third party libs
             Result += " -Wl,-rpath=${ORIGIN}";
             Result += " -Wl,-rpath-link=${ORIGIN}";

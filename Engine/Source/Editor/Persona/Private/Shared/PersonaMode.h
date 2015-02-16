@@ -22,7 +22,7 @@ struct FPersonaTabs
 	// Anim Blueprint Params
 	// Explorer
 	// Class Defaults
-	static const FName AnimBlueprintDefaultsEditorID;
+	static const FName AnimBlueprintPreviewEditorID;
 	static const FName AnimBlueprintParentPlayerEditorID;
 	// Anim Document
 	static const FName ScrubberID;
@@ -221,7 +221,7 @@ public:
 };
 
 /////////////////////////////////////////////////////
-// FAnimBlueprintDefaultsEditorSummoner
+// FAnimBlueprintPreviewEditorSummoner
 
 namespace EAnimBlueprintEditorMode
 {
@@ -232,10 +232,10 @@ namespace EAnimBlueprintEditorMode
 	};
 }
 
-struct FAnimBlueprintDefaultsEditorSummoner : public FWorkflowTabFactory
+struct FAnimBlueprintPreviewEditorSummoner : public FWorkflowTabFactory
 {
 public:
-	FAnimBlueprintDefaultsEditorSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
+	FAnimBlueprintPreviewEditorSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
 

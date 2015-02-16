@@ -353,7 +353,14 @@ void SDetailsView::RemoveInvalidObjects()
 bool SDetailsView::ShouldSetNewObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects ) const
 {
 	bool bShouldSetObjects = false;
-	if( InObjects.Num() != RootPropertyNode->GetNumObjects() )
+
+	const bool bHadBSPBrushSelected = SelectedActorInfo.bHaveBSPBrush;
+	if( bHadBSPBrushSelected == true )
+	{
+		// If a BSP brush was selected we need to refresh because surface could have been selected and the object set not updated
+		bShouldSetObjects = true;
+	}
+	else if( InObjects.Num() != RootPropertyNode->GetNumObjects() )
 	{
 		// If the object arrys differ in size then at least one object is different so we must reset
 		bShouldSetObjects = true;

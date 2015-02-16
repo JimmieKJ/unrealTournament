@@ -2,7 +2,7 @@
 
 #include "EnginePrivate.h"
 #include "Components/LineBatchComponent.h"
-#include "Logging/MessageLog.h"
+#include "MessageLog.h"
 
 //////////////// PRIMITIVECOMPONENT ///////////////
 

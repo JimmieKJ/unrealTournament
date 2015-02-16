@@ -26,13 +26,16 @@ public:
 	void StartProcessing();
 
 	/** Extract the files we need to import from our outstanding changes (happens first)*/ 
-	void ProcessAdditions(TArray<UPackage*>& OutPackagesToSave, const FTimeLimit& TimeLimit, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, class FReimportFeedbackContext& Context);
+	void ProcessAdditions(const IAssetRegistry& Registry, TArray<UPackage*>& OutPackagesToSave, const FTimeLimit& TimeLimit, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, class FReimportFeedbackContext& Context);
 
 	/** Process the outstanding changes that we have cached */
 	void ProcessModifications(const IAssetRegistry& Registry, const FTimeLimit& TimeLimit, class FReimportFeedbackContext& Context);
 
 	/** Extract the assets we need to delete from our outstanding changes (happens last) */ 
 	void ExtractAssetsToDelete(const IAssetRegistry& Registry, TArray<FAssetData>& OutAssetsToDelete);
+
+	/** Report an external change to the manager, such that a subsequent equal change reported by the os be ignored */
+	void ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action);
 
 	/** Destroy this monitor including its cache */
 	void Destroy();

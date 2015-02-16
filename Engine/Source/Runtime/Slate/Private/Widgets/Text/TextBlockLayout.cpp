@@ -98,8 +98,33 @@ int32 FTextBlockLayout::OnPaint(const FPaintArgs& InPaintArgs, const FGeometry& 
 {
 	CachedSize = InAllottedGeometry.Size;
 
+	// Text blocks don't have scroll bars, so when the visible region is smaller than the desired size, 
+	// we attempt to auto-scroll to keep the view of the text aligned with the current justification method
+	FVector2D AutoScrollValue = FVector2D::ZeroVector; // Scroll to the left
+	if(TextLayout->GetJustification() != ETextJustify::Left)
+	{
+		const float ActualWidth = TextLayout->GetSize().X;
+		const float VisibleWidth = InAllottedGeometry.Size.X;
+		if(VisibleWidth < ActualWidth)
+		{
+			switch(TextLayout->GetJustification())
+			{
+			case ETextJustify::Center:
+				AutoScrollValue.X = (ActualWidth - VisibleWidth) * 0.5f; // Scroll to the center
+				break;
+
+			case ETextJustify::Right:
+				AutoScrollValue.X = (ActualWidth - VisibleWidth); // Scroll to the right
+				break;
+
+			default:
+				break;
+			}
+		}
+	}
+
 	TextLayout->SetScale(InAllottedGeometry.Scale);
-	TextLayout->SetVisibleRegion(InAllottedGeometry.Size, FVector2D::ZeroVector);
+	TextLayout->SetVisibleRegion(InAllottedGeometry.Size, AutoScrollValue);
 
 	TextLayout->UpdateIfNeeded();
 

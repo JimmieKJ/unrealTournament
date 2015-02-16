@@ -540,7 +540,6 @@ void SRetargetSourceWindow::OnAddRetargetSource()
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SRetargetSourceWindow::OnAssetSelectedFromMeshPicker);
 	AssetPickerConfig.bAllowNullSelection = false;
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::Tile;
-	AssetPickerConfig.ThumbnailScale = 0.0f;
 
 	if(Skeleton)
 	{

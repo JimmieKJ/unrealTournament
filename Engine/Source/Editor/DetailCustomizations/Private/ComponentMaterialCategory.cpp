@@ -4,6 +4,7 @@
 #include "ComponentMaterialCategory.h"
 #include "AssetThumbnail.h"
 #include "ActorEditorUtils.h"
+#include "IPropertyUtilities.h"
 
 #include "LandscapeProxy.h"
 #include "LandscapeComponent.h"
@@ -54,17 +55,14 @@ public:
 				UPrimitiveComponent* PrimitiveComp = Cast<UPrimitiveComponent>( CurComponent );
 				UDecalComponent* DecalComponent = (PrimitiveComp ? NULL : Cast<UDecalComponent>( CurComponent ));
 
-				if (!CurComponent->IsCreatedByConstructionScript())
+				if( PrimitiveComp )
 				{
-					if( PrimitiveComp )
-					{
-						NumMaterials = PrimitiveComp->GetNumMaterials();
-					}
-					else if( DecalComponent )
-					{
-						// DecalComponent isn't a primitive component so we must get the materials directly from it
-						NumMaterials = DecalComponent->GetNumMaterials();
-					}
+					NumMaterials = PrimitiveComp->GetNumMaterials();
+				}
+				else if( DecalComponent )
+				{
+					// DecalComponent isn't a primitive component so we must get the materials directly from it
+					NumMaterials = DecalComponent->GetNumMaterials();
 				}
 
 				// Check materials
@@ -162,11 +160,14 @@ private:
 
 FComponentMaterialCategory::FComponentMaterialCategory( TArray< TWeakObjectPtr<USceneComponent> >& InSelectedComponents )
 	: SelectedComponents( InSelectedComponents )
+	, NotifyHook( nullptr )
 {
 }
 
 void FComponentMaterialCategory::Create( IDetailLayoutBuilder& DetailBuilder )
 {
+	NotifyHook = DetailBuilder.GetPropertyUtilities()->GetNotifyHook();
+
 	FMaterialListDelegates MaterialListDelegates;
 	MaterialListDelegates.OnGetMaterials.BindSP( this, &FComponentMaterialCategory::OnGetMaterialsForView );
 	MaterialListDelegates.OnMaterialChanged.BindSP( this, &FComponentMaterialCategory::OnMaterialChanged );
@@ -179,7 +180,7 @@ void FComponentMaterialCategory::Create( IDetailLayoutBuilder& DetailBuilder )
 	{	
 		UActorComponent* CurrentComponent = It.GetComponent();
 
-		if( !bAnyMaterialsToDisplay && !CurrentComponent->IsCreatedByConstructionScript() )
+		if( !bAnyMaterialsToDisplay )
 		{
 			bAnyMaterialsToDisplay = true;
 			break;
@@ -208,7 +209,7 @@ void FComponentMaterialCategory::OnGetMaterialsForView( IMaterialListBuilder& Ma
 
 		UActorComponent* CurrentComponent = It.GetComponent();
 
-		if( CurrentComponent && !CurrentComponent->IsCreatedByConstructionScript() )
+		if( CurrentComponent )
 		{
 			UMaterialInterface* Material = It.GetMaterial();
 
@@ -250,7 +251,7 @@ void FComponentMaterialCategory::OnMaterialChanged( UMaterialInterface* NewMater
 			AActor* Actor = CurrentComponent->GetOwner();
 
 			// Component materials can be replaced if they are not created from a blueprint (not exposed to the user) and have material overrides on the component
-			bool bCanBeReplaced = (!Actor || Actor->GetClass()->ClassGeneratedBy == NULL) && 
+			bool bCanBeReplaced = 
 				( CurrentComponent->IsA( UMeshComponent::StaticClass() ) ||
 				CurrentComponent->IsA( UDecalComponent::StaticClass() ) ||
 				CurrentComponent->IsA( UTextRenderComponent::StaticClass() ) ||
@@ -273,7 +274,7 @@ void FComponentMaterialCategory::OnMaterialChanged( UMaterialInterface* NewMater
 				UObject* EditChangeObject = CurrentComponent;
 				if( CurrentComponent->IsA( UMeshComponent::StaticClass() ) )
 				{
-					MaterialProperty = FindField<UProperty>( UMeshComponent::StaticClass(), "Materials" );
+					MaterialProperty = FindField<UProperty>( UMeshComponent::StaticClass(), "OverrideMaterials" );
 				}
 				else if( CurrentComponent->IsA( UDecalComponent::StaticClass() ) )
 				{
@@ -296,10 +297,20 @@ void FComponentMaterialCategory::OnMaterialChanged( UMaterialInterface* NewMater
 
 				EditChangeObject->PreEditChange( MaterialProperty );
 
+				if( NotifyHook && MaterialProperty )
+				{
+					NotifyHook->NotifyPreChange( MaterialProperty );
+				}
+
 				It.SwapMaterial( NewMaterial );
 
 				FPropertyChangedEvent PropertyChangedEvent( MaterialProperty );
 				EditChangeObject->PostEditChangeProperty( PropertyChangedEvent );
+
+				if( NotifyHook && MaterialProperty )
+				{
+					NotifyHook->NotifyPostChange( PropertyChangedEvent, MaterialProperty );
+				}
 			}
 		}
 	}

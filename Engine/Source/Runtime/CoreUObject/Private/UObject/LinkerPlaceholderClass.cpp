@@ -64,7 +64,7 @@ void ULinkerPlaceholderClass::Bind()
 }
 
 //------------------------------------------------------------------------------
-void ULinkerPlaceholderClass::AddTrackedReference(UProperty* ReferencingProperty)
+void ULinkerPlaceholderClass::AddReferencingProperty(UProperty* ReferencingProperty)
 {
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 	FObjectImport* PlaceholderImport = nullptr;
@@ -90,15 +90,25 @@ void ULinkerPlaceholderClass::AddTrackedReference(UProperty* ReferencingProperty
 }
 
 //------------------------------------------------------------------------------
+void ULinkerPlaceholderClass::AddReferencingScriptExpr(ULinkerPlaceholderClass** ExpressionPtr)
+{
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	check(*ExpressionPtr == this);
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+	ReferencingScriptExpressions.Add((UClass**)ExpressionPtr);
+}
+
+//------------------------------------------------------------------------------
 bool ULinkerPlaceholderClass::HasReferences() const
 {
-	return (ReferencingProperties.Num() > 0);
+	return (GetRefCount() > 0);
 }
 
 //------------------------------------------------------------------------------
 int32 ULinkerPlaceholderClass::GetRefCount() const
 {
-	return ReferencingProperties.Num();
+	return ReferencingProperties.Num() + ReferencingScriptExpressions.Num();
 }
 
 //------------------------------------------------------------------------------
@@ -108,7 +118,7 @@ bool ULinkerPlaceholderClass::HasBeenResolved() const
 }
 
 //------------------------------------------------------------------------------
-void ULinkerPlaceholderClass::RemoveTrackedReference(UProperty* ReferencingProperty)
+void ULinkerPlaceholderClass::RemovePropertyReference(UProperty* ReferencingProperty)
 {
 	ReferencingProperties.Remove(ReferencingProperty);
 }
@@ -145,7 +155,18 @@ int32 ULinkerPlaceholderClass::ReplaceTrackedReferences(UClass* ReplacementClass
 		}
 	}
 	ReferencingProperties.Empty();
-	bResolvedReferences = true;
 
+	for (UClass** ScriptRefPtr : ReferencingScriptExpressions)
+	{
+		UClass*& ScriptRef = *ScriptRefPtr;
+		if (ScriptRef == this)
+		{
+			ScriptRef = ReplacementClass;
+			++ReplacementCount;
+		}
+	}
+	ReferencingScriptExpressions.Empty();
+
+	bResolvedReferences = true;
 	return ReplacementCount;
 }

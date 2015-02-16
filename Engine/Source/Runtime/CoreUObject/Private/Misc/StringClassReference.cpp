@@ -18,7 +18,7 @@ bool FStringClassReference::SerializeFromMismatchedTag(struct FPropertyTag const
 	return SerializeFromMismatchedTagTemplate<UClassTypePolicy>(AssetLongPathname, Tag, Ar);
 }
 
-UClass *FStringClassReference::ResolveClass() const
+UClass* FStringClassReference::ResolveClass() const
 {
 	return dynamic_cast<UClass*>(ResolveObject());
 }

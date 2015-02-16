@@ -4324,6 +4324,10 @@ void FHeaderParser::CompileClassDeclaration(FClasses& AllClasses)
 		{
 			Class->ClassFlags |= CLASS_Intrinsic;
 		}
+		else if (Specifier == TEXT("ComponentWrapperClass"))
+		{
+			MetaData.Add(TEXT("IgnoreCategoryKeywordsInSubclasses"), TEXT("true"));
+		}
 		else if (Specifier == TEXT("within"))
 		{
 			FString WithinNameStr = RequireExactlyOneSpecifierValue(PropSpecifier);
@@ -7324,10 +7328,14 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 {
 	OutForm = FString();
 	if (!Property || CppForm.IsEmpty())
+	{
 		return false;
+	}
 
 	if (Property->IsA(UClassProperty::StaticClass()) || Property->IsA(UObjectPropertyBase::StaticClass()))
+	{
 		return FDefaultValueHelper::Is(CppForm, TEXT("NULL")) || FDefaultValueHelper::Is(CppForm, TEXT("nullptr")) || FDefaultValueHelper::Is(CppForm, TEXT("0"));
+	}
 
 	if( !Property->IsA(UStructProperty::StaticClass()) )
 	{

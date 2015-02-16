@@ -145,10 +145,10 @@ public:
 	 * Receives ping updates for the client (both clientside and serverside), from the net driver
 	 * NOTE: This updates much more frequently clientside, thus the clientside ping will often be different to what the server displays
 	 */
-	void UpdatePing(float InPing);
+	virtual void UpdatePing(float InPing);
 
 	/** Recalculates the replicated Ping value once per second (both clientside and serverside), based upon collected ping data */
-	void RecalculateAvgPing();
+	virtual void RecalculateAvgPing();
 
 	/**
 	 * Returns true if should broadcast player welcome/left messages.

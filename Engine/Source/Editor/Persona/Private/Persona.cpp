@@ -68,6 +68,8 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 
+#include "Editor/KismetWidgets/Public/SSingleObjectDetailsPanel.h"
+
 #define LOCTEXT_NAMESPACE "FPersona"
 
 /////////////////////////////////////////////////////
@@ -79,6 +81,68 @@ struct FLocalCharEditorCallbacks
 	{
 		return FText::FromString( Object->GetName() );
 	}
+};
+
+/////////////////////////////////////////////////////
+// SPersonaPreviewPropertyEditor
+
+class SPersonaPreviewPropertyEditor : public SSingleObjectDetailsPanel
+{
+public:
+	SLATE_BEGIN_ARGS(SPersonaPreviewPropertyEditor) {}
+	SLATE_END_ARGS()
+
+private:
+	// Pointer back to owning Persona editor instance (the keeper of state)
+	TWeakPtr<FPersona> PersonaPtr;
+public:
+	void Construct(const FArguments& InArgs, TSharedPtr<FPersona> InPersona)
+	{
+		PersonaPtr = InPersona;
+
+		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments(), /*bAutomaticallyObserveViaGetObjectToObserve*/ true, /*bAllowSearch*/ true);
+
+		PropertyView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateStatic([] { return !GIntraFrameDebuggingGameThread; }));
+	}
+
+	// SSingleObjectDetailsPanel interface
+	virtual UObject* GetObjectToObserve() const override
+	{
+		if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->GetPreviewMeshComponent())
+		{
+			if (PreviewComponent->AnimScriptInstance != nullptr)
+			{
+				return PreviewComponent->AnimScriptInstance;
+			}
+		}
+
+		return nullptr;
+	}
+
+	virtual TSharedRef<SWidget> PopulateSlot(TSharedRef<SWidget> PropertyEditorWidget) override
+	{
+		return SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0.f, 8.f, 0.f, 0.f)
+			[
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("Persona.PreviewPropertiesWarning"))
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("AnimBlueprintEditPreviewText", "Changes to preview options are not saved in the asset."))
+					.Font(FEditorStyle::GetFontStyle("PropertyWindow.NormalFont"))
+					.ShadowColorAndOpacity(FLinearColor::Black.CopyWithNewOpacity(0.3f))
+					.ShadowOffset(FVector2D::UnitVector)
+				]
+			]
+			+SVerticalBox::Slot()
+			.FillHeight(1)
+			[
+				PropertyEditorWidget
+			];
+	}
+	// End of SSingleObjectDetailsPanel interface
 };
 
 //////////////////////////////////////////////////////
@@ -1246,22 +1310,6 @@ void FPersona::CreateDefaultCommands()
 		);
 }
 
-void FPersona::StartEditingDefaults(bool bAutoFocus, bool bForceRefresh)
-{
-	FBlueprintEditor::StartEditingDefaults(bAutoFocus, bForceRefresh);
-	if (PreviewComponent != NULL)
-	{
-		if (PreviewComponent->AnimScriptInstance != NULL)
-		{
-			PreviewEditor->ShowDetailsForSingleObject(PreviewComponent->AnimScriptInstance, SKismetInspector::FShowDetailsOptions(LOCTEXT("PreviewSettingsTitle", "Preview settings")));
-		}
-	}
-	if (bAutoFocus)
-	{
-		TabManager->InvokeTab(FPersonaTabs::AnimBlueprintDefaultsEditorID);
-	}
-}
-
 bool FPersona::CanSelectBone() const
 {
 	return true;
@@ -1907,25 +1955,7 @@ void FPersona::CreateDefaultTabContents(const TArray<UBlueprint*>& InBlueprints)
 {
 	FBlueprintEditor::CreateDefaultTabContents(InBlueprints);
 
-	UBlueprint* InBlueprint = InBlueprints.Num() == 1 ? InBlueprints[0] : NULL;
-
-	// Cache off whether or not this is an interface, since it is used to govern multiple widget's behavior
-	const bool bIsInterface = (InBlueprint && InBlueprint->BlueprintType == BPTYPE_Interface);
-
-	const bool bShowPublicView = false;
-	const bool bHideNameArea = true;
-
-	PreviewEditor = 
-		SNew(SKismetInspector)
-		. Kismet2(SharedThis(this))
-		. ViewIdentifier(FName("PersonaPreview"))
-		. SetNotifyHook(false)
-		. IsEnabled(!bIsInterface)
-		. ShowPublicViewControl(bShowPublicView)
-		. ShowTitleArea(false)
-		. HideNameArea(bHideNameArea)
-		. IsPropertyEditingEnabledDelegate( FIsPropertyEditingEnabled::CreateSP(this, &FPersona::IsPropertyEditingEnabled) )
-		. OnFinishedChangingProperties( FOnFinishedChangingProperties::FDelegate::CreateSP( this, &FPersona::OnFinishedChangingProperties ) );
+	PreviewEditor = SNew(SPersonaPreviewPropertyEditor, SharedThis(this));
 }
 
 FGraphAppearanceInfo FPersona::GetGraphAppearance() const

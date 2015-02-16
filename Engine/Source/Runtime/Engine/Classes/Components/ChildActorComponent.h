@@ -45,7 +45,7 @@ class UChildActorComponent : public USceneComponent
 	void ApplyComponentInstanceData(class FChildActorComponentInstanceData* ComponentInstanceData);
 
 	/** Create the child actor */
-	void CreateChildActor();
+	ENGINE_API void CreateChildActor();
 
 	/** Kill any currently present child actor */
 	void DestroyChildActor();

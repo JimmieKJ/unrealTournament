@@ -294,7 +294,7 @@ public:
 						{
 							auto WireframeMaterial = new FColoredMaterialRenderProxy(
 								GEngine->LevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-								GetSelectionColor(DrawColor,!(GIsEditor && (View->Family->EngineShowFlags.Selection)) || IsSelected(), IsHovered(), /*bUseOverlayIntensity=*/false)
+								GetViewSelectionColor(DrawColor, *View, !(GIsEditor && (View->Family->EngineShowFlags.Selection)) || IsSelected(), IsHovered(), false, IsIndividuallySelected() )
 								);
 
 							Collector.RegisterOneFrameMaterialProxy(WireframeMaterial);

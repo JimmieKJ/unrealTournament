@@ -335,7 +335,7 @@ bool UBlackboardComponent::SetValue(FBlackboard::FKey KeyID, typename TDataClass
 		if (bChanged)
 		{
 			NotifyObservers(KeyID);
-			if (BlackboardAsset->HasSyncronizedKeys() && IsKeyInstanceSynced(KeyID))
+			if (BlackboardAsset->HasSynchronizedKeys() && IsKeyInstanceSynced(KeyID))
 			{
 				UAISystem* AISystem = UAISystem::GetCurrentSafe(GetWorld());
 				for (auto Iter = AISystem->CreateBlackboardDataToComponentsIterator(*BlackboardAsset); Iter; ++Iter)

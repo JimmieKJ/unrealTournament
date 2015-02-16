@@ -91,6 +91,12 @@
 	#define XFER_OBJECT_POINTER(Type)	XFERPTR(Type)
 #endif
 
+#ifndef FIXUP_EXPR_OBJECT_POINTER
+	// sometimes after a UOBject* expression is loaded it may require some post-
+	// processing (see: the overridden FIXUP_EXPR_OBJECT_POINTER(), defined in Class.cpp)
+	#define FIXUP_EXPR_OBJECT_POINTER(Type) 
+#endif
+
 /** UStruct::SerializeExpr() */
 #ifdef SERIALIZEEXPR_INC
 	EExprToken Expr=(EExprToken)0;
@@ -115,7 +121,9 @@
 			// A conversion from an object or interface variable to a native interface variable.  
 			// We use a different bytecode to avoid the branching each time we process a cast token.
 			
-			XFERPTR(UClass*);	// the interface class to convert to
+			XFER_OBJECT_POINTER(UClass*); // the interface class to convert to
+			FIXUP_EXPR_OBJECT_POINTER(UClass*);
+
 			SerializeExpr( iCode, Ar );
 			break;
 		}
@@ -281,6 +289,8 @@
 		case EX_ObjectConst:
 		{
 			XFER_OBJECT_POINTER(UObject*);
+			FIXUP_EXPR_OBJECT_POINTER(UObject*);
+
 			break;
 		}
 		case EX_NameConst:
@@ -341,12 +351,16 @@
 		case EX_MetaCast:
 		{
 			XFER_OBJECT_POINTER(UClass*);
+			FIXUP_EXPR_OBJECT_POINTER(UClass*);
+
 			SerializeExpr( iCode, Ar );
 			break;
 		}
 		case EX_DynamicCast:
 		{
 			XFER_OBJECT_POINTER(UClass*);
+			FIXUP_EXPR_OBJECT_POINTER(UClass*);
+
 			SerializeExpr( iCode, Ar );
 			break;
 		}

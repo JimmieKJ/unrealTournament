@@ -119,12 +119,28 @@ float FSlateStyleSet::GetFloat(const FName PropertyName, const ANSICHAR* Specifi
 {
 	const float* Result = FloatValues.Find(Join(PropertyName, Specifier));
 
+#if DO_GUARD_SLOW
+	if ((Result == nullptr) && !MissingResources.Contains(PropertyName))
+	{
+		MissingResources.Add(PropertyName);
+		Log(ISlateStyle::Warning, FText::Format(NSLOCTEXT("SlateStyleSet", "UknownSlateFloat", "Unable to find float property '{0}' in style."), FText::FromName(PropertyName)));
+	}
+#endif
+
 	return Result ? *Result : FStyleDefaults::GetFloat();
 }
 
 FVector2D FSlateStyleSet::GetVector(const FName PropertyName, const ANSICHAR* Specifier) const
 {
 	const FVector2D* const Result = Vector2DValues.Find(Join(PropertyName, Specifier));
+
+#if DO_GUARD_SLOW
+	if ((Result == nullptr) && !MissingResources.Contains(PropertyName))
+	{
+		MissingResources.Add(PropertyName);
+		Log(ISlateStyle::Warning, FText::Format(NSLOCTEXT("SlateStyleSet", "UknownSlateVector", "Unable to find vector property '{0}' in style."), FText::FromName(PropertyName)));
+	}
+#endif
 
 	return Result ? *Result : FStyleDefaults::GetVector2D();
 }

@@ -74,8 +74,8 @@ TSharedRef<SWidget> FEditorClassUtils::GetDocumentationLinkWidget(const UClass* 
 
 TSharedRef<SWidget> FEditorClassUtils::GetSourceLink(const UClass* Class, const TWeakObjectPtr<UObject> ObjectWeakPtr)
 {
-	FText BlueprintFormat = NSLOCTEXT("SourceHyperlink", "EditBlueprint", "Edit {0}");
-	FText CodeFormat = NSLOCTEXT("SourceHyperlink", "GoToCode", "{0}");
+	const FText BlueprintFormat = NSLOCTEXT("SourceHyperlink", "EditBlueprint", "Edit {0}");
+	const FText CodeFormat = NSLOCTEXT("SourceHyperlink", "GoToCode", "Open {0}");
 
 	return GetSourceLinkFormatted(Class, ObjectWeakPtr, BlueprintFormat, CodeFormat);
 }
@@ -108,8 +108,7 @@ TSharedRef<SWidget> FEditorClassUtils::GetSourceLinkFormatted(const UClass* Clas
 		TWeakObjectPtr<UBlueprint> BlueprintPtr = Blueprint;
 
 		SourceHyperlink = SNew(SHyperlink)
-			.Style(FEditorStyle::Get(), "EditBPHyperlink")
-			.TextStyle(FEditorStyle::Get(), "DetailsView.EditBlueprintHyperlinkStyle")
+			.Style(FEditorStyle::Get(), "Common.GotoBlueprintHyperlink")
 			.OnNavigate_Static(&Local::OnEditBlueprintClicked, BlueprintPtr, ObjectWeakPtr)
 			.Text(FText::Format(BlueprintFormat, FText::FromString(Blueprint->GetName())))
 			.ToolTipText(NSLOCTEXT("SourceHyperlink", "EditBlueprint_ToolTip", "Click to edit the blueprint"));
@@ -129,8 +128,7 @@ TSharedRef<SWidget> FEditorClassUtils::GetSourceLinkFormatted(const UClass* Clas
 			};
 
 			SourceHyperlink = SNew(SHyperlink)
-				.Style(FCoreStyle::Get(), "Hyperlink")
-				.TextStyle(FEditorStyle::Get(), "DetailsView.GoToCodeHyperlinkStyle")
+				.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
 				.OnNavigate_Static(&Local::OnEditCodeClicked, ClassHeaderPath)
 				.Text(FText::Format(CodeFormat, FText::FromString(FPaths::GetCleanFilename( *ClassHeaderPath ) ) ) )
 				.ToolTipText(NSLOCTEXT("SourceHyperlink", "GoToCode_ToolTip", "Click to open this source file in a text editor"));

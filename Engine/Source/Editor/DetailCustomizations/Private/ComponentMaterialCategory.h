@@ -43,4 +43,7 @@ private:
 private:
 	/** Reference to the list of selected actors */
 	TArray< TWeakObjectPtr<USceneComponent> > SelectedComponents;
+
+	/** Notify hook to use */
+	FNotifyHook* NotifyHook;
 };

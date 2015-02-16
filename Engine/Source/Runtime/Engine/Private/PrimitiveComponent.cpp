@@ -328,7 +328,7 @@ void UPrimitiveComponent::OnUnregister()
 }
 
 FPrimitiveComponentInstanceData::FPrimitiveComponentInstanceData(const UPrimitiveComponent* SourceComponent)
-: FSceneComponentInstanceData(SourceComponent)
+	: FSceneComponentInstanceData(SourceComponent)
 {
 }
 
@@ -1697,7 +1697,7 @@ void UPrimitiveComponent::SetCanEverAffectNavigation(bool bRelevant)
 //////////////////////////////////////////////////////////////////////////
 // COLLISION
 
-float DebugLineLifetime = 2.f;
+extern float DebugLineLifetime;
 
 
 bool UPrimitiveComponent::LineTraceComponent(struct FHitResult& OutHit, const FVector Start, const FVector End, const struct FCollisionQueryParams& Params)
@@ -1946,12 +1946,10 @@ bool UPrimitiveComponent::ComponentIsTouchingSelectionFrustum(const FConvexVolum
 
 
 /** Used to determine if it is ok to call a notification on this object */
-static bool IsActorValidToNotify(AActor* Actor)
-{
-	return (Actor != NULL) && !Actor->IsPendingKill() && !Actor->GetClass()->HasAnyClassFlags(CLASS_NewerVersionExists);
-}
+extern bool IsActorValidToNotify(AActor* Actor);
+
 // @fixme, duplicated, make an inline member?
-static bool IsPrimCompValidAndAlive(UPrimitiveComponent* PrimComp)
+bool IsPrimCompValidAndAlive(UPrimitiveComponent* PrimComp)
 {
 	return (PrimComp != NULL) && !PrimComp->IsPendingKill();
 }

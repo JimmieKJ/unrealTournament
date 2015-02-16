@@ -133,8 +133,11 @@ bool FAutomationTestFramework::RunSmokeTests()
 			TMap<FString, FAutomationTestExecutionInfo> OutExecutionInfoMap;
 
 			// Run each valid test
+			FScopedSlowTask SlowTask(TestInfo.Num());
+
 			for ( int TestIndex = 0; TestIndex < TestInfo.Num(); ++TestIndex )
 			{
+				SlowTask.EnterProgressFrame(1);
 				if (TestInfo[TestIndex].GetTestType() == EAutomationTestType::ATT_SmokeTest )
 				{
 					FString TestCommand = TestInfo[TestIndex].GetTestName();

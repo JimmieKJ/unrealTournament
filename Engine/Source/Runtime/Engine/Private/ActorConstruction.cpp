@@ -7,6 +7,7 @@
 #include "Engine/LevelScriptActor.h"
 
 #if WITH_EDITOR
+#include "Editor.h"
 #include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 #endif
@@ -369,6 +370,37 @@ void AActor::RerunConstructionScripts()
 			OldTransform.SetTranslation(RootComponent->GetComponentLocation()); // take into account any custom location
 		}
 
+#if WITH_EDITOR
+		// Save the current construction script-created components by name
+		TMap<const FName, UObject*> DestroyedComponentsByName;
+		TInlineComponentArray<UActorComponent*> PreviouslyAttachedComponents;
+		GetComponents(PreviouslyAttachedComponents);
+		for (auto Component : PreviouslyAttachedComponents)
+		{
+			if (Component)
+			{
+				if (Component->IsCreatedByConstructionScript())
+				{
+
+					DestroyedComponentsByName.Add(Component->GetFName(), Component);
+				}
+				else
+				{
+					UActorComponent* OuterComponent = Component->GetTypedOuter<UActorComponent>();
+					while (OuterComponent)
+					{
+						if (OuterComponent->IsCreatedByConstructionScript())
+						{
+							DestroyedComponentsByName.Add(Component->GetFName(), Component);
+							break;
+						}
+						OuterComponent = OuterComponent->GetTypedOuter<UActorComponent>();
+					}
+				}
+			}
+		}
+#endif
+
 		// Destroy existing components
 		DestroyConstructedComponents();
 
@@ -421,6 +453,25 @@ void AActor::RerunConstructionScripts()
 		GUndo = CurrentTransaction;
 
 #if WITH_EDITOR
+		// Create the mapping of old->new components and notify the editor of the replacements
+		TMap<UObject*, UObject*> OldToNewComponentMapping;
+
+		TInlineComponentArray<UActorComponent*> NewComponents;
+		GetComponents(NewComponents);
+		for (auto NewComp : NewComponents)
+		{
+			const FName NewCompName = NewComp->GetFName();
+			if (DestroyedComponentsByName.Contains(NewCompName))
+			{
+				OldToNewComponentMapping.Add(DestroyedComponentsByName[NewCompName], NewComp);
+			}
+		}
+
+		if (GEditor && (OldToNewComponentMapping.Num() > 0))
+		{
+			GEditor->NotifyToolsOfObjectReplacement(OldToNewComponentMapping);
+		}
+
 		if (ActorTransactionAnnotation)
 		{
 			CurrentTransactionAnnotation = NULL;

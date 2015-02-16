@@ -618,7 +618,7 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 
 	MenuOut.RebuildActionList();
 
-	if (!BlueprintSettings->bUseLegacyMenuingSystem)
+	if (!BlueprintSettings->bForceLegacyMenuingSystem)
 	{
 		for (UEdGraph const* Graph : Context.Graphs)
 		{
@@ -655,7 +655,7 @@ void FBlueprintActionMenuUtils::MakeFavoritesMenu(FBlueprintActionContext const&
 	MenuOut.Empty();
 
 	const UBlueprintEditorSettings* BlueprintSettings = GetDefault<UBlueprintEditorSettings>();
-	if (!BlueprintSettings->bUseLegacyMenuingSystem)
+	if (!BlueprintSettings->bForceLegacyMenuingSystem)
 	{
 		FBlueprintActionFilter MenuFilter;
 		MenuFilter.Context = Context;

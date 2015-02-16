@@ -37,7 +37,7 @@ void UBlackboardComponent::InitializeComponent()
 
 void UBlackboardComponent::UninitializeComponent()
 {
-	if (BlackboardAsset && BlackboardAsset->HasSyncronizedKeys())
+	if (BlackboardAsset && BlackboardAsset->HasSynchronizedKeys())
 	{
 		UAISystem* AISystem = UAISystem::GetCurrentSafe(GetWorld());
 		if (AISystem)
@@ -100,7 +100,7 @@ bool UBlackboardComponent::InitializeBlackboard(UBlackboardData& NewAsset)
 		return false;
 	}
 
-	if (BlackboardAsset)
+	if (BlackboardAsset && BlackboardAsset->HasSynchronizedKeys())
 	{
 		AISystem->UnregisterBlackboardComponent(*BlackboardAsset, *this);
 	}
@@ -153,9 +153,9 @@ bool UBlackboardComponent::InitializeBlackboard(UBlackboardData& NewAsset)
 
 			KeyData->KeyType->Initialize(RawData);
 		}
-	
+
 		// naive initial synchronization with one of already instantiated blackboards using the same BB asset
-		if (BlackboardAsset->HasSyncronizedKeys())
+		if (BlackboardAsset->HasSynchronizedKeys())
 		{
 			PopulateSynchronizedKeys();
 		}
@@ -175,7 +175,6 @@ void UBlackboardComponent::PopulateSynchronizedKeys()
 	
 	UAISystem* AISystem = UAISystem::GetCurrentSafe(GetWorld());
 	check(AISystem);
-	AISystem->RegisterBlackboardComponent(*BlackboardAsset, *this);
 
 	for (auto Iter = AISystem->CreateBlackboardDataToComponentsIterator(*BlackboardAsset); Iter; ++Iter)
 	{
@@ -661,7 +660,7 @@ void UBlackboardComponent::ClearValue(FBlackboard::FKey KeyID)
 		{
 			NotifyObservers(KeyID);
 
-			if (BlackboardAsset->HasSyncronizedKeys() && IsKeyInstanceSynced(KeyID))
+			if (BlackboardAsset->HasSynchronizedKeys() && IsKeyInstanceSynced(KeyID))
 			{
 				// grab the value set and apply the same to synchronized keys
 				// to avoid virtual function call overhead

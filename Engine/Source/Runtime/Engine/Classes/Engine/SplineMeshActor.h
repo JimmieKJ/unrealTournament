@@ -8,7 +8,7 @@
  *
  * @see USplineMeshComponent
  */
-UCLASS(hidecategories = (Input), showcategories = ("Input|MouseInput", "Input|TouchInput"), ConversionRoot, meta = (ChildCanTick))
+UCLASS(hideCategories = (Input), showCategories = ("Input|MouseInput", "Input|TouchInput"), ConversionRoot, ComponentWrapperClass, meta = (ChildCanTick))
 class ENGINE_API ASplineMeshActor : public AActor
 {
 	GENERATED_UCLASS_BODY()

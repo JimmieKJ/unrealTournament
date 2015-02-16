@@ -1597,6 +1597,8 @@ void BuildCylinderVerts(const FVector& Base, const FVector& XAxis, const FVector
  * @return The color to draw the object with, accounting for the selection state
  */
 extern ENGINE_API FLinearColor GetSelectionColor(const FLinearColor& BaseColor,bool bSelected,bool bHovered, bool bUseOverlayIntensity = true);
+extern ENGINE_API FLinearColor GetViewSelectionColor(const FLinearColor& BaseColor, const FSceneView& View, bool bSelected, bool bHovered, bool bUseOverlayIntensity, bool bIndividuallySelected);
+
 
 /** Vertex Color view modes */
 namespace EVertexColorViewMode

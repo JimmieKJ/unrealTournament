@@ -72,6 +72,7 @@
 #include "AnimationTransitionGraph.h"
 #include "BlueprintEditorModes.h"
 #include "BlueprintEditorSettings.h"
+#include "K2Node_SwitchString.h"
 
 #include "EngineAnalytics.h"
 #include "IAnalyticsProvider.h"
@@ -291,7 +292,7 @@ static bool BlueprintEditorImpl::GraphHasDefaultNode(UEdGraph const* InGraph)
 			continue;
 		}
 
-		if (Node->GetOutermost()->GetMetaData()->HasValue(Node, FNodeMetadata::DefaultGraphNode))
+		if (Node->GetOutermost()->GetMetaData()->HasValue(Node, FNodeMetadata::DefaultGraphNode) && Node->bIsNodeEnabled)
 		{
 			bHasDefaultNodes = true;
 			break;
@@ -508,11 +509,6 @@ bool FBlueprintEditor::IsCompilingEnabled() const
 {
 	UBlueprint* Blueprint = GetBlueprintObj();
 	return Blueprint && Blueprint->BlueprintType != BPTYPE_MacroLibrary && InEditingMode();
-}
-
-bool FBlueprintEditor::IsPropertyEditingEnabled() const
-{
-	return true;
 }
 
 bool FBlueprintEditor::InDebuggingMode() const
@@ -789,6 +785,15 @@ void FBlueprintEditor::OnSelectionUpdated(const TArray<FSCSEditorTreeNodePtrType
 					DefaultActor->GetName(Title);
 					InspectorTitle = FText::FromString(Title);
 					bShowComponents = false;
+
+					// Show the details panel if it doesn't exist.
+					TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
+
+					TSharedPtr<SDockTab> OwnerTab = Inspector->GetOwnerTab();
+					if ( OwnerTab.IsValid() )
+					{
+						OwnerTab->FlashTab();
+					}
 				}
 				else
 				{
@@ -797,6 +802,15 @@ void FBlueprintEditor::OnSelectionUpdated(const TArray<FSCSEditorTreeNodePtrType
 					{
 						InspectorTitle = FText::FromString(NodePtr->GetDisplayString());
 						InspectorObjects.Add(EditableComponent);
+					}
+
+					if ( SCSViewport.IsValid() )
+					{
+						TSharedPtr<SDockTab> OwnerTab = SCSViewport->GetOwnerTab();
+						if ( OwnerTab.IsValid() )
+						{
+							OwnerTab->FlashTab();
+						}
 					}
 				}
 			}
@@ -1497,6 +1511,9 @@ void FBlueprintEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& 
 
 void FBlueprintEditor::SetCurrentMode(FName NewMode)
 {
+	// Clear the selection state when the mode changes.
+	SetUISelectionState(NAME_None);
+
 	OnModeSetData.Broadcast( NewMode );
 	FWorkflowCentricApplication::SetCurrentMode(NewMode);
 }
@@ -1728,8 +1745,9 @@ void FBlueprintEditor::PostRegenerateMenusAndToolbars()
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.ShadowOffset( FVector2D::UnitVector )
+				.ShadowOffset(FVector2D::UnitVector)
 				.Text(this, &FBlueprintEditor::GetParentClassNameText)
+				.TextStyle(FEditorStyle::Get(), "Common.InheritedFromBlueprintTextStyle")
 				.ToolTipText(LOCTEXT("ParentClassToolTip", "The class that the current Blueprint is based on. The parent provides the base definition, which the current Blueprint extends."))
 				.Visibility(this, &FBlueprintEditor::GetParentClassNameVisibility)
 			]
@@ -1772,8 +1790,7 @@ void FBlueprintEditor::PostRegenerateMenusAndToolbars()
 			.VAlign(VAlign_Center)
 			[
 				SNew(SHyperlink)
-				.Style(FEditorStyle::Get(), "EditBPHyperlink")
-				.TextStyle(FEditorStyle::Get(), "DetailsView.EditBlueprintHyperlinkStyle")
+				.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
 				.IsEnabled(this, &FBlueprintEditor::IsNativeParentClassCodeLinkEnabled)
 				.Visibility(this, &FBlueprintEditor::GetNativeParentClassButtonsVisibility)
 				.OnNavigate(this, &FBlueprintEditor::OnEditParentClassNativeCodeClicked)
@@ -2561,10 +2578,12 @@ void FBlueprintEditor::EditGlobalOptions_Clicked()
 		// Show details for the Blueprint instance we're editing
 		Inspector->ShowDetailsForSingleObject(Blueprint);
 
+		// Show the details panel if it doesn't exist.
+		TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
+
 		TSharedPtr<SDockTab> OwnerTab = Inspector->GetOwnerTab();
 		if ( OwnerTab.IsValid() )
 		{
-			OwnerTab->ActivateInParent(ETabActivationCause::SetDirectly);
 			OwnerTab->FlashTab();
 		}
 	}
@@ -2731,27 +2750,8 @@ bool FBlueprintEditor::CanRedoGraphAction() const
 	return !InDebuggingMode();
 }
 
-void FBlueprintEditor::OnActiveTabChanged( TSharedPtr<SDockTab> PreviouslyActive, TSharedPtr<SDockTab> NewlyActivated )
+void FBlueprintEditor::OnActiveTabChanged(TSharedPtr<SDockTab> PreviouslyActive, TSharedPtr<SDockTab> NewlyActivated)
 {
-	if (NewlyActivated.IsValid() == false)
-	{
-		SetUISelectionState(NAME_None);
-		//UE_LOG(LogBlueprint, Log, TEXT("OnActiveTabChanged: NONE"));
-	}
-	else
-	{
-		//UE_LOG(LogBlueprint, Log, TEXT("OnActiveTabChanged: %s"), *NewlyActivated->GetLayoutIdentifier().ToString());
-	}
-
-	if ( NewlyActivated.IsValid() && NewlyActivated->GetTabRole() == ETabRole::DocumentTab )
-	{
-		FocusedGraphEdPtr = nullptr;
-	}
-
-	if (MyBlueprintWidget.IsValid() == true)
-	{
-		MyBlueprintWidget->Refresh();
-	}
 }
 
 void FBlueprintEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor)
@@ -2778,6 +2778,18 @@ void FBlueprintEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGr
 				MyBlueprintWidget->Refresh();
 			}
 		}
+	}
+}
+
+void FBlueprintEditor::OnGraphEditorBackgrounded(const TSharedRef<SGraphEditor>& InGraphEditor)
+{
+	// If the newly active document tab isn't a graph we want to make sure we clear the focused graph pointer.
+	// Several other UI reads that, like the MyBlueprints view uses it to determine if it should show the "Local Variable" section.
+	FocusedGraphEdPtr = nullptr;
+
+	if ( MyBlueprintWidget.IsValid() == true )
+	{
+		MyBlueprintWidget->Refresh();
 	}
 }
 
@@ -6289,10 +6301,12 @@ void FBlueprintEditor::StartEditingDefaults(bool bAutoFocus, bool bForceRefresh)
 
 					Inspector->ShowDetailsForSingleObject(DefaultObject, Options);
 
+					// Show the details panel if it doesn't exist.
+					TabManager->InvokeTab(FBlueprintEditorTabs::DetailsID);
+
 					TSharedPtr<SDockTab> OwnerTab = Inspector->GetOwnerTab();
 					if ( OwnerTab.IsValid() )
 					{
-						OwnerTab->ActivateInParent(ETabActivationCause::SetDirectly);
 						OwnerTab->FlashTab();
 					}
 				}
@@ -6312,7 +6326,7 @@ void FBlueprintEditor::RefreshStandAloneDefaultsEditor()
 	for ( int32 i = 0; i < GetEditingObjects().Num(); ++i )
 	{
 		UBlueprintCore* Blueprint = Cast<UBlueprintCore>(GetEditingObjects()[i]);
-		if (Blueprint && Blueprint->GeneratedClass)
+		if ( Blueprint && Blueprint->GeneratedClass )
 		{
 			DefaultObjects.Add(Blueprint->GeneratedClass->GetDefaultObject());
 		}
@@ -6343,7 +6357,10 @@ void FBlueprintEditor::OnAddNewVariable()
 	const FScopedTransaction Transaction( LOCTEXT("AddVariable", "Add Variable") );
 
 	// Reset MyBlueprint item filter so new variable is visible
-	MyBlueprintWidget->OnResetItemFilter();
+	if (MyBlueprintWidget.IsValid())
+	{
+		MyBlueprintWidget->OnResetItemFilter();
+	}
 
 	FName VarName = FBlueprintEditorUtils::FindUniqueKismetName(GetBlueprintObj(), TEXT("NewVar"));
 
@@ -6387,7 +6404,10 @@ void FBlueprintEditor::OnAddNewDelegate()
 	check(NULL != Blueprint);
 
 	// Reset MyBlueprint item filter so new variable is visible
-	MyBlueprintWidget->OnResetItemFilter();
+	if (MyBlueprintWidget.IsValid())
+	{
+		MyBlueprintWidget->OnResetItemFilter();
+	}
 
 	FName Name = FBlueprintEditorUtils::FindUniqueKismetName(GetBlueprintObj(), TEXT("NewEventDispatcher"));
 
@@ -6581,10 +6601,13 @@ void FBlueprintEditor::NotifyPostChange(const FPropertyChangedEvent& PropertyCha
 void FBlueprintEditor::OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent)
 {
 	FName PropertyName = (PropertyChangedEvent.Property != NULL) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
-	if (PropertyName == TEXT("bHasDefaultPin") ||
-		PropertyName == TEXT("StartIndex") ||
-		PropertyName == TEXT("PinNames") ||
-		PropertyName == TEXT("bIsCaseSensitive"))
+
+	//@TODO: This code does not belong here (might not even be necessary anymore as they seem to have PostEditChangeProperty impls now)!
+	if ((PropertyName == GET_MEMBER_NAME_CHECKED(UK2Node_Switch, bHasDefaultPin)) ||
+		(PropertyName == GET_MEMBER_NAME_CHECKED(UK2Node_SwitchInteger, StartIndex)) ||
+		(PropertyName == GET_MEMBER_NAME_CHECKED(UK2Node_SwitchString, PinNames)) ||
+		(PropertyName == GET_MEMBER_NAME_CHECKED(UK2Node_SwitchName, PinNames)) ||
+		(PropertyName == GET_MEMBER_NAME_CHECKED(UK2Node_SwitchString, bIsCaseSensitive)))
 	{
 		DocumentManager->RefreshAllTabs();
 	}

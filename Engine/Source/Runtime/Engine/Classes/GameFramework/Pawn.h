@@ -32,11 +32,10 @@ class ENGINE_API APawn : public AActor, public INavAgentInterface
 {
 	GENERATED_BODY()
 public:
-
 	/**
-	 * Default UObject constructor.
-	 */
-	APawn(const FObjectInitializer& ObjectInitializer);
+	* Default UObject constructor.
+	*/
+	APawn(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const;
 

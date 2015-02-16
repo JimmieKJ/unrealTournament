@@ -199,6 +199,19 @@ class UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	static void PrintString(UObject* WorldContextObject, const FString& InString = FString(TEXT("Hello")), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0,0.66,1.0));
 
 	/**
+	 * Prints text to the log, and optionally, to the screen
+	 * If Print To Log is true, it will be visible in the Output Log window.  Otherwise it will be logged only as 'Verbose', so it generally won't show up.
+	 *
+	 * @param	InText			The text to log out
+	 * @param	bPrintToScreen	Whether or not to print the output to the screen
+	 * @param	bPrintToLog		Whether or not to print the output to the log
+	 * @param	bPrintToConsole	Whether or not to print the output to the console
+	 * @param	TextColor		Whether or not to print the output to the console
+	 */
+	UFUNCTION(BlueprintCallable, meta=(WorldContext="WorldContextObject", CallableWithoutWorldContext, Keywords = "log", AdvancedDisplay = "2"), Category="Utilities|Text")
+	static void PrintText(UObject* WorldContextObject, const FText& InText = FText::FromString(TEXT("Hello")), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0,0.66,1.0));
+
+	/**
 	 * Prints a warning string to the log and the screen. Meant to be used as a way to inform the user that they misused the node.
 	 *
 	 * WARNING!! Don't change the signature of this function without fixing up all nodes using it in the compiler

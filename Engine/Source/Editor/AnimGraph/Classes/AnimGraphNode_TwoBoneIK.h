@@ -38,9 +38,6 @@ public:
 
 	ANIMGRAPH_API virtual void	CopyNodeDataFrom(const FAnimNode_Base* NewAnimNode) override;
 
-	ANIMGRAPH_API virtual void	UpdateDefaultValues(const FAnimNode_Base* InAnimNode) override;
-	ANIMGRAPH_API virtual void	UpdateAllDefaultValues(const FAnimNode_Base* InAnimNode) override;
-
 	ANIMGRAPH_API virtual int32 GetWidgetMode(const USkeletalMeshComponent* SkelComp) override;
 
 	ANIMGRAPH_API virtual void MoveSelectActorLocation(const USkeletalMeshComponent* SkelComp, FAnimNode_SkeletalControlBase* AnimNode) override;

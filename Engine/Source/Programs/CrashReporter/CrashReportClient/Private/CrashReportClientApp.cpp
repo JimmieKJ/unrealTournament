@@ -94,6 +94,9 @@ FPlatformErrorReport LoadErrorReport()
 
 void RunCrashReportClient(const TCHAR* CommandLine)
 {
+	// Override the stack size for the thread pool.
+	FQueuedThreadPool::OverrideStackSize = 256 * 1024;
+
 	// Set up the main loop
 	GEngineLoop.PreInit(CommandLine);
 

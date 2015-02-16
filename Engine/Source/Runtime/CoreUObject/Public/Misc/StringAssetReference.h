@@ -48,10 +48,16 @@ struct COREUOBJECT_API FStringAssetReference
 	}
 
 	/**
+	 * Attempts to load the asset.
+	 * @return Loaded UObject, or null if the asset fails to load, or if the reference is not valid.
+	 */
+	UObject* TryLoad() const;
+
+	/**
 	 * Attempts to find a currently loaded object that matches this object ID
 	 * @return Found UObject, or NULL if not currently loaded
 	 */
-	UObject *ResolveObject() const;
+	UObject* ResolveObject() const;
 
 	/**
 	 * Resets reference to point to NULL

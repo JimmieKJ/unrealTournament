@@ -201,11 +201,10 @@ class ENGINE_API ACharacter : public APawn
 {
 	GENERATED_BODY()
 public:
-
 	/**
 	 * Default UObject constructor.
 	 */
-	ACharacter(const FObjectInitializer& ObjectInitializer);
+	ACharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 private_subobject:

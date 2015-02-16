@@ -382,7 +382,9 @@ TSharedRef<SWidget> SDeleteAssetsDialog::BuildDeleteDialog()
 						.HAlign( HAlign_Center )
 						.Text( LOCTEXT( "Delete", "Delete" ) )
 						.ToolTipText( LOCTEXT( "DeleteTooltipText", "Perform the delete" ) )
-						.OnClicked( this, &SDeleteAssetsDialog::Delete )
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Danger")
+						.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
+						.OnClicked(this, &SDeleteAssetsDialog::Delete)
 					]
 				]
 
@@ -398,6 +400,8 @@ TSharedRef<SWidget> SDeleteAssetsDialog::BuildDeleteDialog()
 						.HAlign( HAlign_Center )
 						.Text( LOCTEXT( "Cancel", "Cancel" ) )
 						.ToolTipText( LOCTEXT( "CancelDeleteTooltipText", "Cancel the delete" ) )
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
+						.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
 						.OnClicked( this, &SDeleteAssetsDialog::Cancel )
 					]
 				]
@@ -504,6 +508,8 @@ TSharedRef<SWidget> SDeleteAssetsDialog::BuildReplaceReferencesWidget()
 		.HAlign( HAlign_Center )
 		.Text( LOCTEXT( "Replace References", "Replace References" ) )
 		.OnClicked( this, &SDeleteAssetsDialog::ReplaceReferences )
+		.ButtonStyle(FEditorStyle::Get(), "FlatButton.Danger")
+		.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
 	];
 }
 
@@ -528,7 +534,9 @@ TSharedRef<SWidget> SDeleteAssetsDialog::BuildForceDeleteWidget()
 		.HAlign( HAlign_Center )
 		.Text( LOCTEXT( "ForceDelete", "Force Delete" ) )
 		.ToolTipText( LOCTEXT( "ForceDeleteTooltipText", "Force Delete will obliterate all references to this asset and is dangerous.\n\nUse as a last resort." ) )
-		.OnClicked( this, &SDeleteAssetsDialog::ForceDelete )
+		.ButtonStyle(FEditorStyle::Get(), "FlatButton.Danger")
+		.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
+		.OnClicked(this, &SDeleteAssetsDialog::ForceDelete)
 	];
 }
 
@@ -705,7 +713,6 @@ TSharedRef<SWidget> SDeleteAssetsDialog::MakeAssetViewForReferencerAssets()
 
 	AssetPickerConfig.AssetShowWarningText = TAttribute< FText >( this, &SDeleteAssetsDialog::GetReferencingAssetsEmptyText );
 
-	AssetPickerConfig.ThumbnailScale = 0.0f;
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::Tile;
 	AssetPickerConfig.OnAssetsActivated = FOnAssetsActivated::CreateSP(this, &SDeleteAssetsDialog::OnAssetsActivated);
 	AssetPickerConfig.OnShouldFilterAsset = FOnShouldFilterAsset::CreateSP(this, &SDeleteAssetsDialog::OnShouldFilterAsset);
@@ -723,7 +730,6 @@ TSharedRef<SWidget> SDeleteAssetsDialog::MakeConsolidationAssetPicker()
 	AssetPickerConfig.OnShouldFilterAsset = FOnShouldFilterAsset::CreateSP( this, &SDeleteAssetsDialog::OnShouldConsolidationFilterAsset );
 	AssetPickerConfig.bAllowNullSelection = false;
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-	AssetPickerConfig.ThumbnailScale = 0.0f;
 	AssetPickerConfig.bFocusSearchBoxWhenOpened = true;
 	AssetPickerConfig.bShowBottomToolbar = true;
 	AssetPickerConfig.bAllowDragging = false;

@@ -41,6 +41,11 @@ void FContentDirectoryMonitor::Destroy()
 	Cache.Destroy();
 }
 
+void FContentDirectoryMonitor::ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action)
+{
+	Cache.ReportExternalChange(Filename, Action);
+}
+
 void FContentDirectoryMonitor::Tick(const FTimeLimit& TimeLimit)
 {
 	Cache.Tick(TimeLimit);
@@ -98,7 +103,7 @@ void FContentDirectoryMonitor::StartProcessing()
 	}
 }
 
-void FContentDirectoryMonitor::ProcessAdditions(TArray<UPackage*>& OutPackagesToSave, const FTimeLimit& TimeLimit, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, FReimportFeedbackContext& Context)
+void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, TArray<UPackage*>& OutPackagesToSave, const FTimeLimit& TimeLimit, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, FReimportFeedbackContext& Context)
 {
 	bool bCancelled = false;
 	for (int32 Index = 0; Index < AddedFiles.Num(); ++Index)
@@ -116,6 +121,26 @@ void FContentDirectoryMonitor::ProcessAdditions(TArray<UPackage*>& OutPackagesTo
 
 		const FString FullFilename = Cache.GetDirectory() + Addition.Filename.Get();
 
+		// Don't create assets for new files if assets already exist for the filename
+		auto ExistingReferences = Utils::FindAssetsPertainingToFile(Registry, FullFilename);
+		if (ExistingReferences.Num() != 0)
+		{
+			FText Message;
+			if (ExistingReferences.Num() == 1)
+			{
+				Message = FText::Format(LOCTEXT("Info_AlreadyImported_Single", "Ignoring new file {0} as it's already imported by {1}."), FText::FromString(FPaths::GetCleanFilename(FullFilename)), FText::FromName(ExistingReferences[0].AssetName));
+			}
+			else
+			{
+				Message = FText::Format(LOCTEXT("Info_AlreadyImported_Multiple", "Ignoring new file {0} as it's already imported by {1} assets."), FText::FromString(FPaths::GetCleanFilename(FullFilename)), FText::AsNumber(ExistingReferences.Num()));
+			}
+			Context.AddMessage(EMessageSeverity::Info, Message);
+
+			// We don't try and import new files that are already associated with an asset
+			Cache.CompleteTransaction(MoveTemp(Addition));
+			continue;
+		}
+
 		FString NewAssetName = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(FullFilename));
 		FString PackagePath = PackageTools::SanitizePackageName(MountedContentPath / FPaths::GetPath(Addition.Filename.Get()) / NewAssetName);
 
@@ -125,7 +150,7 @@ void FContentDirectoryMonitor::ProcessAdditions(TArray<UPackage*>& OutPackagesTo
 		}
 		else if (FindPackage(nullptr, *PackagePath))
 		{
-			Context.AddMessage(EMessageSeverity::Warning, FText::Format(LOCTEXT("Error_ExistingAsset", "Can't create a new asset at {0} - one already exists."), FText::FromString(PackagePath)));
+			Context.AddMessage(EMessageSeverity::Warning, FText::Format(LOCTEXT("Warning_ExistingAsset", "Can't create a new asset at {0} - one already exists."), FText::FromString(PackagePath)));
 		}
 		else
 		{
@@ -136,6 +161,8 @@ void FContentDirectoryMonitor::ProcessAdditions(TArray<UPackage*>& OutPackagesTo
 			}
 			else
 			{
+				Context.AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Info_CreatingNewAsset", "Creating new asset {0}."), FText::FromString(PackagePath)));
+
 				// Make sure the destination package is loaded
 				NewPackage->FullyLoad();
 
@@ -187,8 +214,6 @@ void FContentDirectoryMonitor::ProcessAdditions(TArray<UPackage*>& OutPackagesTo
 						Context.AddMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_FailedToImportAsset", "Failed to import file {0}."), FText::FromString(FullFilename)));
 						continue;
 					}
-
-					Context.AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Success_CreatedNewAsset", "Created new asset {0}."), FText::FromString(PackagePath)));
 
 					FAssetRegistryModule::AssetCreated(NewAsset);
 					GEditor->BroadcastObjectReimported(NewAsset);

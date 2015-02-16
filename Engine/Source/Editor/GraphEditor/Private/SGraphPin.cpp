@@ -151,6 +151,7 @@ SGraphPin::SGraphPin()
 
 void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 {
+	bUsePinColorForText = InArgs._UsePinColorForText;
 	this->SetCursor( EMouseCursor::Default );
 
 	Visibility = TAttribute<EVisibility>(this, &SGraphPin::GetPinVisiblity);
@@ -186,17 +187,11 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 			.Image( this, &SGraphPin::GetPinStatusIcon )
 		];
 
-	TAttribute<FSlateColor> OverrideTextColor;
-	if (InArgs._UsePinColorForText)
-	{
-		OverrideTextColor = TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(this, &SGraphPin::GetPinColor));
-	}
-
 	TSharedRef<SWidget> LabelWidget = SNew(STextBlock)
 		.Text(this, &SGraphPin::GetPinLabel)
 		.TextStyle( FEditorStyle::Get(), InArgs._PinLabelStyle )
 		.Visibility(this, &SGraphPin::GetPinLabelVisibility)
-		.ColorAndOpacity(OverrideTextColor);
+		.ColorAndOpacity(this, &SGraphPin::GetPinTextColor);
 
 	// Create the widget used for the pin body (status indicator, label, and value)
 	TSharedRef<SWrapBox> LabelAndValue = 
@@ -881,7 +876,25 @@ FSlateColor SGraphPin::GetPinColor() const
 		return FSlateColor(FLinearColor(0.9f,0.2f,0.15f));
 	}
 	const UEdGraphSchema* Schema = GraphPinObj->GetSchema();
+	if(!GetPinObj()->GetOwningNode()->bIsNodeEnabled)
+	{
+		return Schema->GetPinTypeColor(GraphPinObj->PinType) * FLinearColor(1.0f, 1.0f, 1.0f, 0.5f);
+	}
+
 	return Schema->GetPinTypeColor(GraphPinObj->PinType) * PinColorModifier;
+}
+
+FSlateColor SGraphPin::GetPinTextColor() const
+{
+	if(!GetPinObj()->GetOwningNode()->bIsNodeEnabled)
+	{
+		return FLinearColor(1.0f, 1.0f, 1.0f, 0.5f);
+	}
+	else if(bUsePinColorForText)
+	{
+		return GetPinColor();
+	}
+	return FLinearColor::White;
 }
 
 

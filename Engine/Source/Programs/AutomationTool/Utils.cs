@@ -281,6 +281,7 @@ namespace AutomationTool
 		private static string[] LinesToFilter = new string[]
 		{
 			"KeyStorePassword",
+			"KeyPassword",
 		};
 
 		private static void FilterIniFile(string SourceName, string TargetName)

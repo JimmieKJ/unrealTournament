@@ -303,8 +303,7 @@ UEdGraphNode* FEdGraphSchemaAction_K2AddComponent::PerformAction(class UEdGraph*
 
 		ensure(NULL != Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
 		// Then create a new template object, and add to array in
-		UActorComponent* NewTemplate = ConstructObject<UActorComponent>(ComponentClass, Blueprint->GeneratedClass);
-		NewTemplate->SetFlags(RF_ArchetypeObject);
+		UActorComponent* NewTemplate = ConstructObject<UActorComponent>(ComponentClass, Blueprint->GeneratedClass, NAME_None, RF_ArchetypeObject | RF_Public);
 		Blueprint->ComponentTemplates.Add(NewTemplate);
 
 		// Set the name of the template as the default for the TemplateName param

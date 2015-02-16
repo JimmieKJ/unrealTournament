@@ -738,7 +738,7 @@ void FMacApplication::ProcessNSEvent(NSEvent* const Event)
 					MessageHandler->OnMouseDown(CurrentEventWindow, Button);
 				}
 
-				if (!DraggedWindow && !GetCapture())
+				if (CurrentEventWindow->GetWindowHandle() && !DraggedWindow && !GetCapture())
 				{
 					MessageHandler->OnCursorSet();
 				}
@@ -774,7 +774,7 @@ void FMacApplication::ProcessNSEvent(NSEvent* const Event)
 
 			MessageHandler->OnMouseUp(Button);
 
-			if (CurrentEventWindow.IsValid() && !DraggedWindow && !GetCapture())
+			if (CurrentEventWindow.IsValid() && CurrentEventWindow->GetWindowHandle() && !DraggedWindow && !GetCapture())
 			{
 				MessageHandler->OnCursorSet();
 			}

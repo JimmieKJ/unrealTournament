@@ -35,6 +35,8 @@ namespace EUIScalingRule
 	};
 }
 
+class UWidget;
+
 /**
  * Implements user interface related settings.
  */
@@ -80,6 +82,14 @@ public:
 	FRuntimeFloatCurve UIScaleCurve;
 
 public:
+	UPROPERTY(Transient)
+	TArray<UObject*> CursorClasses;
+
+public:
+
+	virtual void PostInitProperties() override;
+
+	void LoadCursors();
 
 	/** Gets the current scale of the UI based on the size */
 	float GetDPIScaleBasedOnSize(FIntPoint Size) const;

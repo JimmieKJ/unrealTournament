@@ -63,7 +63,9 @@ void AAmbientSound::CheckForErrors( void )
 
 bool AAmbientSound::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 {
-	if( AudioComponent->Sound )
+	Super::GetReferencedContentObjects(Objects);
+
+	if (AudioComponent->Sound)
 	{
 		Objects.Add( AudioComponent->Sound );
 	}

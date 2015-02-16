@@ -34,7 +34,24 @@ FHTML5TargetPlatform::FHTML5TargetPlatform( )
 		const FString& BrowserName = It.Key.ToString();
 		const FString& BrowserPath = It.Value;
 		if(FPlatformFileManager::Get().GetPlatformFile().FileExists(*It.Value))
-			LocalDevice.Add(MakeShareable(new FHTML5TargetDevice(*this, FString::Printf(TEXT("%s on %s"), *It.Key.ToString(), FPlatformProcess::ComputerName()))));
+		{
+			//Have a guess at the type of browser
+			FString BrowserType = TEXT("HTML5 Browser(Other)");
+			if (BrowserPath.Contains("chrome") || BrowserPath.Contains("google"))
+			{
+				BrowserType = TEXT("HTML5 Browser(Chrome)");
+			}
+			else if (BrowserPath.Contains("firefox"))
+			{
+				BrowserType = TEXT("HTML5 Browser(Firefox)");
+			}
+			else if (BrowserPath.Contains("safari"))
+			{
+				BrowserType = TEXT("HTML5 Browser(Safari)");
+			}
+			
+			LocalDevice.Add(MakeShareable(new FHTML5TargetDevice(*this, FString::Printf(TEXT("%s on %s"), *It.Key.ToString(), FPlatformProcess::ComputerName()), BrowserType)));
+		}
 	}
 
 #if WITH_ENGINE

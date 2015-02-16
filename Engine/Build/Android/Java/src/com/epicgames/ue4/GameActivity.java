@@ -521,14 +521,32 @@ public class GameActivity extends NativeActivity
 		}
 	}
 
-	public void AndroidThunkJava_Vibrate(long Duration)
+	private class VibrateRunnable implements Runnable {
+		private int duration;
+		private Vibrator vibrator;
+
+		VibrateRunnable(final int Duration, final Vibrator vibrator)
+		{
+			this.duration = Duration;
+			this.vibrator = vibrator;
+		}
+		public void run ()
+		{
+			if (duration < 1)
+			{
+				vibrator.cancel();
+			} else {
+				vibrator.vibrate(duration);
+			}
+		}
+	}
+
+	public void AndroidThunkJava_Vibrate(int Duration)
 	{
 		Vibrator vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
-		if (Duration < 1)
+		if (vibrator != null)
 		{
-			vibrator.cancel();
-		} else {
-			vibrator.vibrate(Duration);
+			_activity.runOnUiThread(new VibrateRunnable(Duration, vibrator));
 		}
 	}
 

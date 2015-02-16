@@ -241,16 +241,15 @@ namespace iPhonePackager
 						string base64 = CertToolData.Substring(start, (end - start));
 						byte[] certData = Convert.FromBase64String(base64);
 						X509Certificate2 cert = new X509Certificate2(certData);
-						//@TODO: Pretty sure the certificate information from the library is in local time, not UTC and this works as expected, but it should be verified!
 						DateTime EffectiveDate = cert.NotBefore;
 						DateTime ExpirationDate = cert.NotAfter;
-						DateTime Now = DateTime.Now;
+						DateTime Now = DateTime.UtcNow;
 						string Subject = cert.Subject;
 						int SubjStart = Subject.IndexOf("CN=") + 3;
 						int SubjEnd = Subject.IndexOf(",", SubjStart);
 						cert.FriendlyName = Subject.Substring(SubjStart, (SubjEnd - SubjStart));
 						bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
-						Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", cert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", cert.GetEffectiveDateString(), cert.GetExpirationDateString());
+						Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", cert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", EffectiveDate.ToString("o"), ExpirationDate.ToString("o"));
 
 						start = CertToolData.IndexOf(header, start);
 					}
@@ -267,26 +266,24 @@ namespace iPhonePackager
 
 				foreach (X509Certificate2 TestCert in FoundCerts)
 				{
-					//@TODO: Pretty sure the certificate information from the library is in local time, not UTC and this works as expected, but it should be verified!
 					DateTime EffectiveDate = TestCert.NotBefore;
 					DateTime ExpirationDate = TestCert.NotAfter;
 					DateTime Now = DateTime.Now;
 
 					bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
-					Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", TestCert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", TestCert.GetEffectiveDateString(), TestCert.GetExpirationDateString());
+					Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", TestCert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", EffectiveDate.ToString("o"), ExpirationDate.ToString("o"));
 				}
 
 				FoundCerts = Store.Certificates.Find(X509FindType.FindBySubjectName, "iPhone Distribution", false);
 
 				foreach (X509Certificate2 TestCert in FoundCerts)
 				{
-					//@TODO: Pretty sure the certificate information from the library is in local time, not UTC and this works as expected, but it should be verified!
 					DateTime EffectiveDate = TestCert.NotBefore;
 					DateTime ExpirationDate = TestCert.NotAfter;
 					DateTime Now = DateTime.Now;
 
 					bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
-					Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", TestCert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", TestCert.GetEffectiveDateString(), TestCert.GetExpirationDateString());
+					Program.LogVerbose("CERTIFICATE-Name:{0},Validity:{1},StartDate:{2},EndDate:{3}", TestCert.FriendlyName, bCertTimeIsValid ? "VALID" : "EXPIRED", EffectiveDate.ToString("o"), ExpirationDate.ToString("o"));
 				}
 
 				Store.Close();
@@ -310,7 +307,7 @@ namespace iPhonePackager
 
 				DateTime EffectiveDate = p.CreationDate;
 				DateTime ExpirationDate = p.ExpirationDate;
-				DateTime Now = DateTime.Now;
+				DateTime Now = DateTime.UtcNow;
 
 				bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
 				bool bValid = false;
@@ -337,20 +334,17 @@ namespace iPhonePackager
 				}
 				bool bDistribution = ((p.ProvisionedDeviceIDs.Count == 0) && !p.bDebug);
 				string Validity = "VALID";
-				if (!bPassesNameCheck && !bPassesWildCardCheck && !bPassesCompanyCheck)
+				if (!bCertTimeIsValid)
+				{
+					Validity = "EXPIRED";
+				}
+				else if (!bValid)
+				{
+					Validity = "NO_CERT";
+				}
+				else if (!bPassesNameCheck && !bPassesWildCardCheck && !bPassesCompanyCheck)
 				{
 					Validity = "NO_MATCH";
-				}
-				else
-				{
-					if (!bValid)
-					{
-						Validity = "NO_CERT";
-					}
-					else if (!bCertTimeIsValid)
-					{
-						Validity = "EXPIRED";
-					}
 				}
 				if ((string.IsNullOrWhiteSpace(SelectedProvision) || FoundName < 2) && Validity == "VALID" && !bDistribution)
 				{
@@ -418,6 +412,10 @@ namespace iPhonePackager
 
 						if (ValidInTimeCert != null)
 						{
+							int StartIndex = SourceCert.SubjectName.Name.IndexOf("CN=") + 3;
+							int EndIndex = SourceCert.SubjectName.Name.IndexOf(", ", StartIndex);
+							SourceCert.FriendlyName = SourceCert.SubjectName.Name.Substring(StartIndex, EndIndex - StartIndex);
+
 							// Found a cert in the valid time range, quit now!
 							Result = ValidInTimeCert;
 							break;

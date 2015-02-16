@@ -66,6 +66,9 @@ class STutorialContent : public SCompoundWidget
 	/** Text to display on next/home button */
 	SLATE_ATTRIBUTE(FText, NextButtonText)
 
+	/** Text to display on back button */
+	SLATE_ATTRIBUTE(FText, BackButtonText)
+
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, UEditorTutorial* InTutorial, const FTutorialContent& InContent);
@@ -123,10 +126,10 @@ private:
 	/** Delegate handler for exiting the tutorial */
 	void HandleExitSelected();
 
-	/** Delegate handler for going to the previous stage of the tutorial */
+	/** Delegate handler for going to the previous stage of the tutorial (From dropdown menu) */
 	void HandleBackSelected();
-
-	/** Delegate handler for going to the next stage of the tutorial */
+	
+	/** Delegate handler for going to the next stage of the tutorial (From dropdown menu) */
 	void HandleNextSelected();
 
 	/** Delegate handler for restarting the tutorial */
@@ -135,8 +138,11 @@ private:
 	/** Delegate handler for exiting the tutorial to the browser */
 	void HandleBrowseSelected();
 
-	/** Delegate handler for going to the next stage of the tutorial */
+	/** Delegate handler for going to the next stage of the tutorial (From button) */
 	FReply HandleNextClicked();
+
+	/** Delegate handler for going to the previous stage of the tutorial (From button) */
+	FReply HandleBackButtonClicked();
 
 	/** Delegate handler allowing us to change the brush of the 'next' button depending on context */
 	const FSlateBrush* GetNextButtonBrush() const;
@@ -149,6 +155,21 @@ private:
 
 	/** We need to override the border ourselves, rather than let the button handle it, as we are using a larger apparent hitbox */
 	const FSlateBrush* GetNextButtonBorder() const;
+
+	/** Delegate handler allowing us to change the brush of the 'back' button depending on context */
+	const FSlateBrush* GetBackButtonBrush() const;
+
+	/** Delegate handler allowing us to change the tootlip of the 'back' button depending on context */
+	FText GetBackButtonTooltip() const;
+
+	/** Change back button color based on hover state */
+	FText GetBackButtonLabel() const;
+
+	/** We need to override the border ourselves, rather than let the button handle it, as we are using a larger apparent hitbox */
+	const FSlateBrush* GetBackButtonBorder() const;
+
+	/* Get the visibilty of the back button */
+	EVisibility GetBackButtonVisibility() const;
 
 private:
 
@@ -219,6 +240,9 @@ private:
 	/** Next button widget */
 	TSharedPtr<SWidget> NextButton;
 
+	/** Back button widget */
+	TSharedPtr<SWidget> BackButton;
+
 	/** Whether we can show full window content in this overlay (i.e. in the same window as the navigation controls) */
 	bool bAllowNonWidgetContent;
 
@@ -227,4 +251,7 @@ private:
 
 	/** Text for next/home button */
 	TAttribute<FText> NextButtonText;
+
+	/** Text for next/home button */
+	TAttribute<FText> BackButtonText;
 };

@@ -193,11 +193,12 @@ const TSharedRef< SWidget > FActorInfoColumn::ConstructRowWidget( FTreeItemRef T
 		.VAlign(VAlign_Center)
 		.AutoWidth()
 		[
+			// Make sure that the hyperlink shows as black (by multiplying black * desired color) when selected so it is readable against the orange background even if blue/green/etc... normally
 			SNew(SBorder)
 			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
 			.ColorAndOpacity_Static([](TWeakPtr<const STableRow<FTreeItemPtr>> WeakRow)->FLinearColor{
 				auto Row = WeakRow.Pin();
-				return Row.IsValid() && Row->IsSelectedExclusively() ? FLinearColor::Black : FLinearColor::White;
+				return Row.IsValid() && Row->IsSelected() ? FLinearColor::Black : FLinearColor::White;
 			}, TWeakPtr<const STableRow<FTreeItemPtr>>(StaticCastSharedRef<const STableRow<FTreeItemPtr>>(Row.AsShared())))
 			[
 				Hyperlink.ToSharedRef()
@@ -216,12 +217,29 @@ TSharedPtr<SWidget> FActorInfoColumn::ConstructClassHyperlink( ITreeItem& TreeIt
 		{
 			if (AActor* Actor = ActorItem.Actor.Get())
 			{
-				UClass* ActorClass = Actor->GetClass();
-
-				// Only create source link in SO for Blueprints (not native classes, too noisy having header link in SO)
-				if (ActorClass && UBlueprint::GetBlueprintFromClass(ActorClass) != NULL)
+				if (UClass* ActorClass = Actor->GetClass())
 				{
-					return FEditorClassUtils::GetSourceLink(ActorClass, Actor);
+					// Always show blueprints
+					const bool bIsBlueprintClass = UBlueprint::GetBlueprintFromClass(ActorClass) != nullptr;
+
+					// Also show game or game plugin native classes (but not engine classes as that makes the scene outliner pretty noisy)
+					bool bIsGameClass = false;
+					if (!bIsBlueprintClass)
+					{
+						UPackage* Package = ActorClass->GetOutermost();
+						const FString ModuleName = FPackageName::GetShortName(Package->GetFName());
+
+						FModuleStatus PackageModuleStatus;
+						if (FModuleManager::Get().QueryModule(*ModuleName, /*out*/ PackageModuleStatus))
+						{
+							bIsGameClass = PackageModuleStatus.bIsGameModule;
+						}
+					}
+
+					if (bIsBlueprintClass || bIsGameClass)
+					{
+						return FEditorClassUtils::GetSourceLink(ActorClass, Actor);
+					}
 				}
 			}
 

@@ -1326,6 +1326,82 @@ public class GUBP : BuildCommand
         }
     }
 
+	public class MakeFeaturePackNode : HostPlatformNode
+	{
+        BranchInfo.BranchUProject GameProj;
+
+        public MakeFeaturePackNode(GUBP bp, UnrealTargetPlatform InHostPlatform, BranchInfo.BranchUProject InGameProj)
+            : base(InHostPlatform)
+        {
+			GameProj = InGameProj;
+			AddDependency(ToolsNode.StaticGetFullName(InHostPlatform)); // for UnrealPak
+            AgentSharingGroup = "FeaturePacks"  + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+
+		public static bool ShouldMakeFeaturePack(GUBP bp, UnrealTargetPlatform InHostPlatform, BranchInfo.BranchUProject InGameProj)
+		{
+			// No obvious way to store this in the project options; it's a property of non-code projects too.
+			if (InHostPlatform == UnrealTargetPlatform.Win64 || !bp.HostPlatforms.Contains(UnrealTargetPlatform.Win64))
+			{
+				if(InGameProj.GameName == "StarterContent" || InGameProj.GameName == "MobileStarterContent" || InGameProj.GameName.StartsWith("FP_"))
+				{
+					return true;
+				}
+				if(InGameProj.GameName.StartsWith("TP_"))
+				{
+					return CommandUtils.FileExists(CommandUtils.CombinePaths(CommandUtils.GetDirectoryName(InGameProj.FilePath), "contents.txt"));
+				}
+			}
+			return false;
+		}
+
+        public static string StaticGetFullName(UnrealTargetPlatform InHostPlatform, BranchInfo.BranchUProject InGameProj)
+        {
+            return InGameProj.GameName + "_MakeFeaturePack" + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+
+		public override string GetFullName()
+        {
+            return StaticGetFullName(HostPlatform, GameProj);
+        }
+
+		public override void DoBuild(GUBP bp)
+        {
+			string ContentsFileName = CommandUtils.CombinePaths(CommandUtils.GetDirectoryName(GameProj.FilePath), "contents.txt");
+
+			// Make sure we delete the output file. It may be read-only.
+			string OutputFileName = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "FeaturePacks", Path.GetFileNameWithoutExtension(GameProj.GameName) + ".upack");
+			CommandUtils.DeleteFile(OutputFileName);
+
+			// Get the command line
+			string CmdLine = CommandUtils.MakePathSafeToUseWithCommandLine(OutputFileName) + " " + CommandUtils.MakePathSafeToUseWithCommandLine("-create=" + ContentsFileName);
+			if (GlobalCommandLine.Installed)
+			{
+				CmdLine += " -installed";
+			}
+			if (GlobalCommandLine.UTF8Output)
+			{
+				CmdLine += " -UTF8Output";
+			}
+
+			// Run UnrealPak
+			string UnrealPakExe;
+			if(HostPlatform == UnrealTargetPlatform.Win64)
+			{
+				UnrealPakExe = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/Win64/UnrealPak.exe");
+			}
+			else
+			{
+				throw new AutomationException("Unknown path to UnrealPak for host platform ({0})", HostPlatform);
+			}
+			RunAndLog(CmdEnv, UnrealPakExe, CmdLine, Options: ERunOptions.Default | ERunOptions.AllowSpew | ERunOptions.UTF8Output);
+
+			// Add the build products
+			BuildProducts = new List<string>();
+			BuildProducts.Add(OutputFileName);
+		}
+	}
+
     public class GamePlatformMonolithicsNode : CompileNode
     {
         BranchInfo.BranchUProject GameProj;
@@ -1470,6 +1546,11 @@ public class GUBP : BuildCommand
             var Agenda = new UE4Build.BuildAgenda();
 
             string Args = "-nobuilduht -skipactionhistory -CopyAppBundleBackToDevice" + bp.RocketUBTArgs();
+
+            if (GUBP.bBuildRocket && (TargetPlatform == UnrealTargetPlatform.Win32 || TargetPlatform == UnrealTargetPlatform.Win64))
+            {
+                Args += " -nodebuginfo";
+            }
 
             foreach (var Kind in BranchInfo.MonolithicKinds)
             {
@@ -1921,6 +2002,13 @@ public class GUBP : BuildCommand
                         }
                     }
                 }
+				foreach(var Proj in bp.Branch.AllProjects)
+				{
+					if(MakeFeaturePackNode.ShouldMakeFeaturePack(bp, HostPlatform, Proj))
+					{
+						AddDependency(MakeFeaturePackNode.StaticGetFullName(HostPlatform, Proj));
+					}
+				}
             }
         }
 		public override bool IsSeparatePromotable()
@@ -5570,6 +5658,14 @@ public class GUBP : BuildCommand
                 }
             }
 			
+			foreach(BranchInfo.BranchUProject Project in Branch.AllProjects)
+			{
+				if(MakeFeaturePackNode.ShouldMakeFeaturePack(this, HostPlatform, Project))
+				{
+					AddNode(new MakeFeaturePackNode(this, HostPlatform, Project));
+				}
+			}
+
             foreach (var CodeProj in Branch.CodeProjects)
             {
                 var Options = CodeProj.Options(HostPlatform);

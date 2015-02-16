@@ -138,7 +138,7 @@ struct FAssetPickerConfig
 	FAssetPickerConfig()
 		: SelectionMode( ESelectionMode::Multi )
 		, ThumbnailLabel( EThumbnailLabel::ClassName )
-		, ThumbnailScale(0.25f) // A reasonable scale
+		, ThumbnailScale(0.1f)
 		, InitialAssetViewType(EAssetViewType::Tile)
 		, bFocusSearchBoxWhenOpened(true)
 		, bAllowNullSelection(false)

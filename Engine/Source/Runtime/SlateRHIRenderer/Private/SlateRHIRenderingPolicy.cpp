@@ -441,7 +441,7 @@ void FSlateRHIRenderingPolicy::DrawElements(FRHICommandListImmediate& RHICmdList
 						FGeometryShaderRHIRef()));
 
 					PixelShader->SetParameters(RHICmdList, *SceneView, MaterialRenderProxy, Material, 1.0f / DisplayGamma, ShaderParams.PixelParams);
-
+					VertexShader->SetViewProjection( RHICmdList, ViewProjectionMatrix );
 
 					check(RenderBatch.NumIndices > 0);
 

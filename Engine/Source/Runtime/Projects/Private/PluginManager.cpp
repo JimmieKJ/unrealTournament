@@ -409,9 +409,13 @@ bool FPluginManager::LoadModulesForEnabledPlugins( const ELoadingPhase::Type Loa
 		return false;
 	}
 
+	FScopedSlowTask SlowTask(AllPlugins.Num());
+
 	// Load plugins!
 	for( const TSharedRef< FPluginInstance > Plugin : AllPlugins )
 	{
+		SlowTask.EnterProgressFrame(1);
+
 		if ( Plugin->bEnabled )
 		{
 			TMap<FName, EModuleLoadResult> ModuleLoadFailures;

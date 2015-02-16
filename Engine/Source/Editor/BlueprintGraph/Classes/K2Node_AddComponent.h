@@ -70,9 +70,6 @@ private:
 	}
 
 	const UClass* GetSpawnedType() const;
-
-	/** Constructing FText strings can be costly, so we cache the node's title */
-	FNodeTextCache CachedNodeTitle;
 };
 
 

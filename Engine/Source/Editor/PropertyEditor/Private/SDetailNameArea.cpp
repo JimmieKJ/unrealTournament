@@ -201,14 +201,28 @@ void SDetailNameArea::BuildObjectNameAreaSelectionLabel( TSharedRef< SHorizontal
 					FEditorClassUtils::GetDocumentationLinkWidget(ObjectClass)
 				];
 
-			SelectionLabelBox->AddSlot()
-				.AutoWidth()
-				.VAlign( VAlign_Center )
-				.HAlign( HAlign_Left )
-				.Padding( 6.0f, 1.0f, 0.0f, 0.0f )
-				[
-					FEditorClassUtils::GetSourceLink(ObjectClass, ObjectWeakPtr)
-				];
+
+			if( ObjectClass && ObjectClass->ClassGeneratedBy == nullptr && ObjectClass->GetOutermost() )
+			{
+				const FString ModuleName = FPackageName::GetShortName(ObjectClass->GetOutermost()->GetFName());
+
+				FModuleStatus PackageModuleStatus;
+				if(FModuleManager::Get().QueryModule(*ModuleName, PackageModuleStatus))
+				{
+					if( PackageModuleStatus.bIsGameModule ) 
+					{
+						SelectionLabelBox->AddSlot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Left)
+						.Padding(6.0f, 1.0f, 0.0f, 0.0f)
+						[
+							FEditorClassUtils::GetSourceLink(ObjectClass, ObjectWeakPtr)
+						];
+					}
+				}
+			}
+		
 		}
 	}
 	else

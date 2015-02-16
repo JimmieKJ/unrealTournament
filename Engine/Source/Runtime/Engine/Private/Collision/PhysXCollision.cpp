@@ -476,7 +476,7 @@ private:
 #define VERIFY_GEOMSWEEPSINGLE 0
 #define VERIFY_GEOMSWEEPMULTI 0
 
-static float DebugLineLifetime = 2.f;
+float DebugLineLifetime = 2.f;
 
 /** 
  * Type of query for object type or trace type

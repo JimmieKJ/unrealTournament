@@ -254,14 +254,15 @@ FString UStructProperty::GetCPPTypeForwardDeclaration() const
 		FName(TEXT("Rotator")),
 		FName(TEXT("Timespan")),
 		NAME_Transform,
-		NAME_Vector
+		NAME_Vector,
+		NAME_Matrix
 	};
 
 	auto Name = Struct->GetFName();
 
-	for (int32 i = 0; i < ARRAY_COUNT(ClassNames); ++i)
+	for (auto ClassName : ClassNames)
 	{
-		if (ClassNames[i] == Name)
+		if (ClassName == Name)
 		{
 			return FString::Printf(TEXT("class F%s;"), *Struct->GetName());
 		}

@@ -470,16 +470,7 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 		if(Graph->Nodes.Num() == 0)
 		{
 			// add update event graph
-			UK2Node_Event* EventNode = NewObject<UK2Node_Event>(Graph);
-			EventNode->EventSignatureClass = UAnimInstance::StaticClass();
-			EventNode->EventSignatureName = FName(TEXT("BlueprintUpdateAnimation"));
-			EventNode->bOverrideFunction=true;
-			EventNode->CreateNewGuid();
-			EventNode->PostPlacedNewNode();
-			EventNode->AllocateDefaultPins();
-			UEdGraphSchema_K2::SetNodeMetaData(EventNode, FNodeMetadata::DefaultGraphNode);
-
-			Graph->AddNode(EventNode);
+			UK2Node_Event* EventNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, Graph, FName(TEXT("BlueprintUpdateAnimation")), UAnimInstance::StaticClass());
 
 			// add try get owner node
 			UK2Node_CallFunction* GetOwnerNode = NewObject<UK2Node_CallFunction>(Graph);
@@ -491,10 +482,41 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 			GetOwnerNode->NodePosX = EventNode->NodePosX;
 			GetOwnerNode->NodePosY = EventNode->NodePosY + EventNode->NodeHeight + 100;
 			UEdGraphSchema_K2::SetNodeMetaData(GetOwnerNode, FNodeMetadata::DefaultGraphNode);
+			GetOwnerNode->bIsNodeEnabled = false;
 
 			Graph->AddNode(GetOwnerNode);
 		}
 	}
+	else
+	{
+		// Based on the Blueprint type we are constructing, place some starting events.
+		// Note, this cannot happen in the Factories for constructing these Blueprint types due to the fact that creating child BPs circumvent the factories
+		UClass* WidgetClass = FindObject<UClass>(ANY_PACKAGE, TEXT("UserWidget"));
+		UClass* GameplayAbilityClass = FindObject<UClass>(ANY_PACKAGE, TEXT("GameplayAbility"));
+
+		if(NewBP->GeneratedClass->IsChildOf(AActor::StaticClass()))
+		{
+			UEdGraphNode* BeginPlayNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveBeginPlay")), AActor::StaticClass());
+			UEdGraphNode* ActorBeginOverlapNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveActorBeginOverlap")), AActor::StaticClass(), BeginPlayNode->NodePosY + BeginPlayNode->NodeHeight + 200);
+			FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveTick")), AActor::StaticClass(), ActorBeginOverlapNode->NodePosY + ActorBeginOverlapNode->NodeHeight + 200);
+		}
+		else if(NewBP->GeneratedClass->IsChildOf(UActorComponent::StaticClass()))
+		{
+			UEdGraphNode* ReceiveTickNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveTick")), UActorComponent::StaticClass());
+			FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveInitializeComponent")), UActorComponent::StaticClass(), ReceiveTickNode->NodePosY + ReceiveTickNode->NodeHeight + 200);
+		}
+		else if(NewBP->GeneratedClass->IsChildOf(WidgetClass))
+		{
+			UEdGraphNode* EventNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("Construct")), WidgetClass);
+			FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("Tick")), WidgetClass, EventNode->NodePosY + EventNode->NodeHeight + 200);
+		}
+		else if(NewBP->GeneratedClass->IsChildOf(GameplayAbilityClass))
+		{
+			UEdGraphNode* EventNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("K2_ActivateAbility")), GameplayAbilityClass);
+			FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("K2_OnEndAbility")), GameplayAbilityClass, EventNode->NodePosY + EventNode->NodeHeight + 200);
+		}
+	}
+	
 
 	// Report blueprint creation to analytics
 	if (FEngineAnalytics::IsAvailable())
@@ -522,6 +544,59 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 	}
 
 	return NewBP;
+}
+
+UK2Node_Event* FKismetEditorUtilities::AddDefaultEventNode(UBlueprint* InBlueprint, UEdGraph* InGraph, FName InEventName, UClass* InEventClass, int32 InNodePosY/* = 0*/)
+{
+	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+
+	// Add a "Begin Play" event
+	UK2Node_Event* NewEventNode = NewObject<UK2Node_Event>(InGraph);
+	NewEventNode->EventSignatureClass = InEventClass;
+	NewEventNode->EventSignatureName = InEventName;
+
+	// add update event graph
+	NewEventNode->bOverrideFunction=true;
+	NewEventNode->CreateNewGuid();
+	NewEventNode->PostPlacedNewNode();
+	NewEventNode->SetFlags(RF_Transactional);
+	NewEventNode->AllocateDefaultPins();
+	NewEventNode->bIsNodeEnabled = false;
+	NewEventNode->NodeComment = LOCTEXT("DisabledNodeComment", "This node is disabled and will not be called.\nDrag off pins to build functionality.").ToString();
+	NewEventNode->NodePosY = InNodePosY;
+	UEdGraphSchema_K2::SetNodeMetaData(NewEventNode, FNodeMetadata::DefaultGraphNode);
+
+	InGraph->AddNode(NewEventNode);
+
+	// Rebuild the skeleton class so we can determine if we are overriding the function from the parent
+	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(InBlueprint);
+
+	// Get the function that the event node or function entry represents
+	FFunctionFromNodeHelper FunctionFromNode(NewEventNode);
+	if (FunctionFromNode.Function && Schema->GetCallableParentFunction(FunctionFromNode.Function))
+	{
+		UFunction* ValidParent = Schema->GetCallableParentFunction(FunctionFromNode.Function);
+		FGraphNodeCreator<UK2Node_CallParentFunction> FunctionNodeCreator(*InGraph);
+		UK2Node_CallParentFunction* ParentFunctionNode = FunctionNodeCreator.CreateNode();
+		ParentFunctionNode->SetFromFunction(ValidParent);
+		ParentFunctionNode->AllocateDefaultPins();
+
+		ParentFunctionNode->GetExecPin()->MakeLinkTo(NewEventNode->FindPin(Schema->PN_Then));
+
+		ParentFunctionNode->NodePosX = FunctionFromNode.Node->NodePosX + FunctionFromNode.Node->NodeWidth + 200;
+		ParentFunctionNode->NodePosY = FunctionFromNode.Node->NodePosY;
+		UEdGraphSchema_K2::SetNodeMetaData(ParentFunctionNode, FNodeMetadata::DefaultGraphNode);
+		FunctionNodeCreator.Finalize();
+
+		ParentFunctionNode->bIsNodeEnabled = false;
+
+		// Adding the call to parent and connecting it will reset this value
+		NewEventNode->bIsNodeEnabled = false;
+		NewEventNode->NodeComment = LOCTEXT("DisabledNodeComment", "This node is disabled and will not be called.\nDrag off pins to build functionality.").ToString();
+	}
+
+
+	return NewEventNode;
 }
 
 UBlueprint* FKismetEditorUtilities::ReloadBlueprint(UBlueprint* StaleBlueprint)
@@ -906,7 +981,7 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FString& Path
 	return NewBlueprint;
 }
 
-void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components)
+void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components, bool bHarvesting, USCS_Node* OptionalNewRootNode)
 {
 	USimpleConstructionScript* SCS = Blueprint->SimpleConstructionScript;
 
@@ -933,7 +1008,7 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 			}
 
 			USCS_Node* SCSNode = SCS->CreateNode(ActorComponent->GetClass(), ActorComponent->GetFName());
-			UEditorEngine::CopyPropertiesForUnrelatedObjects(ActorComponent,SCSNode->ComponentTemplate);
+			UEditorEngine::CopyPropertiesForUnrelatedObjects(ActorComponent, SCSNode->ComponentTemplate);
 
 			// Clear the instance component flag
 			SCSNode->ComponentTemplate->CreationMethod = EComponentCreationMethod::Native;
@@ -951,7 +1026,14 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 
 				if (ActorComponent == Actor->GetRootComponent())
 				{
-					SCS->AddNode(SCSNode);
+					if (OptionalNewRootNode != nullptr)
+					{
+						OptionalNewRootNode->AddChildNode(SCSNode);
+					}
+					else
+					{
+						SCS->AddNode(SCSNode);
+					}
 				}
 				// If we're attached to a blueprint component look it up as the variable name is the component name
 				else if (SceneComponent->AttachParent->IsCreatedByConstructionScript())
@@ -977,9 +1059,9 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 						ParentSCSNode->AddChildNode(SCSNode);
 					}
 				}
-				// If we're attached to a native component
-				else if (SceneComponent->AttachParent->CreationMethod == EComponentCreationMethod::Native)
+				else if ((SceneComponent->AttachParent->CreationMethod == EComponentCreationMethod::Native) && !bHarvesting)
 				{
+					// If we're attached to a component that will be native in the new blueprint
 					SCS->AddNode(SCSNode);
 					SCSNode->SetParent(SceneComponent->AttachParent);
 				}
@@ -1080,7 +1162,7 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FName Bluepri
 		}
 	}
 
-	if (NewBlueprint != nullptr)
+	if (NewBlueprint)
 	{
 		// Open the editor for the new blueprint
 		FAssetEditorManager::Get().OpenEditorForAsset(NewBlueprint);
@@ -1093,8 +1175,8 @@ class FCreateConstructionScriptFromSelectedActors
 {
 public:
 	FCreateConstructionScriptFromSelectedActors()
-		: Blueprint(NULL)
-		, SCS(NULL)
+		: Blueprint(nullptr)
+		, SCS(nullptr)
 	{
 	}
 
@@ -1102,38 +1184,6 @@ public:
 	{
 		if (SelectedActors.Num() > 0)
 		{
-			// See if we have a single actor with a single component selected
-			// If so, we don't bother creating the root SceneComponent.
-			USceneComponent* SingleSceneComp = NULL;
-			if(SelectedActors.Num() == 1)
-			{
-				TInlineComponentArray<UActorComponent*> Components;
-				SelectedActors[0]->GetComponents(Components);
-				for(UActorComponent* Component : Components)
-				{
-					USceneComponent* SceneComp = Cast<USceneComponent>(Component);
-					if( SceneComp != NULL && 
-						!SceneComp->bHiddenInGame && 
-						SceneComp->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent) )
-					{
-						// If we already found one, then there is more than one, so set to NULL and break and continue
-						if(SingleSceneComp != NULL)
-						{
-							SingleSceneComp = NULL;
-							break;
-						}
-						// This is the first valid scene component we have found, save it
-						else
-						{
-							SingleSceneComp = SceneComp;
-						}
-					}
-				}
-			}
-
-			// Determine the origin for all the actors, so it can be backed out when saving them in the blueprint
-			FTransform NewActorTransform = FTransform::Identity;
-
 			// Create a blueprint
 			FString PackageName = Path;
 			FString AssetName = FPackageName::GetLongPackageAssetName(Path);
@@ -1147,101 +1197,82 @@ public:
 				AssetToolsModule.Get().CreateUniqueAssetName(BasePath, TEXT(""), PackageName, AssetName);
 			}
 
-			UPackage* Package = CreatePackage(NULL, *PackageName);
+			UPackage* Package = CreatePackage(nullptr, *PackageName);
 			Blueprint = FKismetEditorUtilities::CreateBlueprint(AActor::StaticClass(), Package, *AssetName, BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass(), FName("HarvestFromActors"));
 
 			check(Blueprint->SimpleConstructionScript != NULL);
 			SCS = Blueprint->SimpleConstructionScript;
 
-			// If we have a single component selected, make a BP with a single component
-			if(SingleSceneComp != NULL)
+			// Create a common root if necessary
+			USCS_Node* RootNodeOverride = nullptr;
+			if ((SelectedActors.Num() == 1) && (SelectedActors[0]->GetRootComponent() != nullptr))
 			{
-				USCS_Node* Node = CreateUSCSNode(SingleSceneComp);
-				Node->VariableName = FBlueprintEditorUtils::FindUniqueKismetName(Blueprint, SingleSceneComp->GetOwner()->GetActorLabel());
-				SCS->AddNode(Node);
-
-				NewActorTransform = SingleSceneComp->ComponentToWorld;
+				// We have a single actor that has a scene component, so no need to create a common root
 			}
-			// Multiple actors/component selected, so we create a root scenecomponent and attach things to it
 			else
+			{
+				// Add a new scene component to serve as the shared root node
+				RootNodeOverride = SCS->CreateNode(USceneComponent::StaticClass(), TEXT("SharedRoot"));
+				SCS->AddNode(RootNodeOverride);
+			}
+
+			// Harvest the components from each actor and clone them into the SCS
+			for (const AActor* Actor : SelectedActors)
+			{
+				TArray<UActorComponent*> Components;
+				Actor->GetComponents(Components);
+
+				// Exclude any components created by other components
+				for (int32 Index = Components.Num() - 1; Index >= 0; --Index)
+				{
+					UActorComponent* ComponentToConsider = Components[Index];
+					if (ComponentToConsider->IsEditorOnly())
+					{
+						Components.RemoveAt(Index, 1, /*bAllowShrinking=*/ false);
+					}
+				}
+
+				FKismetEditorUtilities::AddComponentsToBlueprint(Blueprint, Components, /*bHarvesting=*/ true, RootNodeOverride);
+			}
+
+			// Compute the average origin for all the actors, so it can be backed out when saving them in the blueprint
+			FTransform NewActorTransform = FTransform::Identity;
 			{
 				// Find average location of all selected actors
 				FVector AverageLocation = FVector::ZeroVector;
-				for (auto It(SelectedActors.CreateConstIterator()); It; ++It)
+				for (const AActor* Actor : SelectedActors)
 				{
-					if (const AActor* Actor = Cast<AActor>(*It))
+					if (USceneComponent* RootComponent = Actor->GetRootComponent())
 					{
-						if (USceneComponent* RootComponent = Actor->GetRootComponent())
-						{
-							AverageLocation += Actor->GetActorLocation();
-						}
+						AverageLocation += Actor->GetActorLocation();
 					}
 				}
 				AverageLocation /= (float)SelectedActors.Num();
 
 				// Spawn the new BP at that location
 				NewActorTransform.SetTranslation(AverageLocation);
+			}
 
-				// Add a new scene component to serve as the root node
-				USCS_Node* RootNode = SCS->CreateNode(USceneComponent::StaticClass());
-				SCS->AddNode(RootNode);
-
-				TMap<const AActor*, USCS_Node*> ActorToUSCSNodeMap;
-
-				// Add each actor's root component to the mapping of Actors to USCS_Node map to be organized later
-				for (auto ActorIt = SelectedActors.CreateConstIterator(); ActorIt; ++ActorIt)
+			// Reposition all of the children of the root node to recenter them around the new pivot
+			for (USCS_Node* TopLevelNode : SCS->GetRootNodes())
+			{
+				if (USceneComponent* TestRoot = Cast<USceneComponent>(TopLevelNode->ComponentTemplate))
 				{
-					const AActor* Actor = *ActorIt;
-					USceneComponent* ActorRootComponent = Actor->GetRootComponent();
-					// Check we have a component and it is valid to add to a BP
-					if(ActorRootComponent != NULL && ActorRootComponent->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
+					for (USCS_Node* ChildNode : TopLevelNode->ChildNodes)
 					{
-						USCS_Node* Node = CreateUSCSNode(ActorRootComponent);
-						Node->VariableName = FBlueprintEditorUtils::FindUniqueKismetName(Blueprint, Actor->GetActorLabel());
-
-						// Add the node as a child to the root node, this will be rearranged later for correct parent-child relations but needs to be there now for name validation purposes
-						RootNode->AddChildNode(Node);
-
-						ActorToUSCSNodeMap.Add(Actor, Node);
-					}
-				}
-
-				// Clear the root node of all children we added, they will be re-added with correct parent-child relationships
-				RootNode->ChildNodes.Empty();
-
-				// Attach all immediate children to their parent, or the root if their parent is not being added
-				for (auto ActorIt = SelectedActors.CreateConstIterator(); ActorIt; ++ActorIt)
-				{
-					const AActor* Actor = *ActorIt;
-					USceneComponent* ActorRootComponent = Actor->GetRootComponent();
-					// Check we have a component and it is valid to add to a BP
-					if(ActorRootComponent != NULL && ActorRootComponent->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
-					{			
-						USCS_Node** CurrentNode = ActorToUSCSNodeMap.Find(Actor);
-						USCS_Node** ParentNode = ActorToUSCSNodeMap.Find(Actor->GetAttachParentActor());
-
-						check(CurrentNode);
-
-						FTransform ComponentToWorldSpace;
-						if(ParentNode)
+						if (USceneComponent* ChildComponent = Cast<USceneComponent>(ChildNode->ComponentTemplate))
 						{
-							ComponentToWorldSpace = TransformChildComponent(Actor->GetRootComponent(), *CurrentNode, Actor->GetAttachParentActor()->GetRootComponent()->GetComponentToWorld());
-							(*ParentNode)->AddChildNode(*CurrentNode);
+							const FTransform OldChildToWorld(ChildComponent->RelativeRotation, ChildComponent->RelativeLocation);
+							const FTransform NewRelativeTransform = OldChildToWorld.GetRelativeTransform(NewActorTransform);
+							ChildComponent->RelativeLocation = NewRelativeTransform.GetLocation();
+							ChildComponent->RelativeRotation = NewRelativeTransform.GetRotation().Rotator();
 						}
-						else
-						{
-							ComponentToWorldSpace = TransformChildComponent(Actor->GetRootComponent(), *CurrentNode, NewActorTransform);
-							RootNode->AddChildNode(*CurrentNode);
-						}
-
-						// Attach any children components as well, as long as their owner is this Actor
-						AddActorComponents(Actor, Actor->GetRootComponent(), *CurrentNode, ComponentToWorldSpace);
 					}
 				}
 			}
 
 			// Regenerate skeleton class as components have been added since initial generation
-			FKismetEditorUtilities::GenerateBlueprintSkeleton(Blueprint,true); 
+			FKismetEditorUtilities::GenerateBlueprintSkeleton(Blueprint, /*bForceRegeneration=*/ true); 
 			
 			// Notify the asset registry
 			FAssetRegistryModule::AssetCreated(Blueprint);
@@ -1263,111 +1294,8 @@ public:
 
 			return Blueprint;
 		}
-		return NULL;
+		return nullptr;
 	}
-
-protected:
-
-	void CopyComponentToTemplate(UActorComponent* Source, UActorComponent* Destination)
-	{
-		check(Source->GetClass() == Destination->GetClass());
-		UClass* CommonBaseClass = Source->GetClass();
-		UActorComponent* DefaultComponent = CastChecked<UActorComponent>(Destination->GetArchetype());
-
-		//@TODO: Copy of code from inside CopyActorComponentProperties
-
-		// Iterate through the properties, only copying those which are non-native, non-transient, non-component, and not identical
-		// to the values in the default component
-		for (UProperty* Property = CommonBaseClass->PropertyLink; Property != NULL; Property = Property->PropertyLinkNext)
-		{
-			const bool bIsTransient = !!( Property->PropertyFlags & CPF_Transient );
-			const bool bIsIdentical = Property->Identical_InContainer(Source, DefaultComponent);
-			const bool bIsComponent = !!( Property->PropertyFlags & (CPF_InstancedReference | CPF_ContainsInstancedReference) );
-
-			if (!bIsTransient && !bIsIdentical && !bIsComponent)
-			{
-				Property->CopyCompleteValue_InContainer(Destination, Source);
-			}
-		}
-
-		if (UStaticMeshComponent* TemplateMeshComponent = Cast<UStaticMeshComponent>(Destination))
-		{
-			UStaticMeshComponent* SourceMeshComponent = CastChecked<UStaticMeshComponent>(Source);
-			// vert coloring data lives in the mesh component's LODData member,
-			// which is transient, so it wouldn't be copied in the above loop
-			TemplateMeshComponent->CopyInstanceVertexColorsIfCompatible(SourceMeshComponent);
-		}
-	}
-
-	/** Creates a USCS Node for the passed in component */
-	USCS_Node* CreateUSCSNode(USceneComponent* Component)
-	{
-		// Create a new SCS node for this component
-		USCS_Node* NewNode = SCS->CreateNode(Component->GetClass());
-
-		// Copy properties across to the new template
-		CopyComponentToTemplate(Component, NewNode->ComponentTemplate);
-
-		return NewNode;
-	}
-
-	/**
-	 * Transforms a USCS_Node component based on the original Component and the passed in transform.
-	 *
-	 * @param InOriginalComponent		The original component the USCS_Node is based on
-	 * @param InUSCSNode				The USCS_Node based on the original component
-	 * @param InParentToWorldSpace		FTransform to place the USCS_Node in the correct spot.
-	 *
-	 * @return							The component to world transform of the USCS_Node component
-	 */
-	FTransform TransformChildComponent(USceneComponent* InOriginalComponent, USCS_Node* InUSCSNode, const FTransform& InParentToWorldSpace)
-	{
-		// Position this node relative to it's parent
-		USceneComponent* NewTemplate = CastChecked<USceneComponent>(InUSCSNode->ComponentTemplate);
-
-		FTransform ChildToWorld = InOriginalComponent->GetComponentToWorld();
-		FTransform RelativeTransform = ChildToWorld.GetRelativeTransform(InParentToWorldSpace);
-
-		NewTemplate->SetRelativeTransform(RelativeTransform);
-
-		return ChildToWorld;
-	}
-
-	/**
-	 * Adds all child components (but not child actors) to the RootNode as a USCS_Node
-	 *
-	 * @param InParentActor		The actor all components must be a child of
-	 * @param InComponent		The component to pull child components from
-	 * @param InRootNode		The root node to attach all new USCS_Nodes to
-	 * @param InParentToWorldSpace		FTransform to place the USCS_Node in the correct spot.
-	 */
-	void AddActorComponents(const AActor* InParentActor, USceneComponent* InComponent, USCS_Node* InRootNode, const FTransform& InParentToWorldSpace)
-	{
-		if (InComponent)
-		{
-			for (auto ChildIt = InComponent->AttachChildren.CreateConstIterator(); ChildIt; ++ChildIt)
-			{
-				USceneComponent* ChildComponent = *ChildIt;
-
-				if(ChildComponent->GetOwner() == InParentActor)
-				{				
-					// if component is 'editor only' we usually don't want to copy it
-					// Also check its a valid class to add
-					if(!ChildComponent->bHiddenInGame && ChildComponent->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
-					{
-						USCS_Node* NewNode = CreateUSCSNode(ChildComponent);
-						FTransform ComponentToWorldSpace = TransformChildComponent(ChildComponent, NewNode, InParentToWorldSpace);
-						InRootNode->AddChildNode(NewNode);
-
-						// Add any child components that may be owned by this Actor
-						AddActorComponents(InParentActor, ChildComponent, NewNode, ComponentToWorldSpace);
-					}
-				}
-
-			}
-		}
-	}
-
 
 protected:
 	UBlueprint* Blueprint;
@@ -1407,6 +1335,12 @@ AActor* FKismetEditorUtilities::CreateBlueprintInstanceFromSelection(UBlueprint*
 
 	AActor* NewActor = World->SpawnActor(Blueprint->GeneratedClass, &Location, &Rotator);
 	GEditor->Layers->InitializeNewActorLayers(NewActor);
+
+	// Quietly ensure that no components are selected
+	USelection* ComponentSelection = GEditor->GetSelectedComponents();
+	ComponentSelection->BeginBatchSelectOperation();
+	ComponentSelection->DeselectAll();
+	ComponentSelection->EndBatchSelectOperation(false);
 
 	// Update selection to new actor
 	GEditor->SelectActor( NewActor, /*bSelected=*/ true, /*bNotify=*/ true );
@@ -1692,21 +1626,29 @@ void FKismetEditorUtilities::CreateNewBoundEventForActor(AActor* Actor, FName Ev
 	}
 }
 
-void FKismetEditorUtilities::CreateNewBoundEventForComponent(UActorComponent* Component, FName EventName, UBlueprint* Blueprint, UObjectProperty* ComponentProperty)
+void FKismetEditorUtilities::CreateNewBoundEventForComponent(UObject* Component, FName EventName, UBlueprint* Blueprint, UObjectProperty* ComponentProperty)
 {
-	if ((Component != NULL) && (EventName != NAME_None) && (Blueprint != NULL) && (ComponentProperty != NULL))
+	if ( Component != nullptr )
+	{
+		CreateNewBoundEventForClass(Component->GetClass(), EventName, Blueprint, ComponentProperty);
+	}
+}
+
+void FKismetEditorUtilities::CreateNewBoundEventForClass(UClass* Class, FName EventName, UBlueprint* Blueprint, UObjectProperty* ComponentProperty)
+{
+	if ( ( Class != nullptr ) && ( EventName != NAME_None ) && ( Blueprint != nullptr ) && ( ComponentProperty != nullptr ) )
 	{
 		// First, find the property we want to bind to
-		UMulticastDelegateProperty* DelegateProperty = FindField<UMulticastDelegateProperty>(Component->GetClass(), EventName);
-		if(DelegateProperty != NULL)
+		UMulticastDelegateProperty* DelegateProperty = FindField<UMulticastDelegateProperty>(Class, EventName);
+		if ( DelegateProperty != nullptr )
 		{
-			UEdGraph* TargetGraph = NULL;
+			UEdGraph* TargetGraph = nullptr;
 			if(Blueprint->UbergraphPages.Num() > 0)
 			{
 				TargetGraph = Blueprint->UbergraphPages[0]; // Just use the first graph
 			}
 
-			if(TargetGraph != NULL)
+			if ( TargetGraph != nullptr )
 			{
 				// Figure out a decent place to stick the node
 				const FVector2D NewNodePos = TargetGraph->GetGoodPlaceForNewNode();
@@ -1718,7 +1660,7 @@ void FKismetEditorUtilities::CreateNewBoundEventForComponent(UActorComponent* Co
 				UK2Node_ComponentBoundEvent* EventNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_ComponentBoundEvent>(TargetGraph, EventNodeTemplate, NewNodePos);
 
 				// Finally, bring up kismet and jump to the new node
-				if (EventNode != NULL)
+				if ( EventNode != nullptr )
 				{
 					BringKismetToFocusAttentionOnObject(EventNode);
 				}
@@ -1754,14 +1696,14 @@ const UK2Node_ActorBoundEvent* FKismetEditorUtilities::FindBoundEventForActor(AA
 const UK2Node_ComponentBoundEvent* FKismetEditorUtilities::FindBoundEventForComponent(const UBlueprint* Blueprint, FName EventName, FName PropertyName)
 {
 	const UK2Node_ComponentBoundEvent* Node = NULL;
-	if (Blueprint && EventName != NAME_None && PropertyName != NAME_None)
+	if ( Blueprint && EventName != NAME_None && PropertyName != NAME_None )
 	{
 		TArray<UK2Node_ComponentBoundEvent*> EventNodes;
 		FBlueprintEditorUtils::GetAllNodesOfClass(Blueprint, EventNodes);
-		for(auto NodeIter = EventNodes.CreateIterator(); NodeIter; ++NodeIter)
+		for ( auto NodeIter = EventNodes.CreateIterator(); NodeIter; ++NodeIter )
 		{
 			UK2Node_ComponentBoundEvent* BoundEvent = *NodeIter;
-			if ((BoundEvent->ComponentPropertyName == PropertyName) && (BoundEvent->DelegatePropertyName == EventName))
+			if ( ( BoundEvent->ComponentPropertyName == PropertyName ) && ( BoundEvent->DelegatePropertyName == EventName ) )
 			{
 				Node = *NodeIter;
 				break;

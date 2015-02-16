@@ -162,7 +162,7 @@ void FSCSEditorViewportClient::Tick(float DeltaSeconds)
 	FEditorViewportClient::Tick(DeltaSeconds);
 
 	// Register the selection override delegate for the preview actor's components
-	TSharedRef<SSCSEditor> SCSEditor = BlueprintEditorPtr.Pin()->GetSCSEditor();
+	TSharedPtr<SSCSEditor> SCSEditor = BlueprintEditorPtr.Pin()->GetSCSEditor();
 	AActor* PreviewActor = GetPreviewActor();
 	if (PreviewActor != nullptr)
 	{
@@ -754,7 +754,7 @@ void FSCSEditorViewportClient::ToggleIsSimulateEnabled()
 	PreviewScene->GetWorld()->bShouldSimulatePhysics = bIsSimulateEnabled;
 
 	AActor* PreviewActor = GetPreviewActor();
-	TSharedRef<SWidget> SCSEditor = BlueprintEditorPtr.Pin()->GetSCSEditor();
+	TSharedPtr<SWidget> SCSEditor = BlueprintEditorPtr.Pin()->GetSCSEditor();
 	TSharedRef<SWidget> Inspector = BlueprintEditorPtr.Pin()->GetInspector();
 
 	// When simulate is enabled, we don't want to allow the user to modify the components

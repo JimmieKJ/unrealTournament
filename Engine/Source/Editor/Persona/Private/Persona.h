@@ -202,7 +202,7 @@ public:
 	/** Returns the image brush to use for each modes dirty marker */
 	const FSlateBrush* GetDirtyImageForMode(FName Mode) const;
 
-	TSharedRef<SKismetInspector> GetPreviewEditor() {return PreviewEditor.ToSharedRef();}
+	TSharedRef<SWidget> GetPreviewEditor() { return PreviewEditor.ToSharedRef(); }
 	/** Refresh Preview Instance Track Curves **/
 	void RefreshPreviewInstanceTrackCurves();
 
@@ -216,7 +216,6 @@ protected:
 	virtual bool CanAddPosePin() const override;
 	virtual void OnRemovePosePin() override;
 	virtual bool CanRemovePosePin() const override;
-	virtual void StartEditingDefaults(bool bAutoFocus, bool bForceRefresh = false) override;
 	virtual void Compile() override;
 	virtual void OnGraphEditorFocused(const TSharedRef<class SGraphEditor>& InGraphEditor) override;
 	virtual void OnConvertToSequenceEvaluator() override;
@@ -633,7 +632,7 @@ private:
 	const FSlateBrush* AssetDirtyBrush;
 
 	/** Preview instance inspector widget */
-	TSharedPtr<class SKismetInspector> PreviewEditor;
+	TSharedPtr<class SWidget> PreviewEditor;
 
 	/** Sequence Browser **/
 	TWeakPtr<class SAnimationSequenceBrowser> SequenceBrowser;

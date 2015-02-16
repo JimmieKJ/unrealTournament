@@ -139,6 +139,9 @@ protected:
 	/** @return The color that we should use to draw this pin */
 	virtual FSlateColor GetPinColor() const;
 
+	/** @return The color that we should use to draw this pin's text */
+	virtual FSlateColor GetPinTextColor() const;
+
 	/** @return The tooltip to display for this pin */
 	FText GetTooltip() const;
 
@@ -183,6 +186,9 @@ protected:
 	FVector2D CachedNodeOffset;
 
 	TSet< TWeakObjectPtr<UEdGraphPin> > HoverPinSet;
+
+	/** TRUE if the pin should use the Pin's color for the text */
+	bool bUsePinColorForText;
 
 	//@TODO: Want to cache these once for all SGraphPins, but still handle slate style updates
 	mutable const FSlateBrush* CachedImg_ArrayPin_ConnectedHovered;

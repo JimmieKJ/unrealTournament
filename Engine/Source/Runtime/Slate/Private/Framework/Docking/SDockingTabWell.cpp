@@ -459,6 +459,8 @@ void SDockingTabWell::BringTabToFront( int32 TabIndexToActivate )
 				: Tabs[ForegroundTabIndex];
 			
 			MyDockArea->GetTabManager()->GetPrivateApi().OnTabForegrounded(NewForegroundTab, PreviousForegroundTab);
+
+			FGlobalTabmanager::Get()->GetPrivateApi().OnTabForegrounded(NewForegroundTab, PreviousForegroundTab);
 		}
 	}
 

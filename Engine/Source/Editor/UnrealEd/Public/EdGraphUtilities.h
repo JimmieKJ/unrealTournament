@@ -50,14 +50,21 @@ public:
 	  * including merging/flattening all of the children from the SourceGraph into MergeTarget
 	  *
 	  * Also optionally populates *OutClonedNodes with the list of cloned objects.
+	  *
+	  * @param MergeTarget				The graph to merge the source graph into
+	  * @param SourceGraph				Graph to merge from
+	  * @param MessageLog				MessageLog to report errors and warnings to
+	  * @param bRequireSchemaMatch		TRUE if the graphs must have the same schema for the merge to occur
+	  * @param OutClonedNodes			Will populate with a full list of cloned nodes if provided
+	  * @param bInIsCompiling			TRUE if the function is being called during compilation, this will eliminate some nodes that will not be compiled
 	  */
-	static void CloneAndMergeGraphIn(UEdGraph* MergeTarget, UEdGraph* SourceGraph, FCompilerResultsLog& MessageLog, bool bRequireSchemaMatch, TArray<UEdGraphNode*>* OutClonedNodes = NULL);
+	static void CloneAndMergeGraphIn(UEdGraph* MergeTarget, UEdGraph* SourceGraph, FCompilerResultsLog& MessageLog, bool bRequireSchemaMatch, bool bInIsCompiling = false, TArray<UEdGraphNode*>* OutClonedNodes = NULL);
 
 	/**
 	 * Moves the contents of all of the children graphs of ParentGraph (recursively) into the MergeTarget graph.
 	 * This does not clone, it's destructive to the ParentGraph
 	 */
-	static void MergeChildrenGraphsIn(UEdGraph* MergeTarget, UEdGraph* ParentGraph, bool bRequireSchemaMatch);
+	static void MergeChildrenGraphsIn(UEdGraph* MergeTarget, UEdGraph* ParentGraph, bool bRequireSchemaMatch, bool bInIsCompiling = false);
 
 	/** Tries to rename the graph to have a name similar to BaseName */
 	static void RenameGraphCloseToName(UEdGraph* Graph, const FString& BaseName, int32 StartIndex = 1);

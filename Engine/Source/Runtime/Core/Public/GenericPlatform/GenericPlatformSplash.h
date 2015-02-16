@@ -62,4 +62,12 @@ struct CORE_API FGenericPlatformSplash
 
 	}
 
+	/**
+	 * Return whether the splash screen is being shown or not
+	 */
+	FORCEINLINE static bool IsShown()
+	{
+		return true;
+	}
+
 };

@@ -50,7 +50,7 @@ bool FCrashUpload::PingTimeout(float DeltaTime)
 void FCrashUpload::BeginUpload(const FPlatformErrorReport& PlatformErrorReport)
 {
 	ErrorReport = PlatformErrorReport;
-	PendingFiles = ErrorReport.GetFilesToUpload();
+	PendingFiles += ErrorReport.GetFilesToUpload();
 	UE_LOG(CrashReportClientLog, Log, TEXT("Got %d pending files to upload from '%s'"), PendingFiles.Num(), *ErrorReport.GetReportDirectoryLeafName());
 
 	PauseState = EUploadState::Finished;
@@ -222,24 +222,24 @@ void FCrashUpload::CompressAndSendData()
 	delete CompressedDataRaw;
 	CompressedDataRaw = nullptr;
 
- 	// Set up request for upload
- 	UE_LOG(CrashReportClientLog, Log, TEXT("Sending HTTP request (posting file)"));
- 	auto Request = CreateHttpRequest();
- 	Request->SetVerb(TEXT("POST"));
- 	Request->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
- 	Request->SetURL(UrlPrefix / TEXT("UploadReportFile"));
- 	Request->SetContent(CompressedData);
- 	Request->SetHeader(TEXT("DirectoryName"), *ErrorReport.GetReportDirectoryLeafName());
- 	Request->SetHeader(TEXT("FileName"), Filename);
- 	Request->SetHeader(TEXT("FileLength"), TTypeToString<int32>::ToString(CompressedData.Num()) );
+	// Set up request for upload
+	UE_LOG(CrashReportClientLog, Log, TEXT("Sending HTTP request (posting file)"));
+	auto Request = CreateHttpRequest();
+	Request->SetVerb(TEXT("POST"));
+	Request->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
+	Request->SetURL(UrlPrefix / TEXT("UploadReportFile"));
+	Request->SetContent(CompressedData);
+	Request->SetHeader(TEXT("DirectoryName"), *ErrorReport.GetReportDirectoryLeafName());
+	Request->SetHeader(TEXT("FileName"), Filename);
+	Request->SetHeader(TEXT("FileLength"), TTypeToString<int32>::ToString(CompressedData.Num()) );
 	Request->SetHeader(TEXT("CompressedSize"), TTypeToString<int32>::ToString(CompressedSize) );
 	Request->SetHeader(TEXT("UncompressedSize"), TTypeToString<int32>::ToString(UncompressedSize) );
 	Request->SetHeader(TEXT("NumberOfFiles"), TTypeToString<int32>::ToString(CurrentFileIndex) );
 
- 	if (Request->ProcessRequest())
- 	{
- 		return;
- 	}
+	if (Request->ProcessRequest())
+	{
+		return;
+	}
 	else
 	{
 		UE_LOG(CrashReportClientLog, Warning, TEXT("Failed to send file upload request"));

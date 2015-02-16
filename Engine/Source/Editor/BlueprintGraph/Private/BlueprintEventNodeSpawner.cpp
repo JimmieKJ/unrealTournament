@@ -21,6 +21,15 @@ namespace UBlueprintEventNodeSpawnerImpl
 	 * @return Null if no event was found, otherwise a pointer to the named event.
 	 */
 	static UK2Node_Event* FindCustomEventNode(UBlueprint* Blueprint, FName const CustomName);
+
+	/**
+	 * Helper function for removing all disabled nodes connected to a 
+	 * disabled source node
+	 *
+	 * @param InNode			The node to start with
+	 * @param InParentGraph		The graph to remove the nodes from
+	 */
+	static void RemoveAllDisabledNodes(UEdGraphNode* InNode, UEdGraph* InParentGraph);
 }
 
 //------------------------------------------------------------------------------
@@ -44,6 +53,28 @@ UK2Node_Event* UBlueprintEventNodeSpawnerImpl::FindCustomEventNode(UBlueprint* B
 	}	
 	return FoundNode;
 }
+
+//------------------------------------------------------------------------------
+static void UBlueprintEventNodeSpawnerImpl::RemoveAllDisabledNodes(UEdGraphNode* InNode, UEdGraph* InParentGraph)
+{
+	if(InNode && !InNode->bIsNodeEnabled)
+	{
+		// Go through all pin connections and consume any disabled nodes so we do not leave garbage.
+		for (UEdGraphPin* Pin : InNode->Pins)
+		{
+			TArray<UEdGraphPin*> LinkedToCopy = Pin->LinkedTo;
+			for (UEdGraphPin* OtherPin : LinkedToCopy)
+			{
+				// Break the pin link back
+				OtherPin->BreakLinkTo(Pin);
+				RemoveAllDisabledNodes(OtherPin->GetOwningNode(), InParentGraph);
+			}
+		}
+
+		InNode->BreakAllNodeLinks();
+		InParentGraph->RemoveNode(InNode);
+	}
+};
 
 /*******************************************************************************
  * UBlueprintEventNodeSpawner
@@ -147,6 +178,14 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 	if (!bIsCustomEvent)
 	{
 		EventName  = EventFunc->GetFName();	
+	}
+
+	// This Event node might already be present in the Blueprint in a disabled state, 
+	// remove it and allow the user to successfully place the node where they want it.
+	if(EventNode && !EventNode->bIsNodeEnabled)
+	{
+		UBlueprintEventNodeSpawnerImpl::RemoveAllDisabledNodes(EventNode, ParentGraph);
+		EventNode = nullptr;
 	}
 
 	// if there is no existing node, then we can happily spawn one into the graph

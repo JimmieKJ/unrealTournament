@@ -42,6 +42,7 @@ FGraphNodeContextMenuBuilder::FGraphNodeContextMenuBuilder(const UEdGraph* InGra
 UEdGraphNode::UEdGraphNode(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, AdvancedPinDisplay(ENodeAdvancedPins::NoPins)
+	, bIsNodeEnabled(true)
 {
 
 #if WITH_EDITORONLY_DATA

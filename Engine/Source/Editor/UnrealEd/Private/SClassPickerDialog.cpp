@@ -107,6 +107,8 @@ void SClassPickerDialog::Construct(const FArguments& InArgs)
 						.Visibility( this, &SClassPickerDialog::GetSelectButtonVisibility )
 						.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
 						.OnClicked(this, &SClassPickerDialog::OnClassPickerConfirmed)
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+						.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
 					]
 					+SUniformGridPanel::Slot(1,0)
 					[
@@ -115,6 +117,8 @@ void SClassPickerDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
 						.OnClicked(this, &SClassPickerDialog::OnClassPickerCanceled)
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
+						.TextStyle(FEditorStyle::Get(), "FlatButton.DefaultTextStyle")
 					]
 				]
 			]

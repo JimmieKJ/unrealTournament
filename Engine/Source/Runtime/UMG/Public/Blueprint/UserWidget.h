@@ -9,6 +9,8 @@
 #include "NamedSlotInterface.h"
 #include "Slate/Anchors.h"
 #include "Engine/LocalPlayer.h"
+#include "Logging/MessageLog.h"
+
 #include "UserWidget.generated.h"
 
 static FGeometry NullGeometry;
@@ -652,9 +654,13 @@ public:
 	UPROPERTY()
 	FVector2D DesignTimeSize;
 
-	/** Stores the design time desired size of the user widget */
+	/** Designer flag used to tell when the user wants to provide their own custom size. */
 	UPROPERTY()
 	bool bUseDesignTimeSize;
+
+	/** Designer flag used to tell when to just use the desired size of the widget instead of an explicit size. */
+	UPROPERTY()
+	bool bUseDesiredSizeAtDesignTime;
 
 	/** The category this widget appears in the palette. */
 	UPROPERTY()
@@ -683,12 +689,26 @@ private:
 	bool bInitialized;
 };
 
+#define LOCTEXT_NAMESPACE "UMG"
+
 template< class T >
 T* CreateWidget(UWorld* World, UClass* UserWidgetClass)
 {
-	if ( World == nullptr || !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) || UserWidgetClass->HasAnyClassFlags(CLASS_Abstract) )
+	if ( World == nullptr )
 	{
-		// TODO UMG Error?
+		FMessageLog("PIE").Error(LOCTEXT("WorldNull", "Unable to create a widget outered to a null world."));
+		return nullptr;
+	}
+
+	if ( !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) )
+	{
+		FMessageLog("PIE").Error(LOCTEXT("NotUserWidget", "CreateWidget can only be used on UUserWidget children."));
+		return nullptr;
+	}
+
+	if ( UserWidgetClass->HasAnyClassFlags(CLASS_Abstract | CLASS_NewerVersionExists | CLASS_Deprecated) )
+	{
+		FMessageLog("PIE").Error(LOCTEXT("NotValidClass", "Abstract, Deprecated or Replaced classes are not allowed to be used to construct a user widget."));
 		return nullptr;
 	}
 
@@ -709,15 +729,27 @@ T* CreateWidget(UWorld* World, UClass* UserWidgetClass)
 template< class T >
 T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass)
 {
-	if ( OwningPlayer == nullptr || !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) || UserWidgetClass->HasAnyClassFlags(CLASS_Abstract) )
+	if ( OwningPlayer == nullptr )
 	{
-		// TODO UMG Error?
+		FMessageLog("PIE").Error(LOCTEXT("PlayerNull", "Unable to create a widget outered to a null player controller."));
+		return nullptr;
+	}
+
+	if ( !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) )
+	{
+		FMessageLog("PIE").Error(LOCTEXT("NotUserWidget", "CreateWidget can only be used on UUserWidget children."));
+		return nullptr;
+	}
+
+	if ( UserWidgetClass->HasAnyClassFlags(CLASS_Abstract | CLASS_NewerVersionExists | CLASS_Deprecated) )
+	{
+		FMessageLog("PIE").Error(LOCTEXT("NotValidClass", "Abstract, Deprecated or Replaced classes are not allowed to be used to construct a user widget."));
 		return nullptr;
 	}
 
 	if ( !OwningPlayer->IsLocalPlayerController() )
 	{
-		//Don't create widgets for proxies of the Player Controller, only the actual local player.
+		FMessageLog("PIE").Error(LOCTEXT("NotLocalPlayer", "Only Local Player Controllers can be assigned to widgets."));
 		return nullptr;
 	}
 
@@ -735,9 +767,21 @@ T* CreateWidget(APlayerController* OwningPlayer, UClass* UserWidgetClass)
 template< class T >
 T* CreateWidget(UGameInstance* OwningGame, UClass* UserWidgetClass)
 {
-	if ( OwningGame == nullptr || !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) || UserWidgetClass->HasAnyClassFlags(CLASS_Abstract) )
+	if ( OwningGame == nullptr )
 	{
-		// TODO UMG Error?
+		FMessageLog("PIE").Error(LOCTEXT("GameNull", "Unable to create a widget outered to a null game instance."));
+		return nullptr;
+	}
+
+	if ( !UserWidgetClass->IsChildOf(UUserWidget::StaticClass()) )
+	{
+		FMessageLog("PIE").Error(LOCTEXT("NotUserWidget", "CreateWidget can only be used on UUserWidget children."));
+		return nullptr;
+	}
+
+	if ( UserWidgetClass->HasAnyClassFlags(CLASS_Abstract | CLASS_NewerVersionExists | CLASS_Deprecated) )
+	{
+		FMessageLog("PIE").Error(LOCTEXT("NotValidClass", "Abstract, Deprecated or Replaced classes are not allowed to be used to construct a user widget."));
 		return nullptr;
 	}
 
@@ -752,3 +796,5 @@ T* CreateWidget(UGameInstance* OwningGame, UClass* UserWidgetClass)
 
 	return Cast<T>(NewWidget);
 }
+
+#undef LOCTEXT_NAMESPACE

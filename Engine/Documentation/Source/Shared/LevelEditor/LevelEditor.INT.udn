@@ -64,8 +64,8 @@ Engine/UI/LevelEditor/Details
 [/EXCERPT:DetailsTab]
 
 [EXCERPT:SceneOutlinerTab]
-###Scene Outliner
-The Scene Outliner panel displays all of the Actors within the scene in a hierarchical tree view. Actors can be selected and modified directly from the Scene Outliner. You can also use the Info drop down menu to display an extra column that shows Levels, Layers, or ID Names.
+###World Outliner
+The World Outliner panel displays all of the Actors within the scene in a hierarchical tree view. Actors can be selected and modified directly from the World Outliner. You can also use the Info drop down menu to display an extra column that shows Levels, Layers, or ID Names.
 
 [VAR:ToolTipFullLink]
 Engine/UI/LevelEditor/SceneOutliner

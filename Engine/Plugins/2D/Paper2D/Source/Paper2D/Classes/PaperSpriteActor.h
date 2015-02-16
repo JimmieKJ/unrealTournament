@@ -11,7 +11,7 @@
  * This actor is created when you drag a sprite asset from the content browser into the level, and
  * it is just a thin wrapper around a UPaperSpriteComponent that actually references the asset.
  */
-UCLASS(meta=(ChildCanTick))
+UCLASS(ComponentWrapperClass, meta = (ChildCanTick))
 class PAPER2D_API APaperSpriteActor : public AActor
 {
 	GENERATED_UCLASS_BODY()
