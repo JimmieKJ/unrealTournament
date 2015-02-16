@@ -211,8 +211,10 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 				if (LP)
 				{
-					LP->HideMenu();
-					LP->JoinSession(Result, GUIDJoinWantsToSpectate);
+					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate))
+					{
+						LP->HideMenu();
+					}
 				}
 
 				GUIDJoinWantsToSpectate = false;

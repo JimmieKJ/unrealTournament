@@ -298,8 +298,8 @@ public:
 	// Returns what badge should represent player's skill level.
 	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
-	// Connect to a server via the session id
-	virtual void JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate);
+	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate);
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 

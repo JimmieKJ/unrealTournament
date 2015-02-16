@@ -1205,42 +1205,11 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	Exec(GetWorld(), TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"), *GLog);
 }
 
-void UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
-
-	// Sanity check.  Look at the search result and see if we can actually join...
-
-	if (bSpectate)
-	{
-		int32 ServerNoSpecs = 0;
-		SearchResult.Session.SessionSettings.Get(SETTING_SPECTATORSONLINE, ServerNoSpecs);
-
-		int32 ServerMaxSpectators = 0;
-		SearchResult.Session.SessionSettings.Get(SETTING_UTMAXSPECTATORS, ServerMaxSpectators);
-
-		if (ServerNoSpecs >= ServerMaxSpectators)
-		{
-			MessageBox(NSLOCTEXT("UTLocalPlayeR","ServerFullTitle","Server Full"), NSLOCTEXT("UTLocalPlayer","SpecFullMsg","The spectator limit on the game you are trying to join has been reached."));
-			return;
-		}
-	}
-	else
-	{
-		int32 ServerNoPlayers = 0;
-		SearchResult.Session.SessionSettings.Get(SETTING_PLAYERSONLINE, ServerNoPlayers);
-			
-		int32 ServerMaxPlayers = 0;
-		SearchResult.Session.SessionSettings.Get(SETTING_UTMAXPLAYERS, ServerMaxPlayers);
-
-		if (ServerNoPlayers >= ServerMaxPlayers)
-		{
-			MessageBox(NSLOCTEXT("UTLocalPlayeR","ServerFullTitle","Server Full"), NSLOCTEXT("UTLocalPlayer","ServerFullMsg","The game you are trying to join is full."));
-			return;
-		}
-	}
 
 	bWantsToConnectAsSpectator = bSpectate;
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
@@ -1255,6 +1224,8 @@ void UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	{
 		OnlineSessionInterface->JoinSession(0,GameSessionName,SearchResult);
 	}
+
+	return true;
 }
 
 void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
