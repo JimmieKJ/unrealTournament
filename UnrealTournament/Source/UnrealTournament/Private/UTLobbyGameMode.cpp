@@ -229,7 +229,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 	if (PC)
 	{
 		// Set my initial presence....
-		PC->ClientSetPresence(TEXT("Sitting in a HUB"), true, true, true, false);
+		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false);
 	}
 
 }

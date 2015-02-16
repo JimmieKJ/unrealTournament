@@ -264,8 +264,8 @@ FText SUInGameHomePanel::GetChatDestinationText() const
 	if (ChatDestination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Team");
 	if (ChatDestination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Game");
 	if (ChatDestination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper");
-	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","HUB");
-	if (ChatDestination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","MAtch");
+	if (ChatDestination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Hub");
+	if (ChatDestination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","Match");
 	
 	return NSLOCTEXT("Chat", "GlobalTag","Global Chat");
 }
@@ -298,7 +298,7 @@ FText SUInGameHomePanel::GetChatDestinationTag(FName Destination)
 	if (Destination == ChatDestinations::Team)		return NSLOCTEXT("Chat", "TeamTag","Team");
 	if (Destination == ChatDestinations::Local)		return NSLOCTEXT("Chat", "LocalTag","Local");
 	if (Destination == ChatDestinations::Friends)	return NSLOCTEXT("Chat", "FriendsTag","Whisper");
-	if (Destination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","HUB");
+	if (Destination == ChatDestinations::Match)		return NSLOCTEXT("Chat", "MatchTag","Hub");
 	if (Destination == ChatDestinations::Lobby)		return NSLOCTEXT("Chat", "LobbyTag","Lobby");
 	if (Destination == FName(TEXT("debug")))		return NSLOCTEXT("Chat", "DebugTag","DEBUG");
 	
