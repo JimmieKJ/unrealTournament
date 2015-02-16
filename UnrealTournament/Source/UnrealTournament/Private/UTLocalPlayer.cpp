@@ -522,6 +522,18 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		{
 			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
 		}
+
+		// on successful auto login, attempt to join an accepted friend game invite
+		if (bInitialSignInAttempt)
+		{
+			FString SessionId;
+			FString FriendId;
+			if (FParse::Value(FCommandLine::Get(), TEXT("invitesession="), SessionId) && !SessionId.IsEmpty() &&
+				FParse::Value(FCommandLine::Get(), TEXT("invitefrom="), FriendId) && !FriendId.IsEmpty())
+			{
+				JoinFriendSession(FUniqueNetIdString(FriendId), SessionId);
+			}
+		}
 	}
 
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
@@ -1356,6 +1368,10 @@ bool UUTLocalPlayer::AllowFriendsJoinGame()
 
 void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FString& SessionId)
 {
+	UE_LOG(UT, Log, TEXT("##########################"));
+	UE_LOG(UT, Log, TEXT("Joining a Friend Session"));
+	UE_LOG(UT, Log, TEXT("##########################"));
+
 	//@todo samz - use FindSessionById instead of FindFriendSession with a pending SessionId
 	PendingFriendInviteSessionId = SessionId;
 	OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
@@ -1367,8 +1383,7 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 	OnlineSessionInterface->ClearOnFindFriendSessionCompleteDelegate_Handle(LocalUserNum, OnFindFriendSessionCompleteDelegate);
 	if (bWasSuccessful)
 	{
-		if (SearchResult.Session.SessionInfo.IsValid() &&
-			SearchResult.Session.SessionInfo->GetSessionId().ToString().Equals(PendingFriendInviteSessionId))
+		if (SearchResult.Session.SessionInfo.IsValid())
 		{
 			JoinSession(SearchResult, false);
 		}
@@ -1381,6 +1396,7 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 	{
 		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "NoFriendSession", "Couldn't find friend session to join."));
 	}
+	PendingFriendInviteSessionId = FString();
 }
 
 uint32 UUTLocalPlayer::GetCountryFlag()
