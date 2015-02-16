@@ -67,6 +67,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void AnnounceMatchStart() override;
 	virtual void FindAndMarkHighScorer() override;
 	
+	virtual void CheckBotCount() override;
 	virtual void DefaultTimer() override;
 
 	/** Process team change request.  May fail based on team sizes and balancing rules. */

@@ -344,6 +344,8 @@ protected:
 	/** adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
 	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
+	/** check for adding/removing bots to satisfy BotFillCount */
+	virtual void CheckBotCount();
 public:
 	/** adds a bot to the game, ignoring game settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)

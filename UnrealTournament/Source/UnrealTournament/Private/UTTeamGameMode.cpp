@@ -177,12 +177,6 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 				return true;
 			}
 
-			// temp logging to track down intermittent issue of not being able to change teams in reasonable situations
-			UE_LOG(UT, Log, TEXT("Player %s denied from team change:"), *PS->PlayerName);
-			for (int32 i = 0; i < Teams.Num(); i++)
-			{
-				UE_LOG(UT, Log, TEXT("Team (%i) size: %i"), i, Teams[i]->GetSize());
-			}
 			PS->bPendingTeamSwitch = true;
 			PS->ForceNetUpdate();
 			return false;
@@ -238,8 +232,79 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 			return RequestedTeam;
 		}
 	}
+	// if in doubt choose team with bots on it as the bots will leave if necessary to balance
+	{
+		TArray< AUTTeamInfo*, TInlineAllocator<4> > TeamsWithBots;
+		for (AUTTeamInfo* TestTeam : BestTeams)
+		{
+			bool bHasBots = false;
+			TArray<AController*> Members = TestTeam->GetTeamMembers();
+			for (AController* C : Members)
+			{
+				if (Cast<AUTBot>(C) != NULL)
+				{
+					bHasBots = true;
+					break;
+				}
+			}
+			if (bHasBots)
+			{
+				TeamsWithBots.Add(TestTeam);
+			}
+		}
+		if (TeamsWithBots.Num() > 0)
+		{
+			return TeamsWithBots[FMath::RandHelper(TeamsWithBots.Num())]->TeamIndex;
+		}
+	}
 
 	return BestTeams[FMath::RandHelper(BestTeams.Num())]->TeamIndex;
+}
+
+struct FTeamSizeSort
+{
+	bool operator()(AUTTeamInfo& A, AUTTeamInfo& B) const
+	{
+		return (A.GetSize() > B.GetSize());
+	}
+};
+
+void AUTTeamGameMode::CheckBotCount()
+{
+	if (NumPlayers + NumBots > BotFillCount)
+	{
+		TArray<AUTTeamInfo*> SortedTeams = UTGameState->Teams;
+		SortedTeams.Sort(FTeamSizeSort());
+
+		// try to remove bots from team with the most players
+		for (AUTTeamInfo* Team : SortedTeams)
+		{
+			bool bFound = false;
+			TArray<AController*> Members = Team->GetTeamMembers();
+			for (AController* C : Members)
+			{
+				AUTBot* B = Cast<AUTBot>(C);
+				if (B != NULL)
+				{
+					if (B->GetPawn() == NULL)
+					{
+						B->Destroy();
+					}
+					// note that we break from the loop on finding a bot even if we can't remove it yet, as it's still the best choice when it becomes available to remove (dies, etc)
+					bFound = true;
+					break;
+				}
+			}
+			if (bFound)
+			{
+				break;
+			}
+		}
+	}
+	else while (NumPlayers + NumBots < BotFillCount)
+	{
+		AddBot();
+	}
 }
 
 void AUTTeamGameMode::DefaultTimer()
@@ -249,13 +314,6 @@ void AUTTeamGameMode::DefaultTimer()
 	// check if bots should switch teams for balancing
 	if (bBalanceTeams && NumBots > 0)
 	{
-		struct FTeamSizeSort
-		{
-			bool operator()(AUTTeamInfo& A, AUTTeamInfo& B) const
-			{
-				return (A.GetSize() > B.GetSize());
-			}
-		};
 		TArray<AUTTeamInfo*> SortedTeams = UTGameState->Teams;
 		SortedTeams.Sort(FTeamSizeSort());
 

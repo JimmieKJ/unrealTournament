@@ -602,6 +602,29 @@ void AUTGameMode::KillBots()
 	}
 }
 
+void AUTGameMode::CheckBotCount()
+{
+	if (NumPlayers + NumBots > BotFillCount)
+	{
+		for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+		{
+			if (It->Get()->GetPawn() == NULL)
+			{
+				AUTBot* B = Cast<AUTBot>(It->Get());
+				if (B != NULL)
+				{
+					B->Destroy();
+					break;
+				}
+			}
+		}
+	}
+	else while (NumPlayers + NumBots < BotFillCount)
+	{
+		AddBot();
+	}
+}
+
 /**
  *	DefaultTimer is called once per second and is useful for consistent timed events that don't require to be 
  *  done every frame.
@@ -627,25 +650,7 @@ void AUTGameMode::DefaultTimer()
 		}
 	}
 
-	if (NumPlayers + NumBots > BotFillCount)
-	{
-		for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
-		{
-			if (It->Get()->GetPawn() == NULL)
-			{
-				AUTBot* B = Cast<AUTBot>(It->Get());
-				if (B != NULL)
-				{
-					B->Destroy();
-					break;
-				}
-			}
-		}
-	}
-	else while (NumPlayers + NumBots < BotFillCount)
-	{
-		AddBot();
-	}
+	CheckBotCount();
 
 	int32 NumPlayers = GetNumPlayers();
 
@@ -2067,6 +2072,8 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 		}
 		PC->ClientRequireContentItemListComplete();
 	}
+
+	CheckBotCount();
 }
 
 void AUTGameMode::Logout(AController* Exiting)
