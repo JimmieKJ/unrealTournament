@@ -11,14 +11,14 @@ class SUTInGameMenu : public SUTMenuBase
 protected:
 
 	virtual void BuildLeftMenuBar();
+	virtual void BuildExitMenu(TSharedPtr <SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
 
-	virtual FText GetDisconnectButtonText() const;
+	virtual FReply OnCloseMenu(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnReturnToLobby(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton);
 
-	virtual FReply OnDisconnect();
 	virtual FReply OnTeamChangeClick();
 	virtual FReply OnSpectateClick();
-	virtual FReply OnCloseClicked();
-
 	virtual void SetInitialPanel();
 
 

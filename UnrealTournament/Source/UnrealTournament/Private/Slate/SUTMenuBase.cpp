@@ -228,14 +228,17 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 			]
 		];
 
+		TSharedPtr<SComboButton> ExitButton = NULL;
 
 		RightMenuBar->AddSlot()
 		.Padding(0.0f,0.0f,5.0f,0.0f)
 		.AutoWidth()
 		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
-			.OnClicked(this, &SUTMenuBase::OnCloseClicked)
+
+			SAssignNew(ExitButton, SComboButton)
+			.HasDownArrow(false)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+			.ButtonContent()
 			[
 				SNew(SBox)
 				.WidthOverride(48)
@@ -247,8 +250,59 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 			]
 		];
 
+		if (ExitButton.IsValid())
+		{
+			TSharedPtr<SVerticalBox> MenuSpace;
+			SAssignNew(MenuSpace, SVerticalBox);
+			if (MenuSpace.IsValid())
+			{
+				// Allow children to place menu options here....
+				BuildExitMenu(ExitButton, MenuSpace);
+
+				if (MenuSpace->NumSlots() > 0)
+				{
+					MenuSpace->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SBox)
+						.HeightOverride(16)
+						[
+							SNew(SButton)
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Empty")
+						]
+					];
+
+					MenuSpace->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SBox)
+						.HeightOverride(16)
+						[
+							SNew(SButton)
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
+						]
+					];
+				}
+
+				MenuSpace->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+					.ContentPadding(FMargin(10.0f, 5.0f))
+					.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_QuitGame", "QUIT THE GAME").ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+					.OnClicked(this, &SUTMenuBase::OnMenuConsoleCommand, FString(TEXT("quit")), ExitButton)
+				];
+			}
+
+			ExitButton->SetMenuContent( MenuSpace.ToSharedRef());
+		}
+
+
 
 	}
+
 
 	return RightMenuBar.ToSharedRef();
 }
@@ -407,6 +461,11 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 	MenuButtons.Add(DropDownButton);
 	return DropDownButton.ToSharedRef();
 }
+
+void SUTMenuBase::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace)
+{
+}
+
 
 FReply SUTMenuBase::OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton)
 {

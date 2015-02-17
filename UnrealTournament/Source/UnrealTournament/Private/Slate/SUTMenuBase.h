@@ -5,7 +5,6 @@
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
 
-
 #if !UE_SERVER
 
 class SUTMenuBase : public SUWindowsDesktop
@@ -40,6 +39,8 @@ protected:
 	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
 	virtual TSharedRef<SWidget> BuildAboutSubMenu();
 	virtual TSharedRef<SWidget> BuildOnlinePresence();
+
+	virtual void BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
 	
 	virtual void OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 

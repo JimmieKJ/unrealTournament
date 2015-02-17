@@ -248,6 +248,22 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetPressedSound(ButtonPressSound)
 			);
 
+		Style.Set("UT.ContextMenu.Button.Empty", FButtonStyle()
+			.SetNormal(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetHovered(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetPressed(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			.SetDisabled(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			);
+
+
+		Style.Set("UT.ContextMenu.Button.Spacer", FButtonStyle()
+			.SetNormal(BOX_BRUSH("TopMenu/UT.MenuList.Spacer", FMargin(4.0f / 64.0f, 2.0f / 16.0f, 4.0f / 64.0f, 2.0f / 16.0f)))
+			.SetHovered(BOX_BRUSH("TopMenu/UT.MenuList.Spacer", FMargin(4.0f / 64.0f, 2.0f / 16.0f, 4.0f / 64.0f, 2.0f / 16.0f)))
+			.SetPressed(BOX_BRUSH("TopMenu/UT.MenuList.Spacer", FMargin(4.0f / 64.0f, 2.0f / 16.0f, 4.0f / 64.0f, 2.0f / 16.0f)))
+			.SetDisabled(BOX_BRUSH("UWindows.Standard.MenuList.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
+			);
+
+
 		Style.Set("UT.ContextMenu.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Medium", 20))
 			.SetColorAndOpacity(FLinearColor::Black)

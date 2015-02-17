@@ -26,26 +26,6 @@ void SUTInGameMenu::BuildLeftMenuBar()
 {
 	if (LeftMenuBar.IsValid())
 	{
-		LeftMenuBar->AddSlot()
-		.Padding(5.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
-			.OnClicked(this, &SUTInGameMenu::OnDisconnect)
-			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(this, &SUTInGameMenu::GetDisconnectButtonText)
-					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-				]
-			]
-		];
-
 		AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 		if (GS && GS->bTeamGame)
 		{
@@ -93,22 +73,71 @@ void SUTInGameMenu::BuildLeftMenuBar()
 	}
 }
 
-
-FText SUTInGameMenu::GetDisconnectButtonText() const
+void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace)
 {
+	MenuSpace->AddSlot()
+	.AutoHeight()
+	[
+		SNew(SButton)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+		.ContentPadding(FMargin(10.0f, 5.0f))
+		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "CLOSE MENU").ToString())
+		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+		.OnClicked(this, &SUTInGameMenu::OnCloseMenu, ExitButton)
+	];
+
+	MenuSpace->AddSlot()
+	.AutoHeight()
+	[
+		SNew(SBox)
+		.HeightOverride(16)
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
+		]
+	];
+
 	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
 	{
-		return NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToLobby","RETURN TO LOBBY");
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToLobby","RETURN TO LOBBY"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.OnClicked(this, &SUTInGameMenu::OnReturnToLobby, ExitButton)
+		];
 	}
 
-	return NSLOCTEXT("SUTInGameMenu","MenuBar_QuitMatch","QUIT MATCH");
+	MenuSpace->AddSlot()
+	.AutoHeight()
+	[
+		SNew(SButton)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+		.ContentPadding(FMargin(10.0f, 5.0f))
+		.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToMainMenu","RETURN TO MAIN MENU"))
+		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+		.OnClicked(this, &SUTInGameMenu::OnReturnToMainMenu, ExitButton)
+	];
+
 }
 
-FReply SUTInGameMenu::OnDisconnect()
+FReply SUTInGameMenu::OnCloseMenu(TSharedPtr<SComboButton> MenuButton)
 {
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	CloseMenus();
+
+	return FReply::Handled();
+}
+
+FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
 	{
+		CloseMenus();
 		// Connect to that GUID
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (PC)
@@ -118,13 +147,17 @@ FReply SUTInGameMenu::OnDisconnect()
 		}
 	}
 
-	else
-	{
-		PlayerOwner->ReturnToMainMenu();
-	}
-
 	return FReply::Handled();
 }
+
+FReply SUTInGameMenu::OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);	
+	CloseMenus();
+	PlayerOwner->ReturnToMainMenu();
+	return FReply::Handled();
+}
+
 FReply SUTInGameMenu::OnTeamChangeClick()
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
@@ -141,11 +174,6 @@ FReply SUTInGameMenu::OnSpectateClick()
 	return FReply::Handled();
 }
 
-FReply SUTInGameMenu::OnCloseClicked()
-{
-	PlayerOwner->HideMenu();
-	return FReply::Handled();
-}
 
 void SUTInGameMenu::SetInitialPanel()
 {

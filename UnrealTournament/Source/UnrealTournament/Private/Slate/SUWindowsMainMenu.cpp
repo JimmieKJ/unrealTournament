@@ -107,9 +107,6 @@ void SUWindowsMainMenu::BuildLeftMenuBar()
 	}
 }
 
-
-
-
 FReply SUWindowsMainMenu::OnCloseClicked()
 {
 	PlayerOwner->HideMenu();
