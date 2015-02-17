@@ -474,8 +474,9 @@ void AUTWeapon::AttachToOwnerNative()
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->AttachTo(UTOwner->FirstPersonMesh);
-		if (Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
+		if (ShouldPlay1PVisuals())
 		{
+			Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
 			Mesh->LastRenderTime = GetWorld()->TimeSeconds;
 			Mesh->bRecentlyRendered = true;
 		}
@@ -516,6 +517,7 @@ void AUTWeapon::DetachFromOwnerNative()
 	}
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
+		Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 		Mesh->DetachFromParent();
 	}
 	// unregister components so they go away
