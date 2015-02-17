@@ -56,6 +56,18 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSpreeDamage, COND_OwnerOnly);
 }
 
+void AUTPlayerState::UpdatePing(float InPing)
+{
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	if (PC && !PC->GetPawn() && (ExactPing > 0.f) && (InPing > 0.001f * ExactPing))
+	{
+		// ping not valid when not doing ServerMoves
+		CurPingBucketTimestamp = GetWorld()->GetTimeSeconds();
+		return;
+	}
+	Super::UpdatePing(InPing);
+}
+
 void AUTPlayerState::NotifyTeamChanged_Implementation()
 {
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)

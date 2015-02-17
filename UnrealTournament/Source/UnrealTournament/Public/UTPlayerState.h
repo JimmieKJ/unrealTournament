@@ -45,12 +45,15 @@ protected:
 public:
 	UFUNCTION(BlueprintCallable, Category = Character)
 	virtual void SetCharacter(const FString& CharacterPath);
+	
 	UFUNCTION(BlueprintCallable, Reliable, Server, WithValidation, Category = Character)
 	void ServerSetCharacter(const FString& CharacterPath);
 	inline TSubclassOf<class AUTCharacterContent> GetSelectedCharacter() const
 	{
 		return SelectedCharacter;
 	}
+
+	virtual void UpdatePing(float InPing) override;
 
 	/** player's team if we're playing a team game */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
