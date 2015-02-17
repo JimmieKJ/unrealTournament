@@ -190,7 +190,6 @@ void UPendingNetGame::NotifyControlMessage(UNetConnection* Connection, uint8 Mes
 			Connection->ClientResponse = TEXT("0");
 			FString URLString(PartialURL.ToString());
 			FNetControlMessage<NMT_Login>::Send(Connection, Connection->ClientResponse, URLString, UniqueIdRepl);
-			FNetControlMessage<NMT_Netspeed>::Send(Connection, Connection->CurrentNetSpeed);
 			NetDriver->ServerConnection->FlushNet();
 			break;
 		}
@@ -219,6 +218,7 @@ void UPendingNetGame::NotifyControlMessage(UNetConnection* Connection, uint8 Mes
 			{
 				URL.AddOption(*FString::Printf(TEXT("game=%s"), *GameName));
 			}
+			FNetControlMessage<NMT_Netspeed>::Send(Connection, Connection->CurrentNetSpeed);
 
 			// We have successfully connected.
 			bSuccessfullyConnected = true;

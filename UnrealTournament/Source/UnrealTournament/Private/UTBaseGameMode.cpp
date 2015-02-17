@@ -63,7 +63,7 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 
 	// Allow our game session to validate that a player can play
 	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-	if (ErrorMessage == TEXT("") && UTGameSession)
+	if (ErrorMessage.IsEmpty() && UTGameSession)
 	{
 		UTGameSession->ValidatePlayer(Address, UniqueId, ErrorMessage);
 	}
