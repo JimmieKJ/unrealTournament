@@ -15,6 +15,8 @@ protected:
 
 	TSharedPtr<SUWCreateGamePanel> GamePanel;
 
+	TSharedRef<SWidget> AddPlayNow();
+
 	virtual void CreateDesktop();
 	virtual void SetInitialPanel();
 
@@ -23,6 +25,9 @@ protected:
 	virtual FReply OnShowGamePanel();
 	virtual FReply OnTutorialClick();
 	virtual FReply OnCloseClicked();
+
+	virtual FReply OnPlayQuickMatch(FName QuickMatchType);
+
 
 	virtual void OpenDelayedMenu();
 

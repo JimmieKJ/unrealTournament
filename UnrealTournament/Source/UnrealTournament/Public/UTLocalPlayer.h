@@ -14,6 +14,7 @@
 
 class SUWServerBrowser;
 class SUWFriendsPopup;
+class SUTQuickMatch;
 
 DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -76,6 +77,9 @@ public:
 	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
 	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
 
+	void StartQuickMatch(FName QuickMatchType);
+	void CancelQuickMatch();
+
 	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
 	{
 		return DesktopSlateWidget;
@@ -106,6 +110,9 @@ protected:
 
 	virtual void AddToastToViewport(TSharedPtr<SUWToast> ToastToDisplay);
 	void WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+	TSharedPtr<class SUTQuickMatch> QuickMatchDialog;
+
 #endif
 
 	bool bWantsToConnectAsSpectator;
@@ -299,7 +306,7 @@ public:
 	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate);
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None);
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
@@ -341,6 +348,8 @@ protected:
 	// If the player is not logged in, then this string will hold the last attempted presence update
 	FString LastPresenceUpdate;
 	bool bLastAllowInvites;
+
+	FName QuickMatchJoinType;
 
 
 public:

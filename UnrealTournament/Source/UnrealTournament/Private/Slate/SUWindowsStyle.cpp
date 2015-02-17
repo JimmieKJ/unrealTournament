@@ -108,6 +108,24 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("Testing.TestMapShot", new IMAGE_BRUSH( "Testing/Testing.TestMapShot", FVector2D(400.0f, 213.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 
+	Style.Set("UT.Dialog.Background", new BOX_BRUSH("TopMenu/UT.Dialog.Background", FMargin(10.0f / 256.0f, 64.0f/256.0f, 10.0f / 256.0f, 25.0f/256.0f)));
+
+	Style.Set("UT.Dialog.TitleTextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Bold", 30))
+		.SetColorAndOpacity(FLinearColor(FColor(208, 102, 0, 255)))
+		);
+
+	Style.Set("UT.Dialog.BodyTextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Bold", 24))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UT.Dialog.BodyTextTiny", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Bold", 10))
+		.SetColorAndOpacity(FLinearColor::Gray)
+		);
+
+
 	{ // Badges
 
 		Style.Set("UT.Icon.Badge0", new IMAGE_BRUSH("Icons/UT.Icon.Badge0", Icon32x32));
@@ -146,6 +164,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("Icons/UT.Icon.SignOut", Icon48x48));
 		Style.Set("UT.Icon.SignIn", new IMAGE_BRUSH("Icons/UT.Icon.SignIn", Icon48x48));
 		Style.Set("UT.Icon.Chat36", new IMAGE_BRUSH("Icons/UT.Icon.Chat36", Icon36x36));
+		Style.Set("UT.Icon.Browser", new IMAGE_BRUSH("Icons/UT.Icon.Browser", Icon48x48));
 		
 	}
 

@@ -151,18 +151,22 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 		.Padding(5.0f,0.0f,0.0f,0.0f)
 		.AutoWidth()
 		[
+
 			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 			.OnClicked(this, &SUTMenuBase::OnShowServerBrowserPanel)
-			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			[
 				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
+				+ SHorizontalBox::Slot()
 				.VAlign(VAlign_Center)
 				[
-					SNew(STextBlock)
-					.Text(this, &SUTMenuBase::GetBrowserButtonText)
-					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+					SNew(SBox)
+					.WidthOverride(48)
+					.HeightOverride(48)
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Browser"))
+					]
 				]
 			]
 		];
@@ -456,6 +460,14 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 		]
 #endif
 
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(STextBlock)
+			.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), GetDefault<UUTGameEngine>()->GameNetworkVersion))).ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+		]
+
 	);
 
 	MenuButtons.Add(DropDownButton);
@@ -556,17 +568,6 @@ FReply SUTMenuBase::OnMenuHTTPButton(FString URL,TSharedPtr<SComboButton> MenuBu
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton)
-{
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-
-	TSharedPtr<class SUWServerBrowser> Browser = PlayerOwner->GetServerBrowser();
-	if (Browser.IsValid())
-	{
-		ActivatePanel(Browser);
-	}
-	return FReply::Handled();
-}
 
 FReply SUTMenuBase::OnShowStatsViewer()
 {
@@ -728,6 +729,13 @@ FReply SUTMenuBase::OnOnlineClick()
 
 	return FReply::Handled();
 }
+
+FReply SUTMenuBase::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	return OnShowServerBrowserPanel();
+}
+
 
 FReply SUTMenuBase::OnShowServerBrowserPanel()
 {

@@ -21,6 +21,7 @@
 #include "Slate/SUWLoginDialog.h"
 #include "Slate/SUWPlayerSettingsDialog.h"
 #include "Slate/SUWHUDSettingsDialog.h"
+#include "Slate/SUTQuickMatch.h"
 #include "Slate/SUWFriendsPopup.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
@@ -1217,11 +1218,13 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	Exec(GetWorld(), TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"), *GLog);
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
+
+	QuickMatchJoinType = QuickMatchType;
 
 	bWantsToConnectAsSpectator = bSpectate;
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
@@ -1246,13 +1249,23 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 	UE_LOG(UT,Log, TEXT("----------- [OnJoinSessionComplete %i"), (Result == EOnJoinSessionCompleteResult::Success));
 
-
 	// If we successed, nothing else needs to be done.
 	if (Result == EOnJoinSessionCompleteResult::Success)
 	{
 		FString ConnectionString;
 		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
 		{
+			if (QuickMatchJoinType != NAME_None)
+			{
+				if (QuickMatchJoinType == QuickMatchTypes::Deathmatch)
+				{
+					ConnectionString += TEXT("?QuickStart=DM");
+				}
+				else if (QuickMatchJoinType == QuickMatchTypes::CaptureTheFlag)
+				{
+					ConnectionString += TEXT("?QuickStart=CTF");
+				}
+			}
 			if (bWantsToConnectAsSpectator) ConnectionString += TEXT("?SpectatorOnly=1");
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 	
@@ -1430,4 +1443,33 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 	}
 }
 
+#if !UE_SERVER
 
+void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
+{
+	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
+	{
+		SAssignNew(QuickMatchDialog, SUTQuickMatch)
+			.PlayerOwner(this)
+			.QuickMatchType(QuickMatchType);
+
+		if (QuickMatchDialog.IsValid())
+		{
+			GEngine->GameViewport->AddViewportWidgetContent(QuickMatchDialog.ToSharedRef(), 150);
+		}
+	}
+	else
+	{
+		MessageBox(NSLOCTEXT("Generic","LoginNeededTitle","Login Needed"), NSLOCTEXT("Generic","LoginNeededMessage","You need to login before you can do that."));
+	}
+}
+void UUTLocalPlayer::CancelQuickMatch()
+{
+	if (QuickMatchDialog.IsValid())
+	{
+		QuickMatchDialog->Cancel();
+		GEngine->GameViewport->RemoveViewportWidgetContent(QuickMatchDialog.ToSharedRef());
+	}
+}
+
+#endif

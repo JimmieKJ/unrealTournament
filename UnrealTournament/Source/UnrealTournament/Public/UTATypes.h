@@ -321,6 +321,12 @@ namespace ELobbyMatchState
 	const FName Returning = TEXT("Returning");
 }
 
+namespace QuickMatchTypes
+{
+	const FName Deathmatch = TEXT("QuickMatchDeathmatch");
+	const FName CaptureTheFlag = TEXT("QuickMatchCaptureTheFlag");
+}
+
 class FSimpleListData
 {
 public: 

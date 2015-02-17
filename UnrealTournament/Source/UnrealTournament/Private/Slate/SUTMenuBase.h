@@ -11,6 +11,7 @@ class SUTMenuBase : public SUWindowsDesktop
 {
 public:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+	virtual FReply OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton);
 
 protected:
 	TSharedPtr<class SHorizontalBox> LeftMenuBar;
@@ -21,7 +22,6 @@ protected:
 
 	virtual void CreateDesktop();
 
-	virtual FReply OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
