@@ -1197,9 +1197,8 @@ void AUTCharacter::StopRagdoll()
 		}
 	}
 
-	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-
 	bInRagdollRecovery = true;
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
 
 void AUTCharacter::PlayDying()
