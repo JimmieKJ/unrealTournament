@@ -395,7 +395,14 @@ bool UUTLocalPlayer::IsLoggedIn()
 
 void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberToken, bool bSilentlyFail)
 {
-	if (!IsLoggedIn() && OnlineIdentityInterface.IsValid())
+	if ( !OnlineIdentityInterface.IsValid() ) return;
+
+	if (IsLoggedIn() )
+	{
+		// Allow users to switch accounts
+		GetAuth();
+	}
+	else
 	{
 
 		FString Override;
@@ -562,14 +569,15 @@ void UUTLocalPlayer::GetAuth(bool bLastFailed)
 		return;
 	}
 
-		FVector2D Size = FVector2D(510,300);
+	SAssignNew(LoginDialog, SUWLoginDialog)
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))
+		.UserIDText(PendingLoginUserName)
+		.ErrorText(bLastFailed ? NSLOCTEXT("MCPMessages", "LoginFailure", "(Bad Username or Password)") : FText::GetEmpty())
+		.PlayerOwner(this);
 
-		OpenDialog(	SNew(SUWLoginDialog)
-					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))
-					.DialogSize(Size)
-					.UserIDText(PendingLoginUserName)
-					.ErrorText( bLastFailed ? NSLOCTEXT("MCPMessages","LoginFailure","(Bad Username or Password)") : FText::GetEmpty())
-					.PlayerOwner(this));
+	GEngine->GameViewport->AddViewportWidgetContent(LoginDialog.ToSharedRef(), 160);
+	LoginDialog->SetInitialFocus();
+
 #endif
 }
 
@@ -582,6 +590,13 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	{
 		CurrentProfileSettings = NULL;
 		FUTAnalytics::LoginStatusChanged(FString());
+
+		if (bPendingLoginCreds)
+		{
+			bPendingLoginCreds = false;
+			LoginOnline(PendingLoginName, PendingLoginPassword);
+			PendingLoginPassword = TEXT("");
+		}
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
@@ -595,6 +610,13 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			EntitlementsInterface->QueryEntitlements(UniqueID);
 		}
 		FUTAnalytics::LoginStatusChanged(UniqueID.ToString());
+
+		// If we hage a pending session, then join it.
+		if (bPendingSession)
+		{
+			bPendingSession = false;
+			OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
+		}
 	}
 
 	for (int32 i=0; i< PlayerLoginStatusChangedListeners.Num(); i++)
@@ -644,19 +666,71 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 
 #if !UE_SERVER
 
+void UUTLocalPlayer::CloseAuth()
+{
+	GEngine->GameViewport->RemoveViewportWidgetContent(LoginDialog.ToSharedRef());
+	LoginDialog.Reset();
+}
+
 void UUTLocalPlayer::AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		TSharedPtr<SUWLoginDialog> Login = StaticCastSharedPtr<SUWLoginDialog>(Widget);
-		if (Login.IsValid())
+		if (LoginDialog.IsValid())
 		{
-			LoginOnline(Login->GetEpicID(), Login->GetPassword(),false);
+			// Look to see if we are already logged in.
+			if ( IsLoggedIn() )
+			{
+				bPendingLoginCreds = true;
+				PendingLoginName = LoginDialog->GetEpicID();
+				PendingLoginPassword = LoginDialog->GetPassword();
+
+				// If we are in an active session, warn that this will cause you to go back to the main menu.
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+				if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
+				{
+					ShowMessage(NSLOCTEXT("UTLocalPlayer", "SwitchLoginsTitle", "Change Users..."), NSLOCTEXT("UTLocalPlayer", "SwitchLoginsMsg", "Switching users will cause you to return to the main menu and leave any game you are currently in.  Are you sure you wish to do this?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::OnSwitchUserResult),FVector2D(0.25,0.25));					
+				}
+				else
+				{
+					Logout();
+				}
+				CloseAuth();
+				return;
+			}
+
+
+			LoginOnline(LoginDialog->GetEpicID(), LoginDialog->GetPassword(),false);
 		}
 	}
 	else
 	{
 		PendingLoginUserName = TEXT("");
+	}
+
+	CloseAuth();
+}
+
+void UUTLocalPlayer::OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		// If we are in an active session, then we have to force a return to the main menu.  If we are not in an active session (ie: setting at the main menu)
+		// we can just logout/login..
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+		if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
+		{
+			ReturnToMainMenu();	
+		}
+		else
+		{
+			Logout();
+		}
+	}
+	else
+	{
+		bPendingLoginCreds = false;
+		PendingLoginPassword = TEXT("");
 	}
 }
 
@@ -1295,8 +1369,20 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 void UUTLocalPlayer::LeaveSession()
 {
-	OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
-	OnlineSessionInterface->EndSession(GameSessionName);
+	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+	if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
+	{
+		OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
+		OnlineSessionInterface->EndSession(GameSessionName);
+	}
+	else
+	{
+		if (bPendingLoginCreds)
+		{
+			Logout();
+		}
+	}
+
 }
 
 void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
@@ -1311,11 +1397,17 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 	UE_LOG(UT,Log, TEXT("----------- [OnDestroySessionComplete %i"), bPendingSession);
 	
 	OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
-	if (bPendingSession)
+
+	if (bPendingLoginCreds)
+	{
+		Logout();
+	}
+	else if (bPendingSession)
 	{
 		bPendingSession = false;
 		OnlineSessionInterface->JoinSession(0,GameSessionName,PendingSession);
 	}
+
 }
 
 void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)

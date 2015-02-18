@@ -5,135 +5,379 @@
 #include "SUWLoginDialog.h"
 #include "SUWMessageBox.h"
 #include "SUWindowsStyle.h"
+#include "Engine/UserInterfaceSettings.h"
 
 #if !UE_SERVER
 
 void SUWLoginDialog::Construct(const FArguments& InArgs)
 {
-	SUWDialog::Construct(SUWDialog::FArguments()
-							.PlayerOwner(InArgs._PlayerOwner)
-							.DialogTitle(InArgs._DialogTitle)
-							.DialogSize(InArgs._DialogSize)
-							.bDialogSizeIsRelative(InArgs._bDialogSizeIsRelative)
-							.DialogPosition(InArgs._DialogPosition)
-							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
-							.ContentPadding(InArgs._ContentPadding)
-							.ButtonMask(InArgs._ButtonMask)
-							.OnDialogResult(InArgs._OnDialogResult)
-						);
+	PlayerOwner = InArgs._PlayerOwner;
+	checkSlow(PlayerOwner != NULL);
+	FVector2D ViewportSize;
+	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
 
-	if (DialogContent.IsValid())
-	{
-		const float MessageTextPaddingX = 10.0f;
-		TSharedPtr<STextBlock> MessageTextBlock;
-		TSharedPtr<SVerticalBox> VBox;
-		DialogContent->AddSlot()
+	OnDialogResult = InArgs._OnDialogResult;
+
+	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+	//float ScaledX = ViewportSize.X / DPIScale;
+	FVector2D DesignedRez = ViewportSize / DPIScale; //(ScaledX, Viewport);
+	FVector2D DesignedSize(500, 700);
+	FVector2D Pos = (DesignedRez * 0.5f) - (DesignedSize * 0.5f);
+	ChildSlot
+	.VAlign(VAlign_Fill)
+	.HAlign(HAlign_Fill)
+	[
+		SAssignNew(Canvas, SCanvas)
+
+		// We use a Canvas Slot to position and size the dialog.  
+		+ SCanvas::Slot()
+		.Position(Pos)
+		.Size(DesignedSize)
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Left)
 		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
+			// This is our primary overlay.  It controls all of the various elements of the dialog.  This is not
+			// the content overlay.  This comes below.
+			SNew(SOverlay)
+
+			// this is the background image
+			+ SOverlay::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Fill)
 			[
-				SNew(SBox)
-				.WidthOverride(176)
-				.HeightOverride(200)
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.VAlign(VAlign_Fill)
+					SNew(SBox)
+					.HeightOverride(48)
 					[
-						SNew( SImage )		
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Logos.Epic_Logo200"))
+						SNew(SCanvas)
 					]
 				]
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SBox)
+					.HeightOverride(DesignedSize.Y - 48)
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UT.Login.Dialog.Background"))
+					]
+				]
+
 			]
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Fill)
+
+			// This will define a vertical box that holds the various components of the dialog box.
+			+ SOverlay::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Center)
 			[
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
+				.AutoWidth()
 				[
-					SAssignNew(VBox,SVerticalBox)
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SBox)
+						.WidthOverride(110)
+						.HeightOverride(126)
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.Login.EpicLogo"))
+						]
+					]
 				]
 			]
-		];
 
-		VBox->AddSlot()
-			.AutoHeight()
-			.HAlign(HAlign_Center)
-			.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
-			[ 
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("MCPMessages","EpicID","Forum Email:"))
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
-				.AutoWrapText(true)
-			];
-
-		VBox->AddSlot()
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
-			.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+			+ SOverlay::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Right)
 			[
-				SAssignNew(UserEditBox, SEditableTextBox)
-				.MinDesiredWidth(300.0f)
-				.Text(FText::FromString(InArgs._UserIDText))
-			];
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.Padding(10.0f, 56.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton")
+						.OnClicked(this, &SUWLoginDialog::OnCloseClick)
+						[
+							SNew(SBox)
+							.WidthOverride(32)
+							.HeightOverride(32)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Exit"))
+							]
+						]
+					]
+				]
+			]
 
-		VBox->AddSlot()
-			.AutoHeight()
+			+SOverlay::Slot()
+			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Center)
-			.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
-			[ 
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("MCPMessages","EpicPass","Password:"))
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
-				.AutoWrapText(true)
-			];
-
-		VBox->AddSlot()
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
-			.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
 			[
-				SAssignNew(PassEditBox, SEditableTextBox)
-				.IsPassword(true)
-				.OnTextCommitted(this, &SUWLoginDialog::OnTextCommited)
-				.MinDesiredWidth(300.0f)
-			];
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.Padding(10.0f,150.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("Login","TeaserText","Enter the Field of Battle!"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Login.TextStyle")
+				]
+
+				// User Name
+
+				+SVerticalBox::Slot()
+				.Padding(10.0f, 48.0f,10.0f,0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(425.0f)
+						.HeightOverride(80.0)
+						[
+							SNew(SOverlay)
+							+ SOverlay::Slot()
+							.VAlign(VAlign_Fill)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.Login.Editbox.Background"))
+							]
+							+ SOverlay::Slot()
+							.VAlign(VAlign_Bottom)
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.Padding(10.0f,0.0f,10.0f,0.0f)
+								.AutoHeight()
+								[
+									SAssignNew(UserEditBox, SEditableTextBox)
+									.MinDesiredWidth(425)
+									.Text(FText::FromString(InArgs._UserIDText))
+									.Style(SUWindowsStyle::Get(), "UT.Login.Editbox")
+								]
+							]
+							+ SOverlay::Slot()
+							.VAlign(VAlign_Top)
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+									.Text(NSLOCTEXT("Login", "Email", "Email"))
+									.TextStyle(SUWindowsStyle::Get(), "UT.Login.Label.TextStyle")
+								]
+							]
+						]
+					]
+				]
+
+				// Error Message
+				+SVerticalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Center)
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Text(InArgs._ErrorText)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Login.Error.TextStyle")
+					]
+				]
+
+				// Password
+
+				+SVerticalBox::Slot()
+				.Padding(10.0f, 40.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(425.0f)
+						.HeightOverride(80.0)
+						[
+							SNew(SOverlay)
+							+ SOverlay::Slot()
+							.VAlign(VAlign_Fill)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.Login.Editbox.Background"))
+							]
+							+ SOverlay::Slot()
+							.VAlign(VAlign_Bottom)
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								.AutoHeight()
+								[
+									SAssignNew(PassEditBox, SEditableTextBox)
+									.IsPassword(true)
+									.OnTextCommitted(this, &SUWLoginDialog::OnTextCommited)
+									.MinDesiredWidth(425)
+									.Style(SUWindowsStyle::Get(), "UT.Login.Editbox")
+								]
+							]
+							+ SOverlay::Slot()
+							.VAlign(VAlign_Top)
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+									.Text(NSLOCTEXT("Login", "Password", "Password"))
+									.TextStyle(SUWindowsStyle::Get(), "UT.Login.Label.TextStyle")
+								]
+							]
+						]
+					]
+				]
 
 
-		if (!InArgs._ErrorText.IsEmpty())
-		{
-			VBox->AddSlot()
-			.AutoHeight()
-			.HAlign(HAlign_Center)
-			.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
-			[ 
-				SNew(STextBlock)
-				.Text(InArgs._ErrorText)
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.ErrorTextStyle")
-				.AutoWrapText(true)
-			];
-		}
+				// Password Recovery
 
-		TabTable.Insert(PassEditBox,0);
-		TabTable.Insert(UserEditBox,0);
-	}
+				+SVerticalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Right)
+						[
+							SNew(SButton)
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton")
+							.OnClicked(this, &SUWLoginDialog::OnForgotPasswordClick)
+							.ContentPadding(FMargin(0.0f, 0.0f, 0.0f, 0.0f))
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("Login", "PasswordRecovery", "Forgot Your Password?").ToString())
+								.TextStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton.TextStyle")
+							]
+						]
+					]
+				]
+
+				// Sign Button
+
+				+SVerticalBox::Slot()
+				.Padding(10.0f, 32.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(390.0f)
+						.HeightOverride(44.0)
+						[
+							SNew(SButton)
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Login.Button")
+							.OnClicked(this, &SUWLoginDialog::OnSignInClick)
+							.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.VAlign(VAlign_Center)
+								.HAlign(HAlign_Center)
+								[
+									SNew(STextBlock)
+									.Text(NSLOCTEXT("Login", "LoginButtonText", "Sign In").ToString())
+									.TextStyle(SUWindowsStyle::Get(), "UT.Login.Button.TextStyle")
+								]
+							]
+						]
+					]
+				]
+
+				// New Account
+
+				+SVerticalBox::Slot()
+				.Padding(10.0f, 16.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("Login", "NoAccountMsg", "Need an Epic Games Account?").ToString())
+						.TextStyle(SUWindowsStyle::Get(), "UT.Login.TextStyle")
+					]
+				]
+
+				// Click Here
+
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton")
+						.OnClicked(this, &SUWLoginDialog::OnNewAccountClick)
+						.ContentPadding(FMargin(0.0f, 0.0f, 0.0f, 0.0f))
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("Login", "SignUp", "Sign Up!").ToString())
+							.TextStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton.TextStyle")
+						]
+					]
+				]
+			]
+		]
+	];
 
 }
-
-void SUWLoginDialog::OnDialogOpened()
+void SUWLoginDialog::SetInitialFocus()
 {
-	SUWDialog::OnDialogOpened();
-
 	if (UserEditBox->GetText().IsEmpty())
 	{
-		FSlateApplication::Get().SetKeyboardFocus(UserEditBox, EKeyboardFocusCause::Keyboard);
+		FSlateApplication::Get().SetKeyboardFocus(UserEditBox, EKeyboardFocusCause::SetDirectly);
 	}
 	else
 	{
-		FSlateApplication::Get().SetKeyboardFocus(PassEditBox, EKeyboardFocusCause::Keyboard);
+		FSlateApplication::Get().SetKeyboardFocus(PassEditBox, EKeyboardFocusCause::SetDirectly);
 	}
+
 }
 
 
@@ -148,42 +392,67 @@ FString SUWLoginDialog::GetPassword()
 }
 
 
-TSharedRef<class SWidget> SUWLoginDialog::BuildCustomButtonBar()
-{
-	TSharedPtr<SButton> Button;
-	SAssignNew(Button,SButton)
-		.HAlign(HAlign_Center)
-		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-		.ContentPadding(FMargin(25.0f, 5.0f, 25.0f, 5.0f))
-		.Text(NSLOCTEXT("SUWLoginDialog","NewAccount","Sign Up"))
-		.OnClicked(this, &SUWLoginDialog::NewAccountClick);
-
-	return Button.ToSharedRef();
-}
-
-
-FReply SUWLoginDialog::NewAccountClick()
+FReply SUWLoginDialog::OnNewAccountClick()
 {
 	FString Error;
 	FPlatformProcess::LaunchURL(TEXT("https://www.unrealengine.com/register"), NULL, &Error);
 	if (Error.Len() > 0)
 	{
-		GetPlayerOwner()->OpenDialog( SNew(SUWMessageBox)
-								.PlayerOwner(GetPlayerOwner())
-								.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"))
-								.MessageText(FText::FromString(Error))
-								.ButtonMask(UTDIALOG_BUTTON_OK)
-								);
+		PlayerOwner->MessageBox(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"), FText::FromString(Error));
 	}
 	return FReply::Handled();
 }
+
+FReply SUWLoginDialog::OnForgotPasswordClick()
+{
+	FString Error;
+	FPlatformProcess::LaunchURL(TEXT("https://accounts.unrealtournament.com/login/index"), NULL, &Error);
+	if (Error.Len() > 0)
+	{
+		PlayerOwner->MessageBox(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"),FText::FromString(Error) );
+	}
+	return FReply::Handled();
+
+	
+}
+FReply SUWLoginDialog::OnCloseClick()
+{
+	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
+	return FReply::Handled();
+}
+
 
 void SUWLoginDialog::OnTextCommited(const FText& NewText, ETextCommit::Type CommitType)
 {
 	if (CommitType == ETextCommit::OnEnter)
 	{
-		OnButtonClick(UTDIALOG_BUTTON_OK);
+		OnSignInClick();
 	}
+}
+
+FReply SUWLoginDialog::OnSignInClick()
+{
+	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+	return FReply::Handled();
+}
+
+
+FReply SUWLoginDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Tab)
+	{
+		if ( UserEditBox->HasKeyboardFocus() )
+		{
+			FSlateApplication::Get().SetKeyboardFocus(PassEditBox, EKeyboardFocusCause::SetDirectly);
+		}
+		else
+		{
+			FSlateApplication::Get().SetKeyboardFocus(UserEditBox, EKeyboardFocusCause::SetDirectly);
+		}
+	}
+	return FReply::Handled();
+
+
 }
 
 

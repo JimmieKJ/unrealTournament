@@ -717,16 +717,7 @@ void SUTMenuBase::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, EL
 
 FReply SUTMenuBase::OnOnlineClick()
 {
-	if (PlayerOwner->IsLoggedIn())
-	{
-		PlayerOwner->Logout();	
-		OnShowHomePanel();
-	}
-	else
-	{
-		PlayerOwner->LoginOnline(TEXT(""),TEXT(""),false);
-	}
-
+	PlayerOwner->LoginOnline(TEXT(""),TEXT(""),false);
 	return FReply::Handled();
 }
 

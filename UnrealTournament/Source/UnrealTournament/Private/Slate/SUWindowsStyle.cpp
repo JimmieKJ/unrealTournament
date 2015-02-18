@@ -290,6 +290,62 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	
 	}
 
+	{	// Login
+
+		Style.Set("UT.Login.Dialog.Background", new BOX_BRUSH("Login/UT.Login.Dialog.Background", FMargin(8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f)));
+		Style.Set("UT.Login.EpicLogo", new IMAGE_BRUSH("Login/UT.Login.EpicLogo", FVector2D(110,126), FLinearColor(1.0f,1.0f,1.0f,1.0f) ));
+		Style.Set("UT.Login.Editbox.Background", new BOX_BRUSH("Login/UT.Login.Editbox.Normal", FMargin(4.0f / 338.0f, 4.0f / 62.0f, 4.0f / 338.0f, 4.0f / 62.0f)));
+
+		Style.Set("UT.Login.Editbox", FEditableTextBoxStyle()
+			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+			.SetForegroundColor(FLinearColor::Black)
+			.SetBackgroundImageNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageHovered(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageFocused(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetBackgroundImageReadOnly(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			);
+
+		Style.Set("UT.Login.Error.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Rajdhani-SemiBold", 16))
+			.SetColorAndOpacity(FLinearColor(FColor(126, 7, 13, 255))));
+
+
+
+		Style.Set("UT.Login.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+			.SetColorAndOpacity(FLinearColor(FColor(78,78,78,255))));
+
+		Style.Set("UT.Login.Label.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+			.SetColorAndOpacity(FLinearColor(FColor(148, 148, 148, 255))));
+
+		Style.Set("UT.Login.Button", FButtonStyle()
+			.SetNormal(BOX_BRUSH("Login/UT.Login.Button.Normal", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+			.SetHovered(BOX_BRUSH("Login/UT.Login.Button.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+			.SetPressed(BOX_BRUSH("Login/UT.Login.Button.Pressed", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+			.SetDisabled(BOX_BRUSH("Login/UT.Login.Button.Normal", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UT.Login.Button.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+			.SetColorAndOpacity(FLinearColor::White));
+
+		Style.Set("UT.Login.EmptyButton", FButtonStyle()
+			.SetNormal(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHovered(BOX_BRUSH("Login/UT.Login.EmptyButton.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+			.SetPressed(BOX_BRUSH("Login/UT.Login.EmptyButton.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		Style.Set("UT.Login.EmptyButton.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+			.SetColorAndOpacity(FLinearColor(FColor(208, 102, 0, 255))));
+
+	}
 
 
 

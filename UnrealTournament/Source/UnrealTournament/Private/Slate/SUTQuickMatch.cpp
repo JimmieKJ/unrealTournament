@@ -24,10 +24,11 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 	StartTime = PlayerOwner->GetWorld()->GetTimeSeconds();
 
 	FVector2D ViewportSize;
-	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
-
-	FVector2D DesignedRez(1920,1920 * (ViewportSize.Y / ViewportSize.X));
-	FVector2D DesignedSize(800,220);
+	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+	//float ScaledX = ViewportSize.X / DPIScale;
+	FVector2D DesignedRez = ViewportSize / DPIScale; //(ScaledX, Viewport);
+	FVector2D DesignedSize(800, 220);
 	FVector2D Pos = (DesignedRez * 0.5f) - (DesignedSize * 0.5f);
 	ChildSlot
 		.VAlign(VAlign_Fill)

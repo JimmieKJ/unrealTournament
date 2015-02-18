@@ -15,8 +15,10 @@
 class SUWServerBrowser;
 class SUWFriendsPopup;
 class SUTQuickMatch;
+class SUWLoginDialog;
 
 DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
+
 
 class FStoredChatMessage
 {
@@ -110,8 +112,9 @@ protected:
 
 	virtual void AddToastToViewport(TSharedPtr<SUWToast> ToastToDisplay);
 	void WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-
+	void OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	TSharedPtr<class SUTQuickMatch> QuickMatchDialog;
+	TSharedPtr<class SUWLoginDialog> LoginDialog;
 
 #endif
 
@@ -179,6 +182,7 @@ public:
 
 #if !UE_SERVER
 	virtual void ToastCompleted();
+	virtual void CloseAuth();
 #endif
 
 protected:
@@ -355,6 +359,15 @@ protected:
 public:
 	virtual uint32 GetCountryFlag();
 	virtual void SetCountryFlag(uint32 NewFlag, bool bSave=false);
+
+	// If the player switches profiles and is in a session, we have to delay the switch until we can leave the current session
+	// and exit back to the main menu.  To do this, we store the Pending info here and when the main menu sees that the player has left a session
+	// THEN we perform the login.
+
+protected:
+	bool bPendingLoginCreds;
+	FString PendingLoginName;
+	FString PendingLoginPassword;
 
 };
 

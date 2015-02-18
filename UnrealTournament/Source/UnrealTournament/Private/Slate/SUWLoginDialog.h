@@ -7,25 +7,11 @@
 
 #if !UE_SERVER
 
-class SUWLoginDialog : public SUWDialog
+class SUWLoginDialog : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWLoginDialog)
-	: _DialogTitle(NSLOCTEXT("MCPMessages", "LogonDialogTitle", "- Log in to Epic -"))
-	, _DialogSize(FVector2D(400, 500))
-	, _bDialogSizeIsRelative(false)
-	, _DialogPosition(FVector2D(0.5f,0.5f))
-	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
-	, _ContentPadding(FVector2D(10.0f, 5.0f))
-	, _ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
-	SLATE_ARGUMENT(FText, DialogTitle)											
-	SLATE_ARGUMENT(FVector2D, DialogSize)										
-	SLATE_ARGUMENT(bool, bDialogSizeIsRelative)									
-	SLATE_ARGUMENT(FVector2D, DialogPosition)									
-	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)								
-	SLATE_ARGUMENT(FVector2D, ContentPadding)									
-	SLATE_ARGUMENT(uint16, ButtonMask)
 	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)							
 
 	SLATE_ARGUMENT(FText, ErrorText)
@@ -37,16 +23,31 @@ class SUWLoginDialog : public SUWDialog
 
 	FString GetEpicID();
 	FString GetPassword();
-
-
+	void SetInitialFocus();
 protected:
+
+	// The Dialog Result delegate
+	FDialogResultDelegate OnDialogResult;
+
+	/** Holds a reference to the SCanvas widget that makes up the dialog */
+	TSharedPtr<SCanvas> Canvas;
+
+	/** Holds a reference to the SOverlay that defines the content for this dialog */
+	TSharedPtr<SOverlay> WindowContent;
+
 	TSharedPtr<class SEditableTextBox> UserEditBox;
 	TSharedPtr<class SEditableTextBox> PassEditBox;
-	
-	virtual void OnDialogOpened() override;
-	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
-	FReply NewAccountClick();
+
+	FReply OnNewAccountClick();
+	FReply OnForgotPasswordClick();
+	FReply OnCloseClick();
+	FReply OnSignInClick();
+
 	void OnTextCommited(const FText& NewText, ETextCommit::Type CommitType);
+
+private:
+	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent) override;
 
 };
 
