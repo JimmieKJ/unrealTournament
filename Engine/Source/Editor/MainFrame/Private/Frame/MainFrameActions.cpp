@@ -116,10 +116,16 @@ void FMainFrameCommands::RegisterCommands()
 												FCanExecuteAction(),
 												FIsActionChecked::CreateStatic( &FMainFrameActionCallbacks::OpenSlateApp_IsChecked, FName("SessionFrontend" ) ) );
 
-	UI_COMMAND(VisitWiki, "Wiki...", "Go to the Unreal Engine Wiki page", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(VisitUTWiki, "UT Wiki...", "Go to the Unreal Tournament Wiki page", EUserInterfaceActionType::Button, FInputGesture());
+	ActionList->MapAction(VisitUTWiki, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTWiki));
+
+	UI_COMMAND(VisitWiki, "Engine Wiki...", "Go to the Unreal Engine Wiki page", EUserInterfaceActionType::Button, FInputGesture());
 	ActionList->MapAction(VisitWiki, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitWiki));
 
-	UI_COMMAND(VisitForums, "Forums...", "Go to the Unreal Engine forums", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(VisitUTForums, "UT Forums...", "Go to the Unreal Tournament forums", EUserInterfaceActionType::Button, FInputGesture());
+	ActionList->MapAction(VisitUTForums, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTForums));
+
+	UI_COMMAND(VisitForums, "Engine Forums...", "Go to the Unreal Engine forums", EUserInterfaceActionType::Button, FInputGesture());
 	ActionList->MapAction(VisitForums, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitForums));
 
 	UI_COMMAND( VisitAskAQuestionPage, "Ask a Question...", "Have a question?  Go here to ask about anything and everything related to Unreal.", EUserInterfaceActionType::Button, FInputGesture() );
@@ -130,6 +136,9 @@ void FMainFrameCommands::RegisterCommands()
 
 	UI_COMMAND( VisitSupportWebSite, "Unreal Engine Support Web Site...", "Navigates to the Unreal Engine Support web site's main page.", EUserInterfaceActionType::Button, FInputGesture() );
 	ActionList->MapAction( VisitSupportWebSite, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitSupportWebSite ) );
+
+	UI_COMMAND(VisitUTDotCom, "Visit UnrealTournament.com...", "Navigates to UnrealTournament.com where you can learn more about Unreal Tournament.", EUserInterfaceActionType::Button, FInputGesture());
+	ActionList->MapAction(VisitUTDotCom, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTDotCom));
 
 	UI_COMMAND( VisitEpicGamesDotCom, "Visit UnrealEngine.com...", "Navigates to UnrealEngine.com where you can learn more about Unreal Technology.", EUserInterfaceActionType::Button, FInputGesture() );
 	ActionList->MapAction( VisitEpicGamesDotCom, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitEpicGamesDotCom ) );
@@ -860,6 +869,14 @@ void FMainFrameActionCallbacks::VisitSupportWebSite()
 	}
 }
 
+void FMainFrameActionCallbacks::VisitUTDotCom()
+{
+	FString UTURL;
+	if (FUnrealEdMisc::Get().GetURL(TEXT("UTURL"), UTURL))
+	{
+		FPlatformProcess::LaunchURL(*UTURL, NULL, NULL);
+	}
+}
 
 void FMainFrameActionCallbacks::VisitEpicGamesDotCom()
 {
@@ -879,10 +896,28 @@ void FMainFrameActionCallbacks::VisitWiki()
 	}
 }
 
+void FMainFrameActionCallbacks::VisitUTWiki()
+{
+	FString URL;
+	if (FUnrealEdMisc::Get().GetURL(TEXT("UTWikiURL"), URL))
+	{
+		FPlatformProcess::LaunchURL(*URL, NULL, NULL);
+	}
+}
+
 void FMainFrameActionCallbacks::VisitForums()
 {
 	FString URL;
 	if (FUnrealEdMisc::Get().GetURL(TEXT("ForumsURL"), URL))
+	{
+		FPlatformProcess::LaunchURL(*URL, NULL, NULL);
+	}
+}
+
+void FMainFrameActionCallbacks::VisitUTForums()
+{
+	FString URL;
+	if (FUnrealEdMisc::Get().GetURL(TEXT("UTForumsURL"), URL))
 	{
 		FPlatformProcess::LaunchURL(*URL, NULL, NULL);
 	}

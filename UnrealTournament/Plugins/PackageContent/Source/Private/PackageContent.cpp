@@ -428,7 +428,7 @@ void FPackageContent::OpenPackageHatWindow()
 void FPackageContent::CreatePackageContentMenu(FToolBarBuilder& Builder)
 {
 	Builder.AddComboButton(FUIAction(),	FOnGetContent::CreateSP(this, &FPackageContent::GenerateOpenPackageMenuContent),
-						   LOCTEXT("PackageContent_Label", "Share"), LOCTEXT("PackageContent_ToolTip", "Put your custom content into a package file to get it ready to share."),
+						   LOCTEXT("PackageContent_Label", "Share"), LOCTEXT("PackageContent_ToolTip", "Package your custom content to get it ready to share."),
 		                   FSlateIcon(FPackageContentStyle::GetStyleSetName(), "PackageContent.PackageContent"));
 }
 
