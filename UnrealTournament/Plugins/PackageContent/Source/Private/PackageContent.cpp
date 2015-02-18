@@ -167,7 +167,7 @@ public:
 
 			}
 
-			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContentSuccess", "Content published successfully. Would you like to share it now?")))
+			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("PublishContentSuccess", "Content packaged successfully. Would you like to share it now?")))
 			{
 				FString LauncherCommandLine = TEXT("-assetuploadcategory=ut -assetuploadpath=\"") + PakPath + TEXT("\"");
 
@@ -387,7 +387,7 @@ void FPackageContent::PackageHat(UClass* HatClass)
 
 void FPackageContent::OpenPackageWeaponWindow()
 {	
-	PackageDialogTitle = LOCTEXT("PackageWeaponDialogTitle", "Publish A Weapon");
+	PackageDialogTitle = LOCTEXT("PackageWeaponDialogTitle", "Share A Weapon");
 
 	/** Create the window to host our package dialog widget */
 	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
@@ -407,7 +407,7 @@ void FPackageContent::OpenPackageWeaponWindow()
 
 void FPackageContent::OpenPackageHatWindow()
 {
-	PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Publish A Cosmetic Item");
+	PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Share A Cosmetic Item");
 
 	/** Create the window to host our package dialog widget */
 	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
@@ -428,7 +428,7 @@ void FPackageContent::OpenPackageHatWindow()
 void FPackageContent::CreatePackageContentMenu(FToolBarBuilder& Builder)
 {
 	Builder.AddComboButton(FUIAction(),	FOnGetContent::CreateSP(this, &FPackageContent::GenerateOpenPackageMenuContent),
-						   LOCTEXT("PackageContent_Label", "Publish"), LOCTEXT("PackageContent_ToolTip", "Put your custom content into a package file to get it ready for marketplace."),
+						   LOCTEXT("PackageContent_Label", "Share"), LOCTEXT("PackageContent_ToolTip", "Put your custom content into a package file to get it ready to share."),
 		                   FSlateIcon(FPackageContentStyle::GetStyleSetName(), "PackageContent.PackageContent"));
 }
 
