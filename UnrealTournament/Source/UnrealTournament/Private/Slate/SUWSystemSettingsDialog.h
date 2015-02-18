@@ -48,6 +48,8 @@ protected:
 	TSharedPtr<STextBlock> SelectedPPQuality;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > EffectQuality;
 	TSharedPtr<STextBlock> SelectedEffectQuality;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > AAQuality;
+	TSharedPtr<STextBlock> SelectedAAQuality;
 	TSharedPtr<SSlider> FOV;
 	TSharedPtr<STextBlock> FOVLabel;
 	TSharedPtr<SSlider> DecalLifetime;
@@ -69,6 +71,7 @@ protected:
 	void OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnAAQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnFOVChange(float NewValue);
 
 	FString GetFOVLabelText(int32 FOVAngle);

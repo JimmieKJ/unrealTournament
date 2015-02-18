@@ -166,6 +166,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 	QualitySettings.ShadowQuality = FMath::Clamp<int32>(QualitySettings.ShadowQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.PostProcessQuality = FMath::Clamp<int32>(QualitySettings.PostProcessQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.EffectsQuality = FMath::Clamp<int32>(QualitySettings.EffectsQuality, 0, GeneralScalabilityList.Num() - 1);
+	QualitySettings.AntiAliasingQuality = FMath::Clamp<int32>(QualitySettings.AntiAliasingQuality, 0, GeneralScalabilityList.Num() - 1);
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine == NULL) // PIE
 	{
@@ -274,6 +275,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, &SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, &SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality)
+			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "AA Quality", "Anti-Aliasing Quality").ToString(), AAQuality, SelectedAAQuality, &SUWSystemSettingsDialog::OnAAQualitySelected, QualitySettings.AntiAliasingQuality)
 			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetimeVis", "Decal Lifetime").ToString(), DecalLifetime, (GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime <= 0.0f) ? 1.0f : ((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime - DecalLifetimeRange.X) / (DecalLifetimeRange.Y - DecalLifetimeRange.X)))
 
 
@@ -336,6 +338,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 	UserSettings->ScalabilityQuality.ShadowQuality = GeneralScalabilityList.Find(ShadowQuality->GetSelectedItem());
 	UserSettings->ScalabilityQuality.PostProcessQuality = GeneralScalabilityList.Find(PPQuality->GetSelectedItem());
 	UserSettings->ScalabilityQuality.EffectsQuality = GeneralScalabilityList.Find(EffectQuality->GetSelectedItem());
+	UserSettings->ScalabilityQuality.AntiAliasingQuality = GeneralScalabilityList.Find(AAQuality->GetSelectedItem());
 	Scalability::SetQualityLevels(UserSettings->ScalabilityQuality);
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
@@ -420,6 +423,10 @@ void SUWSystemSettingsDialog::OnPPQualitySelected(TSharedPtr<FString> NewSelecti
 void SUWSystemSettingsDialog::OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedEffectQuality->SetText(*NewSelection.Get());
+}
+void SUWSystemSettingsDialog::OnAAQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedAAQuality->SetText(*NewSelection.Get());
 }
 
 FReply SUWSystemSettingsDialog::OnButtonClick(uint16 ButtonID)
