@@ -76,7 +76,7 @@ void FPackageContent::OpenPackageLevelWindow()
 	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Mac"), *MapName, *MapName);
 #endif
 
-	CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Publishing Level"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
 
 class FPackageContentNotificationTask
@@ -363,7 +363,7 @@ void FPackageContent::PackageWeapon(UClass* WeaponClass)
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *WeaponName);
 #endif
 
-		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageWeaponTaskName", "Publishing Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageWeaponTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 
@@ -381,7 +381,7 @@ void FPackageContent::PackageHat(UClass* HatClass)
 		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *HatName);
 #endif
 
-		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageCosmeticTaskName", "Publishing Cosmetic Item"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageCosmeticTaskName", "Packaging Cosmetic Item"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 
