@@ -272,7 +272,7 @@ void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
 	{
 		Components[i]->SetVisibility(false);
 	}
-
+	MyFakeProjectile->SetLifeSpan(GetLifeSpan());
 	//MyFakeProjectile->Destroy();
 	// @TODO FIXMESTEVE If bNetTemporary, destroy me right away (after fully replicated - need to copy over those properties), let fake become real
 }
