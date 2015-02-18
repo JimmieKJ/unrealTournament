@@ -17,6 +17,10 @@ class AUTWeap_Translocator : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = OnRep_TransDisk, Category = Translocator)
 	AUTProj_TransDisk* TransDisk;
 
+	/** Fake disk spawned on clients, */
+	UPROPERTY(BlueprintReadOnly, Category = Translocator)
+		AUTProj_TransDisk* FakeTransDisk;
+
 	UFUNCTION()
 	virtual void OnRep_TransDisk();
 

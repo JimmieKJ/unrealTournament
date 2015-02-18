@@ -28,6 +28,11 @@ void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
 
 void AUTWeap_Translocator::OnRep_TransDisk()
 {
+	if (FakeTransDisk)
+	{
+		FakeTransDisk->Destroy();
+		FakeTransDisk = NULL;
+	}
 }
 
 void AUTWeap_Translocator::ClearDisk()
@@ -41,11 +46,12 @@ void AUTWeap_Translocator::ClearDisk()
 
 void AUTWeap_Translocator::RecallDisk()
 {
-	//remove disk
-	ClearDisk();
 
 	if (Role == ROLE_Authority)
 	{
+		//remove disk server-side
+		ClearDisk();
+
 		// server side since can be picked up by server movement as well
 		UUTGameplayStatics::UTPlaySound(GetWorld(), RecallSound, UTOwner, SRT_All);
 	}
@@ -68,17 +74,31 @@ void AUTWeap_Translocator::FireShot()
 			//No disk. Shoot one
 			if (TransDisk == NULL)
 			{
-				ConsumeAmmo(CurrentFireMode);
-				if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
+				if (FakeTransDisk == NULL)
 				{
-					TransDisk = Cast<AUTProj_TransDisk>(FireProjectile());
-
-					if (TransDisk != NULL)
+					ConsumeAmmo(CurrentFireMode);
+					if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 					{
-						TransDisk->MyTranslocator = this;
+						TransDisk = Cast<AUTProj_TransDisk>(FireProjectile());
+						if (Role != ROLE_Authority)
+						{
+							// wait for disk to be replicated from server
+							AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
+							FakeTransDisk = TransDisk;
+							if (OwningPlayer && FakeTransDisk)
+							{
+								FakeTransDisk->SetLifeSpan(FMath::Min(TransDisk->GetLifeSpan(), 0.001f * FMath::Max(0.f, OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor)));
+							}
+							TransDisk = NULL;
+						}
+
+						if (TransDisk != NULL)
+						{
+							TransDisk->MyTranslocator = this;
+						}
 					}
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
 				}
-				UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
 			}
 			else if (TransDisk->TransState == TLS_Disrupted)
 			{
