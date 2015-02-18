@@ -124,7 +124,6 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 		UDecalComponent* Decal = Cast<UDecalComponent>(NewComp);
 		if (Decal != NULL)
 		{
-			Decal->RelativeScale3D.X = 1.0f; // this prevents stretching around corners
 			if (bRandomizeDecalRoll)
 			{
 				Decal->RelativeRotation.Roll += 360.0f * FMath::FRand();
