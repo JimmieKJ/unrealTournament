@@ -103,8 +103,10 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 static TMap<FName, FString> HackedEntitlementTable = []()
 {
 	TMap<FName, FString> Result;
-	Result.Add(TEXT("BP_BobLife"), TEXT("c3ac025adbed4252abfee08a4b1d635a"));
-	Result.Add(TEXT("BP_BobLife_C"), TEXT("c3ac025adbed4252abfee08a4b1d635a"));
+	Result.Add(TEXT("BP_BeretHat"), TEXT("c3ac025adbed4252abfee08a4b1d635a"));
+	Result.Add(TEXT("BP_BeretHat_C"), TEXT("c3ac025adbed4252abfee08a4b1d635a"));
+	Result.Add(TEXT("BP_Sunglasses"), TEXT("91afa66fbf744726af33dba391657296"));
+	Result.Add(TEXT("BP_Sunglasses_C"), TEXT("91afa66fbf744726af33dba391657296"));
 	return Result;
 }();
 
