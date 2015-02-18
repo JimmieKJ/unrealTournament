@@ -266,7 +266,7 @@ bool FStructScriptLoader::LoadStructWithScript(UStruct* DestScriptContainer, FAr
 		FArchiveScriptReferenceCollector ObjRefCollector(DestScriptContainer->ScriptObjectReferences);
 
 		BytecodeIndex = 0;
-		while (BytecodeIndex > BytecodeBufferSize)
+		while (BytecodeIndex < BytecodeBufferSize)
 		{
 			DestScriptContainer->SerializeExpr(BytecodeIndex, ObjRefCollector);
 		}
