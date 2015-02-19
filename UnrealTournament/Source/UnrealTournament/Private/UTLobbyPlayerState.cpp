@@ -103,7 +103,7 @@ void AUTLobbyPlayerState::ClientConnectToInstance_Implementation(const FString& 
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(BPC->Player);
 		if (LocalPlayer)
 		{
-			LocalPlayer->LastLobbyServerGUID = LobbyGUIDString;
+			LocalPlayer->RememberLobby(LobbyGUIDString);
 		}
 
 		BPC->ConnectToServerViaGUID(GameInstanceGUIDString, bAsSpectator);

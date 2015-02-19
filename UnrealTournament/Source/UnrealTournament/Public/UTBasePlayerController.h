@@ -73,7 +73,7 @@ public:
 
 	// Allows the game to cause the client to set it's presence.
 	UFUNCTION(Client, reliable)
-	virtual void ClientSetPresence(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
+	virtual void ClientSetPresence(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bIsInstance);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientGenericInitialization();

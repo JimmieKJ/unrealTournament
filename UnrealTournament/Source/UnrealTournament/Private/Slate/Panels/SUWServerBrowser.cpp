@@ -1051,7 +1051,17 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 */
 
-		
+		if (OnlineSubsystem)
+		{
+			IOnlineFriendsPtr FriendsInterface = OnlineSubsystem->GetFriendsInterface();
+			if (FriendsInterface.IsValid())
+			{
+				// Grab a list of my online friends.
+				FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FOnReadFriendsListComplete::CreateRaw(this, &SUWServerBrowser::OnReadFriendsListComplete));
+			}
+		}
+
+
 		AddGameFilters();
 		InternetServerList->RequestListRefresh();
 		HUBServerList->RequestListRefresh();
@@ -1064,6 +1074,77 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 	SetBrowserState(BrowserState::NAME_ServerIdle);	
 }
+
+void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
+{
+	if (bWasSuccessful)
+	{
+		bool bRequiresUpdate = false;
+		if (OnlineSubsystem)
+		{
+			IOnlineFriendsPtr FriendsInterface = OnlineSubsystem->GetFriendsInterface();
+			if (FriendsInterface.IsValid())
+			{
+				TArray< TSharedRef<FOnlineFriend> > FriendsCache;
+				FriendsInterface->GetFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FriendsCache);
+
+				for (int32 PlayerIndex=0; PlayerIndex < FriendsCache.Num(); PlayerIndex++)
+				{
+					const FOnlineFriend& Friend = *FriendsCache[PlayerIndex];
+					const FOnlineUserPresence& FriendPresence = Friend.GetPresence();
+
+					if (FriendPresence.bIsOnline)
+					{
+						FString SessionIdAsString = TEXT("");
+						
+						// Look to see if we have a HUB id.  If we do, use that otherwise use the actual session Id if there is one
+
+						const FVariantData* HUBSessionId = FriendPresence.Status.Properties.Find(HUBSessionIdKey);
+						if (HUBSessionId != nullptr && HUBSessionId->GetType() == EOnlineKeyValuePairDataType::String)
+						{
+							HUBSessionId->GetValue(SessionIdAsString);
+						}
+						else if (FriendPresence.SessionId.IsValid())
+						{
+							SessionIdAsString = FriendPresence.SessionId->ToString();
+						}
+
+						// Itterate over all servers and update their friend counts
+
+						for (int32 ServerIndex = 0; ServerIndex < InternetServers.Num(); ServerIndex++)
+						{
+							if (InternetServers[ServerIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
+							{
+								InternetServers[ServerIndex]->NumFriends++;
+								bRequiresUpdate = true;
+								break;
+							}
+						}
+
+						for (int32 HUBIndex = 0; HUBIndex < HUBServers.Num(); HUBIndex++)
+						{
+							// NOTE: We have to check the search result here because of the fake HUB.  
+							if (HUBServers[HUBIndex]->SearchResult.IsValid() && HUBServers[HUBIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
+							{
+								HUBServers[HUBIndex]->NumFriends++;
+								bRequiresUpdate = true;
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (bRequiresUpdate)
+		{
+			InternetServerList->RequestListRefresh();
+			HUBServerList->RequestListRefresh();
+		}
+
+	}
+}
+
 
 void SUWServerBrowser::CleanupQoS()
 {
@@ -1373,8 +1454,8 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		RandomHUB->bFakeHUB = true;
 
 		HUBServers.Add( RandomHUB );
-		HUBServerList->RequestListRefresh();
 		FilterAllHUBs();
+		HUBServerList->RequestListRefresh();
 	}
 
 	if (RandomHUB.IsValid() && RandomHUB->NumMatches != InternetServers.Num())
@@ -1388,8 +1469,8 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
 		HUBServers.Add(RandomHUB);
-		HUBServerList->RequestListRefresh();
 		FilterAllHUBs();
+		HUBServerList->RequestListRefresh();
 	}		
 
 }
@@ -1578,7 +1659,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									.VAlign(VAlign_Center)
 									[
 										SNew(STextBlock)
-										.Text(FText::Format(NSLOCTEXT("HUBBrowser","NumMatchesFormat","{0} Matches"), FText::AsNumber(InItem->NumMatches)))
+										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumMatches)))
 										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
 									]
 
@@ -1588,7 +1669,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									.VAlign(VAlign_Center)
 									[
 										SNew(STextBlock)
-										.Text(FText::Format(NSLOCTEXT("HUBBrowser","NumPlayersFormat","{0} Players"), FText::AsNumber(InItem->NumPlayers)))
+										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumPlayers)))
 										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
 									]
 
@@ -1598,7 +1679,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									.VAlign(VAlign_Center)
 									[
 										SNew(STextBlock)
-										.Text(FText::Format(NSLOCTEXT("HUBBrowser","NumFriendsFormat","{0} Friends"), FText::AsNumber(InItem->NumFriends)))
+										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumFriends)))
 										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
 									]
 									+SHorizontalBox::Slot()
@@ -1620,7 +1701,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 						]
 					]
 
-			]
+				]
 			]
 		];
 }

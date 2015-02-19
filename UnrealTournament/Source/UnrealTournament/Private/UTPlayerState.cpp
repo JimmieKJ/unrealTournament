@@ -839,3 +839,17 @@ void AUTPlayerState::ValidateEntitlements()
 		}
 	}
 }
+
+/**
+ *	Find the current first local player and asks if I'm their friend.  NOTE: the UTLocalPlayer will, when he friends list changes
+ *  update these as well.
+ **/
+void AUTPlayerState::OnRep_UniqueId()
+{
+	Super::OnRep_UniqueId();
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(),0));
+	if (LP)
+	{
+		bIsFriend = LP->IsAFriend(UniqueId);
+	}
+}

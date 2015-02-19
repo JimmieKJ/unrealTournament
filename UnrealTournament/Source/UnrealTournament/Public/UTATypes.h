@@ -345,3 +345,4 @@ public:
 	}
 };
 
+const FString HUBSessionIdKey = "HUBSessionId";

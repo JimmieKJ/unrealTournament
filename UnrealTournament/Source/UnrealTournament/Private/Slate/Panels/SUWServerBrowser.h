@@ -178,7 +178,7 @@ public:
 
 
 
-class FServerData
+class FServerData : public TSharedFromThis<FServerData>
 {
 public: 
 	// The Server's name
@@ -283,6 +283,23 @@ public:
 	{
 		Rules.Add( FServerRuleData::Make(Rule, Value));
 	}
+
+	FText GetNumMatches()
+	{
+		return FText::Format(NSLOCTEXT("HUBBrowser","NumMatchesFormat","{0} Matches"), FText::AsNumber(NumMatches));
+	}
+
+	FText GetNumPlayers()
+	{
+		return FText::Format(NSLOCTEXT("HUBBrowser", "NumPlayersFormat", "{0} Players"), FText::AsNumber(NumPlayers));
+	}
+	
+
+	FText GetNumFriends()
+	{
+		return FText::Format(NSLOCTEXT("HUBBrowser", "NumFriendsFormat", "{0} Friends"), FText::AsNumber(NumFriends));
+	}
+
 };
 
 
@@ -563,7 +580,8 @@ private:
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
 
 	float GetReverseScale() const;
-
+	
+	void OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr);
 
 
 };

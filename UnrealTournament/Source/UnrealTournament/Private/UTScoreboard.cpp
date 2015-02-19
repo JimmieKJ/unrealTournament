@@ -292,6 +292,12 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		BarOpacity = 0.5;
 	}
 
+	else if (PlayerState->bIsFriend)
+	{
+		DrawColor = FLinearColor(FColor(254, 255, 174, 255));
+	}
+
+
 	FText PlayerPing;
 	if (GetWorld()->GetNetMode() == NM_Standalone)
 	{

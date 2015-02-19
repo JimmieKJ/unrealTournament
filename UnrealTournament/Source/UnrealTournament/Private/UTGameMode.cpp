@@ -2642,7 +2642,7 @@ void AUTGameMode::UpdatePlayersPresence()
 		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
 		if (Controller)
 		{
-			Controller->ClientSetPresence(PresenceString, bAllowJoin, bAllowJoin, bAllowJoin, false);
+			Controller->ClientSetPresence(PresenceString, bAllowJoin, bAllowJoin, bAllowJoin, false, IsGameInstanceServer());
 		}
 	}
 }

@@ -55,6 +55,7 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnlineUserCloudInterface = OnlineSubsystem->GetUserCloudInterface();
 		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 		OnlinePresenceInterface = OnlineSubsystem->GetPresenceInterface();
+		OnlineFriendsInterface = OnlineSubsystem->GetFriendsInterface();
 	}
 
 	if (OnlineIdentityInterface.IsValid())
@@ -77,7 +78,38 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnJoinSessionComplete));
 	}
 	
+}
 
+void UUTLocalPlayer::CleanUpOnlineSubSystyem()
+{
+	if (OnlineSubsystem)
+	{
+		if (OnlineIdentityInterface.IsValid())
+		{
+			OnlineIdentityInterface->ClearOnLoginCompleteDelegate_Handle(GetControllerId(), OnLoginCompleteDelegate);
+			OnlineIdentityInterface->ClearOnLoginStatusChangedDelegate_Handle(GetControllerId(), OnLoginStatusChangedDelegate);
+			OnlineIdentityInterface->ClearOnLogoutCompleteDelegate_Handle(GetControllerId(), OnLogoutCompleteDelegate);
+		}
+
+		if (OnlineUserCloudInterface.IsValid())
+		{
+			OnlineUserCloudInterface->ClearOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegate);
+			OnlineUserCloudInterface->ClearOnWriteUserFileCompleteDelegate_Handle(OnWriteUserFileCompleteDelegate);
+			OnlineUserCloudInterface->ClearOnDeleteUserFileCompleteDelegate_Handle(OnDeleteUserFileCompleteDelegate);
+			OnlineUserCloudInterface->ClearOnEnumerateUserFilesCompleteDelegate_Handle(OnEnumerateUserFilesCompleteDelegate);
+		}
+
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
+		}
+	}
+}
+
+
+bool UUTLocalPlayer::IsAFriend(FUniqueNetIdRepl PlayerId)
+{
+	return (OnlineFriendsInterface.IsValid() && OnlineFriendsInterface->IsFriend(0, *PlayerId, EFriendsLists::ToString(EFriendsLists::InGamePlayers)));
 }
 
 FString UUTLocalPlayer::GetNickname() const
@@ -474,23 +506,6 @@ void UUTLocalPlayer::Logout()
 }
 
 
-void UUTLocalPlayer::CleanUpOnlineSubSystyem()
-{
-	if (OnlineSubsystem)
-	{
-		if (OnlineIdentityInterface.IsValid())
-		{
-			OnlineIdentityInterface->ClearOnLoginCompleteDelegate_Handle(GetControllerId(), OnLoginCompleteDelegate);
-			OnlineIdentityInterface->ClearOnLoginStatusChangedDelegate_Handle(GetControllerId(), OnLoginStatusChangedDelegate);
-			OnlineIdentityInterface->ClearOnLogoutCompleteDelegate_Handle(GetControllerId(), OnLogoutCompleteDelegate);
-		}
-
-		if (OnlineSessionInterface.IsValid())
-		{
-			OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
-		}
-	}
-}
 
 FString UUTLocalPlayer::GetOnlinePlayerNickname()
 {
@@ -601,7 +616,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
 		ReadELOFromCloud();
-		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
+		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false, false);
 		ReadCloudFileListing();
 		// query entitlements for UI
 		IOnlineEntitlementsPtr EntitlementsInterface = OnlineSubsystem->GetEntitlementsInterface();
@@ -830,7 +845,10 @@ void UUTLocalPlayer::LoadProfileSettings()
 	if (IsLoggedIn())
 	{
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-		OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename() );
+		if (OnlineUserCloudInterface.IsValid())
+		{
+			OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
+		}
 	}
 }
 
@@ -849,7 +867,10 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 	if (IsLoggedIn() && ButtonID == UTDIALOG_BUTTON_YES)
 	{
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-		OnlineUserCloudInterface->DeleteUserFile(*UserID, GetProfileFilename(), true, true);
+		if (OnlineUserCloudInterface.IsValid())
+		{
+			OnlineUserCloudInterface->DeleteUserFile(*UserID, GetProfileFilename(), true, true);
+		}
 	}
 }
 
@@ -891,7 +912,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	{
 		// We were attempting to read the profile.. see if it was successful.	
 
-		if (bWasSuccessful)	
+		if (bWasSuccessful && OnlineUserCloudInterface.IsValid())	
 		{
 			// Create the current profile.
 			if (CurrentProfileSettings == NULL)
@@ -972,7 +993,10 @@ void UUTLocalPlayer::SaveProfileSettings()
 
 		// Save the blob to the cloud
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-		OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
+		if (OnlineUserCloudInterface.IsValid())
+		{
+			OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
+		}
 	}
 }
 
@@ -1020,14 +1044,17 @@ FName UUTLocalPlayer::TeamStyleRef(FName InName)
 void UUTLocalPlayer::ReadELOFromCloud()
 {
 	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	OnlineUserCloudInterface->ReadUserFile(*UserId, GetStatsFilename());
+	if (OnlineUserCloudInterface.IsValid())
+	{
+		OnlineUserCloudInterface->ReadUserFile(*UserId, GetStatsFilename());
+	}
 }
 
 void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 {
 	TArray<uint8> FileContents;
 	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (OnlineUserCloudInterface->GetFileContents(*UserId, GetStatsFilename(), FileContents))
+	if (OnlineUserCloudInterface.IsValid() && OnlineUserCloudInterface->GetFileContents(*UserId, GetStatsFilename(), FileContents))
 	{
 		if (FileContents.Num() <= 0)
 		{
@@ -1410,7 +1437,7 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 
 }
 
-void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
+void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bUseLobbySessionId)
 {
 	if (OnlineIdentityInterface.IsValid() && OnlineSessionInterface.IsValid())
 	{
@@ -1427,11 +1454,15 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 				OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
 			}
 
+
+			FString SessionId = bUseLobbySessionId ? LastLobbySessionId : TEXT("");
+
 			TSharedPtr<FOnlineUserPresence> CurrentPresence;
 			OnlinePresenceInterface->GetCachedPresence(*UserId, CurrentPresence);
 			if (CurrentPresence.IsValid())
 			{
 				CurrentPresence->Status.StatusStr = NewPresenceString;
+				CurrentPresence->Status.Properties.Add(HUBSessionIdKey,SessionId);
 				OnlinePresenceInterface->SetPresence(*UserId, CurrentPresence->Status, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
 			}
 			else
@@ -1439,6 +1470,7 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 				FOnlineUserPresenceStatus NewStatus;
 				NewStatus.State = EOnlinePresenceState::Online;
 				NewStatus.StatusStr = NewPresenceString;
+				NewStatus.Properties.Add(HUBSessionIdKey, SessionId);
 				OnlinePresenceInterface->SetPresence(*UserId, NewStatus, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
 			}
 		}
@@ -1565,3 +1597,18 @@ void UUTLocalPlayer::CancelQuickMatch()
 }
 
 #endif
+
+void UUTLocalPlayer::RememberLobby(FString LobbyServerGUID)
+{
+	LastLobbyServerGUID = LobbyServerGUID;
+	if (OnlineSessionInterface.IsValid())
+	{
+		FNamedOnlineSession* Session = OnlineSessionInterface->GetNamedSession(GameSessionName);
+		if (Session)
+		{
+			LastLobbySessionId = Session->SessionInfo->GetSessionId().ToString();
+		}
+		
+	}
+
+}

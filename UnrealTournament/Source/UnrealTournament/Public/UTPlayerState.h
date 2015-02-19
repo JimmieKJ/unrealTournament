@@ -262,6 +262,12 @@ public:
 	UPROPERTY(Replicated)
 	int32 AverageRank;
 
+	// Find the local player and see if we are his friend.
+	void OnRep_UniqueId();
+
+	// Calculated client-side by the local player when 
+	bool bIsFriend;
+
 };
 
 

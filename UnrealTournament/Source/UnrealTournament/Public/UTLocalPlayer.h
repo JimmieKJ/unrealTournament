@@ -232,6 +232,7 @@ private:
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	IOnlineSessionPtr OnlineSessionInterface;
 	IOnlinePresencePtr OnlinePresenceInterface;
+	IOnlineFriendsPtr OnlineFriendsInterface;
 
 	// Our delegate references....
 	FDelegateHandle OnLoginCompleteDelegate;		
@@ -277,7 +278,14 @@ protected:
 #endif
 
 public:
+	// Holds the unique GUID for the current lobby to return to
 	FString LastLobbyServerGUID;
+
+	// Holds the Session Id of the lobby to return to
+	FString LastLobbySessionId;
+
+	// Tells this local player to remember a lobby before traveling to an instance server owned by that lobby.
+	virtual void RememberLobby(FString LobbyServerGUID);
 
 	virtual void ShowHUDSettings();
 	virtual void HideHUDSettings();
@@ -315,7 +323,7 @@ public:
 	virtual void ReturnToMainMenu();
 
 	// Updates this user's online presence
-	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
+	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bUseLobbySessionId);
 
 protected:
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
@@ -369,6 +377,8 @@ protected:
 	FString PendingLoginName;
 	FString PendingLoginPassword;
 
+public:
+	bool IsAFriend(FUniqueNetIdRepl PlayerId);
 };
 
 
