@@ -87,4 +87,7 @@ extern UNREALTOURNAMENT_API bool LocallyHasEntitlement(const FString& Entitlemen
  */
 extern UNREALTOURNAMENT_API void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements = true);
 
+/** timer manipulation for UFUNCTIONs that doesn't require a timer handle */
+extern UNREALTOURNAMENT_API void SetTimerUFunc(UObject* Obj, FName FuncName, float Time, bool bLooping = false);
+
 #endif

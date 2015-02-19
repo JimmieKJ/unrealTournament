@@ -285,3 +285,34 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 		}
 	}
 }
+
+void SetTimerUFunc(UObject* Obj, FName FuncName, float Time, bool bLooping)
+{
+	if (Obj != NULL)
+	{
+		const UWorld* const World = GEngine->GetWorldFromContextObject(Obj);
+		if (World != NULL)
+		{
+			UFunction* const Func = Obj->FindFunction(FuncName);
+			if (Func == NULL)
+			{
+				UE_LOG(UT, Warning, TEXT("SetTimer: Object %s does not have a function named '%s'"), *Obj->GetName(), *FuncName.ToString());
+			}
+			else if (Func->ParmsSize > 0)
+			{
+				// User passed in a valid function, but one that takes parameters
+				// FTimerDynamicDelegate expects zero parameters and will choke on execution if it tries
+				// to execute a mismatched function
+				UE_LOG(UT, Warning, TEXT("SetTimer passed a function (%s) that expects parameters."), *FuncName.ToString());
+			}
+			else
+			{
+				FTimerDynamicDelegate Delegate;
+				Delegate.BindUFunction(Obj, FuncName);
+
+				FTimerHandle Handle = World->GetTimerManager().K2_FindDynamicTimerHandle(Delegate);
+				World->GetTimerManager().SetTimer(Handle, Delegate, Time, bLooping);
+			}
+		}
+	}
+}
