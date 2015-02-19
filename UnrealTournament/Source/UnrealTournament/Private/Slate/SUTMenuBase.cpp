@@ -10,6 +10,7 @@
 #include "SUWDialog.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
+#include "SUWWeaponConfigDialog.h"
 #include "SUWCreateGameDialog.h"
 #include "SUWControlSettingsDialog.h"
 #include "SUWInputBox.h"
@@ -25,6 +26,7 @@
 void SUTMenuBase::CreateDesktop()
 {
 	bNeedsPlayerOptions = false;
+	bNeedsWeaponOptions = false;
 	bShowingFriends = false;
 	TickCountDown = 0;
 	
@@ -344,6 +346,16 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 			SNew(SButton)
 			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
 			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
+			.OnClicked(this, &SUTMenuBase::OpenWeaponSettings, DropDownButton)
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuList")
+			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
 			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.MainMenuButton.SubMenu.TextStyle")
 			.OnClicked(this, &SUTMenuBase::OpenSystemSettings, DropDownButton)
@@ -487,6 +499,20 @@ FReply SUTMenuBase::OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton)
 	{
 		PlayerOwner->ShowContentLoadingMessage();
 		bNeedsPlayerOptions = true;
+		TickCountDown = 3;
+	}
+
+	return FReply::Handled();
+}
+
+FReply SUTMenuBase::OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (TickCountDown <= 0)
+	{
+		PlayerOwner->ShowContentLoadingMessage();
+		bNeedsWeaponOptions = true;
 		TickCountDown = 3;
 	}
 
@@ -785,6 +811,12 @@ void SUTMenuBase::OpenDelayedMenu()
 	{
 		PlayerOwner->OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner));
 		bNeedsPlayerOptions = false;
+		PlayerOwner->HideContentLoadingMessage();
+	}
+	else if (bNeedsWeaponOptions)
+	{
+		PlayerOwner->OpenDialog(SNew(SUWWeaponConfigDialog).PlayerOwner(PlayerOwner));
+		bNeedsWeaponOptions = false;
 		PlayerOwner->HideContentLoadingMessage();
 	}
 }

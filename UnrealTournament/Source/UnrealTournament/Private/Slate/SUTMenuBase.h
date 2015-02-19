@@ -23,6 +23,7 @@ protected:
 	virtual void CreateDesktop();
 
 	virtual FReply OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenTPSReport(TSharedPtr<SComboButton> MenuButton);
@@ -68,6 +69,7 @@ private:
 
 protected:
 	bool bNeedsPlayerOptions;
+	bool bNeedsWeaponOptions;
 	bool bShowingFriends;
 	
 	int TickCountDown;

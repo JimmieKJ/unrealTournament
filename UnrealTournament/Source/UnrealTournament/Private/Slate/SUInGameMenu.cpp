@@ -9,6 +9,7 @@
 #include "SUWindowsStyle.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
+#include "SUWWeaponConfigDialog.h"
 #include "SUWCreateGameDialog.h"
 #include "SUWControlSettingsDialog.h"
 #include "SUWInputBox.h"
@@ -21,6 +22,7 @@
 namespace SettingsDialogs
 {
 	const FName SettingPlayer = FName(TEXT("SettingsPlayern"));
+	const FName SettingWeapon = FName(TEXT("SettingsWeapon"));
 	const FName SettingsSystem = FName(TEXT("SettingsSystem"));
 	const FName SettingsControls = FName(TEXT("SettingsControls"));
 	const FName SettingsHUD = FName(TEXT("SettingsHUD"));
@@ -479,7 +481,17 @@ void SUInGameMenu::BuildOptionsSubMenu()
 			.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
 			.OnClicked(this, &SUInGameMenu::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingPlayer)
 		]
-		+ SVerticalBox::Slot()
+	+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.MenuList"))
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings").ToString())
+			.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.SubMenu.TextStyle"))
+			.OnClicked(this, &SUInGameMenu::OpenSettingsDialog, DropDownButton, SettingsDialogs::SettingWeapon)
+		]
+	+ SVerticalBox::Slot()
 		.AutoHeight()
 		[
 			SNew(SButton)
@@ -754,7 +766,8 @@ FReply SUInGameMenu::OpenSettingsDialog(TSharedPtr<SComboButton> MenuButton, FNa
 
 	TSharedPtr<SUWDialog> Dialog;
 	if (SettingsToOpen == SettingsDialogs::SettingPlayer) SAssignNew(Dialog, SUWPlayerSettingsDialog).PlayerOwner(PlayerOwner);
-	else if (SettingsToOpen == SettingsDialogs::SettingsSystem) SAssignNew(Dialog, SUWSystemSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","System","System Settings"));
+	else if (SettingsToOpen == SettingsDialogs::SettingWeapon) SAssignNew(Dialog, SUWWeaponConfigDialog).PlayerOwner(PlayerOwner);
+	else if (SettingsToOpen == SettingsDialogs::SettingsSystem) SAssignNew(Dialog, SUWSystemSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop", "System", "System Settings"));
 	else if (SettingsToOpen == SettingsDialogs::SettingsControls) SAssignNew(Dialog, SUWControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","Controls","Control Settings"));
 
 	if (Dialog.IsValid())

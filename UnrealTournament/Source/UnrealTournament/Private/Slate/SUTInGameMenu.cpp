@@ -10,6 +10,7 @@
 #include "SUWDialog.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
+#include "SUWWeaponConfigDialog.h"
 #include "SUWCreateGameDialog.h"
 #include "SUWControlSettingsDialog.h"
 #include "SUWInputBox.h"

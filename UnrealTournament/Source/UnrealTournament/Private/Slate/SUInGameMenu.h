@@ -8,6 +8,7 @@
 namespace SettingsDialogs
 {
 	const extern FName SettingPlayer;
+	const extern FName SettingWeapon;
 	const extern FName SettingsSystem;
 	const extern FName SettingsControls;
 	const extern FName SettingsHUD;
