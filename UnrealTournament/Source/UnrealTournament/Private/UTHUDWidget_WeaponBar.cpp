@@ -96,13 +96,14 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	if (SelectedWeapon == NULL)
 	{
 		SelectedWeapon = UTCharacterOwner->GetWeapon();
+		WeaponNameText.Text = SelectedWeapon->DisplayName;
 	}
 	else
 	{
 		if (!WeaponNameText.Text.EqualTo(SelectedWeapon->DisplayName))
 		{
 			WeaponNameText.Text = SelectedWeapon->DisplayName;
-			WeaponNameText.RenderOpacity = 1.0;
+			WeaponNameText.RenderOpacity = 1.f;
 			WeaponNameDisplayTimer = WeaponNameDisplayTime;
 			UUTHUDWidgetMessage* DestinationWidget = (UTHUDOwner->HudMessageWidgets.FindRef(FName(TEXT("PickupMessage"))));
 			if (DestinationWidget != NULL)
@@ -288,16 +289,16 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		}
 	}
 
-	if (WeaponNameText.RenderOpacity > 0.0)
+	if (WeaponNameText.RenderOpacity > 0.f)
 	{
 		Opacity = 1.0;
 
 		// Recalc this to handle aspect ratio
-		WeaponNameText.Position.X = (Canvas->ClipX * 0.5) / RenderScale * -1;
+		WeaponNameText.Position.X = (Canvas->ClipX * 0.5f) / RenderScale * -1.f;
 		RenderObj_TextAt(WeaponNameText, WeaponNameText.Position.X, WeaponNameText.Position.Y);
 	}
 
-	if (WeaponNameDisplayTimer > 0)
+	if (WeaponNameDisplayTimer > 0.f)
 	{
 		WeaponNameDisplayTimer -= DeltaTime;
 		if ( WeaponNameDisplayTimer <= (WeaponNameDisplayTime * 0.5f) )
@@ -306,7 +307,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		}
 		else
 		{
-			Opacity = 1.0;
+			Opacity = 1.f;
 		}
 	}
 }
