@@ -488,10 +488,10 @@ void AUTPlayerState::BeginPlay()
 		if (Role == ROLE_Authority && OnlineUserCloudInterface.IsValid())
 		{
 			OnReadUserFileCompleteDelegate = FOnReadUserFileCompleteDelegate::CreateUObject(this, &AUTPlayerState::OnReadUserFileComplete);
-			OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate(OnReadUserFileCompleteDelegate);
+			OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegate);
 
 			OnWriteUserFileCompleteDelegate = FOnWriteUserFileCompleteDelegate::CreateUObject(this, &AUTPlayerState::OnWriteUserFileComplete);
-			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate(OnWriteUserFileCompleteDelegate);
+			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate_Handle(OnWriteUserFileCompleteDelegate);
 		}
 
 		if (OnlineIdentityInterface.IsValid() && LP != nullptr && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))

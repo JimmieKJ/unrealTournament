@@ -12,6 +12,7 @@
 
 class SUWStatsViewer : public SUWPanel
 {
+
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
 	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
@@ -31,8 +32,12 @@ protected:
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
+	FDelegateHandle OnReadUserFileCompleteDelegateHandle;
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual FString GetStatsFilename();
+
+public:
+	virtual ~SUWStatsViewer();
 };
 
 #endif

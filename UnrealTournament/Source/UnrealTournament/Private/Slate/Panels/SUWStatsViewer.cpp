@@ -6,6 +6,14 @@
 
 #if !UE_SERVER
 
+SUWStatsViewer::~SUWStatsViewer()
+{
+	if (OnlineUserCloudInterface.IsValid())
+	{
+		OnlineUserCloudInterface->ClearOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegateHandle);
+	}
+}
+
 void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 {
 	Tag = FName(TEXT("StatsViewer"));
@@ -23,7 +31,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 	if (OnlineUserCloudInterface.IsValid())
 	{
 		OnReadUserFileCompleteDelegate.BindSP(this, &SUWStatsViewer::OnReadUserFileComplete);
-		OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate(OnReadUserFileCompleteDelegate);
+		OnReadUserFileCompleteDelegateHandle = OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegate);
 	}
 		
 	this->ChildSlot
