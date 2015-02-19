@@ -269,6 +269,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float PutDownTime;
 
+	/** Earliest time can fire again (failsafe for weapon swapping). */
+	UPROPERTY()
+		float EarliestFireTime;
+
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual float GetBringUpTime();
 

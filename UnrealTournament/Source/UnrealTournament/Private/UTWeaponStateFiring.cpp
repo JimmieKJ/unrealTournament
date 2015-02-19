@@ -106,6 +106,7 @@ void UUTWeaponStateFiring::PutDown()
 	float TimeTillPutDown = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle);
 	if (TimeTillPutDown <= GetOuterAUTWeapon()->GetPutDownTime())
 	{
+		GetOuterAUTWeapon()->EarliestFireTime = GetWorld()->GetTimeSeconds() + TimeTillPutDown;
 		Super::PutDown();
 	}
 	else

@@ -35,6 +35,8 @@ void UUTWeaponStateEquipping::BeginState(const UUTWeaponState* PrevState)
 	const UUTWeaponStateUnequipping* PrevEquip = Cast<UUTWeaponStateUnequipping>(PrevState);
 	// if was previously unequipping, pay same amount of time to bring back up
 	EquipTime = (PrevEquip != NULL) ? FMath::Min(PrevEquip->PartialEquipTime, GetOuterAUTWeapon()->GetBringUpTime()) : GetOuterAUTWeapon()->GetBringUpTime();
+	EquipTime = FMath::Max(EquipTime, GetOuterAUTWeapon()->EarliestFireTime - GetWorld()->GetTimeSeconds());
+
 	PendingFireSequence = -1;
 	if (EquipTime <= 0.0f)
 	{
@@ -45,7 +47,7 @@ void UUTWeaponStateEquipping::BeginState(const UUTWeaponState* PrevState)
 
 void UUTWeaponStateEquipping::BringUpFinished()
 {
-	GetOuterAUTWeapon()->GotoActiveState();
+		GetOuterAUTWeapon()->GotoActiveState();
 	if (PendingFireSequence >= 0)
 	{
 		GetOuterAUTWeapon()->bNetDelayedShot = true;
