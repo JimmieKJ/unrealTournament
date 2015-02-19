@@ -104,11 +104,20 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
+	static FName NAME_PendingNetDriver(TEXT("PendingNetDriver"));
+
+	// ignore connection loss on game net driver if we have a pending one; this happens during standard blocking server travel
+	if ( NetDriver->NetDriverName == NAME_GameNetDriver && GEngine->GetWorldContextFromWorld(World)->PendingNetGame != NULL &&
+		(FailureType == ENetworkFailure::ConnectionLost || FailureType == ENetworkFailure::FailureReceived) )
+	{
+		return;
+	}
+
 	Super::PeekNetworkFailureMessages(World, NetDriver, FailureType, ErrorString);
 #if !UE_SERVER
 
 	// Don't care about net drivers that aren't the game net driver, they are probably just beacon net drivers
-	if (NetDriver->NetDriverName != FName(TEXT("PendingNetDriver")) && NetDriver->NetDriverName != NAME_GameNetDriver)
+	if (NetDriver->NetDriverName != NAME_PendingNetDriver && NetDriver->NetDriverName != NAME_GameNetDriver)
 	{
 		return;
 	}
@@ -119,7 +128,6 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 
 	if (FailureType == ENetworkFailure::PendingConnectionFailure)
 	{
-
 		if (ErrorString == TEXT("NEEDPASS"))
 		{
 
@@ -136,20 +144,16 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 										);
 			}
 		}
-
 		else if (ErrorString == TEXT("TOOWEAK"))
 		{
 			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","WEAKMSG","You are not skilled enough to play on this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
 			return;
 		}
-
 		else if (ErrorString == TEXT("TOOSTRONG"))
 		{
 			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","STRONGMSG","Your skill is too high for this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
 			return;
 		}
-
-
 		else if (ErrorString == TEXT("NOTLOGGEDIN"))
 		{
 			// NOTE: It's possible that the player logged in during the connect sequence but after Prelogin was called on the client.  If this is the case, just reconnect.
@@ -166,7 +170,6 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 														   NSLOCTEXT("UTGameViewportClient","LoginRequiredMessage","You need to login to your Epic account before you can play on this server."), UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::LoginFailureDialogResult));
 			}
 		}
-
 		// TODO: Explain to the engine team why you can't localize server error strings :(
 		else if (ErrorString == TEXT("Server full."))
 		{
@@ -179,11 +182,22 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 
 	switch (FailureType)
 	{
-		case ENetworkFailure::ConnectionLost		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ConnectionLost","Connection to server Lost!"); break;
-		case ENetworkFailure::ConnectionTimeout		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ConnectionTimeout","Connection to server timed out!"); break;
-		case ENetworkFailure::OutdatedClient		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ClientOutdated","Your client is outdated.  Please update your version of UT.  Go to Forums.UnrealTournament.com for more information."); break;
-		case ENetworkFailure::OutdatedServer		: NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ServerOutdated","The server you are connecting to is running a different version of UT.  Make sure you have the latest version of UT.  Go to Forums.UnrealTournament.com for more information."); break;
-		default:									  NetworkErrorMessage = FText::FromString(ErrorString);
+		case ENetworkFailure::FailureReceived:
+		case ENetworkFailure::ConnectionLost:
+			NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ConnectionLost","Connection to server Lost!");
+			break;
+		case ENetworkFailure::ConnectionTimeout:
+			NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ConnectionTimeout","Connection to server timed out!");
+			break;
+		case ENetworkFailure::OutdatedClient:
+			NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ClientOutdated","Your client is outdated.  Please update your version of UT.  Go to Forums.UnrealTournament.com for more information.");
+			break;
+		case ENetworkFailure::OutdatedServer:
+			NetworkErrorMessage = NSLOCTEXT("UTGameViewportClient","NetworkErrors_ServerOutdated","The server you are connecting to is running a different version of UT.  Make sure you have the latest version of UT.  Go to Forums.UnrealTournament.com for more information.");
+			break;
+		default:
+			NetworkErrorMessage = FText::FromString(ErrorString);
+			break;
 	}
 
 	if (!ReconnectDialog.IsValid())

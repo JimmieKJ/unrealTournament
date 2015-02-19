@@ -99,6 +99,8 @@ class UUTGameEngine : public UGameEngine
 	UT_LOADMAP_DEFINITION()
 #undef UT_LOADING_SCREEN_HOOK
 
+	virtual void HandleNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString) override;
+
 protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;
 
