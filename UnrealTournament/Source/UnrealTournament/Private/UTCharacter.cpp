@@ -2360,7 +2360,7 @@ bool AUTCharacter::Roll(FVector RollDir)
 
 bool AUTCharacter::CanJumpInternal_Implementation() const
 {
-	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanJump();
+	return !bIsCrouched && !IsRagdoll() && !bInRagdollRecovery && UTCharacterMovement != NULL && UTCharacterMovement->CanJump();
 }
 
 void AUTCharacter::CheckJumpInput(float DeltaTime)
