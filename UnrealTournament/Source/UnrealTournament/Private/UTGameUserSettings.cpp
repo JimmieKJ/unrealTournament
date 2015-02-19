@@ -91,11 +91,11 @@ void UUTGameUserSettings::SetEpicAuth(FString NewAuth)
 
 float UUTGameUserSettings::GetServerBrowserColumnWidth(int32 ColumnIndex)
 {
-	return (ColumnIndex >= 0 && ColumnIndex < 9) ? ServerBrowserColumnWidths[ColumnIndex] : 0;
+	return (ColumnIndex >= 0 && ColumnIndex < 10) ? ServerBrowserColumnWidths[ColumnIndex] : 0;
 }
 void UUTGameUserSettings::SetServerBrowserColumnWidth(int32 ColumnIndex, float NewWidth)
 {
-	if (ColumnIndex >=0 && ColumnIndex < 9)
+	if (ColumnIndex >=0 && ColumnIndex < 10)
 	{
 		ServerBrowserColumnWidths[ColumnIndex] = NewWidth;	
 	}

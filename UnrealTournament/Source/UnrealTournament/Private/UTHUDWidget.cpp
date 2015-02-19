@@ -661,9 +661,11 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, cons
 FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool bDrawShadow, FVector2D ShadowDirection, FLinearColor ShadowColor, bool bDrawOutline, FLinearColor OutlineColor, float TextScale, float DrawOpacity, FLinearColor DrawColor, ETextHorzPos::Type TextHorzAlignment, ETextVertPos::Type TextVertAlignment, const FFontRenderInfo& RenderInfo)
 {
 	float XL = 0.0f, YL = 0.0f;
+	FVector2D TextSize;
 	if (Font && !Text.IsEmpty())
 	{
 		Canvas->StrLen(Font, Text.ToString(), XL, YL);
+		TextSize = FVector2D(XL,YL); // Save for Later
 
 		if (bScaleByDesignedResolution)
 		{
@@ -722,7 +724,7 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 		Canvas->DrawItem(TextItem);
 	}
 
-	return FVector2D(XL,YL);
+	return TextSize;
 }
 
 void UUTHUDWidget::DrawTexture(UTexture* Texture, float X, float Y, float Width, float Height, float U, float V, float UL, float VL, float DrawOpacity, FLinearColor DrawColor, FVector2D RenderOffset, float Rotation, FVector2D RotPivot)

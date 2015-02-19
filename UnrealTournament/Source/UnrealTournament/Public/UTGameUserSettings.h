@@ -58,7 +58,7 @@ protected:
 	FString EpicIDAuthToken;
 
 	UPROPERTY(config)
-	float ServerBrowserColumnWidths[9];
+	float ServerBrowserColumnWidths[10];
 
 	UPROPERTY(config)
 	float ServerBrowserRulesColumnWidths[2];

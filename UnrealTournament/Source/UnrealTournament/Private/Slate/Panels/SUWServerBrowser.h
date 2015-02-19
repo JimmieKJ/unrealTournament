@@ -284,6 +284,27 @@ public:
 		Rules.Add( FServerRuleData::Make(Rule, Value));
 	}
 
+	FText GetBrowserNumPlayers()
+	{
+		return FText::Format(NSLOCTEXT("ServerBrowser", "NumPlayers", "{0}/{1}"), FText::AsNumber(NumPlayers),FText::AsNumber(MaxPlayers) );
+	}
+
+	FText GetBrowserNumSpectators()
+	{
+		return FText::Format(NSLOCTEXT("ServerBrowser", "NumSpectators", "{0}/{1}"), FText::AsNumber(NumSpectators), FText::AsNumber(MaxSpectators));
+	}
+
+	FText GetBrowserNumFriends()
+	{
+		return FText::Format(NSLOCTEXT("ServerBrowser", "NumFriends", "{0}"), FText::AsNumber(NumFriends));
+	}
+
+	FText GetNumServers()
+	{
+		return FText::Format(NSLOCTEXT("HUBBrowser", "NumServersFormat", "{0} Servers"), FText::AsNumber(NumMatches));
+	}
+
+
 	FText GetNumMatches()
 	{
 		return FText::Format(NSLOCTEXT("HUBBrowser","NumMatchesFormat","{0} Matches"), FText::AsNumber(NumMatches));
@@ -293,7 +314,7 @@ public:
 	{
 		return FText::Format(NSLOCTEXT("HUBBrowser", "NumPlayersFormat", "{0} Players"), FText::AsNumber(NumPlayers));
 	}
-	
+
 
 	FText GetNumFriends()
 	{
@@ -345,8 +366,24 @@ public:
 			else if (ColumnName == FName(TEXT("ServerGame"))) ColumnText = FText::FromString(ServerData->GameModeName);
 			else if (ColumnName == FName(TEXT("ServerMap"))) ColumnText = FText::FromString(ServerData->Map);
 			else if (ColumnName == FName(TEXT("ServerVer"))) ColumnText = FText::FromString(ServerData->Version);
-			else if (ColumnName == FName(TEXT("ServerNumPlayers"))) ColumnText = FText::Format(NSLOCTEXT("SUWServerBrowser","NumPlayers","{0}/{1}"), FText::AsNumber(ServerData->NumPlayers), FText::AsNumber(ServerData->MaxPlayers));
-			else if (ColumnName == FName(TEXT("ServerNumSpecs"))) ColumnText = FText::Format(NSLOCTEXT("SUWServerBrowser","NumPlayers","{0}/{1}"), FText::AsNumber(ServerData->NumSpectators), FText::AsNumber(ServerData->MaxSpectators));
+			else if (ColumnName == FName(TEXT("ServerNumPlayers")))
+			{
+				return SNew(STextBlock)
+					.Font(ItemEditorFont)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumPlayers)));
+			}
+			else if (ColumnName == FName(TEXT("ServerNumSpecs"))) 
+			{
+				return SNew(STextBlock)
+					.Font(ItemEditorFont)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumSpectators)));
+			}
+			else if (ColumnName == FName(TEXT("ServerNumFriends")))
+			{
+				return SNew(STextBlock)
+					.Font(ItemEditorFont)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumFriends)));
+			}
 			else if (ColumnName == FName(TEXT("ServerPing"))) 
 			{
 				ColumnText = bErrorPing ? NSLOCTEXT("SUWServerBrowser","BadPing", "--") : FText::AsNumber(ServerData->Ping);
@@ -560,7 +597,7 @@ protected:
 	virtual FReply OnConnectIP();
 	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
-	virtual void TallyInternetServers(int32& Players, int32& Spectators);
+	virtual void TallyInternetServers(int32& Players, int32& Spectators, int32& Friends);
 
 private:
 	bool bAutoRefresh;

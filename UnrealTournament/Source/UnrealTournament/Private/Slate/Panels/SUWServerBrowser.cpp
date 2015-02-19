@@ -39,8 +39,11 @@ struct FCompareServerByMapDesc	{FORCEINLINE bool operator()( const TSharedPtr< F
 struct FCompareServerByNumPlayers		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const { return ( A->NumPlayers < B->NumPlayers);}};
 struct FCompareServerByNumPlayersDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const { return ( A->NumPlayers > B->NumPlayers);}};
 
-struct FCompareServerByNumSpectators		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->NumPlayers < B->NumPlayers);}};
-struct FCompareServerByNumSpectatorsDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->NumPlayers > B->NumPlayers);}};
+struct FCompareServerByNumSpectators		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->NumSpectators < B->NumSpectators);}};
+struct FCompareServerByNumSpectatorsDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->NumSpectators> B->NumSpectators);}};
+
+struct FCompareServerByNumFriends { FORCEINLINE bool operator()(const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B) const { return (A->NumFriends < B->NumFriends); } };
+struct FCompareServerByNumFriendsDesc { FORCEINLINE bool operator()(const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B) const { return (A->NumFriends > B->NumFriends); } };
 
 struct FCompareServerByVersion		{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->Version < B->Version);}};
 struct FCompareServerByVersionDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const {return ( A->Version > B->Version);}};
@@ -528,6 +531,19 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
 
+								+ SHeaderRow::Column("ServerNumFriends")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
+										.HAlignCell(HAlign_Center)
+										.HAlignHeader(HAlign_Center)
+										.OnSort(this, &SUWServerBrowser::OnSort)
+										.HeaderContent()
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumnToolTip", "The # of friends on this server."))
+												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
+
 								+ SHeaderRow::Column("ServerVer") 
 										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerVerColumn", "Version"))
 										.HAlignCell(HAlign_Center) 
@@ -845,6 +861,7 @@ void SUWServerBrowser::SortServers(FName ColumnName)
 	else if (ColumnName == FName(TEXT("ServerVer"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByVersionDesc()) : FilteredServers.Sort(FCompareServerByVersion());
 	else if (ColumnName == FName(TEXT("ServerNumPlayers"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByNumPlayersDesc()) : FilteredServers.Sort(FCompareServerByNumPlayers());
 	else if (ColumnName == FName(TEXT("ServerNumSpecs"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByNumSpectatorsDesc()) : FilteredServers.Sort(FCompareServerByNumSpectators());
+	else if (ColumnName == FName(TEXT("ServerNumFriends"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByNumFriendsDesc()) : FilteredServers.Sort(FCompareServerByNumFriends());
 	else if (ColumnName == FName(TEXT("ServerPing"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByPingDesc()) : FilteredServers.Sort(FCompareServerByPing());
 
 	InternetServerList->RequestListRefresh();
@@ -1104,7 +1121,9 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 						{
 							HUBSessionId->GetValue(SessionIdAsString);
 						}
-						else if (FriendPresence.SessionId.IsValid())
+
+						// If we didn't have a HUB Id, then grab the player's current session Id if they have one.
+						if (SessionIdAsString == TEXT("") && FriendPresence.SessionId.IsValid())
 						{
 							SessionIdAsString = FriendPresence.SessionId->ToString();
 						}
@@ -1447,9 +1466,11 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 	{
 		int32 NumPlayers = 0;
 		int32 NumSpectators = 0;
-		TallyInternetServers(NumPlayers, NumSpectators);
+		int32 NumFriends = 0;
+		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
 		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
 
@@ -1462,10 +1483,12 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 	{
 		int32 NumPlayers = 0;
 		int32 NumSpectators = 0;
-		TallyInternetServers(NumPlayers, NumSpectators);
+		int32 NumFriends = 0;
+		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
 		HUBServers.Remove(RandomHUB);
 		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
 		HUBServers.Add(RandomHUB);
@@ -1475,14 +1498,17 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 
 }
 
-void SUWServerBrowser::TallyInternetServers(int32& Players, int32& Spectators)
+void SUWServerBrowser::TallyInternetServers(int32& Players, int32& Spectators, int32& Friends)
 {
 	Players = 0;
 	Spectators = 0;
+	Friends = 0;
+
 	for (int32 i=0;i<InternetServers.Num();i++)
 	{
 		Players += InternetServers[i]->NumPlayers;
 		Spectators += InternetServers[i]->NumSpectators;
+		Friends += InternetServers[i]->NumFriends;
 	}
 }
 
@@ -1659,7 +1685,9 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									.VAlign(VAlign_Center)
 									[
 										SNew(STextBlock)
-										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumMatches)))
+										.Text(InItem->bFakeHUB ? 
+											TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumServers)) :
+											TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumMatches)))
 										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
 									]
 

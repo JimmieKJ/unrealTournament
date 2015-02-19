@@ -406,7 +406,7 @@ FReply SUWLoginDialog::OnNewAccountClick()
 FReply SUWLoginDialog::OnForgotPasswordClick()
 {
 	FString Error;
-	FPlatformProcess::LaunchURL(TEXT("https://accounts.unrealtournament.com/login/index"), NULL, &Error);
+	FPlatformProcess::LaunchURL(TEXT("https://accounts.unrealtournament.com/requestPasswordReset"), NULL, &Error);
 	if (Error.Len() > 0)
 	{
 		PlayerOwner->MessageBox(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"),FText::FromString(Error) );
