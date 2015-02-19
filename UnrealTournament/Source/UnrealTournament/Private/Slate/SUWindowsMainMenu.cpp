@@ -126,7 +126,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch").ToString())
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, QuickMatchTypes::Deathmatch)
+			.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::Deathmatch)
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -136,7 +136,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag").ToString())
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, QuickMatchTypes::CaptureTheFlag)
+			.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::CaptureTheFlag)
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -221,8 +221,16 @@ FReply SUWindowsMainMenu::OnTutorialClick()
 }
 
 
-FReply SUWindowsMainMenu::OnPlayQuickMatch(FName QuickMatchType)
+FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FName QuickMatchType)
 {
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline(TEXT(""),TEXT(""));
+		return FReply::Handled();
+	}
+
 	UE_LOG(UT,Log,TEXT("QuickMatch: %s"),*QuickMatchType.ToString());
 	PlayerOwner->StartQuickMatch(QuickMatchType);
 	return FReply::Handled();

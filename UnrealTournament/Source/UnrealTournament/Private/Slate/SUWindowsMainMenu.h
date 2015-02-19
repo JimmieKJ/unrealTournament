@@ -26,7 +26,7 @@ protected:
 	virtual FReply OnTutorialClick();
 	virtual FReply OnCloseClicked();
 
-	virtual FReply OnPlayQuickMatch(FName QuickMatchType);
+	virtual FReply OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FName QuickMatchType);
 
 
 	virtual void OpenDelayedMenu();

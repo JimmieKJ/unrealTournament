@@ -432,6 +432,7 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 	if (IsLoggedIn() )
 	{
 		// Allow users to switch accounts
+		PendingLoginUserName = LastEpicIDLogin;
 		GetAuth();
 	}
 	else
@@ -584,6 +585,11 @@ void UUTLocalPlayer::GetAuth(bool bLastFailed)
 		return;
 	}
 
+	if (LoginDialog.IsValid())
+	{
+		return;
+	}
+
 	SAssignNew(LoginDialog, SUWLoginDialog)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))
 		.UserIDText(PendingLoginUserName)
@@ -689,6 +695,7 @@ void UUTLocalPlayer::CloseAuth()
 
 void UUTLocalPlayer::AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
+	
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
 		if (LoginDialog.IsValid())
@@ -700,6 +707,9 @@ void UUTLocalPlayer::AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16
 				PendingLoginName = LoginDialog->GetEpicID();
 				PendingLoginPassword = LoginDialog->GetPassword();
 
+				CloseAuth();
+
+
 				// If we are in an active session, warn that this will cause you to go back to the main menu.
 				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
 				if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
@@ -710,20 +720,26 @@ void UUTLocalPlayer::AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16
 				{
 					Logout();
 				}
-				CloseAuth();
 				return;
 			}
 
-
-			LoginOnline(LoginDialog->GetEpicID(), LoginDialog->GetPassword(),false);
+			else
+			{
+				FString UserName = LoginDialog->GetEpicID();
+				FString Password = LoginDialog->GetPassword();
+				CloseAuth();
+				LoginOnline(UserName, Password,false);
+			}
 		}
 	}
 	else
 	{
+		if (LoginDialog.IsValid())
+		{
+			CloseAuth();
+		}
 		PendingLoginUserName = TEXT("");
 	}
-
-	CloseAuth();
 }
 
 void UUTLocalPlayer::OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)

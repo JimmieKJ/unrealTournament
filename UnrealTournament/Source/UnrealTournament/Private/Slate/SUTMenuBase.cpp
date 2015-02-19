@@ -756,6 +756,14 @@ FReply SUTMenuBase::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton)
 
 FReply SUTMenuBase::OnShowServerBrowserPanel()
 {
+
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline(TEXT(""), TEXT(""));
+		return FReply::Handled();
+	}
+	
+
 	TSharedPtr<class SUWServerBrowser> Browser = PlayerOwner->GetServerBrowser();
 	if (Browser.IsValid())
 	{

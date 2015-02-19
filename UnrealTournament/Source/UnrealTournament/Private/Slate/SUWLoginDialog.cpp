@@ -432,7 +432,12 @@ void SUWLoginDialog::OnTextCommited(const FText& NewText, ETextCommit::Type Comm
 
 FReply SUWLoginDialog::OnSignInClick()
 {
-	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+
+	if ( GetEpicID() != TEXT("") && GetPassword() != TEXT("") )  
+	{
+		OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+	}
+
 	return FReply::Handled();
 }
 
