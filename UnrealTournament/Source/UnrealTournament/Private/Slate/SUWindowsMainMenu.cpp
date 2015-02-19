@@ -49,20 +49,7 @@ void SUWindowsMainMenu::BuildLeftMenuBar()
 		.Padding(5.0f,0.0f,0.0f,0.0f)
 		.AutoWidth()
 		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
-			.OnClicked(this, &SUWindowsMainMenu::OnTutorialClick)
-			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_TUTORIAL","TRAINING").ToString())
-					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-				]
-			]
+			BuildTutorialSubMenu()
 		];
 
 		LeftMenuBar->AddSlot()
@@ -95,6 +82,67 @@ void SUWindowsMainMenu::BuildLeftMenuBar()
 
 	}
 }
+
+TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
+{
+
+	TSharedPtr<SComboButton> DropDownButton = NULL;
+
+	SAssignNew(DropDownButton, SComboButton)
+		.HasDownArrow(false)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
+		.ButtonContent()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "TRAINING").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+			]
+		];
+
+	DropDownButton->SetMenuContent
+	(
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "BOOT CAMP").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.OnClicked(this, &SUWindowsMainMenu::OnBootCampClick, DropDownButton)
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SBox)
+			.HeightOverride(16)
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
+			]
+		]
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_Community", "COMMUNITY VIDEOS").ToString())
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.OnClicked(this, &SUWindowsMainMenu::OnCommunityClick, DropDownButton)
+		]
+	);
+
+	MenuButtons.Add(DropDownButton);
+	return DropDownButton.ToSharedRef();
+
+}
+
 
 TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 {
@@ -235,5 +283,34 @@ FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, 
 	PlayerOwner->StartQuickMatch(QuickMatchType);
 	return FReply::Handled();
 }
+
+FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	ConsoleCommand(TEXT("open TUT-BasicTraining"));
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	if ( !WebPanel.IsValid() )
+	{
+		// Create the Web panel
+		SAssignNew(WebPanel, SUTWebBrowserPanel)
+			.PlayerOwner(PlayerOwner);
+	}
+
+	if (WebPanel.IsValid())
+	{
+		if (ActivePanel.IsValid() && ActivePanel != WebPanel)
+		{
+			ActivatePanel(WebPanel);
+		}
+		WebPanel->Browse(CommunityVideoURL);
+	}
+	return FReply::Handled();
+}
+
 
 #endif

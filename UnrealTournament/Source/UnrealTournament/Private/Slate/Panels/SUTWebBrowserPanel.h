@@ -1,0 +1,28 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+#pragma once
+
+#include "Slate/SlateGameResources.h"
+#include "../SUWPanel.h"
+#include "../SUWindowsStyle.h"
+
+#if !UE_SERVER
+
+#include "SWebBrowser.h"
+
+class SUTWebBrowserPanel : public SUWPanel
+{
+public:
+	virtual void ConstructPanel(FVector2D ViewportSize);
+	virtual void Browse(FString URL);
+
+protected:
+
+	TSharedPtr<SVerticalBox> WebBrowserContainer;
+	// The Actual Web browser panel.
+	TSharedPtr<SWebBrowser> WebBrowserPanel;
+
+	float GetReverseScale() const;
+
+};
+
+#endif

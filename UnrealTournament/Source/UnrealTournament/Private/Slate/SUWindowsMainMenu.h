@@ -6,6 +6,9 @@
 #include "SUTMenuBase.h"
 #include "Panels/SUWCreateGamePanel.h"
 #include "Panels/SUHomePanel.h"
+#include "Panels/SUTWebBrowserPanel.h"
+
+const FString CommunityVideoURL = "http://epic.gm/utlaunchertutorial";
 
 #if !UE_SERVER
 class SUWindowsMainMenu : public SUTMenuBase
@@ -14,6 +17,7 @@ protected:
 	bool bNeedToShowGamePanel;
 
 	TSharedPtr<SUWCreateGamePanel> GamePanel;
+	TSharedPtr<SUTWebBrowserPanel> WebPanel;
 
 	TSharedRef<SWidget> AddPlayNow();
 
@@ -21,10 +25,15 @@ protected:
 	virtual void SetInitialPanel();
 
 	virtual void BuildLeftMenuBar();
+	
+	virtual TSharedRef<SWidget> BuildTutorialSubMenu();
 
 	virtual FReply OnShowGamePanel();
 	virtual FReply OnTutorialClick();
 	virtual FReply OnCloseClicked();
+
+	virtual FReply OnBootCampClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnCommunityClick(TSharedPtr<SComboButton> MenuButton);
 
 	virtual FReply OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FName QuickMatchType);
 
