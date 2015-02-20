@@ -345,6 +345,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			{
 				// still update forces
 				ApplyAccumulatedForces(DeltaTime);
+				PerformMovement(DeltaTime);
 			}
 		}
 		else if (CharacterOwner->Role == ROLE_SimulatedProxy)
