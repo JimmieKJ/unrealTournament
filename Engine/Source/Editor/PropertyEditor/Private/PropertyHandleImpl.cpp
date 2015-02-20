@@ -70,11 +70,18 @@ FPropertyAccess::Result FPropertyValueImpl::GetPropertyValueString( FString& Out
 				{
 					const uint8 EnumValueIndex = ByteProperty->GetPropertyValue(ValueAddress);
 
-					// See if we specified an alternate name for this value using metadata
-					OutString = ByteProperty->Enum->GetDisplayNameText(EnumValueIndex).ToString();
-					if(!bAllowAlternateDisplayValue || OutString.Len() == 0) 
+					if (EnumValueIndex >= 0 && EnumValueIndex < ByteProperty->Enum->NumEnums())
 					{
-						OutString = ByteProperty->Enum->GetEnumName(EnumValueIndex);
+						// See if we specified an alternate name for this value using metadata
+						OutString = ByteProperty->Enum->GetDisplayNameText(EnumValueIndex).ToString();
+						if(!bAllowAlternateDisplayValue || OutString.Len() == 0) 
+						{
+							OutString = ByteProperty->Enum->GetEnumName(EnumValueIndex);
+						}
+					}
+					else
+					{
+						Result = FPropertyAccess::Fail;
 					}
 				}
 			}
@@ -123,11 +130,18 @@ FPropertyAccess::Result FPropertyValueImpl::GetPropertyValueText( FText& OutText
 				{
 					const uint8 EnumValueIndex = ByteProperty->GetPropertyValue(ValueAddress);
 					
-					// See if we specified an alternate name for this value using metadata
-					OutText = ByteProperty->Enum->GetDisplayNameText(EnumValueIndex);
-					if(!bAllowAlternateDisplayValue || OutText.IsEmpty()) 
+					if (EnumValueIndex >= 0 && EnumValueIndex < ByteProperty->Enum->NumEnums())
 					{
-						OutText = ByteProperty->Enum->GetEnumText(EnumValueIndex);
+						// See if we specified an alternate name for this value using metadata
+						OutText = ByteProperty->Enum->GetDisplayNameText(EnumValueIndex);
+						if(!bAllowAlternateDisplayValue || OutText.IsEmpty()) 
+						{
+							OutText = ByteProperty->Enum->GetEnumText(EnumValueIndex);
+						}
+					}
+					else
+					{
+						Result = FPropertyAccess::Fail;
 					}
 				}
 				else
