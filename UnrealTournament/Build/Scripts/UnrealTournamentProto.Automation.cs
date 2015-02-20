@@ -392,6 +392,66 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 		Params.ValidateAndLog();
 		return Params;
 	}
+
+    public void CopyAssetRegistryFilesFromSavedCookedToReleases(ProjectParams Params)
+    {
+        if (P4Enabled && !String.IsNullOrEmpty(Params.CreateReleaseVersion))
+        {
+            Log("************************* Copying AssetRegistry.bin files from Saved/Cooked to Releases");
+            var ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
+            var SavedPath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "Cooked");
+
+            var Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
+
+            foreach (string Platform in Platforms)
+            {
+                string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
+                CommandUtils.CopyFile_NoExceptions(CombinePaths(SavedPath, Platform, "Releases", Params.CreateReleaseVersion, "AssetRegistry.bin"), Filename);
+            }
+        }
+    }
+
+    public void SubmitAssetRegistryFilesToPerforce(ProjectParams Params)
+    {
+        // Submit release version assetregistry.bin
+        if (P4Enabled && !String.IsNullOrEmpty(Params.CreateReleaseVersion))
+        {
+            Log("************************* Submitting AssetRegistry.bin files");
+            int AssetRegCL = P4.CreateChange(P4Env.Client, String.Format("UnrealTournamentBuild AssetRegistry build built from changelist {0}", P4Env.Changelist));
+            if (AssetRegCL > 0)
+            {
+                var ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
+
+                var Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
+
+                foreach (string Platform in Platforms)
+                {
+                    string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
+
+                    P4.Sync("-f -k " + Filename + "#head"); // sync the file without overwriting local one
+
+                    if (!FileExists(Filename))
+                    {
+                        throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", Filename);
+                    }
+
+                    P4.ReconcileNoDeletes(AssetRegCL, Filename);
+                }
+            }
+            bool Pending;
+            if (P4.ChangeFiles(AssetRegCL, out Pending).Count == 0)
+            {
+                Log("************************* No files to submit.");
+                P4.DeleteChange(AssetRegCL);
+            }
+            else
+            {
+                int SubmittedCL;
+                P4.Submit(AssetRegCL, out SubmittedCL, true, true);
+            }
+        }
+    }
+
 	public override void ExecuteBuild()
 	{
 		Log("************************* UnrealTournamentProto_BasicBuild");
@@ -408,6 +468,8 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 		Project.Build(this, Params, WorkingCL);
 		Project.Cook(Params);
 		Project.CopyBuildToStagingDirectory(Params);
+        CopyAssetRegistryFilesFromSavedCookedToReleases(Params);
+        SubmitAssetRegistryFilesToPerforce(Params);
         EditorProject.CopyEditorBuildToStagingDirectory(Params);
 		PrintRunTime();
 		Project.Deploy(Params);
@@ -431,45 +493,6 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             P4.MakeDownstreamLabel(P4Env, "UnrealTournamentBuild");
 		}
 
-        // Submit release version assetregistry.bin
-        if (P4Enabled && !String.IsNullOrEmpty(Params.CreateReleaseVersion))
-        {
-            Log("************************* Submitting AssetRegistry.bin files");
-            int AssetRegCL = P4.CreateChange(P4Env.Client, String.Format("UnrealTournamentBuild AssetRegistry build built from changelist {0}", P4Env.Changelist));
-            if (AssetRegCL > 0)
-            {
-                var ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
-                var SavedPath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "Cooked");
-
-                var Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
-
-                foreach (string Platform in Platforms)
-                {
-                    string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
-                    CommandUtils.CopyFile_NoExceptions(CombinePaths(SavedPath, Platform, "Releases", Params.CreateReleaseVersion, "AssetRegistry.bin"), Filename);
-
-                    P4.Sync("-f -k " + Filename + "#head"); // sync the file without overwriting local one
-
-                    if (!FileExists(Filename))
-                    {
-                        throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", Filename);
-                    }
-
-                    P4.ReconcileNoDeletes(AssetRegCL, Filename);
-                }
-            }
-            bool Pending;
-            if (P4.ChangeFiles(AssetRegCL, out Pending).Count == 0)
-            {
-                Log("************************* No files to submit.");
-                P4.DeleteChange(WorkingCL);
-            }
-            else
-            {
-                int SubmittedCL;
-                P4.Submit(AssetRegCL, out SubmittedCL, true, true);
-            }
-        }
 	}
 }
 
