@@ -43,10 +43,13 @@ void AUTLobbyPlayerState::MatchButtonPressed()
 bool AUTLobbyPlayerState::ServerCreateMatch_Validate() { return true; }
 void AUTLobbyPlayerState::ServerCreateMatch_Implementation()
 {
-	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (GameState)
+	if (CurrentMatch == NULL)
 	{
-		GameState->AddNewMatch(this);
+		AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+		if (GameState)
+		{
+			GameState->AddNewMatch(this);
+		}
 	}
 }
 
@@ -63,10 +66,18 @@ void AUTLobbyPlayerState::ServerDestroyOrLeaveMatch_Implementation()
 bool AUTLobbyPlayerState::ServerJoinMatch_Validate(AUTLobbyMatchInfo* MatchToJoin) { return true; }
 void AUTLobbyPlayerState::ServerJoinMatch_Implementation(AUTLobbyMatchInfo* MatchToJoin)
 {
-	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (GameState)
+	// CurrentMatch may have been set by a previous call if client is lagged and sends multiple requests
+	if (CurrentMatch != MatchToJoin)
 	{
-		GameState->JoinMatch(MatchToJoin, this);
+		AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+		if (GameState != NULL)
+		{
+			if (CurrentMatch != NULL)
+			{
+				GameState->RemoveFromAMatch(this);
+			}
+			GameState->JoinMatch(MatchToJoin, this);
+		}
 	}
 }
 
