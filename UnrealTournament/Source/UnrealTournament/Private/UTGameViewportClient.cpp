@@ -147,11 +147,13 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		else if (ErrorString == TEXT("TOOWEAK"))
 		{
 			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","WEAKMSG","You are not skilled enough to play on this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+			FirstPlayer->ShowMenu();
 			return;
 		}
 		else if (ErrorString == TEXT("TOOSTRONG"))
 		{
 			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","STRONGMSG","Your skill is too high for this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+			FirstPlayer->ShowMenu();
 			return;
 		}
 		else if (ErrorString == TEXT("NOTLOGGEDIN"))
@@ -173,6 +175,7 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		// TODO: Explain to the engine team why you can't localize server error strings :(
 		else if (ErrorString == TEXT("Server full."))
 		{
+			FirstPlayer->ShowMenu();
 			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","SERVERFULL","The game you are trying to join is full!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
 			return;
 		}
