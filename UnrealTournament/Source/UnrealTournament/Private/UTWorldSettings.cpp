@@ -11,8 +11,8 @@ AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
 {
 	KillZDamageType = UUTDmgType_KillZ::StaticClass();
 
-	MaxImpactEffectVisibleLifetime = 60.0f;
-	MaxImpactEffectInvisibleLifetime = 30.0f;
+	MaxImpactEffectVisibleLifetime = 30.0f;
+	MaxImpactEffectInvisibleLifetime = 15.0f;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;

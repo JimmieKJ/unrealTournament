@@ -113,7 +113,7 @@ FString SUWSystemSettingsDialog::GetFOVLabelText(int32 FOVAngle)
 
 void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 {
-	DecalLifetimeRange = FVector2D(5.0f, 180.0f);
+	DecalLifetimeRange = FVector2D(5.0f, 105.0f);
 
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -379,10 +379,10 @@ FReply SUWSystemSettingsDialog::OKClick()
 	}
 
 	// impact effect lifetime - note that 1.0 on the slider is infinite lifetime
-	float NewDecalLifetime = (DecalLifetime->GetValue() >= 1.0f) ? -1.0f : (DecalLifetime->GetValue() * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
+	float NewDecalLifetime = (FMath::Square(DecalLifetime->GetValue()) * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
 	AUTWorldSettings* DefaultWS = AUTWorldSettings::StaticClass()->GetDefaultObject<AUTWorldSettings>();
 	DefaultWS->MaxImpactEffectVisibleLifetime = NewDecalLifetime;
-	DefaultWS->MaxImpactEffectInvisibleLifetime = NewDecalLifetime * 2.0f;
+	DefaultWS->MaxImpactEffectInvisibleLifetime = NewDecalLifetime * 0.5f;
 	DefaultWS->SaveConfig();
 	if (GetPlayerOwner()->PlayerController != NULL)
 	{
