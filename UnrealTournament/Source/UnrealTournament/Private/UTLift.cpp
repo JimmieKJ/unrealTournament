@@ -85,7 +85,7 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				bMoveWasBlocked = true;
 				return;
 			}
-			if (Cast<AUTGib>(Other) || Cast<AUTDroppedPickup>(Other))
+			if (Cast<AUTGib>(Other) || Cast<AUTDroppedPickup>(Other) || Cast<AUTCosmetic>(Other))
 			{
 				if (bMoveWasBlocked)
 				{
