@@ -112,7 +112,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 			SNew(SButton)
 			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "BOOT CAMP").ToString())
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "BASIC TRAINING").ToString())
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.OnClicked(this, &SUWindowsMainMenu::OnBootCampClick, DropDownButton)
 		]
