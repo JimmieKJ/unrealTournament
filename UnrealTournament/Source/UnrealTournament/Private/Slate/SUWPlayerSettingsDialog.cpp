@@ -610,6 +610,53 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				.OnDrag(this, &SUWPlayerSettingsDialog::DragPlayerPreview)
 			]
 		];
+		DialogContent->AddSlot()
+		[
+			SAssignNew(PlayerColorPicker, SBox)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SOverlay)
+				+ SOverlay::Slot()
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
+					]
+				]
+				+ SOverlay::Slot()
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.Padding(10.0f, 10.0f, 10.0f, 10.0f)
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SColorPicker)
+						.OnColorCommitted(this, &SUWPlayerSettingsDialog::PlayerColorChanged)
+						.TargetColorAttribute(SelectedPlayerColor)
+					]
+					+ SVerticalBox::Slot()
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Bottom)
+					.Padding(10.0f, 10.0f, 10.0f, 10.0f)
+					.AutoHeight()
+					[
+						SNew(SButton)
+						.HAlign(HAlign_Center)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Done", "Done").ToString())
+						.OnClicked(this, &SUWPlayerSettingsDialog::CloseColorPicker)
+					]
+				]
+			]
+		];
+		PlayerColorPicker->SetVisibility(EVisibility::Hidden);
 
 		bool bFoundSelectedHat = false;
 		for (int32 i = 0; i < HatPathList.Num(); i++)
@@ -712,12 +759,7 @@ FReply SUWPlayerSettingsDialog::PlayerColorClicked(const FGeometry& Geometry, co
 {
 	if (Event.GetEffectingButton() == FKey(TEXT("LeftMouseButton")))
 	{
-		FColorPickerArgs Params;
-		Params.bIsModal = true;
-		Params.ParentWidget = SharedThis(this);
-		Params.OnColorCommitted.BindSP(this, &SUWPlayerSettingsDialog::PlayerColorChanged);
-		Params.InitialColorOverride = SelectedPlayerColor;
-		OpenColorPicker(Params);
+		PlayerColorPicker->SetVisibility(EVisibility::Visible);
 	}
 	return FReply::Handled();
 }
@@ -725,6 +767,11 @@ void SUWPlayerSettingsDialog::PlayerColorChanged(FLinearColor NewValue)
 {
 	SelectedPlayerColor = NewValue;
 	RecreatePlayerPreview();
+}
+FReply SUWPlayerSettingsDialog::CloseColorPicker()
+{
+	PlayerColorPicker->SetVisibility(EVisibility::Hidden);
+	return FReply::Handled();
 }
 
 FReply SUWPlayerSettingsDialog::OKClick()

@@ -54,6 +54,7 @@ protected:
 	TSharedPtr<SEditableTextBox> PlayerName;
 	TSharedPtr<SSlider> WeaponBobScaling, ViewBobScaling;
 	FLinearColor SelectedPlayerColor;
+	TSharedPtr<SWidget> PlayerColorPicker;
 
 	TArray<TSharedPtr<FString>> HatList;
 	TArray<FString> HatPathList;
@@ -95,6 +96,7 @@ protected:
 	FReply CancelClick();
 	FReply WeaponConfigClick();
 	FReply PlayerColorClicked(const FGeometry& Geometry, const FPointerEvent& Event);
+	FReply CloseColorPicker();
 	FLinearColor GetSelectedPlayerColor() const
 	{
 		return SelectedPlayerColor;
