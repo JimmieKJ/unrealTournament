@@ -96,7 +96,10 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	if (SelectedWeapon == NULL)
 	{
 		SelectedWeapon = UTCharacterOwner->GetWeapon();
-		WeaponNameText.Text = SelectedWeapon->DisplayName;
+		if (SelectedWeapon)
+		{
+			WeaponNameText.Text = SelectedWeapon->DisplayName;
+		}
 	}
 	else
 	{
