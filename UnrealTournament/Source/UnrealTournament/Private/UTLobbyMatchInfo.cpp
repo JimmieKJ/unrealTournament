@@ -155,13 +155,20 @@ void AUTLobbyMatchInfo::RecycleMatchInfo()
 
 void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner)
 {
-	if (bIsOwner)
+	if (bIsOwner && !OwnerId.IsValid())
 	{
 		OwnerId = PlayerToAdd->UniqueId;
 		SetLobbyMatchState(ELobbyMatchState::Setup);
 	}
 	else
 	{
+		// Look to see if this player is already in the match
+
+		for (int32 PlayerIdx = 0; PlayerIdx < Players.Num(); PlayerIdx++)
+		{
+			if (Players[PlayerIdx] == PlayerToAdd) return;	// Quick out if already in the match
+		}
+
 		for (int32 i=0;i<BannedIDs.Num();i++)
 		{
 			if (PlayerToAdd->UniqueId == BannedIDs[i])
