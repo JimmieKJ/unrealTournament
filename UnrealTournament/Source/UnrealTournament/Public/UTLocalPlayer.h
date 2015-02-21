@@ -379,6 +379,10 @@ protected:
 
 public:
 	bool IsAFriend(FUniqueNetIdRepl PlayerId);
+
+	UPROPERTY(Config)
+	uint32 bShowBrowserIconOnMainMenu:1;
+
 };
 
 

@@ -46,39 +46,18 @@ void SUWindowsMainMenu::BuildLeftMenuBar()
 	if (LeftMenuBar.IsValid())
 	{
 		LeftMenuBar->AddSlot()
-		.Padding(5.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			BuildTutorialSubMenu()
-		];
-
-		LeftMenuBar->AddSlot()
-		.Padding(5.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
-			.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel)
-			.ContentPadding(FMargin(25.0,0.0,25.0,0.0))
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_CreateGame","CREATE GAME").ToString())
-					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-				]
-			]
-		];
-
-		LeftMenuBar->AddSlot()
 		.Padding(5.0f, 0.0f, 0.0f, 0.0f)
 		.AutoWidth()
 		[
 			AddPlayNow()
 		];
 
+		LeftMenuBar->AddSlot()
+		.Padding(5.0f,0.0f,0.0f,0.0f)
+		.AutoWidth()
+		[
+			BuildTutorialSubMenu()
+		];
 
 	}
 }
@@ -99,7 +78,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "TRAINING").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "LEARN").ToString())
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 			]
 		];
@@ -160,7 +139,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch", "PLAY NOW").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch", "PLAY").ToString())
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 			]
 		];
@@ -198,6 +177,30 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
 			]
 		]
+		 
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game").ToString())
+			.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel)
+		]
+
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SBox)
+			.HeightOverride(16)
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
+			]
+		]
+
 
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -361,7 +364,10 @@ void SUWindowsMainMenu::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget
 	}
 }
 
-
+bool SUWindowsMainMenu::ShouldShowBrowserIcon()
+{
+	return (PlayerOwner.IsValid() && PlayerOwner->bShowBrowserIconOnMainMenu);
+}
 
 
 #endif

@@ -75,5 +75,10 @@ protected:
 	int TickCountDown;
 	virtual void OpenDelayedMenu();
 
+	virtual bool ShouldShowBrowserIcon()
+	{
+		return true;
+	}
+
 };
 #endif

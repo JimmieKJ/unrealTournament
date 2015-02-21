@@ -147,31 +147,34 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 			]
 		];
 
-		BuildLeftMenuBar();
-
-		LeftMenuBar->AddSlot()
-		.Padding(5.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
-			.OnClicked(this, &SUTMenuBase::OnShowServerBrowserPanel)
+		if (ShouldShowBrowserIcon())
+		{
+			LeftMenuBar->AddSlot()
+			.Padding(5.0f, 0.0f, 0.0f, 0.0f)
+			.AutoWidth()
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.OnClicked(this, &SUTMenuBase::OnShowServerBrowserPanel)
 				[
-					SNew(SBox)
-					.WidthOverride(48)
-					.HeightOverride(48)
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
 					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Browser"))
+						SNew(SBox)
+						.WidthOverride(48)
+						.HeightOverride(48)
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Browser"))
+						]
 					]
 				]
-			]
-		];
+			];
+		}
+
+
+		BuildLeftMenuBar();
 	}
 
 	return LeftMenuBar.ToSharedRef();
@@ -624,23 +627,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				.OnClicked(this, &SUTMenuBase::OnOnlineClick)		
 				[
 					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.VAlign(VAlign_Center)
-						[
-							SNew(SBox)
-							.WidthOverride(48)
-							.HeightOverride(48)
-							[
-								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.SignOut"))
-							]
-						]
-					]
 					+SHorizontalBox::Slot()
 					.AutoWidth()
 					.Padding(5.0f,0.0f,25.0f,0.0f)

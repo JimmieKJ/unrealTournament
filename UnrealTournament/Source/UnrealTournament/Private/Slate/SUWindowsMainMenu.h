@@ -41,6 +41,6 @@ protected:
 	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	virtual void OpenDelayedMenu();
-
+	virtual bool ShouldShowBrowserIcon();
 };
 #endif
