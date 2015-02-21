@@ -74,6 +74,14 @@ struct FComparePlayersByNameDesc	{FORCEINLINE bool operator()( const TSharedPtr<
 struct FComparePlayersByScore		{FORCEINLINE bool operator()( const TSharedPtr< FServerPlayerData > A, const TSharedPtr< FServerPlayerData > B ) const {return ( A->Score > B->Score);	}};
 struct FComparePlayersByScoreDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerPlayerData > A, const TSharedPtr< FServerPlayerData > B ) const {return ( A->Score < B->Score);	}};
 
+SUWServerBrowser::~SUWServerBrowser()
+{
+	if (PlayerOwner.IsValid())
+	{
+		PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+	}
+}
+
 void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 {
 	Tag = FName(TEXT("ServerBrowser"));
@@ -300,8 +308,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 
 	OnRefreshClick();
 
-	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUWServerBrowser::OwnerLoginStatusChanged);
-	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+	PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUWServerBrowser::OwnerLoginStatusChanged));
 
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	if (GS)

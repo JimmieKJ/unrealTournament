@@ -12,6 +12,10 @@ SUWStatsViewer::~SUWStatsViewer()
 	{
 		OnlineUserCloudInterface->ClearOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegateHandle);
 	}
+	if (PlayerOwner.IsValid())
+	{
+		PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+	}
 }
 
 void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
@@ -25,8 +29,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		OnlineUserCloudInterface = OnlineSubsystem->GetUserCloudInterface();
 	}
 
-	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUWStatsViewer::OwnerLoginStatusChanged);
-	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+	PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUWStatsViewer::OwnerLoginStatusChanged));
 
 	if (OnlineUserCloudInterface.IsValid())
 	{

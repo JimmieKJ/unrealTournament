@@ -53,7 +53,7 @@ protected:
 	virtual void OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 
 private:
-	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
+	FDelegateHandle PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 	
 

@@ -107,15 +107,15 @@ void SUInGameMenu::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELo
 
 void SUInGameMenu::OnMenuOpened()
 {
-	PlayerOnlineStatusChangedDelegate.BindSP(this, &SUInGameMenu::OwnerLoginStatusChanged);
-	PlayerOwner->AddPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+	PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUInGameMenu::OwnerLoginStatusChanged));
+
 	SUWindowsDesktop::OnMenuOpened();
 	OnInfo();
 }
 
 void SUInGameMenu::OnMenuClosed()
 {
-	PlayerOwner->ClearPlayerLoginStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+	PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
 	SUWindowsDesktop::OnMenuClosed();
 
 }

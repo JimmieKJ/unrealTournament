@@ -640,10 +640,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		}
 	}
 
-	for (int32 i=0; i< PlayerLoginStatusChangedListeners.Num(); i++)
-	{
-		PlayerLoginStatusChangedListeners[i].ExecuteIfBound(this, LoginStatus, UniqueID);
-	}
+	PlayerOnlineStatusChanged.Broadcast(this, LoginStatus, UniqueID);
 }
 
 void UUTLocalPlayer::ReadCloudFileListing()
@@ -767,31 +764,14 @@ void UUTLocalPlayer::OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint
 
 #endif
 
-void UUTLocalPlayer::AddPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate NewDelegate)
+FDelegateHandle UUTLocalPlayer::RegisterPlayerOnlineStatusChangedDelegate(const FPlayerOnlineStatusChanged::FDelegate& NewDelegate)
 {
-	int TargetIndex = -1;
-	for (int i=0;i<PlayerLoginStatusChangedListeners.Num();i++)
-	{
-		if (PlayerLoginStatusChangedListeners[i] == NewDelegate) return;	// Already in the list
-		if (!PlayerLoginStatusChangedListeners[i].IsBound())
-		{
-			TargetIndex = i;
-		}
-	}
-
-	if (TargetIndex >=0 && TargetIndex < PlayerLoginStatusChangedListeners.Num() )
-	{
-		PlayerLoginStatusChangedListeners[TargetIndex] = NewDelegate;
-	}
-	else
-	{
-		PlayerLoginStatusChangedListeners.Add(NewDelegate);
-	}
+	return PlayerOnlineStatusChanged.Add(NewDelegate);
 }
 
-void UUTLocalPlayer::ClearPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate Delegate)
+void UUTLocalPlayer::RemovePlayerOnlineStatusChangedDelegate(FDelegateHandle DelegateHandle)
 {
-	PlayerLoginStatusChangedListeners.Remove(Delegate);
+	PlayerOnlineStatusChanged.Remove(DelegateHandle);
 }
 
 

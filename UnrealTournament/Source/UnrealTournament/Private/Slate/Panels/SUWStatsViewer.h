@@ -15,7 +15,7 @@ class SUWStatsViewer : public SUWPanel
 
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
-	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
+	FDelegateHandle PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow) override;

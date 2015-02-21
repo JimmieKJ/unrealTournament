@@ -457,6 +457,12 @@ namespace BrowserState
 
 class SUWServerBrowser : public SUWPanel
 {
+public:
+
+	~SUWServerBrowser();
+
+private:
+
 	virtual void ConstructPanel(FVector2D ViewportSize);	
 
 protected:
@@ -545,7 +551,7 @@ protected:
 
 	virtual void EmptyHUBServers();
 
-	FPlayerOnlineStatusChangedDelegate PlayerOnlineStatusChangedDelegate;
+	FDelegateHandle PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 
 	TSharedPtr<class SHeaderRow> HeaderRow;

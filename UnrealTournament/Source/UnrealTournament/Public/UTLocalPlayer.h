@@ -17,8 +17,8 @@ class SUWFriendsPopup;
 class SUTQuickMatch;
 class SUWLoginDialog;
 
-DECLARE_DELEGATE_ThreeParams(FPlayerOnlineStatusChangedDelegate, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
 class FStoredChatMessage
 {
@@ -172,12 +172,12 @@ public:
 	/**
 	 *	Gives a call back to an object looking to know when a player's status changed.
 	 **/
-	virtual void AddPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate NewDelegate);
+	virtual FDelegateHandle RegisterPlayerOnlineStatusChangedDelegate(const FPlayerOnlineStatusChanged::FDelegate& NewDelegate);
 
 	/**
 	 *	Removes the  call back to an object looking to know when a player's status changed.
 	 **/
-	virtual void ClearPlayerLoginStatusChangedDelegate(FPlayerOnlineStatusChangedDelegate Delegate);
+	virtual void RemovePlayerOnlineStatusChangedDelegate(FDelegateHandle DelegateHandle);
 
 
 #if !UE_SERVER
@@ -209,8 +209,7 @@ protected:
 	virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
 	virtual void OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful);
 
-	// Array of delegates to call.
-	TArray<FPlayerOnlineStatusChangedDelegate> PlayerLoginStatusChangedListeners;
+	FPlayerOnlineStatusChanged PlayerOnlineStatusChanged;
 
 #if !UE_SERVER
 	virtual void AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);

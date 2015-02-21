@@ -2180,7 +2180,7 @@ void FSceneRenderer::PostVisibilityFrameSetup()
 					}
 
 					// Spot falloff
-					FVector L = ToLight.SafeNormal();
+					FVector L = ToLight.GetSafeNormal();
 					Color *= FMath::Square( FMath::Clamp( ( (L | Direction) - SpotAngles.X ) * SpotAngles.Y, 0.0f, 1.0f ) );
 
 					// Scale by visible area
