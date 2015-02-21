@@ -168,6 +168,15 @@ void AUTProj_TransDisk::ShutDown()
 	Super::ShutDown();
 }
 
+void AUTProj_TransDisk::FellOutOfWorld(const UDamageType& dmgType)
+{
+	if (MyTranslocator != NULL)
+	{
+		MyTranslocator->ClearDisk();
+	}
+	Super::FellOutOfWorld(dmgType);
+}
+
 /**Copied from UProjectileMovementComponent*/
 FVector AUTProj_TransDisk::ComputeBounceResult(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)
 {

@@ -46,6 +46,7 @@ class AUTProj_TransDisk : public AUTProjectile, public IUTMovementBaseInterface
 	
 	virtual void Recall();
 	virtual void ShutDown();
+	virtual void FellOutOfWorld(const UDamageType& dmgType) override;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category=TransDisk)
 	AUTWeap_Translocator* MyTranslocator;
