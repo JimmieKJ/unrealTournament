@@ -869,7 +869,8 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 				FHitResult Hit;
 				if (UTOwner->GetCapsuleComponent()->SweepComponent(Hit, FinalLoc, BaseLoc, Collider, false))
 				{
-					BaseLoc = Hit.Location;
+					// owner capsule could be flush against the wall so we need to push the projectile partially into the capsule to make sure we don't start penetrating wall
+					BaseLoc = Hit.Location + (BaseLoc - FinalLoc).GetSafeNormal() * Collider.GetExtent().X * 0.5f;
 				}
 			}
 			FCollisionQueryParams Params(FName(TEXT("WeaponStartLoc")), false, UTOwner);
@@ -1204,6 +1205,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 	FActorSpawnParameters Params;
 	Params.Instigator = UTOwner;
 	Params.Owner = UTOwner;
+	Params.bNoCollisionFail = true; // we already checked this in GetFireStartLoc()
 	AUTProjectile* NewProjectile = 
 		((Role == ROLE_Authority) || (CatchupTickDelta > 0.f))
 		? GetWorld()->SpawnActor<AUTProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, Params)
@@ -1235,6 +1237,7 @@ void AUTWeapon::SpawnDelayedFakeProjectile()
 		FActorSpawnParameters Params;
 		Params.Instigator = UTOwner;
 		Params.Owner = UTOwner;
+		Params.bNoCollisionFail = true; // we already checked this in GetFireStartLoc()
 		AUTProjectile* NewProjectile = GetWorld()->SpawnActor<AUTProjectile>(DelayedProjectile.ProjectileClass, DelayedProjectile.SpawnLocation, DelayedProjectile.SpawnRotation, Params);
 		if (NewProjectile)
 		{
