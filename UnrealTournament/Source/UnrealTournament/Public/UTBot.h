@@ -477,6 +477,11 @@ public:
 		return (Target != NULL) ? Target : Enemy;
 	}
 
+	/** returns whether the given enemy info update is important enough to re-evaluate the bot's enemy selection immediately
+	 * (generally, update on enemy not recently detected or previously gave up on fighting)
+	 * this is called prior to the enemy info being updated for this event so querying GetEnemyInfo(), etc will return prior information
+	 */
+	virtual bool IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateType);
 	/** updates some or all of bot's information on the passed in enemy based on the update type */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
 	virtual void UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType);
@@ -644,6 +649,7 @@ public:
 	virtual void ApplyCrouch();
 
 	// causes the bot decision logic to be run within one frame
+	UFUNCTION()
 	virtual void WhatToDoNext();
 
 	virtual bool CanSee(APawn* Other, bool bMaySkipChecks);

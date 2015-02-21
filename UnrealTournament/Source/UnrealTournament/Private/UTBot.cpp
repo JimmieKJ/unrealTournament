@@ -867,6 +867,7 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 		{
 			DrawDebugSphere(GetWorld(), TranslocTarget, 24.0f, 8, FColor(0, 0, 255));
 		}
+		DrawDebugSphere(GetWorld(), GetFocalPoint(), 24.0f, 8, FColor(255, 255, 0));
 	}
 }
 
@@ -1442,18 +1443,47 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 		}
 		else if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling)
 		{
-			if (UTChar != NULL && UTChar->CanDodge())
+			FVector WallNormal2D = Impact.Normal.GetSafeNormal2D();
+			if (UTChar != NULL && UTChar->CanDodge() && !WallNormal2D.IsNearlyZero())
 			{
+				bool bDodged = false;
 				if (bPlannedWallDodge)
 				{
 					// dodge already checked, just do it
-					UTChar->Dodge(Impact.Normal, (Impact.Normal ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
+					bDodged = UTChar->Dodge(Impact.Normal.GetSafeNormal2D(), (WallNormal2D ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
+				}
+				// check for spontaneous wall dodge
+				// if hit wall because of incoming damage momentum, add additional reaction time check
+				else if ( (Skill + Personality.Jumpiness > 4.0f && UTChar->UTCharacterMovement->bIsDodging) ||
+						(!UTChar->UTCharacterMovement->bIsDodging && Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f) )
+				{
+					FVector DuckDir = WallNormal2D * 700.0f; // technically not reliable since we're in air, but every once in a while a bot wall dodging off a cliff is pretty realistic
+					FCollisionShape PawnShape = GetCharacter()->GetCapsuleComponent()->GetCollisionShape();
+					FVector Start = GetPawn()->GetActorLocation();
+					Start.Z += 50.0f;
+					FCollisionQueryParams Params(FName(TEXT("WallDodge")), false, GetPawn());
+					float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
+
+					FHitResult Hit;
+					bool bHit = GetWorld()->SweepSingle(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
+					if (!bHit || (Hit.Location - Start).Size() > MinDist)
+					{
+						if (!bHit)
+						{
+							Hit.Location = Start + DuckDir;
+						}
+						// now check for floor
+						if (GetWorld()->SweepTest(Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight + GetCharacter()->GetCharacterMovement()->GetGravityZ() * -0.25f), FQuat::Identity, ECC_Pawn, PawnShape, Params))
+						{
+							// found one, so try the wall dodge!
+							bDodged = UTChar->Dodge(Impact.Normal.GetSafeNormal2D(), (WallNormal2D ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
+						}
+					}
+				}
+				if (bDodged)
+				{
 					// possibly maintain readiness for a second wall dodge if we hit another wall
 					bPlannedWallDodge = FMath::FRand() < Personality.Jumpiness || (Personality.Jumpiness >= 0.0 && FMath::FRand() < (Skill + Personality.Tactics) * 0.1f);
-				}
-				else
-				{
-					// TODO: maybe wall dodge
 				}
 			}
 		}
@@ -2064,7 +2094,7 @@ void AUTBot::ChooseAttackMode()
 			if (!NeedsWeapon())
 			{
 				// low skill bots default to not retreating
-				RetreatThreshold += 0.35 - Skill * 0.05f;
+				RetreatThreshold += FMath::Max<float>(0.0f, 0.35f - Skill * 0.05f);
 			}
 			if (EnemyStrength > RetreatThreshold)
 			{
@@ -2773,7 +2803,7 @@ void AUTBot::ReceiveProjWarning(AUTProjectile* Incoming)
 	if (Incoming != NULL && !Incoming->GetVelocity().IsZero() && GetPawn() != NULL)
 	{
 		// bots may duck if not falling or swimming
-		if (Skill >= 2.0f && Enemy != NULL) // TODO: if 1 on 1 (T)DM be more alert? maybe enemy will usually be set so doesn't matter
+		if (Skill >= 2.0f && (Enemy != NULL || FMath::FRand() < Personality.Alertness)) // TODO: if 1 on 1 (T)DM be more alert? maybe enemy will usually be set so doesn't matter
 		{
 			//LastUnderFire = WorldInfo.TimeSeconds;
 			//if (WorldInfo.TimeSeconds - LastWarningTime < 0.5)
@@ -2812,7 +2842,7 @@ void AUTBot::ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir
 {
 	if (Shooter != NULL && Shooter->GetWeapon() != NULL && GetPawn() != NULL)
 	{
-		if (Skill >= 4.0f && Enemy != NULL && FMath::FRand() < 0.2f * (Skill + Personality.Tactics) - 0.33f) // TODO: if 1 on 1 (T)DM be more alert? maybe enemy will usually be set so doesn't matter
+		if (Skill >= 4.0f && (Enemy != NULL || FMath::FRand() < Personality.Alertness) && FMath::FRand() < 0.2f * (Skill + Personality.Tactics) - 0.33f) // TODO: if 1 on 1 (T)DM be more alert? maybe enemy will usually be set so doesn't matter
 		{
 			FVector EnemyDir = Shooter->GetActorLocation() - GetPawn()->GetActorLocation();
 			EnemyDir.Z = 0;
@@ -2828,6 +2858,7 @@ void AUTBot::ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir
 
 				UpdateEnemyInfo(Shooter, EUT_TookDamage);
 
+				// TODO: what about repeater weapons? should still try to dodge sometimes, but this check will always fail
 				const float DodgeTime = Shooter->GetWeapon()->GetRefireTime(Shooter->GetWeapon()->GetCurrentFireMode()) - 0.15 - 0.1 * FMath::FRand(); // TODO: based on collision size 
 				if (DodgeTime > 0.0)
 				{
@@ -2986,7 +3017,8 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 		FHitResult Hit;
 		bool bHit = GetWorld()->SweepSingle(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
 
-		float MinDist = 350.0f;
+		// allow tighter corridors for bots that are willing to wall dodge spam around it
+		float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
 		float Dist = (Hit.Location - GetPawn()->GetActorLocation()).Size();
 		bool bWallHit = false;
 		bool bSuccess = false;
@@ -3002,7 +3034,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 		}
 		else
 		{
-			bWallHit = (Skill + 2.0f * Personality.Jumpiness) > 5;
+			bWallHit = (Skill + 2.0f * Personality.Jumpiness) > 4.0f;
 			WallHitLoc = Hit.Location + (-Hit.Normal) * 5.0f; // slightly into wall for air controlling into wall dodge
 			MinDist = 70.0f + MinDist - Dist;
 		}
@@ -3188,6 +3220,36 @@ float AUTBot::RateEnemy(const FBotEnemyInfo& EnemyInfo)
 	}
 }
 
+bool AUTBot::IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateType)
+{
+	if (UpdateType == EUT_HealthUpdate || UpdateType == EUT_HeardApprox || UpdateType == EUT_DealtDamage)
+	{
+		// updates that don't give us a fix on their position and movement aren't worth re-evaluating for
+		return false;
+	}
+	else
+	{
+		const FBotEnemyInfo* MyEnemyInfo = GetEnemyInfo(TestEnemy, false);
+		if (MyEnemyInfo == NULL || MyEnemyInfo->bLostEnemy)
+		{
+			return true;
+		}
+		else
+		{
+			float MinLostContactTime = 0.5f;
+			if (Skill + Personality.Alertness < 5.0f)
+			{
+				MinLostContactTime += 6.5f - Skill + Personality.Alertness;
+			}
+			else
+			{
+				MinLostContactTime += 1.5f - (Skill + Personality.Alertness - 5.0f) * 0.5f;
+			}
+			return (GetWorld()->TimeSeconds - MyEnemyInfo->LastFullUpdateTime >= MinLostContactTime);
+		}
+	}
+}
+
 void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 {
 	if (NewEnemy != NULL && !NewEnemy->bTearOff && !NewEnemy->bPendingKillPending && Squad != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL))
@@ -3195,6 +3257,8 @@ void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(NewEnemy, this))
 		{
+			bool bImportant = IsImportantEnemyUpdate(NewEnemy, UpdateType);
+
 			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 			if (PS != NULL && PS->Team != NULL)
 			{
@@ -3215,11 +3279,10 @@ void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 				else if (LocalEnemyList[i].GetPawn() == NewEnemy)
 				{
 					LocalEnemyList[i].Update(UpdateType);
-					bFound = true;
 					break;
 				}
 			}
-			if (!bFound)
+			if (bImportant)
 			{
 				new(LocalEnemyList) FBotEnemyInfo(NewEnemy, UpdateType);
 				PickNewEnemy();

@@ -19,7 +19,7 @@ bool FSuperPickupEval::AllowPickup(APawn* Asker, AActor* Pickup, float Desireabi
 	else
 	{
 		bool bResult = false;
-		// ignore desireability constraint for bot's favorite weapon
+		// ignore desireability constraint for bot's favorite weapon if it doesn't have or it's out of ammo
 		if (Asker != NULL)
 		{
 			AUTBot* B = Cast<AUTBot>(Asker->Controller);
@@ -28,7 +28,12 @@ bool FSuperPickupEval::AllowPickup(APawn* Asker, AActor* Pickup, float Desireabi
 				AUTPickupWeapon* WeaponPickup = Cast<AUTPickupWeapon>(Pickup);
 				if (WeaponPickup != NULL && B->IsFavoriteWeapon(WeaponPickup->WeaponType))
 				{
-					bResult = true;
+					AUTWeapon* Existing = NULL;
+					if (Cast<AUTCharacter>(Asker) != NULL)
+					{
+						Existing = ((AUTCharacter*)Asker)->FindInventoryType<AUTWeapon>(WeaponPickup->WeaponType, true);
+					}
+					bResult = (Existing != NULL && Existing->HasAnyAmmo());
 				}
 			}
 		}
@@ -174,7 +179,21 @@ bool AUTSquadAI::CheckSquadObjectives(AUTBot* B)
 {
 	// search specifically for super pickups
 	// TODO: maybe get distracted depending on enemy, skill, personality (e.g. grudge)
-	return (B->Skill >= 1.5f && !B->NeedsWeapon() && CheckSuperPickups(B, 2000 * (B->Skill + B->Personality.Tactics + B->Personality.MapAwareness)));
+	if (B->Skill < 1.5f || B->NeedsWeapon())
+	{
+		// low skill bots don't do 
+		return false;
+	}
+	else
+	{
+		int32 SuperSearchRange = 2000 * (B->Skill + B->Personality.Tactics + B->Personality.MapAwareness);
+		// prefer to engage enemy if we can get a clear shot and are on equal/stronger footing
+		if (B->GetEnemy() != NULL && B->IsEnemyVisible(B->GetEnemy()) && B->RelativeStrength(B->GetEnemy()) <= B->Personality.Aggressiveness)
+		{
+			SuperSearchRange = FMath::Min<int32>(SuperSearchRange, 3000);
+		}
+		return CheckSuperPickups(B, SuperSearchRange);
+	}
 }
 
 bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternateRoute>& Routes, bool bAllowDetours, const FString& SuccessGoalString)
@@ -350,7 +369,7 @@ void AUTSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* Instigat
 				else
 				{
 					// set timer to retask bot, partially just to stagger updates and partially to account for their reaction time
-					GetWorldTimerManager().SetTimer(B, &AUTBot::WhatToDoNext, 0.1f + 0.15f * FMath::FRand() + (0.5f - 0.5f * B->Personality.ReactionTime) * FMath::FRand(), false);
+					SetTimerUFunc(B, TEXT("WhatToDoNext"), 0.1f + 0.15f * FMath::FRand() + (0.5f - 0.5f * B->Personality.ReactionTime) * FMath::FRand(), false);
 				}
 			}
 		}
