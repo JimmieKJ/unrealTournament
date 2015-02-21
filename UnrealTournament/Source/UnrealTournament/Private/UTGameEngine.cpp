@@ -107,6 +107,54 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 		FPlatformMisc::ClipboardCopy(*VersionString);
 		return true;
 	}
+	else if (FParse::Command(&Cmd, TEXT("MONITORREFRESH")))
+	{
+		FString OutputString;
+#if PLATFORM_WINDOWS && !UE_SERVER
+		DEVMODE DeviceMode;
+		FMemory::MemZero(DeviceMode);
+		DeviceMode.dmSize = sizeof(DEVMODE);
+
+		if (EnumDisplaySettings(NULL, -1, &DeviceMode) != 0)
+		{
+			OutputString = FString::Printf(TEXT("Monitor frequency is %dhz"), DeviceMode.dmDisplayFrequency);
+		}
+		else
+		{
+			OutputString = TEXT("Could not detect monitor refresh frequency");
+		}
+		Out.Logf(*OutputString);
+
+		int32 NewRefreshRate = FCString::Atoi(Cmd);
+		if (NewRefreshRate > 0 && NewRefreshRate != DeviceMode.dmDisplayFrequency)
+		{
+			DEVMODE NewSettings;
+			FMemory::MemZero(NewSettings);
+			NewSettings.dmSize = sizeof(NewSettings);
+			NewSettings.dmDisplayFrequency = NewRefreshRate;
+			NewSettings.dmFields = DM_DISPLAYFREQUENCY;
+			LONG ChangeDisplayReturn = ChangeDisplaySettings(&NewSettings, CDS_GLOBAL | CDS_UPDATEREGISTRY);
+			if (ChangeDisplayReturn == DISP_CHANGE_SUCCESSFUL)
+			{
+				OutputString = FString::Printf(TEXT("Monitor frequency was changed to %dhz"), NewSettings.dmDisplayFrequency);
+			}
+			else if (ChangeDisplayReturn == DISP_CHANGE_BADMODE)
+			{
+				OutputString = FString::Printf(TEXT("Your monitor does not support running at %dhz"), NewSettings.dmDisplayFrequency);
+			}
+			else
+			{
+				OutputString = TEXT("Error setting monitor refresh frequency");
+			}
+			Out.Logf(*OutputString);
+		}
+#else
+		OutputString = TEXT("Could not detect monitor refresh frequency");
+		Out.Logf(*OutputString);
+#endif
+
+		return true;
+	}
 	else
 	{
 		return Super::Exec(InWorld, Cmd, Out);
