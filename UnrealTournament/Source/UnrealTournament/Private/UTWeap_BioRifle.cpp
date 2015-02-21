@@ -194,6 +194,11 @@ void AUTWeap_BioRifle::FireShot()
 		OnChargeShot();
 		PlayFiringEffects();
 		ClearGlobStrength();
+		if (GetUTOwner() != NULL)
+		{
+			static FName NAME_FiredWeapon(TEXT("FiredWeapon"));
+			GetUTOwner()->InventoryEvent(NAME_FiredWeapon);
+		}
 	}
 	else
 	{
