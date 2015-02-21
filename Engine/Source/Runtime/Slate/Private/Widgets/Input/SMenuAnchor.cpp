@@ -248,9 +248,11 @@ void SMenuAnchor::RequestClosePopupWindow( const TSharedRef<SWindow>& PopupWindo
 
 void SMenuAnchor::OnClickedOutsidePopup()
 {
-	bDismissedThisTick = true;
-	FSlateApplication::Get().GetPopupSupport().UnregisterClickNotification( OnClickedOutsidePopupDelegateHandle );
-	SetIsOpen(false);	
+	if (IsOpen())
+	{
+		bDismissedThisTick = true;
+		SetIsOpen(false);	
+	}
 }
 
 bool SMenuAnchor::IsOpenAndReusingWindow() const
@@ -399,6 +401,7 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 			{
 				// Window reuse case; remove child widget.
 				Children[1].DetachWidget();
+				FSlateApplication::Get().GetPopupSupport().UnregisterClickNotification(OnClickedOutsidePopupDelegateHandle);
 			}
 			else
 			{
