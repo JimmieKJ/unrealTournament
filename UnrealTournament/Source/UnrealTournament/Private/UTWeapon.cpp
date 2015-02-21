@@ -1187,10 +1187,10 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 */
 	if ((CatchupTickDelta > 0.f) && (Role != ROLE_Authority))
 	{
-		// lag is so high need to delay spawn
 		float SleepTime = OwningPlayer->GetProjectileSleepTime();
 		if (SleepTime > 0.f)
 		{
+			// lag is so high need to delay spawn
 			if (!GetWorldTimerManager().IsTimerActive(SpawnDelayedFakeProjHandle))
 			{
 				DelayedProjectile.ProjectileClass = ProjectileClass;
@@ -1221,6 +1221,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		else
 		{
 			NewProjectile->InitFakeProjectile(OwningPlayer);
+			NewProjectile->SetLifeSpan(FMath::Min(NewProjectile->GetLifeSpan(), 2.f * FMath::Max(0.f, CatchupTickDelta)));
 		}
 	}
 	return NewProjectile;
