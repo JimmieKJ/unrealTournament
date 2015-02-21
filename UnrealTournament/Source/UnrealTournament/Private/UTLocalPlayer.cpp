@@ -1558,12 +1558,20 @@ uint32 UUTLocalPlayer::GetCountryFlag()
 	{
 		return FMath::Clamp<uint32>(CurrentProfileSettings->CountryFlag,0,39);
 	}
+	if (PlayerController)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS)
+		{
+			return PS->CountryFlag;
+		}
+	}
 	return 0;
 }
 
 void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 {
-	NewFlag = FMath::Clamp<uint32>(NewFlag,0,20);
+	NewFlag = FMath::Clamp<uint32>(NewFlag,0,39);
 	if (CurrentProfileSettings)
 	{
 		CurrentProfileSettings->CountryFlag = NewFlag;
