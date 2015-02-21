@@ -112,16 +112,13 @@ void SUWStatsViewer::DownloadStats()
 void SUWStatsViewer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 	// this notification is for us
-	if (bWasSuccessful && InUserId.ToString() == StatsID && FileName == GetStatsFilename())
+	if (InUserId.ToString() == StatsID && FileName == GetStatsFilename())
 	{
-		TArray<uint8> FileContents;
-		if (OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents))
-		{
-			if (FileContents.GetData()[FileContents.Num() - 1] != 0)
-			{
-				return;
-			}
+		bool bShowingStats = false;
 
+		TArray<uint8> FileContents;
+		if (bWasSuccessful && OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents) && FileContents.GetData()[FileContents.Num() - 1] != 0)
+		{
 			// Get the html out of the Content dir
 			FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.html"));
 			FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
@@ -140,12 +137,29 @@ void SUWStatsViewer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				// Have to hack around SWebBrowser not allowing url changes
 				WebBrowserBox->RemoveSlot(StatsWebBrowser.ToSharedRef());
 				WebBrowserBox->AddSlot()
+					[
+						SAssignNew(StatsWebBrowser, SWebBrowser)
+						.InitialURL(TEXT("file://") + HTMLPath)
+						.ShowControls(false)
+					];
+
+				bShowingStats = true;
+			}
+		}
+
+		if (!bShowingStats)
+		{
+			FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/nostats.html"));
+			FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
+
+			// Have to hack around SWebBrowser not allowing url changes
+			WebBrowserBox->RemoveSlot(StatsWebBrowser.ToSharedRef());
+			WebBrowserBox->AddSlot()
 				[
 					SAssignNew(StatsWebBrowser, SWebBrowser)
 					.InitialURL(TEXT("file://") + HTMLPath)
 					.ShowControls(false)
 				];
-			}
 		}
 	}
 }
