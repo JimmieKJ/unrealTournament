@@ -42,6 +42,7 @@ void AUTWorldSettings::CreateLevelSummary()
 {
 	if (!IsTemplate())
 	{
+		// we need the object name to be reliable so we can pull it out by itself in the menus without loading the whole map
 		static FName NAME_LevelSummary(TEXT("LevelSummary"));
 		if (LevelSummary == NULL)
 		{
@@ -50,6 +51,11 @@ void AUTWorldSettings::CreateLevelSummary()
 			{
 				LevelSummary = ConstructObject<UUTLevelSummary>(UUTLevelSummary::StaticClass(), GetOutermost(), NAME_LevelSummary, RF_Standalone);
 			}
+		}
+		else if (LevelSummary->GetFName() != NAME_LevelSummary)
+		{
+			// we have to duplicate instead of rename because we may be in PostLoad() and it's not safe to rename from there
+			LevelSummary = DuplicateObject<UUTLevelSummary>(LevelSummary, GetOutermost(), *NAME_LevelSummary.ToString());
 		}
 	}
 }
