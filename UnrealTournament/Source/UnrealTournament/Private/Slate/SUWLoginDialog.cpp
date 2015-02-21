@@ -395,7 +395,7 @@ FString SUWLoginDialog::GetPassword()
 FReply SUWLoginDialog::OnNewAccountClick()
 {
 	FString Error;
-	FPlatformProcess::LaunchURL(TEXT("https://www.unrealengine.com/register"), NULL, &Error);
+	FPlatformProcess::LaunchURL(TEXT("https://forums.unrealtournament.com/download.php?return=http://www.unrealtournament.com"), NULL, &Error);
 	if (Error.Len() > 0)
 	{
 		PlayerOwner->MessageBox(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"), FText::FromString(Error));
