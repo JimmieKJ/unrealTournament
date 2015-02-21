@@ -124,7 +124,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 			.Padding( 25.0f, 0.0f, 0.0f, 0.0f )
 			[
 				SNew(SBox)
-				.HeightOverride(32)
+				.HeightOverride(64)
 				[
 					SNew( SHorizontalBox )
 					+SHorizontalBox::Slot()
@@ -144,7 +144,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 						+SOverlay::Slot()
 						[
 							SNew(SBox)
-							.HeightOverride(32)
+							.HeightOverride(64)
 							[
 								SNew(SImage)
 								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.TopSubBar"))
@@ -156,23 +156,24 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 							+SVerticalBox::Slot()
 							.VAlign(VAlign_Center)
 							.HAlign(HAlign_Fill)
+							.Padding(64.0f, 0.0f, 16.0f, 0.0f)
 							[
 								SNew(SHorizontalBox)
 								+SHorizontalBox::Slot()
 								.AutoWidth()
-								.Padding(20.0f, 0.0f, 20.0f, 0.0f)
 								[
 									SNew(STextBlock)
-									.Text(NSLOCTEXT("SUWServerBrowser","QuickFilter","Search:"))
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+									.Text(NSLOCTEXT("SUWServerBrowser","QuickFilter","Filter Results by:"))
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 								]
 								+SHorizontalBox::Slot()
+								.Padding(16.0f, 0.0f, 0.0f, 0.0f)
 								[
 									SNew(SBox)
-									.HeightOverride(26)
+									.HeightOverride(36)
 									[
 										SAssignNew(QuickFilterText, SEditableTextBox)
-										.Style(SUWindowsStyle::Get(),"UWindows.Standard.ServerBrowser.EditBox")
+										.Style(SUWindowsStyle::Get(),"UT.Common.Editbox")
 										.OnTextCommitted(this, &SUWServerBrowser::OnQuickFilterTextCommited)
 										.ClearKeyboardFocusOnCommit(false)
 										.MinDesiredWidth(300.0f)
@@ -209,7 +210,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 			.HAlign(HAlign_Fill)
 			[
 				SNew(SBox)
-				.HeightOverride(32)
+				.HeightOverride(48)
 				[
 					SNew( SHorizontalBox )
 					+SHorizontalBox::Slot().AutoWidth().Padding(10.0f,0.0f,10.0f,0.0f)
@@ -223,7 +224,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 							.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
 
 							.Text( NSLOCTEXT("SUWServerBrowser","Refresh","Refresh"))
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.OnClicked(this, &SUWServerBrowser::OnRefreshClick)
 						]
 					]
@@ -243,20 +244,9 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 							.Padding(20.0f, 0.0f, 20.0f, 0.0f)
 							[
 								SAssignNew(StatusText, STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							]
 						]
-					]
-
-					+SHorizontalBox::Slot().AutoWidth() .VAlign(VAlign_Center)
-					.VAlign(VAlign_Center)
-					[
-						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
-						SAssignNew(JoinIPButton, SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
-						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
-						.Text(NSLOCTEXT("SUWServerBrowser","JoinIP","Connect to IP..."))
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
-						.OnClicked(this, &SUWServerBrowser::OnConnectIP)
 					]
 
 					+SHorizontalBox::Slot().AutoWidth()
@@ -264,11 +254,10 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 					[
 						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
 						SAssignNew(SpectateButton, SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.RightButton")
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Button")
 						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
 						.Text(NSLOCTEXT("SUWServerBrowser","Spectate","Spectate"))
-			
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 						.OnClicked(this, &SUWServerBrowser::OnJoinClick,true)
 					]
 
@@ -281,7 +270,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.RightButton")
 						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
 						.Text(NSLOCTEXT("SUWServerBrowser","Join","Join"))
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 						.OnClicked(this, &SUWServerBrowser::OnJoinClick,false)
 					]
 				]
@@ -412,7 +401,10 @@ float SUWServerBrowser::GetReverseScale() const
 	{
 		FVector2D ViewportSize;
 		PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
-		return 1.0f / GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+		float NewScale = 1.0f / GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+
+		// Hack in a scale change for 800x600.  It won't look great but it will look ok in this case.
+		return ViewportSize.X < 1024 ? NewScale * 0.75 : NewScale;
 	}
 	return 1.0f;
 }
@@ -440,94 +432,101 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 						.Padding(5,0,5,0)
 						.FillWidth(1)
 						[
-							// The list view being tested
-							SAssignNew( InternetServerList, SListView< TSharedPtr<FServerData> > )
-							// List view items are this tall
-							.ItemHeight(24)
-							// Tell the list view where to get its source data
-							.ListItemsSource( &FilteredServers)
-							// When the list view needs to generate a widget for some data item, use this method
-							.OnGenerateRow( this, &SUWServerBrowser::OnGenerateWidgetForList )
-							.OnSelectionChanged(this, &SUWServerBrowser::OnServerListSelectionChanged)
-							.SelectionMode(ESelectionMode::Single)
+/*
+							SNew(SScrollBox)
+							.Orientation(Orient_Horizontal)
+							+SScrollBox::Slot()
+							[
+*/
 
-							.HeaderRow
-							(
-								SAssignNew(HeaderRow, SHeaderRow) 
-								.Style(SUWindowsStyle::Get(),"UWindows.Standard.ServerBrowser.Header")
+								// The list view being tested
+								SAssignNew(InternetServerList, SListView< TSharedPtr<FServerData> >)
+								// List view items are this tall
+								.ItemHeight(24)
+								// Tell the list view where to get its source data
+								.ListItemsSource(&FilteredServers)
+								// When the list view needs to generate a widget for some data item, use this method
+								.OnGenerateRow(this, &SUWServerBrowser::OnGenerateWidgetForList)
+								.OnSelectionChanged(this, &SUWServerBrowser::OnServerListSelectionChanged)
+								.SelectionMode(ESelectionMode::Single)
 
-								+ SHeaderRow::Column("ServerName")
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerNameColumn", "Server Name"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerNameColumnToolTip", "The name of this server.") )
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
+								.HeaderRow
+								(
+									SAssignNew(HeaderRow, SHeaderRow)
+									.Style(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header")
 
-								+ SHeaderRow::Column("ServerIP") 
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerIPColumn", "IP")) 
-										.HAlignCell(HAlign_Center) 
+									+ SHeaderRow::Column("ServerName")
+											.OnSort(this, &SUWServerBrowser::OnSort)
+											.HeaderContent()
+											[
+												SNew(STextBlock)
+												.Text(NSLOCTEXT("SUWServerBrowser", "ServerNameColumn", "Server Name"))
+													.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNameColumnToolTip", "The name of this server."))
+													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+											]
+/*
+								+ SHeaderRow::Column("ServerIP")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerIPColumn", "IP"))
+										.HAlignCell(HAlign_Center)
 										.HAlignHeader(HAlign_Center)
 										.OnSort(this, &SUWServerBrowser::OnSort)
 										.HeaderContent()
 										[
 											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerIPColumn", "IP"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerIPColumnToolTip", "This server's IP address.") )
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerIPColumn", "IP"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerIPColumnToolTip", "This server's IP address."))
+												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
+*/
+								+ SHeaderRow::Column("ServerGame")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
+										.HAlignCell(HAlign_Center)
+										.HAlignHeader(HAlign_Center)
+										.OnSort(this, &SUWServerBrowser::OnSort)
+										.HeaderContent()
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerGameColumnToolTip", "The Game type."))
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
 
-								+ SHeaderRow::Column("ServerGame") 
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerGameColumn", "Game"))
-										.HAlignCell(HAlign_Center) 
+								+ SHeaderRow::Column("ServerMap")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
+										.HAlignCell(HAlign_Center)
 										.HAlignHeader(HAlign_Center)
 										.OnSort(this, &SUWServerBrowser::OnSort)
 										.HeaderContent()
 										[
 											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerGameColumn", "Game"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerGameColumnToolTip", "The Game type.") )
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerMapColumnToolTip", "The current map."))
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
 
-								+ SHeaderRow::Column("ServerMap") 
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerMapColumn", "Map"))
-										.HAlignCell(HAlign_Center) 
+								+ SHeaderRow::Column("ServerNumPlayers")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
+										.HAlignCell(HAlign_Center)
 										.HAlignHeader(HAlign_Center)
 										.OnSort(this, &SUWServerBrowser::OnSort)
 										.HeaderContent()
 										[
 											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerMapColumn", "Map"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerMapColumnToolTip", "The current map.") )
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumnToolTip", "The # of Players on this server."))
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
 
-								+ SHeaderRow::Column("ServerNumPlayers") 
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerNumPlayerColumn", "Players"))
-										.HAlignCell(HAlign_Center) 
+								+ SHeaderRow::Column("ServerNumSpecs")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
+										.HAlignCell(HAlign_Center)
 										.HAlignHeader(HAlign_Center)
 										.OnSort(this, &SUWServerBrowser::OnSort)
 										.HeaderContent()
 										[
 											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerNumPlayerColumn", "Players"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerNumPlayerColumnToolTip", "The # of Players on this server.") )
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
-							
-								+ SHeaderRow::Column("ServerNumSpecs") 
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerNumSpecsColumn", "Spectators"))
-										.HAlignCell(HAlign_Center) 
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerNumSpecsColumn", "Spectators"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerNumSpecsColumnToolTip", "The # of spectators on this server.") )
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumnToolTip", "The # of spectators on this server."))
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
 
@@ -543,49 +542,52 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumnToolTip", "The # of friends on this server."))
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
-
-								+ SHeaderRow::Column("ServerVer") 
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerVerColumn", "Version"))
-										.HAlignCell(HAlign_Center) 
+/*
+								+ SHeaderRow::Column("ServerVer")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerVerColumn", "Version"))
+										.HAlignCell(HAlign_Center)
 										.HAlignHeader(HAlign_Center)
 										.OnSort(this, &SUWServerBrowser::OnSort)
 										.HeaderContent()
 										[
 											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerVerColumn", "Version"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerVerColumnToolTip", "The version of UT this server is running.") )
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerVerColumn", "Version"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerVerColumnToolTip", "The version of UT this server is running."))
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
-
-								+ SHeaderRow::Column("ServerFlags") 
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerFlagsColumn", "Flags"))
-										.HAlignCell(HAlign_Center) 
+*/
+								+ SHeaderRow::Column("ServerFlags")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
+										.HAlignCell(HAlign_Center)
 										.HAlignHeader(HAlign_Center)
 										.OnSort(this, &SUWServerBrowser::OnSort)
 										.HeaderContent()
 										[
 											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerFlagsColumn", "Flags"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerFlagsColumnToolTip", "Server Flags") )
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumnToolTip", "Server Flags"))
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
-								
-								+ SHeaderRow::Column("ServerPing") 
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","ServerPingColumn", "Ping"))
-										.HAlignCell(HAlign_Right) 
+
+								+ SHeaderRow::Column("ServerPing")
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
+										.HAlignCell(HAlign_Right)
 										.HAlignHeader(HAlign_Right)
 										.OnSort(this, &SUWServerBrowser::OnSort)
 										.HeaderContent()
 										[
 											SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser","ServerPingColumn", "Ping"))
-												.ToolTipText( NSLOCTEXT("SUWServerBrowser","ServerPingColumnToolTip", "Your connection speed to the server.") )
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
+												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerPingColumnToolTip", "Your connection speed to the server."))
 												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
-							)
-							.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
+								)
+								.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
 
+							]
+/*
 						]
+*/
 					]
 				]
 				+ SSplitter::Slot()
@@ -665,76 +667,81 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 
 TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 {
-	return SAssignNew(LobbyBrowser, SBox) 
+	return SNew(SDPIScaler)
+		.DPIScale(this, &SUWServerBrowser::GetReverseScale)
+		[
+			SAssignNew(LobbyBrowser, SBox)
 			.Visibility(EVisibility::Hidden)
-			.HeightOverride(500.0f)
-			[
-				SAssignNew( LobbySplitter, SSplitter )
-				.Orientation(Orient_Horizontal)
-				.OnSplitterFinishedResizing(this, &SUWServerBrowser::VertSplitterResized)
-
-				+ SSplitter::Slot()
-				.Value(0.7)
+				.HeightOverride(500.0f)
 				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Fill)
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.FillWidth(1.0)
-						.VAlign(VAlign_Center)
-						[
-							// The list view being tested
-							SAssignNew( HUBServerList, SListView< TSharedPtr<FServerData> > )
-							// List view items are this tall
-							.ItemHeight(64)
-							// When the list view needs to generate a widget for some data item, use this method
-							.OnGenerateRow( this, &SUWServerBrowser::OnGenerateWidgetForHUBList )
-							.SelectionMode(ESelectionMode::Single)
-							.ListItemsSource( &FilteredHUBs)
-							.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
-							.OnSelectionChanged(this, &SUWServerBrowser::OnHUBListSelectionChanged)
-						]
-					]
-				]
-				+ SSplitter::Slot()
-				.Value(0.3)
-				[
-					SNew(SOverlay)
-					+SOverlay::Slot()
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.FillWidth(1.0)
-						.VAlign(VAlign_Fill)
-						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
-						]
-					]
-					+SOverlay::Slot()
-					[
-						SNew(SScrollBox)
-						+ SScrollBox::Slot()
-						.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
-						[
-							SAssignNew(LobbyInfoBox, SVerticalBox)
+					SAssignNew(LobbySplitter, SSplitter)
+					.Orientation(Orient_Horizontal)
+					.OnSplitterFinishedResizing(this, &SUWServerBrowser::VertSplitterResized)
 
-							+SVerticalBox::Slot()
-							.Padding(5.0,5.0,5.0,5.0)
+					+ SSplitter::Slot()
+					.Value(0.7)
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
+						.VAlign(VAlign_Top)
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.FillWidth(1.0)
+							.VAlign(VAlign_Center)
 							[
-								SNew(STextBlock)
-								.Text(NSLOCTEXT("HUBBrowser","NoneSelected","No Server Selected!"))
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
-
+								// The list view being tested
+								SAssignNew(HUBServerList, SListView< TSharedPtr<FServerData> >)
+								// List view items are this tall
+								.ItemHeight(64)
+								// When the list view needs to generate a widget for some data item, use this method
+								.OnGenerateRow(this, &SUWServerBrowser::OnGenerateWidgetForHUBList)
+								.SelectionMode(ESelectionMode::Single)
+								.ListItemsSource(&FilteredHUBs)
+								.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
+								.OnSelectionChanged(this, &SUWServerBrowser::OnHUBListSelectionChanged)
 							]
 						]
+					]
+					+ SSplitter::Slot()
+					.Value(0.3)
+					[
+						SNew(SOverlay)
+						+ SOverlay::Slot()
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.FillWidth(1.0)
+							.VAlign(VAlign_Fill)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
+							]
+						]
+						+ SOverlay::Slot()
+						[
+							SNew(SScrollBox)
+							+ SScrollBox::Slot()
+							.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+							[
+								SAssignNew(LobbyInfoBox, SVerticalBox)
 
+								+ SVerticalBox::Slot()
+								.Padding(5.0, 5.0, 5.0, 5.0)
+								[
+									SNew(STextBlock)
+									.Text(NSLOCTEXT("HUBBrowser", "NoneSelected", "No Server Selected!"))
+									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+
+								]
+							]
+
+						]
 					]
 				]
-			];
+		];
+
 }
 
 
@@ -1253,6 +1260,19 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 				PingTrackers[i].Server->AddRule(Rule, Value);
 			}
+			TArray<FString> BrokenIP;
+			if (PingTrackers[i].Server->IP.ParseIntoArray(&BrokenIP,TEXT(":"),true) == 2)
+			{
+				PingTrackers[i].Server->AddRule(TEXT("IP"), BrokenIP[0]);
+				PingTrackers[i].Server->AddRule(TEXT("Port"), BrokenIP[1]);
+			}
+			else
+			{
+				PingTrackers[i].Server->AddRule(TEXT("IP"), PingTrackers[i].Server->IP);
+			}
+
+			PingTrackers[i].Server->AddRule(TEXT("Version"), PingTrackers[i].Server->Version);
+
 
 			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceCount; InstIndex++ )
 			{
@@ -1736,13 +1756,29 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 
 TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 {
-	return 	SNew(SBox)						// First the overlaid box that controls everything....
-		.HeightOverride(54)
-		.WidthOverride(54)
-		[
-			SNew(SImage)
-			.Image(SUWindowsStyle::Get().GetBrush("UWindows.BadgeBackground"))
-		];
+
+	if (HUB->bFakeHUB)
+	{
+		return 	SNew(SBox)						// First the overlaid box that controls everything....
+			.HeightOverride(54)
+			.WidthOverride(54)
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Globe"))
+			];
+	}
+	else
+	{
+		return 	SNew(SBox)						// First the overlaid box that controls everything....
+			.HeightOverride(54)
+			.WidthOverride(54)
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Epic"))
+			];
+	
+	}
+
 }
 
 TSharedRef<SWidget> SUWServerBrowser::AddStars(TSharedPtr<FServerData> HUB)
@@ -1887,6 +1923,7 @@ void SUWServerBrowser::OnHUBListSelectionChanged(TSharedPtr<FServerData> Selecte
 	if (SelectedItem.IsValid())
 	{
 		AddHUBInfo(SelectedItem);
+		JoinButton->SetEnabled(true);
 	}
 }
 
@@ -1921,7 +1958,7 @@ void SUWServerBrowser::BuildServerListControlBox()
 						[
 							SAssignNew(BrowserTypeText, STextBlock)
 							.Text(NSLOCTEXT("SUWServerBrowser","ShowLobbies","SHOW HUBS"))
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 
 						]
 					]
@@ -1933,7 +1970,7 @@ void SUWServerBrowser::BuildServerListControlBox()
 				[
 					SAssignNew(GameFilter, SComboButton)
 					.HasDownArrow(false)
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Button")
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
 					.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0))
 					.ButtonContent()
 					[
@@ -1948,13 +1985,13 @@ void SUWServerBrowser::BuildServerListControlBox()
 							[
 								SNew(STextBlock)
 								.Text(NSLOCTEXT("SUWServerBrowser","GameFilter","Game Mode:"))
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText")
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							]
 							+SHorizontalBox::Slot()
 							.AutoWidth()
 							[
 								SAssignNew(GameFilterText, STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BoldText")
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
 							]
 						]
 					]
@@ -2001,41 +2038,6 @@ void SUWServerBrowser::EmptyHUBServers()
 */
 
 	FilterAllHUBs();
-}
-
-FReply SUWServerBrowser::OnConnectIP()
-{
-	PlayerOwner->OpenDialog(
-							SNew(SUWInputBox)
-							.DefaultInput(PlayerOwner->LastConnectToIP)
-							.DialogSize(FVector2D(600,200))
-							.OnDialogResult(this, &SUWServerBrowser::ConnectIPDialogResult)
-							.PlayerOwner(PlayerOwner)
-							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
-							.MessageText(NSLOCTEXT("SUWindowsDesktop", "ConnecToIPDesc", "Enter address to connect to:"))
-							.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
-							);
-	return FReply::Handled();
-}
-
-void SUWServerBrowser::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
-{
-	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
-	{
-		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
-		if (Box.IsValid())
-		{
-			FString InputText = Box->GetInputText();
-			if (InputText.Len() > 0 && PlayerOwner.IsValid())
-			{
-				FString AdjustedText = InputText.Replace(TEXT("://"), TEXT(""));
-				PlayerOwner->LastConnectToIP = AdjustedText;
-				PlayerOwner->SaveConfig();
-				PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *AdjustedText));
-				PlayerOwner->HideMenu();
-			}
-		}
-	}
 }
 
 

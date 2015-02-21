@@ -37,6 +37,8 @@ protected:
 
 	virtual FReply OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FName QuickMatchType);
 
+	virtual FReply OnConnectIP(TSharedPtr<SComboButton> MenuButton);
+	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	virtual void OpenDelayedMenu();
 

@@ -594,9 +594,6 @@ protected:
 	virtual void AddHUBInfo(TSharedPtr<FServerData> HUB);
 	virtual void BuildServerListControlBox();
 
-	virtual FReply OnConnectIP();
-	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-
 	virtual void TallyInternetServers(int32& Players, int32& Spectators, int32& Friends);
 
 private:

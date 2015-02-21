@@ -69,6 +69,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	const FVector2D Icon36x36(36.0f, 36.0f);
 	const FVector2D Icon40x40(40.0f, 40.0f);
 	const FVector2D Icon48x48(48.0f, 48.0f);
+	const FVector2D Icon54x54(54.0f, 54.0f);
 	const FVector2D Icon64x64(64.0f, 64.0f);
 	const FVector2D Icon36x24(36.0f, 24.0f);
 	const FVector2D Icon17x22(17.0f, 22.0f);
@@ -108,6 +109,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("Testing.TestMapShot", new IMAGE_BRUSH( "Testing/Testing.TestMapShot", FVector2D(400.0f, 213.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 
+	Style.Set("UT.Version.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Exo2-Bold", 14))
+		.SetColorAndOpacity(FLinearColor(FColor(208, 102, 0, 255)))
+		);
+
+
 	Style.Set("UT.Dialog.Background", new BOX_BRUSH("TopMenu/UT.Dialog.Background", FMargin(10.0f / 256.0f, 64.0f/256.0f, 10.0f / 256.0f, 25.0f/256.0f)));
 
 	Style.Set("UT.Dialog.TitleTextStyle", FTextBlockStyle()
@@ -124,6 +131,29 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		.SetFont(TTF_FONT("Exo2-Bold", 10))
 		.SetColorAndOpacity(FLinearColor::Gray)
 		);
+
+	{ // Common
+
+		Style.Set("UT.Common.NormalText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 20))
+			.SetColorAndOpacity(FLinearColor::White)
+		);
+
+		Style.Set("UT.Common.BoldText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 22))
+			.SetColorAndOpacity(FLinearColor::Yellow)
+		);
+
+
+		Style.Set("UT.Common.Editbox", FEditableTextBoxStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 20))
+			.SetForegroundColor(FLinearColor::White)
+			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			);
+	}
 
 
 	{ // Badges
@@ -290,6 +320,16 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	
 	}
 
+	{	// Toasts
+
+		Style.Set("UT.Toast.Background", new BOX_BRUSH("Toasts/UT.Toast.Background", FMargin(16.0f / 370.0f, 16.0f / 110.0f, 16.0f / 370.0f, 16.0f / 110.0f)));
+		Style.Set("UT.Toast.TextStyle", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 34))
+			.SetColorAndOpacity(FLinearColor(FColor(208, 102, 0, 255)))
+			);
+	
+	}
+
 	{	// Login
 
 		Style.Set("UT.Login.Dialog.Background", new BOX_BRUSH("Login/UT.Login.Dialog.Background", FMargin(8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f)));
@@ -348,6 +388,11 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	}
 
 
+	{ // Server Browser
+	
+		Style.Set("UT.Icon.Epic", new IMAGE_BRUSH("Icons/UT.Icon.Epic", Icon54x54));
+		Style.Set("UT.Icon.Globe", new IMAGE_BRUSH("Icons/UT.Icon.Globe", Icon54x54));
+	}
 
 	// ------------------------------------- OLD STUFF !!!!!!!
 
@@ -546,8 +591,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UWindows.Standard.ServerBrowser.LeftArrow", new IMAGE_BRUSH( "ServerBrowser/UWindows.Standard.ServerBrowser.LeftArrow", FVector2D(12,8), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 		Style.Set("UWindows.Standard.ServerBrowser.Backdrop", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Backdrop", FMargin(8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f)));
-		Style.Set("UWindows.Standard.ServerBrowser.TopSubBar", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.TopSubBar", FMargin(14.0f / 64.0f, 16.0f / 32.0f, 14.0f / 64.0f, 16.0f / 32.0f)));
-		Style.Set("UWindows.Standard.ServerBrowser.BottomSubBar", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.BottomSubBar", FMargin(14.0f / 64.0f, 16.0f / 32.0f, 14.0f / 64.0f, 16.0f / 32.0f)));
+		Style.Set("UWindows.Standard.ServerBrowser.TopSubBar", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.TopSubBar", FMargin(28.0f / 128.0f, 32.0f / 64.0f, 28.0f / 128.0f, 32.0f / 64.0f)));
+		Style.Set("UWindows.Standard.ServerBrowser.BottomSubBar", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.BottomSubBar", FMargin(20.0f / 96.0f, 24.0f / 48.0f, 18.0f / 96.0f, 24.0f / 48.0f)));
 
 		Style.Set("UWindows.Standard.ServerBrowser.NormalText", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Medium", 12))

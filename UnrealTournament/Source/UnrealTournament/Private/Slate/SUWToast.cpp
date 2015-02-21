@@ -40,27 +40,30 @@ void SUWToast::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(SBox)
-					.WidthOverride(300)
-					.HeightOverride(75)
+					.HeightOverride(130)
 					[
 						SNew(SOverlay)
 						+SOverlay::Slot()
 						[
 							SNew( SImage )		
-							.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Toast.Background"))
+							.Image(SUWindowsStyle::Get().GetBrush("UT.Toast.Background"))
 						]
 						+SOverlay::Slot()
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
-							.Padding(10.0f, 5.0f, 10.0f, 5.05)
+							.Padding(16.0f, 16.0f, 16.0f, 16.0f)
 							.VAlign(VAlign_Center)
 							.HAlign(HAlign_Center)
 							[
-								SNew(STextBlock)
-								.Text(InArgs._ToastText)
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Toast.TextStyle")
-								//.AutoWrapText(true)
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									SNew(STextBlock)
+									.Text(InArgs._ToastText)
+									.TextStyle(SUWindowsStyle::Get(), "UT.Toast.TextStyle")
+								]
 							]
 						]
 					]
