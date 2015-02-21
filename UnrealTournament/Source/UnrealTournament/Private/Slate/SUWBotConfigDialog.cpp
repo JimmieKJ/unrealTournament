@@ -189,7 +189,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 							.Image(&WhiteBar)
 						]
 						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "SkillModifier", "Skill Modifier"), SkillModifier)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Aggressiveness", "Aggresiveness"), Aggressiveness)
+						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Aggressiveness", "Aggressiveness"), Aggressiveness)
 						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Tactics", "Tactics"), Tactics)
 						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Jumpiness", "Jumpiness"), Jumpiness)
 						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "MovementAbility", "Movement Ability"), MovementAbility)
