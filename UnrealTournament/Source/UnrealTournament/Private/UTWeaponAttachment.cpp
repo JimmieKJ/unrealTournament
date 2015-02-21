@@ -12,6 +12,7 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FObjectInitializer& ObjectInitial
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P"));
 	Mesh->AttachParent = RootComponent;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+	Mesh->bLightAttachmentsAsGroup = true;
 	AttachSocket = FName((TEXT("WeaponPoint")));
 	HolsterSocket = FName((TEXT("spine_02")));
 	HolsterOffset = FVector(0.f, 16.f, 0.f);

@@ -33,6 +33,7 @@ void AUTCosmetic::PreInitializeComponents()
 			PrimComponent->bReceivesDecals = false;
 			PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			bRootNotPrimitiveComponent = false;
+			PrimComponent->bLightAttachmentsAsGroup = true;
 		}
 
 		TArray<USceneComponent*> Children;
@@ -49,6 +50,7 @@ void AUTCosmetic::PreInitializeComponents()
 				}
 				PrimComponent->bReceivesDecals = false;
 				PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+				PrimComponent->bLightAttachmentsAsGroup = true;
 			}
 		}
 	}
