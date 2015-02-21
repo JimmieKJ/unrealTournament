@@ -198,7 +198,7 @@ bool UUTAIAction_TacticalMove::Update(float DeltaTime)
 	}
 	else if (bFinalMove)
 	{
-		if (GetWorld()->GetTimerManager().IsTimerActive(this, &UUTAIAction_TacticalMove::FinalWaitFinished))
+		if (GetWorld()->GetTimerManager().IsTimerActive(FinalWaitFinishedHandle))
 		{
 			// timer will handle clearing the action if we want to
 			return false;
@@ -207,7 +207,7 @@ bool UUTAIAction_TacticalMove::Update(float DeltaTime)
 		else if (GetOuterAUTBot()->CanAttack(GetEnemy(), GetOuterAUTBot()->GetEnemyLocation(GetEnemy(), true), false))
 		{
 			GetOuterAUTBot()->CheckWeaponFiring(false);
-			GetWorld()->GetTimerManager().SetTimer(this, &UUTAIAction_TacticalMove::FinalWaitFinished, 0.1f + 0.3f * FMath::FRand() + 0.06f * (7.0f - FMath::Min<float>(7.0f, GetOuterAUTBot()->Skill)), false);
+			GetWorld()->GetTimerManager().SetTimer(FinalWaitFinishedHandle, this, &UUTAIAction_TacticalMove::FinalWaitFinished, 0.1f + 0.3f * FMath::FRand() + 0.06f * (7.0f - FMath::Min<float>(7.0f, GetOuterAUTBot()->Skill)), false);
 			return false;
 		}
 		else
@@ -215,7 +215,7 @@ bool UUTAIAction_TacticalMove::Update(float DeltaTime)
 			return true;
 		}
 	}
-	else if (GetWorld()->GetTimerManager().IsTimerActive(this, &UUTAIAction_TacticalMove::StartFinalMove))
+	else if (GetWorld()->GetTimerManager().IsTimerActive(StartFinalMoveHandle))
 	{
 		// timer will handle next step
 		return false;
@@ -247,7 +247,7 @@ bool UUTAIAction_TacticalMove::Update(float DeltaTime)
 		{
 			GetUTChar()->StopFiring();
 		}
-		GetWorld()->GetTimerManager().SetTimer(this, &UUTAIAction_TacticalMove::StartFinalMove, 0.1f + 0.2f * FMath::FRand(), false);
+		GetWorld()->GetTimerManager().SetTimer(StartFinalMoveHandle, this, &UUTAIAction_TacticalMove::StartFinalMove, 0.1f + 0.2f * FMath::FRand(), false);
 		return false;
 	}
 }

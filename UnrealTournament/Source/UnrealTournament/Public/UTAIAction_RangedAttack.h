@@ -11,6 +11,9 @@ class UUTAIAction_RangedAttack : public UUTAIAction
 {
 	GENERATED_UCLASS_BODY()
 
+	FTimerHandle FirstShotTimerHandle;
+	FTimerHandle EndTimerHandle;
+
 	/** if the bot is skilled enough, finds another spot that the bot can also shoot the target from and sets MoveTarget to it
 	 * @return whether a valid MoveTarget was found
 	 */

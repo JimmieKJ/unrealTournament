@@ -14,6 +14,9 @@ class UUTAIAction_TacticalMove : public UUTAIAction
 	/** minimum distance bot will strafe in a direction */
 	UPROPERTY()
 	float MinStrafeDist;
+	
+	FTimerHandle StartFinalMoveHandle;
+	FTimerHandle FinalWaitFinishedHandle;
 
 	/** set in Started() to whether enemy is currently visible, so we can return to our current position if our move causes us to lose sight of the enemy */
 	bool bEnemyWasVisible;

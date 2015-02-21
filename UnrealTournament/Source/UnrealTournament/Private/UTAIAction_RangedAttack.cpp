@@ -20,7 +20,7 @@ void UUTAIAction_RangedAttack::Started()
 	{
 		GetCharacter()->GetCharacterMovement()->bWantsToCrouch = true;
 	}
-	GetWorld()->GetTimerManager().SetTimer(this, &UUTAIAction_RangedAttack::FirstShotTimer, 0.2f, false);
+	GetWorld()->GetTimerManager().SetTimer(FirstShotTimerHandle, this, &UUTAIAction_RangedAttack::FirstShotTimer, 0.2f, false);
 }
 
 void UUTAIAction_RangedAttack::Ended(bool bAborted)
@@ -101,7 +101,7 @@ void UUTAIAction_RangedAttack::FirstShotTimer()
 		}
 		if (!FindStrafeDest())
 		{
-			GetWorld()->GetTimerManager().SetTimer(this, &UUTAIAction_RangedAttack::EndTimer, 0.2f + (0.5f + 0.5f * FMath::FRand()) * 0.4f * (7.0f - GetOuterAUTBot()->Skill), false);
+			GetWorld()->GetTimerManager().SetTimer(EndTimerHandle, this, &UUTAIAction_RangedAttack::EndTimer, 0.2f + (0.5f + 0.5f * FMath::FRand()) * 0.4f * (7.0f - GetOuterAUTBot()->Skill), false);
 		}
 	}
 }
@@ -114,7 +114,7 @@ void UUTAIAction_RangedAttack::EndTimer()
 bool UUTAIAction_RangedAttack::Update(float DeltaTime)
 {
 	return GetTarget() == NULL || ( !GetOuterAUTBot()->GetMoveTarget().IsValid() &&
-									!GetWorld()->GetTimerManager().IsTimerActive(this, &UUTAIAction_RangedAttack::FirstShotTimer) &&
-									!GetWorld()->GetTimerManager().IsTimerActive(this, &UUTAIAction_RangedAttack::EndTimer) &&
+									!GetWorld()->GetTimerManager().IsTimerActive(FirstShotTimerHandle) &&
+									!GetWorld()->GetTimerManager().IsTimerActive(EndTimerHandle) &&
 									(GetUTChar() == NULL || GetUTChar()->GetWeapon() == NULL || !GetUTChar()->GetWeapon()->IsPreparingAttack()) );
 }
