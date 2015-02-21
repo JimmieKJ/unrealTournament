@@ -1677,8 +1677,17 @@ bool AUTGameMode::ReadyToStartMatch()
 {
 	if (GetWorld()->IsPlayInEditor() || !bDelayedStart)
 	{
-		// PIE is always ready to start.
-		return true;
+		// starting on first frame has side effects in PIE because of differences in ordering; components haven't been initialized/registered yet...
+		if (GetWorld()->TimeSeconds == 0.0f)
+		{
+			GetWorldTimerManager().SetTimerForNextTick(this, &AUTGameMode::StartMatch);
+			return false;
+		}
+		else
+		{
+			// PIE is always ready to start.
+			return true;
+		}
 	}
 
 	// By default start when we have > 0 players
