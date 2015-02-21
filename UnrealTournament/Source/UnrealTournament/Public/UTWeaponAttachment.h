@@ -116,9 +116,4 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayBulletWhip();
-
-#if WITH_EDITORONLY_DATA
-	virtual void PostDuplicate(bool bDuplicateForPIE) override;
-	void AttachmentBPChanged(UBlueprint* BP);
-#endif
 };
