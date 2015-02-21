@@ -41,6 +41,7 @@ void UUTGameUserSettings::SetToDefaults()
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f; 
 	FullscreenMode = EWindowMode::Fullscreen;
+	ScreenPercentage = 100;
 }
 
 void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
@@ -51,6 +52,9 @@ void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 	{
 		SetSoundClassVolume(EUTSoundClass::Type(i), SoundClassVolumes[i]);
 	}
+
+	SetAAMode(AAMode);
+	SetScreenPercentage(ScreenPercentage);
 }
 
 void UUTGameUserSettings::SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue)
@@ -138,3 +142,26 @@ void UUTGameUserSettings::SetServerBrowserSplitterPositions(int32 SplitterIndex,
 	}
 }
 
+int32 UUTGameUserSettings::GetAAMode()
+{
+	return AAMode;
+}
+
+void UUTGameUserSettings::SetAAMode(int32 NewAAMode)
+{
+	AAMode = NewAAMode;
+	auto AAModeCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessAAQuality"));
+	AAModeCVar->Set(AAMode, ECVF_SetByGameSetting);
+}
+
+int32 UUTGameUserSettings::GetScreenPercentage()
+{
+	return ScreenPercentage;
+}
+
+void UUTGameUserSettings::SetScreenPercentage(int32 NewScreenPercentage)
+{
+	ScreenPercentage = NewScreenPercentage;
+	auto ScreenPercentageCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"));
+	ScreenPercentageCVar->Set(ScreenPercentage, ECVF_SetByGameSetting);
+}

@@ -174,11 +174,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	FVector2D ResolutionScale(ViewportSize.X / 1280.0f, ViewportSize.Y / 720.0f);
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-
-	Emote1Index = Settings->GetEmoteIndex1();
-	Emote2Index = Settings->GetEmoteIndex2();
-	Emote3Index = Settings->GetEmoteIndex3();
-
+	
 	const int EmoteMax = 6;
 
 	{
@@ -814,12 +810,7 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	GetPlayerOwner()->SetEyewearPath(EyewearPathList.IsValidIndex(Index) ? EyewearPathList[Index] : FString());
 	Index = CharacterList.Find(CharacterComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetCharacterPath(CharacterPathList.IsValidIndex(Index) ? CharacterPathList[Index] : FString());
-
-	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	Settings->SetEmoteIndex1(Emote1Index);
-	Settings->SetEmoteIndex2(Emote2Index);
-	Settings->SetEmoteIndex3(Emote3Index);
-
+	
 	GetPlayerOwner()->SaveProfileSettings();
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 

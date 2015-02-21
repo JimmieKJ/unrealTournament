@@ -48,11 +48,18 @@ protected:
 	TSharedPtr<STextBlock> SelectedPPQuality;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > EffectQuality;
 	TSharedPtr<STextBlock> SelectedEffectQuality;
-	TSharedPtr< SComboBox< TSharedPtr<FString> > > AAQuality;
-	TSharedPtr<STextBlock> SelectedAAQuality;
 	TSharedPtr<SSlider> FOV;
 	TSharedPtr<STextBlock> FOVLabel;
 	TSharedPtr<SSlider> DecalLifetime;
+	TSharedPtr<STextBlock> DecalLifetimeLabel;
+
+	TArray< TSharedPtr<FString> > AAModeList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > AAMode;
+	TSharedPtr<STextBlock> SelectedAAMode;
+
+	TSharedPtr<SSlider> ScreenPercentageSlider;
+	TSharedPtr<STextBlock> ScreenPercentageLabel;
+	FVector2D ScreenPercentageRange;
 
 	/** range of values passed to PlayerInput->SetMouseSensitivity() which will be normalized to 0.0 - 1.0 for the slider widget */
 	FVector2D MouseSensitivityRange;
@@ -71,14 +78,28 @@ protected:
 	void OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-	void OnAAQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-	void OnFOVChange(float NewValue);
 
-	FString GetFOVLabelText(int32 FOVAngle);
+
+	void OnAAModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	int32 ConvertAAModeToComboSelection(int32 AAMode);
+	int32 ConvertComboSelectionToAAMode(const FString& Selection);
+	
+	void OnFOVChange(float NewValue);
+	FString GetFOVLabelText(float SliderValue);
+
+	void OnDecalLifetimeChange(float NewValue);
+	FString GetDecalLifetimeLabelText(float SliderValue);
+
+	void OnScreenPercentageChange(float NewValue);
+	FString GetScreenPercentageLabelText(float SliderValue);
+
 
 	SVerticalBox::FSlot& AddSectionHeader(const FText& SectionDesc);
 	SVerticalBox::FSlot& AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue);
+	SVerticalBox::FSlot& AddAAModeWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue);
 	SVerticalBox::FSlot& AddGeneralSliderWidget(const FString& Desc, TSharedPtr<SSlider>& SliderWidget, float SettingValue);
+
+	SVerticalBox::FSlot& AddGeneralSliderWithLabelWidget(TSharedPtr<SSlider>& SliderWidget, TSharedPtr<STextBlock>& LabelWidget, void(SUWSystemSettingsDialog::*SelectionFunc)(float), const FString& InitialLabel, float SettingValue);
 };
 
 #endif

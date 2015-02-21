@@ -36,13 +36,11 @@ public:
 	virtual float GetServerBrowserSplitterPositions(int32 SplitterIndex);
 	virtual void SetServerBrowserSplitterPositions(int32 SplitterIndex, float NewWidth);
 
-	virtual void SetEmoteIndex1(int32 NewIndex) { EmoteIndex1 = NewIndex; }
-	virtual void SetEmoteIndex2(int32 NewIndex) { EmoteIndex2 = NewIndex; }
-	virtual void SetEmoteIndex3(int32 NewIndex) { EmoteIndex3 = NewIndex; }
+	virtual int32 GetAAMode();
+	virtual void SetAAMode(int32 NewAAMode);
 
-	virtual int32 GetEmoteIndex1() { return EmoteIndex1; }
-	virtual int32 GetEmoteIndex2() { return EmoteIndex2; }
-	virtual int32 GetEmoteIndex3() { return EmoteIndex3; }
+	virtual int32 GetScreenPercentage();
+	virtual void SetScreenPercentage(int32 NewScreenPercentage);
 
 protected:
 	UPROPERTY(config)
@@ -70,11 +68,8 @@ protected:
 	float ServerBrowserSplitterPositions[4];
 
 	UPROPERTY(config)
-	int32 EmoteIndex1;
+	int32 AAMode;
 
 	UPROPERTY(config)
-	int32 EmoteIndex2;
-
-	UPROPERTY(config)
-	int32 EmoteIndex3;
+	int32 ScreenPercentage;
 };

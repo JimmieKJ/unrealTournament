@@ -1671,7 +1671,7 @@ void AUTPlayerController::PlayEmote1()
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	if (GS)
 	{
-		Emote(GS->GetEmoteIndex1());
+		Emote(0);
 	}
 }
 
@@ -1680,7 +1680,7 @@ void AUTPlayerController::PlayEmote2()
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	if (GS)
 	{
-		Emote(GS->GetEmoteIndex2());
+		Emote(1);
 	}
 }
 
@@ -1689,7 +1689,7 @@ void AUTPlayerController::PlayEmote3()
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	if (GS)
 	{
-		Emote(GS->GetEmoteIndex3());
+		Emote(2);
 	}
 }
 

@@ -68,11 +68,52 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 		];
 }
 
+SVerticalBox::FSlot& SUWSystemSettingsDialog::AddAAModeWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue)
+{
+	return SVerticalBox::Slot()
+		.HAlign(HAlign_Fill)
+		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+				.Text(Desc)
+			]
+			+ SHorizontalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.AutoWidth()
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Center)
+				[
+					SAssignNew(ComboBox, SComboBox< TSharedPtr<FString> >)
+					.InitiallySelectedItem(AAModeList[SettingValue])
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					.OptionsSource(&AAModeList)
+					.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+					.OnSelectionChanged(this, SelectionFunc)
+					.Content()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						[
+							SAssignNew(SelectedItemWidget, STextBlock)
+							.Text(*AAModeList[SettingValue].Get())
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+						]
+					]
+				]
+		];
+}
+
 SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FString& Desc, TSharedPtr<SSlider>& SliderWidget, float SettingValue)
 {
-	FVector2D ViewportSize;
-	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
-
 	return 
 		SVerticalBox::Slot()
 		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
@@ -106,14 +147,45 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FStri
 		];
 }
 
-FString SUWSystemSettingsDialog::GetFOVLabelText(int32 FOVAngle)
+SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWithLabelWidget(TSharedPtr<SSlider>& SliderWidget, TSharedPtr<STextBlock>& LabelWidget, void(SUWSystemSettingsDialog::*SelectionFunc)(float), const FString& InitialLabel, float SettingValue)
 {
-	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "FOV", "Field of View ({Value})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
+	return 
+	SVerticalBox::Slot()
+	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Center)
+		[
+			SAssignNew(LabelWidget, STextBlock)
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+			.Text(InitialLabel)
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Right)
+		[
+			SNew(SBox)
+			.WidthOverride(300.0f)
+			.Content()
+			[
+				SAssignNew(SliderWidget, SSlider)
+				.OnValueChanged(this, SelectionFunc)
+				.Orientation(Orient_Horizontal)
+				.Value(SettingValue)
+			]
+		]
+	];
 }
 
 void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 {
 	DecalLifetimeRange = FVector2D(5.0f, 105.0f);
+	ScreenPercentageRange = FVector2D(50.0f, 100.0f);
 
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -166,12 +238,26 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 	QualitySettings.ShadowQuality = FMath::Clamp<int32>(QualitySettings.ShadowQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.PostProcessQuality = FMath::Clamp<int32>(QualitySettings.PostProcessQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.EffectsQuality = FMath::Clamp<int32>(QualitySettings.EffectsQuality, 0, GeneralScalabilityList.Num() - 1);
-	QualitySettings.AntiAliasingQuality = FMath::Clamp<int32>(QualitySettings.AntiAliasingQuality, 0, GeneralScalabilityList.Num() - 1);
+
+	AAModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "AAModeNone", "None").ToString())));
+	AAModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "AAModeFXAA", "FXAA").ToString())));
+	AAModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "AAModeTemporal", "Temporal").ToString())));
+	auto AAModeCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PostProcessAAQuality"));
+	int32 AAModeSelection = ConvertAAModeToComboSelection(AAModeCVar->GetValueOnGameThread());
+
+	auto ScreenPercentageCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.ScreenPercentage"));
+	int32 ScreenPercentage = ScreenPercentageCVar->GetValueOnGameThread();
+	ScreenPercentage = int32(FMath::Clamp(float(ScreenPercentage), ScreenPercentageRange.X, ScreenPercentageRange.Y));
+
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine == NULL) // PIE
 	{
 		UTEngine = UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>();
 	}
+
+	float DecalSliderSetting = (GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime <= 0.0f) ? 1.0f : ((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime - DecalLifetimeRange.X) / (DecalLifetimeRange.Y - DecalLifetimeRange.X));
+	float FOVSliderSetting = (GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN);
+	float ScreenPercentageSliderSetting = (float(ScreenPercentage) - ScreenPercentageRange.X) / (ScreenPercentageRange.Y - ScreenPercentageRange.X);
 
 	if (DialogContent.IsValid())
 	{
@@ -271,45 +357,18 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				]
 			]
 			+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "DetailSettings", "- Detail Settings -"))
+
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, &SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, &SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality)
-			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "AA Quality", "Anti-Aliasing Quality").ToString(), AAQuality, SelectedAAQuality, &SUWSystemSettingsDialog::OnAAQualitySelected, QualitySettings.AntiAliasingQuality)
-			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetimeVis", "Decal Lifetime").ToString(), DecalLifetime, (GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime <= 0.0f) ? 1.0f : ((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime - DecalLifetimeRange.X) / (DecalLifetimeRange.Y - DecalLifetimeRange.X)))
-
-
-			+ SVerticalBox::Slot()
-				.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
-					[
-						SAssignNew(FOVLabel, STextBlock)
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-						.Text(GetFOVLabelText(int(GetDefault<AUTPlayerController>()->ConfigDefaultFOV)))
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Right)
-					[
-						SNew(SBox)
-						.WidthOverride(300.0f)
-						.Content()
-						[
-							SAssignNew(FOV, SSlider)
-							.OnValueChanged(this, &SUWSystemSettingsDialog::OnFOVChange)
-							.Orientation(Orient_Horizontal)
-							.Value((GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN))
-						]
-					]
-				]
-
+			+ AddAAModeWidget(NSLOCTEXT("SUWSystemSettingsDialog", "AAMode", "AA Mode").ToString(), AAMode, SelectedAAMode, &SUWSystemSettingsDialog::OnAAModeSelected, AAModeSelection)
+			
+			+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange, GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting)
+				
+			+ AddGeneralSliderWithLabelWidget(DecalLifetime, DecalLifetimeLabel, &SUWSystemSettingsDialog::OnDecalLifetimeChange, GetDecalLifetimeLabelText(DecalSliderSetting), DecalSliderSetting)
+			+ AddGeneralSliderWithLabelWidget(FOV, FOVLabel, &SUWSystemSettingsDialog::OnFOVChange, GetFOVLabelText(FOVSliderSetting), FOVSliderSetting)
+			
 			+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "SoundSettings", "- Sound/Voice Settings -"))
 			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), SoundVolumes[EUTSoundClass::Master], UserSettings->GetSoundClassVolume(EUTSoundClass::Master))
 			+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), SoundVolumes[EUTSoundClass::Music], UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
@@ -320,9 +379,42 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 	}
 }
 
+FString SUWSystemSettingsDialog::GetFOVLabelText(float SliderValue)
+{
+	int32 FOVAngle = FMath::TruncToInt(SliderValue * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
+	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "FOV", "Field of View ({Value})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
+}
+
 void SUWSystemSettingsDialog::OnFOVChange(float NewValue)
 {
-	FOVLabel->SetText(GetFOVLabelText(FMath::TruncToInt(NewValue * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN)));
+	FOVLabel->SetText(GetFOVLabelText(NewValue));
+}
+
+FString SUWSystemSettingsDialog::GetScreenPercentageLabelText(float SliderValue)
+{
+	int32 ScreenPercentage = FMath::TruncToInt(SliderValue * (ScreenPercentageRange.Y - ScreenPercentageRange.X) + ScreenPercentageRange.X);
+	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "ScreenPercentage", "Screen Percentage ({Value}%)"), FText::FromString(FString::Printf(TEXT("%i"), ScreenPercentage))).ToString();
+}
+
+void SUWSystemSettingsDialog::OnScreenPercentageChange(float NewValue)
+{
+	ScreenPercentageLabel->SetText(GetScreenPercentageLabelText(NewValue));
+}
+
+FString SUWSystemSettingsDialog::GetDecalLifetimeLabelText(float SliderValue)
+{
+	if (SliderValue == 1.0f)
+	{
+		return NSLOCTEXT("SUWPlayerSettingsDialog", "DecalLifetimeInf", "Decal Lifetime (INF)").ToString();
+	}
+	
+	int32 DecalLifetime = FMath::TruncToInt(SliderValue * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
+	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({Value} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), DecalLifetime))).ToString();
+}
+
+void SUWSystemSettingsDialog::OnDecalLifetimeChange(float NewValue)
+{
+	DecalLifetimeLabel->SetText(GetDecalLifetimeLabelText(NewValue));
 }
 
 FReply SUWSystemSettingsDialog::OKClick()
@@ -338,11 +430,15 @@ FReply SUWSystemSettingsDialog::OKClick()
 	UserSettings->ScalabilityQuality.ShadowQuality = GeneralScalabilityList.Find(ShadowQuality->GetSelectedItem());
 	UserSettings->ScalabilityQuality.PostProcessQuality = GeneralScalabilityList.Find(PPQuality->GetSelectedItem());
 	UserSettings->ScalabilityQuality.EffectsQuality = GeneralScalabilityList.Find(EffectQuality->GetSelectedItem());
-	UserSettings->ScalabilityQuality.AntiAliasingQuality = GeneralScalabilityList.Find(AAQuality->GetSelectedItem());
 	Scalability::SetQualityLevels(UserSettings->ScalabilityQuality);
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
+
+	UserSettings->SetAAMode(ConvertComboSelectionToAAMode(*AAMode->GetSelectedItem().Get()));
+
+	int32 NewScreenPercentage = FMath::TruncToInt(ScreenPercentageSlider->GetValue() * (ScreenPercentageRange.Y - ScreenPercentageRange.X) + ScreenPercentageRange.X);
+	UserSettings->SetScreenPercentage(NewScreenPercentage);
 
 	const TCHAR* Cmd = *SelectedRes->GetText().ToString();
 	int32 X=FCString::Atoi(Cmd);
@@ -424,9 +520,44 @@ void SUWSystemSettingsDialog::OnEffectQualitySelected(TSharedPtr<FString> NewSel
 {
 	SelectedEffectQuality->SetText(*NewSelection.Get());
 }
-void SUWSystemSettingsDialog::OnAAQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+
+void SUWSystemSettingsDialog::OnAAModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedAAQuality->SetText(*NewSelection.Get());
+	SelectedAAMode->SetText(*NewSelection.Get());
+}
+
+int32 SUWSystemSettingsDialog::ConvertAAModeToComboSelection(int32 AAMode)
+{
+	// 0:off, 1:very low (faster FXAA), 2:low (FXAA), 3:medium (faster TemporalAA), 4:high (default TemporalAA)
+	if (AAMode == 0)
+	{
+		return 0;
+	}
+	else if (AAMode == 1 || AAMode == 2)
+	{
+		return 1;
+	}
+	else
+	{
+		return 2;
+	}
+}
+
+int32 SUWSystemSettingsDialog::ConvertComboSelectionToAAMode(const FString& Selection)
+{
+	// 0:off, 1:very low (faster FXAA), 2:low (FXAA), 3:medium (faster TemporalAA), 4:high (default TemporalAA)
+	if (Selection == *AAModeList[0].Get())
+	{
+		return 0;
+	}
+	else if (Selection == *AAModeList[1].Get())
+	{
+		return 2;
+	}
+	else
+	{
+		return 4;
+	}
 }
 
 FReply SUWSystemSettingsDialog::OnButtonClick(uint16 ButtonID)
