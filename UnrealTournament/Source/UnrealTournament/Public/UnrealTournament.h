@@ -89,5 +89,7 @@ extern UNREALTOURNAMENT_API void GetAllBlueprintAssetData(UClass* BaseClass, TAr
 
 /** timer manipulation for UFUNCTIONs that doesn't require a timer handle */
 extern UNREALTOURNAMENT_API void SetTimerUFunc(UObject* Obj, FName FuncName, float Time, bool bLooping = false);
+extern UNREALTOURNAMENT_API bool IsTimerActiveUFunc(UObject* Obj, FName FuncName);
+extern UNREALTOURNAMENT_API void ClearTimerUFunc(UObject* Obj, FName FuncName);
 
 #endif

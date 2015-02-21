@@ -316,3 +316,58 @@ void SetTimerUFunc(UObject* Obj, FName FuncName, float Time, bool bLooping)
 		}
 	}
 }
+bool IsTimerActiveUFunc(UObject* Obj, FName FuncName)
+{
+	if (Obj != NULL)
+	{
+		const UWorld* const World = GEngine->GetWorldFromContextObject(Obj);
+		if (World != NULL)
+		{
+			UFunction* const Func = Obj->FindFunction(FuncName);
+			if (Func == NULL)
+			{
+				UE_LOG(UT, Warning, TEXT("IsTimerActive: Object %s does not have a function named '%s'"), *Obj->GetName(), *FuncName.ToString());
+				return false;
+			}
+			else
+			{
+				FTimerDynamicDelegate Delegate;
+				Delegate.BindUFunction(Obj, FuncName);
+
+				FTimerHandle Handle = World->GetTimerManager().K2_FindDynamicTimerHandle(Delegate);
+				return World->GetTimerManager().IsTimerActive(Handle);
+			}
+		}
+		else
+		{
+			return false;
+		}
+	}
+	else
+	{
+		return false;
+	}
+}
+void ClearTimerActiveUFunc(UObject* Obj, FName FuncName)
+{
+	if (Obj != NULL)
+	{
+		const UWorld* const World = GEngine->GetWorldFromContextObject(Obj);
+		if (World != NULL)
+		{
+			UFunction* const Func = Obj->FindFunction(FuncName);
+			if (Func == NULL)
+			{
+				UE_LOG(UT, Warning, TEXT("ClearTimer: Object %s does not have a function named '%s'"), *Obj->GetName(), *FuncName.ToString());
+			}
+			else
+			{
+				FTimerDynamicDelegate Delegate;
+				Delegate.BindUFunction(Obj, FuncName);
+
+				FTimerHandle Handle = World->GetTimerManager().K2_FindDynamicTimerHandle(Delegate);
+				return World->GetTimerManager().ClearTimer(Handle);
+			}
+		}
+	}
+}
