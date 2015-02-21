@@ -704,9 +704,14 @@ protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = PlayFeignDeath, Category = Pawn)
 	bool bFeigningDeath;
+
 	/** set during ragdoll recovery (still blending out physics, playing recover anim, etc) */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	bool bInRagdollRecovery;
+
+	/** Count failed attempts to unfeign, kill player if too many. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		int32 UnfeignCount;
 
 public:
 	inline bool IsRagdoll() const

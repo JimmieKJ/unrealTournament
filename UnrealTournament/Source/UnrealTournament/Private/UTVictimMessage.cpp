@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTLocalMessage.h"
 #include "UTVictimMessage.h"
-#include "GameFramework/DamageType.h"
+#include "UTDamageType.h"
 
 UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -13,8 +13,6 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 	MessageArea = FName(TEXT("DeathMessage"));
 	StyleTag = FName(TEXT("Victim"));
 	YouWereKilledByText = NSLOCTEXT("UTVictimMessage","YouWereKilledByText","You were killed by {Player1Name}"); //  with {WeaponName} -- Removed for now
-
-	SuicideTexts.Add(NSLOCTEXT("UTKillerMessage","Suicide","You killed yourself."));
 }
 
 
@@ -31,9 +29,13 @@ FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APl
 			return GetDefault<UUTVictimMessage>()->YouWereKilledByText;
 
 		case 1:
-			const UUTVictimMessage* DefaultMessage = GetDefault<UUTVictimMessage>(GetClass());
-			int Idx = int(float(DefaultMessage->SuicideTexts.Num()) * FMath::FRand());
-			return DefaultMessage->SuicideTexts[Idx];
+			UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
+			const UUTDamageType* DmgType = DamageTypeClass ? Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject()) : NULL;
+			if (!DmgType)
+			{
+				DmgType = Cast<UUTDamageType>(UUTDamageType::StaticClass()->GetDefaultObject());
+			}
+			return DmgType->SelfVictimMessage;
 	}
 
 	return FText::GetEmpty();

@@ -14,6 +14,7 @@
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
 #include "UTDmgType_BlockedTelefrag.h"
+#include "UTDmgType_FeignFail.h"
 #include "UTReplicatedEmitter.h"
 #include "UTWorldSettings.h"
 #include "UTArmor.h"
@@ -76,6 +77,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	HeadHeight = 8.0f;
 	HeadBone = FName(TEXT("head"));
 	EmoteSpeed = 1.0f;
+	UnfeignCount = 0;
 
 	BobTime = 0.f;
 	WeaponBobMagnitude = FVector(0.f, 0.8f, 0.4f);
@@ -1252,7 +1254,10 @@ void AUTCharacter::PlayDying()
 		}
 		else
 		{
-			StartRagdoll();
+			if (!bFeigningDeath)
+			{
+				StartRagdoll();
+			}
 			if (UTDmg != NULL)
 			{
 				UTDmg.GetDefaultObject()->PlayDeathEffects(this);
@@ -1374,11 +1379,20 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 			if (GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime)
 			{
 				FVector ActorLocation = GetCapsuleComponent()->GetComponentLocation();
+				UnfeignCount++;
 				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 0.75f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());				
 				if (IsInWater() || GetWorld()->SweepTest(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
 				{
+					UnfeignCount = 0;
 					bFeigningDeath = false;
 					PlayFeignDeath();
+				}
+				else if (UnfeignCount > 5)
+				{
+					FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
+					FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_FeignFail::StaticClass());
+					UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+					Died(NULL, FakeDamageEvent);
 				}
 			}
 		}

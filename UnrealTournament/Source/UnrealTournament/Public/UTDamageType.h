@@ -146,6 +146,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
 	FText FemaleSuicideMessage;
 
+	/** This is the victim message (centered) suicide text. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
+		FText SelfVictimMessage;
+
 	/** this is the name that will be used for the {WeaponName} message option*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
 	FText AssociatedWeaponName;
