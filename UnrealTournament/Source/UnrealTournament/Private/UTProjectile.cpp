@@ -116,10 +116,9 @@ void AUTProjectile::PreInitializeComponents()
 	GetComponents<UMeshComponent>(MeshComponents);
 	for (int32 i = 0; i < MeshComponents.Num(); i++)
 	{
-		//UE_LOG(UT, Warning, TEXT("%s found mesh %s receive decals %d"), *GetName(), *MeshComponents[i]->GetName(), MeshComponents[i]->bReceivesDecals);
+		//UE_LOG(UT, Warning, TEXT("%s found mesh %s receive decals %d cast shadow %d"), *GetName(), *MeshComponents[i]->GetName(), MeshComponents[i]->bReceivesDecals, MeshComponents[i]->CastShadow);
 		MeshComponents[i]->bUseAsOccluder = false;
 	}
-
 }
 
 void AUTProjectile::BeginPlay()
