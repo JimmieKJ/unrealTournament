@@ -108,6 +108,18 @@ void AUTProjectile::PreInitializeComponents()
 			PawnOverlapSphere->SetSphereRadius(OverlapRadius);
 		}
 	}
+/*	if (CollisionComp && (CollisionComp->GetUnscaledSphereRadius() > 0.f))
+	{
+		UE_LOG(UT, Warning, TEXT("%s has collision radius %f"), *GetName(), CollisionComp->GetUnscaledSphereRadius());
+	}*/
+	TArray<UMeshComponent*> MeshComponents;
+	GetComponents<UMeshComponent>(MeshComponents);
+	for (int32 i = 0; i < MeshComponents.Num(); i++)
+	{
+		//UE_LOG(UT, Warning, TEXT("%s found mesh %s receive decals %d"), *GetName(), *MeshComponents[i]->GetName(), MeshComponents[i]->bReceivesDecals);
+		MeshComponents[i]->bUseAsOccluder = false;
+	}
+
 }
 
 void AUTProjectile::BeginPlay()
