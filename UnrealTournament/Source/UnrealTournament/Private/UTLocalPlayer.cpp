@@ -998,17 +998,21 @@ void UUTLocalPlayer::SaveProfileSettings()
 
 void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
-	if (bWasSuccessful)
+	// Make sure this was our filename
+	if (FileName == GetProfileFilename())
 	{
-		FText Saved = NSLOCTEXT("MCP", "ProfileSaved", "Profile Saved");
-		ShowToast(Saved);
-	}
-	else
-	{
-#if !UE_SERVER
-		// Should give a warning here if it fails.
-		ShowMessage(NSLOCTEXT("MCPMessages", "ProfileSaveErrorTitle", "An error has occured"), NSLOCTEXT("MCPMessages", "ProfileSaveErrorText", "UT could not save your profile with the MCP.  Your settings may be lost."), UTDIALOG_BUTTON_OK, NULL);
-#endif
+		if (bWasSuccessful)
+		{
+			FText Saved = NSLOCTEXT("MCP", "ProfileSaved", "Profile Saved");
+			ShowToast(Saved);
+		}
+		else
+		{
+	#if !UE_SERVER
+			// Should give a warning here if it fails.
+			ShowMessage(NSLOCTEXT("MCPMessages", "ProfileSaveErrorTitle", "An error has occured"), NSLOCTEXT("MCPMessages", "ProfileSaveErrorText", "UT could not save your profile with the MCP.  Your settings may be lost."), UTDIALOG_BUTTON_OK, NULL);
+	#endif
+		}
 	}
 }
 
