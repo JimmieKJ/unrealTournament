@@ -61,6 +61,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
 	GetMesh()->bReceivesDecals = false;
+	GetMesh()->bLightAttachmentsAsGroup = true;
 
 	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
 

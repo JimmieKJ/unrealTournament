@@ -13,6 +13,8 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	{
 		Mesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
 		Mesh->AttachParent = RootComponent;
+		Mesh->bReceivesDecals = false;
+		Mesh->bUseAsOccluder = false;
 	}
 	MeshSpinner = ObjectInitializer.CreateOptionalDefaultSubobject<URotatingMovementComponent>(this, FName(TEXT("MeshSpinner")));
 	if (MeshSpinner != NULL)

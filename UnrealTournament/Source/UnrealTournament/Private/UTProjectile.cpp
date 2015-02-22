@@ -24,6 +24,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 		CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");			// Collision profiles are defined in DefaultEngine.ini
 		CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
 		CollisionComp->bTraceComplexOnMove = true;
+		CollisionComp->bReceivesDecals = false;
 		RootComponent = CollisionComp;
 	}
 
@@ -38,6 +39,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 		PawnOverlapSphere->BodyInstance.SetCollisionProfileName("ProjectileOverlap");
 		PawnOverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
 		PawnOverlapSphere->bTraceComplexOnMove = false; 
+		PawnOverlapSphere->bReceivesDecals = false;
 		PawnOverlapSphere->AttachParent = RootComponent;
 	}
 
