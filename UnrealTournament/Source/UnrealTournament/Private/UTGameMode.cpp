@@ -1714,7 +1714,7 @@ bool AUTGameMode::ReadyToStartMatch()
 		{
 			if ((MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
 			{
-				BotFillCount = MinPlayersToStart;
+				BotFillCount = FMath::Max(BotFillCount, MinPlayersToStart);
 			}
 			if (MaxReadyWaitTime > 0)
 			{
@@ -2241,7 +2241,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-			.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
+			.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Max Number of Bot Combatants"))
 		]
 		+ SHorizontalBox::Slot()
 		.FillWidth(1.0f)
