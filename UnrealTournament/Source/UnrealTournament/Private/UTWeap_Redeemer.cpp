@@ -157,34 +157,3 @@ bool AUTWeap_Redeemer::CanAttack_Implementation(AActor* Target, const FVector& T
 	BestFireMode = 0;
 	return Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc);
 }
-
-void AUTWeap_Redeemer::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	// @TODO FIXMESTEVE temp up/down rotation for redeemer since no animations
-	if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled())
-	{
-		if (FirstPMeshOffset.IsZero())
-		{
-			FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
-			FirstPMeshRotation = Mesh->GetRelativeTransform().Rotator();
-		}
-		FRotator EquipRotation(0.f, 0.f, 0.f);
-		if (CurrentState == EquippingState)
-		{
-			float PercentDone = GetWorldTimerManager().GetTimerElapsed(EquippingState->BringUpFinishedHandle) / BringUpTime;
-			EquipRotation.Pitch = -50.f * (1.f - PercentDone);
-		}
-		else if (CurrentState == UnequippingState)
-		{
-			float PercentDone = GetWorldTimerManager().GetTimerElapsed(Cast<UUTWeaponStateUnequipping>(UnequippingState)->PutDownFinishedHandle) / PutDownTime;
-			EquipRotation.Pitch = -50.f * PercentDone;
-		}
-		else if (CurrentState == InactiveState)
-		{
-			EquipRotation.Pitch = -50.f;
-		}
-		Mesh->SetRelativeRotation(Mesh->RelativeRotation + EquipRotation);
-	}
-}
