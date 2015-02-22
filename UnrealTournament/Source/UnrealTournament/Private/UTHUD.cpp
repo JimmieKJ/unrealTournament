@@ -367,7 +367,7 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHo
 	Options.MinimumIntegralDigits = 2;
 	Options.MaximumIntegralDigits = 2;
 
-	Args.Add(TEXT("Hours"), FText::AsNumber(Hours, bForceTwoDigits ? &Options : NULL));
+	Args.Add(TEXT("Hours"), FText::AsNumber(Hours, NULL));
 	Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, (bDisplayHours || bForceTwoDigits) ? &Options : NULL));
 	Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, (bDisplayMinutes || bForceTwoDigits) ? &Options : NULL));
 	Args.Add(TEXT("Prefix"), Prefix);
