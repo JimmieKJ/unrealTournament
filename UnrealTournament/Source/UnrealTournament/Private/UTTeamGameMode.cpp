@@ -502,28 +502,31 @@ void AUTTeamGameMode::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamI
 
 void AUTTeamGameMode::PlayEndOfMatchMessage()
 {
-	int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score > 3) ? 1 : 0;
-	for (int32 i = 0; i < Teams.Num(); i++)
+	if (UTGameState && UTGameState->WinningTeam)
 	{
-		if ((Teams[i] != UTGameState->WinningTeam) && (Teams[i]->Score > 0))
+		int32 IsFlawlessVictory = (UTGameState->WinningTeam->Score > 3) ? 1 : 0;
+		for (int32 i = 0; i < Teams.Num(); i++)
 		{
-			IsFlawlessVictory = 0;
-			break;
-		}
-	}
-
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-	{
-		APlayerController* Controller = *Iterator;
-		if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
-		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-			if (PC && Cast<AUTPlayerState>(PC->PlayerState) && !PC->PlayerState->bOnlySpectator)
+			if ((Teams[i] != UTGameState->WinningTeam) && (Teams[i]->Score > 0))
 			{
-				PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
+				IsFlawlessVictory = 0;
+				break;
+			}
+		}
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* Controller = *Iterator;
+			if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+				if (PC && Cast<AUTPlayerState>(PC->PlayerState) && !PC->PlayerState->bOnlySpectator)
+				{
+					PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
+				}
 			}
 		}
 	}
+
 }
 
 void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
