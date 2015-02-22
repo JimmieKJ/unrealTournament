@@ -108,17 +108,27 @@ void AUTProjectile::PreInitializeComponents()
 			PawnOverlapSphere->SetSphereRadius(OverlapRadius);
 		}
 	}
-/*	if (CollisionComp && (CollisionComp->GetUnscaledSphereRadius() > 0.f))
-	{
-		UE_LOG(UT, Warning, TEXT("%s has collision radius %f"), *GetName(), CollisionComp->GetUnscaledSphereRadius());
-	}*/
+
 	TArray<UMeshComponent*> MeshComponents;
 	GetComponents<UMeshComponent>(MeshComponents);
 	for (int32 i = 0; i < MeshComponents.Num(); i++)
 	{
 		//UE_LOG(UT, Warning, TEXT("%s found mesh %s receive decals %d cast shadow %d"), *GetName(), *MeshComponents[i]->GetName(), MeshComponents[i]->bReceivesDecals, MeshComponents[i]->CastShadow);
 		MeshComponents[i]->bUseAsOccluder = false;
+		MeshComponents[i]->SetCastShadow(false);
 	}
+	/*
+	if (CollisionComp && (CollisionComp->GetUnscaledSphereRadius() > 0.f))
+	{
+	UE_LOG(UT, Warning, TEXT("%s has collision radius %f"), *GetName(), CollisionComp->GetUnscaledSphereRadius());
+	}
+
+	TArray<ULightComponent*> LightComponents;
+	GetComponents<ULightComponent>(LightComponents);
+	for (int32 i = 0; i < LightComponents.Num(); i++)
+	{
+		UE_LOG(UT, Warning, TEXT("%s found LIGHT %s cast shadow %d"), *GetName(), *LightComponents[i]->GetName(), LightComponents[i]->CastShadows);
+	}*/
 }
 
 void AUTProjectile::BeginPlay()
