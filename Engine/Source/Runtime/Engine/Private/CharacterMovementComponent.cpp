@@ -3391,10 +3391,16 @@ void UCharacterMovementComponent::MoveAlongFloor(const FVector& InVelocity, floa
 	
 	if (Hit.bStartPenetrating)
 	{
-		OnCharacterStuckInGeometry();
-	}
+		// Allow this hit to be used as an impact we can deflect off, otherwise we do nothing the rest of the update and appear to hitch.
+		HandleImpact(Hit);
+		SlideAlongSurface(Delta, 1.f, Hit.Normal, Hit, true);
 
-	if (Hit.IsValidBlockingHit())
+		if (Hit.bStartPenetrating)
+		{
+			OnCharacterStuckInGeometry();
+		}
+	}
+	else if (Hit.IsValidBlockingHit())
 	{
 		// We impacted something (most likely another ramp, but possibly a barrier).
 		float PercentTimeApplied = Hit.Time;
@@ -4516,6 +4522,15 @@ bool UCharacterMovementComponent::IsValidLandingSpot(const FVector& CapsuleLocat
 		// Reject hits that are barely on the cusp of the radius of the capsule
 		if (!IsWithinEdgeTolerance(Hit.Location, Hit.ImpactPoint, PawnRadius))
 		{
+			return false;
+		}
+	}
+	else
+	{
+		// Penetrating
+		if (Hit.Normal.Z < KINDA_SMALL_NUMBER)
+		{
+			// Normal is nearly horizontal or downward, that's a penetration adjustment next to a vertical or overhanging wall. Don't pop to the floor.
 			return false;
 		}
 	}

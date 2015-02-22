@@ -310,7 +310,8 @@ bool UMovementComponent::OverlapTest(const FVector& Location, const FQuat& Rotat
 	FCollisionQueryParams QueryParams(NAME_TestOverlap, false, IgnoreActor);
 	FCollisionResponseParams ResponseParam;
 	InitCollisionParams(QueryParams, ResponseParam);
-	return GetWorld()->OverlapTest(Location, RotationQuat, CollisionChannel, CollisionShape, QueryParams, ResponseParam);
+	TArray<FOverlapResult> Overlaps;
+	return GetWorld()->OverlapMulti(Overlaps, Location, RotationQuat, CollisionChannel, CollisionShape, QueryParams, ResponseParam);
 }
 
 bool UMovementComponent::IsExceedingMaxSpeed(float MaxSpeed) const
@@ -476,6 +477,12 @@ static TAutoConsoleVariable<float> CVarPenetrationPullbackDistance(TEXT("p.Penet
 	TEXT("Distance added to penetration fix-ups."),
 	ECVF_Default);
 
+static TAutoConsoleVariable<float> CVarPenetrationOverlapCheckInflation(TEXT("p.PenetrationOverlapCheckInflation"),
+	0.100,
+	TEXT("Inflation added to object when checking if a location is free of blocking collision.\n")
+	TEXT("Distance added to inflation in penetration overlap check."),
+	ECVF_Default);
+
 FVector UMovementComponent::GetPenetrationAdjustment(const FHitResult& Hit) const
 {
 	if (!Hit.bStartPenetrating)
@@ -507,7 +514,7 @@ bool UMovementComponent::ResolvePenetration(const FVector& ProposedAdjustment, c
 
 		// We really want to make sure that precision differences or differences between the overlap test and sweep tests don't put us into another overlap,
 		// so make the overlap test a bit more restrictive.
-		const float OverlapInflation = 0.10f;
+		const float OverlapInflation = CVarPenetrationOverlapCheckInflation.GetValueOnGameThread();
 		bool bEncroached = OverlapTest(Hit.TraceStart + Adjustment, NewRotation.Quaternion(), UpdatedPrimitive->GetCollisionObjectType(), UpdatedPrimitive->GetCollisionShape(OverlapInflation), ActorOwner);
 		if (!bEncroached)
 		{
