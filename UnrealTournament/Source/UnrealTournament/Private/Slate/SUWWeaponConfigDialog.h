@@ -9,8 +9,8 @@ class SUWWeaponConfigDialog : public SUWDialog, public FGCObject
 {
 public:
 	SLATE_BEGIN_ARGS(SUWWeaponConfigDialog)
-		: _DialogSize(FVector2D(0.4f, 0.7f))
-		, _bDialogSizeIsRelative(true)
+		: _DialogSize(FVector2D(1000,900))
+		, _bDialogSizeIsRelative(false)
 		, _DialogPosition(FVector2D(0.5f, 0.5f))
 		, _DialogAnchorPoint(FVector2D(0.5f, 0.5f))
 		, _ContentPadding(FVector2D(10.0f, 5.0f))

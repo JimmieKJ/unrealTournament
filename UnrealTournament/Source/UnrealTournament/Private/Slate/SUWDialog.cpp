@@ -307,6 +307,7 @@ TSharedRef<SWidget> SUWDialog::GenerateStringListWidget(TSharedPtr<FString> InIt
 			SNew(STextBlock)
 			.ColorAndOpacity(FLinearColor::Black)
 			.Text(*InItem.Get())
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 		];
 }
 

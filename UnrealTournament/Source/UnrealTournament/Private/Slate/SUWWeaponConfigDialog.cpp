@@ -69,14 +69,25 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Center)
 			[
-				SAssignNew(AutoWeaponSwitch, SCheckBox)
-				.ForegroundColor(FLinearColor::White)
-				.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-				.Content()
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::White)
-					.Text(NSLOCTEXT("SUWWeaponConfigDialog", "AutoWeaponSwitch", "Weapon Switch on Pickup").ToString())
+					SNew(SBox)
+					.WidthOverride(750)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(NSLOCTEXT("SUWWeaponConfigDialog", "AutoWeaponSwitch", "Weapon Switch on Pickup").ToString())
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SAssignNew(AutoWeaponSwitch, SCheckBox)
+					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+					.ForegroundColor(FLinearColor::White)
+					.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 				]
 			]
 			+ SVerticalBox::Slot()
@@ -86,9 +97,10 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 			.HAlign(HAlign_Center)
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::White)
 				.Text(NSLOCTEXT("SUWWeaponConfigDialog", "WeaponPriorities", "Weapon Priorities"))
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.BoldText")
 			]
+
 			+ SVerticalBox::Slot()
 			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 			.AutoHeight()
@@ -102,13 +114,18 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Left)
 				[
-					SNew(SBorder)
-					.Content()
+					SNew(SBox)
+					.WidthOverride(700)
+					.HeightOverride(600)
 					[
-						SAssignNew(WeaponPriorities, SListView<UClass*>)
-						.SelectionMode(ESelectionMode::Single)
-						.ListItemsSource(&WeaponList)
-						.OnGenerateRow(this, &SUWWeaponConfigDialog::GenerateWeaponListRow)
+						SNew(SBorder)
+						.Content()
+						[
+							SAssignNew(WeaponPriorities, SListView<UClass*>)
+							.SelectionMode(ESelectionMode::Single)
+							.ListItemsSource(&WeaponList)
+							.OnGenerateRow(this, &SUWWeaponConfigDialog::GenerateWeaponListRow)
+						]
 					]
 				]
 				+ SHorizontalBox::Slot()
@@ -124,13 +141,20 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 					.VAlign(VAlign_Center)
 					.HAlign(HAlign_Center)
 					[
-						SNew(SButton)
-						.HAlign(HAlign_Center)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-						.DesiredSizeScale(FVector2D(1.7f, 1.0f))
-						.Text(FString(TEXT("UP"))) // TODO: should be graphical arrow
-						.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-						.OnClicked(this, &SUWWeaponConfigDialog::WeaponPriorityUp)
+						SNew(SBox)
+						.HeightOverride(56)
+						.WidthOverride(56)
+						[
+							SNew(SButton)
+							.HAlign(HAlign_Center)
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.ContentPadding(FMargin(4.0f, 4.0f, 4.0f, 4.0f))
+							.OnClicked(this, &SUWWeaponConfigDialog::WeaponPriorityUp)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.UpArrow"))
+							]
+						]
 					]
 					+ SVerticalBox::Slot()
 					.Padding(0.0f, 10.0f, 0.0f, 10.0f)
@@ -138,12 +162,21 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 					.VAlign(VAlign_Center)
 					.HAlign(HAlign_Center)
 					[
-						SNew(SButton)
-						.HAlign(HAlign_Center)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-						.Text(FString(TEXT("DOWN"))) // TODO: should be graphical arrow
-						.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-						.OnClicked(this, &SUWWeaponConfigDialog::WeaponPriorityDown)
+						SNew(SBox)
+						.HeightOverride(56)
+						.WidthOverride(56)
+						[
+							SNew(SButton)
+							.HAlign(HAlign_Center)
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.ContentPadding(FMargin(4.0f, 4.0f, 4.0f, 4.0f))
+							.OnClicked(this, &SUWWeaponConfigDialog::WeaponPriorityDown)
+							[
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.DownArrow"))
+							]
+
+						]
 					]
 				]
 			]
@@ -161,8 +194,8 @@ TSharedRef<ITableRow> SUWWeaponConfigDialog::GenerateWeaponListRow(UClass* Weapo
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::White)
 			.Text(WeaponType->GetDefaultObject<AUTWeapon>()->DisplayName.ToString())
+			.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
 		];
 }
 

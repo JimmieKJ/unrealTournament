@@ -259,26 +259,27 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			.VAlign(VAlign_Top)
 			.HAlign(HAlign_Center)
 			[
+
 				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				+SHorizontalBox::Slot()
 				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
 				[
-					SNew(STextBlock)
-					.ColorAndOpacity(FLinearColor::White)
-					.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "PlayerName", "Name:").ToString())
+					SNew(SBox)
+					.WidthOverride(650)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "PlayerName", "Name:").ToString())
+					]
 				]
 				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 				.AutoWidth()
-				.VAlign(VAlign_Center)
 				[
 					SAssignNew(PlayerName, SEditableTextBox)
 					.OnTextChanged(this, &SUWPlayerSettingsDialog::OnNameTextChanged)
-					.MinDesiredWidth(300.0f)
 					.Text(FText::FromString(GetPlayerOwner()->GetNickname()))
+					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
+					.MinDesiredWidth(300.0f)
 				]
 			]
 			// Country Flag

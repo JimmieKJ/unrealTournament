@@ -210,7 +210,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 		FComboButtonStyle UTComboButton = FComboButtonStyle()
 			.SetButtonStyle(Style.GetWidgetStyle<FButtonStyle>("UT.Button.White"))
-			.SetDownArrowImage(IMAGE_BRUSH("UTCommom/UT.ComboTick", Icon16x16))
+			.SetDownArrowImage(IMAGE_BRUSH("UTCommon/UT.ComboTick", Icon16x16))
 			.SetMenuBorderBrush(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f)))
 			.SetMenuBorderPadding(FMargin(5.0f, 0.05, 5.0f, 0.0f));
 		Style.Set("UWindows.Standard.ComboButton", UTComboButton);
@@ -265,6 +265,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Icon.SignIn", new IMAGE_BRUSH("Icons/UT.Icon.SignIn", Icon48x48));
 		Style.Set("UT.Icon.Chat36", new IMAGE_BRUSH("Icons/UT.Icon.Chat36", Icon36x36));
 		Style.Set("UT.Icon.Browser", new IMAGE_BRUSH("Icons/UT.Icon.Browser", Icon48x48));
+
+		Style.Set("UT.Icon.UpArrow", new IMAGE_BRUSH("Icons/UT.Icon.UpArrow", Icon48x48));
+		Style.Set("UT.Icon.DownArrow", new IMAGE_BRUSH("Icons/UT.Icon.DownArrow", Icon48x48));
 		
 	}
 

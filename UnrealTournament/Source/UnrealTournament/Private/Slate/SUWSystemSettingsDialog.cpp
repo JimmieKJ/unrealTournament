@@ -15,11 +15,12 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddSectionHeader(const FText& Sect
 {
 	return SVerticalBox::Slot()
 		.HAlign(HAlign_Center)
+		.AutoHeight()
 		.Padding(FMargin(0.0f, 15.0f, 0.0f, 15.0f))
 		[
 			SNew(STextBlock)
 			.Text(SectionDesc)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Title.TextStyle")
+			.TextStyle(SUWindowsStyle::Get(),"UT.Common.BoldText")
 		];
 
 }
@@ -28,28 +29,28 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 {
 	return SVerticalBox::Slot()
 		.HAlign(HAlign_Fill)
+		.AutoHeight()
 		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-				.Text(Desc)
+				SNew(SBox)
+				.WidthOverride(650)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(Desc)
+				]
 			]
 			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 			.AutoWidth()
-			.HAlign(HAlign_Right)
-			.VAlign(VAlign_Center)
 			[
 				SAssignNew(ComboBox, SComboBox< TSharedPtr<FString> >)
 				.InitiallySelectedItem(GeneralScalabilityList[SettingValue])
-				.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+				.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 				.OptionsSource(&GeneralScalabilityList)
 				.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 				.OnSelectionChanged(this, SelectionFunc)
@@ -61,7 +62,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 					[
 						SAssignNew(SelectedItemWidget, STextBlock)
 						.Text(*GeneralScalabilityList[SettingValue].Get())
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+						.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 					]
 				]
 			]
@@ -72,108 +73,107 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddAAModeWidget(const FString& Des
 {
 	return SVerticalBox::Slot()
 		.HAlign(HAlign_Fill)
+		.AutoHeight()
 		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
-				.Text(Desc)
+				SNew(SBox)
+				.WidthOverride(650)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(Desc)
+				]
 			]
 			+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.AutoWidth()
-				.HAlign(HAlign_Right)
-				.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SAssignNew(ComboBox, SComboBox< TSharedPtr<FString> >)
+				.InitiallySelectedItem(AAModeList[SettingValue])
+				.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+				.OptionsSource(&AAModeList)
+				.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+				.OnSelectionChanged(this, SelectionFunc)
+				.Content()
 				[
-					SAssignNew(ComboBox, SComboBox< TSharedPtr<FString> >)
-					.InitiallySelectedItem(AAModeList[SettingValue])
-					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-					.OptionsSource(&AAModeList)
-					.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
-					.OnSelectionChanged(this, SelectionFunc)
-					.Content()
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						[
-							SAssignNew(SelectedItemWidget, STextBlock)
-							.Text(*AAModeList[SettingValue].Get())
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
-						]
+						SAssignNew(SelectedItemWidget, STextBlock)
+						.Text(*AAModeList[SettingValue].Get())
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
 					]
 				]
+			]
 		];
 }
 
 SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FString& Desc, TSharedPtr<SSlider>& SliderWidget, float SettingValue)
 {
-	return 
-		SVerticalBox::Slot()
-		.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-				.Text(Desc)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(300.0f)
-				.Content()
-				[
-					SAssignNew(SliderWidget, SSlider)
-
-					.Orientation(Orient_Horizontal)
-					.Value(SettingValue)
-				]
-			]
-		];
-}
-
-SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWithLabelWidget(TSharedPtr<SSlider>& SliderWidget, TSharedPtr<STextBlock>& LabelWidget, void(SUWSystemSettingsDialog::*SelectionFunc)(float), const FString& InitialLabel, float SettingValue)
-{
-	return 
-	SVerticalBox::Slot()
+	return SVerticalBox::Slot()
+	.AutoHeight()
 	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
 	[
 		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+		+SHorizontalBox::Slot()
 		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.HAlign(HAlign_Center)
 		[
-			SAssignNew(LabelWidget, STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
-			.Text(InitialLabel)
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(Desc)
+			]
 		]
 		+ SHorizontalBox::Slot()
-		.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-		.VAlign(VAlign_Center)
-		.HAlign(HAlign_Right)
+		.AutoWidth()
 		[
 			SNew(SBox)
 			.WidthOverride(300.0f)
 			.Content()
 			[
 				SAssignNew(SliderWidget, SSlider)
+				.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
+				.Orientation(Orient_Horizontal)
+				.Value(SettingValue)
+			]
+		]
+	];
+}
+
+SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWithLabelWidget(TSharedPtr<SSlider>& SliderWidget, TSharedPtr<STextBlock>& LabelWidget, void(SUWSystemSettingsDialog::*SelectionFunc)(float), const FString& InitialLabel, float SettingValue)
+{
+	return SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SAssignNew(LabelWidget, STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(InitialLabel)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(300.0f)
+			.Content()
+			[
+				SAssignNew(SliderWidget, SSlider)
+				.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 				.OnValueChanged(this, SelectionFunc)
 				.Orientation(Orient_Horizontal)
 				.Value(SettingValue)
@@ -210,15 +210,18 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 		TArray<FIntPoint> AddedRes; // used to more efficiently avoid duplicates
 		for (int32 ModeIndex = 0; ModeIndex < ResArray.Num(); ModeIndex++)
 		{
-			FIntPoint NewRes(int32(ResArray[ModeIndex].Width), int32(ResArray[ModeIndex].Height));
-			if (!AddedRes.Contains(NewRes))
+			if (ResArray[ModeIndex].Width >= 800 && ResArray[ModeIndex].Height >= 600)
 			{
-				ResList.Add(MakeShareable(new FString(FString::Printf(TEXT("%ix%i"), NewRes.X, NewRes.Y))));
-				if (NewRes.X == int32(ViewportSize.X) && NewRes.Y == int32(ViewportSize.Y))
+				FIntPoint NewRes(int32(ResArray[ModeIndex].Width), int32(ResArray[ModeIndex].Height));
+				if (!AddedRes.Contains(NewRes))
 				{
-					CurrentResIndex = ResList.Num() - 1;
+					ResList.Add(MakeShareable(new FString(FString::Printf(TEXT("%ix%i"), NewRes.X, NewRes.Y))));
+					if (NewRes.X == int32(ViewportSize.X) && NewRes.Y == int32(ViewportSize.Y))
+					{
+						CurrentResIndex = ResList.Num() - 1;
+					}
+					AddedRes.Add(NewRes);
 				}
-				AddedRes.Add(NewRes);
 			}
 		}
 	}
@@ -270,6 +273,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 			.AutoHeight()
 			.VAlign(VAlign_Top)
 			.HAlign(HAlign_Center)
+			.AutoHeight()
 			[
 				SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
@@ -279,7 +283,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
 					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution", "Resolution:").ToString())
 				]
 				+ SHorizontalBox::Slot()
@@ -290,8 +294,8 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				[
 					SNew(SComboBox< TSharedPtr<FString> >)
 					.InitiallySelectedItem(ResList[CurrentResIndex])
-					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 					.OptionsSource(&ResList)
 					.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 					.OnSelectionChanged(this, &SUWSystemSettingsDialog::OnResolutionSelected)
@@ -299,59 +303,86 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SAssignNew(SelectedRes, STextBlock)
 						.Text(*ResList[CurrentResIndex].Get())
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+						.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 					]
 				]
 			]
+
+			+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange, GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting)
+
+			+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "Options", "- Options -"))
+
 			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Center)
-			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-			[
-				SAssignNew(Fullscreen, SCheckBox)
-				.ForegroundColor(FLinearColor::White)
-				.IsChecked(GetPlayerOwner()->ViewportClient->IsFullScreenViewport() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-				.Content()
-				[
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
-				]
-			]
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Center)
-			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-			[
-				SAssignNew(SmoothFrameRate, SCheckBox)
-				.ForegroundColor(FLinearColor::White)
-				.IsChecked(GEngine->bSmoothFrameRate ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
-				.Content()
-				[
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate").ToString())
-				]
-			]
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Center)
+			.AutoHeight()
 			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 			[
 				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				+SHorizontalBox::Slot()
 				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
 				[
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap:", "Frame Rate Cap:").ToString())
+					SNew(SBox)
+					.WidthOverride(650)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
+					]
 				]
 				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 				.AutoWidth()
-				.VAlign(VAlign_Center)
+				[
+					SAssignNew(Fullscreen, SCheckBox)
+					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+					.IsChecked(GetPlayerOwner()->ViewportClient->IsFullScreenViewport() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+				]
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(650)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate").ToString())
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SAssignNew(SmoothFrameRate, SCheckBox)
+					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+					.IsChecked(GEngine->bSmoothFrameRate ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+				]
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+			[
+
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(650)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap:", "Frame Rate Cap:").ToString())
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
 				[
 					SAssignNew(FrameRateCap, SEditableTextBox)
+					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
+					.ForegroundColor(FLinearColor::Black)
 					.MinDesiredWidth(100.0f)
 					.Text(FText::AsNumber(UTEngine->FrameRateCap))
 				]
@@ -363,8 +394,6 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, &SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality)
 			+ AddAAModeWidget(NSLOCTEXT("SUWSystemSettingsDialog", "AAMode", "AA Mode").ToString(), AAMode, SelectedAAMode, &SUWSystemSettingsDialog::OnAAModeSelected, AAModeSelection)
-			
-			+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange, GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting)
 				
 			+ AddGeneralSliderWithLabelWidget(DecalLifetime, DecalLifetimeLabel, &SUWSystemSettingsDialog::OnDecalLifetimeChange, GetDecalLifetimeLabelText(DecalSliderSetting), DecalSliderSetting)
 			+ AddGeneralSliderWithLabelWidget(FOV, FOVLabel, &SUWSystemSettingsDialog::OnFOVChange, GetFOVLabelText(FOVSliderSetting), FOVSliderSetting)

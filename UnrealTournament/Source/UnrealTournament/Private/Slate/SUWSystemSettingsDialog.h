@@ -11,8 +11,8 @@ class SUWSystemSettingsDialog : public SUWDialog
 {
 public:
 	SLATE_BEGIN_ARGS(SUWSystemSettingsDialog)
-	: _DialogSize(FVector2D(0.5f,0.8f))
-	, _bDialogSizeIsRelative(true)
+	: _DialogSize(FVector2D(1000,900))
+	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
