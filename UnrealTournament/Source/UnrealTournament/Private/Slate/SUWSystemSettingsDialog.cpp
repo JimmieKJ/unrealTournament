@@ -421,7 +421,8 @@ void SUWSystemSettingsDialog::OnFOVChange(float NewValue)
 
 FString SUWSystemSettingsDialog::GetScreenPercentageLabelText(float SliderValue)
 {
-	int32 ScreenPercentage = FMath::TruncToInt(SliderValue * (ScreenPercentageRange.Y - ScreenPercentageRange.X) + ScreenPercentageRange.X);
+	// Increments of 5, so divide by 5 and multiply by 5
+	int32 ScreenPercentage = FMath::TruncToInt(SliderValue * (ScreenPercentageRange.Y - ScreenPercentageRange.X) + ScreenPercentageRange.X) / 5 * 5;
 	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "ScreenPercentage", "Screen Percentage ({Value}%)"), FText::FromString(FString::Printf(TEXT("%i"), ScreenPercentage))).ToString();
 }
 
@@ -466,7 +467,8 @@ FReply SUWSystemSettingsDialog::OKClick()
 
 	UserSettings->SetAAMode(ConvertComboSelectionToAAMode(*AAMode->GetSelectedItem().Get()));
 
-	int32 NewScreenPercentage = FMath::TruncToInt(ScreenPercentageSlider->GetValue() * (ScreenPercentageRange.Y - ScreenPercentageRange.X) + ScreenPercentageRange.X);
+	// Increments of 5, so divide by 5 and multiply by 5
+	int32 NewScreenPercentage = FMath::TruncToInt(ScreenPercentageSlider->GetValue() * (ScreenPercentageRange.Y - ScreenPercentageRange.X) + ScreenPercentageRange.X) / 5 * 5;
 	UserSettings->SetScreenPercentage(NewScreenPercentage);
 
 	const TCHAR* Cmd = *SelectedRes->GetText().ToString();
