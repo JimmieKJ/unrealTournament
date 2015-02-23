@@ -2103,8 +2103,8 @@ void AUTGameMode::Logout(AController* Exiting)
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("ID"), PS->StatsID));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerName"), PS->PlayerName));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("TimeOnline"), TotalTimeOnline));
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Kills"), PS->Deaths));
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Deaths"), PS->Kills));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Kills"), PS->Kills));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Deaths"), PS->Deaths));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Score"), PS->Score));
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
 		PS->RespawnChoiceA = NULL;
