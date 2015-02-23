@@ -67,6 +67,8 @@ class AUTWeap_Enforcer : public AUTWeapon
 
 	UPROPERTY()
 	FVector FirstPLeftMeshOffset;
+	UPROPERTY()
+	FRotator FirstPLeftMeshRotation;
 		
 	UPROPERTY()
 	int32 FireCount;

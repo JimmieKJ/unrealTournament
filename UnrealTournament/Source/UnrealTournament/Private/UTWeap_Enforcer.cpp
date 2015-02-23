@@ -89,11 +89,12 @@ void AUTWeap_Enforcer::Tick(float DeltaTime)
 			if (FirstPLeftMeshOffset.IsZero())
 			{
 				FirstPLeftMeshOffset = LeftMesh->GetRelativeTransform().GetLocation();
+				FirstPLeftMeshRotation = LeftMesh->GetRelativeTransform().Rotator();
 			}
 			LeftMesh->SetRelativeLocation(FirstPLeftMeshOffset);
 			LeftMesh->SetWorldLocation(LeftMesh->GetComponentLocation() + UTOwner->GetWeaponBobOffset(0.0f, this));
 
-			LeftMesh->SetRelativeRotation(Mesh->RelativeRotation);
+			LeftMesh->SetRelativeRotation(Mesh->RelativeRotation - FirstPMeshRotation + FirstPLeftMeshRotation);
 		}
 	}
 }
