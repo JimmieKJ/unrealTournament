@@ -749,7 +749,7 @@ void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, EBuildOptions:
 		case EBuildOptions::BuildAll:
 		case EBuildOptions::BuildAllSubmit:
 			{
-				bBuildingNavigationFromUserRequest = false;
+				bBuildingNavigationFromUserRequest = true;
 				break;
 			}
 		default:
