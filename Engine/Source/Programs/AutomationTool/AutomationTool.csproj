@@ -104,6 +104,7 @@
     <Compile Include="CommandletUtils.cs" />
     <Compile Include="DeploymentContext.cs" />
     <Compile Include="Distiller.cs" />
+    <Compile Include="FileFilter.cs" />
     <Compile Include="HelpUtils.cs" />
     <Compile Include="HostPlatform.cs" />
     <Compile Include="LinuxHostPlatform.cs" />
