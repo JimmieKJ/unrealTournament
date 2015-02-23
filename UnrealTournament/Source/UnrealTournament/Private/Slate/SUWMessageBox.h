@@ -9,13 +9,13 @@
 class SUWMessageBox : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWMessageBox)
-	: _DialogSize(FVector2D(400,200))
+	: _DialogSize(FVector2D(700,400))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
 	, _ButtonMask(UTDIALOG_BUTTON_OK)
-	, _MessageTextStyleName(TEXT("UWindows.Standard.Dialog.TextStyle"))
+	, _MessageTextStyleName(TEXT("UT.Common.NormalText"))
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
 	SLATE_ARGUMENT(FText, DialogTitle)											

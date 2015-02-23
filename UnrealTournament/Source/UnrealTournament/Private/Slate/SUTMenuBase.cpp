@@ -545,7 +545,7 @@ FReply SUTMenuBase::ClearCloud(TSharedPtr<SComboButton> MenuButton)
 	}
 	else
 	{
-		PlayerOwner->ShowMessage(NSLOCTEXT("SUWindowsMainMenu","NotLoggedInTitle","Not Logged In"), NSLOCTEXT("SuWindowsMainMenu","NoLoggedInMsg","You need to be logged in to clear your cloud settings."), UTDIALOG_BUTTON_OK);
+		PlayerOwner->ShowMessage(NSLOCTEXT("SUWindowsMainMenu","NotLoggedInTitle","Not Logged In"), NSLOCTEXT("SuWindowsMainMenu","NoLoggedInMsg","You need to be logged in to clear your cloud settings!"), UTDIALOG_BUTTON_OK);
 	}
 	return FReply::Handled();
 }
@@ -561,7 +561,8 @@ FReply SUTMenuBase::OpenTPSReport(TSharedPtr<SComboButton> MenuButton)
 							.bDialogSizeIsRelative(true)
 							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "TPSReportTitle", "Third Party Software"))
 							.MessageText(NSLOCTEXT("SUWindowsDesktop", "TPSReportText", "TPSText"))
-							.MessageTextStyleName("UWindows.Standard.Dialog.TextStyle.Legal")
+							//.MessageTextStyleName("UWindows.Standard.Dialog.TextStyle.Legal")
+							.MessageTextStyleName("UT.Common.NormalText")
 							.ButtonMask(UTDIALOG_BUTTON_OK)
 							);
 	return FReply::Handled();

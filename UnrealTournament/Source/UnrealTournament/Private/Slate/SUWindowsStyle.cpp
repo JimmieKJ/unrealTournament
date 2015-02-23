@@ -116,6 +116,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 	Style.Set("UT.Dialog.Background", new BOX_BRUSH("TopMenu/UT.Dialog.Background", FMargin(10.0f / 256.0f, 64.0f/256.0f, 10.0f / 256.0f, 25.0f/256.0f)));
+	Style.Set("UT.DialogBox.Background", new BOX_BRUSH("TopMenu/UT.DialogBox.Background", FMargin(10.0f / 256.0f, 64.0f / 256.0f, 10.0f / 256.0f, 64.0f / 256.0f)));
 
 	Style.Set("UT.Dialog.TitleTextStyle", FTextBlockStyle()
 		.SetFont(TTF_FONT("Exo2-Bold", 30))
@@ -139,6 +140,19 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetColorAndOpacity(FLinearColor::White)
 		);
 
+		Style.Set("UT.Common.NormalText.Black", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 20))
+			.SetColorAndOpacity(FLinearColor::Black)
+		);
+
+
+		Style.Set("UT.Common.ActiveText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Exo2-Bold", 20))
+			.SetColorAndOpacity(FLinearColor(FColor(0,255,0,255)))
+		);
+
+		Style.Set("UT.Common.Exo2.20", TTF_FONT("Exo2-Medium", 20));
+
 		Style.Set("UT.Common.BoldText", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Bold", 22))
 			.SetColorAndOpacity(FLinearColor::Yellow)
@@ -153,6 +167,62 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
 			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
 			);
+
+
+		Style.Set("UT.Common.Editbox.White", FEditableTextBoxStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 20))
+			.SetForegroundColor(FLinearColor::White)
+			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			);
+
+
+		Style.Set("UT.Common.CheckBox", FCheckBoxStyle()
+			.SetCheckBoxType(ESlateCheckBoxType::CheckBox)
+			.SetUncheckedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Normal", Icon32x32))
+			.SetUncheckedHoveredImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Hovered", Icon32x32))
+			.SetUncheckedPressedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Pressed", Icon32x32))
+			.SetCheckedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
+			.SetCheckedHoveredImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
+			.SetCheckedPressedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
+			.SetUndeterminedImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetUndeterminedHoveredImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetUndeterminedPressedImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			);
+
+		Style.Set("UT.Common.Slider", FSliderStyle()
+			.SetNormalBarImage(FSlateColorBrush(FColor::White))
+			.SetDisabledBarImage(FSlateColorBrush(FLinearColor::Gray))
+			.SetNormalThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Normal", Icon32x32))
+			.SetDisabledThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Disabled", Icon32x32))
+			);
+
+		Style.Set("UT.Button.White", FButtonStyle()
+			.SetNormal(BOX_BRUSH("UTCommon/UT.Button.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetHovered(BOX_BRUSH("UTCommon/UT.Button.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetPressed(BOX_BRUSH("UTCommon/UT.Button.White.Pressed", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetDisabled(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+		FComboButtonStyle UTComboButton = FComboButtonStyle()
+			.SetButtonStyle(Style.GetWidgetStyle<FButtonStyle>("UT.Button.White"))
+			.SetDownArrowImage(IMAGE_BRUSH("UTCommom/UT.ComboTick", Icon16x16))
+			.SetMenuBorderBrush(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f)))
+			.SetMenuBorderPadding(FMargin(5.0f, 0.05, 5.0f, 0.0f));
+		Style.Set("UWindows.Standard.ComboButton", UTComboButton);
+
+		Style.Set("UT.ComboBox", FComboBoxStyle()
+			.SetComboButtonStyle(UTComboButton)
+			);
+
+	}
+
+	{ // Options Menus
+
 	}
 
 
@@ -204,6 +274,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.TopMenu.TileBar", new BOX_BRUSH("TopMenu/UT.TopMenu.TileBar", FMargin(1.0f / 32.0f, 0.0f, 1.0f / 32.0f, 0.0f)));
 		Style.Set("UT.TopMenu.LightFill", new IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ));
 		Style.Set("UT.TopMenu.DarkFill", new IMAGE_BRUSH("TopMenu/UT.TopMenu.DarkFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ));
+		Style.Set("UT.TopMenu.Shadow", new IMAGE_BRUSH("TopMenu/UT.TopMenu.Shadow", FVector2D(64, 64), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
 		Style.Set("UT.TopMenu.Button", FButtonStyle()
 			.SetNormal ( FSlateNoResource(FVector2D(256.0f, 256.0f)))
@@ -241,11 +312,18 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetPressedSound(ButtonPressSound)
 			);
 
+		Style.Set("UT.TopMenu.SimpleTabButton", FButtonStyle()
+			.SetNormal(IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256, 256), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
+			.SetHovered(IMAGE_BRUSH("TopMenu/UT.TopMenu.Button.Hovered", FVector2D(256, 256), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
+			.SetPressed(BOX_BRUSH("TopMenu/UT.TopMenu.Button.Pressed", FMargin(52.0f / 256.0f, 0.0f, 52.0f / 256.0f, 0.0f)))
+			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
 
 		Style.Set("UT.TopMenu.Button.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Bold", 30))
-			.SetColorAndOpacity(FLinearColor::White)
-			);
+			.SetColorAndOpacity(FLinearColor::White));
 
 		Style.Set("UT.TopMenu.Button.SmallTextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Exo2-Bold", 22))

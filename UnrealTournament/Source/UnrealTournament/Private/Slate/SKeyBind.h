@@ -49,7 +49,6 @@ public:
 		ChildSlot
 			[
 				SAssignNew(KeyText, STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
 				.TextStyle(InArgs._TextStyle)
 			];
 		if (InArgs._Key.IsValid())
@@ -70,12 +69,14 @@ public:
 				}
 				*Key = NewKey;
 				KeyText->SetText(NewKey == FKey() ? FString() : NewKey.ToString());
+				KeyText->SetColorAndOpacity(FLinearColor::White);
 				bWaitingForKey = false;
 				FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(true);
 				FSlateApplication::Get().ClearKeyboardFocus(EKeyboardFocusCause::SetDirectly);
 			}
 		}
 protected:
+
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override
 	{
 		if (bWaitingForKey)
@@ -101,7 +102,8 @@ protected:
 			WaitingMousePos.Y = (Rect.Top + Rect.Bottom) * 0.5f;
 			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->SetPosition(WaitingMousePos.X, WaitingMousePos.Y);
 
-			KeyText->SetText(NSLOCTEXT("SKeyBind", "PressAnyKey", "*** Press Any Button ***"));
+			KeyText->SetText(NSLOCTEXT("SKeyBind", "PressAnyKey", "** Press Any Button **"));
+			KeyText->SetColorAndOpacity(FLinearColor(FColor(0,255,0,255)));
 			bWaitingForKey = true;
 			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(false);
 			return FReply::Handled();
@@ -131,7 +133,7 @@ protected:
 
 	virtual FVector2D ComputeDesiredSize() const override
 	{
-		return FVector2D(180.0f, 20.0f);
+		return FVector2D(200.0f, 46.0f);
 	}
 
 private:

@@ -7,6 +7,7 @@
 #include "UTPlayerInput.h"
 #include "SKeyBind.h"
 #include "SNumericEntryBox.h"
+#include "Widgets/SUTTabButton.h"
 
 #if !UE_SERVER
 
@@ -47,8 +48,8 @@ class SUWControlSettingsDialog : public SUWDialog
 public:
 
 	SLATE_BEGIN_ARGS(SUWControlSettingsDialog)
-	: _DialogSize(FVector2D(0.5f,0.8f))
-	, _bDialogSizeIsRelative(true)
+	: _DialogSize(FVector2D(1000,900))
+	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
@@ -68,6 +69,8 @@ public:
 	void Construct(const FArguments& InArgs);
 protected:
 
+	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
+
 	void CreateBinds();
 	SVerticalBox::FSlot& AddKeyBind(TSharedPtr<FSimpleBind> Bind);
 	SVerticalBox::FSlot& AddHeader(const FString& Header);
@@ -83,19 +86,33 @@ protected:
 	TSharedPtr<SVerticalBox> ControlList;
 	TSharedPtr<SScrollBox> ScrollBox;
 	TSharedPtr<SWidgetSwitcher> TabWidget;
+	TSharedPtr<SButton> ResetToDefaultsButton;
 	FReply OnTabClickKeyboard()
 	{
+		ResetToDefaultsButton->SetVisibility(EVisibility::All);
 		TabWidget->SetActiveWidgetIndex(0);
+		MovementSettingsTabButton->UnPressed();
+		KeyboardSettingsTabButton->BePressed();
+		MouseSettingsTabButton->UnPressed();
+
 		return FReply::Handled();
 	}
 	FReply OnTabClickMouse()
 	{
+		ResetToDefaultsButton->SetVisibility(EVisibility::Hidden);
 		TabWidget->SetActiveWidgetIndex(1);
+		MovementSettingsTabButton->UnPressed();
+		KeyboardSettingsTabButton->UnPressed();
+		MouseSettingsTabButton->BePressed();
 		return FReply::Handled();
 	}
 	FReply OnTabClickMovement()
 	{
 		TabWidget->SetActiveWidgetIndex(2);
+		ResetToDefaultsButton->SetVisibility(EVisibility::Hidden);
+		MovementSettingsTabButton->BePressed();
+		KeyboardSettingsTabButton->UnPressed();
+		MouseSettingsTabButton->UnPressed();
 		return FReply::Handled();
 	}
 
@@ -138,6 +155,14 @@ protected:
 	}
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
+	TSharedPtr <SUTTabButton> KeyboardSettingsTabButton;
+	TSharedPtr <SUTTabButton> MouseSettingsTabButton;
+	TSharedPtr <SUTTabButton> MovementSettingsTabButton;
+	
+	TSharedRef<SWidget> BuildKeyboardTab();
+	TSharedRef<SWidget> BuildMouseTab();
+	TSharedRef<SWidget> BuildMovementTab();
 };
 
 #endif

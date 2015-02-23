@@ -4,6 +4,8 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SUWDialog.h"
 #include "SUWindowsStyle.h"
+#include "Engine/UserInterfaceSettings.h"
+
 
 #if !UE_SERVER
 
@@ -16,112 +18,160 @@ void SUWDialog::Construct(const FArguments& InArgs)
 
 	OnDialogResult = InArgs._OnDialogResult;
 
-	FVector2D ViewportSize;
-	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
-
+	// Calculate the size.  If the size is relative, then scale it against the designed by resolution as the 
+	// DPI Scale planel will take care of the rest.
 	FVector2D DesignedRez(1920,1080);
-	DesignedRez.Y = 1920 * (ViewportSize.Y / ViewportSize.X);
-
-	// Calculate the action position;
 	ActualSize = InArgs._DialogSize;
 	if (InArgs._bDialogSizeIsRelative)
 	{
 		ActualSize *= DesignedRez;
 	}
-	FVector2D Pos = DesignedRez * InArgs._DialogPosition;
-	ActualPosition = Pos - (ActualSize * InArgs._DialogAnchorPoint);
+
+	// Now we have to center it.  The tick here is we have to scale the current viewportSize UP by scale used in the DPI panel other
+	// we can't position properly.
+	
+	FVector2D ViewportSize;
+	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
+
+	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+	ViewportSize = ViewportSize / DPIScale;
+	ActualPosition = (ViewportSize * InArgs._DialogPosition) - (ActualSize * InArgs._DialogAnchorPoint);
 
 	ChildSlot
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[
-			SAssignNew(Canvas,SCanvas)
 
-			// We use a Canvas Slot to position and size the dialog.  
-			+SCanvas::Slot()
-			.Position(ActualPosition)
-			.Size(ActualSize)
-			.VAlign(VAlign_Top)
-			.HAlign(HAlign_Left)
+			SNew(SOverlay)
+			+SOverlay::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
+			]
+			+ SOverlay::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Fill)
 			[
 
+				SAssignNew(Canvas,SCanvas)
 
-				// This is our primary overlay.  It controls all of the various elements of the dialog.  This is not
-				// the content overlay.  This comes below.
-				SNew(SOverlay)				
-
-				// this is the background image
-				+SOverlay::Slot()							
+				// We use a Canvas Slot to position and size the dialog.  
+				+SCanvas::Slot()
+				.Position(ActualPosition)
+				.Size(ActualSize)
+				.VAlign(VAlign_Top)
+				.HAlign(HAlign_Left)
 				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.VAlign(VAlign_Fill)
-					.HAlign(HAlign_Fill)
-					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
-					]
-				]
+					// This is our primary overlay.  It controls all of the various elements of the dialog.  This is not
+					// the content overlay.  This comes below.
+					SNew(SOverlay)				
 
-				// This will define a vertical box that holds the various components of the dialog box.
-				+ SOverlay::Slot()							
-				[
-					SNew(SVerticalBox)
-
-					// The title bar
-					+ SVerticalBox::Slot()						
-					.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-					.AutoHeight()
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Center)
+					// this is the background image
+					+SOverlay::Slot()							
 					[
-						SNew(STextBlock)
-						.Text(InArgs._DialogTitle)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Title.TextStyle")
-					]
-
-					// The content section
-					+ SVerticalBox::Slot()													
-					.Padding(InArgs._ContentPadding.X, InArgs._ContentPadding.Y, InArgs._ContentPadding.X, InArgs._ContentPadding.Y)
-					[
-						SNew(SScrollBox)
-						+ SScrollBox::Slot()
-						.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.VAlign(VAlign_Fill)
+						.HAlign(HAlign_Fill)
 						[
-							// Add an Overlay
-							SAssignNew(DialogContent, SOverlay)
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.DialogBox.Background"))
 						]
 					]
 
-					// The ButtonBar
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.VAlign(VAlign_Bottom)
-					.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+					// This will define a vertical box that holds the various components of the dialog box.
+					+ SOverlay::Slot()							
 					[
-						SNew(SOverlay)
-						+SOverlay::Slot()
+						SNew(SVerticalBox)
+
+						// The title bar
+						+ SVerticalBox::Slot()
+						.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+						.AutoHeight()
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
 						[
-							SNew(SVerticalBox)
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.HAlign(HAlign_Right)
+							SNew(SBox)
+							.HeightOverride(55)
 							[
-								BuildButtonBar(InArgs._ButtonMask)
+								SNew(STextBlock)
+								.Text(InArgs._DialogTitle)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Dialog.TitleTextStyle")
 							]
 						]
-						+SOverlay::Slot()
+						+ SVerticalBox::Slot()
+						.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+						.AutoHeight()
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
 						[
-							SNew(SVerticalBox)
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.HAlign(HAlign_Left)
-							.Padding(10.0f,0.0f,0.0f,0.0f)
+							SNew(SBox)
+							.HeightOverride(8)
 							[
-								BuildCustomButtonBar()
+								SNew(SCanvas)
 							]
 						]
 
+						// The content section
+						+ SVerticalBox::Slot()													
+						.Padding(InArgs._ContentPadding.X, InArgs._ContentPadding.Y, InArgs._ContentPadding.X, InArgs._ContentPadding.Y)
+						[
+							SNew(SScrollBox)
+							+ SScrollBox::Slot()
+							.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+							[
+								// Add an Overlay
+								SAssignNew(DialogContent, SOverlay)
+							]
+						]
+
+						+ SVerticalBox::Slot()
+						.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+						.AutoHeight()
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
+						[
+							SNew(SBox)
+							.HeightOverride(16)
+							[
+								SNew(SCanvas)
+							]
+						]
+						// The ButtonBar
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.VAlign(VAlign_Bottom)
+						.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+						[
+							SNew(SBox)
+							.HeightOverride(48)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SNew(SVerticalBox)
+									+ SVerticalBox::Slot()
+									.AutoHeight()
+									.HAlign(HAlign_Right)
+									[
+										BuildButtonBar(InArgs._ButtonMask)
+									]
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(SVerticalBox)
+									+ SVerticalBox::Slot()
+									.AutoHeight()
+									.HAlign(HAlign_Left)
+									.Padding(10.0f, 0.0f, 0.0f, 0.0f)
+									[
+										BuildCustomButtonBar()
+									]
+								]
+							]
+						]
 					]
 				]
 			]
@@ -138,12 +188,17 @@ void SUWDialog::BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText,
 		Bar->AddSlot(ButtonCount,0)
 			.HAlign(HAlign_Fill)
 			[
-				SAssignNew(Button,SButton)
-				.HAlign(HAlign_Center)
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-				.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-				.Text(ButtonText.ToString())
-				.OnClicked(this, &SUWDialog::OnButtonClick, ButtonID)
+				SNew(SBox)
+				.HeightOverride(48)
+				[
+					SAssignNew(Button, SButton)
+					.HAlign(HAlign_Center)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+					.Text(ButtonText.ToString())
+					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+					.OnClicked(this, &SUWDialog::OnButtonClick, ButtonID)
+				]
 			];
 
 		ButtonCount++;
@@ -164,14 +219,14 @@ TSharedRef<class SWidget> SUWDialog::BuildButtonBar(uint16 ButtonMask)
 	if ( ButtonBar.IsValid() )
 	{
 		if (ButtonMask & UTDIALOG_BUTTON_OK)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","OKButton","OK"),					UTDIALOG_BUTTON_OK,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_CANCEL)	BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","CancelButton","Cancel"),			UTDIALOG_BUTTON_CANCEL,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_YES)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","YesButton","Yes"),				UTDIALOG_BUTTON_YES,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_NO)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","NoButton","No"),					UTDIALOG_BUTTON_NO,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_HELP)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","HelpButton","Help"),				UTDIALOG_BUTTON_HELP,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_RECONNECT) BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ReconnectButton","Reconnect"),	UTDIALOG_BUTTON_RECONNECT,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_EXIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ExitButton","Exit"),				UTDIALOG_BUTTON_EXIT,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_QUIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","QuitButton","Quit"),				UTDIALOG_BUTTON_QUIT,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_VIEW)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ViewButton","View"),				UTDIALOG_BUTTON_QUIT,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_CANCEL)	BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","CancelButton","CANCEL"),			UTDIALOG_BUTTON_CANCEL,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_YES)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","YesButton","YES"),				UTDIALOG_BUTTON_YES,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_NO)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","NoButton","NO"),					UTDIALOG_BUTTON_NO,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_HELP)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","HelpButton","HELP"),				UTDIALOG_BUTTON_HELP,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_RECONNECT) BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ReconnectButton","RECONNECT"),	UTDIALOG_BUTTON_RECONNECT,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_EXIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ExitButton","EXIT"),				UTDIALOG_BUTTON_EXIT,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_QUIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","QuitButton","QUIT"),				UTDIALOG_BUTTON_QUIT,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_VIEW)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ViewButton","VIEW"),				UTDIALOG_BUTTON_QUIT,ButtonCount);
 		
 	}
 
