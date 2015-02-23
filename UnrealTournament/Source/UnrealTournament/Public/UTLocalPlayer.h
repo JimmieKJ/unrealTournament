@@ -211,6 +211,10 @@ protected:
 
 	FPlayerOnlineStatusChanged PlayerOnlineStatusChanged;
 
+	double LastProfileCloudWriteTime;
+	double ProfileCloudWriteCooldownTime;
+	FTimerHandle ProfileWriteTimerHandle;
+
 #if !UE_SERVER
 	virtual void AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
@@ -250,6 +254,7 @@ private:
 	
 public:
 	virtual void LoadProfileSettings();
+	UFUNCTION()
 	virtual void SaveProfileSettings();
 	virtual void ClearProfileSettings();
 

@@ -35,6 +35,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	: Super(ObjectInitializer)
 {
 	bInitialSignInAttempt = true;
+	LastProfileCloudWriteTime = 0;
+	ProfileCloudWriteCooldownTime = 10;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -680,6 +682,7 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 	UE_LOG(UT,Log,TEXT("***[Logout Complete]*** - User %i"), LocalUserNum);
 	// TO-DO: Add a Toast system for displaying stuff like this
 
+	GetWorld()->GetTimerManager().ClearTimer(ProfileWriteTimerHandle);
 }
 
 #if !UE_SERVER
@@ -987,11 +990,18 @@ void UUTLocalPlayer::SaveProfileSettings()
 		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
 		CurrentProfileSettings->Serialize(Ar);
 
-		// Save the blob to the cloud
-		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-		if (OnlineUserCloudInterface.IsValid())
+		if (FApp::GetCurrentTime() - LastProfileCloudWriteTime < ProfileCloudWriteCooldownTime)
 		{
-			OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
+			GetWorld()->GetTimerManager().SetTimer(ProfileWriteTimerHandle, this, &UUTLocalPlayer::SaveProfileSettings, ProfileCloudWriteCooldownTime - (FApp::GetCurrentTime() - LastProfileCloudWriteTime), false);
+		}
+		else
+		{
+			// Save the blob to the cloud
+			TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+			if (OnlineUserCloudInterface.IsValid())
+			{
+				OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
+			}
 		}
 	}
 }
@@ -1001,6 +1011,8 @@ void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 	// Make sure this was our filename
 	if (FileName == GetProfileFilename())
 	{
+		LastProfileCloudWriteTime = FApp::GetCurrentTime();
+
 		if (bWasSuccessful)
 		{
 			FText Saved = NSLOCTEXT("MCP", "ProfileSaved", "Profile Saved");
