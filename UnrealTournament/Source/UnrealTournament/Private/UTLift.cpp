@@ -79,6 +79,12 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				UTChar->Destroy();
 				return;
 			}
+			if (UTChar && UTChar->IsRagdoll() && bMoveWasBlocked)
+			{
+				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->GetCapsuleComponent(), UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_FallingCrush::StaticClass());
+				UTChar->TakeDamage(100000.0f, DamageEvent, UTChar->GetController(), UTChar);
+				return;
+			}
 			if (UTChar && UTChar->UTCharacterMovement && UTChar->UTCharacterMovement->CanBaseOnLift(EncroachComponent, LiftEndLocation - EncroachComponent->GetComponentLocation()))
 			{
 				// if UTCharacter could stand on me, then base him and keep going
