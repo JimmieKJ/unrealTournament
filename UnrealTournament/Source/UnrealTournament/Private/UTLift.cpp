@@ -89,7 +89,15 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 			{
 				if (bMoveWasBlocked)
 				{
-					Other->Destroy();
+					if (!Other->Destroy())
+					{
+						// on client, destroy will fail, but we still need to prevent the collision to avoid a desync of the lift position
+						UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(Other->GetRootComponent());
+						if (RootPrim != NULL)
+						{
+							RootPrim->SetCollisionResponseToChannel(EncroachComponent->GetCollisionObjectType(), ECR_Ignore);
+						}
+					}
 				}
 				bMoveWasBlocked = true;
 				return;
