@@ -185,7 +185,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWithLabelWidget(TS
 void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 {
 	DecalLifetimeRange = FVector2D(5.0f, 105.0f);
-	ScreenPercentageRange = FVector2D(50.0f, 100.0f);
+	ScreenPercentageRange = FVector2D(25.0f, 100.0f);
 
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
