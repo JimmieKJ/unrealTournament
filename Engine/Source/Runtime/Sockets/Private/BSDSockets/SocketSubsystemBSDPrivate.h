@@ -91,8 +91,7 @@ protected:
 			case 0:					break; // 0 means success
 			default:
 				UE_LOG(LogSockets, Warning, TEXT("Unhandled getaddrinfo() socket error! Code: %d"), Code);
-				check(0);
-				break;
+				return SE_EINVAL;
 		}
 #endif // PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME
 
