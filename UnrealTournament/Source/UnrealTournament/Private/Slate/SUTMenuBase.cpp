@@ -182,7 +182,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 
 FText SUTMenuBase::GetBrowserButtonText() const
 {
-	return PlayerOwner->GetWorld()->GetNetMode() == ENetMode::NM_Standalone ? NSLOCTEXT("SUWindowsDesktop","MenuBar_HUBS","PLAY ONLINE") : NSLOCTEXT("SUWindowsDesktop","MenuBar_Browser","SERVER BROWSER");
+	return PlayerOwner->GetWorld()->GetNetMode() == ENetMode::NM_Standalone ? NSLOCTEXT("SUWindowsDesktop","MenuBar_HUBS","Play Online") : NSLOCTEXT("SUWindowsDesktop","MenuBar_Browser","Server Browser");
 }
 
 TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
@@ -299,7 +299,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 					SNew(SButton)
 					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_QuitGame", "QUIT THE GAME").ToString())
+					.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_QuitGame", "Quit the Game").ToString())
 					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 					.OnClicked(this, &SUTMenuBase::OnMenuConsoleCommand, FString(TEXT("quit")), ExitButton)
 				];
