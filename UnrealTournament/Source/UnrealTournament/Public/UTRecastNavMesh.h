@@ -490,13 +490,7 @@ public:
 
 	virtual void TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 	virtual void Tick(float DeltaTime) override;
-	virtual void PreSave() override
-	{
-		Super::PreSave();
-		
-		// make sure special links are done
-		BuildSpecialLinks(MAX_int32);
-	}
+	virtual void PreSave() override;
 
 	virtual bool NeedsRebuild() const
 	{

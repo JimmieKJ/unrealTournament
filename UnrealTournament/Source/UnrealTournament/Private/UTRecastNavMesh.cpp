@@ -2013,6 +2013,22 @@ void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties
 	}
 }
 
+void AUTRecastNavMesh::PreSave()
+{
+	// force build on save if out of date
+	if (NeedsRebuild())
+	{
+		RebuildAll();
+		EnsureBuildCompletion();
+		BuildNodeNetwork();
+		bIsBuilding = false;
+	}
+	// make sure special links are done
+	BuildSpecialLinks(MAX_int32);
+
+	Super::PreSave();
+}
+
 void AUTRecastNavMesh::PreInitializeComponents()
 {
 	// set initial POI map based on what was saved in the nodes
