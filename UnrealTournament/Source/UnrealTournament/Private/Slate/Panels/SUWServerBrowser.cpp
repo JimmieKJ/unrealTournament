@@ -79,6 +79,7 @@ SUWServerBrowser::~SUWServerBrowser()
 	if (PlayerOwner.IsValid())
 	{
 		PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+		PlayerOnlineStatusChangedDelegate.Reset();
 	}
 }
 
@@ -307,9 +308,11 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	}
 
 	OnRefreshClick();
-
-	PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
-	PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUWServerBrowser::OwnerLoginStatusChanged));
+	
+	if (!PlayerOnlineStatusChangedDelegate.IsValid())
+	{
+		PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUWServerBrowser::OwnerLoginStatusChanged));
+	}
 
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	if (GS)

@@ -35,7 +35,7 @@ void SUWindowsDesktop::OnMenuOpened()
 	GameViewportWidget = FSlateApplication::Get().GetKeyboardFocusedWidget();
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 
-	if (PlayerOnlineStatusChangedDelegate == FDelegateHandle())
+	if (!PlayerOnlineStatusChangedDelegate.IsValid())
 	{
 		PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUWindowsDesktop::OwnerLoginStatusChanged));
 	}
@@ -54,7 +54,7 @@ void SUWindowsDesktop::OnMenuClosed()
 	FSlateApplication::Get().ClearKeyboardFocus();
 
 	PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
-	PlayerOnlineStatusChangedDelegate = FDelegateHandle();
+	PlayerOnlineStatusChangedDelegate.Reset();
 }
 
 void SUWindowsDesktop::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
