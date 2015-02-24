@@ -15,7 +15,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 {
 	// Reduce for testing of transitions
 	// MinTimeBetweenTimeStampResets = 5.f;
-	MinTimeBetweenTimeStampResets = 3600.f;
+	MinTimeBetweenTimeStampResets = 10000.f;
 
 	MaxWalkSpeed = 950.f;
 	MaxCustomMovementSpeed = MaxWalkSpeed;
