@@ -3337,6 +3337,7 @@ void AUTCharacter::NotifyTeamChanged()
 				else
 				{
 					// in FFA games, let the local player decide the team coloring
+					/* FIXME: temporarily removed
 					for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 					{
 						AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
@@ -3346,7 +3347,7 @@ void AUTCharacter::NotifyTeamChanged()
 							// NOTE: no splitscreen support, first player wins
 							break;
 						}
-					}
+					}*/
 				}
 			}
 		}
