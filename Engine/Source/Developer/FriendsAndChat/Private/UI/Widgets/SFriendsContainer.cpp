@@ -271,7 +271,7 @@ private:
 
 	FReply OnGlobalChatButtonClicked()
 	{
-		FFriendsAndChatManager::Get()->JoinPublicChatRoom(TEXT("Fortnite"));
+		FFriendsAndChatManager::Get()->JoinPublicChatRoom(TEXT("UT"));
 		FFriendsAndChatManager::Get()->OpenGlobalChat();
 		return FReply::Handled();
 	}
