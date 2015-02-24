@@ -49,6 +49,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
+	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -390,6 +391,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->Assists = Assists;
 		PS->HatClass = HatClass;
 		PS->EyewearClass = EyewearClass;
+		PS->SelectedCharacter = SelectedCharacter;
 		PS->StatManager = StatManager;
 		if (PS->StatManager)
 		{
