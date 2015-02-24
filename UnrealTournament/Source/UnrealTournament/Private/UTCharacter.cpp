@@ -3333,6 +3333,8 @@ void AUTCharacter::NotifyTeamChanged()
 				if (PS->Team != NULL)
 				{
 					MI->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+					// FIXME: GDC hack: material only supports two team colors at the moment...
+					MI->SetScalarParameterValue(TEXT("TeamSelect"), float(PS->Team->TeamIndex));
 				}
 				else
 				{
