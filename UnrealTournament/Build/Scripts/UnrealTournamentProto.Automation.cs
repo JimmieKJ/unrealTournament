@@ -1627,7 +1627,6 @@ public partial class EditorProject : Project
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Maps/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases/"), "*", true, new string[] { }, null, false, false, null, false);
@@ -1671,7 +1670,6 @@ public partial class EditorProject : Project
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Maps/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash/"), "*", true, new string[] { }, null, false, false, null, false);
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases/"), "*", true, new string[] { }, null, false, false, null, false);
