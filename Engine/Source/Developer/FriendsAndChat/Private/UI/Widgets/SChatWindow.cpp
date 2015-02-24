@@ -76,6 +76,7 @@ public:
 					[
 						SAssignNew(ActionMenu, SMenuAnchor)
 						.Placement(MenuMethod != EPopupMethod::UseCurrentWindow ? EMenuPlacement::MenuPlacement_AboveAnchor : EMenuPlacement::MenuPlacement_BelowAnchor)  	// MenuPlacement_BelowAnchor is a workaround until a workarea bug is fixed in SlateApplication menu placement code
+						.IsEnabled(this, &SChatWindowImpl::HasMenuOptions)
 						.Method(EPopupMethod::UseCurrentWindow)
 						.OnGetMenuContent(this, &SChatWindowImpl::GetMenuContent)
 						[
@@ -448,6 +449,28 @@ private:
 		];
 
 		return Contents;
+	}
+
+	bool HasMenuOptions() const
+	{
+		if (SharedChatViewModel->IsGlobalChatEnabled())
+		{
+			return true;
+		}
+
+		if (SharedChatViewModel->GetRecentOptions().Num() > 0)
+		{
+			return true;
+		}
+
+		TArray<EChatMessageType::Type> ChatMessageOptions;
+		DisplayViewModel->EnumerateChatChannelOptionsList(ChatMessageOptions);
+		if (ChatMessageOptions.Num() > 0)
+		{
+			return true;
+		}
+
+		return false;
 	}
 
 	TSharedRef<SWidget> GetFriendActionMenu()
