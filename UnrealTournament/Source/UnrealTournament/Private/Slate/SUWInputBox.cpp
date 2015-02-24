@@ -19,6 +19,7 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 							.ContentPadding(InArgs._ContentPadding)
 							.ButtonMask(InArgs._ButtonMask)
 							.OnDialogResult(InArgs._OnDialogResult)
+							.IsScrollable(InArgs._IsScrollable)
 						);
 	TextFilter = InArgs._TextFilter;
 	IsPassword = InArgs._IsPassword;
@@ -43,9 +44,10 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 			+ SVerticalBox::Slot()
 			.VAlign(VAlign_Bottom)
 			.HAlign(HAlign_Fill)
-			.Padding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+			.Padding(FMargin(10.0f, 0.0f, 10.0f, 5.0f))
 			[
 				SAssignNew(EditBox, SEditableTextBox)
+				.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.Dark")
 				.OnTextChanged(this, &SUWInputBox::OnTextChanged)
 				.OnTextCommitted(this, &SUWInputBox::OnTextCommited)
 				.IsPassword(IsPassword)

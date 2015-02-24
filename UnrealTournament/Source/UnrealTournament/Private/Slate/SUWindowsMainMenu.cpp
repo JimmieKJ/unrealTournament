@@ -321,7 +321,10 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 
 FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	if (MenuButton.IsValid())
+	{
+		MenuButton->SetIsOpen(false);
+	}
 	if ( !WebPanel.IsValid() )
 	{
 		// Create the Web panel
@@ -342,7 +345,10 @@ FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
 
 FReply SUWindowsMainMenu::OnConnectIP(TSharedPtr<SComboButton> MenuButton)
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	if (MenuButton.IsValid())
+	{
+		MenuButton->SetIsOpen(false);
+	}
 	PlayerOwner->OpenDialog(
 							SNew(SUWInputBox)
 							.DefaultInput(PlayerOwner->LastConnectToIP)
@@ -352,6 +358,7 @@ FReply SUWindowsMainMenu::OnConnectIP(TSharedPtr<SComboButton> MenuButton)
 							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
 							.MessageText(NSLOCTEXT("SUWindowsDesktop", "ConnecToIPDesc", "Enter address to connect to:"))
 							.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
+							.IsScrollable(false)
 							);
 	return FReply::Handled();
 }
