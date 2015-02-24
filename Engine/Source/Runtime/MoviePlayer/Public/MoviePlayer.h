@@ -101,7 +101,6 @@ struct MOVIEPLAYER_API FLoadingScreenAttributes
 };
 
 
-
 /** An interface to the movie player we will use for loading screens and gameplay movies */
 class IGameMoviePlayer
 {
@@ -149,6 +148,9 @@ public:
 	
 	/** Sets up an FLoadingScreenAttributes from the game's engine.ini, then calls the virtual SetupLoadingScreen */
 	virtual void SetupLoadingScreenFromIni() = 0;
+
+	DECLARE_EVENT(IGameMoviePlayer, FOnMoviePlaybackFinished)
+	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() = 0;
 
 	virtual ~IGameMoviePlayer() {}
 };

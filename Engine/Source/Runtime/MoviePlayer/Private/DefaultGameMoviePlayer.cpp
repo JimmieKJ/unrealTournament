@@ -265,17 +265,18 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 
 		LastPlayTime = 0;
 		FlushRenderingCommands();
-
+		
 		// Allow the movie streamer to clean up any resources it uses once there are no movies to play.
 		if( MovieStreamer.IsValid() )
 		{
 			MovieStreamer->Cleanup();
 		}
 	
-
 		// Finally, clear out the loading screen attributes, forcing users to always
 		// explicitly set the loading screen they want (rather than have stale loading screens)
 		LoadingScreenAttributes = FLoadingScreenAttributes();
+
+		OnMoviePlaybackFinishedDelegate.Broadcast();
 	}
 	else
 	{	
