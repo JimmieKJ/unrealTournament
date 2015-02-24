@@ -55,6 +55,16 @@ public:
 	{
 	}
 
+	bool IsValid() const
+	{
+		return ID != 0;
+	}
+
+	void Reset()
+	{
+		ID = 0;
+	}
+
 private:
 	friend bool operator==(const FDelegateHandle& Lhs, const FDelegateHandle& Rhs)
 	{
