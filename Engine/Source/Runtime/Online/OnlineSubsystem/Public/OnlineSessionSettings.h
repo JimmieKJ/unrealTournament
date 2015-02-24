@@ -336,7 +336,7 @@ public:
 };
 
 /** Holds the per session information for named sessions */
-class FNamedOnlineSession : public FOnlineSession
+class ONLINESUBSYSTEM_API FNamedOnlineSession : public FOnlineSession
 {
 protected:
 	FNamedOnlineSession() :
@@ -384,6 +384,18 @@ public:
 	}
 
 	virtual ~FNamedOnlineSession() {}
+
+	/**
+	 * Calculate the possible joinability state of this session
+	 * check the values from left to right in order of precedence
+	 *
+	 * @param bPublicJoinable [out] is the game joinable by anyone at all
+	 * @param bFriendJoinable [out] is the game joinable by friends via presence (doesn't require invite)
+	 * @param bInviteOnly [out] is the game joinable via explicit invites
+	 *
+	 * @return true if the out params are valid, false otherwise
+	 */
+	bool GetJoinability(bool& bPublicJoinable, bool& bFriendJoinable, bool& bInviteOnly) const;
 };
 
 /** Value returned on unreachable or otherwise bad search results */

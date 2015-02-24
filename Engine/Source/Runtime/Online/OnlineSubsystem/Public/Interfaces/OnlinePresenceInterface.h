@@ -88,14 +88,18 @@ public:
 
 	/** Constructor */
 	FOnlineUserPresence()
-		: SessionId(nullptr)
-		, bIsOnline(0)
-		, bIsPlaying(0)
-		, bIsPlayingThisGame(0)
-		, bIsJoinable(0)
-		, bHasVoiceSupport(0)
 	{
+		Reset();
+	}
 
+	virtual void Reset()
+	{
+		SessionId = nullptr;
+		bIsOnline = 0;
+		bIsPlaying = 0;
+		bIsPlayingThisGame = 0;
+		bIsJoinable = 0;
+		bHasVoiceSupport = 0;
 	}
 };
 

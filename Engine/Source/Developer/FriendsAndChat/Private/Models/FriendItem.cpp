@@ -8,6 +8,10 @@
 
 // FFriendStruct implementation
 
+const FString FFriendItem::LauncherClientId("f3e80378aed4462498774a7951cd263f");
+const FString FFriendItem::FortniteClientId("300d79839c914445948e3c1100f211db");
+const FString FFriendItem::UnrealTournamentClientId("1252412dc7704a9690f6ea4611bc81ee");
+
 const TSharedPtr< FOnlineFriend > FFriendItem::GetOnlineFriend() const
 {
 	return OnlineFriend;
@@ -83,6 +87,50 @@ const FString FFriendItem::GetClientId() const
 	return Result;
 }
 
+const FString FFriendItem::GetClientName() const
+{
+	FString Result;
+	if (OnlineFriend.IsValid())
+	{
+		const FOnlineUserPresence& OnlinePresence = OnlineFriend->GetPresence();
+		const FVariantData* ClientId = OnlinePresence.Status.Properties.Find(DefaultClientIdKey);
+		if (ClientId != nullptr &&
+			ClientId->GetType() == EOnlineKeyValuePairDataType::String)
+		{
+			ClientId->GetValue(Result);
+		}
+	}
+
+	// hardcoded for now, need a generic way to receive client names or map client ids to names
+	if (Result == FFriendItem::FortniteClientId)
+	{
+		Result = TEXT("Fortnite");
+	}
+	else if (Result == FFriendItem::UnrealTournamentClientId)
+	{
+		Result = TEXT("Unreal Tournament");
+	}
+	else if (Result == FFriendItem::LauncherClientId)
+	{
+		Result = TEXT("Unreal Engine Launcher");
+	}
+	return Result;
+}
+
+const FString FFriendItem::GetSessionId() const
+{
+	FString SessionId;
+	if (OnlineFriend.IsValid())
+	{
+		const FOnlineUserPresence& OnlinePresence = OnlineFriend->GetPresence();
+		if (OnlinePresence.SessionId.IsValid())
+		{
+			SessionId = OnlinePresence.SessionId->ToString();
+		}
+	}
+	return SessionId;
+}
+
 const bool FFriendItem::IsOnline() const
 {
 	if(OnlineFriend.IsValid())
@@ -116,6 +164,12 @@ bool FFriendItem::IsGameJoinable() const
 	return false;
 }
 
+bool FFriendItem::CanInvite() const
+{
+	FString FriendsClientID = GetClientId();
+	return FriendsClientID == FFriendsAndChatManager::Get()->GetUserClientId() || FriendsClientID == FFriendItem::LauncherClientId;
+}
+
 FString FFriendItem::GetGameSessionId() const
 {
 	FString SessionId;
@@ -129,7 +183,6 @@ FString FFriendItem::GetGameSessionId() const
 	}
 	return SessionId;
 }
-
 
 const TSharedRef< FUniqueNetId > FFriendItem::GetUniqueID() const
 {

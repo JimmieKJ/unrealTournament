@@ -23,6 +23,7 @@ namespace EFriendActionType
 		JoinGame,					// Join a Friends game
 		RejectGame,					// Reject a game request
 		InviteToGame,				// Invite to game
+		Whisper,					// Open Whisper window
 		SendFriendRequest,			// Send a friend request
 		Updating,					// Updating;
 		Chat,						// Chat
@@ -81,6 +82,7 @@ public:
 	virtual FText GetFriendLocation() const = 0;
 	virtual FString GetClientId() const = 0;
 	virtual bool IsOnline() const = 0;
+	virtual bool IsInGameSession() const = 0;
 	virtual EOnlinePresenceState::Type GetOnlineStatus() const = 0;
 };
 

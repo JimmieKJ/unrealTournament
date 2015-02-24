@@ -10,6 +10,10 @@ class FFriendItem : public IFriendItem
 {
 public:
 
+	const static FString LauncherClientId;
+	const static FString FortniteClientId;
+	const static FString UnrealTournamentClientId;
+
 	/**
 	 * Constructor takes the required details.
 	 *
@@ -75,6 +79,18 @@ public:
 	virtual const FString GetClientId() const override;
 
 	/**
+	 * Get the name of the game the client is logged in on
+	 * @return The game name
+	*/
+	virtual const FString GetClientName() const override;
+
+	/**
+	* Get the player's session id
+	* @return The session id the user is playing in
+	*/
+	virtual const FString GetSessionId() const override;
+
+	/**
 	 * Get if the user is online.
 	 * @return The user online state.
 	 */
@@ -91,6 +107,12 @@ public:
 	 * @return The user joinable game state.
 	 */
 	virtual bool IsGameJoinable() const override;
+
+	/**
+	* Get if the user can join our game if we were to invite them
+	* @return True if we can invite them
+	*/
+	virtual bool CanInvite() const override;
 
 	/**
 	 * Get if the user is online and his game is joinable

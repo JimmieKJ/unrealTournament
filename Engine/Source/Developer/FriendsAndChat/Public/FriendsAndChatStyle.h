@@ -82,6 +82,10 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	FButtonStyle FriendListItemButtonSimpleStyle;
 	FFriendsAndChatStyle& SetFriendsListItemButtonSimpleStyle(const FButtonStyle& ButtonStyle);
 
+	UPROPERTY()
+	FButtonStyle GlobalChatButtonStyle;
+	FFriendsAndChatStyle& SetGlobalChatButtonStyle(const FButtonStyle& ButtonStyle);
+
 	/** Friends List Close button style */
 	UPROPERTY()
 	FButtonStyle FriendListCloseButtonStyle;
@@ -141,6 +145,11 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush LauncherImageBrush;
 	FFriendsAndChatStyle& SetLauncherImageBrush(const FSlateBrush& BrushStyle);
+
+	/** UnrealTournament Image brush style */
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush UTImageBrush;
+	FFriendsAndChatStyle& SetUTImageBrush(const FSlateBrush& BrushStyle);
 
 	/** Friend combo dropdown Image */
 	UPROPERTY(EditAnywhere, Category = Appearance)
@@ -221,7 +230,7 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category=Appearance)
 	FSlateFontInfo FriendsFontStyleBold;
 	FFriendsAndChatStyle& SetFontStyleBold(const FSlateFontInfo& InFontStyle);
-	
+
 	/** Font Style */
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateFontInfo FriendsFontStyleBoldLarge;
@@ -262,7 +271,7 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category=Appearance)
 	FLinearColor NetworkChatColor;
 	FFriendsAndChatStyle& SetNetworkChatColor(const FLinearColor& InFontColor);
-	
+
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FLinearColor ComboItemTextColorNormal;
 	FFriendsAndChatStyle& SetComboItemTextColorNormal(const FLinearColor& InColor);
@@ -282,7 +291,7 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FLinearColor FriendListActionFontColor;
 	FFriendsAndChatStyle& SetFriendListActionFontColor(const FLinearColor& InColor);
-	
+
 	UPROPERTY(EditAnywhere, Category=Appearance)
 	FSlateBrush ChatGlobalBrush;
 	FFriendsAndChatStyle& SetChatGlobalBrush(const FSlateBrush& Brush);

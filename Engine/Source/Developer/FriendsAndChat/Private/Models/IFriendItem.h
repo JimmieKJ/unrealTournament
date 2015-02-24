@@ -44,6 +44,18 @@ public:
 	virtual const FString GetClientId() const = 0;
 
 	/**
+	* Get the client name the user is logged in on
+	* @return The client name
+	*/
+	virtual const FString GetClientName() const = 0;
+
+	/**
+	* Get the player's session id
+	* @return The session id the user is playing in
+	*/
+	virtual const FString GetSessionId() const = 0;
+
+	/**
 	 * Get if the user is online.
 	 * @return The user online state.
 	 */
@@ -60,6 +72,12 @@ public:
 	 * @return The user joinable game state.
 	 */
 	virtual bool IsGameJoinable() const = 0;
+
+	/**
+	 * Get if the user can join our game if we were to invite them
+	 * @return True if we can invite them
+	 */
+	virtual bool CanInvite() const = 0;
 
 	/**
 	 * Get game session id that this friend is currently in

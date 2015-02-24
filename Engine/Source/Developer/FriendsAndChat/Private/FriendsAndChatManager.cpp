@@ -13,9 +13,21 @@
 #include "FriendRecentPlayerItems.h"
 #include "FriendGameInviteItem.h"
 #include "ChatDisplayOptionsViewModel.h"
+#include "OnlineIdentityMcp.h"
 
 #define LOCTEXT_NAMESPACE "FriendsAndChatManager"
 
+const float CHAT_ANALYTICS_INTERVAL = 5 * 60.0f;  // 5 min
+
+namespace FriendsAndChatManagerDefs
+{
+	static const FVector2D FriendsListWindowPosition(100, 100);
+	static const FVector2D FriendsListWindowSize(400, 458);
+	static const FVector2D FriendsListWindowMinimumSize(300, 300);
+	static const FVector2D ChatWindowSize(420, 500);
+	static const FVector2D ChatWindowMinimumSize(300, 250);
+	static const float FriendsAndChatWindowGap = 20.0f;
+}
 
 /* FFriendsAndChatManager structors
  *****************************************************************************/
@@ -23,17 +35,21 @@
 FFriendsAndChatManager::FFriendsAndChatManager( )
 	: OnlineSub(nullptr)
 	, MessageManager(FFriendsMessageManagerFactory::Create())
+	, bJoinedGlobalChat(false)
+	, bMultiWindowChat(true)
 	, ManagerState ( EFriendsAndManagerState::OffLine )
 	, bIsInited( false )
 	, bRequiresListRefresh(false)
 	, bRequiresRecentPlayersRefresh(false)
-	, bCreateChatWindow(false)
+	, FlushChatAnalyticsCountdown(CHAT_ANALYTICS_INTERVAL)
 {
 }
 
 
 FFriendsAndChatManager::~FFriendsAndChatManager( )
-{ }
+{
+	Analytics.FlushChatStats();
+}
 
 
 /* IFriendsAndChatManager interface
@@ -63,19 +79,19 @@ void FFriendsAndChatManager::Login()
 			check( FriendsInterface.IsValid() )
 
 			// Create delegates for list refreshes
-			OnQueryRecentPlayersCompleteDelegate = FOnQueryRecentPlayersCompleteDelegate::CreateRaw(this, &FFriendsAndChatManager::OnQueryRecentPlayersComplete);
-			OnFriendsListChangedDelegate = FOnFriendsChangeDelegate::CreateSP(this, &FFriendsAndChatManager::OnFriendsListChanged);
-			OnDeleteFriendCompleteDelegate = FOnDeleteFriendCompleteDelegate::CreateSP(this, &FFriendsAndChatManager::OnDeleteFriendComplete);
+			OnQueryRecentPlayersCompleteDelegate = FOnQueryRecentPlayersCompleteDelegate           ::CreateRaw(this, &FFriendsAndChatManager::OnQueryRecentPlayersComplete);
+			OnFriendsListChangedDelegate         = FOnFriendsChangeDelegate                        ::CreateSP (this, &FFriendsAndChatManager::OnFriendsListChanged);
+			OnDeleteFriendCompleteDelegate       = FOnDeleteFriendCompleteDelegate                 ::CreateSP (this, &FFriendsAndChatManager::OnDeleteFriendComplete);
 			OnQueryUserIdMappingCompleteDelegate = IOnlineUser::FOnQueryUserMappingComplete::CreateSP(this, &FFriendsAndChatManager::OnQueryUserIdMappingComplete);
-			OnQueryUserInfoCompleteDelegate = FOnQueryUserInfoCompleteDelegate::CreateSP(this, &FFriendsAndChatManager::OnQueryUserInfoComplete);
-			OnPresenceReceivedCompleteDelegate = FOnPresenceReceivedDelegate::CreateSP(this, &FFriendsAndChatManager::OnPresenceReceived);
-			OnPresenceUpdatedCompleteDelegate = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateSP(this, &FFriendsAndChatManager::OnPresenceUpdated);
-			OnFriendInviteReceivedDelegate = FOnInviteReceivedDelegate::CreateSP(this, &FFriendsAndChatManager::OnFriendInviteReceived);
-			OnFriendRemovedDelegate = FOnFriendRemovedDelegate::CreateSP(this, &FFriendsAndChatManager::OnFriendRemoved);
-			OnFriendInviteRejected = FOnInviteRejectedDelegate::CreateSP(this, &FFriendsAndChatManager::OnInviteRejected);
-			OnFriendInviteAccepted = FOnInviteAcceptedDelegate::CreateSP(this, &FFriendsAndChatManager::OnInviteAccepted);
-			OnGameInviteReceivedDelegate = FOnSessionInviteReceivedDelegate::CreateSP(this, &FFriendsAndChatManager::OnGameInviteReceived);
-			OnDestroySessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateSP(this, &FFriendsAndChatManager::OnGameDestroyed);
+			OnQueryUserInfoCompleteDelegate      = FOnQueryUserInfoCompleteDelegate                ::CreateSP (this, &FFriendsAndChatManager::OnQueryUserInfoComplete);
+			OnPresenceReceivedCompleteDelegate   = FOnPresenceReceivedDelegate                     ::CreateSP (this, &FFriendsAndChatManager::OnPresenceReceived);
+			OnPresenceUpdatedCompleteDelegate    = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateSP (this, &FFriendsAndChatManager::OnPresenceUpdated);
+			OnFriendInviteReceivedDelegate       = FOnInviteReceivedDelegate                       ::CreateSP (this, &FFriendsAndChatManager::OnFriendInviteReceived);
+			OnFriendRemovedDelegate              = FOnFriendRemovedDelegate                        ::CreateSP (this, &FFriendsAndChatManager::OnFriendRemoved);
+			OnFriendInviteRejected               = FOnInviteRejectedDelegate                       ::CreateSP (this, &FFriendsAndChatManager::OnInviteRejected);
+			OnFriendInviteAccepted               = FOnInviteAcceptedDelegate                       ::CreateSP (this, &FFriendsAndChatManager::OnInviteAccepted);
+			OnGameInviteReceivedDelegate         = FOnSessionInviteReceivedDelegate                ::CreateSP (this, &FFriendsAndChatManager::OnGameInviteReceived);
+			OnDestroySessionCompleteDelegate     = FOnDestroySessionCompleteDelegate               ::CreateSP (this, &FFriendsAndChatManager::OnGameDestroyed);
 
 			OnQueryRecentPlayersCompleteDelegateHandle = FriendsInterface->AddOnQueryRecentPlayersCompleteDelegate_Handle(   OnQueryRecentPlayersCompleteDelegate);
 			OnFriendsListChangedDelegateHandle         = FriendsInterface->AddOnFriendsChangeDelegate_Handle             (0, OnFriendsListChangedDelegate);
@@ -95,6 +111,7 @@ void FFriendsAndChatManager::Login()
 
 			FriendsList.Empty();
 			PendingFriendsList.Empty();
+			OldUserPresenceMap.Empty();
 
 			if ( UpdateFriendsTickerDelegate.IsBound() == false )
 			{
@@ -107,6 +124,7 @@ void FFriendsAndChatManager::Login()
 			RequestRecentPlayersListRefresh();
 
 			MessageManager->LogIn();
+			MessageManager->OnChatPublicRoomJoined().AddSP(this, &FFriendsAndChatManager::OnChatPublicRoomJoined);
 			for (auto RoomName : ChatRoomstoJoin)
 			{
 				MessageManager->JoinPublicRoom(RoomName);
@@ -157,6 +175,7 @@ void FFriendsAndChatManager::Logout()
 	PendingIncomingInvitesList.Empty();
 	PendingGameInvitesList.Empty();
 	NotifiedRequest.Empty();
+	ChatRoomstoJoin.Empty();
 
 	if ( FriendWindow.IsValid() )
 	{
@@ -164,21 +183,32 @@ void FFriendsAndChatManager::Logout()
 		FriendWindow = nullptr;
 	}
 
-	if ( ChatWindow.IsValid() )
+	if ( GlobalChatWindow.IsValid() )
 	{
 		Analytics.FlushChatStats();
 
-		ChatWindow->RequestDestroyWindow();
-		ChatWindow = nullptr;
+		GlobalChatWindow->RequestDestroyWindow();
+		GlobalChatWindow = nullptr;
 	}
+
+	for (auto WhisperWindow : WhisperChatWindows)
+	{
+		WhisperWindow.ChatWindow->RequestDestroyWindow();
+	}
+	WhisperChatWindows.Empty();
 
 	MessageManager->LogOut();
 
+	OnlineIdentity = nullptr;
+	FriendsInterface = nullptr;
 	OnlineSub = nullptr;
+
 	if ( UpdateFriendsTickerDelegate.IsBound() )
 	{
 		FTicker::GetCoreTicker().RemoveTicker( UpdateFriendsTickerDelegateHandle );
 	}
+
+	MessageManager->OnChatPublicRoomJoined().RemoveAll(this);
 
 	SetState(EFriendsAndManagerState::OffLine);
 }
@@ -188,9 +218,9 @@ bool FFriendsAndChatManager::IsLoggedIn()
 	return ManagerState != EFriendsAndManagerState::OffLine;
 }
 
-void FFriendsAndChatManager::SetApplicationViewModel(TSharedPtr<IFriendsApplicationViewModel> InApplicationViewModel)
+void FFriendsAndChatManager::AddApplicationViewModel(const FString ClientID, TSharedPtr<IFriendsApplicationViewModel> InApplicationViewModel)
 {
-	ApplicationViewModel = InApplicationViewModel;
+	ApplicationViewModels.Add(ClientID, InApplicationViewModel);
 }
 
 void FFriendsAndChatManager::SetUserSettings(const FFriendsAndChatSettings& UserSettings)
@@ -210,7 +240,7 @@ void FFriendsAndChatManager::InsertNetworkChatMessage(const FString& InMessage)
 
 void FFriendsAndChatManager::JoinPublicChatRoom(const FString& RoomName)
 {
-	if (!RoomName.IsEmpty())
+	if (!RoomName.IsEmpty() && bJoinedGlobalChat == false)
 	{
 		ChatRoomstoJoin.AddUnique(RoomName);
 		if (MessageManager.IsValid())
@@ -218,14 +248,44 @@ void FFriendsAndChatManager::JoinPublicChatRoom(const FString& RoomName)
 			MessageManager->JoinPublicRoom(RoomName);
 		}
 	}
+	else
+	{
+		OpenGlobalChat();
+	}	
+}
+
+void FFriendsAndChatManager::OnChatPublicRoomJoined(const FString& ChatRoomID)
+{
+	if (ChatRoomstoJoin.Contains(ChatRoomID))
+	{
+		bJoinedGlobalChat = true;
+		OpenGlobalChat();
+	}
+}
+
+bool FFriendsAndChatManager::IsInGlobalChat() const
+{
+	return bJoinedGlobalChat;
+}
+
+bool FFriendsAndChatManager::HasPermission(const FString& Permission)
+{
+	if (OnlineIdentity.IsValid())
+	{
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentity->GetUniquePlayerId(0);
+		const FUserOnlineAccountMcp* McpUserAccount = static_cast<const FUserOnlineAccountMcp*>(OnlineIdentity->GetUserAccount(*UserId).Get());
+		if (McpUserAccount)
+		{
+			return McpUserAccount->HasPermission(Permission);
+		}
+	}
+	return false;
 }
 
 // UI Creation
 
 void FFriendsAndChatManager::CreateFriendsListWindow(const FFriendsAndChatStyle* InStyle)
 {
-	const FVector2D DEFAULT_WINDOW_SIZE = FVector2D(400, 458);
-
 	Style = *InStyle;
 	FFriendsAndChatModuleStyle::Initialize(Style);
 
@@ -234,24 +294,27 @@ void FFriendsAndChatManager::CreateFriendsListWindow(const FFriendsAndChatStyle*
 		FriendWindow = SNew( SWindow )
 		.Title(LOCTEXT("FFriendsAndChatManager_FriendsTitle", "Friends List"))
 		.Style(&Style.WindowStyle)
-		.ClientSize(DEFAULT_WINDOW_SIZE)
-		.ScreenPosition(FVector2D(100, 100))
+		.ClientSize(FriendsAndChatManagerDefs::FriendsListWindowSize)
+		.MinWidth(FriendsAndChatManagerDefs::FriendsListWindowMinimumSize.X)
+		.MinHeight(FriendsAndChatManagerDefs::FriendsListWindowMinimumSize.Y)
+		.ScreenPosition(FriendsAndChatManagerDefs::FriendsListWindowPosition)
 		.AutoCenter( EAutoCenter::None )
 		.SizingRule(ESizingRule::UserSized)
 		.SupportsMaximize(true)
 		.SupportsMinimize(true)
 		.bDragAnywhere(true)
-		.CreateTitleBar(false);
+		.CreateTitleBar(false)
+		.LayoutBorder(FMargin(0));
 
 		FriendWindow->SetOnWindowClosed(FOnWindowClosed::CreateRaw(this, &FFriendsAndChatManager::HandleFriendsWindowClosed));
 
-		BuildFriendsUI();
+		BuildFriendsUI(FriendWindow);
 		FriendWindow = FSlateApplication::Get().AddWindow(FriendWindow.ToSharedRef());
 	}
 	else if(FriendWindow->IsWindowMinimized())
 	{
 		FriendWindow->Restore();
-		BuildFriendsUI();
+		BuildFriendsUI(FriendWindow);
 	}
 
 	FriendWindow->BringToFront(true);
@@ -265,12 +328,12 @@ void FFriendsAndChatManager::HandleFriendsWindowClosed(const TSharedRef<SWindow>
 	FriendWindow.Reset();
 }
 
-void FFriendsAndChatManager::BuildFriendsUI()
+void FFriendsAndChatManager::BuildFriendsUI(TSharedPtr< SWindow > WindowPtr)
 {
-	check(FriendWindow.IsValid());
+	check(WindowPtr.IsValid());
 
 	TSharedPtr<SWindowTitleBar> TitleBar;
-	FriendWindow->SetContent(
+	WindowPtr->SetContent(
 		SNew(SBorder)
 		.BorderImage( &Style.Background )
 		.VAlign( VAlign_Fill )
@@ -284,7 +347,7 @@ void FFriendsAndChatManager::BuildFriendsUI()
 				+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
-					SAssignNew(TitleBar, SWindowTitleBar, FriendWindow.ToSharedRef(), nullptr, HAlign_Center)
+					SAssignNew(TitleBar, SWindowTitleBar, WindowPtr.ToSharedRef(), nullptr, HAlign_Center)
 					.Style(&Style.WindowStyle)
 					.ShowAppIcon(false)
 					.Title(FText::GetEmpty())
@@ -335,8 +398,9 @@ TSharedPtr< SWidget > FFriendsAndChatManager::GenerateFriendsListWidget( const F
 }
 
 
-TSharedPtr< SWidget > FFriendsAndChatManager::GenerateChatWidget(const FFriendsAndChatStyle* InStyle, TSharedRef<IChatViewModel> ViewModel)
+TSharedPtr< SWidget > FFriendsAndChatManager::GenerateChatWidget(const FFriendsAndChatStyle* InStyle, TSharedRef<IChatViewModel> ViewModel, TAttribute<FText> ActivationHintDelegate)
 {
+	bMultiWindowChat = false;
 	if(!ChatViewModel.IsValid())
 	{
 		ChatViewModel = FChatViewModelFactory::Create(MessageManager.ToSharedRef());
@@ -351,7 +415,8 @@ TSharedPtr< SWidget > FFriendsAndChatManager::GenerateChatWidget(const FFriendsA
 	Style = *InStyle;
 	SAssignNew(ChatWidget, SChatWindow, ChatDisplayOptionsViewModel)
 	.FriendStyle(&Style)
-	.Method(EPopupMethod::UseCurrentWindow);
+	.Method(EPopupMethod::UseCurrentWindow)
+	.ActivationHintText(ActivationHintDelegate);
 	return ChatWidget;
 }
 
@@ -364,62 +429,122 @@ TSharedPtr<IChatViewModel> FFriendsAndChatManager::GetChatViewModel()
 	return FChatDisplayOptionsViewModelFactory::Create(ChatViewModel.ToSharedRef());
 }
 
-void FFriendsAndChatManager::CreateChatWindow(const struct FFriendsAndChatStyle* InStyle)
+void FFriendsAndChatManager::CreateChatWindow(const struct FFriendsAndChatStyle* InStyle, EChatMessageType::Type ChatType, TSharedPtr< IFriendItem > FriendItem)
 {
-	const FVector2D DEFAULT_WINDOW_SIZE = FVector2D(420, 500);
+	FVector2D WindowPosition
+	(
+		FriendsAndChatManagerDefs::FriendsListWindowPosition.X + FriendsAndChatManagerDefs::FriendsListWindowSize.X + FriendsAndChatManagerDefs::FriendsAndChatWindowGap,
+		FriendsAndChatManagerDefs::FriendsListWindowPosition.Y
+	);
+
 	check(MessageManager.IsValid());
-	bCreateChatWindow = true;
+
+	// Look up if window has already been created
+	TSharedPtr<SWindow> ChatWindow;
+	if (ChatType == EChatMessageType::Whisper && FriendItem.IsValid() && bMultiWindowChat)
+	{
+		for (const auto& WhisperChatWindow : WhisperChatWindows)
+		{
+			if (WhisperChatWindow.FriendItem->GetUniqueID() == FriendItem->GetUniqueID())
+			{
+				ChatWindow = WhisperChatWindow.ChatWindow;
+				break;
+			}
+		}
+	}	
+	else
+	{
+		ChatWindow = GlobalChatWindow;
+	}
 
 	if (!ChatWindow.IsValid())
 	{
+		// Create Window
 		Style = *InStyle;
 		FFriendsAndChatModuleStyle::Initialize(Style);
 
 		ChatWindow = SNew( SWindow )
 		.Title( LOCTEXT( "FriendsAndChatManager_ChatTitle", "Chat Window") )
 		.Style(&Style.WindowStyle)
-		.ClientSize( DEFAULT_WINDOW_SIZE )
-		.ScreenPosition( FVector2D( 200, 100 ) )
+		.ClientSize(FriendsAndChatManagerDefs::ChatWindowSize)
+		.MinWidth(FriendsAndChatManagerDefs::ChatWindowMinimumSize.X)
+		.MinHeight(FriendsAndChatManagerDefs::ChatWindowMinimumSize.Y)
+		.ScreenPosition(WindowPosition)
 		.AutoCenter( EAutoCenter::None )
 		.SupportsMaximize( true )
 		.SupportsMinimize( true )
 		.CreateTitleBar( false )
-		.SizingRule(ESizingRule::UserSized);
+		.SizingRule(ESizingRule::UserSized)
+		.LayoutBorder(FMargin(0));
 
 		ChatWindow->SetOnWindowClosed(FOnWindowClosed::CreateRaw(this, &FFriendsAndChatManager::HandleChatWindowClosed));
 
-		SetChatWindowContents();
+		SetChatWindowContents(ChatWindow, FriendItem);
 		ChatWindow = FSlateApplication::Get().AddWindow(ChatWindow.ToSharedRef());
+
+		// Store window ptr
+		if (ChatType == EChatMessageType::Whisper && FriendItem.IsValid() && bMultiWindowChat)
+		{
+			WhisperChat NewWhisperChat;
+			NewWhisperChat.FriendItem = FriendItem;
+			NewWhisperChat.ChatWindow = ChatWindow;
+			WhisperChatWindows.Add(NewWhisperChat);
+	}
+		else if (ChatType == EChatMessageType::Global || !bMultiWindowChat)
+		{
+			GlobalChatWindow = ChatWindow;
+	}
 	}
 	else if(ChatWindow->IsWindowMinimized())
 	{
 		ChatWindow->Restore();
-		SetChatWindowContents();
+		if (!bMultiWindowChat)
+		{
+			SetChatWindowContents(ChatWindow, nullptr);
+		}		
 	}
 	ChatWindow->BringToFront(true);
-	OnChatFriendSelected().Broadcast(nullptr);
+	OnChatFriendSelected().Broadcast(FriendItem);
 }
 
 void FFriendsAndChatManager::SetChatFriend( TSharedPtr< IFriendItem > FriendItem )
 {
-	if(bCreateChatWindow)
+	CreateChatWindow(&Style, EChatMessageType::Whisper, FriendItem);
+}
+
+void FFriendsAndChatManager::OpenGlobalChat()
+{
+	if (IsInGlobalChat())
 	{
-		CreateChatWindow(&Style);
+		CreateChatWindow(&Style, EChatMessageType::Global, nullptr);
 	}
-	OnChatFriendSelected().Broadcast(FriendItem);
 }
 
 void FFriendsAndChatManager::HandleChatWindowClosed(const TSharedRef<SWindow>& InWindow)
 {
-	ChatWindow.Reset();
+	if (InWindow == GlobalChatWindow)
+	{
+		GlobalChatWindow.Reset();
+	}	
+	else
+	{
+		for (int WhisperChatIndex = 0; WhisperChatIndex < WhisperChatWindows.Num(); ++WhisperChatIndex)
+		{
+			if (WhisperChatWindows[WhisperChatIndex].ChatWindow == InWindow)
+			{
+				WhisperChatWindows.RemoveAt(WhisperChatIndex);
+				break;
+			}
+		}
+	}
 
 	Analytics.FlushChatStats();
 }
 
-void FFriendsAndChatManager::SetChatWindowContents()
+void FFriendsAndChatManager::SetChatWindowContents(TSharedPtr<SWindow> Window, TSharedPtr< IFriendItem > FriendItem)
 {
 	TSharedPtr<SWindowTitleBar> TitleBar;
-	if(!ChatViewModel.IsValid())
+	if(!ChatViewModel.IsValid() || bMultiWindowChat)
 	{
 		ChatViewModel = FChatViewModelFactory::Create(MessageManager.ToSharedRef());
 	}
@@ -427,10 +552,37 @@ void FFriendsAndChatManager::SetChatWindowContents()
 	TSharedRef<FChatDisplayOptionsViewModel> DisplayViewModel = FChatDisplayOptionsViewModelFactory::Create(ChatViewModel.ToSharedRef());
 	DisplayViewModel->SetInGameUI(false);
 	DisplayViewModel->SetCaptureFocus(false);
+	DisplayViewModel->EnableGlobalChat(true);
+
+	if (FriendItem.IsValid())
+	{
+		TSharedPtr<FSelectedFriend> NewFriend;
+		NewFriend = MakeShareable(new FSelectedFriend());
+		NewFriend->FriendName = FText::FromString(FriendItem->GetName());
+		NewFriend->UserID = FriendItem->GetUniqueID();
+		DisplayViewModel->GetChatViewModel()->SetWhisperChannel(NewFriend);				
+	}
+
+	// Lock the channel if not using unified chat
+	if (bMultiWindowChat)
+	{
+		DisplayViewModel->GetChatViewModel()->LockChatChannel(true);
+
+		// @todo - Antony Need a better way for checking for multu window global chat
+		if (!FriendItem.IsValid() && bJoinedGlobalChat)
+		{
+			DisplayViewModel->GetChatViewModel()->SetDisplayGlobalChat(true);
+		}
+	}
+	else if (bJoinedGlobalChat)
+	{
+		// If Unified Window we will need to turn on Global Chat
+		DisplayViewModel->GetChatViewModel()->SetDisplayGlobalChat(true);
+	}
 
 	TSharedRef< FFriendsStatusViewModel > StatusViewModel = FFriendsStatusViewModelFactory::Create(SharedThis(this));
 
-	ChatWindow->SetContent(
+	Window->SetContent(
 		SNew( SBorder )
 		.VAlign( VAlign_Fill )
 		.HAlign( HAlign_Fill )
@@ -440,7 +592,7 @@ void FFriendsAndChatManager::SetChatWindowContents()
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			[
-				SAssignNew(TitleBar, SWindowTitleBar, ChatWindow.ToSharedRef(), nullptr, HAlign_Center)
+				SAssignNew(TitleBar, SWindowTitleBar, Window.ToSharedRef(), nullptr, HAlign_Center)
 				.Style(&Style.WindowStyle)
 				.ShowAppIcon(false)
 				.Title(FText::GetEmpty())
@@ -631,36 +783,45 @@ bool FFriendsAndChatManager::IsInGameSession() const
 
 bool FFriendsAndChatManager::IsInJoinableGameSession() const
 {
-	bool bIsGameJoinable = false;
+	bool bIsJoinable = false;
 
 	if (OnlineSub != nullptr &&
-		OnlineSub->GetIdentityInterface().IsValid() &&
-		OnlineSub->GetPresenceInterface().IsValid())
+		OnlineSub->GetIdentityInterface().IsValid())
 	{
-		TSharedPtr<FUniqueNetId> CurrentUserId = OnlineSub->GetIdentityInterface()->GetUniquePlayerId(0);
-		if (CurrentUserId.IsValid())
+		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+		if (SessionInt.IsValid())
+	{
+			FNamedOnlineSession* Session = SessionInt->GetNamedSession(GameSessionName);
+			if (Session)
 		{
-			TSharedPtr<FOnlineUserPresence> Presence;
-			OnlineSub->GetPresenceInterface()->GetCachedPresence(*CurrentUserId, Presence);
-			if (Presence.IsValid())
+				bool bPublicJoinable = false;
+				bool bFriendJoinable = false;
+				bool bInviteOnly = false;
+				if (Session->GetJoinability(bPublicJoinable, bFriendJoinable, bInviteOnly))
 			{
-				bIsGameJoinable = Presence->bIsJoinable;
+					// User's game is joinable in some way if any of this is true (context needs to be handled outside this function)
+					bIsJoinable = bPublicJoinable || bFriendJoinable || bInviteOnly;
+				}
 			}
 		}
 	}
 
-	return bIsGameJoinable && IsInGameSession();
+	return bIsJoinable;
 }
 
-bool FFriendsAndChatManager::JoinGameAllowed()
+bool FFriendsAndChatManager::JoinGameAllowed(FString ClientID)
 {
 	if (AllowFriendsJoinGame().IsBound())
 	{
 		return AllowFriendsJoinGame().Execute();
 	}
-	else if (ApplicationViewModel.IsValid())
+	else
 	{
-		return ApplicationViewModel->IsAppJoinable();
+		TSharedPtr<IFriendsApplicationViewModel> FriendsApplicationViewModel = *ApplicationViewModels.Find(ClientID);
+		if (FriendsApplicationViewModel.IsValid())
+	{
+			return FriendsApplicationViewModel->IsAppJoinable();
+		}
 	}
 	return false;
 }
@@ -775,6 +936,14 @@ bool FFriendsAndChatManager::Tick( float Delta )
 		}
 	}
 
+	FlushChatAnalyticsCountdown -= Delta;
+	if (FlushChatAnalyticsCountdown <= 0)
+	{
+		Analytics.FlushChatStats();
+		// Reset countdown for new update
+		FlushChatAnalyticsCountdown = CHAT_ANALYTICS_INTERVAL;
+	}
+
 	return true;
 }
 
@@ -792,7 +961,7 @@ void FFriendsAndChatManager::SetState( EFriendsAndManagerState::Type NewState )
 	case EFriendsAndManagerState::RequestFriendsListRefresh:
 		{
 			FOnReadFriendsListComplete Delegate = FOnReadFriendsListComplete::CreateSP(this, &FFriendsAndChatManager::OnReadFriendsListComplete);
-			if (FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::Default), Delegate))
+			if (FriendsInterface.IsValid() && FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::Default), Delegate))
 			{
 				SetState(EFriendsAndManagerState::RequestingFriendsList);
 			}
@@ -805,7 +974,7 @@ void FFriendsAndChatManager::SetState( EFriendsAndManagerState::Type NewState )
 		break;
 	case EFriendsAndManagerState::RequestRecentPlayersListRefresh:
 		{
-			TSharedPtr<FUniqueNetId> UserId = OnlineIdentity->GetUniquePlayerId(0);
+			TSharedPtr<FUniqueNetId> UserId = OnlineIdentity.IsValid() ? OnlineIdentity->GetUniquePlayerId(0) : nullptr;
 			if (UserId.IsValid() &&
 				FriendsInterface->QueryRecentPlayers(*UserId))
 			{
@@ -840,13 +1009,19 @@ void FFriendsAndChatManager::SetState( EFriendsAndManagerState::Type NewState )
 		break;
 	case EFriendsAndManagerState::DeletingFriends:
 		{
-			FriendsInterface->DeleteFriend( 0, PendingOutgoingDeleteFriendRequests[0], EFriendsLists::ToString( EFriendsLists::Default ) );
+			if (FriendsInterface.IsValid())
+			{
+				FriendsInterface->DeleteFriend(0, PendingOutgoingDeleteFriendRequests[0], EFriendsLists::ToString(EFriendsLists::Default));
+			}			
 		}
 		break;
 	case EFriendsAndManagerState::AcceptingFriendRequest:
 		{
-			FOnAcceptInviteComplete Delegate = FOnAcceptInviteComplete::CreateSP(this, &FFriendsAndChatManager::OnAcceptInviteComplete);
-			FriendsInterface->AcceptInvite( 0, PendingOutgoingAcceptFriendRequests[0], EFriendsLists::ToString( EFriendsLists::Default ), Delegate );
+			if (FriendsInterface.IsValid())
+			{
+				FOnAcceptInviteComplete Delegate = FOnAcceptInviteComplete::CreateSP(this, &FFriendsAndChatManager::OnAcceptInviteComplete);
+				FriendsInterface->AcceptInvite(0, PendingOutgoingAcceptFriendRequests[0], EFriendsLists::ToString(EFriendsLists::Default), Delegate);
+			}
 		}
 		break;
 	case EFriendsAndManagerState::RequestGameInviteRefresh:
@@ -916,7 +1091,7 @@ void FFriendsAndChatManager::PreProcessList(const FString& ListName)
 	TArray< TSharedRef<FOnlineFriend> > Friends;
 	bool bReadyToChangeState = true;
 
-	if ( FriendsInterface->GetFriendsList(0, ListName, Friends) )
+	if ( FriendsInterface.IsValid() && FriendsInterface->GetFriendsList(0, ListName, Friends) )
 	{
 		if (Friends.Num() > 0)
 		{
@@ -1015,8 +1190,17 @@ void FFriendsAndChatManager::OnQueryUserInfoComplete( int32 LocalPlayer, bool bW
 				{
 					TSharedRef<FFriendRecentPlayerItem> RecentPlayerItem = MakeShareable(new FFriendRecentPlayerItem(RecentPlayer));
 					TSharedPtr<FOnlineUser> OnlineUser = OnlineSub->GetUserInterface()->GetUserInfo(LocalPlayer, *RecentPlayer->GetUserId());
-					RecentPlayerItem->SetOnlineUser(OnlineUser);
-					RecentPlayersList.Add(RecentPlayerItem);
+					// Invalid OnlineUser can happen if user disabled their account, but are still on someone's recent players list.  Skip including those users.
+					if (OnlineUser.IsValid())
+					{
+						RecentPlayerItem->SetOnlineUser(OnlineUser);
+						RecentPlayersList.Add(RecentPlayerItem);
+					}
+					else
+					{
+						FString InvalidUserId = RecentPlayerItem->GetUniqueID()->ToString();
+						UE_LOG(LogOnline, VeryVerbose, TEXT("Hiding recent player that we could not obtain info for (eg. disabled player), id: %s"), *InvalidUserId);
+					}
 				}
 			}
 		}
@@ -1306,6 +1490,105 @@ void FFriendsAndChatManager::OnSendInviteComplete( int32 LocalPlayer, bool bWasS
 void FFriendsAndChatManager::OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& NewPresence)
 {
 	RefreshList();
+
+	// Compare to previous presence for this friend, display a toast if a friend has came online or joined a game
+	TSharedPtr<FUniqueNetId> SelfId = OnlineIdentity->GetUniquePlayerId(0);
+	bool bIsSelf = (SelfId.IsValid() && UserId == *SelfId);
+	TSharedPtr<IFriendItem> PresenceFriend = FindUser(UserId);
+	bool bFoundFriend = PresenceFriend.IsValid();
+	bool bFriendNotificationsBound = OnFriendsActionNotification().IsBound();
+	// Don't show notifications if we're building the friends list presences for the first time.
+	// Guess at this using the size of the saved presence list. OK to show the last 1 or 2, but avoid spamming dozens of notifications at startup
+	int32 OnlineFriendCount = 0;
+	for (auto Friend : FriendsList)
+	{
+		if (Friend->IsOnline())
+		{
+			OnlineFriendCount++;
+		}
+	}
+	// When a new friend comes online, we should see eg. OnlineFriedCount = 3, OldUserPresence = 2.  Only assume we're starting up if there's a difference of 2 or more
+	bool bJustStartedUp = (OnlineFriendCount - 1 > OldUserPresenceMap.Num());
+
+	// Skip notifications for various reasons
+	if (!bIsSelf)
+	{
+		UE_LOG(LogOnline, Verbose, TEXT("Checking friend presence change for notification %s"), *UserId.ToString());
+		if (!bJustStartedUp && bFoundFriend && bFriendNotificationsBound)
+		{
+			const FString& FriendName = PresenceFriend->GetName();
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("FriendName"), FText::FromString(FriendName));
+
+			const FOnlineUserPresence* OldPresencePtr = OldUserPresenceMap.Find(FUniqueNetIdString(UserId.ToString()));
+			if (OldPresencePtr == nullptr)
+			{
+				if ( NewPresence->bIsOnline == true)
+				{
+					// Had no previous presence, if the new one is online then they just logged on
+					const FText PresenceChangeText = FText::Format(LOCTEXT("FriendPresenceChange_Online", "{FriendName} Is Now Online"), Args);
+					TSharedPtr< FFriendsAndChatMessage > NotificationMessage = MakeShareable(new FFriendsAndChatMessage(PresenceChangeText.ToString()));
+					NotificationMessage->SetMessageType(EFriendsRequestType::PresenceChange);
+					OnFriendsActionNotification().Broadcast(NotificationMessage.ToSharedRef());
+					UE_LOG(LogOnline, Verbose, TEXT("Notifying friend came online %s %s"), *FriendName, *UserId.ToString());
+				}
+				else
+				{
+					// This probably shouldn't be possible but can demote from warning if this turns out to be a valid use case
+					UE_LOG(LogOnline, Warning, TEXT("Had no cached presence for user, then received an Offline presence. ??? %s %s"), *FriendName, *UserId.ToString());
+				}
+			}
+			else
+			{
+				// Have a previous presence, see what changed
+				const FOnlineUserPresence& OldPresence = *OldPresencePtr;
+
+				if (NewPresence->bIsPlayingThisGame == true
+					&& OldPresence.SessionId != NewPresence->SessionId
+					&& NewPresence->SessionId.IsValid()
+					&& NewPresence->SessionId->IsValid())
+				{
+					const FText PresenceChangeText = FText::Format(LOCTEXT("FriendPresenceChange_Online", "{FriendName} Is Now In A Game"), Args);
+					TSharedPtr< FFriendsAndChatMessage > NotificationMessage = MakeShareable(new FFriendsAndChatMessage(PresenceChangeText.ToString()));
+					NotificationMessage->SetMessageType(EFriendsRequestType::PresenceChange);
+					OnFriendsActionNotification().Broadcast(NotificationMessage.ToSharedRef());
+					UE_LOG(LogOnline, Verbose, TEXT("Notifying friend playing this game AND sessionId changed %s %s"), *FriendName, *UserId.ToString());
+				}
+				else if (OldPresence.bIsPlayingThisGame == false && NewPresence->bIsPlayingThisGame == true)
+				{
+					// could limit notifications to same game only by removing isPlaying check above
+					Args.Add(TEXT("GameName"), FText::FromString(PresenceFriend->GetClientName()));
+					const FText PresenceChangeText = FText::Format(LOCTEXT("FriendPresenceChange_Online", "{FriendName} Is Now Playing {GameName}"), Args);
+					TSharedPtr< FFriendsAndChatMessage > NotificationMessage = MakeShareable(new FFriendsAndChatMessage(PresenceChangeText.ToString()));
+					NotificationMessage->SetMessageType(EFriendsRequestType::PresenceChange);
+					OnFriendsActionNotification().Broadcast(NotificationMessage.ToSharedRef());
+					UE_LOG(LogOnline, Verbose, TEXT("Notifying friend isPlayingThisGame %s %s"), *FriendName, *UserId.ToString());
+				}
+				else if (OldPresence.bIsPlaying == false && NewPresence->bIsPlaying == true)
+				{
+					Args.Add(TEXT("GameName"), FText::FromString(PresenceFriend->GetClientName()));
+					const FText PresenceChangeText = FText::Format(LOCTEXT("FriendPresenceChange_Online", "{FriendName} Is Now Playing {GameName}"), Args);
+					TSharedPtr< FFriendsAndChatMessage > NotificationMessage = MakeShareable(new FFriendsAndChatMessage(PresenceChangeText.ToString()));
+					NotificationMessage->SetMessageType(EFriendsRequestType::PresenceChange);
+					OnFriendsActionNotification().Broadcast(NotificationMessage.ToSharedRef());
+					UE_LOG(LogOnline, Verbose, TEXT("Notifying friend isPlaying %s %s"), *FriendName, *UserId.ToString());
+				}
+			}
+		}
+
+		// Make a copy of new presence to backup
+		if (NewPresence->bIsOnline)
+		{
+			OldUserPresenceMap.Add(FUniqueNetIdString(UserId.ToString()), NewPresence.Get());
+			UE_LOG(LogOnline, Verbose, TEXT("Added friend presence to oldpresence map %s"), *UserId.ToString());
+		}
+		else
+		{
+			// Or remove the presence if they went offline
+			OldUserPresenceMap.Remove(FUniqueNetIdString(UserId.ToString()));
+			UE_LOG(LogOnline, Verbose, TEXT("Removed offline friend presence from oldpresence map %s"), *UserId.ToString());
+		}
+	}
 }
 
 void FFriendsAndChatManager::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful)
@@ -1408,11 +1691,13 @@ void FFriendsAndChatManager::SendGameInviteNotification(const TSharedPtr<IFriend
 		NotificationMessage->SetMessageType(EFriendsRequestType::GameInvite);
 		OnFriendsActionNotification().Broadcast(NotificationMessage.ToSharedRef());
 	}
+
+	FriendsListNotificationDelegate.Broadcast(true);
 }
 
-void FFriendsAndChatManager::SendChatMessageReceivedEvent()
+void FFriendsAndChatManager::SendChatMessageReceivedEvent(EChatMessageType::Type ChatType, TSharedPtr<IFriendItem> FriendItem)
 {
-	OnChatMessageRecieved().Broadcast();;
+	OnChatMessageRecieved().Broadcast(ChatType, FriendItem);
 }
 
 void FFriendsAndChatManager::OnGameDestroyed(const FName SessionName, bool bWasSuccessful)
@@ -1450,10 +1735,11 @@ void FFriendsAndChatManager::AcceptGameInvite(const TSharedPtr<IFriendItem>& Fri
 	// notify for further processing of join game request 
 	OnFriendsJoinGame().Broadcast(*FriendItem->GetUniqueID(), FriendItem->GetGameSessionId());
 
-	if(ApplicationViewModel.IsValid())
+	TSharedPtr<IFriendsApplicationViewModel> FriendsApplicationViewModel = *ApplicationViewModels.Find(FriendItem->GetClientId());
+	if (FriendsApplicationViewModel.IsValid())
 	{
 		const FString AdditionalCommandline = TEXT("-invitesession=") + FriendItem->GetGameSessionId() + TEXT(" -invitefrom=") + FriendItem->GetUniqueID()->ToString();
-		ApplicationViewModel->LaunchFriendApp(AdditionalCommandline);
+		FriendsApplicationViewModel->LaunchFriendApp(AdditionalCommandline);
 	}
 
 	Analytics.RecordGameInvite(*FriendItem->GetUniqueID(), TEXT("Social.GameInvite.Accept"));
@@ -1475,7 +1761,7 @@ void FFriendsAndChatManager::SendGameInvite(const FUniqueNetId& ToUser)
 		if (UserId.IsValid())
 		{
 			OnlineSub->GetSessionInterface()->SendSessionInviteToFriend(*UserId, GameSessionName, ToUser);
-			AddFriendsToast(LOCTEXT("InviteToGameSentToast", "Invite Sent"));
+
 			Analytics.RecordGameInvite(ToUser, TEXT("Social.GameInvite.Send"));
 		}
 	}

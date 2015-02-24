@@ -63,10 +63,10 @@ public:
 			.VAlign(VAlign_Top)
 			.HAlign(HAlign_Fill)
 			[
-					SNew(SBorder)
-					.Padding(FriendStyle.BorderPadding)
-					.BorderImage(&FriendStyle.FriendContainerHeader)
-					[
+				SNew(SBorder)
+				.Padding(FriendStyle.BorderPadding)
+				.BorderImage(&FriendStyle.FriendContainerHeader)
+				[
 					SNew(SBox)
 					.WidthOverride(FriendStyle.FriendsListWidth)
 					.HeightOverride(FriendStyle.StatusButtonSize.Y)
@@ -138,6 +138,20 @@ public:
 							]
 						]
 					]
+				]
+			]
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Center)
+			.AutoHeight()
+			[
+				SNew(SBorder)
+				.Padding(FriendStyle.BorderPadding)
+				.BorderImage(&FriendStyle.FriendsContainerBackground)
+				.Visibility(FFriendsAndChatManager::Get()->HasPermission(TEXT("fortnite:play")) ? EVisibility::Visible : EVisibility::Collapsed)
+				[
+					SNew(SButton)
+					.ButtonStyle(&FriendStyle.GlobalChatButtonStyle)
+					.OnClicked(this, &SFriendsContainerImpl::OnGlobalChatButtonClicked)
 				]
 			]
 			+ SVerticalBox::Slot()
@@ -253,6 +267,18 @@ private:
 			}
 		}
 		return EVisibility::Visible;
+	}
+
+	FReply OnGlobalChatButtonClicked()
+	{
+		FFriendsAndChatManager::Get()->JoinPublicChatRoom(TEXT("Fortnite"));
+		FFriendsAndChatManager::Get()->OpenGlobalChat();
+		return FReply::Handled();
+	}
+
+	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		return FReply::Handled();
 	}
 
 private:

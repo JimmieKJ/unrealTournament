@@ -63,13 +63,17 @@ private:
 		{
 			FString ClientId = ViewModel->GetClientId();
 			//@todo samz - better way of finding known ids
-			if (ClientId == TEXT("300d79839c914445948e3c1100f211db"))
+			if (ClientId == FFriendItem::FortniteClientId)
 			{
 				return &FriendStyle.FortniteImageBrush;
 			}
-			else if (ClientId == TEXT("f3e80378aed4462498774a7951cd263f"))
+			else if (ClientId == FFriendItem::LauncherClientId)
 			{
 				return &FriendStyle.LauncherImageBrush;
+			}
+			else if (ClientId == FFriendItem::UnrealTournamentClientId)
+			{
+				return &FriendStyle.UTImageBrush;
 			}
 		}
 		return &FriendStyle.FriendImageBrush;

@@ -42,7 +42,8 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 			[
 				FriendsAndChat.GenerateChatWidget(
 					&SUWindowsStyle::Get().GetWidgetStyle< FFriendsAndChatStyle >( "FriendsStyle" ),
-					ViewModel.ToSharedRef()
+					ViewModel.ToSharedRef(),
+					TAttribute<FText>()
 				).ToSharedRef()
 			]
 		]

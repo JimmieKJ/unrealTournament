@@ -242,12 +242,18 @@ private:
 
 	void OnChatRoomJoinPublic(const FUniqueNetId& UserId, const FChatRoomId& ChatRoomID, bool bWasSuccessful, const FString& Error)
 	{
-		OnChatPublicRoomJoined().Broadcast(ChatRoomID);
+		if (bWasSuccessful)
+		{
+			OnChatPublicRoomJoined().Broadcast(ChatRoomID);
+		}
 	}
 
 	void OnChatRoomExit(const FUniqueNetId& UserId, const FChatRoomId& ChatRoomID, bool bWasSuccessful, const FString& Error)
 	{
-		OnChatPublicRoomExited().Broadcast(ChatRoomID);
+		if (bWasSuccessful)
+		{
+			OnChatPublicRoomExited().Broadcast(ChatRoomID);
+		}		
 	}
 
 	void OnChatRoomMemberJoin(const FUniqueNetId& UserId, const FChatRoomId& ChatRoomID, const FUniqueNetId& MemberId)
@@ -338,7 +344,7 @@ private:
 			AddMessage(ChatItem.ToSharedRef());
 
 			// Inform listers that we have received a chat message
-			FFriendsAndChatManager::Get()->SendChatMessageReceivedEvent();
+			FFriendsAndChatManager::Get()->SendChatMessageReceivedEvent(ChatItem->MessageType, FoundFriend);
 		}
 	}
 

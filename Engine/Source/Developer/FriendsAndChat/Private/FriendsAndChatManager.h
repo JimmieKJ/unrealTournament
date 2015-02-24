@@ -125,16 +125,17 @@ public:
 	virtual void Logout() override;
 	virtual void Login() override;
 	virtual bool IsLoggedIn() override;
-	virtual void SetApplicationViewModel(TSharedPtr<IFriendsApplicationViewModel> ApplicationViewModel) override;
+	virtual void AddApplicationViewModel(const FString ClientID, TSharedPtr<IFriendsApplicationViewModel> ApplicationViewModel) override;
 	virtual void CreateFriendsListWindow(const FFriendsAndChatStyle* InStyle) override;
-	virtual void CreateChatWindow(const struct FFriendsAndChatStyle* InStyle) override;
+	virtual void CreateChatWindow(const struct FFriendsAndChatStyle* InStyle, EChatMessageType::Type ChatType, TSharedPtr<IFriendItem> FriendItem) override;
 	virtual void SetUserSettings(const FFriendsAndChatSettings& UserSettings) override;
 	virtual void SetAnalyticsProvider(const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider) override;
 	virtual TSharedPtr< SWidget > GenerateFriendsListWidget( const FFriendsAndChatStyle* InStyle ) override;
-	virtual TSharedPtr< SWidget > GenerateChatWidget(const FFriendsAndChatStyle* InStyle, TSharedRef<IChatViewModel> ViewModel) override;
+	virtual TSharedPtr< SWidget > GenerateChatWidget(const FFriendsAndChatStyle* InStyle, TSharedRef<IChatViewModel> ViewModel, TAttribute<FText> ActivationHintDelegate) override;
 	virtual TSharedPtr<IChatViewModel> GetChatViewModel() override;
 	virtual void InsertNetworkChatMessage(const FString& InMessage) override;
 	virtual void JoinPublicChatRoom(const FString& RoomName) override;
+	virtual void OnChatPublicRoomJoined(const FString& ChatRoomID) override;
 
 	/**
 	 * Get the analytics for recording friends chat events
@@ -166,14 +167,25 @@ public:
 	bool IsInJoinableGameSession() const;
 
 	/**
+	 * @param ClientID ID of the Game we want to join
 	 * @return true if joining a game is allowed
 	 */
-	bool JoinGameAllowed();
+	bool JoinGameAllowed(FString ClientID);
 
 	/**
 	 * @return true if in the launcher
 	 */
 	const bool IsInLauncher() const;
+
+	/** 
+	 * @return if we are logged into global chat
+	 */
+	bool IsInGlobalChat() const;
+
+	/**
+	 * @return if user has account permission
+	 */
+	bool HasPermission(const FString& Permission);
 
 	/**
 	 * Set the chat friend.
@@ -183,9 +195,16 @@ public:
 	void SetChatFriend( TSharedPtr< IFriendItem > FriendItem );
 
 	/**
-	 * Set the chat widget contents.
+	 * Open the global chat window
 	 */
-	void SetChatWindowContents();
+	void OpenGlobalChat();
+
+	/**
+	 * Set the chat widget contents.
+	 * @param Window		 The Window to set conent on
+	 * @param FriendItem	 The Friend if its a whisper window
+	 */
+	void SetChatWindowContents(TSharedPtr<SWindow> Window, TSharedPtr< IFriendItem > FriendItem);
 
 	/**
 	 * Accept a friend request.
@@ -276,8 +295,13 @@ public:
 	/** Send a game invite notification. */
 	void SendGameInviteNotification(const TSharedPtr<IFriendItem>& FriendItem);
 
-	/** Broadcast when a chat message is received - opens the chat window in the launcher. */
-	void SendChatMessageReceivedEvent();
+	/** 
+	 * Broadcast when a chat message is received - opens the chat window in the launcher. \
+	 *
+	 * @param ChatType	The type of chat message received
+	 * @param FriendItem The friend item if this chat type is whisper
+	 */
+	void SendChatMessageReceivedEvent(EChatMessageType::Type ChatType, TSharedPtr<IFriendItem> FriendItem);
 
 	/**
 	 * Find a user ID.
@@ -302,17 +326,17 @@ public:
 	void SetUserIsOnline(EOnlinePresenceState::Type OnlineState);
 
 	/**
-	 * Get the owner's client id
-	 *
-	 * @return client id string (or an empty string if it fails)
-	 */
+	* Get the owner's client id
+	*
+	* @return client id string (or an empty string if it fails)
+	*/
 	FString GetUserClientId() const;
 
 	/**
-	 * Get the owner's display name
-	 *
-	 * @return display/nickname string (or an empty string if it fails)
-	 */
+	* Get the owner's display name
+	*
+	* @return display/nickname string (or an empty string if it fails)
+	*/
 	FString GetUserNickname() const;
 
 	/**
@@ -332,7 +356,6 @@ public:
 	TSharedPtr< IFriendItem > FindUser(const FUniqueNetId& InUserID);
 
 	TSharedPtr<class FFriendViewModel> GetFriendViewModel(const FUniqueNetId& InUserID);
-
 
 	// External events
 	DECLARE_DERIVED_EVENT(FFriendsAndChatManager, IFriendsAndChatManager::FOnFriendsNotificationEvent, FOnFriendsNotificationEvent)
@@ -416,7 +439,7 @@ private:
 	void RefreshList();
 
 	/** Build the friends UI. */
-	void BuildFriendsUI();
+	void BuildFriendsUI(TSharedPtr< SWindow > WindowPtr);
 
 	/**
 	 * Set the manager state.
@@ -763,6 +786,10 @@ private:
 	TSharedPtr<class FFriendsMessageManager> MessageManager;
 	// Holds the chat view model
 	TSharedPtr<class FChatViewModel> ChatViewModel;
+	// Joined Global Chat
+	bool bJoinedGlobalChat;
+	// Use one window for each chat
+	bool bMultiWindowChat;
 
 	/* Manger state
 	*****************************************************************************/
@@ -778,10 +805,20 @@ private:
 	TSharedPtr< SWindow > FriendWindow;
 	// Holds the Friends List widget
 	TSharedPtr< SWidget > FriendListWidget;
-	// Holds the chat window
-	TSharedPtr< SWindow > ChatWindow;
-	// Holds the application view model - used for launching and querying
-	TSharedPtr<IFriendsApplicationViewModel> ApplicationViewModel;
+	// Holds the Global chat window
+	TSharedPtr< SWindow > GlobalChatWindow;	
+
+	// Holds the whisper chat window
+	struct WhisperChat
+	{
+		TSharedPtr< SWindow > ChatWindow;
+		TSharedPtr< IFriendItem > FriendItem;
+	};
+	TArray<WhisperChat> WhisperChatWindows;
+
+
+	// Holds the application view models - used for launching and querying the games
+	TMap<FString, TSharedPtr<IFriendsApplicationViewModel>> ApplicationViewModels;
 	// Holds the style used to create the Friends List widget
 	FFriendsAndChatStyle Style;
 	// Holds if the Friends list is inited
@@ -794,8 +831,6 @@ private:
 	bool bRequiresRecentPlayersRefresh;
 	// Holds the toast notification
 	TSharedPtr<SNotificationList> FriendsNotificationBox;
-	// Holds if we should create a chat window
-	bool bCreateChatWindow;
 
 public:
 
@@ -805,6 +840,7 @@ public:
 private:
 
 	FFriendsAndChatAnalytics Analytics;
+	float FlushChatAnalyticsCountdown;
 	static TSharedPtr< FFriendsAndChatManager > SingletonInstance;
 
 	/** Handle to various registered delegates */

@@ -69,6 +69,23 @@ void DumpSessionSettings(const FOnlineSessionSettings* SessionSettings)
 	}
 }
 
+bool FNamedOnlineSession::GetJoinability(bool& bPublicJoinable, bool& bFriendJoinable, bool& bInviteOnly) const
+{
+	if (SessionState != EOnlineSessionState::NoSession && SessionState != EOnlineSessionState::Destroying)
+	{
+		bool bAllowJIP = SessionSettings.bAllowJoinInProgress || (SessionState != EOnlineSessionState::Starting && SessionState != EOnlineSessionState::InProgress);
+		if (bAllowJIP)
+		{
+			bPublicJoinable = SessionSettings.bShouldAdvertise || SessionSettings.bAllowJoinViaPresence;
+			bFriendJoinable = SessionSettings.bAllowJoinViaPresenceFriendsOnly;
+			bInviteOnly = !bPublicJoinable && !bFriendJoinable && SessionSettings.bAllowInvites;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 template<typename ValueType> 
 void FOnlineSessionSettings::Set(FName Key, const ValueType& Value, EOnlineDataAdvertisementType::Type InType)
 {

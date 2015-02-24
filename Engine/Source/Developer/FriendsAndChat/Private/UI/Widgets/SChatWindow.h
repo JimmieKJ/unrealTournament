@@ -11,6 +11,10 @@ public:
 		SLATE_ARGUMENT( const FFriendsAndChatStyle*, FriendStyle )
 		SLATE_ARGUMENT(EPopupMethod, Method)
 		SLATE_ARGUMENT(int32, MaxChatLength)
+		
+		// The hint that shows what key activates chat
+		SLATE_ATTRIBUTE(FText, ActivationHintText)
+
 	SLATE_END_ARGS()
 
 	/**
@@ -19,4 +23,9 @@ public:
 	 * @param InArgs The Slate argument list.
 	 */
 	virtual void Construct(const FArguments& InArgs, const TSharedRef<class FChatDisplayOptionsViewModel>& InDisplayViewModel) = 0;
+
+	// Holds the fade in animation
+	FCurveSequence FadeAnimation;
+	// Holds the fade in curve
+	FCurveHandle FadeCurve;
 };

@@ -12,7 +12,7 @@ public:
 
 	virtual void SetCaptureFocus(bool bCaptureFocus) = 0;
 	virtual void SetChannelUserClicked(const TSharedRef<FChatItemViewModel> ChatItemSelected) = 0;
-	virtual void SetTimeDisplayTransparency(const float TimeTransparency) = 0;
+	virtual void SetCurve(FCurveHandle InFadeCurve) = 0;
 	virtual const bool ShouldCaptureFocus() const = 0;
 	virtual const bool IsChatHidden() = 0;
 	virtual TSharedPtr<class FChatViewModel> GetChatViewModel() const = 0;

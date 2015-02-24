@@ -72,9 +72,9 @@ public:
 		ChatViewModel->SetChannelUserClicked(ChatItemSelected);
 	}
 
-	virtual void SetTimeDisplayTransparency(const float TimeTransparency)
+	virtual void SetCurve(FCurveHandle InFadeCurve) override
 	{
-		TimeDisplayTransaprency = TimeTransparency;
+		FadeCurve = InFadeCurve;
 	}
 
 	virtual const bool ShouldCaptureFocus() const override
@@ -94,7 +94,7 @@ public:
 
 	virtual const float GetTimeTransparency() const override
 	{
-		return TimeDisplayTransaprency;
+		return FadeCurve.GetLerp();
 	}
 
 	virtual const EVisibility GetTextEntryVisibility() override
@@ -147,7 +147,7 @@ public:
 		{
 			OUTChannelType.Add(EChatMessageType::Global);
 		}
-
+		
 		if (OnNetworkMessageSentEvent().IsBound() && FFriendsAndChatManager::Get()->IsInGameSession())
 		{
 			OUTChannelType.Add(EChatMessageType::Party);
@@ -193,7 +193,6 @@ private:
 
 	FChatDisplayOptionsViewModelImpl(const TSharedRef<FChatViewModel>& ChatViewModel)
 		: ChatViewModel(ChatViewModel)
-		, TimeDisplayTransaprency(0.f)
 		, bUseOverrideColor(false)
 		, bInGame(false)
 		, bAllowGlobalChat(true)
@@ -205,13 +204,14 @@ private:
 private:
 
 	TSharedPtr<FChatViewModel> ChatViewModel;
-	float TimeDisplayTransaprency;
 	bool bUseOverrideColor;
 	bool bInGame;
 	bool bAllowGlobalChat;
 	bool bCaptureFocus;
 	bool bAllowJoinGame;
 
+	// Holds the fade in curve
+	FCurveHandle FadeCurve;
 	FChatListUpdated ChatListUpdatedEvent;
 	FOnFriendsChatMessageCommitted ChatMessageCommittedEvent;
 	FOnFriendsSendNetworkMessageEvent FriendsSendNetworkMessageEvent;

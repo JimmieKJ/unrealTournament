@@ -27,7 +27,9 @@ public:
 	virtual FReply HandleSelectionChanged(TSharedRef<FChatItemViewModel> ItemSelected) = 0;
 	virtual FText GetViewGroupText() const = 0;
 	virtual FText GetChatGroupText() const = 0;
+	virtual EVisibility GetFriendRequestVisibility() const = 0;
 	virtual EVisibility GetInviteToGameVisibility() const = 0;
+	virtual EVisibility GetOpenWhisperVisibility() const = 0;
 	virtual void EnumerateFriendOptions(TArray<EFriendActionType::Type>& OUTActionList) = 0;
 	virtual void PerformFriendAction(EFriendActionType::Type ActionType) = 0;
 	virtual void CancelAction() = 0;
@@ -47,6 +49,8 @@ public:
 	virtual bool HasFriendChatAction() const = 0;
 	virtual bool HasActionPending() const = 0;
 	virtual void SetInGame(bool bInGameSetting) = 0;
+	virtual void LockChatChannel(bool bLocked) = 0;
+	virtual bool IsChatChannelLocked() const = 0;
 	virtual void EnableGlobalChat(bool bEnable) = 0;
 	DECLARE_EVENT(FChatViewModel, FChatListUpdated)
 	virtual FChatListUpdated& OnChatListUpdated() = 0;

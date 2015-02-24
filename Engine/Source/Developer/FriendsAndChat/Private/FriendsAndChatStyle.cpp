@@ -91,7 +91,7 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListComboButtonStyle(const
 }
 
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemButtonStyle(const FButtonStyle& ButtonStyle)
-{
+{  
 	ComboItemButtonStyle = ButtonStyle;
 	return *this;
 }
@@ -105,6 +105,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListItemButtonStyle(const 
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListItemButtonSimpleStyle(const FButtonStyle& ButtonStyle)
 {
 	FriendListItemButtonSimpleStyle = ButtonStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetGlobalChatButtonStyle(const FButtonStyle& ButtonStyle)
+{
+	GlobalChatButtonStyle = ButtonStyle;
 	return *this;
 }
 
@@ -129,6 +135,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFortniteImageBrush(const FSlateBr
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetLauncherImageBrush(const FSlateBrush& Brush)
 {
 	LauncherImageBrush = Brush;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetUTImageBrush(const FSlateBrush& Brush)
+{
+	UTImageBrush = Brush;
 	return *this;
 }
 
@@ -457,6 +469,7 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetHasUserHeader(bool InHasUserHeade
 	HasUserHeader = InHasUserHeader;
 	return *this;
 }
+
 
 const FFriendsAndChatStyle& FFriendsAndChatStyle::GetDefault()
 {

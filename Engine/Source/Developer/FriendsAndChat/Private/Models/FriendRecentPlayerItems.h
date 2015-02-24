@@ -56,6 +56,18 @@ public:
 	virtual const FString GetClientId() const override;
 
 	/**
+	* Get the name of the client the user is logged in on
+	* @return The client name
+	*/
+	virtual const FString GetClientName() const override;
+
+	/**
+	* Get the player's session id
+	* @return The session id the user is playing in
+	*/
+	virtual const FString GetSessionId() const override;
+
+	/**
 	 * Get if the user is online.
 	 * @return The user online state.
 	 */
@@ -115,6 +127,9 @@ public:
 
 	/** Is the player in a game that is joinable */
 	virtual bool IsGameJoinable() const override;
+
+	/** Get if the user can join our game if we were to invite them*/
+	virtual bool CanInvite() const override;
 
 	/** Get if the user is online and his game is joinable */
 	virtual FString GetGameSessionId() const override;
