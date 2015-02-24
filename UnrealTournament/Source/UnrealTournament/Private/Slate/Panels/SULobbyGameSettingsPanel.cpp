@@ -114,30 +114,6 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.SmallButton.TextStyle")
 					]
 				]
-
-
-				+SOverlay::Slot()
-				.HAlign(HAlign_Right)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SBox)
-					.HeightOverride(32)
-					[
-						SNew(SButton)
-						.OnClicked(this, &SULobbyGameSettingsPanel::Ready)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchBar.Button")
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.Padding(5.0,0.0,5.0,0.0)
-							[
-								SNew(STextBlock)
-								.Text(this, &SULobbyGameSettingsPanel::GetReadyButtonText)
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Lobby.MatchBar.Button.TextStyle")
-							]
-						]
-					]
-				]
 			]
 		]
 	];
@@ -429,89 +405,6 @@ void SULobbyGameSettingsPanel::OptionsChanged()
 
 void SULobbyGameSettingsPanel::CommitOptions()
 {
-}
-
-FReply SULobbyGameSettingsPanel::Ready()
-{
-
-	if (bIsHost || MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
-	{
-		if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
-		{
-			AUTLobbyPC* PC= Cast<AUTLobbyPC>(PlayerOwner->PlayerController);
-
-			if (PC)
-			{
-				if (bIsHost)
-				{
-
-					// Look to see if everyone is ready....
-					bool bAllReady = true;
-					if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
-					{
-						AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-						if (PS)
-						{
-							for (int32 i=0; i < MatchInfo->Players.Num(); i++)
-							{
-								if (MatchInfo->Players[i].IsValid() && MatchInfo->Players[i] != PS && !MatchInfo->Players[i]->bReadyToPlay)
-								{
-									bAllReady = false;
-									break;
-								}
-							}
-						}
-					}
-					 
-					if (!bAllReady)
-					{
-						PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","NotEveryoneReadyCaption","Not Ready"),NSLOCTEXT("LobbyMessages","NotEveryoneReadyMsg","Everone isn't ready to play.  Please wait for everyone before starting the match!"), UTDIALOG_BUTTON_OK);
-						return FReply::Handled();
-					}
-
-					if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
-					{
-						if (MatchInfo->Players.Num() > MatchInfo->CurrentGameModeData->DefaultObject->MaxLobbyPlayers)
-						{
-							PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","TooManyPlayersTitle","Too many players"),NSLOCTEXT("LobbyMessages","TooManyPlayersMsg","There are too many players in this Lobby to start the match!"), UTDIALOG_BUTTON_OK);
-							return FReply::Handled();
-						}
-
-						MatchInfo->ServerStartMatch();	
-					}
-					else
-					{
-						MatchInfo->ServerAbortMatch();
-					}
-				}
-				else
-				{
-					PC->ServerSetReady(!PC->UTLobbyPlayerState->bReadyToPlay);
-				}
-			}
-		}
-	}
-
-
-	return FReply::Handled();
-}
-
-FText SULobbyGameSettingsPanel::GetReadyButtonText() const
-{
-	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
-	{
-		AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-		if (PS)
-		{
-			if (bIsHost)
-			{
-				return !PS->bReadyToPlay ? NSLOCTEXT("Gerneric","StartMatch","Start Match") : NSLOCTEXT("Gerneric","AbortMatch","Abort Match");
-			}
-
-			return !PS->bReadyToPlay ? NSLOCTEXT("Gerneric","Ready","Ready") : NSLOCTEXT("Gerneric","NotReady","Not Ready");
-		}
-	}
-	return NSLOCTEXT("Gerneric","NotReady","Not Ready");
 }
 
 void SULobbyGameSettingsPanel::OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender)

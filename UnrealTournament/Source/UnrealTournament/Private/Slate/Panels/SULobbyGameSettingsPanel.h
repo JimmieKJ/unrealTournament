@@ -115,9 +115,7 @@ protected:
 	FOnMatchInfoMapChanged OnMatchMapChangedDelegate;
 	FOnMatchInfoOptionsChanged OnMatchOptionsChangedDelegate;
 
-	FText GetReadyButtonText() const;
 	void OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
-	FReply Ready();
 
 	FText GetMatchMessage() const;
 

@@ -155,7 +155,7 @@ void SULobbyInfoPanel::BuildMatchPanel()
 										+SHorizontalBox::Slot()
 										.Padding(5.0f,0.0f,5.0f,0.0f)
 										[
-											BuildDefaultMatchMessage()
+											BuildNewMatchButton()
 										]
 									]
 								]
@@ -214,6 +214,27 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildMatchMenu()
 			SNew(SButton)
 			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+			.OnClicked(this, &SULobbyInfoPanel::ReadyButtonClicked)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(this, &SULobbyInfoPanel::GetReadyButtonText)
+					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+				]
+			]
+		]
+
+		+SHorizontalBox::Slot()
+		.Padding(0.0f,0.0f,5.0f,0.0f)
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			.OnClicked(this, &SULobbyInfoPanel::MatchButtonClicked)
 			[
 				SNew(SHorizontalBox)
@@ -240,6 +261,85 @@ FReply SULobbyInfoPanel::MatchButtonClicked()
 	}
 
 	return FReply::Handled();
+}
+
+FReply SULobbyInfoPanel::ReadyButtonClicked()
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+	{
+		AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		AUTLobbyPC* PC = Cast<AUTLobbyPC>(PlayerOwner->PlayerController);
+
+		if (LPS && LPS->CurrentMatch)
+		{
+			if (LPS->CurrentMatch->OwnerId == LPS->UniqueId)	// Host
+			{
+					// Look to see if everyone is ready....
+					bool bAllReady = true;
+					AUTLobbyMatchInfo* MatchInfo = LPS->CurrentMatch;
+					for (int32 i=0; i < MatchInfo->Players.Num(); i++)
+					{
+						if (MatchInfo->Players[i].IsValid() && MatchInfo->Players[i] != LPS && !MatchInfo->Players[i]->bReadyToPlay)
+						{
+							bAllReady = false;
+							break;
+						}
+					}
+					 
+					if (!bAllReady)
+					{
+						PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","NotEveryoneReadyCaption","Not Ready"),NSLOCTEXT("LobbyMessages","NotEveryoneReadyMsg","Everone isn't ready to play.  Please wait for everyone before starting the match!"), UTDIALOG_BUTTON_OK);
+						return FReply::Handled();
+					}
+
+					if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
+					{
+						if (MatchInfo->Players.Num() > MatchInfo->CurrentGameModeData->DefaultObject->MaxLobbyPlayers)
+						{
+							PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","TooManyPlayersTitle","Too many players"),NSLOCTEXT("LobbyMessages","TooManyPlayersMsg","There are too many players in this Lobby to start the match!"), UTDIALOG_BUTTON_OK);
+							return FReply::Handled();
+						}
+
+						MatchInfo->ServerStartMatch();	
+					}
+					else
+					{
+						MatchInfo->ServerAbortMatch();
+					}
+			}
+			else
+			{
+				if (LPS->CurrentMatch->CurrentState == ELobbyMatchState::WaitingForPlayers)
+				{
+					PC->ServerSetReady(!LPS->bReadyToPlay);
+				}
+			
+			}
+		}
+	}
+	return FReply::Handled();
+}
+
+
+FText SULobbyInfoPanel::GetReadyButtonText() const
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+	{
+		AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		if (LPS)
+		{
+			if (LPS->CurrentMatch)
+			{
+				if (LPS->CurrentMatch->OwnerId == LPS->UniqueId)
+				{
+					return (LPS->CurrentMatch->CurrentState == ELobbyMatchState::Launching ? NSLOCTEXT("Gerneric","AbortMatch","ABORT MATCH") : NSLOCTEXT("Gerneric","StartMatch","START MATCH"));
+				}
+
+				return (LPS->bReadyToPlay) ? NSLOCTEXT("Gerneric","NotReady","NOT READY") : NSLOCTEXT("Gerneric","Ready","READY");
+			}
+		}
+	}
+	return FText::GetEmpty();
 }
 
 FText SULobbyInfoPanel::GetMatchButtonText() const
@@ -327,6 +427,13 @@ void SULobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InC
 				MatchData.Empty();
 				MatchPanelDock->ClearChildren();
 
+
+				MatchPanelDock->AddSlot()
+				[
+					BuildNewMatchButton()
+				];
+
+
 				if ( LobbyGameState->AvailableMatches.Num() >0 )
 				{
 					for (int32 i=0;i<LobbyGameState->AvailableMatches.Num();i++)
@@ -345,13 +452,6 @@ void SULobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InC
 							MatchData.Add( FMatchData::Make(LobbyGameState->AvailableMatches[i], MP));
 						}
 					}
-				}
-				else
-				{
-					MatchPanelDock->AddSlot()
-					[
-						BuildDefaultMatchMessage()
-					];
 				}
 			}
 		}
@@ -781,6 +881,61 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 
 
 	SUInGameHomePanel::ChatTextCommited(NewText, CommitType);
+}
+
+TSharedRef<SWidget> SULobbyInfoPanel::BuildNewMatchButton()
+{
+	return SNew(SOverlay)
+	+SOverlay::Slot()
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SBox)						// First the overlaid box that controls everything....
+			.HeightOverride(192)
+			.WidthOverride(192)
+			[
+				SNew(SButton)
+				.OnClicked(this, &SULobbyInfoPanel::MatchButtonClicked)
+				.ButtonStyle(SUWindowsStyle::Get(),"UWindows.Lobby.MatchButton")
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.Padding(5.0,5.0,5.0,0.0)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Center)
+						[
+							SNew(SBox)						// First the overlaid box that controls everything....
+							.HeightOverride(145)
+							.WidthOverride(145)
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.Padding(5.0,0.0,5.0,0.0)
+								.VAlign(VAlign_Fill)
+								.HAlign(HAlign_Center)
+								[
+									SNew(SRichTextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UT.Common.BoldText")
+									.Justification(ETextJustify::Center)
+									.DecoratorStyleSet( &SUWindowsStyle::Get() )
+									.AutoWrapText( true )
+									.Text(NSLOCTEXT("Generic","NewMatchBadge","START\nNEW\nMATCH"))
+								]
+							]
+						]
+					]
+				]
+			]
+		]
+			
+	];
 }
 
 #endif

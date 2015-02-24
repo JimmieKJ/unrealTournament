@@ -81,9 +81,15 @@ protected:
 
 	virtual void BuildMatchPanel();
 	virtual TSharedRef<SWidget> BuildMatchMenu();
+
 	virtual FReply MatchButtonClicked();
+	virtual FReply ReadyButtonClicked();
 
 	FText GetMatchButtonText() const;
+	FText GetReadyButtonText() const;
+
+	TSharedRef<SWidget> BuildNewMatchButton();
+
 	FString GetMatchCount() const;
 
 	TSharedRef<SWidget> BuildChatArea();
