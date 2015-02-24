@@ -673,6 +673,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 [Help("PromotionStep", "New label for build.  Dropdown with Latest, Testing, Approved, Staged, Live")]
 [Help("CustomLabel", "Custom label to apply to this build.  Requires a custom label step be selected for PromotionStep")]
 [Help("BuildVersion", "Non-platform-specific BuildVersion to promote.")]
+[Help("Products", "Comma-separated list of products to promote. Allowable values are \"GameClient\" and \"Editor\".")]
 [Help("Platforms", "Optional.  Comma-separated list of platforms to promote.  Default is all platforms.")]
 [Help("SkipLabeling", "Optional.  Perform the promotion step but don't apply the new label to the build.")]
 [Help("OnlyLabel", "Optional.  Perform the labeling step but don't perform any additional promotion actions.")]
@@ -689,9 +690,28 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			throw new AutomationException("BuildVersion is a required parameter");
 		}
 
+		List<string> AllProducts = new List<string> { "GameClient", "Editor" };
+		string ProductsString = ParseParamValue("Products");
+		if (string.IsNullOrEmpty(ProductsString))
+		{
+			throw new AutomationException("Products is a required parameter");
+		}
+		var Products = ProductsString.Split(',').Select(x => x.Trim()).ToList();
+		var InvalidProducts = Products.Except(AllProducts);
+		if (InvalidProducts.Any())
+		{
+			throw new AutomationException(InvalidProducts.CreateDebugList("The following product names are invalid:"));
+		}
+		var bShouldPromoteGameClient = Products.Contains("GameClient");
+		var bShouldPromoteEditor = Products.Contains("Editor");
+
         UnrealTournamentBuild.UnrealTournamentAppName FromApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev;
         UnrealTournamentBuild.UnrealTournamentAppName ToApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev;
+		
+		if (bShouldPromoteGameClient)
 		{
+			// We're promoting the game client, so we'll work out the app names of the game client to promote from and to
+
 			string FromAppName = ParseParamValue("FromAppName");
 			if (String.IsNullOrEmpty(FromAppName))
 			{
@@ -724,6 +744,9 @@ class UnrealTournament_PromoteBuild : BuildCommand
 				}
 			}
 		}
+
+		// Determine the name for the editor app (currently hardcoded, but we may want to parameterize this later)
+		var EditorAppName = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditor;
 
 		// Pull promotion step parameter
 		string DestinationLabel = ParseParamValue("PromotionStep");
@@ -787,17 +810,35 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			// Look for each build's manifest
 			foreach (var Platform in Platforms)
 			{
-				BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
-
-				// Check for the manifest on the prod CDN
-				Log("Verifying manifest for prod promotion of Unreal Tournament {0} {1} was already staged to the Prod CDN", BuildVersion, Platform);
-				bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
-				if (!bWasManifestFound)
+				if (bShouldPromoteGameClient)
 				{
-					string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
-					throw new AutomationException("Promotion to Prod requires the build first be staged to the Prod CDN. Manifest {0} not found for promotion to label {1}"
-						, StagingInfo.ManifestFilename
-						, DestinationLabelWithPlatform);
+					BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+
+					// Check for the manifest on the prod CDN
+					Log("Verifying manifest for prod promotion of Unreal Tournament {0} {1} was already staged to the Prod CDN", BuildVersion, Platform);
+					bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
+					if (!bWasManifestFound)
+					{
+						string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
+						throw new AutomationException("Promotion to Prod requires the build first be staged to the Prod CDN. Manifest {0} not found for promotion to label {1}"
+							, StagingInfo.ManifestFilename
+							, DestinationLabelWithPlatform);
+					}
+				}
+				if (bShouldPromoteEditor)
+				{
+					BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, EditorAppName);
+
+					// Check for the manifest on the prod CDN
+					Log("Verifying manifest for prod promotion of Unreal Tournament Editor {0} {1} was already staged to the Prod CDN", BuildVersion, Platform);
+					bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
+					if (!bWasManifestFound)
+					{
+						string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
+						throw new AutomationException("Promotion to Prod requires the build first be staged to the Prod CDN. Manifest {0} not found for promotion to label {1}"
+							, StagingInfo.ManifestFilename
+							, DestinationLabelWithPlatform);
+					}
 				}
 			}
 		}
@@ -815,20 +856,41 @@ class UnrealTournament_PromoteBuild : BuildCommand
 				// Copy chunks and installer to production CDN
 				foreach (var Platform in Platforms)
 				{
-                    BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
-					// Publish staging info up to production BuildInfo service
+					if (bShouldPromoteGameClient)
 					{
-						CommandUtils.Log("Posting {0} to MCP.", FromApp);
-						foreach (var McpConfigString in ProdAndStagingMcpConfigString.Split(','))
+						BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+						// Publish staging info up to production BuildInfo service
 						{
-							BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo, McpConfigString);
+							CommandUtils.Log("Posting {0} to MCP.", FromApp);
+							foreach (var McpConfigString in ProdAndStagingMcpConfigString.Split(','))
+							{
+								BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo, McpConfigString);
+							}
+						}
+						// Copy chunks to production CDN
+						{
+							Log("Promoting game chunks to production CDN");
+							BuildInfoPublisherBase.Get().CopyChunksToProductionCDN(StagingInfo);
+							Log("DONE Promoting game chunks to production CDN");
 						}
 					}
-					// Copy chunks to production CDN
+					if (bShouldPromoteEditor)
 					{
-						Log("Promoting chunks to production CDN");
-						BuildInfoPublisherBase.Get().CopyChunksToProductionCDN(StagingInfo);
-						Log("DONE Promoting chunks to production CDN");
+						BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, EditorAppName);
+						// Publish staging info up to production BuildInfo service
+						{
+							CommandUtils.Log("Posting {0} to MCP.", EditorAppName);
+							foreach (var McpConfigString in ProdAndStagingMcpConfigString.Split(','))
+							{
+								BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo, McpConfigString);
+							}
+						}
+						// Copy chunks to production CDN
+						{
+							Log("Promoting editor chunks to production CDN");
+							BuildInfoPublisherBase.Get().CopyChunksToProductionCDN(StagingInfo);
+							Log("DONE Promoting editor chunks to production CDN");
+						}
 					}
 				}
 			}
@@ -837,32 +899,65 @@ class UnrealTournament_PromoteBuild : BuildCommand
 				// Apply rollback label to the build currently labeled Live
 				foreach (var Platform in Platforms)
 				{
-                    BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
-					string LiveLabelWithPlatform = "Live" + "-" + Platform;
-					// Request Live-[platform] label for this app (actually Production-[platform] until deprecated)
-					string LiveBuildVersionString = BuildInfoPublisherBase.Get().GetLabeledBuildVersion(StagingInfo.AppName, LiveLabelWithPlatform, ProdMcpConfigString);
-					if (String.IsNullOrEmpty(LiveBuildVersionString))
+					if (bShouldPromoteGameClient)
 					{
-						Log("No current Live build found for {0}, continuing without applying a Rollback label.", LiveLabelWithPlatform);
-					}
-					else if (LiveBuildVersionString.EndsWith("-" + Platform))
-					{
-						Log("Identified current Live build as {0}", LiveBuildVersionString);
-						// Take off platform so it can fit in the FEngineVersion struct
-						string LiveBuildVersionStringWithoutPlatform = LiveBuildVersionString.Remove(LiveBuildVersionString.IndexOf("-" + Platform));
-						if (LiveBuildVersionStringWithoutPlatform != BuildVersion)
+						BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+						string LiveLabelWithPlatform = "Live" + "-" + Platform;
+						// Request Live-[platform] label for this app (actually Production-[platform] until deprecated)
+						string LiveBuildVersionString = BuildInfoPublisherBase.Get().GetLabeledBuildVersion(StagingInfo.AppName, LiveLabelWithPlatform, ProdMcpConfigString);
+						if (String.IsNullOrEmpty(LiveBuildVersionString))
 						{
-							// Label the old Live build as "Rollback"
-							LabelBuildForBackwardsCompat(LiveBuildVersionStringWithoutPlatform, "Rollback", new List<MCPPlatform>() { Platform }, ProdStagingAndGameDevMcpConfigString, FromApp);
+							Log("No current Live game build found for {0}, continuing without applying a Rollback label.", LiveLabelWithPlatform);
+						}
+						else if (LiveBuildVersionString.EndsWith("-" + Platform))
+						{
+							Log("Identified current Live game build as {0}", LiveBuildVersionString);
+							// Take off platform so it can fit in the FEngineVersion struct
+							string LiveBuildVersionStringWithoutPlatform = LiveBuildVersionString.Remove(LiveBuildVersionString.IndexOf("-" + Platform));
+							if (LiveBuildVersionStringWithoutPlatform != BuildVersion)
+							{
+								// Label the old Live build as "Rollback"
+								LabelBuildForBackwardsCompat(LiveBuildVersionStringWithoutPlatform, "Rollback", new List<MCPPlatform>() { Platform }, ProdStagingAndGameDevMcpConfigString, FromApp);
+							}
+							else
+							{
+								Log("Would relabel current Live {0} build as {1} again.  Not applying a Rollback label to avoid losing track of current Rollback build.", StagingInfo.AppName, LiveLabelWithPlatform);
+							}
 						}
 						else
 						{
-							Log("Would relabel current Live {0} build as {1} again.  Not applying a Rollback label to avoid losing track of current Rollback build.", StagingInfo.AppName, LiveLabelWithPlatform);
+							throw new AutomationException("Current live game buildversion: {0} doesn't appear to end with platform: {1} as it should!", LiveBuildVersionString, Platform);
 						}
 					}
-					else
+					if (bShouldPromoteEditor)
 					{
-						throw new AutomationException("Current live buildversion: {0} doesn't appear to end with platform: {1} as it should!", LiveBuildVersionString, Platform);
+						BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, EditorAppName);
+						string LiveLabelWithPlatform = "Live" + "-" + Platform;
+						// Request Live-[platform] label for this app (actually Production-[platform] until deprecated)
+						string LiveBuildVersionString = BuildInfoPublisherBase.Get().GetLabeledBuildVersion(StagingInfo.AppName, LiveLabelWithPlatform, ProdMcpConfigString);
+						if (String.IsNullOrEmpty(LiveBuildVersionString))
+						{
+							Log("No current Live editor build found for {0}, continuing without applying a Rollback label.", LiveLabelWithPlatform);
+						}
+						else if (LiveBuildVersionString.EndsWith("-" + Platform))
+						{
+							Log("Identified current Live editor build as {0}", LiveBuildVersionString);
+							// Take off platform so it can fit in the FEngineVersion struct
+							string LiveBuildVersionStringWithoutPlatform = LiveBuildVersionString.Remove(LiveBuildVersionString.IndexOf("-" + Platform));
+							if (LiveBuildVersionStringWithoutPlatform != BuildVersion)
+							{
+								// Label the old Live build as "Rollback"
+								LabelBuildForBackwardsCompat(LiveBuildVersionStringWithoutPlatform, "Rollback", new List<MCPPlatform>() { Platform }, ProdStagingAndGameDevMcpConfigString, EditorAppName);
+							}
+							else
+							{
+								Log("Would relabel current Live {0} build as {1} again.  Not applying a Rollback label to avoid losing track of current Rollback build.", StagingInfo.AppName, LiveLabelWithPlatform);
+							}
+						}
+						else
+						{
+							throw new AutomationException("Current live editor buildversion: {0} doesn't appear to end with platform: {1} as it should!", LiveBuildVersionString, Platform);
+						}
 					}
 				}
 			}
@@ -875,23 +970,47 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		}
 		else
 		{
-			Log("Labeling build {0} with label {1} across all platforms", BuildVersion, DestinationLabel);
+			if (bShouldPromoteGameClient)
+			{
+				Log("Labeling game build {0} with label {1} across all platforms", BuildVersion, DestinationLabel);
 
-			// For non-prod builds, do gamedev only
-			string LabelInMcpConfigs = GameDevMcpConfigString;
-			if (ProdLabels.Contains(DestinationLabel) || bUseProdCustomLabel)
-			{
-				// For prod labels, do both BI services and also dual-label with the entitlement prefix
-				LabelInMcpConfigs = ProdStagingAndGameDevMcpConfigString;
+				// For non-prod builds, do gamedev only
+				string LabelInMcpConfigs = GameDevMcpConfigString;
+				if (ProdLabels.Contains(DestinationLabel) || bUseProdCustomLabel)
+				{
+					// For prod labels, do both BI services and also dual-label with the entitlement prefix
+					LabelInMcpConfigs = ProdStagingAndGameDevMcpConfigString;
+				}
+				LabelBuildForBackwardsCompat(BuildVersion, DestinationLabel, Platforms, LabelInMcpConfigs, FromApp);
+				// If labeling as the Live build, also create a new archive label based on the date
+				if (DestinationLabel == "Live")
+				{
+					string DateFormatString = "yyyy.MM.dd.HH.mm";
+					string ArchiveDateString = DateTime.Now.ToString(DateFormatString);
+					string ArchiveLabel = "Archived" + ArchiveDateString;
+					LabelBuildForBackwardsCompat(BuildVersion, ArchiveLabel, Platforms, LabelInMcpConfigs, FromApp);
+				}
 			}
-			LabelBuildForBackwardsCompat(BuildVersion, DestinationLabel, Platforms, LabelInMcpConfigs, FromApp);
-			// If labeling as the Live build, also create a new archive label based on the date
-			if (DestinationLabel == "Live")
+			if (bShouldPromoteEditor)
 			{
-				string DateFormatString = "yyyy.MM.dd.HH.mm";
-				string ArchiveDateString = DateTime.Now.ToString(DateFormatString);
-				string ArchiveLabel = "Archived" + ArchiveDateString;
-				LabelBuildForBackwardsCompat(BuildVersion, ArchiveLabel, Platforms, LabelInMcpConfigs, FromApp);
+				Log("Labeling editor build {0} with label {1} across all platforms", BuildVersion, DestinationLabel);
+
+				// For non-prod builds, do gamedev only
+				string LabelInMcpConfigs = GameDevMcpConfigString;
+				if (ProdLabels.Contains(DestinationLabel) || bUseProdCustomLabel)
+				{
+					// For prod labels, do both BI services and also dual-label with the entitlement prefix
+					LabelInMcpConfigs = ProdStagingAndGameDevMcpConfigString;
+				}
+				LabelBuildForBackwardsCompat(BuildVersion, DestinationLabel, Platforms, LabelInMcpConfigs, EditorAppName);
+				// If labeling as the Live build, also create a new archive label based on the date
+				if (DestinationLabel == "Live")
+				{
+					string DateFormatString = "yyyy.MM.dd.HH.mm";
+					string ArchiveDateString = DateTime.Now.ToString(DateFormatString);
+					string ArchiveLabel = "Archived" + ArchiveDateString;
+					LabelBuildForBackwardsCompat(BuildVersion, ArchiveLabel, Platforms, LabelInMcpConfigs, EditorAppName);
+				}
 			}
 		}
 
@@ -933,6 +1052,42 @@ class UnrealTournament_PromoteBuild : BuildCommand
 			foreach (var Platform in Platforms)
 			{
                 BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+				string LabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
+				BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LabelWithPlatform, McpConfigName);
+			}
+		}
+	}
+
+
+	private void LabelBuildForBackwardsCompat(string BuildVersion, string DestinationLabel, List<MCPPlatform> Platforms, string McpConfigNames, UnrealTournamentBuild.UnrealTournamentEditorAppName AppName)
+	{
+		// Label it normally
+		LabelBuild(BuildVersion, DestinationLabel, Platforms, McpConfigNames, AppName);
+
+		// If the label is Live, also apply the empty label for backwards-compat until this can be deprecated in favor of "Live"
+		if (DestinationLabel.Equals("Live"))
+		{
+			string Label = "Production";
+			LabelBuild(BuildVersion, Label, Platforms, McpConfigNames, AppName);
+		}
+	}
+
+	/// <summary>
+	/// Apply the requested label to the requested build in the BuildInfo backend for the requested MCP environment
+	/// Repeat for each passed platform, adding the platform to the end of the label that is applied
+	/// </summary>
+	/// <param name="BuildVersion">Build version to label builds for, WITHOUT a platform string embedded.</param>
+	/// <param name="DestinationLabel">Label, WITHOUT platform embedded, to apply</param>
+	/// <param name="Platforms">Array of platform strings to post labels for</param>
+	/// <param name="McpConfigNames">Which BuildInfo backends to label the build in.</param>
+	/// <param name="AppName">Which appname is associated with this build</param>
+	private void LabelBuild(string BuildVersion, string DestinationLabel, List<MCPPlatform> Platforms, string McpConfigNames, UnrealTournamentBuild.UnrealTournamentEditorAppName AppName)
+	{
+		foreach (string McpConfigName in McpConfigNames.Split(','))
+		{
+			foreach (var Platform in Platforms)
+			{
+				BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, AppName);
 				string LabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
 				BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LabelWithPlatform, McpConfigName);
 			}
