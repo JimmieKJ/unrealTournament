@@ -308,6 +308,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 
 	OnRefreshClick();
 
+	PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
 	PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUWServerBrowser::OwnerLoginStatusChanged));
 
 	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());

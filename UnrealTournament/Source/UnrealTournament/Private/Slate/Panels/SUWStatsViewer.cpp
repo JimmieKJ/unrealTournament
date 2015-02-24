@@ -29,6 +29,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		OnlineUserCloudInterface = OnlineSubsystem->GetUserCloudInterface();
 	}
 
+	PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
 	PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUWStatsViewer::OwnerLoginStatusChanged));
 
 	if (OnlineUserCloudInterface.IsValid())
