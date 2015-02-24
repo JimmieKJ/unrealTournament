@@ -15,11 +15,14 @@ struct FTimedImpactEffect
 	/** time component was added */
 	UPROPERTY()
 	float CreationTime;
+	/** life time scaling */
+	UPROPERTY()
+		float LifetimeScaling;
 
 	FTimedImpactEffect()
 	{}
-	FTimedImpactEffect(USceneComponent* InComp, float InTime)
-		: EffectComp(InComp), CreationTime(InTime)
+	FTimedImpactEffect(USceneComponent* InComp, float InTime, float InScaling)
+		: EffectComp(InComp), CreationTime(InTime), LifetimeScaling(InScaling)
 	{}
 };
 
@@ -141,7 +144,7 @@ public:
 	virtual void BeginPlay() override;
 	
 	/** add an impact effect that will be managed by the timing system */
-	virtual void AddImpactEffect(class USceneComponent* NewEffect);
+	virtual void AddImpactEffect(class USceneComponent* NewEffect, float LifeScaling=1.f);
 
 	/** checks lifetime on all active effects and culls as necessary */
 	virtual void ExpireImpactEffects();

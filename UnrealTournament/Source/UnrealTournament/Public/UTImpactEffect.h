@@ -32,6 +32,10 @@ class AUTImpactEffect : public AActor
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	bool bRandomizeDecalRoll;
 
+	/** Scales how long the decal for this effect lasts. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+		float DecalLifeScaling;
+
 	/** one shot audio played with the effect */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	USoundBase* Audio;

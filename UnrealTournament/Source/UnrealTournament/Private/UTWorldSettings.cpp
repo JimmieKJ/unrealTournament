@@ -106,7 +106,7 @@ void AUTWorldSettings::BeginPlay()
 	}
 }
 
-void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect)
+void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect, float LifeScaling)
 {
 	bool bNeedsTiming = true;
 
@@ -134,7 +134,7 @@ void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect)
 	if (bNeedsTiming)
 	{
 		// spawning is usually the hotspot over removal so add to end here and deal with slightly more cost on the other end
-		new(TimedEffects) FTimedImpactEffect(NewEffect, GetWorld()->TimeSeconds);
+		new(TimedEffects)FTimedImpactEffect(NewEffect, GetWorld()->TimeSeconds, LifeScaling);
 	}
 }
 
@@ -176,6 +176,7 @@ void AUTWorldSettings::ExpireImpactEffects()
 				LastRenderTime = Prim->LastRenderTime;
 			}
 			float DesiredTimeout = (WorldTime - LastRenderTime < 1.0f) ? MaxImpactEffectVisibleLifetime : MaxImpactEffectInvisibleLifetime;
+			DesiredTimeout *= TimedEffects[i].LifetimeScaling;
 			if (DesiredTimeout > 0.0f && WorldTime - TimedEffects[i].CreationTime > DesiredTimeout)
 			{
 				TimedEffects[i].EffectComp->DetachFromParent();

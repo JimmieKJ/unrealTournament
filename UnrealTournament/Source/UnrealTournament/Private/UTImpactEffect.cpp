@@ -12,6 +12,7 @@ AUTImpactEffect::AUTImpactEffect(const FObjectInitializer& ObjectInitializer)
 	bRandomizeDecalRoll = true;
 	AlwaysSpawnDistance = 500.0f;
 	CullDistance = 20000.0f;
+	DecalLifeScaling = 1.f;
 }
 
 bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication) const
@@ -181,7 +182,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy);
 			if (WS != NULL)
 			{
-				WS->AddImpactEffect(NewComp);
+				WS->AddImpactEffect(NewComp, DecalLifeScaling);
 			}
 			// recurse
 			CreateEffectComponents(World, BaseTransform, HitComp, SpawnedBy, InstigatedBy, NewComp, NativeCompList[i]->GetFName(), NativeCompList, BPNodes);
@@ -211,7 +212,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy);
 			if (WS != NULL)
 			{
-				WS->AddImpactEffect(NewComp);
+				WS->AddImpactEffect(NewComp, DecalLifeScaling);
 			}
 			// recurse
 			CreateEffectComponents(World, BaseTransform, HitComp, SpawnedBy, InstigatedBy, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
