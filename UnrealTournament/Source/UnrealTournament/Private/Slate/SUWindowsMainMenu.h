@@ -28,7 +28,7 @@ protected:
 	
 	virtual TSharedRef<SWidget> BuildTutorialSubMenu();
 
-	virtual FReply OnShowGamePanel();
+	virtual FReply OnShowGamePanel(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnTutorialClick();
 	virtual FReply OnCloseClicked();
 

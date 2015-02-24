@@ -186,7 +186,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game").ToString())
-			.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel)
+			.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel, DropDownButton)
 		]
 
 
@@ -238,8 +238,13 @@ FReply SUWindowsMainMenu::OnCloseClicked()
 
 
 
-FReply SUWindowsMainMenu::OnShowGamePanel()
+FReply SUWindowsMainMenu::OnShowGamePanel(TSharedPtr<SComboButton> MenuButton)
 {
+	if (MenuButton.IsValid()) 
+	{
+		MenuButton->SetIsOpen(false);
+	}
+
 	if (TickCountDown <= 0)
 	{
 		if (GamePanel.IsValid())
