@@ -37,145 +37,128 @@ void SUWDialog::Construct(const FArguments& InArgs)
 	ViewportSize = ViewportSize / DPIScale;
 	ActualPosition = (ViewportSize * InArgs._DialogPosition) - (ActualSize * InArgs._DialogAnchorPoint);
 
+	TSharedPtr<SWidget> FinalContent;
+
+	if ( InArgs._IsScrollable )
+	{
+		SAssignNew(FinalContent, SScrollBox)
+		+ SScrollBox::Slot()
+		.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+		[
+			// Add an Overlay
+			SAssignNew(DialogContent, SOverlay)
+		];
+	}
+	else
+	{
+		FinalContent = SAssignNew(DialogContent, SOverlay);
+	}
+
 	ChildSlot
+	.VAlign(VAlign_Fill)
+	.HAlign(HAlign_Fill)
+	[
+
+		SNew(SOverlay)
+		+SOverlay::Slot()
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SImage)
+			.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
+		]
+		+ SOverlay::Slot()
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[
 
-			SNew(SOverlay)
-			+SOverlay::Slot()
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
-			]
-			+ SOverlay::Slot()
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
-			[
+			SAssignNew(Canvas, SCanvas)
 
-				SAssignNew(Canvas,SCanvas)
+			// We use a Canvas Slot to position and size the dialog.  
+			+SCanvas::Slot()
+			.Position(ActualPosition)
+			.Size(ActualSize)
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Left)
+			[
+				// This is our primary overlay.  It controls all of the various elements of the dialog.  This is not
+				// the content overlay.  This comes below.
+				SNew(SOverlay)				
 
-				// We use a Canvas Slot to position and size the dialog.  
-				+SCanvas::Slot()
-				.Position(ActualPosition)
-				.Size(ActualSize)
-				.VAlign(VAlign_Top)
-				.HAlign(HAlign_Left)
+				// this is the background image
+				+SOverlay::Slot()							
 				[
-					// This is our primary overlay.  It controls all of the various elements of the dialog.  This is not
-					// the content overlay.  This comes below.
-					SNew(SOverlay)				
-
-					// this is the background image
-					+SOverlay::Slot()							
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
 					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.VAlign(VAlign_Fill)
-						.HAlign(HAlign_Fill)
-						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.DialogBox.Background"))
-						]
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UT.DialogBox.Background"))
+					]
+				]
+
+				// This will define a vertical box that holds the various components of the dialog box.
+				+ SOverlay::Slot()							
+				[
+					SNew(SVerticalBox)
+
+					// The title bar
+					+ SVerticalBox::Slot()
+					.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+					.AutoHeight()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(InArgs._DialogTitle)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Dialog.TitleTextStyle")
 					]
 
-					// This will define a vertical box that holds the various components of the dialog box.
-					+ SOverlay::Slot()							
+					// The content section
+					+ SVerticalBox::Slot()										
+					.Padding(InArgs._ContentPadding.X, InArgs._ContentPadding.Y, InArgs._ContentPadding.X, InArgs._ContentPadding.Y)
 					[
-						SNew(SVerticalBox)
+						FinalContent.ToSharedRef()
+					]
 
-						// The title bar
-						+ SVerticalBox::Slot()
-						.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-						.AutoHeight()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
+					// The ButtonBar
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.VAlign(VAlign_Bottom)
+					.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+					[
+						SNew(SBox)
+						.HeightOverride(48)
 						[
-							SNew(SBox)
-							.HeightOverride(55)
+							SNew(SOverlay)
+							+ SOverlay::Slot()
 							[
-								SNew(STextBlock)
-								.Text(InArgs._DialogTitle)
-								.TextStyle(SUWindowsStyle::Get(), "UT.Dialog.TitleTextStyle")
-							]
-						]
-						+ SVerticalBox::Slot()
-						.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-						.AutoHeight()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SNew(SBox)
-							.HeightOverride(8)
-							[
-								SNew(SCanvas)
-							]
-						]
-
-						// The content section
-						+ SVerticalBox::Slot()													
-						.Padding(InArgs._ContentPadding.X, InArgs._ContentPadding.Y, InArgs._ContentPadding.X, InArgs._ContentPadding.Y)
-						[
-							SNew(SScrollBox)
-							+ SScrollBox::Slot()
-							.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
-							[
-								// Add an Overlay
-								SAssignNew(DialogContent, SOverlay)
-							]
-						]
-
-						+ SVerticalBox::Slot()
-						.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-						.AutoHeight()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
-						[
-							SNew(SBox)
-							.HeightOverride(16)
-							[
-								SNew(SCanvas)
-							]
-						]
-						// The ButtonBar
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.VAlign(VAlign_Bottom)
-						.Padding(5.0f, 5.0f, 5.0f, 5.0f)
-						[
-							SNew(SBox)
-							.HeightOverride(48)
-							[
-								SNew(SOverlay)
-								+ SOverlay::Slot()
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.AutoHeight()
+								.HAlign(HAlign_Right)
 								[
-									SNew(SVerticalBox)
-									+ SVerticalBox::Slot()
-									.AutoHeight()
-									.HAlign(HAlign_Right)
-									[
-										BuildButtonBar(InArgs._ButtonMask)
-									]
+									BuildButtonBar(InArgs._ButtonMask)
 								]
-								+ SOverlay::Slot()
+							]
+							+ SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.AutoHeight()
+								.HAlign(HAlign_Left)
+								.Padding(10.0f, 0.0f, 0.0f, 0.0f)
 								[
-									SNew(SVerticalBox)
-									+ SVerticalBox::Slot()
-									.AutoHeight()
-									.HAlign(HAlign_Left)
-									.Padding(10.0f, 0.0f, 0.0f, 0.0f)
-									[
-										BuildCustomButtonBar()
-									]
+									BuildCustomButtonBar()
 								]
 							]
 						]
 					]
 				]
 			]
-		];
+		]
+	];
 }
 
 

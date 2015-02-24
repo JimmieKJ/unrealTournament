@@ -178,6 +178,15 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
 			);
 
+		Style.Set("UT.Common.Editbox.Dark", FEditableTextBoxStyle()
+			.SetFont(TTF_FONT("Exo2-Medium", 20))
+			.SetForegroundColor(FLinearColor(0.05f, 0.05f, 0.05f))
+			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+			);
+
 
 		Style.Set("UT.Common.CheckBox", FCheckBoxStyle()
 			.SetCheckBoxType(ESlateCheckBoxType::CheckBox)

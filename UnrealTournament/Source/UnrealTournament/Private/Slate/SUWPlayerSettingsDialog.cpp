@@ -22,6 +22,10 @@ static const float BOB_SCALING_FACTOR = 2.0f;
 
 #if !UE_SERVER
 
+#include "SScaleBox.h"
+
+#define LOCTEXT_NAMESPACE "SUWPlayerSettingsDialog"
+
 DECLARE_DELEGATE_OneParam(FDragHandler, FVector2D);
 
 class SDragImage : public SImage
@@ -48,10 +52,16 @@ public:
 		SImage::Construct(SImage::FArguments().Image(InArgs._Image).ColorAndOpacity(InArgs._ColorAndOpacity));
 	}
 
+	virtual bool SupportsKeyboardFocus() const
+	{
+		return true;
+	}
+
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 	{
-		return FReply::Handled().CaptureMouse(AsShared()).UseHighPrecisionMouseMovement(AsShared());
+		return FReply::Handled().SetUserFocus(AsShared(), EFocusCause::Mouse).CaptureMouse(AsShared());
 	}
+
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 	{
 		if (HasMouseCapture())
@@ -63,6 +73,7 @@ public:
 			return FReply::Handled();
 		}
 	}
+
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 	{
 		if (HasMouseCapture())
@@ -86,6 +97,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.DialogPosition(InArgs._DialogPosition)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
 							.ContentPadding(InArgs._ContentPadding)
+							.IsScrollable(false)
 							.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
@@ -139,21 +151,23 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
 
+	FVector2D PreviewViewportSize(1024, 1024);
+
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
 	if (BaseMat != NULL)
 	{
-		PlayerPreviewTexture = Cast<UUTCanvasRenderTarget2D>(UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetPlayerOwner().Get(), UUTCanvasRenderTarget2D::StaticClass(), 512, 512));
+		PlayerPreviewTexture = Cast<UUTCanvasRenderTarget2D>(UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetPlayerOwner().Get(), UUTCanvasRenderTarget2D::StaticClass(), PreviewViewportSize.X, PreviewViewportSize.Y));
 		PlayerPreviewTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.BindSP(this, &SUWPlayerSettingsDialog::UpdatePlayerRender);
 		PlayerPreviewMID = UMaterialInstanceDynamic::Create(BaseMat, GetPlayerOwner()->GetWorld());
 		PlayerPreviewMID->SetTextureParameterValue(FName(TEXT("TheTexture")), PlayerPreviewTexture);
-		PlayerPreviewBrush = new FSlateMaterialBrush(*PlayerPreviewMID, FVector2D(384, 384));
+		PlayerPreviewBrush = new FSlateMaterialBrush(*PlayerPreviewMID, PreviewViewportSize);
 	}
 	else
 	{
 		PlayerPreviewTexture = NULL;
 		PlayerPreviewMID = NULL;
-		PlayerPreviewBrush = new FSlateMaterialBrush(*UMaterial::GetDefaultMaterial(MD_Surface), FVector2D(384, 384));
+		PlayerPreviewBrush = new FSlateMaterialBrush(*UMaterial::GetDefaultMaterial(MD_Surface), PreviewViewportSize);
 	}
 
 	// allocate a preview scene for rendering
@@ -163,10 +177,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
 	ViewState.Allocate();
 	{
-		PreviewLight = ConstructObject<UDirectionalLightComponent>(UDirectionalLightComponent::StaticClass(), PlayerPreviewWorld);
-		PreviewLight->SetLightColor(FLinearColor::White);
-		PreviewLight->SetWorldRotation(FVector(1.0f, 0.0f, -1.0f).Rotation());
-		PreviewLight->RegisterComponentWithWorld(PlayerPreviewWorld);
+		UClass* EnvironmentClass = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewEnvironment.PlayerPreviewEnvironment_C"));
+		PreviewEnvironment = PlayerPreviewWorld->SpawnActor<AActor>(EnvironmentClass, FVector(500.f, 50.f, 0.f), FRotator(0, 0, 0));
 	}
 
 	FVector2D ViewportSize;
@@ -245,6 +257,9 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	}
 
 	SelectedPlayerColor = GetDefault<AUTPlayerController>()->FFAPlayerColor;
+
+	FMargin NameColumnPadding = FMargin(10, 4);
+	FMargin ValueColumnPadding = FMargin(0, 4);
 	
 	if (DialogContent.IsValid())
 	{
@@ -252,408 +267,305 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		TSharedPtr<STextBlock> MessageTextBlock;
 		DialogContent->AddSlot()
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Top)
-			.HAlign(HAlign_Center)
-			[
+			SNew(SOverlay)
 
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.AutoWidth()
+			+ SOverlay::Slot()
+			[
+				SNew(SScaleBox)
+				.Stretch(EStretch::ScaleToFill)
 				[
-					SNew(SBox)
-					.WidthOverride(650)
-					[
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "PlayerName", "Name:").ToString())
-					]
-				]
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SAssignNew(PlayerName, SEditableTextBox)
-					.OnTextChanged(this, &SUWPlayerSettingsDialog::OnNameTextChanged)
-					.Text(FText::FromString(GetPlayerOwner()->GetNickname()))
-					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
-					.MinDesiredWidth(300.0f)
+					SNew(SDragImage)
+					.Image(PlayerPreviewBrush)
+					.OnDrag(this, &SUWPlayerSettingsDialog::DragPlayerPreview)
 				]
 			]
-			// Country Flag
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
+
+			+ SOverlay::Slot()
 			[
 				SNew(SHorizontalBox)
+			
 				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
 				[
-					SNew(SBox)
-					.HAlign(HAlign_Center)
-					.WidthOverride(80.0f * ViewportSize.X / 1280.0f)
-					.Content()
-					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::White)
-						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "CountryFlag", "Country Flag").ToString())
-					]
+					SNew(SSpacer)
+					.Size(FVector2D(420, 420))
 				]
+
 				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.FillWidth(1.0f)
 				.VAlign(VAlign_Center)
+				.Padding(20, 0)
 				[
-					SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FString> >)
-					.InitiallySelectedItem(0)
-					.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-					.OptionsSource(&CountyFlagNames)
-					.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
-					.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnFlagSelected)
-					.Content()
+					SNew(SVerticalBox)
+				
+					+ SVerticalBox::Slot()
+					.AutoHeight()
 					[
 						SNew(SHorizontalBox)
+
 						+ SHorizontalBox::Slot()
-						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-						[
-							SAssignNew(SelectedFlag, STextBlock)
-							.Text(FString(TEXT("Unreal")))
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
-						]
-					]
-				]
-			]
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SButton)
-				.HAlign(HAlign_Center)
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "WeaponConfig", "Weapon Settings").ToString())
-				.OnClicked(this, &SUWPlayerSettingsDialog::WeaponConfigClick)
-			]
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SBox)
-					.HAlign(HAlign_Center)
-					.WidthOverride(80.0f * ViewportSize.X / 1280.0f)
-					.Content()
-					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::White)
-						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "WeaponBobScaling", "Weapon Bob").ToString())
-					]
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SBox)
-					.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
-					.Content()
-					[
-						SAssignNew(WeaponBobScaling, SSlider)
-						.Orientation(Orient_Horizontal)
-						.Value(GetDefault<AUTPlayerController>()->WeaponBobGlobalScaling / BOB_SCALING_FACTOR)
-					]
-				]
-			]
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SBox)
-					.HAlign(HAlign_Center)
-					.WidthOverride(80.0f * ViewportSize.X / 1280.0f)
-					.Content()
-					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::White)
-						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "ViewBobScaling", "View Bob").ToString())
-					]
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SBox)
-					.WidthOverride(250.0f * ViewportSize.X / 1280.0f)
-					.Content()
-					[
-						SAssignNew(ViewBobScaling, SSlider)
-						.Orientation(Orient_Horizontal)
-						.Value(GetDefault<AUTPlayerController>()->EyeOffsetGlobalScaling / BOB_SCALING_FACTOR)
-					]
-				]
-			]
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SBox)
-					.HAlign(HAlign_Center)
-					.Content()
-					[
-						SNew(STextBlock)
-						.ColorAndOpacity(FLinearColor::White)
-						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "FFAPlayerColor", "Free for All Player Color").ToString())
-					]
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SColorBlock)
-					.Color(this, &SUWPlayerSettingsDialog::GetSelectedPlayerColor)
-					.IgnoreAlpha(true)
-					.Size(FVector2D(32.0f * ResolutionScale.X, 16.0f * ResolutionScale.Y))
-					.OnMouseButtonDown(this, &SUWPlayerSettingsDialog::PlayerColorClicked)
-				]
-			]
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
-					[
-						SNew(SBox)
-						.HAlign(HAlign_Center)
-						.Content()
+						.AutoWidth()
+						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
-							.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "HatSelectionLabel", "Hat").ToString())
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("PlayerName", "Name"))
+						]
+
+						+ SHorizontalBox::Slot()
+						.FillWidth(1.0f)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(PlayerName, SEditableTextBox)
+							.OnTextChanged(this, &SUWPlayerSettingsDialog::OnNameTextChanged)
+							.Text(FText::FromString(GetPlayerOwner()->GetNickname()))
+							.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.Dark")
 						]
 					]
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.VAlign(VAlign_Center)
+
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+
 					[
-						SAssignNew(HatComboBox, SComboBox< TSharedPtr<FString> >)
-						.InitiallySelectedItem(0)
-						.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-						.OptionsSource(&HatList)
-						.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
-						.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnHatSelected)
-						.Content()
+						SNew(SGridPanel)
+
+						// Country Flag
+						// ---------------------------------------------------------------------------------
+						+ SGridPanel::Slot(0, 0)
+						.Padding(NameColumnPadding)
 						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("CountryFlag", "Country Flag"))
+						]
+
+						+ SGridPanel::Slot(1, 0)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+							.OptionsSource(&CountyFlagNames)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnFlagSelected)
+							.Content()
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								[
+									SAssignNew(SelectedFlag, STextBlock)
+									.Text(FString(TEXT("Unreal")))
+									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+								]
+							]
+						]
+
+						// Hat
+						// ---------------------------------------------------------------------------------
+						+ SGridPanel::Slot(0, 1)
+						.Padding(NameColumnPadding)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("HatSelectionLabel", "Hat"))
+						]
+
+						+ SGridPanel::Slot(1, 1)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(HatComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+							.OptionsSource(&HatList)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnHatSelected)
+							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+							.Content()
 							[
 								SAssignNew(SelectedHat, STextBlock)
 								.Text(FString(TEXT("No Hats Available")))
-								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
 							]
 						]
-					]
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
-					[
-						SNew(SBox)
-						.HAlign(HAlign_Center)
-						.Content()
+
+						// Eyewear
+						// ---------------------------------------------------------------------------------
+						+ SGridPanel::Slot(0, 2)
+						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
-							.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "EyewearSelectionLabel", "Eyewear").ToString())
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("EyewearSelectionLabel", "Eyewear"))
 						]
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					[
-						SAssignNew(EyewearComboBox, SComboBox< TSharedPtr<FString> >)
-						.InitiallySelectedItem(0)
-						.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-						.OptionsSource(&EyewearList)
-						.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
-						.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnEyewearSelected)
-						.Content()
+
+						+ SGridPanel::Slot(1, 2)
+						.Padding(ValueColumnPadding)
 						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+							SAssignNew(EyewearComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+							.OptionsSource(&EyewearList)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnEyewearSelected)
+							.Content()
 							[
-								SAssignNew(SelectedEyewear, STextBlock)
-								.Text(FString(TEXT("No Glasses Available")))
-								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								[
+									SAssignNew(SelectedEyewear, STextBlock)
+									.Text(FString(TEXT("No Glasses Available")))
+									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+								]
 							]
 						]
-					]
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
-					[
-						SNew(SBox)
-						.HAlign(HAlign_Center)
-						.Content()
+
+						// Character
+						// ---------------------------------------------------------------------------------
+						+ SGridPanel::Slot(0, 3)
+						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
-							.ColorAndOpacity(FLinearColor::White)
-							.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "CharSelectionLabel", "Character").ToString())
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("CharSelectionLabel", "Character"))
 						]
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					[
-						SAssignNew(CharacterComboBox, SComboBox< TSharedPtr<FString> >)
-						.InitiallySelectedItem(0)
-						.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-						.OptionsSource(&CharacterList)
-						.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
-						.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnCharacterSelected)
-						.Content()
+
+						+ SGridPanel::Slot(1, 3)
+						.Padding(ValueColumnPadding)
 						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+							SAssignNew(CharacterComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+							.OptionsSource(&CharacterList)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnCharacterSelected)
+							.Content()
 							[
-								SAssignNew(SelectedCharacter, STextBlock)
-								.Text(FString(TEXT("No Characters Available")))
-								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								[
+									SAssignNew(SelectedCharacter, STextBlock)
+									.Text(FString(TEXT("No Characters Available")))
+									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+								]
 							]
 						]
 					]
-				]
-			]			
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SDragImage)
-				.Image(PlayerPreviewBrush)
-				.OnDrag(this, &SUWPlayerSettingsDialog::DragPlayerPreview)
-			]
-		];
-		DialogContent->AddSlot()
-		[
-			SAssignNew(PlayerColorPicker, SBox)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(SOverlay)
-				+ SOverlay::Slot()
-				[
-					SNew(SVerticalBox)
+
 					+ SVerticalBox::Slot()
-					.VAlign(VAlign_Fill)
-					.HAlign(HAlign_Fill)
+					.AutoHeight()
+					.Padding(0, 4)
 					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
+						SNew(SHorizontalBox)
+
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.Padding(NameColumnPadding)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("FFAPlayerColor", "Free for All Player Color"))
+						]
+
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.Padding(ValueColumnPadding)
+						[
+							SNew(SComboButton)
+							.MenuPlacement(MenuPlacement_ComboBoxRight)
+							.HasDownArrow(false)
+							.ContentPadding(0)
+							.VAlign(VAlign_Fill)
+							.ButtonContent()
+							[
+								SNew(SColorBlock)
+								.Color(this, &SUWPlayerSettingsDialog::GetSelectedPlayerColor)
+								.IgnoreAlpha(true)
+								.Size(FVector2D(32.0f * ResolutionScale.X, 16.0f * ResolutionScale.Y))
+							]
+							.MenuContent()
+							[
+								SNew(SBorder)
+								.BorderImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
+								[
+									SNew(SColorPicker)
+									.OnColorCommitted(this, &SUWPlayerSettingsDialog::PlayerColorChanged)
+									.TargetColorAttribute(SelectedPlayerColor)
+								]
+							]
+						]
 					]
-				]
-				+ SOverlay::Slot()
-				[
-					SNew(SVerticalBox)
+
 					+ SVerticalBox::Slot()
-					.Padding(10.0f, 10.0f, 10.0f, 10.0f)
-					.VAlign(VAlign_Fill)
-					.HAlign(HAlign_Fill)
-					[
-						SNew(SColorPicker)
-						.OnColorCommitted(this, &SUWPlayerSettingsDialog::PlayerColorChanged)
-						.TargetColorAttribute(SelectedPlayerColor)
-					]
-					+ SVerticalBox::Slot()
-					.HAlign(HAlign_Center)
-					.VAlign(VAlign_Bottom)
-					.Padding(10.0f, 10.0f, 10.0f, 10.0f)
 					.AutoHeight()
 					[
-						SNew(SButton)
-						.HAlign(HAlign_Center)
-						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-						.Text(NSLOCTEXT("SUWPlayerSettingsDialog", "Done", "Done").ToString())
-						.OnClicked(this, &SUWPlayerSettingsDialog::CloseColorPicker)
+						SNew(SSpacer)
+						.Size(FVector2D(30, 30))
 					]
+
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0, 4)
+					[
+						SNew(SGridPanel)
+						.FillColumn(1, 1)
+
+						// Weapon Bob
+						// ---------------------------------------------------------------------------------
+						+ SGridPanel::Slot(0, 0)
+						.Padding(NameColumnPadding)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("WeaponBobScaling", "Weapon Bob"))
+						]
+
+						+ SGridPanel::Slot(1, 0)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(WeaponBobScaling, SSlider)
+							.Orientation(Orient_Horizontal)
+							.Value(GetDefault<AUTPlayerController>()->WeaponBobGlobalScaling / BOB_SCALING_FACTOR)
+						]
+
+						// View Bob
+						// ---------------------------------------------------------------------------------
+						+ SGridPanel::Slot(0, 1)
+						.Padding(NameColumnPadding)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("ViewBobScaling", "View Bob"))
+						]
+
+						+ SGridPanel::Slot(1, 1)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(ViewBobScaling, SSlider)
+							.Orientation(Orient_Horizontal)
+							.Value(GetDefault<AUTPlayerController>()->EyeOffsetGlobalScaling / BOB_SCALING_FACTOR)
+						]
+					]
+
+					//+ SVerticalBox::Slot()
+					//.AutoHeight()
+					//[
+					//	SNew(SButton)
+					//	.HAlign(HAlign_Center)
+					//	.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+					//	.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+					//	.Text(LOCTEXT("WeaponConfig", "Weapon Settings"))
+					//	.OnClicked(this, &SUWPlayerSettingsDialog::WeaponConfigClick)
+					//]
 				]
 			]
 		];
-		PlayerColorPicker->SetVisibility(EVisibility::Hidden);
 
 		bool bFoundSelectedHat = false;
 		for (int32 i = 0; i < HatPathList.Num(); i++)
@@ -735,6 +647,13 @@ SUWPlayerSettingsDialog::~SUWPlayerSettingsDialog()
 	ViewState.Destroy();
 }
 
+void SUWPlayerSettingsDialog::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(PlayerPreviewTexture);
+	Collector.AddReferencedObject(PlayerPreviewMID);
+	Collector.AddReferencedObject(PlayerPreviewWorld);
+}
+
 void SUWPlayerSettingsDialog::OnNameTextChanged(const FText& NewText)
 {
 	FString AdjustedText = NewText.ToString();
@@ -752,23 +671,10 @@ void SUWPlayerSettingsDialog::OnNameTextChanged(const FText& NewText)
 	}
 }
 
-FReply SUWPlayerSettingsDialog::PlayerColorClicked(const FGeometry& Geometry, const FPointerEvent& Event)
-{
-	if (Event.GetEffectingButton() == FKey(TEXT("LeftMouseButton")))
-	{
-		PlayerColorPicker->SetVisibility(EVisibility::Visible);
-	}
-	return FReply::Handled();
-}
 void SUWPlayerSettingsDialog::PlayerColorChanged(FLinearColor NewValue)
 {
 	SelectedPlayerColor = NewValue;
 	RecreatePlayerPreview();
-}
-FReply SUWPlayerSettingsDialog::CloseColorPicker()
-{
-	PlayerColorPicker->SetVisibility(EVisibility::Hidden);
-	return FReply::Handled();
 }
 
 FReply SUWPlayerSettingsDialog::OKClick()
@@ -977,9 +883,11 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	ShowFlags.SetMotionBlur(false);
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
 	
+	FVector CameraPosition(0, -50, -50);
+
 	FSceneViewInitOptions PlayerPreviewInitOptions;
 	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
-	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(FVector::ZeroVector) * FInverseRotationMatrix(FRotator::ZeroRotator) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
+	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(CameraPosition) * FInverseRotationMatrix(FRotator::ZeroRotator) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
 	PlayerPreviewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(45.0f * (float)PI / 360.0f, 45.0f * (float)PI / 360.0f, 1.0f, 1.0f, GNearClippingPlane, GNearClippingPlane);
 	PlayerPreviewInitOptions.ViewFamily = &ViewFamily;
 	PlayerPreviewInitOptions.SceneViewStateInterface = ViewState.GetReference();
@@ -1004,7 +912,7 @@ void SUWPlayerSettingsDialog::DragPlayerPreview(const FVector2D MouseDelta)
 {
 	if (PlayerPreviewMesh != NULL)
 	{
-		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0.1f * MouseDelta.Y, 0.1f * MouseDelta.X, 0.0f));
+		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.1f * -MouseDelta.X, 0.0f));
 	}
 }
 
@@ -1013,5 +921,6 @@ void SUWPlayerSettingsDialog::OnFlagSelected(TSharedPtr<FString> NewSelection, E
 	SelectedFlag->SetText(*NewSelection.Get());
 }
 
+#undef LOCTEXT_NAMESPACE
 
 #endif

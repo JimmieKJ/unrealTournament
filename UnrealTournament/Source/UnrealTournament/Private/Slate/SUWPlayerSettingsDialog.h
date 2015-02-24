@@ -49,12 +49,11 @@ protected:
 	/** counter for displaying weapon dialog since we need to display the "Loading Content" message first */
 	int32 WeaponConfigDelayFrames;
 
-	class UDirectionalLightComponent* PreviewLight;
+	AActor* PreviewEnvironment;
 
 	TSharedPtr<SEditableTextBox> PlayerName;
 	TSharedPtr<SSlider> WeaponBobScaling, ViewBobScaling;
 	FLinearColor SelectedPlayerColor;
-	TSharedPtr<SWidget> PlayerColorPicker;
 
 	TArray<TSharedPtr<FString>> HatList;
 	TArray<FString> HatPathList;
@@ -95,8 +94,6 @@ protected:
 	FReply OKClick();
 	FReply CancelClick();
 	FReply WeaponConfigClick();
-	FReply PlayerColorClicked(const FGeometry& Geometry, const FPointerEvent& Event);
-	FReply CloseColorPicker();
 	FLinearColor GetSelectedPlayerColor() const
 	{
 		return SelectedPlayerColor;
@@ -108,12 +105,6 @@ protected:
 	virtual void RecreatePlayerPreview();
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-	{
-		Collector.AddReferencedObject(PlayerPreviewTexture);
-		Collector.AddReferencedObject(PlayerPreviewMID);
-		Collector.AddReferencedObject(PlayerPreviewWorld);
-		Collector.AddReferencedObject(PreviewLight);
-	}
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 };
 #endif
