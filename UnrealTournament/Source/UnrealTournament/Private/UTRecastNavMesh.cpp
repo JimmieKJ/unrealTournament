@@ -2016,7 +2016,7 @@ void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties
 void AUTRecastNavMesh::PreSave()
 {
 	// force build on save if out of date
-	if (NeedsRebuild())
+	if (NeedsRebuild() && !IsRunningCommandlet())
 	{
 		RebuildAll();
 		EnsureBuildCompletion();
