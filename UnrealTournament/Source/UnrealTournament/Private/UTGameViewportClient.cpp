@@ -6,12 +6,38 @@
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWRedirectDialog.h"
+#include "Slate/SUTGameLayerManager.h"
 #include "Engine/GameInstance.h"
 #include "UTGameEngine.h"
 
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
+
+void UUTGameViewportClient::AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
+{
+#if !UE_SERVER
+	if ( !LayerManagerPtr.IsValid() )
+	{
+		TSharedRef<SUTGameLayerManager> LayerManager = SNew(SUTGameLayerManager);
+		Super::AddViewportWidgetContent(LayerManager);
+
+		LayerManagerPtr = LayerManager;
+	}
+
+	LayerManagerPtr.Pin()->AddLayer(ViewportContent, ZOrder);
+#endif
+}
+
+void UUTGameViewportClient::RemoveViewportWidgetContent(TSharedRef<class SWidget> ViewportContent)
+{
+#if !UE_SERVER
+	if ( LayerManagerPtr.IsValid() )
+	{
+		LayerManagerPtr.Pin()->RemoveLayer(ViewportContent);
+	}
+#endif
 }
 
 void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETravelFailure::Type FailureType, const FString& ErrorString)

@@ -10,6 +10,8 @@ class UUTGameViewportClient : public UGameViewportClient
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder = 0) override;
+	virtual void RemoveViewportWidgetContent(TSharedRef<class SWidget> ViewportContent) override;
 
 	virtual void PeekTravelFailureMessages(UWorld* World, enum ETravelFailure::Type FailureType, const FString& ErrorString) override;
 	virtual void PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, enum ENetworkFailure::Type FailureType, const FString& ErrorString) override;
@@ -17,6 +19,8 @@ class UUTGameViewportClient : public UGameViewportClient
 	virtual void PostRender(UCanvas* Canvas) override;
 
 protected:
+
+	TWeakPtr<class SUTGameLayerManager> LayerManagerPtr;
 
 	TSharedPtr<class SUWDialog> ReconnectDialog;
 	TSharedPtr<class SUWRedirectDialog> RedirectDialog;
