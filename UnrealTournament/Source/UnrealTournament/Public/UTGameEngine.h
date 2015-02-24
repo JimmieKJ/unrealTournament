@@ -103,6 +103,7 @@ class UUTGameEngine : public UGameEngine
 
 protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;
-
+	void OnLoadingMoviePlaybackFinished();
+	void PromptForEULAAcceptance();
 };
 

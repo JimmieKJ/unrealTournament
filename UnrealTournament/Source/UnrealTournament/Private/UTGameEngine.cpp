@@ -36,17 +36,19 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	GEngineNetVersion = GameNetworkVersion;
 	UE_LOG(UT, Warning, TEXT("************************************Set Net Version %d"), GEngineNetVersion);
 
-	if (bFirstRun)
+	if(bFirstRun)
 	{
-		if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
+		if (GetMoviePlayer()->IsMovieCurrentlyPlaying())
 		{
-			FPlatformMisc::RequestExit(false);
-			return;
+			// When the movie ends, ask if the user accepts the eula.  
+			// Note we cannot prompt while the movie is playing due to threading issues
+			GetMoviePlayer()->OnMoviePlaybackFinished().AddUObject(this, &UUTGameEngine::OnLoadingMoviePlaybackFinished);
 		}
-
-		bFirstRun = false;
-		SaveConfig();
-		GConfig->Flush(false);
+		else
+		{
+			// If the movie has already ended or was never played, prompt for eula now.
+			PromptForEULAAcceptance();
+		}
 	}
 
 	LoadDownloadedAssetRegistries();
@@ -517,4 +519,25 @@ void UUTGameEngine::HandleNetworkFailure(UWorld* World, UNetDriver* NetDriver, E
 bool UUTGameEngine::ShouldShutdownWorldNetDriver()
 {
 	return false;
+}
+
+void UUTGameEngine::OnLoadingMoviePlaybackFinished()
+{
+	PromptForEULAAcceptance();
+}
+
+void UUTGameEngine::PromptForEULAAcceptance()
+{
+	if (bFirstRun)
+	{
+		if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
+		{
+			FPlatformMisc::RequestExit(false);
+			return;
+		}
+
+		bFirstRun = false;
+		SaveConfig();
+		GConfig->Flush(false);
+	}
 }
