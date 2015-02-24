@@ -135,6 +135,19 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 			}
 			Decal->UpdateComponentToWorld();
 		}
+		else
+		{
+			ULightComponent* Light = Cast<ULightComponent>(NewComp);
+			if (Light && Light->CastShadows)
+			{
+				UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+				Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
+				if (QualitySettings.EffectsQuality < 3)
+				{
+					Light->SetCastShadows(false);
+				}
+			}
+		}
 	}
 
 	// unused, see header comment
@@ -205,3 +218,5 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 		}
 	}
 }
+
+//GetCachedScalabilityCVars().DetailMode
