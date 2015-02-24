@@ -80,6 +80,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	MyFakeProjectile = NULL;
 	MasterProjectile = NULL;
 	bHasSpawnedFully = false;
+	bLowPriorityLight = false;
 }
 
 void AUTProjectile::PreInitializeComponents()
@@ -117,6 +118,21 @@ void AUTProjectile::PreInitializeComponents()
 		MeshComponents[i]->bUseAsOccluder = false;
 		MeshComponents[i]->SetCastShadow(false);
 	}
+
+	// turn off other player's projectile flight lights at low/medium effects quality
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
+	if ((bLowPriorityLight || (QualitySettings.EffectsQuality < 2)) && Instigator && (!Instigator->IsLocallyControlled() || !Cast<APlayerController>(Instigator->GetController())))
+	{
+		// turn off any lights
+		TArray<ULightComponent*> LightComponents;
+		GetComponents<ULightComponent>(LightComponents);
+		for (int32 i = 0; i < LightComponents.Num(); i++)
+		{
+			LightComponents[i]->SetVisibility(false);
+		}
+	}
+
 	/*
 	if (CollisionComp && (CollisionComp->GetUnscaledSphereRadius() > 0.f))
 	{
@@ -127,7 +143,7 @@ void AUTProjectile::PreInitializeComponents()
 	GetComponents<ULightComponent>(LightComponents);
 	for (int32 i = 0; i < LightComponents.Num(); i++)
 	{
-		UE_LOG(UT, Warning, TEXT("%s found LIGHT %s cast shadow %d"), *GetName(), *LightComponents[i]->GetName(), LightComponents[i]->CastShadows);
+		UE_LOG(UT, Warning, TEXT("%s found LIGHT %s cast shadow %d"), , LightComponents[i]->CastShadows);
 	}*/
 }
 

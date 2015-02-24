@@ -12,6 +12,7 @@ AUTProj_LinkPlasma::AUTProj_LinkPlasma(const class FObjectInitializer& ObjectIni
 
 	MaxSpeedPerLink = 700.f;
 	ExtraScalePerLink = 0.25f;
+	bLowPriorityLight = true;
 }
 
 void AUTProj_LinkPlasma::SetLinks(int32 NewLinks)

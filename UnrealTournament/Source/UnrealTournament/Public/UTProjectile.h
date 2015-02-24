@@ -142,6 +142,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
 
+	/** If true, kill light on other player's projectiles even at higher settings. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		bool bLowPriorityLight;
+
 	/** Bounce effect */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	UParticleSystem* BounceEffect;
