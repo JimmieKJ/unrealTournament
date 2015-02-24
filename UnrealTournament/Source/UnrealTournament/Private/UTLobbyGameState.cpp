@@ -496,20 +496,18 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(FString ClassName)
 {
 	// Try to load the native class
-
-	UClass* GameModeClass = LoadClass<AUTGameMode>(NULL, *ClassName, NULL, LOAD_None, NULL);
-	if (GameModeClass == NULL)
+	UClass* GameModeClass = NULL;
+	if (!ClassName.IsEmpty()) // not replicated yet?
 	{
-		FString BlueprintName = FString::Printf(TEXT("%s_C"), *ClassName);
-		GameModeClass = LoadClass<UUTHUDWidget>(NULL, *BlueprintName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		GameModeClass = LoadClass<AUTGameMode>(NULL, *ClassName, NULL, LOAD_None, NULL);
+		if (GameModeClass == NULL)
+		{
+			FString BlueprintName = FString::Printf(TEXT("%s_C"), *ClassName);
+			GameModeClass = LoadClass<UUTHUDWidget>(NULL, *BlueprintName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		}
 	}
 
-	if (GameModeClass != NULL)
-	{
-		return GameModeClass->GetDefaultObject<AUTGameMode>();
-	}
-
-	return NULL;
+	return (GameModeClass != NULL) ? GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 }
 
 TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString GameModeClass)

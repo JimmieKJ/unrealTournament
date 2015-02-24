@@ -585,10 +585,13 @@ FText AUTLobbyMatchInfo::GetDebugInfo()
 void AUTLobbyMatchInfo::UpdateBadgeForNewGameMode()
 {
 #if !UE_SERVER
+	if (GetNetMode() != NM_DedicatedServer)
+	{
 		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
 		if (DefaultGame && (CurrentState == ELobbyMatchState::Initializing || CurrentState == ELobbyMatchState::Setup || CurrentState == ELobbyMatchState::WaitingForPlayers))
 		{
 			MatchBadge = DefaultGame->GetHUBPregameFormatString();
 		}
+	}
 #endif
 }
