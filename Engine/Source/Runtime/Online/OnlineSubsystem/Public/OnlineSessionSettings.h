@@ -338,7 +338,7 @@ public:
 /** Holds the per session information for named sessions */
 class FNamedOnlineSession : public FOnlineSession
 {
-private:
+protected:
 	FNamedOnlineSession() :
 		SessionName(NAME_None),
 		HostingPlayerNum(INDEX_NONE),
@@ -382,6 +382,8 @@ public:
 		SessionState(EOnlineSessionState::NoSession)
 	{
 	}
+
+	virtual ~FNamedOnlineSession() {}
 };
 
 /** Value returned on unreachable or otherwise bad search results */
