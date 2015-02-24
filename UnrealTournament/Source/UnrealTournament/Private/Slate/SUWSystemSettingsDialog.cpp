@@ -232,6 +232,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 
 	// find current and available engine scalability options
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	UserSettings->OnSettingsAutodetected().AddSP(this, &SUWSystemSettingsDialog::OnSettingsAutodetected);
 	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
 	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsLow", "Low").ToString())));
 	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsMedium", "Medium").ToString())));
@@ -389,6 +390,18 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 			]
 			+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "DetailSettings", "- Detail Settings -"))
 
+			// Autodetect settings button
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Center)
+			[
+				SNew(SButton)
+				.HAlign(HAlign_Center)
+				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+				.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "AutoSettingsButtonText", "Autodetect Settings"))
+				.OnClicked(this, &SUWSystemSettingsDialog::OnAutodetectClick)
+			]
+
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, &SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, &SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality)
 			+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, &SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality)
@@ -445,6 +458,36 @@ FString SUWSystemSettingsDialog::GetDecalLifetimeLabelText(float SliderValue)
 void SUWSystemSettingsDialog::OnDecalLifetimeChange(float NewValue)
 {
 	DecalLifetimeLabel->SetText(GetDecalLifetimeLabelText(NewValue));
+}
+
+void SUWSystemSettingsDialog::OnSettingsAutodetected(const Scalability::FQualityLevels& DetectedQuality)
+{
+	TextureRes->SetSelectedItem(GeneralScalabilityList[DetectedQuality.TextureQuality]);
+	ShadowQuality->SetSelectedItem(GeneralScalabilityList[DetectedQuality.ShadowQuality]);
+	EffectQuality->SetSelectedItem(GeneralScalabilityList[DetectedQuality.EffectsQuality]);
+	PPQuality->SetSelectedItem(GeneralScalabilityList[DetectedQuality.PostProcessQuality]);
+
+	int32 AAModeInt = UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(DetectedQuality.AntiAliasingQuality);
+	int32 AAModeSelection = ConvertAAModeToComboSelection(AAModeInt);
+	AAMode->SetSelectedItem(AAModeList[AAModeSelection]);
+
+	int32 ScreenPercentage = DetectedQuality.ResolutionQuality;
+	ScreenPercentage = int32(FMath::Clamp(float(ScreenPercentage), ScreenPercentageRange.X, ScreenPercentageRange.Y));
+	float ScreenPercentageSliderSetting = (float(ScreenPercentage) - ScreenPercentageRange.X) / (ScreenPercentageRange.Y - ScreenPercentageRange.X);
+	ScreenPercentageSlider->SetValue(ScreenPercentageSliderSetting);
+	ScreenPercentageLabel->SetText(GetScreenPercentageLabelText(ScreenPercentageSliderSetting));
+}
+
+FReply SUWSystemSettingsDialog::OnAutodetectClick()
+{
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	UUTLocalPlayer* LocalPlayer = GetPlayerOwner().Get();
+	if (ensure(LocalPlayer))
+	{
+		UserSettings->BenchmarkDetailSettings(LocalPlayer, false);
+	}
+
+	return FReply::Handled();
 }
 
 FReply SUWSystemSettingsDialog::OKClick()

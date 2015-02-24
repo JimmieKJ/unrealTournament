@@ -19,6 +19,7 @@ UUTGameUserSettings::UUTGameUserSettings(const class FObjectInitializer& ObjectI
 	SoundClassVolumes[EUTSoundClass::Music] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
+	InitialBenchmarkState = -1;
 }
 
 bool UUTGameUserSettings::IsVersionValid()
@@ -42,6 +43,7 @@ void UUTGameUserSettings::SetToDefaults()
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f; 
 	FullscreenMode = EWindowMode::Fullscreen;
 	ScreenPercentage = 100;
+	InitialBenchmarkState = -1;
 }
 
 void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
@@ -154,6 +156,14 @@ void UUTGameUserSettings::SetAAMode(int32 NewAAMode)
 	AAModeCVar->Set(AAMode, ECVF_SetByGameSetting);
 }
 
+int32 UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(int32 AAScalabilityQuality)
+{
+	const int32 AAScalabilityQualityToModeLookup[] = { 0, 2, 3, 4 };
+	int32 AAQuality = FMath::Clamp(AAScalabilityQuality, 0, 3);
+
+	return AAScalabilityQualityToModeLookup[AAQuality];
+}
+
 int32 UUTGameUserSettings::GetScreenPercentage()
 {
 	return ScreenPercentage;
@@ -165,3 +175,75 @@ void UUTGameUserSettings::SetScreenPercentage(int32 NewScreenPercentage)
 	auto ScreenPercentageCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"));
 	ScreenPercentageCVar->Set(ScreenPercentage, ECVF_SetByGameSetting);
 }
+
+#if !UE_SERVER
+void UUTGameUserSettings::BenchmarkDetailSettingsIfNeeded(UUTLocalPlayer* LocalPlayer)
+{
+	if (ensure(LocalPlayer))
+	{
+		if (InitialBenchmarkState == -1)
+		{
+			InitialBenchmarkState = 0;
+			BenchmarkDetailSettings(LocalPlayer, true);
+		}
+		else if (InitialBenchmarkState == 0)
+		{
+			// Benchmark was previously run but didn't complete. 
+			// Perhaps prompt the user?
+			SetBenchmarkFallbackValues();
+		}
+		else
+		{
+			//  Must be successfully completed
+			ensure(InitialBenchmarkState == 1);
+		}
+	}
+}
+
+void UUTGameUserSettings::BenchmarkDetailSettings(UUTLocalPlayer* LocalPlayer, bool bSaveSettingsOnceDetected)
+{
+	if (ensure(LocalPlayer))
+	{
+		AutoDetectingSettingsDialog = LocalPlayer->ShowMessage(
+			NSLOCTEXT("UTLocalPlayer", "BenchmarkingTitle", "Finding Settings"),
+			NSLOCTEXT("UTLocalPlayer", "BenchmarkingText", "Automatically finding the settings that will give you the best experience.\n\nThis could take some time..."),
+			0
+			);
+
+		// allow for the dialog to be displayed before running the synth benchmark
+		FTimerHandle UnusedHandle;
+		LocalPlayer->GetWorld()->GetTimerManager().SetTimer(UnusedHandle, FTimerDelegate::CreateUObject(this, &UUTGameUserSettings::RunSynthBenchmark, bSaveSettingsOnceDetected), 0.5f, false);
+	}
+}
+
+void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
+{
+	Scalability::FQualityLevels DetectedLevels = Scalability::BenchmarkQualityLevels();
+
+	if (bSaveSettingsOnceDetected)
+	{
+		ScalabilityQuality = DetectedLevels;
+		Scalability::SetQualityLevels(ScalabilityQuality);
+		Scalability::SaveState(GGameUserSettingsIni);
+
+		// Set specific features in game settings. These values are controlled by scalability initially but can be overwritten in the settings screen.
+		int32 AAMode = UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(DetectedLevels.AntiAliasingQuality);
+		SetAAMode(AAMode);
+		SetScreenPercentage(DetectedLevels.ResolutionQuality);
+
+		// Mark initial benchmark state as being complete. Even if this benchmark wasn't triggered by the initial run system, it
+		// is still valid to disable any future benchmarking now.
+		InitialBenchmarkState = 1;
+
+		SaveSettings();
+	}
+
+	SettingsAutodetectedEvent.Broadcast(DetectedLevels);
+
+	if (AutoDetectingSettingsDialog.IsValid())
+	{
+		AutoDetectingSettingsDialog->OnDialogClosed();
+		GEngine->GameViewport->RemoveViewportWidgetContent(AutoDetectingSettingsDialog.ToSharedRef());
+	}
+}
+#endif // !UE_SERVER

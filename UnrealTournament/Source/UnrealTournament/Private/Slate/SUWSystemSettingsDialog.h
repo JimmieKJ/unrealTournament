@@ -70,7 +70,7 @@ protected:
 
 	virtual FReply OnButtonClick(uint16 ButtonID);	
 
-
+	FReply OnAutodetectClick();
 	FReply OKClick();
 	FReply CancelClick();
 	void OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
@@ -93,6 +93,7 @@ protected:
 	void OnScreenPercentageChange(float NewValue);
 	FString GetScreenPercentageLabelText(float SliderValue);
 
+	void OnSettingsAutodetected(const Scalability::FQualityLevels& DetectedQuality);
 
 	SVerticalBox::FSlot& AddSectionHeader(const FText& SectionDesc);
 	SVerticalBox::FSlot& AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue);

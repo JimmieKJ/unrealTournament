@@ -38,9 +38,18 @@ public:
 
 	virtual int32 GetAAMode();
 	virtual void SetAAMode(int32 NewAAMode);
+	static int32 ConvertAAScalabilityQualityToAAMode(int32 AAScalabilityQuality);
 
 	virtual int32 GetScreenPercentage();
 	virtual void SetScreenPercentage(int32 NewScreenPercentage);
+
+#if !UE_SERVER
+	DECLARE_EVENT_OneParam(UUTGameUserSettings, FSettingsAutodetected, const Scalability::FQualityLevels& /*DetectedQuality*/);
+	virtual FSettingsAutodetected& OnSettingsAutodetected() { return SettingsAutodetectedEvent; }
+
+	void BenchmarkDetailSettingsIfNeeded(class UUTLocalPlayer* LocalPlayer);
+	void BenchmarkDetailSettings(class UUTLocalPlayer* LocalPlayer, bool bSaveSettingsOnceDetected);
+#endif // !UE_SERVER
 
 protected:
 	UPROPERTY(config)
@@ -72,4 +81,21 @@ protected:
 
 	UPROPERTY(config)
 	int32 ScreenPercentage;
+
+	/**
+	 * Current state of the initial benchmark
+	 *  -1: Not run yet
+	 *   0: Started, but not completed
+	 *   1: Completed
+	 */
+	UPROPERTY(config)
+	int32 InitialBenchmarkState;
+
+private:
+#if !UE_SERVER
+	void RunSynthBenchmark(bool bSaveSettingsOnceDetected);
+
+	FSettingsAutodetected SettingsAutodetectedEvent;
+	TSharedPtr<class SUWDialog> AutoDetectingSettingsDialog;
+#endif // !UE_SERVER
 };
