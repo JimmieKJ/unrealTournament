@@ -170,7 +170,6 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			{
 				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			}
-			NewComp->RegisterComponentWithWorld(World);
 			if (CurrentAttachment != NULL)
 			{
 				NewComp->AttachTo(CurrentAttachment, NewComp->AttachSocketName);
@@ -179,6 +178,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			{
 				NewComp->SetWorldTransform(FTransform(NewComp->RelativeRotation, NewComp->RelativeLocation, NewComp->RelativeScale3D) * BaseTransform);
 			}
+			NewComp->RegisterComponentWithWorld(World);
 			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy);
 			if (WS != NULL)
 			{
@@ -200,7 +200,6 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			{
 				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			}
-			NewComp->RegisterComponentWithWorld(World);
 			if (CurrentAttachment != NULL)
 			{
 				NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
@@ -209,6 +208,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			{
 				NewComp->SetWorldTransform(FTransform(NewComp->RelativeRotation, NewComp->RelativeLocation, NewComp->RelativeScale3D) * BaseTransform);
 			}
+			NewComp->RegisterComponentWithWorld(World);
 			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy);
 			if (WS != NULL)
 			{
