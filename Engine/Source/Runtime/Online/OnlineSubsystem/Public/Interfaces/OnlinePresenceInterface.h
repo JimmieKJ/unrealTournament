@@ -92,7 +92,7 @@ public:
 		Reset();
 	}
 
-	virtual void Reset()
+	void Reset()
 	{
 		SessionId = nullptr;
 		bIsOnline = 0;
