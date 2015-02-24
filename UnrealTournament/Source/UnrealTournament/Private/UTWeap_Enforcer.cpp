@@ -73,6 +73,11 @@ void AUTWeap_Enforcer::AttachLeftMesh()
 				AnimInstance->Montage_Play(LeftBringUpAnim, LeftBringUpAnim->SequenceLength / EnforcerEquippingState->EquipTime);
 			}
 		}
+
+		if (UTOwner != NULL && UTOwner->GetWeapon() == this && GetNetMode() != NM_DedicatedServer)
+		{
+			UpdateOverlays();
+		}
 	}
 }
 
