@@ -38,6 +38,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 
 	if(bFirstRun)
 	{
+#if !UE_SERVER
 		if (GetMoviePlayer()->IsMovieCurrentlyPlaying())
 		{
 			// When the movie ends, ask if the user accepts the eula.  
@@ -45,6 +46,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 			GetMoviePlayer()->OnMoviePlaybackFinished().AddUObject(this, &UUTGameEngine::OnLoadingMoviePlaybackFinished);
 		}
 		else
+#endif
 		{
 			// If the movie has already ended or was never played, prompt for eula now.
 			PromptForEULAAcceptance();
