@@ -457,7 +457,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 					]
-
+					/* FIXME: temporarily removed
 					+ SVerticalBox::Slot()
 					.AutoHeight()
 					.Padding(0, 4)
@@ -500,7 +500,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								]
 							]
 						]
-					]
+					]*/
 
 					+ SVerticalBox::Slot()
 					.AutoHeight()
@@ -839,6 +839,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 	}
 
 	// set FFA color
+	/* FIXME: temporarily removed
 	const TArray<UMaterialInstanceDynamic*>& BodyMIs = PlayerPreviewMesh->GetBodyMIs();
 	for (UMaterialInstanceDynamic* MI : BodyMIs)
 	{
@@ -847,7 +848,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		{
 			MI->SetVectorParameterValue(NAME_TeamColor, SelectedPlayerColor);
 		}
-	}
+	}*/
 
 	// set hat
 	Index = HatList.Find(HatComboBox->GetSelectedItem());
