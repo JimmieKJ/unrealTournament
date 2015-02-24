@@ -549,7 +549,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 	}
 
 	// impact effect lifetime - note that 1.0 on the slider is infinite lifetime
-	float NewDecalLifetime = (FMath::Square(DecalLifetime->GetValue()) * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
+	float NewDecalLifetime = (DecalLifetime->GetValue() * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
 	AUTWorldSettings* DefaultWS = AUTWorldSettings::StaticClass()->GetDefaultObject<AUTWorldSettings>();
 	DefaultWS->MaxImpactEffectVisibleLifetime = NewDecalLifetime;
 	DefaultWS->MaxImpactEffectInvisibleLifetime = NewDecalLifetime * 0.5f;
