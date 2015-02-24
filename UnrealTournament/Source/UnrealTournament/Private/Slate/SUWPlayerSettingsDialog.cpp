@@ -234,7 +234,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	}
 
 	{
-		CharacterList.Add(MakeShareable(new FString(TEXT("DemoGuy"))));
+		CharacterList.Add(MakeShareable(new FString(TEXT("Malcolm"))));
 		CharacterPathList.Add(TEXT(""));
 
 		TArray<FAssetData> AssetList;
@@ -247,7 +247,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			{
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				// TODO: long term should probably delayed load this... but would need some way to look up the loc'ed display name without loading the class (currently impossible...)
-				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTCharacterContent::StaticClass()))
+				if ( TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTCharacterContent::StaticClass()) &&
+					 !TestClass->GetDefaultObject<AUTCharacterContent>()->bHideInUI )
 				{
 					CharacterList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTCharacterContent>()->DisplayName.ToString())));
 					CharacterPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));

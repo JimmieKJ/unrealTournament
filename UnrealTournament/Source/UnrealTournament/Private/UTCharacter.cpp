@@ -39,6 +39,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogUTCharacter, Log, All);
 AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
+	// FIXME: TEMP FOR GDC: needed because of TeamMaterials
+	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContent(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
+
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(46.f, 92.0f);
 
@@ -3294,11 +3297,26 @@ void AUTCharacter::OnRep_GoodMoveAckTime()
 
 void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 {
-	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : NULL;
+	// FIXME: TEMP FOR GDC: needed because of TeamMaterials
+	TSubclassOf<AUTCharacterContent> DefaultClass = LoadClass<AUTCharacterContent>(NULL, TEXT("/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C"), NULL, LOAD_None, NULL);
+
+	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : (DefaultClass != NULL ? DefaultClass.GetDefaultObject() : NULL);
 	if (Data->Mesh != NULL)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());
 		GetMesh()->OverrideMaterials = Data->Mesh->OverrideMaterials;
+		// FIXME: TEMP FOR GDC: team override materials
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS != NULL && PS->Team != NULL)
+		{
+			for (int32 i = FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()) - 1; i >= 0; i--)
+			{
+				if (Data->TeamMaterials[i] != NULL)
+				{
+					GetMesh()->OverrideMaterials[i] = Data->TeamMaterials[i];
+				}
+			}
+		}
 		GetMesh()->SkeletalMesh = Data->Mesh->SkeletalMesh;
 		BodyMIs.Empty();
 		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
@@ -3321,7 +3339,8 @@ void AUTCharacter::NotifyTeamChanged()
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS != NULL)
 	{
-		if (PS->GetSelectedCharacter() != NULL)
+		// FIXME: TEMP FOR GDC: always need to do this due to team override materials
+		//if (PS->GetSelectedCharacter() != NULL)
 		{
 			ApplyCharacterData(PS->GetSelectedCharacter());
 		}

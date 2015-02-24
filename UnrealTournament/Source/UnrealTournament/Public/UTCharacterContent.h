@@ -46,4 +46,7 @@ public:
 protected:
 	UPROPERTY(VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;
+	//FIXME: TEMP FOR GDC: material overrides when playing a team game (NULL for an entry means use default)
+	UPROPERTY(EditDefaultsOnly)
+	TArray<UMaterialInterface*> TeamMaterials;
 };
