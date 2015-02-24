@@ -5,7 +5,7 @@
 #include "UTHat.h"
 #include "UTHatLeader.generated.h"
 
-UCLASS(Blueprintable, Abstract)
+UCLASS(Blueprintable, Abstract, HideCategories = (NonLeaderHat))
 class UNREALTOURNAMENT_API AUTHatLeader : public AUTHat
 {
 	GENERATED_UCLASS_BODY()

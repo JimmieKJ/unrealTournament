@@ -286,10 +286,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UPROPERTY(replicatedUsing=OnRepHat)
 	TSubclassOf<AUTHat> HatClass;
-
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<AUTHatLeader> LeaderHatClass;
-
+	
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	AUTHat* Hat;
 

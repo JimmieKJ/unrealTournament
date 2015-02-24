@@ -3642,9 +3642,10 @@ void AUTCharacter::OnRepHat()
 			Hat->SetActorRelativeLocation(HatRelativeLocation);
 			Hat->CosmeticWearer = this;
 
-			if (LeaderHat)
+			// If replication of has high score happened before hat replication, locally update it here
+			if (bHasHighScore)
 			{
-				Hat->SetActorHiddenInGame(true);
+				HasHighScoreChanged();
 			}
 		}
 	}
@@ -4167,15 +4168,15 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 {
 	if (bHasHighScore)
 	{
-		if (LeaderHatClass)
+		if (LeaderHat == nullptr && Hat && Hat->LeaderHatClass && Hat->LeaderHatClass->IsChildOf(AUTHatLeader::StaticClass()))
 		{
 			FActorSpawnParameters Params;
 			Params.Owner = this;
 			Params.Instigator = this;
 			Params.bNoCollisionFail = true;
 			Params.bNoFail = true;
-			LeaderHat = GetWorld()->SpawnActor<AUTHatLeader>(LeaderHatClass, GetActorLocation(), GetActorRotation(), Params);
-			if (LeaderHat != NULL)
+			LeaderHat = GetWorld()->SpawnActor<AUTHatLeader>(Hat->LeaderHatClass, GetActorLocation(), GetActorRotation(), Params);
+			if (LeaderHat != nullptr)
 			{
 				FVector HatRelativeLocation = LeaderHat->GetRootComponent()->RelativeLocation;
 				FRotator HatRelativeRotation = LeaderHat->GetRootComponent()->RelativeRotation;
@@ -4184,10 +4185,7 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
 				LeaderHat->CosmeticWearer = this;
 
-				if (Hat)
-				{
-					Hat->SetActorHiddenInGame(true);
-				}
+				Hat->SetActorHiddenInGame(true);
 			}
 		}
 	}

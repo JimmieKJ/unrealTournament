@@ -16,7 +16,10 @@ class UNREALTOURNAMENT_API AUTHat : public AUTCosmetic
 
 	UPROPERTY()
 	bool bHeadshotRotating;
-	
+
+	UPROPERTY(EditDefaultsOnly, Category=NonLeaderHat)
+	TSubclassOf<class AUTHatLeader> LeaderHatClass;
+
 	UFUNCTION()
 	void HeadshotRotationComplete();
 
