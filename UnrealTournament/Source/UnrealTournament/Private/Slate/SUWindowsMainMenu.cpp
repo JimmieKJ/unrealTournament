@@ -303,7 +303,7 @@ FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, 
 FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-	ConsoleCommand(TEXT("open TUT-BasicTraining"));
+	ConsoleCommand(TEXT("open TUT-BasicTraining?timelimit=0"));
 	return FReply::Handled();
 }
 
