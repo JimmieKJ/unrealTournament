@@ -17,7 +17,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCheatManager.h"
 #include "UTSpreeMessage.h"
-
+#include "UTGameMode.h"
 
 UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -41,10 +41,10 @@ void UUTCheatManager::AllAmmo()
 
 void UUTCheatManager::UnlimitedAmmo()
 {
-	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
-	if (MyPawn != NULL)
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (Game != NULL)
 	{
-		MyPawn->UnlimitedAmmo();
+		Game->bAmmoIsLimited = false;
 	}
 }
 

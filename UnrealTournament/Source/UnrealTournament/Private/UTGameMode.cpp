@@ -74,18 +74,14 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bClearPlayerInventory = false;
 	bDelayedStart = true;
 	bDamageHurtsHealth = true;
+	bAmmoIsLimited = true;
 	bAllowOvertime = true;
 	bForceRespawn = false;
 
 	DefaultPlayerName = FString("Malcolm");
 	MapPrefix = TEXT("DM");
-
 	LobbyInstanceID = 0;
-
-	//LobbySetupPanelClass = SUDuelSettings::StaticClass();
-
 	DemoFilename = TEXT("%m-%td");
-
 	bDedicatedInstance = false;
 }
 

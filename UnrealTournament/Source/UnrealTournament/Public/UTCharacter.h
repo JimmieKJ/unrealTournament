@@ -430,12 +430,6 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual	void AllAmmo();
 
-	// Cheat, only works if called server side
-	void UnlimitedAmmo();
-
-	UPROPERTY(replicated)
-	bool bUnlimitedAmmo;
-
 	// use this to iterate inventory
 	template<typename> friend class TInventoryIterator;
 

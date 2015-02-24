@@ -1869,11 +1869,6 @@ void AUTCharacter::AllAmmo()
 #endif
 }
 
-void AUTCharacter::UnlimitedAmmo()
-{
-	bUnlimitedAmmo = !bUnlimitedAmmo;
-}
-
 AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass) const
 {
 	for (TInventoryIterator<> It(this); It; ++It)
@@ -2281,7 +2276,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponOverlayFlags, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, bUnlimitedAmmo, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepDodgeRolling, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);

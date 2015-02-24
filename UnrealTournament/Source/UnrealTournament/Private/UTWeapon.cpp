@@ -748,18 +748,10 @@ void AUTWeapon::OnRep_AttachmentType()
 
 void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 {
-	
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	// cheat
-	if (UTOwner && UTOwner->bUnlimitedAmmo)
+	if (Role == ROLE_Authority )
 	{
-		return;
-	}
-#endif
-
-	if (Role == ROLE_Authority)
-	{
-		if (AmmoCost.IsValidIndex(FireModeNum))
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (AmmoCost.IsValidIndex(FireModeNum) && (!GameMode || GameMode->bAmmoIsLimited || (Ammo > 9)))
 		{
 			AddAmmo(-AmmoCost[FireModeNum]);
 		}
@@ -772,14 +764,6 @@ void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 
 bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	// cheat
-	if (UTOwner && UTOwner->bUnlimitedAmmo)
-	{
-		return true;
-	}
-#endif
-
 	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo >= AmmoCost[FireModeNum]);
 }
 

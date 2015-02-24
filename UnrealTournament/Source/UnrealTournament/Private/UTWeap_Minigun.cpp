@@ -59,13 +59,5 @@ bool AUTWeap_Minigun::CanAttack_Implementation(AActor* Target, const FVector& Ta
 
 bool AUTWeap_Minigun::HasAmmo(uint8 FireModeNum)
 {
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	// cheat
-	if (UTOwner && UTOwner->bUnlimitedAmmo)
-	{
-		return true;
-	}
-#endif
-
 	return (Ammo >= 1);
 }

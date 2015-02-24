@@ -181,6 +181,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 		bool bDamageHurtsHealth;
 
+	/** If true, firing weapons costs ammo. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+		bool bAmmoIsLimited;
+
 	/** Toggle invulnerability */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 		virtual void Demigod();
