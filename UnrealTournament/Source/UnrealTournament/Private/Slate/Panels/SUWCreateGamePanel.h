@@ -53,7 +53,9 @@ protected:
 	TSharedPtr<SScrollBox> GamePanel;
 
 	TSharedPtr<SUTTabButton> GameSettingsTabButton;
+	TSharedPtr<STextBlock> GameSettingsLabel;
 	TSharedPtr<SUTTabButton> ServerSettingsTabButton;
+	TSharedPtr<STextBlock> ServerSettingsLabel;
 
 	TSharedPtr<SCheckBox> DedicatedServerCheckBox;
 

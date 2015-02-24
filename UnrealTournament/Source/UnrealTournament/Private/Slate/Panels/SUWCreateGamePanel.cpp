@@ -6,6 +6,7 @@
 #include "UTDMGameMode.h"
 #include "AssetData.h"
 #include "UTLevelSummary.h"
+#include "../SUWScaleBox.h"
 #include "UTMutator.h"
 #include "../SUWBotConfigDialog.h"
 #include "UTGameEngine.h"
@@ -109,9 +110,10 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
-
 		SNew(SOverlay)
 		+SOverlay::Slot()
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
@@ -122,8 +124,34 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 				+SHorizontalBox::Slot()
 				.HAlign(HAlign_Fill)
 				[
-					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.DarkFill"))
+					SNew(SUWScaleBox)
+					.bMaintainAspectRatio(false)
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UT.Backgrounds.BK01"))
+					]
+				]
+			]
+		]
+		+SOverlay::Slot()
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.HAlign(HAlign_Fill)
+				[
+					SNew(SUWScaleBox)
+					.bMaintainAspectRatio(false)
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UT.Backgrounds.Overlay"))
+					]
 				]
 			]
 		]
@@ -132,7 +160,7 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
-			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+			.Padding(0.0f, 0.0f, 0.0f, 5.0f)
 			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Fill)
 			[
@@ -163,14 +191,14 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.TabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.OnClicked(this, &SUWCreateGamePanel::GameSettingsClick)
-							.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+							.ContentPadding(FMargin(25.0,0.0,60.0,5.0))
 							[
 								SNew(SHorizontalBox)
 								+SHorizontalBox::Slot()
 								.VAlign(VAlign_Center)
 								[
-									SNew(STextBlock)
-									.Text(NSLOCTEXT("SUWCreateGamePanel","TabBar","GAME SETTINGS").ToString())
+									SAssignNew(GameSettingsLabel, STextBlock)
+									.Text(NSLOCTEXT("SUWCreateGamePanel","TabBar","Game Settings").ToString())
 									.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 								]
 							]
@@ -183,14 +211,14 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.OnClicked(this, &SUWCreateGamePanel::ServerSettingsClick)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.TabButton")
-							.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+							.ContentPadding(FMargin(25.0,0.0,60.0,5.0))
 							[
 								SNew(SHorizontalBox)
 								+SHorizontalBox::Slot()
 								.VAlign(VAlign_Center)
 								[
-									SNew(STextBlock)
-									.Text(NSLOCTEXT("SUWCreateGamePanel","TabBar","SERVER SETTINGS").ToString())
+									SAssignNew(ServerSettingsLabel,STextBlock)
+									.Text(NSLOCTEXT("SUWCreateGamePanel","TabBar","Server Settings").ToString())
 									.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 								]
 							]
@@ -280,7 +308,6 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 				]
 			]
 		]
-	
 	];
 
 	GameSettingsTabButton->BePressed();
@@ -1049,14 +1076,28 @@ FReply SUWCreateGamePanel::ConfigureBots()
 
 FReply SUWCreateGamePanel::GameSettingsClick()
 {
+	const FTextBlockStyle* SelectedStyle = &(SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>("UT.TopMenu.Button.SmallTextStyle.Selected"));
+	const FTextBlockStyle* NormalStyle = &(SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>("UT.TopMenu.Button.SmallTextStyle"));
+
+	GameSettingsLabel->SetTextStyle(SelectedStyle);
+
 	ServerSettingsTabButton->UnPressed();
+	ServerSettingsLabel->SetTextStyle(NormalStyle);
+
 	TabSwitcher->SetActiveWidgetIndex(0);
 	return FReply::Handled();
 }
 
 FReply SUWCreateGamePanel::ServerSettingsClick()
 {
+	const FTextBlockStyle* SelectedStyle = &(SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>("UT.TopMenu.Button.SmallTextStyle.Selected"));
+	const FTextBlockStyle* NormalStyle = &(SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>("UT.TopMenu.Button.SmallTextStyle"));
+
+	ServerSettingsLabel->SetTextStyle(SelectedStyle);
+
+	GameSettingsLabel->SetTextStyle(NormalStyle);
 	GameSettingsTabButton->UnPressed();
+
 	TabSwitcher->SetActiveWidgetIndex(1);
 	return FReply::Handled();
 }

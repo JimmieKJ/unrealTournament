@@ -46,14 +46,14 @@ void SUWindowsMainMenu::BuildLeftMenuBar()
 	if (LeftMenuBar.IsValid())
 	{
 		LeftMenuBar->AddSlot()
-		.Padding(5.0f, 0.0f, 0.0f, 0.0f)
+		.Padding(50.0f, 0.0f, 0.0f, 0.0f)
 		.AutoWidth()
 		[
 			AddPlayNow()
 		];
 
 		LeftMenuBar->AddSlot()
-		.Padding(5.0f,0.0f,0.0f,0.0f)
+		.Padding(40.0f,0.0f,0.0f,0.0f)
 		.AutoWidth()
 		[
 			BuildTutorialSubMenu()
@@ -66,11 +66,13 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 {
 
 	TSharedPtr<SComboButton> DropDownButton = NULL;
-
-	SAssignNew(DropDownButton, SComboButton)
+	SNew(SBox)
+	.HeightOverride(56)
+	[
+		SAssignNew(DropDownButton, SComboButton)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
-		.ContentPadding(FMargin(25.0,0.0,25.0,0.0))
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
 		.ButtonContent()
 		[
 			SNew(SHorizontalBox)
@@ -81,7 +83,8 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "LEARN").ToString())
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 			]
-		];
+		]
+	];
 
 	DropDownButton->SetMenuContent
 	(
@@ -128,10 +131,13 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 {
 	TSharedPtr<SComboButton> DropDownButton = NULL;
 
-	SAssignNew(DropDownButton, SComboButton)
+	SNew(SBox)
+	.HeightOverride(56)
+	[
+		SAssignNew(DropDownButton, SComboButton)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
-		.ContentPadding(FMargin(25.0,0.0,25.0,0.0))
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
 		.ButtonContent()
 		[
 			SNew(SHorizontalBox)
@@ -142,7 +148,8 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch", "PLAY").ToString())
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 			]
-		];
+		]
+	];
 
 	DropDownButton->SetMenuContent
 	(

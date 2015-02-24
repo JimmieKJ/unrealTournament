@@ -246,7 +246,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 
 			SAssignNew(ExitButton, SComboButton)
 			.HasDownArrow(false)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 			.ButtonContent()
 			[
 				SNew(SBox)
@@ -323,11 +323,17 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 
 	SAssignNew(DropDownButton, SComboButton)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.ContentPadding(FMargin(0.0f,0.0f))
 		.ButtonContent()
 		[
-			SNew(SImage)
-			.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Settings"))
+			SNew(SBox)
+			.WidthOverride(48)
+			.HeightOverride(48)
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Settings"))
+			]
 		];
 
 	DropDownButton->SetMenuContent
@@ -407,11 +413,16 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 
 	SAssignNew(DropDownButton, SComboButton)
 	.HasDownArrow(false)
-	.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+	.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 	.ButtonContent()
 	[
-		SNew(SImage)
-		.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.About"))
+		SNew(SBox)
+		.WidthOverride(48)
+		.HeightOverride(48)
+		[
+			SNew(SImage)
+			.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.About"))
+		]
 	];
 
 	// NOTE: If you inline the setting of the menu content during the construction of the ComboButton
@@ -623,7 +634,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			.AutoWidth()
 			[
 				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 				.OnClicked(this, &SUTMenuBase::OnOnlineClick)		
 				[
@@ -643,7 +654,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			.AutoWidth()
 			[
 				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 				.OnClicked(this, &SUTMenuBase::OnShowStatsViewer)
 				.ToolTipText(NSLOCTEXT("ToolTips","TPMyStats","Show stats for this player."))
 				[
@@ -668,7 +679,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				.Method(EPopupMethod::UseCurrentWindow)
 				[
 					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 					.OnClicked(this, &SUTMenuBase::ToggleFriendsAndFamily)
 					.ToolTipText(NSLOCTEXT("ToolTips","TPFriends","Show / Hide your friends list."))
 					[
@@ -692,7 +703,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 	else
 	{
 		return 	SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 		.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 		.OnClicked(this, &SUTMenuBase::OnOnlineClick)		
 		[

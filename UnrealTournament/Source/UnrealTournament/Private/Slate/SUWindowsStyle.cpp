@@ -46,9 +46,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	FSlateStyleSet& Style = StyleRef.Get();
 
-	Style.Set("UWindows.Standard.Font.Small", TTF_FONT("Exo2-Medium", 10));
-	Style.Set("UWindows.Standard.Font.Medium", TTF_FONT("Exo2-Medium", 14));
-	Style.Set("UWindows.Standard.Font.Large", TTF_FONT("Exo2-Medium", 22));
+	Style.Set("UWindows.Standard.Font.Small", TTF_FONT("Play-Regular", 10));
+	Style.Set("UWindows.Standard.Font.Medium", TTF_FONT("Play-Regular", 14));
+	Style.Set("UWindows.Standard.Font.Large", TTF_FONT("Play-Regular", 22));
 
 	// Note, these sizes are in Slate Units.
 	// Slate Units do NOT have to map to pixels.
@@ -108,10 +108,15 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("Testing.TestPortrait", new IMAGE_BRUSH( "Testing/Testing.TestPortrait", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("Testing.TestMapShot", new IMAGE_BRUSH( "Testing/Testing.TestMapShot", FVector2D(400.0f, 213.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
+	Style.Set("UT.Backgrounds.BK01", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.BK01", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.Backgrounds.BK02", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.BK02", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.Backgrounds.Overlay", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.Overlay", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+
 
 	Style.Set("UT.Version.TextStyle", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Bold", 14))
-		.SetColorAndOpacity(FLinearColor(FColor(208, 102, 0, 255)))
+		.SetFont(TTF_FONT("Play-Bold", 14))
+		.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255)))
 		);
 
 
@@ -119,48 +124,48 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("UT.DialogBox.Background", new BOX_BRUSH("TopMenu/UT.DialogBox.Background", FMargin(10.0f / 256.0f, 64.0f / 256.0f, 10.0f / 256.0f, 64.0f / 256.0f)));
 
 	Style.Set("UT.Dialog.TitleTextStyle", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Bold", 30))
-		.SetColorAndOpacity(FLinearColor(FColor(208, 102, 0, 255)))
+		.SetFont(TTF_FONT("Play-Bold", 30))
+		.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255)))
 		);
 
 	Style.Set("UT.Dialog.BodyTextStyle", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Bold", 24))
+		.SetFont(TTF_FONT("Play-Bold", 24))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 	Style.Set("UT.Dialog.BodyTextTiny", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Bold", 10))
+		.SetFont(TTF_FONT("Play-Bold", 10))
 		.SetColorAndOpacity(FLinearColor::Gray)
 		);
 
 	{ // Common
 
 		Style.Set("UT.Common.NormalText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 20))
+			.SetFont(TTF_FONT("Play-Bold", 20))
 			.SetColorAndOpacity(FLinearColor::White)
 		);
 
 		Style.Set("UT.Common.NormalText.Black", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 20))
+			.SetFont(TTF_FONT("Play-Bold", 20))
 			.SetColorAndOpacity(FLinearColor::Black)
 		);
 
 
 		Style.Set("UT.Common.ActiveText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 20))
+			.SetFont(TTF_FONT("Play-Bold", 20))
 			.SetColorAndOpacity(FLinearColor(FColor(0,255,0,255)))
 		);
 
-		Style.Set("UT.Common.Exo2.20", TTF_FONT("Exo2-Medium", 20));
+		Style.Set("UT.Common.Exo2.20", TTF_FONT("Play-Regular", 20));
 
 		Style.Set("UT.Common.BoldText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 22))
+			.SetFont(TTF_FONT("Play-Bold", 22))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 		);
 
 
 		Style.Set("UT.Common.Editbox", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 20))
+			.SetFont(TTF_FONT("Play-Regular", 20))
 			.SetForegroundColor(FLinearColor::White)
 			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
 			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
@@ -170,7 +175,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 		Style.Set("UT.Common.Editbox.White", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 20))
+			.SetFont(TTF_FONT("Play-Regular", 20))
 			.SetForegroundColor(FLinearColor::White)
 			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
 			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
@@ -242,7 +247,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Icon.Badge2", new IMAGE_BRUSH("Icons/UT.Icon.Badge2", Icon32x32));
 
 		Style.Set("UT.ELOBadge.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetFont(TTF_FONT("Play-Bold", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
@@ -290,8 +295,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 		Style.Set("UT.TopMenu.Button", FButtonStyle()
 			.SetNormal ( FSlateNoResource(FVector2D(256.0f, 256.0f)))
-			.SetHovered( BOX_BRUSH("TopMenu/UT.TopMenu.Button.Hovered", FMargin(2.0f / 32.0f, 2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
-			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.Button.Pressed", FMargin(2.0f / 32.0f,  2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
+			.SetHovered( BOX_BRUSH("TopMenu/UT.TopMenu.Button.Hovered", FMargin(2.0f / 32.0f, 2.0f / 56.f, 2.0f / 32.0f, 4.0f / 56.f)))
+			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.Button.Pressed", FMargin(2.0f / 32.0f,  2.0f / 56.f, 2.0f / 32.0f, 4.0f / 56.f)))
 			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
 			.SetHoveredSound(ButtonHoverSound)
 			.SetPressedSound(ButtonPressSound)
@@ -318,7 +323,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.TopMenu.TabButton", FButtonStyle()
 			.SetNormal( IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ))
 			.SetHovered( IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ))
-			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.TabButton.Pressed", FMargin(52.0f / 256.0f,  0.0f, 52.0f / 256.0f, 0.0f)))
+			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.TabButton.Pressed", FMargin(10.0f / 85.0f,  0.0f, 55.0f / 85.0f, 0.0f)))
 			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
 			.SetHoveredSound(ButtonHoverSound)
 			.SetPressedSound(ButtonPressSound)
@@ -334,13 +339,20 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("UT.TopMenu.Button.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 30))
+			.SetFont(TTF_FONT("Play-Bold", 30))
 			.SetColorAndOpacity(FLinearColor::White));
 
 		Style.Set("UT.TopMenu.Button.SmallTextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 22))
+			.SetFont(TTF_FONT("Play-Bold", 22))
 			.SetColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f, 1.0f))
 			);
+
+		Style.Set("UT.TopMenu.Button.SmallTextStyle.Selected", FTextBlockStyle()
+			.SetFont(TTF_FONT("Play-Bold", 22))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+
 	}
 
 
@@ -352,18 +364,18 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.ChatBar.Fill", new BOX_BRUSH("ChatBar/UT.ChatBar.Fill", FMargin(4.0f / 64.0f, 2.0f/42.0f, 4.0f / 64.0f, 4.0f/42.0f)));
 
 		Style.Set("UT.ChatBar.Button.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 26))
+			.SetFont(TTF_FONT("Play-Regular", 26))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("UT.ChatBar.Editbox.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 26))
+			.SetFont(TTF_FONT("Play-Regular", 26))
 			.SetColorAndOpacity(FLinearColor::Black)
 			);
 
 
 		Style.Set("UT.ChatBar.Editbox.ChatEditBox", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 26))
+			.SetFont(TTF_FONT("Play-Regular", 26))
 			.SetForegroundColor(FLinearColor::Black)
 			.SetBackgroundImageNormal( FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			.SetBackgroundImageHovered( FSlateNoResource(FVector2D(128.0f, 128.0f)))
@@ -404,7 +416,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 		Style.Set("UT.ContextMenu.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 20))
+			.SetFont(TTF_FONT("Play-Regular", 20))
 			.SetColorAndOpacity(FLinearColor::Black)
 			);
 	
@@ -414,8 +426,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 		Style.Set("UT.Toast.Background", new BOX_BRUSH("Toasts/UT.Toast.Background", FMargin(16.0f / 370.0f, 16.0f / 110.0f, 16.0f / 370.0f, 16.0f / 110.0f)));
 		Style.Set("UT.Toast.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 34))
-			.SetColorAndOpacity(FLinearColor(FColor(208, 102, 0, 255)))
+			.SetFont(TTF_FONT("Play-Bold", 34))
+			.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255)))
 			);
 	
 	}
@@ -473,7 +485,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 		Style.Set("UT.Login.EmptyButton.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
-			.SetColorAndOpacity(FLinearColor(FColor(208, 102, 0, 255))));
+			.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255))));
 
 	}
 
@@ -500,12 +512,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("UWindows.Standard.MainMenuButton.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetFont(TTF_FONT("Play-Bold", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("UWindows.Standard.MainMenuButton.SubMenu.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetFont(TTF_FONT("Play-Regular", 12))
 			.SetColorAndOpacity(FLinearColor(0.1f, 0.1f, 0.1f, 1.f))
 			);
 
@@ -524,7 +536,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 	Style.Set("UWindows.Lobby.MatchBar.Button.TextStyle", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Bold", 12))
+		.SetFont(TTF_FONT("Play-Bold", 12))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
@@ -563,7 +575,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 	Style.Set("UWindows.Standard.SmallButton.TextStyle", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Bold", 10))
+		.SetFont(TTF_FONT("Play-Bold", 10))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
@@ -584,12 +596,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("UWindows.Lobby.MatchButton.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetFont(TTF_FONT("Play-Bold", 12))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
 		Style.Set("UWindows.Lobby.MatchButton.Action.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetFont(TTF_FONT("Play-Bold", 12))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
@@ -610,7 +622,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("UWindows.Standard.Dialog.Title.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 10))
+			.SetFont(TTF_FONT("Play-Bold", 10))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
@@ -644,7 +656,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{
 		Style.Set("UWindows.Standard.Toast.Background", new BOX_BRUSH("UWindows.Standard.Toast.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
 		Style.Set("UWindows.Standard.Toast.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetFont(TTF_FONT("Play-Bold", 12))
 			.SetColorAndOpacity(FLinearColor(0,0.05,0.59))
 			);
 	}
@@ -653,22 +665,22 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("UWindows.Standard.DownTick", new IMAGE_BRUSH("ServerBrowser/SortDownArrow", Icon8x4));
 
 	Style.Set("UWindows.Standard.NormalText", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 12))
+		.SetFont(TTF_FONT("Play-Regular", 12))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 	Style.Set("UWindows.Standard.BoldText", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetFont(TTF_FONT("Play-Regular", 14))
 		.SetColorAndOpacity(FLinearColor::Yellow)
 		);
 
 	Style.Set("UWindows.Standard.SmallText", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 10))
+		.SetFont(TTF_FONT("Play-Regular", 10))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 	Style.Set("UWindows.Standard.ContentText", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 10))
+		.SetFont(TTF_FONT("Play-Regular", 10))
 		.SetColorAndOpacity(FLinearColor::Blue)
 		);
 
@@ -685,17 +697,17 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UWindows.Standard.ServerBrowser.BottomSubBar", new BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.BottomSubBar", FMargin(20.0f / 96.0f, 24.0f / 48.0f, 18.0f / 96.0f, 24.0f / 48.0f)));
 
 		Style.Set("UWindows.Standard.ServerBrowser.NormalText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetFont(TTF_FONT("Play-Regular", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("UWindows.Standard.ServerBrowser.BoldText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 14))
+			.SetFont(TTF_FONT("Play-Regular", 14))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
 		Style.Set("UWindows.Standard.ServerBrowser.HugeText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 48))
+			.SetFont(TTF_FONT("Play-Bold", 48))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
@@ -751,7 +763,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("UWindows.Standard.ServerBrowser.Header.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 10))
+			.SetFont(TTF_FONT("Play-Regular", 10))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
@@ -785,7 +797,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 		Style.Set("UWindows.Standard.ServerBrowser.EditBox", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetFont(TTF_FONT("Play-Bold", 12))
 			.SetForegroundColor(FLinearColor::White)
 			.SetBackgroundImageNormal( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.DarkBorder", FMargin(22.0f / 64.0f, 8.0f / 32.0f, 6.0f / 64.0f, 8.0f / 32.0f)))
 			.SetBackgroundImageHovered( BOX_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.DarkBorder", FMargin(22.0f / 64.0f, 8.0f / 32.0f, 6.0f / 64.0f, 8.0f / 32.0f)))
@@ -796,22 +808,22 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 		Style.Set("UWindows.Standard.HUBBrowser.TitleText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 18))
+			.SetFont(TTF_FONT("Play-Regular", 18))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("UWindows.Standard.HUBBrowser.TitleText.Selected", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 18))
+			.SetFont(TTF_FONT("Play-Regular", 18))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
 		Style.Set("UWindows.Standard.HUBBrowser.NormalText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 14))
+			.SetFont(TTF_FONT("Play-Regular", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("UWindows.Standard.HUBBrowser.SmallText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetFont(TTF_FONT("Play-Regular", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
@@ -901,7 +913,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("Red.UWindows.MidGameMenu.ChatEditBox", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetFont(TTF_FONT("Play-Bold", 14))
 			.SetForegroundColor(FLinearColor::White)
 			.SetBackgroundImageNormal( FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			.SetBackgroundImageHovered( FSlateNoResource(FVector2D(128.0f, 128.0f)))
@@ -913,17 +925,17 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 		Style.Set("Red.UWindows.MidGameMenu.Button.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetFont(TTF_FONT("Play-Bold", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("Red.UWindows.MidGameMenu.Button.SubMenu.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetFont(TTF_FONT("Play-Regular", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("Red.UWindows.MidGameMenu.Button.SubMenu.TextStyle.AltTeam", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetFont(TTF_FONT("Play-Regular", 12))
 			.SetColorAndOpacity(FLinearColor(0.38,0.38,1.0,1.0))
 			);
 
@@ -951,7 +963,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("Red.UWindows.MidGameMenu.Status.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetFont(TTF_FONT("Play-Bold", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 	}
@@ -992,7 +1004,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("Blue.UWindows.MidGameMenu.ChatEditBox", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetFont(TTF_FONT("Play-Bold", 14))
 			.SetForegroundColor(FLinearColor::White)
 			.SetBackgroundImageNormal( FSlateNoResource(FVector2D(128.0f, 128.0f)))
 			.SetBackgroundImageHovered( FSlateNoResource(FVector2D(128.0f, 128.0f)))
@@ -1004,17 +1016,17 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 		Style.Set("Blue.UWindows.MidGameMenu.Button.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 14))
+			.SetFont(TTF_FONT("Play-Bold", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("Blue.UWindows.MidGameMenu.Button.SubMenu.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetFont(TTF_FONT("Play-Regular", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("Blue.UWindows.MidGameMenu.Button.SubMenu.TextStyle.AltTeam", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 12))
+			.SetFont(TTF_FONT("Play-Regular", 12))
 			.SetColorAndOpacity(FLinearColor(1.0,0.38,0.38,1.0))
 			);
 
@@ -1045,7 +1057,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 		Style.Set("Blue.UWindows.MidGameMenu.Status.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 12))
+			.SetFont(TTF_FONT("Play-Bold", 12))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 	}
@@ -1056,22 +1068,22 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{	// MOTD / Server / Chat
 	
 		Style.Set("UWindows.Standard.MOTD.ServerTitle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Bold", 22))
+			.SetFont(TTF_FONT("Play-Bold", 22))
 			.SetColorAndOpacity(FLinearColor::Yellow)
 			);
 
 		Style.Set("UWindows.Standard.MOTD.GeneralText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 14))
+			.SetFont(TTF_FONT("Play-Regular", 14))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
 		Style.Set("UWindows.Standard.MOTD.RulesText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 10))
+			.SetFont(TTF_FONT("Play-Regular", 10))
 			.SetColorAndOpacity(FLinearColor::Gray)
 			);
 
 		Style.Set("UWindows.Standard.Chat", FTextBlockStyle()
-			.SetFont(TTF_FONT("Exo2-Medium", 10))
+			.SetFont(TTF_FONT("Play-Regular", 10))
 			.SetColorAndOpacity(FLinearColor::White)
 			);
 
@@ -1080,7 +1092,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	{	// Text Chat styles
 	
-		const FTextBlockStyle NormalChatStyle = FTextBlockStyle().SetFont(TTF_FONT("Exo2-Medium", 12)). SetColorAndOpacity(FLinearColor::White);
+		const FTextBlockStyle NormalChatStyle = FTextBlockStyle().SetFont(TTF_FONT("Play-Regular", 12)). SetColorAndOpacity(FLinearColor::White);
 
 		Style.Set("UWindows.Chat.Text.Global", FTextBlockStyle(NormalChatStyle));
 		Style.Set("UWindows.Chat.Text.Lobby", FTextBlockStyle(NormalChatStyle).SetColorAndOpacity(FLinearColor::White));
@@ -1100,12 +1112,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		//const FSlateFontInfo RobotoBold10       = TTF_FONT("Social-WIP/Font/Lato-Bold", 10 );
 		//const FSlateFontInfo RobotoBold12       = TTF_FONT("Social-WIP/Font/Lato-Bold", 12);
 
-		const FSlateFontInfo ExoRegularSmall    = TTF_FONT("Exo2-Regular", 10);
-		const FSlateFontInfo ExoRegular			= TTF_FONT("Exo2-Regular", 14);
-		const FSlateFontInfo ExoBoldSmall       = TTF_FONT("Exo2-Bold", 10);
-		const FSlateFontInfo ExoBold			= TTF_FONT("Exo2-Bold", 14);
-		const FSlateFontInfo ExoBoldLarge		= TTF_FONT("Exo2-Bold", 18);
-		const FSlateFontInfo ExoMedRegular		= TTF_FONT("Exo2-Medium", 12);
+		const FSlateFontInfo ExoRegularSmall    = TTF_FONT("Play-Regular", 10);
+		const FSlateFontInfo ExoRegular			= TTF_FONT("Play-Regular", 14);
+		const FSlateFontInfo ExoBoldSmall       = TTF_FONT("Play-Bold", 10);
+		const FSlateFontInfo ExoBold			= TTF_FONT("Play-Bold", 14);
+		const FSlateFontInfo ExoBoldLarge		= TTF_FONT("Play-Bold", 18);
+		const FSlateFontInfo ExoMedRegular		= TTF_FONT("Play-Regular", 12);
 
 		const FScrollBarStyle ScrollBar = FScrollBarStyle()
 			.SetVerticalBackgroundImage(BOX_BRUSH("Social-WIP/Scrollbar", FVector2D(8, 8), FMargin(0.5f), FLinearColor(1.0f, 1.0f, 1.0f, 0.25f)))
@@ -1328,32 +1340,32 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{ // Match Badge Styles
 
 		Style.Set("UWindows.Standard.MatchBadge", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetFont(TTF_FONT("Play-Regular", 14))
 		.SetColorAndOpacity(FLinearColor::Yellow)
 		);
 
 		Style.Set("UWindows.Standard.MatchBadge.Bold", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetFont(TTF_FONT("Play-Regular", 14))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 		Style.Set("UWindows.Standard.MatchBadge.Red", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetFont(TTF_FONT("Play-Regular", 14))
 		.SetColorAndOpacity(FLinearColor::Red)
 		);
 
 		Style.Set("UWindows.Standard.MatchBadge.Blue", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetFont(TTF_FONT("Play-Regular", 14))
 		.SetColorAndOpacity(FLinearColor(0.7, 0.7, 1.0, 1.0))
 		);
 
 		Style.Set("UWindows.Standard.MatchBadge.Header", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 18))
+		.SetFont(TTF_FONT("Play-Regular", 18))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 		Style.Set("UWindows.Standard.MatchBadge.Small", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 10))
+		.SetFont(TTF_FONT("Play-Regular", 10))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 	}
@@ -1362,22 +1374,22 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{	// MOTD Styles
 	
 		Style.Set("MOTD.Normal", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 14))
+		.SetFont(TTF_FONT("Play-Regular", 14))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 		Style.Set("MOTD.Small", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 10))
+		.SetFont(TTF_FONT("Play-Regular", 10))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 		Style.Set("MOTD.Header", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 24))
+		.SetFont(TTF_FONT("Play-Regular", 24))
 		.SetColorAndOpacity(FLinearColor::Yellow)
 		);
 
 		Style.Set("MOTD.Header.Huge", FTextBlockStyle()
-		.SetFont(TTF_FONT("Exo2-Medium", 32))
+		.SetFont(TTF_FONT("Play-Regular", 32))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
