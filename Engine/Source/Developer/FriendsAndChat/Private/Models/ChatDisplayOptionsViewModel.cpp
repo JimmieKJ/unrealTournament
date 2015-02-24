@@ -57,6 +57,11 @@ public:
 	{
 		ChatViewModel->EnableGlobalChat(bEnable);
 	}
+	
+	virtual bool IsGlobalChatEnabled() const override
+	{
+		return ChatViewModel->IsGlobalChatEnabled();
+	}
 
 // End IChatViewModel interface
 

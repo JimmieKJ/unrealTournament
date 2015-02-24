@@ -147,7 +147,7 @@ public:
 				SNew(SBorder)
 				.Padding(FriendStyle.BorderPadding)
 				.BorderImage(&FriendStyle.FriendsContainerBackground)
-				.Visibility(FFriendsAndChatManager::Get()->HasPermission(TEXT("fortnite:play")) ? EVisibility::Visible : EVisibility::Collapsed)
+				.Visibility(this, &SFriendsContainerImpl::GetGlobalChatButtonVisibility)
 				[
 					SNew(SButton)
 					.ButtonStyle(&FriendStyle.GlobalChatButtonStyle)
@@ -267,6 +267,11 @@ private:
 			}
 		}
 		return EVisibility::Visible;
+	}
+	
+	EVisibility GetGlobalChatButtonVisibility() const
+	{
+		return FFriendsAndChatManager::Get()->GetChatViewModel()->IsGlobalChatEnabled() ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
 	FReply OnGlobalChatButtonClicked()
