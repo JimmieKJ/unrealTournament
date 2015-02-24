@@ -412,6 +412,7 @@ void AUTWeap_Enforcer::AttachToOwnerNative()
 	// attach left mesh
 	if (LeftMesh != NULL && LeftMesh->SkeletalMesh != NULL && bDualEnforcerMode)
 	{
+		LeftMesh->SetHiddenInGame(false);
 		LeftMesh->AttachTo(UTOwner->FirstPersonMesh);
 		if (Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
 		{
