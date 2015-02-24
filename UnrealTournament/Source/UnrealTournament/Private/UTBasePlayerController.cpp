@@ -24,6 +24,8 @@ void AUTBasePlayerController::ShowMenu()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
+		FInputModeUIOnly InputMode;
+		SetInputMode(InputMode);
 		LP->ShowMenu();
 	}
 
@@ -34,6 +36,8 @@ void AUTBasePlayerController::HideMenu()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
 		LP->HideMenu();
 	}
 }
