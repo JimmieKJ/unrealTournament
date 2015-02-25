@@ -57,8 +57,6 @@ protected:
 	TSharedPtr<SUTTabButton> ServerSettingsTabButton;
 	TSharedPtr<STextBlock> ServerSettingsLabel;
 
-	TSharedPtr<SCheckBox> DedicatedServerCheckBox;
-
 	// container for pointers to TAttributeProperty objects linked directly to setting properties
 	TArray< TSharedPtr<TAttributePropertyBase> > PropertyLinks;
 

@@ -630,22 +630,6 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildServerPanel()
 
 	return SNew(SVerticalBox)
 		+SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-		[
-			SAssignNew(DedicatedServerCheckBox, SCheckBox)
-			.ForegroundColor(FLinearColor::White)
-			.IsChecked(ESlateCheckBoxState::Checked)
-				
-			.Content()
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
-				.Text(NSLOCTEXT("SUWCreateGamePanel", "DedicatedServer", "Dedicated Server"))
-			]
-		]
-
-		+SVerticalBox::Slot()
 		.Padding(0.0f, 10.0f, 0.0f, 5.0f)
 		.AutoHeight()
 		[
@@ -900,7 +884,7 @@ FReply SUWCreateGamePanel::HostClick()
 	}
 	else
 	{
-		StartGame(DedicatedServerCheckBox->IsChecked() ? EServerStartMode::SERVER_Dedicated : EServerStartMode::SERVER_Listen);
+		StartGame(EServerStartMode::SERVER_Listen);
 	}
 
 	return FReply::Handled();
@@ -910,7 +894,7 @@ void SUWCreateGamePanel::CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget
 {
 	if (ButtonID == UTDIALOG_BUTTON_YES)
 	{
-		StartGame(DedicatedServerCheckBox->IsChecked() ? EServerStartMode::SERVER_Dedicated : EServerStartMode::SERVER_Listen);
+		StartGame(EServerStartMode::SERVER_Listen);
 	}
 }
 
