@@ -230,7 +230,9 @@ void FPackageContent::CreateUATTask(const FString& CommandLine, const FString& D
 #else
 	FString FullCommandLine = FString::Printf(TEXT("\"%s\" %s"), *UatPath, *CommandLine);
 #endif
-	
+
+	UE_LOG(LogPackageContent, Log, TEXT("Starting UAT Task: %s"), *FullCommandLine);
+
 	TSharedPtr<FMonitoredProcess> UatProcess = MakeShareable(new FMonitoredProcess(CmdExe, FullCommandLine, true));
 
 	// create notification item
