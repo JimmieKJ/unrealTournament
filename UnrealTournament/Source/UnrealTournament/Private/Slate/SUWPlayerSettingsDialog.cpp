@@ -343,22 +343,26 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						+ SGridPanel::Slot(1, 0)
 						.Padding(ValueColumnPadding)
 						[
-							SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FString> >)
-							.InitiallySelectedItem(0)
-							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-							.OptionsSource(&CountyFlagNames)
-							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
-							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnFlagSelected)
-							.Content()
+							SNew( SBox )
+							.WidthOverride(250.f)
 							[
-								SNew(SHorizontalBox)
-								+ SHorizontalBox::Slot()
-								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FString> >)
+								.InitiallySelectedItem(0)
+								.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
+								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+								.OptionsSource(&CountyFlagNames)
+								.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+								.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnFlagSelected)
+								.Content()
 								[
-									SAssignNew(SelectedFlag, STextBlock)
-									.Text(FString(TEXT("Unreal")))
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+									.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+									[
+										SAssignNew(SelectedFlag, STextBlock)
+										.Text(FString(TEXT("Unreal")))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+									]
 								]
 							]
 						]
