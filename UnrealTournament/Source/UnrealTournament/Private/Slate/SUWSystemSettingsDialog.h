@@ -2,7 +2,9 @@
 #pragma once
 
 #include "SlateBasics.h"
+#include "SWidgetSwitcher.h"
 #include "SUWDialog.h"
+#include "Widgets/SUTTabButton.h"
 #include "UTAudioSettings.h"
 
 #if !UE_SERVER
@@ -67,6 +69,19 @@ protected:
 	 * note that the max value (1.0 on the slider) becomes infinite lifetime
 	 */
 	FVector2D DecalLifetimeRange;
+
+	TSharedPtr<SWidgetSwitcher> TabWidget;
+	TSharedPtr<SUTTabButton> GeneralSettingsTabButton;
+	TSharedPtr<SUTTabButton> GraphicsSettingsTabButton;
+	TSharedPtr<SUTTabButton> AudioSettingsTabButton;
+
+	TSharedRef<SWidget> BuildGeneralTab();
+	TSharedRef<SWidget> BuildGraphicsTab();
+	TSharedRef<SWidget> BuildAudioTab();
+
+	FReply OnTabClickGeneral();
+	FReply OnTabClickGraphics();
+	FReply OnTabClickAudio();
 
 	virtual FReply OnButtonClick(uint16 ButtonID);	
 
