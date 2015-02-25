@@ -1,5 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-// .
+// ..
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
