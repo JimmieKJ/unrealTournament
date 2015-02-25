@@ -353,7 +353,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildMenu()
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWCreateGamePanel","MenuBar_ONLINE","HOST ONLINE").ToString())
+					.Text(NSLOCTEXT("SUWCreateGamePanel","MenuBar_ONLINE","START SERVER").ToString())
 					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 				]
 			]

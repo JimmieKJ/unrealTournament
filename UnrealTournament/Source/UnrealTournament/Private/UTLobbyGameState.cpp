@@ -520,7 +520,17 @@ TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString Game
 		}
 	}
 
-	return NULL;
+	// try to fall back to DM
+	for (int32 i = 0; i<ClientAvailbleGameModes.Num(); i++)
+	{
+		if (ClientAvailbleGameModes[i]->ClassName == TEXT("/Script/UnrealTournament.UTDMGameMode"))
+		{
+			return ClientAvailbleGameModes[i];
+		}
+	}
+
+	// return something valid - code depends on this being valid
+	return ClientAvailbleGameModes[0];
 }
 
 bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
