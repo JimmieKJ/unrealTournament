@@ -107,7 +107,7 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 						.Padding(0.0f,10.0f,0.0f,0.0f)
 						[
 							SNew(SButton)
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 							//.OnClicked(this, &SUWindowsMainMenu::OnTutorialClick)
 							.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
 							[

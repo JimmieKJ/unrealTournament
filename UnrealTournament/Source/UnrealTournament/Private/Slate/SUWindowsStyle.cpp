@@ -302,23 +302,15 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetPressedSound(ButtonPressSound)
 			);
 
-		Style.Set("UT.TopMenu.Button.Left", FButtonStyle()
-			.SetNormal ( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonLeft.Normal", FMargin(4.0f / 32.0f,  2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
-			.SetHovered( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonLeft.Hovered", FMargin(4.0f / 32.0f,  2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
-			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonLeft.Pressed", FMargin(4.0f / 32.0f,  2.0f / 64.f, 2.0f / 32.0f, 4.0f / 64.f)))
+		Style.Set("UT.BottomMenu.Button", FButtonStyle()
+			.SetNormal ( FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetHovered( BOX_BRUSH("TopMenu/UT.BottomMenu.Button.Hovered", FMargin(2.0f / 32.0f, 2.0f / 56.f, 2.0f / 32.0f, 4.0f / 56.f)))
+			.SetPressed( BOX_BRUSH("TopMenu/UT.BottomMenu.Button.Pressed", FMargin(2.0f / 32.0f,  2.0f / 56.f, 2.0f / 32.0f, 4.0f / 56.f)))
 			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
 			.SetHoveredSound(ButtonHoverSound)
 			.SetPressedSound(ButtonPressSound)
 			);
 
-		Style.Set("UT.TopMenu.Button.Right", FButtonStyle()
-			.SetNormal ( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonRight.Normal", FMargin(2.0f / 32.0f, 2.0f / 64.0f, 4.0f / 32.0f, 4.0f / 64.0f)))
-			.SetHovered( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonRight.Hovered", FMargin(2.0f / 32.0f, 2.0f / 64.0f, 4.0f / 32.0f, 4.0f / 64.0f)))
-			.SetPressed( BOX_BRUSH("TopMenu/UT.TopMenu.ButtonRight.Pressed", FMargin(2.0f / 32.0f, 2.0f / 64.0f, 4.0f / 32.0f, 4.0f / 64.0f)))
-			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
-			.SetHoveredSound(ButtonHoverSound)
-			.SetPressedSound(ButtonPressSound)
-			);
 
 		Style.Set("UT.TopMenu.TabButton", FButtonStyle()
 			.SetNormal( IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256,256), FLinearColor(1.0f,1.0f,1.0f,1.0f) ))

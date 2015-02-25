@@ -323,7 +323,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildMenu()
 		.VAlign(VAlign_Center)
 		[
 			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			.OnClicked(this, &SUWCreateGamePanel::OfflineClick)
 			[
@@ -344,7 +344,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildMenu()
 		.VAlign(VAlign_Center)
 		[
 			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			.OnClicked(this, &SUWCreateGamePanel::HostClick)
 			[

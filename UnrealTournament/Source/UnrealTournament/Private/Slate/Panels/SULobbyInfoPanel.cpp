@@ -212,7 +212,7 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildMatchMenu()
 		.VAlign(VAlign_Center)
 		[
 			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			.OnClicked(this, &SULobbyInfoPanel::ReadyButtonClicked)
 			[
@@ -233,7 +233,7 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildMatchMenu()
 		.VAlign(VAlign_Center)
 		[
 			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			.OnClicked(this, &SULobbyInfoPanel::MatchButtonClicked)
 			[

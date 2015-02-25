@@ -35,7 +35,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 			.AutoWidth()
 			[
 				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 				.OnClicked(this, &SUTInGameMenu::OnTeamChangeClick)
 				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 				[
@@ -56,7 +56,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 		.AutoWidth()
 		[
 			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Left")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 			.OnClicked(this, &SUTInGameMenu::OnSpectateClick)
 			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			[

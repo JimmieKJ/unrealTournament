@@ -151,7 +151,7 @@ TSharedRef<SWidget> SUInGameHomePanel::BuildChatDestinationsButton()
 
 	SAssignNew(ChatDestinationsButton, SComboButton)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.Right")
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 		.ButtonContent()
 		[
 			SNew(SImage)

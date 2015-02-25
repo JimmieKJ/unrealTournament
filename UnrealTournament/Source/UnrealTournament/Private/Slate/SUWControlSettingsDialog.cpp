@@ -466,7 +466,7 @@ TSharedRef<class SWidget> SUWControlSettingsDialog::BuildCustomButtonBar()
 {
 	return SAssignNew(ResetToDefaultsButton, SButton)
 		.HAlign(HAlign_Center)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 		.Text(NSLOCTEXT("SUWControlSettingsDialog", "BindDefault", "RESET TO DEFAULTS").ToString())
 		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
