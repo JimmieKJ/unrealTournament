@@ -110,7 +110,7 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	PeripheralVision = 0.7f;
 	TrackingReactionTime = 0.25f;
 	MaxTrackingPredictionError = 0.2f;
-	MaxTrackingOffsetError = 0.3f;
+	MaxTrackingOffsetError = 0.2f;
 	TrackingErrorUpdateInterval = 0.4f;
 	TrackingErrorUpdateTime = 0.f;
 	LastIterativeLeadCheck = 1.0f;
@@ -246,7 +246,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 		TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (AimingSkill + 2.0f);
 
 		// no error for really high skill bots
-		if (AimingSkill >= 7.5f)
+		if (AimingSkill >= 7.0f)
 		{
 			MaxTrackingPredictionError = 0.f;
 			MaxTrackingOffsetError = 0.f;
@@ -752,6 +752,11 @@ void AUTBot::UpdateTrackingError()
 		float OldTrackingOffsetError = TrackingOffsetError;
 		bool bStoppedEnemy = (Enemy == NULL || TrackedVelocity.IsNearlyZero());
 		bool bAmStopped = (GetPawn() != NULL && GetPawn()->GetVelocity().IsNearlyZero());
+		// consider crouching as 'stopped' for aiming purposes
+		if (!bAmStopped && GetCharacter() != NULL)
+		{
+			bAmStopped = (GetCharacter()->GetVelocity().Size() <= GetCharacter()->GetCharacterMovement()->MaxWalkSpeedCrouched);
+		}
 		if (bStoppedEnemy || bAmStopped)
 		{
 			TrackingOffsetError *= ((bStoppedEnemy && bAmStopped) ? BothStoppedOffsetErrorReduction : StoppedOffsetErrorReduction) * FMath::FRandRange(0.9f, 1.1f);
