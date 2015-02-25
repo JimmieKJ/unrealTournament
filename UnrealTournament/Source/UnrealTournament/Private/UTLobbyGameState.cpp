@@ -124,7 +124,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host,
 
 		NewMatchInfo->bJoinAnytime = true;
 		NewMatchInfo->bSpectatable = true;
-		NewMatchInfo->MaxPlayers = 16;
+		NewMatchInfo->MaxPlayers = 10;
 
 		NewMatchInfo->LaunchMatch();		
 	}
@@ -258,7 +258,7 @@ void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOpti
 		NewMatchInfo->MatchMap = MatchMap;
 		NewMatchInfo->bJoinAnytime = true;
 		NewMatchInfo->bSpectatable = true;
-		NewMatchInfo->MaxPlayers = 32;
+		NewMatchInfo->MaxPlayers = 20;
 		NewMatchInfo->bDedicatedMatch = true;
 
 		MatchOptions = MatchOptions + TEXT("?DedI=TRUE");

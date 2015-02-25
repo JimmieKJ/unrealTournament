@@ -535,7 +535,7 @@ void AUTLobbyMatchInfo::BuildAllowedMapsList()
 bool AUTLobbyMatchInfo::ServerSetMaxPlayers_Validate(int32 NewMaxPlayers) { return true; }
 void AUTLobbyMatchInfo::ServerSetMaxPlayers_Implementation(int32 NewMaxPlayers)
 {
-	MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2, 32);
+	MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2, 20);
 }
 
 

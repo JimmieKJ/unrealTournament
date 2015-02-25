@@ -154,7 +154,7 @@ public:
 
 	virtual void SetMaxPlayers(int32 NewMaxPlayers)
 	{
-		MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2 , 32);
+		MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2 , 20);
 		ServerSetMaxPlayers(MaxPlayers);
 	}
 
