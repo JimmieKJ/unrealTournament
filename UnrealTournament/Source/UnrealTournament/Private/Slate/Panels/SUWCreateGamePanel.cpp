@@ -839,7 +839,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 					if (List[j].Right(MapExtLen) == FPackageName::GetMapPackageExtension())
 					{
 						TSharedPtr<FString> BaseName = MakeShareable(new FString(FPaths::GetBaseFilename(List[j])));
-						if (GameDefaults->SupportsMap(*BaseName.Get()))
+						if (GameDefaults->SupportsMap(*BaseName.Get()) && LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(**BaseName.Get()))))
 						{
 							AllMaps.Add(BaseName);
 						}
@@ -847,6 +847,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 				}
 			}
 		}
+		AllMaps.Sort([](const TSharedPtr<FString>& A, const TSharedPtr<FString>& B){ return *A.Get() < *B.Get(); });
 
 		MapList->RefreshOptions();
 		if (AllMaps.Num() > 0)

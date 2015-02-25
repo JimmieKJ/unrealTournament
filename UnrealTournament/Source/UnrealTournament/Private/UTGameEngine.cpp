@@ -245,9 +245,17 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 
 		return (LoadSuccess ? EBrowseReturnVal::Success : EBrowseReturnVal::Failure);
 	}
+	else
 #endif
-
-	return Super::Browse(WorldContext, URL, Error);
+	if (!LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*FPaths::GetBaseFilename(URL.Map)))))
+	{
+		Error = NSLOCTEXT("UT", "NotEntitledMap", "You do not have the rights to start this map. Visit the Marketplace to gain access.").ToString();
+		return EBrowseReturnVal::Failure;
+	}
+	else
+	{
+		return Super::Browse(WorldContext, URL, Error);
+	}
 }
 
 static TAutoConsoleVariable<int32> CVarUnsteadyFPS(
