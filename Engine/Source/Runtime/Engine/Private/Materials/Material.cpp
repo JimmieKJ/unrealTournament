@@ -3625,7 +3625,7 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 		break;
 	case MP_Metallic:
 		// Subsurface models store opacity in place of Metallic in the GBuffer
-		Active = ShadingModel != MSM_Unlit && !IsSubsurfaceShadingModel(ShadingModel);
+		Active = ShadingModel != MSM_Unlit;
 		break;
 	case MP_Normal:
 		Active = ShadingModel != MSM_Unlit || Refraction.IsConnected();

@@ -333,20 +333,16 @@ void EncodeGBuffer(
 	}
 	else
 	{
-		bool bSubsurface = IsSubsurfaceModel(GBuffer.ShadingModelID);
-
-		// NOTE OutGBufferB.b is currently unused!
-		OutGBufferB.r = bSubsurface ? GBuffer.Opacity : GBuffer.Metallic;
+		OutGBufferB.r = GBuffer.Metallic;
 		OutGBufferB.g = GBuffer.Specular;
-		OutGBufferB.b = 0;
+		OutGBufferB.b = GBuffer.Roughness;
 		OutGBufferC.rgb = EncodeBaseColor(GBuffer.BaseColor);
 
 		// No space for AO. Multiply IndirectIrradiance by AO instead of storing.
 		OutGBufferC.a = EncodeIndirectIrradiance(GBuffer.IndirectIrradiance * GBuffer.GBufferAO) + QuantizationBias * (1.0 / 255.0);
 		OutGBufferB.a = GBuffer.ShadingModelID * (1.0 / 255.0);
 
-		// Roughness in OutGBufferD.r instead of OutGBufferB.a so that deferred decals can blend in roughness while using MRT
-		OutGBufferD.r = GBuffer.Roughness;
+		OutGBufferD.r = GBuffer.Opacity;
 		OutGBufferD.gba = GBuffer.CustomData;
 	}
 
@@ -378,14 +374,12 @@ FGBufferData DecodeGBufferData(
 	GBuffer.HasDistanceFieldRepresentation = PackedAlpha & 1;
 	GBuffer.ShadingModelID = DecodeShadingModelId(InGBufferB.a);
 	
-	bool bSubsurface = IsSubsurfaceModel(GBuffer.ShadingModelID);
-
 	GBuffer.BaseColor = DecodeBaseColor(InGBufferC.rgb);
-	GBuffer.Metallic = bSubsurface ? 0 : InGBufferB.r;
+	GBuffer.Metallic = InGBufferB.r;
 	GBuffer.Specular = InGBufferB.g;
-	GBuffer.Opacity = bSubsurface ? InGBufferB.r : 0;
+	GBuffer.Opacity = InGBufferD.r;
 	
-	GBuffer.Roughness = InGBufferD.r;
+	GBuffer.Roughness = InGBufferB.b;
 	GBuffer.CustomData = InGBufferD.gba;
 	GBuffer.GBufferAO = 1;
 	GBuffer.IndirectIrradiance = DecodeIndirectIrradiance(InGBufferC.a);

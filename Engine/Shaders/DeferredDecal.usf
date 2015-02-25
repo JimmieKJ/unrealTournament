@@ -72,10 +72,6 @@ void MainPS(
 #if DECAL_RENDERTARGET_COUNT > 3
 	, out float4 OutTarget3 : SV_Target3
 #endif
-
-#if DECAL_RENDERTARGET_COUNT > 4
-	, out float4 OutTarget4 : SV_Target4
-#endif
 	)
 {
 	half SceneW = PreviousDepth(ScreenPosition);
@@ -194,6 +190,7 @@ void MainPS(
 		// after base pass, before lighting (GBuffer)
 
 		// static lighting isn't updated by decals so we don't need to update that render target
+		float4 OutTarget4 = 0;
 		float4 OutTarget5 = 0;
 
 		EncodeGBuffer(Data, OutTarget1, OutTarget2, OutTarget3, OutTarget4, OutTarget5);
@@ -205,9 +202,8 @@ void MainPS(
 
 		OutTarget0.a = Opacity;	// Emissive
 		OutTarget1.a = Opacity;	// Normal
-		OutTarget2.a = Opacity;	// Metallic, Specular
+		OutTarget2.a = Opacity;	// Metallic, Specular, Roughness
 		OutTarget3.a = Opacity;	// BaseColor
-		OutTarget4.a = Opacity;	// Subsurface
 	}
 	#endif // DECAL_RENDERSTAGE
 #endif //DECAL_RENDERTARGET_COUNT > 1
