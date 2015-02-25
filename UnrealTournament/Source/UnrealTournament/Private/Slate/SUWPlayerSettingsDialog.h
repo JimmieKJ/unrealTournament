@@ -39,17 +39,24 @@ protected:
 	FSceneViewStateReference ViewState;
 	/** preview actors */
 	class AUTCharacter* PlayerPreviewMesh;
+	/** preview weapon */
+	AUTWeaponAttachment* PreviewWeapon;
 	/** render target for player mesh and cosmetic items */
 	class UUTCanvasRenderTarget2D* PlayerPreviewTexture;
 	/** material for the player preview since Slate doesn't support rendering the target directly */
 	class UMaterialInstanceDynamic* PlayerPreviewMID;
 	/** Slate brush to render the preview */
 	FSlateBrush* PlayerPreviewBrush;
+	/** Do you want the player model to spin? */
+	bool bSpinPlayer;
+	/** The Zoom offset to apply to the camera. */
+	float ZoomOffset;
 
 	/** counter for displaying weapon dialog since we need to display the "Loading Content" message first */
 	int32 WeaponConfigDelayFrames;
 
 	AActor* PreviewEnvironment;
+	UAnimationAsset* PoseAnimation;
 
 	TSharedPtr<SEditableTextBox> PlayerName;
 	TSharedPtr<SSlider> WeaponBobScaling, ViewBobScaling;
@@ -78,6 +85,8 @@ protected:
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
 	void OnFlagSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
+	TArray<UClass*> WeaponList;
+
 	int32 Emote1Index;
 	int32 Emote2Index;
 	int32 Emote3Index;
@@ -102,6 +111,7 @@ protected:
 	void OnNameTextChanged(const FText& NewText);
 
 	virtual void DragPlayerPreview(FVector2D MouseDelta);
+	virtual void ZoomPlayerPreview(float WheelDelta);
 	virtual void RecreatePlayerPreview();
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 

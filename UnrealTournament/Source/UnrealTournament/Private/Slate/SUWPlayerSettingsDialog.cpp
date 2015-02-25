@@ -10,6 +10,8 @@
 #include "SlateMaterialBrush.h"
 #include "../Public/UTPlayerCameraManager.h"
 #include "UTCharacterContent.h"
+#include "UTWeap_ShockRifle.h"
+#include "UTWeaponAttachment.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -27,12 +29,16 @@ static const float BOB_SCALING_FACTOR = 2.0f;
 #define LOCTEXT_NAMESPACE "SUWPlayerSettingsDialog"
 
 DECLARE_DELEGATE_OneParam(FDragHandler, FVector2D);
+DECLARE_DELEGATE_OneParam(FZoomHandler, float);
 
 class SDragImage : public SImage
 {
 public:
 	SLATE_BEGIN_ARGS(SDragImage)
-		: _Image(FCoreStyle::Get().GetDefaultBrush()), _ColorAndOpacity(FLinearColor::White), _OnDrag()
+		: _Image(FCoreStyle::Get().GetDefaultBrush())
+		, _ColorAndOpacity(FLinearColor::White)
+		, _OnDrag()
+		, _OnZoom()
 	{}
 
 		/** Image resource */
@@ -44,11 +50,15 @@ public:
 		/** Invoked when the mouse is dragged in the widget */
 		SLATE_EVENT(FDragHandler, OnDrag)
 
+		/** Invoked when the mouse is scrolled in the widget */
+		SLATE_EVENT(FZoomHandler, OnZoom)
+
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs)
 	{
 		OnDrag = InArgs._OnDrag;
+		OnZoom = InArgs._OnZoom;
 		SImage::Construct(SImage::FArguments().Image(InArgs._Image).ColorAndOpacity(InArgs._ColorAndOpacity));
 	}
 
@@ -83,8 +93,15 @@ public:
 		return FReply::Handled();
 	}
 
+	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		OnZoom.ExecuteIfBound(MouseEvent.GetWheelDelta());
+		return FReply::Handled();
+	}
+
 protected:
 	FDragHandler OnDrag;
+	FZoomHandler OnZoom;
 };
 
 void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
@@ -92,17 +109,20 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
 							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "PlayerSettings", "Player Settings"))
-							.DialogSize(InArgs._DialogSize)
-							.bDialogSizeIsRelative(InArgs._bDialogSizeIsRelative)
+							.DialogSize(FVector2D(1, 1))
+							.bDialogSizeIsRelative(true)
 							.DialogPosition(InArgs._DialogPosition)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
-							.ContentPadding(InArgs._ContentPadding)
+							.ContentPadding(FVector2D(0,0))
 							.IsScrollable(false)
 							.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
 
-	PlayerPreviewMesh = NULL;
+	PlayerPreviewMesh = nullptr;
+	PreviewWeapon = nullptr;
+	bSpinPlayer = true;
+	ZoomOffset = 0;
 
 	WeaponConfigDelayFrames = 0;
 
@@ -151,23 +171,26 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
 
-	FVector2D PreviewViewportSize(1024, 1024);
+	FVector2D ViewportSize;
+	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
+
+	PoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E.Pose_E"));
 
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
 	if (BaseMat != NULL)
 	{
-		PlayerPreviewTexture = Cast<UUTCanvasRenderTarget2D>(UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetPlayerOwner().Get(), UUTCanvasRenderTarget2D::StaticClass(), PreviewViewportSize.X, PreviewViewportSize.Y));
+		PlayerPreviewTexture = Cast<UUTCanvasRenderTarget2D>(UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetPlayerOwner().Get(), UUTCanvasRenderTarget2D::StaticClass(), ViewportSize.X, ViewportSize.Y));
 		PlayerPreviewTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.BindSP(this, &SUWPlayerSettingsDialog::UpdatePlayerRender);
 		PlayerPreviewMID = UMaterialInstanceDynamic::Create(BaseMat, GetPlayerOwner()->GetWorld());
 		PlayerPreviewMID->SetTextureParameterValue(FName(TEXT("TheTexture")), PlayerPreviewTexture);
-		PlayerPreviewBrush = new FSlateMaterialBrush(*PlayerPreviewMID, PreviewViewportSize);
+		PlayerPreviewBrush = new FSlateMaterialBrush(*PlayerPreviewMID, ViewportSize);
 	}
 	else
 	{
 		PlayerPreviewTexture = NULL;
 		PlayerPreviewMID = NULL;
-		PlayerPreviewBrush = new FSlateMaterialBrush(*UMaterial::GetDefaultMaterial(MD_Surface), PreviewViewportSize);
+		PlayerPreviewBrush = new FSlateMaterialBrush(*UMaterial::GetDefaultMaterial(MD_Surface), ViewportSize);
 	}
 
 	// allocate a preview scene for rendering
@@ -181,8 +204,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		PreviewEnvironment = PlayerPreviewWorld->SpawnActor<AActor>(EnvironmentClass, FVector(500.f, 50.f, 0.f), FRotator(0, 0, 0));
 	}
 
-	FVector2D ViewportSize;
-	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
+	
 	FVector2D ResolutionScale(ViewportSize.X / 1280.0f, ViewportSize.Y / 720.0f);
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
@@ -257,6 +279,24 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
+	{
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTWeapon::StaticClass(), AssetList);
+		for ( const FAssetData& Asset : AssetList )
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if ( ClassPath != NULL && !ClassPath->Contains(TEXT("/EpicInternal/")) ) // exclude debug/test weapons
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if ( TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()) && !TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus )
+				{
+					WeaponList.Add(TestClass);
+				}
+			}
+		}
+	}
+
 	SelectedPlayerColor = GetDefault<AUTPlayerController>()->FFAPlayerColor;
 
 	FMargin NameColumnPadding = FMargin(10, 4);
@@ -278,6 +318,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					SNew(SDragImage)
 					.Image(PlayerPreviewBrush)
 					.OnDrag(this, &SUWPlayerSettingsDialog::DragPlayerPreview)
+					.OnZoom(this, &SUWPlayerSettingsDialog::ZoomPlayerPreview)
 				]
 			]
 
@@ -286,16 +327,15 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				SNew(SHorizontalBox)
 			
 				+ SHorizontalBox::Slot()
-				.AutoWidth()
+				.FillWidth(0.50f)
 				[
 					SNew(SSpacer)
-					.Size(FVector2D(420, 420))
+					.Size(FVector2D(1,1))
 				]
 
 				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
+				.FillWidth(0.30f)
 				.VAlign(VAlign_Center)
-				.Padding(20, 0)
 				[
 					SNew(SVerticalBox)
 				
@@ -462,7 +502,9 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 					]
-					/* FIXME: temporarily removed
+
+					/*
+					TODO FIX ME
 					+ SVerticalBox::Slot()
 					.AutoHeight()
 					.Padding(0, 4)
@@ -483,6 +525,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						.Padding(ValueColumnPadding)
 						[
 							SNew(SComboButton)
+							.Method(EPopupMethod::UseCurrentWindow)
 							.MenuPlacement(MenuPlacement_ComboBoxRight)
 							.HasDownArrow(false)
 							.ContentPadding(0)
@@ -568,6 +611,13 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 					//	.Text(LOCTEXT("WeaponConfig", "Weapon Settings"))
 					//	.OnClicked(this, &SUWPlayerSettingsDialog::WeaponConfigClick)
 					//]
+				]
+
+				+ SHorizontalBox::Slot()
+				.FillWidth(0.2f)
+				[
+					SNew(SSpacer)
+					.Size(FVector2D(1,1))
 				]
 			]
 		];
@@ -657,6 +707,11 @@ void SUWPlayerSettingsDialog::AddReferencedObjects(FReferenceCollector& Collecto
 	Collector.AddReferencedObject(PlayerPreviewTexture);
 	Collector.AddReferencedObject(PlayerPreviewMID);
 	Collector.AddReferencedObject(PlayerPreviewWorld);
+	Collector.AddReferencedObject(PoseAnimation);
+	for ( UClass* Weapon : WeaponList )
+	{
+		Collector.AddReferencedObject(Weapon);
+	}
 }
 
 void SUWPlayerSettingsDialog::OnNameTextChanged(const FText& NewText)
@@ -801,11 +856,12 @@ void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const doub
 {
 	SUWDialog::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
-	if (PlayerPreviewWorld != NULL)
+	if (PlayerPreviewWorld != nullptr)
 	{
 		PlayerPreviewWorld->Tick(LEVELTICK_All, InDeltaTime);
 	}
-	if (PlayerPreviewTexture != NULL)
+
+	if ( PlayerPreviewTexture != nullptr )
 	{
 		PlayerPreviewTexture->UpdateResource();
 	}
@@ -819,16 +875,33 @@ void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const doub
 			GetPlayerOwner()->OpenDialog(SNew(SUWWeaponConfigDialog).PlayerOwner(GetPlayerOwner()));
 		}
 	}
+
+	if ( bSpinPlayer )
+	{
+		if ( PlayerPreviewWorld != nullptr )
+		{
+			const float SpinRate = 15.0f * InDeltaTime;
+			PlayerPreviewMesh->AddActorWorldRotation(FRotator(0, SpinRate, 0.0f));
+		}
+	}
 }
 
 void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 {
-	if (PlayerPreviewMesh != NULL)
+	FRotator ActorRotation = FRotator(0.0f, 180.0f, 0.0f);
+
+	if (PlayerPreviewMesh != nullptr)
 	{
+		ActorRotation = PlayerPreviewMesh->GetActorRotation();
 		PlayerPreviewMesh->Destroy();
 	}
 
-	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(GetDefault<AUTGameMode>()->DefaultPawnClass, FVector(265.f, 0.f, 4.f), FRotator(0.0f, 180.0f, 0.0f));
+	if ( PreviewWeapon != nullptr )
+	{
+		PreviewWeapon->Destroy();
+	}
+
+	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(GetDefault<AUTGameMode>()->DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
 	
 	// set character mesh
 	// NOTE: important this is first since it may affect the following items (socket locations, etc)
@@ -844,7 +917,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 	}
 
 	// set FFA color
-	/* FIXME: temporarily removed
+	/*TODO FIX ME
 	const TArray<UMaterialInstanceDynamic*>& BodyMIs = PlayerPreviewMesh->GetBodyMIs();
 	for (UMaterialInstanceDynamic* MI : BodyMIs)
 	{
@@ -880,6 +953,33 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->OnRepEyewear();
 		}
 	}
+
+	if ( PoseAnimation )
+	{
+		PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
+		PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+	}
+
+	for ( UClass* Weapon : WeaponList )
+	{
+		if ( Weapon->IsChildOf<AUTWeap_ShockRifle>() )
+		{
+			PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(Weapon->GetDefaultObject<AUTWeapon>()->AttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
+			PreviewWeapon->Instigator = PlayerPreviewMesh;
+			break;
+		}
+	}
+
+	// Tick the world to make sure the animation is up to date.
+	if ( PlayerPreviewWorld != nullptr )
+	{
+		PlayerPreviewWorld->Tick(LEVELTICK_All, 0.0);
+	}
+
+	if ( PreviewWeapon )
+	{
+		PreviewWeapon->BeginPlay();
+	}
 }
 
 void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
@@ -889,12 +989,20 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	ShowFlags.SetMotionBlur(false);
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
 	
-	FVector CameraPosition(0, -50, -50);
+	FVector CameraPosition(ZoomOffset, -60, -50);
+
+	const float FOV = 45;
+	const float AspectRatio = Width / (float)Height;
 
 	FSceneViewInitOptions PlayerPreviewInitOptions;
 	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
 	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(CameraPosition) * FInverseRotationMatrix(FRotator::ZeroRotator) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
-	PlayerPreviewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(45.0f * (float)PI / 360.0f, 45.0f * (float)PI / 360.0f, 1.0f, 1.0f, GNearClippingPlane, GNearClippingPlane);
+	PlayerPreviewInitOptions.ProjectionMatrix = 
+		FReversedZPerspectiveMatrix(
+			FMath::Max(0.001f, FOV) * (float)PI / 360.0f,
+			AspectRatio,
+			1.0f,
+			GNearClippingPlane );
 	PlayerPreviewInitOptions.ViewFamily = &ViewFamily;
 	PlayerPreviewInitOptions.SceneViewStateInterface = ViewState.GetReference();
 	PlayerPreviewInitOptions.BackgroundColor = FLinearColor::Black;
@@ -905,8 +1013,6 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	View->ViewLocation = FVector::ZeroVector;
 	View->ViewRotation = FRotator::ZeroRotator;
 	FPostProcessSettings PPSettings = GetDefault<AUTPlayerCameraManager>()->DefaultPPSettings;
-	PPSettings.bOverride_AntiAliasingMethod = true;
-	PPSettings.AntiAliasingMethod = AAM_None;
 	View->OverridePostProcessSettings(PPSettings, 1.0f);
 	ViewFamily.Views.Add(View);
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
@@ -916,10 +1022,16 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 
 void SUWPlayerSettingsDialog::DragPlayerPreview(const FVector2D MouseDelta)
 {
-	if (PlayerPreviewMesh != NULL)
+	if (PlayerPreviewMesh != nullptr)
 	{
-		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.1f * -MouseDelta.X, 0.0f));
+		bSpinPlayer = false;
+		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.2f * -MouseDelta.X, 0.0f));
 	}
+}
+
+void SUWPlayerSettingsDialog::ZoomPlayerPreview(float WheelDelta)
+{
+	ZoomOffset = FMath::Clamp(ZoomOffset + (-WheelDelta * 10.0f), -100.0f, 400.0f);
 }
 
 void SUWPlayerSettingsDialog::OnFlagSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
