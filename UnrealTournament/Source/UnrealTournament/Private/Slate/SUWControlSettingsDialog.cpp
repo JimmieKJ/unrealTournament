@@ -316,10 +316,10 @@ void SUWControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Hud", "Hud")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Scores", "Show Scores")))
 		->AddMapping("ShowScores")
-		->AddDefaults(EKeys::Escape)));
+		->AddDefaults(EKeys::Tab)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Menu", "Show Menu")))
 		->AddMapping("ShowMenu")
-		->AddDefaults(EKeys::Tab)));
+		->AddDefaults(EKeys::Escape)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Console", "Console")))
 		->AddMapping("Console")
 		->AddDefaults(EKeys::Tilde)));
