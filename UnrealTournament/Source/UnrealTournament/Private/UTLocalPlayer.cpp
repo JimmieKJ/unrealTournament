@@ -292,6 +292,7 @@ void UUTLocalPlayer::HideMenu()
 		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
 
 	}
+	CloseConnectingDialog();
 #endif
 }
 
@@ -1633,4 +1634,41 @@ void UUTLocalPlayer::RememberLobby(FString LobbyServerGUID)
 		
 	}
 
+}
+
+void UUTLocalPlayer::ShowConnectingDialog()
+{
+#if !UE_SERVER
+	if (!ConnectingDialog.IsValid())
+	{
+		FDialogResultDelegate Callback;
+		Callback.BindUObject(this, &UUTLocalPlayer::ConnectingDialogCancel);
+
+		TSharedPtr<SUWDialog> NewDialog; // important to make sure the ref count stays until OpenDialog()
+		SAssignNew(NewDialog, SUWMessageBox)
+			.PlayerOwner(this)
+			.DialogTitle(NSLOCTEXT("UT", "ConnectingTitle", "Connecting..."))
+			.MessageText(NSLOCTEXT("UT", "ConnectingText", "Connecting to server, please wait..."))
+			.ButtonMask(UTDIALOG_BUTTON_CANCEL)
+			.OnDialogResult(Callback);
+
+		ConnectingDialog = NewDialog;
+		OpenDialog(NewDialog.ToSharedRef());
+	}
+#endif
+}
+void UUTLocalPlayer::CloseConnectingDialog()
+{
+#if !UE_SERVER
+	if (ConnectingDialog.IsValid())
+	{
+		CloseDialog(ConnectingDialog.Pin().ToSharedRef());
+	}
+#endif
+}
+void UUTLocalPlayer::ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID)
+{
+#if !UE_SERVER
+	GEngine->Exec(GetWorld(), TEXT("Cancel"));
+#endif
 }

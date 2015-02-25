@@ -387,6 +387,14 @@ public:
 	UPROPERTY(Config)
 	uint32 bShowBrowserIconOnMainMenu:1;
 
+protected:
+#if !UE_SERVER
+	TWeakPtr<SUWDialog> ConnectingDialog;
+#endif
+	virtual void ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
+public:
+	virtual void ShowConnectingDialog();
+	virtual void CloseConnectingDialog();
 };
 
 

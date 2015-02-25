@@ -150,6 +150,11 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 
+	if (NetDriver->NetDriverName == NAME_PendingNetDriver)
+	{
+		FirstPlayer->CloseConnectingDialog();
+	}
+
 	FText NetworkErrorMessage;
 
 	if (FailureType == ENetworkFailure::PendingConnectionFailure)
