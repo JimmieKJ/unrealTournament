@@ -79,10 +79,14 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				UTChar->Destroy();
 				return;
 			}
-			if (UTChar && UTChar->IsRagdoll() && bMoveWasBlocked)
+			if (UTChar && UTChar->IsRagdoll())
 			{
-				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->GetCapsuleComponent(), UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_FallingCrush::StaticClass());
-				UTChar->TakeDamage(100000.0f, DamageEvent, UTChar->GetController(), UTChar);
+				if (bMoveWasBlocked)
+				{
+					FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->GetCapsuleComponent(), UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_FallingCrush::StaticClass());
+					UTChar->TakeDamage(100000.0f, DamageEvent, UTChar->GetController(), UTChar);
+				}
+				bMoveWasBlocked = true;
 				return;
 			}
 			if (UTChar && UTChar->UTCharacterMovement && UTChar->UTCharacterMovement->CanBaseOnLift(EncroachComponent, LiftEndLocation - EncroachComponent->GetComponentLocation()))
