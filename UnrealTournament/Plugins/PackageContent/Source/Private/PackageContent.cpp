@@ -423,10 +423,10 @@ public:
 
 			MsgDialog = SNew(SPackageCompleteChoiceDialog)
 				.ParentWindow(MsgWindow)
-				.Message(LOCTEXT("PublishContentSuccess", "Content packaged successfully. Would you like to share it now?"))
+				.Message(LOCTEXT("PublishContentSuccess", "Content packaged successfully. Would you like to share it now?\n\nIf you share this content, it will be uploaded to UT File Storage so it can be shared with your friends if you start a game server using this content."))
 				.WrapMessageAt(512.0f)
 				.FilePath(DestinationPath)
-				.FilePathLinkText(LOCTEXT("PublishContentSuccessOpenWindow", "Open Window To Packaged Content"))
+				.FilePathLinkText(LOCTEXT("PublishContentSuccessOpenWindow", "Open Window To Packaged Content Directory"))
 				.MessageType(EAppMsgType::YesNo);
 
 			MsgDialog->ResultCallback = nullptr;
