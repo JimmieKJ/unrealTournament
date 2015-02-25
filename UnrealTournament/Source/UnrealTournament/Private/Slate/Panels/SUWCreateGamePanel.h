@@ -31,6 +31,8 @@ protected:
 		SERVER_Listen,
 		SERVER_Dedicated,
 	};
+	/** records start mode when content warning is being displayed before starting */
+	EServerStartMode PendingStartMode;
 
 	TSharedPtr<SVerticalBox> GameConfigPanel;
 
@@ -69,6 +71,8 @@ protected:
 	virtual FReply OfflineClick();
 	virtual FReply HostClick();
 	virtual FReply StartGame(EServerStartMode Mode);
+	virtual void StartGameInternal(EServerStartMode Mode);
+	void StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 	FReply StartListenClick();
 	FReply StartDedicatedClick();
 	FReply CancelClick();

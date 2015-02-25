@@ -901,6 +901,33 @@ void SUWCreateGamePanel::CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget
 
 FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 {
+	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+	if (Mode != SERVER_Standalone && Engine != NULL && !Engine->IsCloudAndLocalContentInSync())
+	{
+		PendingStartMode = Mode;
+		FText DialogText = NSLOCTEXT("UT", "ContentOutOfSyncWarning", "You have locally created custom content that is not in your cloud storage. Players may be unable to join your server. Are you sure?");
+		FDialogResultDelegate Callback;
+		Callback.BindSP(this, &SUWCreateGamePanel::StartGameWarningComplete);
+		GetPlayerOwner()->ShowMessage(NSLOCTEXT("UT", "ContentNotInSync", "Custom Content Out of Sync"), DialogText, UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, Callback);
+	}
+	else
+	{
+		StartGameInternal(Mode);
+	}
+
+	return FReply::Handled();
+}
+
+void SUWCreateGamePanel::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES || ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		StartGameInternal(PendingStartMode);
+	}
+}
+
+void SUWCreateGamePanel::StartGameInternal(EServerStartMode Mode)
+{
 	// save changes
 	GConfig->SetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), *SelectedGameClass->GetPathName(), GGameIni);
 	SelectedGameClass.GetDefaultObject()->UILastStartingMap = SelectedMap->GetText().ToString();
@@ -983,8 +1010,6 @@ FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 		GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), *NewURL, TRAVEL_Absolute);
 		PlayerOwner->HideMenu();
 	}
-
-	return FReply::Handled();
 }
 FReply SUWCreateGamePanel::CancelClick()
 {
