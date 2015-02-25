@@ -6,6 +6,7 @@
 
 #define CHAT_BOX_WIDTH 576.0f
 #define CHAT_BOX_HEIGHT 260.0f
+#define CHAT_BOX_HEIGHT_FADED 120.0f
 #define CHAT_BOX_PADDING 20.0f
 #define MAX_CHAT_MESSAGES 10
 
@@ -37,7 +38,7 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 		.AutoHeight()
 		[
 			SNew(SBox)
-			.HeightOverride(CHAT_BOX_HEIGHT)
+			.HeightOverride(this, &SUTChatWidget::GetChatWidgetHeight)
 			.WidthOverride(CHAT_BOX_WIDTH)
 			[
 				FriendsAndChat.GenerateChatWidget(
@@ -50,6 +51,11 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 	];
 
 	ViewModel->SetEntryBarVisibility(EVisibility::Visible);
+}
+
+FOptionalSize SUTChatWidget::GetChatWidgetHeight() const
+{
+	return FMath::LerpStable(CHAT_BOX_HEIGHT_FADED, CHAT_BOX_HEIGHT, ViewModel->GetChatListFadeValue());
 }
 
 void SUTChatWidget::HandleFriendsNetworkChatMessage(const FString& NetworkMessage)

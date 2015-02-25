@@ -36,7 +36,7 @@ FFriendsAndChatManager::FFriendsAndChatManager( )
 	: OnlineSub(nullptr)
 	, MessageManager(FFriendsMessageManagerFactory::Create())
 	, bJoinedGlobalChat(false)
-	, bMultiWindowChat(true)
+	, ChatWindowMode(EChatWindowMode::MultiWindow)
 	, ManagerState ( EFriendsAndManagerState::OffLine )
 	, bIsInited( false )
 	, bRequiresListRefresh(false)
@@ -400,7 +400,7 @@ TSharedPtr< SWidget > FFriendsAndChatManager::GenerateFriendsListWidget( const F
 
 TSharedPtr< SWidget > FFriendsAndChatManager::GenerateChatWidget(const FFriendsAndChatStyle* InStyle, TSharedRef<IChatViewModel> ViewModel, TAttribute<FText> ActivationHintDelegate)
 {
-	bMultiWindowChat = false;
+	ChatWindowMode = EChatWindowMode::Widget;
 	if(!ChatViewModel.IsValid())
 	{
 		ChatViewModel = FChatViewModelFactory::Create(MessageManager.ToSharedRef());
@@ -441,7 +441,7 @@ void FFriendsAndChatManager::CreateChatWindow(const struct FFriendsAndChatStyle*
 
 	// Look up if window has already been created
 	TSharedPtr<SWindow> ChatWindow;
-	if (ChatType == EChatMessageType::Whisper && FriendItem.IsValid() && bMultiWindowChat)
+	if (ChatType == EChatMessageType::Whisper && FriendItem.IsValid() && ChatWindowMode == EChatWindowMode::MultiWindow)
 	{
 		for (const auto& WhisperChatWindow : WhisperChatWindows)
 		{
@@ -483,22 +483,22 @@ void FFriendsAndChatManager::CreateChatWindow(const struct FFriendsAndChatStyle*
 		ChatWindow = FSlateApplication::Get().AddWindow(ChatWindow.ToSharedRef());
 
 		// Store window ptr
-		if (ChatType == EChatMessageType::Whisper && FriendItem.IsValid() && bMultiWindowChat)
+		if (ChatType == EChatMessageType::Whisper && FriendItem.IsValid() && ChatWindowMode == EChatWindowMode::MultiWindow)
 		{
 			WhisperChat NewWhisperChat;
 			NewWhisperChat.FriendItem = FriendItem;
 			NewWhisperChat.ChatWindow = ChatWindow;
 			WhisperChatWindows.Add(NewWhisperChat);
-	}
-		else if (ChatType == EChatMessageType::Global || !bMultiWindowChat)
+		}
+		else if (ChatType == EChatMessageType::Global || ChatWindowMode != EChatWindowMode::MultiWindow)
 		{
 			GlobalChatWindow = ChatWindow;
-	}
+		}
 	}
 	else if(ChatWindow->IsWindowMinimized())
 	{
 		ChatWindow->Restore();
-		if (!bMultiWindowChat)
+		if (ChatWindowMode != EChatWindowMode::MultiWindow)
 		{
 			SetChatWindowContents(ChatWindow, nullptr);
 		}		
@@ -509,7 +509,15 @@ void FFriendsAndChatManager::CreateChatWindow(const struct FFriendsAndChatStyle*
 
 void FFriendsAndChatManager::SetChatFriend( TSharedPtr< IFriendItem > FriendItem )
 {
-	CreateChatWindow(&Style, EChatMessageType::Whisper, FriendItem);
+	if (ChatWindowMode != EChatWindowMode::Widget)
+	{
+		CreateChatWindow(&Style, EChatMessageType::Whisper, FriendItem);
+	}
+
+	if (ChatWindowMode != EChatWindowMode::MultiWindow)
+	{
+		OnChatFriendSelected().Broadcast(FriendItem);
+	}
 }
 
 void FFriendsAndChatManager::OpenGlobalChat()
@@ -544,7 +552,7 @@ void FFriendsAndChatManager::HandleChatWindowClosed(const TSharedRef<SWindow>& I
 void FFriendsAndChatManager::SetChatWindowContents(TSharedPtr<SWindow> Window, TSharedPtr< IFriendItem > FriendItem)
 {
 	TSharedPtr<SWindowTitleBar> TitleBar;
-	if(!ChatViewModel.IsValid() || bMultiWindowChat)
+	if (!ChatViewModel.IsValid() || ChatWindowMode == EChatWindowMode::MultiWindow)
 	{
 		ChatViewModel = FChatViewModelFactory::Create(MessageManager.ToSharedRef());
 	}
@@ -564,7 +572,7 @@ void FFriendsAndChatManager::SetChatWindowContents(TSharedPtr<SWindow> Window, T
 	}
 
 	// Lock the channel if not using unified chat
-	if (bMultiWindowChat)
+	if (ChatWindowMode == EChatWindowMode::MultiWindow)
 	{
 		DisplayViewModel->GetChatViewModel()->LockChatChannel(true);
 

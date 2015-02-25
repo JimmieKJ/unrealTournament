@@ -788,8 +788,16 @@ private:
 	TSharedPtr<class FChatViewModel> ChatViewModel;
 	// Joined Global Chat
 	bool bJoinedGlobalChat;
-	// Use one window for each chat
-	bool bMultiWindowChat;
+
+	enum class EChatWindowMode : uint8
+	{
+		Widget,
+		SingleWindow,
+		MultiWindow
+	};
+
+	// Use chat window, one window for each chat, non-windowed widgets?
+	EChatWindowMode ChatWindowMode;
 
 	/* Manger state
 	*****************************************************************************/

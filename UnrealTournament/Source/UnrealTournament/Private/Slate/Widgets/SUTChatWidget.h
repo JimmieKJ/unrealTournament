@@ -20,6 +20,9 @@ public:
 	void SetFocus();
 
 private:
+	/** Animate the chat widget size as it fades */
+	FOptionalSize GetChatWidgetHeight() const;
+
 	/** Handle Friends network message sent */
 	void HandleFriendsNetworkChatMessage(const FString& NetworkMessage);
 

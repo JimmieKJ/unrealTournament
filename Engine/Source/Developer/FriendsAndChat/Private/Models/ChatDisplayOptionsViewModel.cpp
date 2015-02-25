@@ -63,6 +63,11 @@ public:
 		return ChatViewModel->IsGlobalChatEnabled();
 	}
 
+	virtual float GetChatListFadeValue() const override
+	{
+		return GetTimeTransparency();
+	}
+
 // End IChatViewModel interface
 
 // Begin ChatDisplayOptionsViewModel interface

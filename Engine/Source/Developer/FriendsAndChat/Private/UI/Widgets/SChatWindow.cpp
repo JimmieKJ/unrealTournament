@@ -284,6 +284,15 @@ public:
 				{
 					FadeAnimation.PlayReverse();
 				}
+
+				if (FadeAnimation.IsPlaying())
+				{
+				    TArray<TSharedRef<FChatItemViewModel>>& FilteredChatList = SharedChatViewModel->GetFilteredChatList();
+				    if (FilteredChatList.Num() > 0)
+				    {
+					    ChatList->RequestScrollIntoView(FilteredChatList.Last());
+				    }
+				}
 			}
 		}
 
