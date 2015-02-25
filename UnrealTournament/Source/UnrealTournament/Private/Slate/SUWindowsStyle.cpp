@@ -345,6 +345,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetDisabled(BOX_BRUSH("UWindows.Standard.MenuList.Disabled", FMargin(8.0f / 64.0f, 8.0f / 32.0f, 8.0f / 64.0f, 8.0f / 32.0f)))
 			);
 
+		Style.Set("UT.ContextMenu.Background", new IMAGE_BRUSH("TopMenu/UT.TopMenu.Background", FVector2D(1, 1)) );
+		Style.Set("UT.ContextMenu.Spacer", new IMAGE_BRUSH("TopMenu/UT.TopMenu.Background", FVector2D(1, 1), FLinearColor::Black) );
 
 		Style.Set("UT.ContextMenu.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Play-Regular", 20))

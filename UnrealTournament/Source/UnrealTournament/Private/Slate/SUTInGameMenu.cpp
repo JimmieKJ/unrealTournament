@@ -88,14 +88,12 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 	];
 
 	MenuSpace->AddSlot()
-	.AutoHeight()
+	.VAlign(VAlign_Center)
+	.HAlign(HAlign_Fill)
+	.Padding(FMargin(0.0f, 2.0f))
 	[
-		SNew(SBox)
-		.HeightOverride(16)
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
-		]
+		SNew(SImage)
+		.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
 	];
 
 	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))

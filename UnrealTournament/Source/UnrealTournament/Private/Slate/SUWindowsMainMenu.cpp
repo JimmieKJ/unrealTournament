@@ -88,36 +88,39 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 
 	DropDownButton->SetMenuContent
 	(
-		SNew(SVerticalBox)
-		+ SVerticalBox::Slot()
-		.AutoHeight()
+		SNew(SBorder)
+		.BorderImage(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background"))
+		.Padding(FMargin(0.0f,2.0f))
 		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "Basic Training").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUWindowsMainMenu::OnBootCampClick, DropDownButton)
-		]
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SBox)
-			.HeightOverride(16)
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
 			[
 				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "Basic Training").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnBootCampClick, DropDownButton)
 			]
-		]
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_Community", "Training Videos").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUWindowsMainMenu::OnCommunityClick, DropDownButton)
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_Community", "Training Videos").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnCommunityClick, DropDownButton)
+			]
 		]
 	);
 
@@ -153,83 +156,79 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 
 	DropDownButton->SetMenuContent
 	(
-		SNew(SVerticalBox)
-		+ SVerticalBox::Slot()
-		.AutoHeight()
+		SNew( SBorder )
+		.BorderImage( SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background") )
+		.Padding(0)
 		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::Deathmatch)
-		]
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::CaptureTheFlag)
-		]
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SBox)
-			.HeightOverride(16)
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
 			[
 				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::Deathmatch)
 			]
-		]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::CaptureTheFlag)
+			]
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SImage )
+				.Image( SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer") )
+			]
 		 
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game").ToString())
-			.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel, DropDownButton)
-		]
-
-
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SBox)
-			.HeightOverride(16)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
 			[
 				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Spacer")
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game").ToString())
+				.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game...").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUTMenuBase::OnShowServerBrowser, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_IPConnect", "Connect via IP").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnConnectIP, DropDownButton)
 			]
 		]
-
-
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game...").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUTMenuBase::OnShowServerBrowser, DropDownButton)
-		]
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_IPConnect", "Connect via IP").ToString())
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUWindowsMainMenu::OnConnectIP, DropDownButton)
-		]
-
 	);
 
 	MenuButtons.Add(DropDownButton);
