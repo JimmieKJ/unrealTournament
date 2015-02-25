@@ -104,7 +104,7 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 			SNew(SButton)
 			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToLobby","Return to Lobby"))
+			.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToLobby","Return to Hub"))
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.OnClicked(this, &SUTInGameMenu::OnReturnToLobby, ExitButton)
 		];
