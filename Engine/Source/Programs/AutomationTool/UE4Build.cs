@@ -281,7 +281,7 @@ namespace AutomationTool
 			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: Platform.ToString(), Config: Config, AdditionalArgs: "-clean" + AddArgs, EnvVars: EnvVars);
 		}
 
-		void BuildWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform TargetPlatform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, bool ForceFlushMac = false, bool DisableXGE = false, string InAddArgs = "", bool ForceUnity = false, Dictionary<string, string> EnvVars = null)
+		void BuildWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform TargetPlatform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, bool ForceFlushMac = false, bool DisableXGE = false, string InAddArgs = "", bool ForceUnity = false, Dictionary<string, string> EnvVars = null, bool BuildProductsOnly = false)
 		{
 			string AddArgs = "";
 			if (string.IsNullOrEmpty(UprojectPath) == false)
@@ -341,10 +341,13 @@ namespace AutomationTool
 				PrepareManifest(UBTManifest);
 			}
 
-			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: AddArgs, EnvVars: EnvVars);
+			if(!BuildProductsOnly)
+			{
+				RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: AddArgs, EnvVars: EnvVars);
 
-			// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
-			Platform.Platforms[TargetPlatform].PostBuildTarget(this, string.IsNullOrEmpty(ProjectName) ? TargetName : ProjectName, UprojectPath, Config);
+				// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
+				Platform.Platforms[TargetPlatform].PostBuildTarget(this, string.IsNullOrEmpty(ProjectName) ? TargetName : ProjectName, UprojectPath, Config);
+			}
 
 			if (UseManifest)
 			{
@@ -1154,7 +1157,7 @@ namespace AutomationTool
 		/// <param name="InDeleteBuildProducts">if specified, determines if the build products will be deleted before building. If not specified -clean parameter will be used,</param>
 		/// <param name="InUpdateVersionFiles">True if the version files are to be updated </param>
 		/// <param name="InForceNoXGE">If true will force XGE off</param>
-		public void Build(BuildAgenda Agenda, bool? InDeleteBuildProducts = null, bool InUpdateVersionFiles = true, bool InForceNoXGE = false, bool InForceNonUnity = false, bool InForceUnity = false, Dictionary<UnrealBuildTool.UnrealTargetPlatform, Dictionary<string, string>> PlatformEnvVars = null)
+		public void Build(BuildAgenda Agenda, bool? InDeleteBuildProducts = null, bool InUpdateVersionFiles = true, bool InForceNoXGE = false, bool InForceNonUnity = false, bool InForceUnity = false, Dictionary<UnrealBuildTool.UnrealTargetPlatform, Dictionary<string, string>> PlatformEnvVars = null, bool InBuildProductsOnly = false)
 		{
 			if (GlobalCommandLine.NoCodeProject)
 			{
@@ -1208,7 +1211,11 @@ namespace AutomationTool
 				string SwarmSolution = Path.Combine(CmdEnv.LocalRoot, Agenda.SwarmProject);
 				PrepareBuildProductsForCSharpProj(SwarmSolution);
 
-				BuildSolution(CmdEnv, SwarmSolution);
+				if(!InBuildProductsOnly)
+				{
+					BuildSolution(CmdEnv, SwarmSolution);
+				}
+
 				AddSwarmBuildProducts();
 			}
 
@@ -1218,7 +1225,10 @@ namespace AutomationTool
 
 				PrepareBuildProductsForCSharpProj(Solution);
 
-				BuildSolution(CmdEnv, Solution);
+				if(!InBuildProductsOnly)
+				{
+					BuildSolution(CmdEnv, Solution);
+				}
 
 				AddBuildProductsForCSharpProj(Solution);
 			}
@@ -1229,7 +1239,10 @@ namespace AutomationTool
 
 				PrepareBuildProductsForCSharpProj(CsProj);
 
-				BuildCSharpProject(CmdEnv, CsProj);
+				if(!InBuildProductsOnly)
+				{
+					BuildCSharpProject(CmdEnv, CsProj);
+				}
 
 				AddBuildProductsForCSharpProj(CsProj);
 			}
@@ -1240,7 +1253,10 @@ namespace AutomationTool
 
 				PrepareBuildProductsForCSharpProj(IOSCsProj);
 
-				BuildCSharpProject(CmdEnv, IOSCsProj);
+				if(!InBuildProductsOnly)
+				{
+					BuildCSharpProject(CmdEnv, IOSCsProj);
+				}
 
 				AddIOSBuildProductsForCSharpProj(IOSCsProj);
 			}
@@ -1255,7 +1271,7 @@ namespace AutomationTool
 			bool bForceUnity = OwnerCommand.ParseParam("ForceUnity") || InForceUnity;
 			bool bForceDebugInfo = OwnerCommand.ParseParam("ForceDebugInfo");
 			bool bUsedXGE = false;
-			bool bCanUseXGE = !OwnerCommand.ParseParam("NoXGE") && !InForceNoXGE;
+			bool bCanUseXGE = !OwnerCommand.ParseParam("NoXGE") && !InForceNoXGE && !InBuildProductsOnly;
 			string XGEConsole = XGEConsoleExe();
 			if (bCanUseXGE && !FileExists(XGEConsole))
 			{
@@ -1328,7 +1344,7 @@ namespace AutomationTool
 				{
 					// When building a target for Mac or iOS, use UBT's -flushmac option to clean up the remote builder
 					bool bForceFlushMac = DeleteBuildProducts && (Target.Platform == UnrealBuildTool.UnrealTargetPlatform.Mac || Target.Platform == UnrealBuildTool.UnrealTargetPlatform.IOS);
-					BuildWithUBT(Target.ProjectName, Target.TargetName, Target.Platform, Target.Config.ToString(), Target.UprojectPath, bForceMonolithic, bForceNonUnity, bForceDebugInfo, bForceFlushMac, true, Target.UBTArgs, bForceUnity);
+					BuildWithUBT(Target.ProjectName, Target.TargetName, Target.Platform, Target.Config.ToString(), Target.UprojectPath, bForceMonolithic, bForceNonUnity, bForceDebugInfo, bForceFlushMac, true, Target.UBTArgs, bForceUnity, BuildProductsOnly: InBuildProductsOnly);
 				}
 			}
 

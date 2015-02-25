@@ -229,7 +229,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePath,
                     AppLaunchCmd = @"./Engine/Binaries/Mac/UE4Editor.app",
-                    AppLaunchCmdArgs = "UnrealTournament",
+                    AppLaunchCmdArgs = "UnrealTournament -installed",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
                 });
 
@@ -304,7 +304,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePath,
                     AppLaunchCmd = @".\Engine\Binaries\Win64\UE4Editor.exe",
-                    AppLaunchCmdArgs = "UnrealTournament",
+                    AppLaunchCmdArgs = "UnrealTournament -installed",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
                 });
 
@@ -484,7 +484,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 		Project.CopyBuildToStagingDirectory(Params);
         CopyAssetRegistryFilesFromSavedCookedToReleases(Params);
         SubmitAssetRegistryFilesToPerforce(Params);
-        EditorProject.CopyEditorBuildToStagingDirectory(Params);
+        EditorProject.CopyEditorBuildToStagingDirectory(this, Params);
 		PrintRunTime();
 		Project.Deploy(Params);
 		Project.Run(Params);
@@ -523,7 +523,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
             AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
             AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win32));
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
+			if(!bp.ParseParam("nolinux"))
+			{
+	            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
+			}
 
             var Chunker = bp.Branch.FindProgram("BuildPatchTool");
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
@@ -1515,181 +1518,154 @@ public class StageUTEditor : BuildCommand
     {
         var Params = GetParams(this);
 
-        EditorProject.CopyEditorBuildToStagingDirectory(Params, ParseParam("nomac"));
+        EditorProject.CopyEditorBuildToStagingDirectory(this, Params, ParseParam("nomac"));
     }
 }
 
 public partial class EditorProject : Project
 {
-    public static void CopyEditorBuildToStagingDirectory(ProjectParams Params, bool bNoMac = false)
+    public static void CopyEditorBuildToStagingDirectory(BuildCommand Cmd, ProjectParams Params, bool bNoMac = false)
     {
         if (Params.Stage && !Params.SkipStage)
         {
-            var DeployContextList = CreateEditorDeploymentContext(Params, false, true, bNoMac);
-            foreach (var SC in DeployContextList)
+			CopyEditor(Cmd, Params, UnrealTargetPlatform.Win64);
+			if(!bNoMac)
             {
-                CreateEditorStagingManifest(Params, SC);
-                ApplyStagingManifest(Params, SC);
+				CopyEditor(Cmd, Params, UnrealTargetPlatform.Mac);
             }
         }
     }
 
-    public static List<DeploymentContext> CreateEditorDeploymentContext(ProjectParams Params, bool InDedicatedServer, bool DoCleanStage = false, bool bNoMac = false)
-    {
-        ParamList<string> ListToProcess = new ParamList<string>("UnrealTournament");
-        var ConfigsToProcess = new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Development };
+	static void CopyEditor(BuildCommand Command, ProjectParams Params, UnrealTargetPlatform StagePlatform)
+	{
+		// Get the staging directory
+		string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
+		if (StagePlatform == UnrealTargetPlatform.Mac)
+		{
+			StageDirectory = CommandUtils.CombinePaths(StageDirectory, "MacEditor");
+		}
+		else
+		{
+			StageDirectory = CommandUtils.CombinePaths(StageDirectory, "WindowsEditor");
+		}
+		CommandUtils.DeleteDirectoryContents(StageDirectory);
 
-        List<UnrealTargetPlatform> PlatformsToStage = new List<UnrealTargetPlatform> { UnrealTargetPlatform.Win64 };
+		// Make a list of files to copy
+		List<string> RequiredFiles = new List<string>();
+		RequiredFiles.AddRange(GetEditorBuildProducts(Command, StagePlatform));
+		RequiredFiles.AddRange(GetEditorSupportFiles(StagePlatform));
+		RemoveUnusedPlugins(RequiredFiles);
+		RemoveConfidentialFiles(StagePlatform, RequiredFiles);
 
-        if (!bNoMac)
-        {
-            PlatformsToStage.Add(UnrealTargetPlatform.Mac);
+		// Copy them to the staging directory
+		foreach(string RequiredFile in RequiredFiles)
+		{
+			string SourceFileName = CommandUtils.CombinePaths(CmdEnv.LocalRoot, RequiredFile);
+			string TargetFileName = CommandUtils.CombinePaths(StageDirectory, RequiredFile);
+			CommandUtils.CopyFile(SourceFileName, TargetFileName);
         }
-            
-        List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
-        foreach (var StagePlatform in PlatformsToStage)
-        {
-            // Get the platform to get cooked data from, may differ from the stage platform
-            UnrealTargetPlatform CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
-
-            List<string> ExecutablesToStage = new List<string>();
-
-            string PlatformName = StagePlatform.ToString();
-            foreach (var Target in ListToProcess)
-            {
-                foreach (var Config in ConfigsToProcess)
-                {
-                    string Exe = Target;
-                    if (Config != UnrealTargetConfiguration.Development)
-                    {
-                        Exe = Target + "-" + PlatformName + "-" + Config.ToString();
-                    }
-                    ExecutablesToStage.Add(Exe);
-                }
-            }
-
-            string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
-            string ArchiveDirectory = (Params.Archive || !String.IsNullOrEmpty(Params.ArchiveDirectoryParam)) ? Params.BaseArchiveDirectory : "";
-
-            if (StagePlatform == UnrealTargetPlatform.Mac)
-            {
-                StageDirectory = CommandUtils.CombinePaths(StageDirectory, "MacEditor");
-            }
-            else
-            {
-                StageDirectory = CommandUtils.CombinePaths(StageDirectory, "WindowsEditor");
-            }
-
-            //@todo should pull StageExecutables from somewhere else if not cooked
-            var SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
-                StageDirectory,
-                ArchiveDirectory,
-                Params.CookFlavor,
-                Params.GetTargetPlatformInstance(CookedDataPlatform),
-                Params.GetTargetPlatformInstance(StagePlatform),
-                ConfigsToProcess,
-                ExecutablesToStage,
-                InDedicatedServer,
-                false,
-                Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux && Params.Rocket), // can't include the crash reporter from binary Linux builds
-                Params.Stage,
-                Params.CookOnTheFly,
-                Params.Archive,
-                false,
-                Params.HasDedicatedServerAndClient
-                );
-            LogDeploymentContext(SC);
-
-            // If we're a derived platform make sure we're at the end, otherwise make sure we're at the front
-
-            //DeploymentContexts.Add(SC);
-            DeploymentContexts.Insert(0, SC);
-        }
-
-        return DeploymentContexts;
     }
 
-    public static void CreateEditorStagingManifest(ProjectParams Params, DeploymentContext SC)
-    {
-        if (SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Mac)
-        {
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac/UE4Editor.app"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac"), "ShaderCompileWorker*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac/CrashReportClient.app"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac"), "UnrealPak", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Mac"), "UnrealLightmass*", true, new string[] { }, null, false, false, null, false);
+	static IEnumerable<string> GetEditorBuildProducts(BuildCommand Command, UnrealTargetPlatform Platform)
+	{
+		UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
+		Agenda.SwarmProject = @"Engine\Source\Programs\UnrealSwarm\UnrealSwarm.sln";
+		Agenda.DotNetSolutions.Add("Engine/Source/Programs/NetworkProfiler/NetworkProfiler.sln");
+		Agenda.AddTarget("UnrealTournamentEditor", Platform, UnrealTargetConfiguration.Development);
+		Agenda.AddTarget("UnrealPak", Platform, UnrealTargetConfiguration.Development);
+		Agenda.AddTarget("CrashReportClient", Platform, UnrealTargetConfiguration.Development);
+		Agenda.AddTarget("UnrealLightmass", Platform, UnrealTargetConfiguration.Development);
+		Agenda.AddTarget("ShaderCompileWorker", Platform, UnrealTargetConfiguration.Development);
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet/"), "*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+		UE4Build Build = new UE4Build(Command);
+		Build.Build(Agenda, InDeleteBuildProducts: false, InBuildProductsOnly: true);
+		Build.AddUATFilesToBuildProducts();
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir), "*.dylib", true, null, null, false, false, null, false);
+		FileFilter BuildProductFilter = new FileFilter();
+		BuildProductFilter.Include("...");
+		BuildProductFilter.Exclude("*.pdb");
+		BuildProductFilter.Exclude("*-Simplygon*");
+		BuildProductFilter.Exclude("*-DDCUtils*");
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Mono/", SC.PlatformDir), "*", true, null, null, false, false, null, false);
+		string[] RebasedBuildProducts = Build.BuildProductFiles.Select(FileName => CommandUtils.StripBaseDirectory(FileName, CmdEnv.LocalRoot)).ToArray();
+		return BuildProductFilter.ApplyTo(RebasedBuildProducts);
+	}
                         
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3/", SC.PlatformDir), "*", true, null, null, false, false, null, false);
+	static IEnumerable<string> GetEditorSupportFiles(UnrealTargetPlatform Platform)
+	{
+		FileFilter Filter = new FileFilter();
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/Runtime/ExampleDeviceProfileSelector"), "*", true, new string[] { "*-Debug.dylib" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D"), "*", true, new string[] { "*-Debug.dylib" }, null, false, false, null, false);
-            
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config/"), "*", true, new string[] { }, null, false, false, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders/"), "*", true, new string[] { }, null, false, false, null, false);
-            
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/"), "*.uproject", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Binaries/Mac/"), "UE4Editor-*dylib", true, new string[] { "*-Debug.dylib" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Plugins/"), "*", true, new string[] { "*-Debug.dylib" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases/"), "*", true, new string[] { }, null, false, false, null, false);
+		// Engine/Binaries/...
+		if(Platform == UnrealTargetPlatform.Win64)
+		{
+			Filter.Include("/Engine/Binaries/Win64/AgentInterface.dll");
+			Filter.Include("/Engine/Binaries/Win64/libfbxsdk.dll");
 
-            // THIS IS THE ONE EXCEPTION TO NO REDIST AND NOT FOR LICENSEES
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNET/AutomationScripts/NoRedist/"), "UnrealTournament.Automation.dll", true, new string[] { "*.pdb" }, null, false, false, null, true);
+			Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/*.dll");
+			Filter.Include("/Engine/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS2013/*.dll");
+			Filter.Include("/Engine/Binaries/ThirdParty/PhysX/PhysX-3.3/Win64/VS2013/*.dll");
+			Filter.Exclude("/Engine/Binaries/ThirdParty/PhysX/.../*DEBUG*");
+			Filter.Exclude("/Engine/Binaries/ThirdParty/PhysX/.../*CHECKED*");
+			Filter.Include("/Engine/Binaries/ThirdParty/Ogg/Win64/VS2013/*.dll");
+			Filter.Include("/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2013/*.dll");
+			Filter.Include("/Engine/Binaries/ThirdParty/nvTextureTools/Win64/*.dll");
         }
-        else
+		else if(Platform == UnrealTargetPlatform.Mac)
         {
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UE4Editor*", true, new string[] { "*-Debug.dll", "*.pdb", "*Simplygon*" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "AgentInterface.dll", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "libfbxsdk.dll", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "ShaderCompileWorker*", true, new string[] { "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "CrashReportClient*", true, new string[] { "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealPak*", true, new string[] { "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "UnrealLightmass*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+			Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Mac/*.dylib");
+			Filter.Include("/Engine/Binaries/ThirdParty/Mono/Mac/...");
+			Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Mac/...");
+		}
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNet"), "*", true, new string[] { "*.pdb" }, null, false, false, null, false);
+		// Engine/Plugins/...
+		Filter.Include("/Engine/Plugins/....uplugin");
+		Filter.Include("/Engine/Plugins/.../Content/...");
+		Filter.Include("/Engine/Plugins/.../Resources/...");
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir, "VS2013"), "*.dll", true, null, null, false, false, null, false);
+		// Engine/...
+		Filter.Include("/Engine/Build/BatchFiles/...");
+		Filter.Include("/Engine/Config/...");
+		Filter.Include("/Engine/Content/...");
+		Filter.Include("/Engine/Shaders/...");
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, "VS2013"), "*.dll", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" }, null, false, false, null, false);
+		// UnrealTournament/...
+		Filter.Include("/UnrealTournament/*.uproject");
+		Filter.Include("/UnrealTournament/Plugins/...");
+		Filter.Exclude("/UnrealTournament/Plugins/.../Binaries/...");
+		Filter.Include("/UnrealTournament/Config/...");
+		Filter.Include("/UnrealTournament/Content/...");
+		Filter.Include("/UnrealTournament/Releases/...");
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Ogg", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Vorbis", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
+		return Filter.ApplyToDirectory(CmdEnv.LocalRoot);
+	}
 
-            SC.StageFiles(StagedFileType.NonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/nvTextureTools", SC.PlatformDir), "*.dll", true, null, null, false, false, null, false);
+	static void RemoveUnusedPlugins(List<string> RequiredFiles)
+	{
+		FileFilter UnusedPluginFilter = new FileFilter();
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/Runtime/ExampleDeviceProfileSelector/"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins/2D/Paper2D/"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
+		UnusedPluginFilter.Include("/Engine/Plugins/...");
+		UnusedPluginFilter.Exclude("/Engine/Plugins/.../Paper2D/...");
+		UnusedPluginFilter.Exclude("/Engine/Plugins/.../ExampleDeviceProfileSelector/...");
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Build/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Config/"), "*", true, new string[] { }, null, false, false, null, false, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Content/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Shaders/"), "*", true, new string[] { }, null, false, false, null, false);
+		RequiredFiles.RemoveAll(FileName => UnusedPluginFilter.Matches(FileName));
+	}
 
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/"), "*.uproject", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Binaries/Win64/"), "UE4Editor-*", true, new string[] { "", "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Plugins/"), "*", true, new string[] { "*-Debug.dll", "*.pdb" }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Build/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Config/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Localization/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/RestrictedAssets/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Content/Splash/"), "*", true, new string[] { }, null, false, false, null, false);
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "UnrealTournament/Releases/"), "*", true, new string[] { }, null, false, false, null, false);
+	static void RemoveConfidentialFiles(UnrealTargetPlatform Platform, List<string> RequiredFiles)
+	{
+		FileFilter ConfidentialFilter = new FileFilter();
 
-            // THIS IS THE ONE EXCEPTION TO NO REDIST AND NOT FOR LICENSEES
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/DotNET/AutomationScripts/NoRedist/"), "UnrealTournament.Automation.dll", true, new string[] { "*.pdb" }, null, false, false, null, true);
-        }
+		ConfidentialFilter.Include(".../NotForLicensees/...");
+		ConfidentialFilter.Include(".../NoRedist/...");
+		ConfidentialFilter.Include(".../EpicInternal/...");
+        foreach (UnrealTargetPlatform PossiblePlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
+        {
+			if(PossiblePlatform != Platform && PossiblePlatform != UnrealTargetPlatform.Unknown)
+            {
+				ConfidentialFilter.Include(String.Format(".../{0}/...", PossiblePlatform.ToString()));
+	        }
+	    }
+		ConfidentialFilter.Exclude("Engine/Binaries/DotNET/AutomationScripts/NoRedist/UnrealTournament.Automation.dll");
+
+		RequiredFiles.RemoveAll(x => ConfidentialFilter.Matches(x));
     }
 }
