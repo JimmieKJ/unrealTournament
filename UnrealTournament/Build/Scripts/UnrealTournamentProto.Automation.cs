@@ -14,6 +14,20 @@ using System.Web.Script.Serialization;
 using EpicGames.MCP.Automation;
 using EpicGames.MCP.Config;
 
+static class UnrealTournamentIEnumerableExtensions
+{
+	/// <summary>
+	/// Generates a string suitable for debugging a list of objects using ToString(). Lists one per line with the prefix string on the first line.
+	/// </summary>
+	/// <param name="prefix">Prefix string to print along with the list of BuildInfos.</param>
+	/// <param name="buildInfos"></param>
+	/// <returns>the resulting debug string</returns>
+	static public string CreateDebugList<T>(this IEnumerable<T> objects, string prefix)
+	{
+		return objects.Aggregate(new StringBuilder(prefix), (sb, obj) => sb.AppendFormat("\n    {0}", obj.ToString())).ToString();
+	}
+}
+
 public class UnrealTournamentBuild
 {
 	// Use old-style UAT version for UnrealTournament

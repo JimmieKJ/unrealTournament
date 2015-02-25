@@ -50,11 +50,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Engine\Source\Developer\NotForLicensees\MCP.Automation\MCP.Automation.csproj">
-      <Project>{5bea33c4-7c25-4078-b350-6bd4c22ac80c}</Project>
-      <Name>MCP.Automation</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\..\Engine\Source\Programs\AutomationTool\AutomationTool.csproj">
       <Project>{a35b0261-d868-475e-a098-eb14ce6dc89f}</Project>
       <Name>AutomationTool</Name>
