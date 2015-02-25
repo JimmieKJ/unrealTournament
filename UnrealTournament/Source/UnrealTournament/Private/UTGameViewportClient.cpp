@@ -348,35 +348,42 @@ void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, u
 void UUTGameViewportClient::CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
 #if !UE_SERVER
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
-
 		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-		if (FirstPlayer != nullptr && UTEngine)
-		{
-			for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
-			{
-				if (!UTEngine->DownloadedContentChecksums.Contains(It.Key()))
-				{
-					// File failed to download at all.
-					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "DownloadFail", "Download Failed"), NSLOCTEXT("UTGameViewportClient", "DownloadFailMsg", "The download of cloud content failed."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
-					return;
-				}
-
-				if (UTEngine->DownloadedContentChecksums[It.Key()] != It.Value())
-				{
-					// File was the wrong checksum.
-					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "WrongChecksum", "Checksum failed"), NSLOCTEXT("UTGameViewportClient", "WrongChecksumMsg", "The files downloaded from the cloud do not match the files the server is using."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
-					return;
-				}
-			}
-		}
-
 		if (FirstPlayer != nullptr)
 		{
+			if (UTEngine)
+			{
+				for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
+				{
+					if (!UTEngine->DownloadedContentChecksums.Contains(It.Key()))
+					{
+						// File failed to download at all.
+						FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "DownloadFail", "Download Failed"), NSLOCTEXT("UTGameViewportClient", "DownloadFailMsg", "The download of cloud content failed."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+						return;
+					}
+
+					if (UTEngine->DownloadedContentChecksums[It.Key()] != It.Value())
+					{
+						// File was the wrong checksum.
+						FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "WrongChecksum", "Checksum failed"), NSLOCTEXT("UTGameViewportClient", "WrongChecksumMsg", "The files downloaded from the cloud do not match the files the server is using."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+						return;
+					}
+				}
+			}
+
 			FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
 			FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+		}
+	}
+	else
+	{
+		if (FirstPlayer != nullptr)
+		{
+			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "UnableToGetCustomContent", "Server running custom content"), NSLOCTEXT("UTGameViewportClient", "UnableToGetCustomContentMsg", "The server is running custom content and your client was unable to download it."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
 		}
 	}
 #endif
