@@ -70,7 +70,7 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 			}
 			TargetRot.Pitch = 0.0f;
 			TargetRot.Roll = 0.0f;
-			P->GetCharacterMovement()->Velocity = TargetTransform.TransformVector(MyTransform.TransformVector(P->GetCharacterMovement()->Velocity));
+			P->GetCharacterMovement()->Velocity = TargetTransform.TransformVector(MyTransform.InverseTransformVector(P->GetCharacterMovement()->Velocity));
 		}
 		if (OtherActor->TeleportTo(AdjustedTeleportLoc, bSetRotation ? TargetRot : OtherActor->GetActorRotation()))
 		{
