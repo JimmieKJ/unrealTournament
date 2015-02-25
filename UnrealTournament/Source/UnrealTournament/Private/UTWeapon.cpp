@@ -47,6 +47,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	bFPIgnoreInstantHitFireOffset = true;
 	FireOffset = FVector(75.0f, 0.0f, 0.0f);
 	FriendlyMomentumScaling = 1.f;
+	FireEffectInterval = 1;
+	FireEffectCount = 0;
 
 	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
@@ -634,8 +636,10 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 		// fire effects
 		static FName NAME_HitLocation(TEXT("HitLocation"));
 		static FName NAME_LocalHitLocation(TEXT("LocalHitLocation"));
-		if (FireEffect.IsValidIndex(FireMode) && FireEffect[FireMode] != NULL)
+		FireEffectCount++;
+		if (FireEffect.IsValidIndex(FireMode) && (FireEffect[FireMode] != NULL) && (FireEffectCount >= FireEffectInterval))
 		{
+			FireEffectCount = 0;
 			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[FireMode], SpawnLocation, SpawnRotation, true);
 			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
 			PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(TargetLoc));

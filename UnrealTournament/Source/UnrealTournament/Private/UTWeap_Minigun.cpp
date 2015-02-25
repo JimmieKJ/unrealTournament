@@ -23,7 +23,7 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	ClassicGroup = 6;
 	AmmoCost[0] = 1;
 	AmmoCost[1] = 2;
-
+	FireEffectInterval = 2;
 	Ammo = 100;
 	MaxAmmo = 300;
 

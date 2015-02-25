@@ -157,7 +157,14 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	 */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
-	/** optional effect for instant hit endpoint */
+
+	/** Fire Effect happens once every FireEffectInterval shots */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+		int32 FireEffectInterval;
+	/** shots since last fire effect. */
+	UPROPERTY(BlueprintReadWrite, Category = "Weapon")
+		int32 FireEffectCount;
+		/** optional effect for instant hit endpoint */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray< TSubclassOf<class AUTImpactEffect> > ImpactEffect;
 	/** throttling for impact effects - don't spawn another unless last effect is farther than this away or longer ago than MaxImpactEffectSkipTime */
