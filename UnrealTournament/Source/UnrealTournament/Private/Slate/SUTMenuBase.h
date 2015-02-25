@@ -30,7 +30,7 @@ protected:
 	virtual FReply OpenCredits(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnMenuHTTPButton(FString URL, TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenControlSettings(TSharedPtr<SComboButton> MenuButton);
-	
+	virtual FReply ShowWidgetReflector(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnOnlineClick();
 
 	virtual void BuildLeftMenuBar();

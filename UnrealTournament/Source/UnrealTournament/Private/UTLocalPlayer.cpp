@@ -751,6 +751,8 @@ void UUTLocalPlayer::OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint
 		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
 		if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
 		{
+			// kill the current menu....
+			HideMenu();
 			ReturnToMainMenu();	
 		}
 		else

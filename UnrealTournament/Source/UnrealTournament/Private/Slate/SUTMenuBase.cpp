@@ -215,26 +215,14 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 		.Padding(0.0f,0.0f,5.0f,0.0f)
 		.AutoWidth()
 		[
-			SNew(SBox)
-			.WidthOverride(48)
-			.HeightOverride(48)
-			[
-
-				BuildOptionsSubMenu()
-			]
+			BuildOptionsSubMenu()
 		];
 
 		RightMenuBar->AddSlot()
 		.Padding(0.0f,0.0f,35.0f,0.0f)
 		.AutoWidth()
 		[
-			SNew(SBox)
-			.WidthOverride(48)
-			.HeightOverride(48)
-			[
-
-				BuildAboutSubMenu()
-			]
+			BuildAboutSubMenu()
 		];
 
 		TSharedPtr<SComboButton> ExitButton = NULL;
@@ -244,17 +232,27 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 		.AutoWidth()
 		[
 
-			SAssignNew(ExitButton, SComboButton)
-			.HasDownArrow(false)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
-			.ButtonContent()
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
 			[
-				SNew(SBox)
-				.WidthOverride(48)
-				.HeightOverride(48)
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Exit"))
+					SNew(SBox)
+					.WidthOverride(48)
+					.HeightOverride(48)
+					[
+						SAssignNew(ExitButton, SComboButton)
+						.HasDownArrow(false)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+						.ButtonContent()
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Exit"))
+						]
+					]
 				]
 			]
 		];
@@ -320,21 +318,31 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 {
 	
 	TSharedPtr<SComboButton> DropDownButton = NULL;
-
-	SAssignNew(DropDownButton, SComboButton)
-		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
-		.ContentPadding(FMargin(0.0f,0.0f))
-		.ButtonContent()
+	
+	SNew(SHorizontalBox)
+	+SHorizontalBox::Slot()
+	.AutoWidth()
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.AutoHeight()
 		[
 			SNew(SBox)
 			.WidthOverride(48)
 			.HeightOverride(48)
 			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Settings"))
+				SAssignNew(DropDownButton, SComboButton)
+				.HasDownArrow(false)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.ContentPadding(FMargin(0.0f, 0.0f))
+				.ButtonContent()
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Settings"))
+				]
 			]
-		];
+		]
+	];
 
 	DropDownButton->SetMenuContent
 	(
@@ -411,19 +419,30 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 {
 	TSharedPtr<SComboButton> DropDownButton = NULL;
 
-	SAssignNew(DropDownButton, SComboButton)
-	.HasDownArrow(false)
-	.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
-	.ButtonContent()
+	SNew(SHorizontalBox)
+	+ SHorizontalBox::Slot()
+	.AutoWidth()
 	[
-		SNew(SBox)
-		.WidthOverride(48)
-		.HeightOverride(48)
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
 		[
-			SNew(SImage)
-			.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.About"))
+			SNew(SBox)
+			.WidthOverride(48)
+			.HeightOverride(48)
+			[
+				SAssignNew(DropDownButton, SComboButton)
+				.HasDownArrow(false)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.ButtonContent()
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.About"))
+				]
+			]
 		]
 	];
+
 
 	// NOTE: If you inline the setting of the menu content during the construction of the ComboButton
 	// it doesn't assign the sharedptr until after the whole menu is constructed.  So if for example,
@@ -482,7 +501,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_WR", "Widget Reflector").ToString())
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUTMenuBase::OnMenuConsoleCommand, FString(TEXT("widgetreflector")), DropDownButton)
+			.OnClicked(this, &SUTMenuBase::ShowWidgetReflector, DropDownButton)
 		]
 #endif
 
@@ -838,6 +857,12 @@ FReply SUTMenuBase::OnShowHomePanel()
 		DeactivatePanel(ActivePanel);
 	}
 
+	return FReply::Handled();
+}
+
+FReply SUTMenuBase::ShowWidgetReflector(TSharedPtr<SComboButton> MenuButton)
+{
+	ConsoleCommand(TEXT("WidgetReflector"));
 	return FReply::Handled();
 }
 
