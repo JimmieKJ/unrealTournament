@@ -104,6 +104,7 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 	TSharedPtr<SVerticalBox> MainBox;
 	TSharedPtr<SUniformGridPanel> ButtonRow;
 
+	// NOTE: leaks at the moment because Slate corrupts memory if you delete brushes
 	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(256.0f, 128.0f), FName(TEXT("LevelScreenshot")));
 
 	ChildSlot
@@ -719,58 +720,20 @@ void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FString> NewSelection, ESelect
 {
 	SelectedMap->SetText(NewSelection.IsValid() ? *NewSelection.Get() : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available").ToString());
 
-	UUTLevelSummary* Summary = NULL;
-	FString MapFullName;
-	if (NewSelection.IsValid() && FPackageName::SearchForPackageOnDisk(*NewSelection + FPackageName::GetMapPackageExtension(), &MapFullName))
-	{
-		static FName NAME_LevelSummary(TEXT("LevelSummary"));
-
-		UPackage* Pkg = CreatePackage(NULL, *MapFullName);
-		Summary = FindObject<UUTLevelSummary>(Pkg, *NAME_LevelSummary.ToString());
-		if (Summary == NULL)
-		{
-			// LoadObject() actually forces the whole package to be loaded for some reason so we need to take the long way around
-			BeginLoad();
-			ULinkerLoad* Linker = GetPackageLinker(Pkg, NULL, LOAD_NoWarn | LOAD_Quiet, NULL, NULL);
-			if (Linker != NULL)
-			{
-				//UUTLevelSummary* Summary = Cast<UUTLevelSummary>(Linker->Create(UUTLevelSummary::StaticClass(), FName(TEXT("LevelSummary")), Pkg, LOAD_NoWarn | LOAD_Quiet, false));
-				// ULinkerLoad::Create() not exported... even more hard way :(
-				FPackageIndex SummaryClassIndex, SummaryPackageIndex;
-				if (Linker->FindImportClassAndPackage(FName(TEXT("UTLevelSummary")), SummaryClassIndex, SummaryPackageIndex) && SummaryPackageIndex.IsImport() && Linker->ImportMap[SummaryPackageIndex.ToImport()].ObjectName == AUTGameMode::StaticClass()->GetOutermost()->GetFName())
-				{
-					for (int32 Index = 0; Index < Linker->ExportMap.Num(); Index++)
-					{
-						FObjectExport& Export = Linker->ExportMap[Index];
-						if (Export.ObjectName == NAME_LevelSummary && Export.ClassIndex == SummaryClassIndex)
-						{
-							Export.Object = StaticConstructObject(UUTLevelSummary::StaticClass(), Linker->LinkerRoot, Export.ObjectName, EObjectFlags(Export.ObjectFlags | RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded));
-							Export.Object->SetLinker(Linker, Index);
-							//GObjLoaded.Add(Export.Object);
-							Linker->Preload(Export.Object);
-							Export.Object->ConditionalPostLoad();
-							Summary = Cast<UUTLevelSummary>(Export.Object);
-							break;
-						}
-					}
-				}
-			}
-			EndLoad();
-		}
-	}
+	UUTLevelSummary* Summary = NewSelection.IsValid() ? UUTGameEngine::LoadLevelSummary(*NewSelection.Get()) : NULL;
 	if (Summary != NULL)
 	{
 		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(Summary->Author)));
 		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(Summary->OptimalPlayerCount.X), FText::AsNumber(Summary->OptimalPlayerCount.Y)));
 		MapDesc->SetText(Summary->Description);
-		*LevelScreenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : GEngine->DefaultTexture, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+		*LevelScreenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
 	}
 	else
 	{
 		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(TEXT("Unknown"))));
 		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)));
 		MapDesc->SetText(FText());
-		*LevelScreenshot = FSlateDynamicImageBrush(GEngine->DefaultTexture, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+		*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
 	}
 }
 

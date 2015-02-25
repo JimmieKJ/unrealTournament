@@ -3,6 +3,7 @@
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
 #include "AssetRegistryModule.h"
+#include "UTLevelSummary.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -12,6 +13,9 @@
 UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	static ConstructorHelpers::FObjectFinder<UTexture2D> DefaultLevelScreenshotObj(TEXT("Texture2D'/Game/RestrictedAssets/Textures/_T_NSA_2_D._T_NSA_2_D'"));
+	DefaultLevelScreenshot = DefaultLevelScreenshotObj.Object;
+
 	bFirstRun = true;
 	bAllowClientNetProfile = false;
 	ReadEULACaption = NSLOCTEXT("UTGameEngine", "ReadEULACaption", "READ ME FIRST");
@@ -550,4 +554,48 @@ void UUTGameEngine::PromptForEULAAcceptance()
 		SaveConfig();
 		GConfig->Flush(false);
 	}
+}
+
+UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
+{
+	UUTLevelSummary* Summary = NULL;
+	FString MapFullName;
+	if (FPackageName::SearchForPackageOnDisk(MapName + FPackageName::GetMapPackageExtension(), &MapFullName))
+	{
+		static FName NAME_LevelSummary(TEXT("LevelSummary"));
+
+		UPackage* Pkg = CreatePackage(NULL, *MapFullName);
+		Summary = FindObject<UUTLevelSummary>(Pkg, *NAME_LevelSummary.ToString());
+		if (Summary == NULL)
+		{
+			// LoadObject() actually forces the whole package to be loaded for some reason so we need to take the long way around
+			BeginLoad();
+			ULinkerLoad* Linker = GetPackageLinker(Pkg, NULL, LOAD_NoWarn | LOAD_Quiet, NULL, NULL);
+			if (Linker != NULL)
+			{
+				//UUTLevelSummary* Summary = Cast<UUTLevelSummary>(Linker->Create(UUTLevelSummary::StaticClass(), FName(TEXT("LevelSummary")), Pkg, LOAD_NoWarn | LOAD_Quiet, false));
+				// ULinkerLoad::Create() not exported... even more hard way :(
+				FPackageIndex SummaryClassIndex, SummaryPackageIndex;
+				if (Linker->FindImportClassAndPackage(FName(TEXT("UTLevelSummary")), SummaryClassIndex, SummaryPackageIndex) && SummaryPackageIndex.IsImport() && Linker->ImportMap[SummaryPackageIndex.ToImport()].ObjectName == AUTGameMode::StaticClass()->GetOutermost()->GetFName())
+				{
+					for (int32 Index = 0; Index < Linker->ExportMap.Num(); Index++)
+					{
+						FObjectExport& Export = Linker->ExportMap[Index];
+						if (Export.ObjectName == NAME_LevelSummary && Export.ClassIndex == SummaryClassIndex)
+						{
+							Export.Object = StaticConstructObject(UUTLevelSummary::StaticClass(), Linker->LinkerRoot, Export.ObjectName, EObjectFlags(Export.ObjectFlags | RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded));
+							Export.Object->SetLinker(Linker, Index);
+							//GObjLoaded.Add(Export.Object);
+							Linker->Preload(Export.Object);
+							Export.Object->ConditionalPostLoad();
+							Summary = Cast<UUTLevelSummary>(Export.Object);
+							break;
+						}
+					}
+				}
+			}
+			EndLoad();
+		}
+	}
+	return Summary;
 }

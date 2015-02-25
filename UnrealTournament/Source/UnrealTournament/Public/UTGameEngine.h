@@ -8,6 +8,10 @@ class UUTGameEngine : public UGameEngine
 {
 	GENERATED_UCLASS_BODY()
 
+	/** default screenshot used for levels when none provided in the level itself */
+	UPROPERTY()
+	UTexture2D* DefaultLevelScreenshot;
+
 	UPROPERTY()
 	FText ReadEULACaption;
 	UPROPERTY()
@@ -100,6 +104,9 @@ class UUTGameEngine : public UGameEngine
 #undef UT_LOADING_SCREEN_HOOK
 
 	virtual void HandleNetworkFailure(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString) override;
+
+	/** load the level summary out of a map package */
+	static class UUTLevelSummary* LoadLevelSummary(const FString& MapName);
 
 protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;

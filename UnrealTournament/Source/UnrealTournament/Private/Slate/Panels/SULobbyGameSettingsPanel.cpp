@@ -1,6 +1,4 @@
-
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
 #include "../Public/UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
@@ -11,12 +9,16 @@
 #include "SULobbyGameSettingsPanel.h"
 #include "../Widgets/SUTComboButton.h"
 #include "UTLobbyPC.h"
-
+#include "UTGameEngine.h"
+#include "UTLevelSummary.h"
 
 #if !UE_SERVER
 
 void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 {
+	// NOTE: leaks at the moment because Slate corrupts memory if you delete brushes
+	LevelScreenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(400.0f, 200.0f), FName(TEXT("LevelScreenshotLobby")));
+
 	bIsHost = InArgs._bIsHost;
 	MatchInfo = InArgs._MatchInfo;
 	PlayerOwner = InArgs._PlayerOwner;
@@ -391,6 +393,15 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::ConstructContents()
 
 void SULobbyGameSettingsPanel::MapChanged()
 {
+	UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MatchInfo->MatchMap);
+	if (Summary != NULL)
+	{
+		*LevelScreenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+	}
+	else
+	{
+		*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+	}
 }
 
 void SULobbyGameSettingsPanel::OptionsChanged()
@@ -504,7 +515,7 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsPanel()
 			.HeightOverride(214)							
 			[
 				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("Testing.TestMapShot"))
+				.Image(LevelScreenshot)
 			]
 		]
 	];

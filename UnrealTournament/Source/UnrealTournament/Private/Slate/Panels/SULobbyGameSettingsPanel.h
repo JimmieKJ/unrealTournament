@@ -74,6 +74,9 @@ class SULobbyGameSettingsPanel : public SCompoundWidget
 
 protected:
 
+	/** brush for drawing the level shot */
+	FSlateDynamicImageBrush* LevelScreenshot;
+
 	TArray< TSharedPtr<TAttributePropertyBase> > GameConfigProps;
 
 	// Takes the MatchInfo->MatchOptions string and builds the needed widgets from it.
