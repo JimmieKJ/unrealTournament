@@ -74,7 +74,7 @@ void FTestEntitlementsInterface::OnQueryEntitlementsComplete(bool bWasSuccessful
 
 	// Now check em out
 	TArray<TSharedRef<FOnlineEntitlement>> Entitlements;
-	EntitlementsOSS->GetAllEntitlements(UserId, Entitlements);
+	EntitlementsOSS->GetAllEntitlements(UserId, FString(), Entitlements);
 
 	for (auto It = Entitlements.CreateConstIterator(); It; ++It)
 	{
