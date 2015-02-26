@@ -26,6 +26,11 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 	SqueezeFireInterval = 0.2f;
 	SqueezeFireSpread = 0.3f;
 	SqueezeAmmoCost = 1;
+
+	if (FiringState.IsValidIndex(1) && Cast<UUTWeaponStateFiringCharged>(FiringState[1]) != NULL)
+	{
+		((UUTWeaponStateFiringCharged*)FiringState[1])->bChargeFlashCount = true;
+	}
 }
 
 void AUTWeap_BioRifle::UpdateSqueeze()
