@@ -72,8 +72,6 @@ protected:
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
 
 	void CreateBinds();
-	SVerticalBox::FSlot& AddKeyBind(TSharedPtr<FSimpleBind> Bind);
-	SVerticalBox::FSlot& AddHeader(const FString& Header);
 
 	TArray<TSharedPtr<FSimpleBind> > Binds;
 
@@ -155,6 +153,8 @@ protected:
 	}
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
+	void OnKeyBindingChanged( FKey PreviousKey, FKey NewKey, TSharedPtr<FSimpleBind> BindingThatChanged, bool bPrimaryKey );
 
 	TSharedPtr <SUTTabButton> KeyboardSettingsTabButton;
 	TSharedPtr <SUTTabButton> MouseSettingsTabButton;

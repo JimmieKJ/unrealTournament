@@ -576,8 +576,10 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 					[
 						SAssignNew(Bind->KeyWidget, SKeyBind)
 						.Key(Bind->Key)
+						.DefaultKey(Bind->DefaultKey)
 						.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+						.OnKeyBindingChanged( this, &SUWControlSettingsDialog::OnKeyBindingChanged, Bind, true)
 					]
 					+ SHorizontalBox::Slot()
 					.Padding(10.0f, 4.0f, 10.0f, 4.0f)
@@ -585,8 +587,10 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 						SAssignNew(Bind->AltKeyWidget, SKeyBind)
 						.ContentPadding(FMargin(4.0f, 4.0f))
 						.Key(Bind->AltKey)
+						.DefaultKey(Bind->DefaultAltKey)
 						.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+						.OnKeyBindingChanged( this, &SUWControlSettingsDialog::OnKeyBindingChanged, Bind, false)
 					]
 				];
 			}
@@ -893,57 +897,6 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 	];
 }
 
-
-SVerticalBox::FSlot& SUWControlSettingsDialog::AddHeader(const FString& Header)
-{
-	return SVerticalBox::Slot()
-		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
-			[
-				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
-				.Text(Header)
-			]
-		];
-}
-
-SVerticalBox::FSlot& SUWControlSettingsDialog::AddKeyBind(TSharedPtr<FSimpleBind> Binds)
-{
-	return SVerticalBox::Slot()
-		.Padding(FMargin(10.0f, 2.0f, 10.0f, 2.0f))
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Left)
-			[
-				SNew(STextBlock)
-				.ColorAndOpacity(FLinearColor::Black)
-				.Text(Binds->DisplayName)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			[
-				SAssignNew(Binds->KeyWidget, SKeyBind)
-				.Key(Binds->Key)
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			[
-				SAssignNew(Binds->AltKeyWidget, SKeyBind)
-				.Key(Binds->AltKey)
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-			]
-		];
-}
-
 FReply SUWControlSettingsDialog::OnBindDefaultClick()
 {
 	//Reset all the binds to their default value
@@ -951,8 +904,8 @@ FReply SUWControlSettingsDialog::OnBindDefaultClick()
 	{
 		if (!Bind->bHeader)
 		{
-			Bind->KeyWidget->SetKey(Bind->DefaultKey, false);
-			Bind->AltKeyWidget->SetKey(Bind->DefaultAltKey, false);
+			Bind->KeyWidget->SetKey(Bind->DefaultKey, false,false);
+			Bind->AltKeyWidget->SetKey(Bind->DefaultAltKey, false,false);
 		}
 	}
 	return FReply::Handled();
@@ -1065,4 +1018,53 @@ void SUWControlSettingsDialog::Tick(const FGeometry& AllottedGeometry, const dou
 		MouseSensitivityEdit->SetText(FText::FromString(FString::Printf(TEXT("%f"), MouseSensitivity->GetValue() * 20.0f)));
 	}
 }
+
+void SUWControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKey, TSharedPtr<FSimpleBind> BindingThatChanged, bool bPrimaryKey ) 
+{
+	// Primary or Alt key changed to a valid state.  Search through all the other bindings to find a duplicate
+	if( NewKey.IsValid() )
+	{
+		FString DisplayNameOfDuplicate;
+
+		for (const auto& Bind : Binds)
+		{
+			if( !Bind->bHeader && Bind != BindingThatChanged )
+			{
+				if( NewKey == (*Bind->Key) || NewKey == (*Bind->AltKey ) )
+				{
+					DisplayNameOfDuplicate = Bind->DisplayName;
+					break;
+				}
+			}
+		}
+
+		auto OnDuplicateDialogResult = [BindingThatChanged,bPrimaryKey,PreviousKey](TSharedPtr<SCompoundWidget> Widget, uint16 Button )
+		{
+			if( Button == UTDIALOG_BUTTON_NO )
+			{
+				if( bPrimaryKey )
+				{
+					BindingThatChanged->KeyWidget->SetKey( PreviousKey, true, false );
+				}
+				else
+				{
+					BindingThatChanged->AltKeyWidget->SetKey( PreviousKey, true, false );
+				}
+			}
+		};
+
+		if( !DisplayNameOfDuplicate.IsEmpty() )
+		{
+			GetPlayerOwner()->ShowMessage
+			( 
+				NSLOCTEXT("SUWControlSettingsDialog", "DuplicateBindingTitle", "Duplicate Binding"),
+				FText::Format( NSLOCTEXT("SUWControlSettingsDialog", "DuplicateBindingMessage", "{0} is already bound to {1}.\n\nBind to {2} anyway?"), NewKey.GetDisplayName(), FText::FromString( DisplayNameOfDuplicate ), FText::FromString(BindingThatChanged->DisplayName) ),
+				UTDIALOG_BUTTON_YES|UTDIALOG_BUTTON_NO,
+				FDialogResultDelegate::CreateLambda( OnDuplicateDialogResult )
+			);
+		}
+	}
+
+}
+
 #endif

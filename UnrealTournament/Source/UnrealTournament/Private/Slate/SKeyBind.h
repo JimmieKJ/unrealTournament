@@ -4,6 +4,10 @@
 #include "SlateBasics.h"
 #include "SUWDialog.h"
 
+
+
+DECLARE_DELEGATE_TwoParams(FOnKeyBindingChanged, FKey,FKey);
+
 class SKeyBind : public SButton
 {
 public:
@@ -30,6 +34,8 @@ public:
 		SLATE_ATTRIBUTE(FSlateColor, ButtonColorAndOpacity)
 		SLATE_ATTRIBUTE(FSlateColor, ForegroundColor)
 		SLATE_ARGUMENT(TSharedPtr<FKey>, Key)
+		SLATE_ARGUMENT(FKey, DefaultKey)
+		SLATE_EVENT(FOnKeyBindingChanged, OnKeyBindingChanged)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs)
@@ -46,6 +52,9 @@ public:
 			.ForegroundColor(InArgs._ForegroundColor)
 		);
 
+		DefaultKey = InArgs._DefaultKey;
+		OnKeyBindingChanged = InArgs._OnKeyBindingChanged;
+
 		ChildSlot
 			[
 				SAssignNew(KeyText, STextBlock)
@@ -59,22 +68,28 @@ public:
 		bWaitingForKey = false;
 	}
 
-		virtual void SetKey(FKey NewKey, bool bCanReset = true)
+	virtual void SetKey(FKey NewKey, bool bCanReset = true, bool bNotify = true)
+	{
+		if (Key.IsValid() )
 		{
-			if (Key.IsValid())
+			FKey CurrentKey = *Key;
+			if (NewKey == *Key && bCanReset)
 			{
-				if (NewKey == *Key && bCanReset)
-				{
-					NewKey = FKey();
-				}
-				*Key = NewKey;
-				KeyText->SetText(NewKey == FKey() ? FString() : NewKey.ToString());
-				KeyText->SetColorAndOpacity(FLinearColor::White);
-				bWaitingForKey = false;
-				FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(true);
-				FSlateApplication::Get().ClearKeyboardFocus(EKeyboardFocusCause::SetDirectly);
+				NewKey = FKey();
+			}
+			*Key = NewKey;
+			KeyText->SetText(NewKey == FKey() ? FString() : NewKey.ToString());
+			KeyText->SetColorAndOpacity( NewKey == DefaultKey ? FLinearColor::Black : FLinearColor::White);
+			bWaitingForKey = false;
+			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(true);
+			FSlateApplication::Get().ClearKeyboardFocus(EKeyboardFocusCause::SetDirectly);
+			
+			if( bNotify )
+			{
+				OnKeyBindingChanged.ExecuteIfBound( CurrentKey , NewKey );
 			}
 		}
+	}
 protected:
 
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override
@@ -103,7 +118,7 @@ protected:
 			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->SetPosition(WaitingMousePos.X, WaitingMousePos.Y);
 
 			KeyText->SetText(NSLOCTEXT("SKeyBind", "PressAnyKey", "** Press Any Button **"));
-			KeyText->SetColorAndOpacity(FLinearColor(FColor(0,255,0,255)));
+			KeyText->SetColorAndOpacity(FLinearColor(FColor(0,0,255,255)));
 			bWaitingForKey = true;
 			FSlateApplication::Get().GetPlatformApplication().Get()->Cursor->Show(false);
 			return FReply::Handled();
@@ -137,7 +152,9 @@ protected:
 	}
 
 private:
+	FOnKeyBindingChanged OnKeyBindingChanged;
 	TSharedPtr<FKey> Key;
+	FKey DefaultKey;
 	TSharedPtr<STextBlock> KeyText;
 	FVector2D WaitingMousePos;
 	bool bWaitingForKey;
