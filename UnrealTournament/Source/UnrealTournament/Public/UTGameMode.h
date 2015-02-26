@@ -258,7 +258,7 @@ public:
 	 */
 	virtual void AssignDefaultSquadFor(AController* C);
 
-	virtual void EntitlementQueryComplete(bool bWasSuccessful, const class FUniqueNetId& UniqueId, const FString& ErrorMessage);
+	virtual void EntitlementQueryComplete(bool bWasSuccessful, const class FUniqueNetId& UniqueId, const FString& Namespace, const FString& ErrorMessage);
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	UFUNCTION(BlueprintImplementableEvent)

@@ -455,7 +455,7 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 	return Result;
 }
 
-void AUTGameMode::EntitlementQueryComplete(bool bWasSuccessful, const FUniqueNetId& UniqueId, const FString& ErrorMessage)
+void AUTGameMode::EntitlementQueryComplete(bool bWasSuccessful, const FUniqueNetId& UniqueId, const FString& Namespace, const FString& ErrorMessage)
 {
 	// validate player's custom options
 	// note that it is possible that they have not entered the game yet, since this is started via PreLogin() - in that case we'll validate from Login()
