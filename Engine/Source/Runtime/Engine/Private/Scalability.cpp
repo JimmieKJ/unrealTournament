@@ -254,6 +254,9 @@ FQualityLevels BenchmarkQualityLevels(uint32 WorkScale)
 	Results.TextureQuality = ComputeOptionFromPerfIndex(GPUPerfIndex, 10, 40, 70);
 	Results.EffectsQuality = ComputeOptionFromPerfIndex(MinPerfIndex, 25, 55, 70);
 
+	UE_LOG(LogConsoleResponse, Display, TEXT("CPUPerf: %f"), CPUPerfIndex);
+	UE_LOG(LogConsoleResponse, Display, TEXT("GPUPerf: %f"), GPUPerfIndex);
+
 	return Results;
 }
 
