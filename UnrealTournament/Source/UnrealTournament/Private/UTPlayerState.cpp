@@ -819,7 +819,7 @@ void AUTPlayerState::ValidateEntitlements()
 		{
 			// we assume that any successful entitlement query is going to return at least one - the entitlement to play the game
 			TArray< TSharedRef<FOnlineEntitlement> > AllEntitlements;
-			EntitlementInterface->GetAllEntitlements(*UniqueId.GetUniqueNetId().Get(), AllEntitlements);
+			EntitlementInterface->GetAllEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"), AllEntitlements);
 			if (AllEntitlements.Num() > 0)
 			{
 				FUniqueEntitlementId Entitlement = GetRequiredEntitlementFromObj(HatClass);

@@ -76,7 +76,7 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 			IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
 			if (EntitlementInterface.IsValid())
 			{
-				EntitlementInterface->QueryEntitlements(*UniqueId.Get());
+				EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
 			}
 		}
 	}
@@ -91,7 +91,7 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, const FStrin
 		if (EntitlementInterface.IsValid())
 		{
 			// note that we need to redundantly query even if we already got this user's entitlements because they might have quit, bought some stuff, then come back
-			EntitlementInterface->QueryEntitlements(*UniqueId.Get());
+			EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
 		}
 	}
 
