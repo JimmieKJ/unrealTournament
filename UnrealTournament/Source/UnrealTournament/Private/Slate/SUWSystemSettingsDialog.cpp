@@ -360,13 +360,6 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 		CurrentResIndex = ResList.Add(MakeShareable(new FString(FString::Printf(TEXT("%ix%i"), int32(ViewportSize.X), int32(ViewportSize.Y)))));
 	}
 
-	// Calculate our current Screen Percentage
-	auto ScreenPercentageCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.ScreenPercentage"));
-	int32 ScreenPercentage = ScreenPercentageCVar->GetValueOnGameThread();
-	ScreenPercentage = int32(FMath::Clamp(float(ScreenPercentage), ScreenPercentageRange.X, ScreenPercentageRange.Y));
-
-	float ScreenPercentageSliderSetting = (float(ScreenPercentage) - ScreenPercentageRange.X) / (ScreenPercentageRange.Y - ScreenPercentageRange.X);
-
 	return SNew(SVerticalBox)
 
 	+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "Options", "- General Options -"))
@@ -406,10 +399,6 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			]
 		]
 	]
-
-	+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange, 
-		GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting, 
-		NSLOCTEXT("SUWSystemSettingsDialog", "ScreenPercentage_Tooltip", "Sets the scale as a percentage of your resolution that the engine renders too, this is later upsampled to your desired resolution.\nThis can be a useful preformance tweak to ensure smooth preformance without changing your resolution away from "))
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -541,10 +530,20 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 	float DecalSliderSetting = (GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime <= 0.0f) ? 1.0f : ((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime - DecalLifetimeRange.X) / (DecalLifetimeRange.Y - DecalLifetimeRange.X));
 	float FOVSliderSetting = (GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN);
 
+	// Calculate our current Screen Percentage
+	auto ScreenPercentageCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.ScreenPercentage"));
+	int32 ScreenPercentage = ScreenPercentageCVar->GetValueOnGameThread();
+	ScreenPercentage = int32(FMath::Clamp(float(ScreenPercentage), ScreenPercentageRange.X, ScreenPercentageRange.Y));
+
+	float ScreenPercentageSliderSetting = (float(ScreenPercentage) - ScreenPercentageRange.X) / (ScreenPercentageRange.Y - ScreenPercentageRange.X);
 
 	return SNew(SVerticalBox)
 
 	+AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "DetailSettings", "- Graphics Detail Settings -"))
+
+	+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange, 
+		GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting, 
+		NSLOCTEXT("SUWSystemSettingsDialog", "ScreenPercentage_Tooltip", "Sets the scale as a percentage of your resolution that the engine renders too, this is later upsampled to your desired resolution.\nThis can be a useful preformance tweak to ensure smooth preformance without changing your resolution away from "))
 
 	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, 
 		&SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality, 
