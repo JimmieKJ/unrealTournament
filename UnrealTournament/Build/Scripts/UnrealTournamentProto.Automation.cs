@@ -213,12 +213,6 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             {
                 // verify the files we need exist first
                 string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacEditor");
-                string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
-
-                if (!FileExists(RawImageManifest))
-                {
-                    throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
-                }
 
                 var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Mac, BranchName);
 
@@ -288,12 +282,6 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             {
                 // verify the files we need exist first
                 string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsEditor");
-                string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
-
-                if (!FileExists(RawImageManifest))
-                {
-                    throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
-                }
 
                 var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
 
