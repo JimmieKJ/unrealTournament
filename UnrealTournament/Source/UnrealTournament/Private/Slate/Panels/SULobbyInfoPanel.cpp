@@ -963,23 +963,31 @@ FText SULobbyInfoPanel::GetMatchPlayerListText() const
 		{
 			for (int32 i=0;i<WatchedMatch->PlayersInMatchInstance.Num();i++)
 			{
-				PlayerList += PlayerList == TEXT("") ? WatchedMatch->PlayersInMatchInstance[i].PlayerName : TEXT(", ") + WatchedMatch->PlayersInMatchInstance[i].PlayerName;
+				if (WatchedMatch->PlayersInMatchInstance[i].PlayerName != TEXT(""))
+				{
+					PlayerList += PlayerList == TEXT("") ? WatchedMatch->PlayersInMatchInstance[i].PlayerName : TEXT(", ") + WatchedMatch->PlayersInMatchInstance[i].PlayerName;
+				}
 			}
 		}
 		else if (WatchedMatch->CurrentState == ELobbyMatchState::WaitingForPlayers || WatchedMatch->CurrentState == ELobbyMatchState::Launching)
 		{
 			for (int32 i=0;i<WatchedMatch->Players.Num();i++)
 			{
-				PlayerList += PlayerList == TEXT("") ? WatchedMatch->Players[i]->PlayerName : TEXT(", ") + WatchedMatch->Players[i]->PlayerName;
+				if (WatchedMatch->Players[i].IsValid() && WatchedMatch->Players[i]->PlayerName != TEXT(""))
+				{
+					PlayerList += PlayerList == TEXT("") ? WatchedMatch->Players[i]->PlayerName : TEXT(", ") + WatchedMatch->Players[i]->PlayerName;
+				}
 			}
 
 		}
-		return FText::Format( NSLOCTEXT("SULobbytInfoPanel","MatchPlayerListFormat","Players In Match: {0}"), FText::FromString(PlayerList));
+
+		if (PlayerList != TEXT(""))
+		{
+			return FText::Format( NSLOCTEXT("SULobbytInfoPanel","MatchPlayerListFormat","Players In Match: {0}"), FText::FromString(PlayerList));
+		}
 	}
-	else
-	{
-		return FText::GetEmpty();
-	}
+
+	return FText::GetEmpty();
 }
 
 #endif
