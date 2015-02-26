@@ -126,7 +126,7 @@ public:
 	virtual void StartPlay() override;
 
 	/** add bots until NumPlayers + NumBots is this number */
-	UPROPERTY(GlobalConfig)
+	UPROPERTY(config)
 	int32 BotFillCount;
 
 	// How long a player must wait before respawning.  Set to 0 for no delay.
