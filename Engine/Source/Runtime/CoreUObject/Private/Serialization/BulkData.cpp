@@ -638,11 +638,17 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 				// Number of elements in array.
 				Ar << ElementCount;
 
-				// Make sure bulk data is loaded.
-				MakeSureBulkDataIsLoaded();
+				// Don't attempt to load or serialize BulkData if the current size is 0.
+				// This could be a newly constructed BulkData that has not yet been loaded, 
+				// and allocating 0 bytes now will cause a crash when we load.
+				if (GetBulkDataSize() > 0)
+				{
+					// Make sure bulk data is loaded.
+					MakeSureBulkDataIsLoaded();
 
-				// Serialize bulk data.
-				SerializeBulkData( Ar, BulkData );
+					// Serialize bulk data.
+					SerializeBulkData(Ar, BulkData);
+				}
 			}
 		}
 	}
