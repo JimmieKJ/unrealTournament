@@ -10,6 +10,8 @@
 #include "UTMutator.h"
 #include "../SUWBotConfigDialog.h"
 #include "UTGameEngine.h"
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
 
 #if !UE_SERVER
 
@@ -924,7 +926,57 @@ FReply SUWCreateGamePanel::HostClick()
 	}
 	else
 	{
+		UUTGameUserSettings* GameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+
+		bool bShowingLanWarning = false;
+		if( !GameSettings->bShouldSuppressLanWarning )
+		{
+			TWeakObjectPtr<UUTLocalPlayer> PlayerOwner = GetPlayerOwner();
+
+			auto OnDialogConfirmation = [PlayerOwner] (TSharedPtr<SCompoundWidget> Widget, uint16 Button)
+			{
+				if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
+				{
+					PlayerOwner->PlayerController->bShowMouseCursor = false;
+					PlayerOwner->PlayerController->SetInputMode(FInputModeGameOnly());
+				}
+
+				UUTGameUserSettings* GameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+				GameSettings->SaveConfig();
+			};
+
+			bool bCanBindAll = false;
+			TSharedRef<FInternetAddr> Address = ISocketSubsystem::Get()->GetLocalHostAddr(*GWarn, bCanBindAll);
+			if (Address->IsValid())
+			{
+				FString StringAddress = Address->ToString(false);
+
+				// Note: This is an extremely basic way to test for local network and it only covers the common case
+				if (StringAddress.StartsWith(TEXT("192.168.")))
+				{
+					if( PlayerOwner->PlayerController )
+					{
+						PlayerOwner->PlayerController->SetInputMode( FInputModeUIOnly() );
+					}
+					bShowingLanWarning = true;
+					PlayerOwner->ShowSupressableConfirmation(
+						NSLOCTEXT("SUWCreateGamePanel", "LocalNetworkWarningTitle", "Local Network Detected"),
+						NSLOCTEXT("SUWCreateGamePanel", "LocalNetworkWarningDesc", "Make sure ports 7777 and 15000 are forwarded in your router to be visible to players outside your local network"),
+						FVector2D(0, 0),
+						GameSettings->bShouldSuppressLanWarning,
+						FDialogResultDelegate::CreateLambda( OnDialogConfirmation ) );
+				}
+
+			}
+		}
 		StartGame(EServerStartMode::SERVER_Listen);
+
+		if (PlayerOwner->PlayerController && bShowingLanWarning)
+		{ 
+			// ensure the user can click the warning.  The game will have tried to hide the cursor otherwise
+			PlayerOwner->PlayerController->bShowMouseCursor = true;
+			PlayerOwner->PlayerController->SetInputMode(FInputModeUIOnly());
+		}
 	}
 
 	return FReply::Handled();

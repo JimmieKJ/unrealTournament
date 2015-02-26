@@ -15,7 +15,9 @@ class SUWMessageBox : public SUWDialog
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
 	, _ButtonMask(UTDIALOG_BUTTON_OK)
+	, _IsSuppressible(false)
 	, _MessageTextStyleName(TEXT("UT.Common.NormalText"))
+	
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
 	SLATE_ARGUMENT(FText, DialogTitle)											
@@ -25,8 +27,10 @@ class SUWMessageBox : public SUWDialog
 	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)								
 	SLATE_ARGUMENT(FVector2D, ContentPadding)									
 	SLATE_ARGUMENT(uint16, ButtonMask)											
-	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)							
-
+	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)		
+	SLATE_ARGUMENT(bool, IsSuppressible)
+	SLATE_ATTRIBUTE(ECheckBoxState, SuppressibleCheckBoxState)
+	SLATE_EVENT(FOnCheckStateChanged, OnSuppressibleCheckStateChanged)
 	SLATE_ARGUMENT(FText, MessageText)
 	SLATE_ARGUMENT(FString, MessageTextStyleName)
 
@@ -34,6 +38,12 @@ class SUWMessageBox : public SUWDialog
 
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
+
+	virtual TSharedRef<class SWidget> BuildCustomButtonBar() override;
+private:
+	TAttribute<ECheckBoxState> SuppressibleCheckBoxState;
+	FOnCheckStateChanged OnSuppressibleCheckStateChanged;
+	bool bIsSuppressible;
 };
 
 #endif

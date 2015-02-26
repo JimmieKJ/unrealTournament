@@ -9,6 +9,12 @@
 
 void SUWMessageBox::Construct(const FArguments& InArgs)
 {
+	// These must be set before the parent Construct is called.
+	bIsSuppressible = InArgs._IsSuppressible;
+
+	OnSuppressibleCheckStateChanged = InArgs._OnSuppressibleCheckStateChanged;
+	SuppressibleCheckBoxState = InArgs._SuppressibleCheckBoxState;
+
 	// Let the Dialog construct itself.
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -22,8 +28,9 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
 
-	// At this point, the DialogContent should be ready to have slots added.
 
+
+	// At this point, the DialogContent should be ready to have slots added.
 	if (DialogContent.IsValid())
 	{
 		const float MessageTextPaddingX = 50.0f;
@@ -37,6 +44,28 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 			.AutoWrapText(true)
 			.Text(InArgs._MessageText)
 		];
+	}
+}
+
+TSharedRef<SWidget> SUWMessageBox::BuildCustomButtonBar()
+{
+	if( bIsSuppressible )
+	{
+		return 
+			SNew(SCheckBox)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.ForegroundColor(FLinearColor::White)
+			.IsChecked(SuppressibleCheckBoxState)
+			.OnCheckStateChanged(OnSuppressibleCheckStateChanged)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUWMessageBox", "SuppressibleMessage", "Don't show this again"))
+			];
+	}
+	else
+	{
+		return SUWDialog::BuildCustomButtonBar();
 	}
 }
 

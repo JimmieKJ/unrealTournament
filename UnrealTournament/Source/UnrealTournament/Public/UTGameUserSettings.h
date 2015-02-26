@@ -91,6 +91,10 @@ protected:
 	UPROPERTY(config)
 	int32 InitialBenchmarkState;
 
+public:
+	UPROPERTY(config)
+	bool bShouldSuppressLanWarning;
+
 private:
 #if !UE_SERVER
 	void RunSynthBenchmark(bool bSaveSettingsOnceDetected);

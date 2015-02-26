@@ -332,6 +332,47 @@ TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FTe
 	return NewDialog;
 }
 
+TSharedPtr<class SUWDialog> UUTLocalPlayer::ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback)
+{
+	auto OnGetSuppressibleState = [&InOutShouldSuppress]() { return InOutShouldSuppress ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; };
+
+	auto OnSetSuppressibleState = [&InOutShouldSuppress](ECheckBoxState CheckBoxState) 
+	{ 
+		InOutShouldSuppress = CheckBoxState == ECheckBoxState::Checked;
+	};
+
+	TSharedPtr<class SUWDialog> NewDialog;
+	if (DialogSize.IsNearlyZero())
+	{
+		SAssignNew(NewDialog, SUWMessageBox)
+			.PlayerOwner(this)
+			.DialogTitle(MessageTitle)
+			.MessageText(MessageText)
+			.ButtonMask(UTDIALOG_BUTTON_OK)
+			.OnDialogResult(Callback)
+			.IsSuppressible(true)
+			.SuppressibleCheckBoxState_Lambda( OnGetSuppressibleState )
+			.OnSuppressibleCheckStateChanged_Lambda( OnSetSuppressibleState );
+	}
+	else
+	{
+		SAssignNew(NewDialog, SUWMessageBox)
+			.PlayerOwner(this)
+			.bDialogSizeIsRelative(true)
+			.DialogSize(DialogSize)
+			.DialogTitle(MessageTitle)
+			.MessageText(MessageText)
+			.ButtonMask(UTDIALOG_BUTTON_OK)
+			.IsSuppressible(true)
+			.SuppressibleCheckBoxState_Lambda(OnGetSuppressibleState)
+			.OnSuppressibleCheckStateChanged_Lambda(OnSetSuppressibleState)
+			.OnDialogResult(Callback);
+	}
+
+	OpenDialog(NewDialog.ToSharedRef());
+	return NewDialog;
+}
+
 void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog, int32 ZOrder)
 {
 	GEngine->GameViewport->AddViewportWidgetContent(Dialog, ZOrder);
