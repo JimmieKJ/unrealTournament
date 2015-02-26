@@ -92,11 +92,14 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		{
 			B->CheckWeaponFiring();
 		}
-
-		if (GetOuterAUTWeapon()->HandleContinuedFiring())
+		// make sure AI code didn't result in bot blowing self up, etc
+		if (GetUTOwner() != NULL)
 		{
-			bCharging = true;
-			BeginState(this);
+			if (GetOuterAUTWeapon()->HandleContinuedFiring())
+			{
+				bCharging = true;
+				BeginState(this);
+			}
 		}
 	}
 	virtual void GraceTimer()
