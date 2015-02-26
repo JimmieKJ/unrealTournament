@@ -20,6 +20,8 @@ struct FOnlineEntitlement
 	FString Name;
 	/** Id for the item that this entitlement is associated with */
 	FString ItemId;
+	/**  Namespace of the entitlement */
+	FString Namespace;
 
 	/**
 	 * @return Any additional data associated with the entitlement
@@ -44,9 +46,10 @@ struct FOnlineEntitlement
  *
  * @param bWasSuccessful true if server was contacted and a valid result received
  * @param UserId of the user who was granted entitlements in this callback
+ * @param Namespace optional namespace that was used to query. Empty means all entitlements were queried
  * @param Error string representing the error condition
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnQueryEntitlementsComplete, bool, const FUniqueNetId&, const FString&);
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnQueryEntitlementsComplete, bool, const FUniqueNetId&, const FString&, const FString&);
 typedef FOnQueryEntitlementsComplete::FDelegate FOnQueryEntitlementsCompleteDelegate;
 
 /**
@@ -79,27 +82,30 @@ public:
 	 * Gets the cached entitlement set for the requested user
 	 *
 	 * @param UserId the ID of the user to get entitlements for
+	 * @param Namespace optional namespace to filter on
 	 * @param OutUserEntitlements out parameter to copy the user's entitlements into
 	 */
-	virtual void GetAllEntitlements(const FUniqueNetId& UserId, TArray<TSharedRef<FOnlineEntitlement>>& OutUserEntitlements) = 0;
+	virtual void GetAllEntitlements(const FUniqueNetId& UserId, const FString& Namespace, TArray<TSharedRef<FOnlineEntitlement>>& OutUserEntitlements) = 0;
 
 	/**
 	 * Contacts server and retrieves the list of the user's entitlements, caching them locally
 	 *
 	 * @param UserId the ID of the user to act on
+	 * @param Namespace optional namespace to filter on
 	 *
 	 * @return true if the operation started successfully
 	 */
-	virtual bool QueryEntitlements(const FUniqueNetId& UserId, const FPagedQuery& Page = FPagedQuery()) = 0;
+	virtual bool QueryEntitlements(const FUniqueNetId& UserId, const FString& Namespace, const FPagedQuery& Page = FPagedQuery()) = 0;
 	
 	/**
 	 * Delegate instanced called when enumerating entitlements has completed
 	 *
 	 * @param bWasSuccessful true if server was contacted and a valid result received
 	 * @param UserId of the user who was granted entitlements in this callback
+	 * @param Namespace optional namespace that was used to query. Empty means all entitlements were queried
 	 * @param Error string representing the error condition
 	 */
-	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnQueryEntitlementsComplete, bool, const FUniqueNetId&, const FString&);
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnQueryEntitlementsComplete, bool, const FUniqueNetId&, const FString&, const FString&);
 };
 
 typedef TSharedPtr<IOnlineEntitlements, ESPMode::ThreadSafe> IOnlineEntitlementsPtr;
