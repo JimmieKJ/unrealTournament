@@ -104,136 +104,115 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 
 	// TODO: BotSkill should be a list box with the usual items; this is a simple placeholder
 	MenuSpace->AddSlot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
 			.Text(NSLOCTEXT("UTGameMode", "BotSkill", "Bot Skill"))
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-						.Text(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetAsText)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SNumericEntryBox<float>)
-						.LabelPadding(FMargin(10.0f, 0.0f))
-						.Value(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetOptional)
-						.OnValueChanged(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::Set)
-						.AllowSpin(true)
-						.Delta(1)
-						.MinValue(0)
-						.MaxValue(7)
-						.MinSliderValue(0)
-						.MaxSliderValue(7)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
+				.Text(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetAsText)
+			) :
+			StaticCastSharedRef<SWidget>(
+				SNew(SNumericEntryBox<float>)
+				.LabelPadding(FMargin(10.0f, 0.0f))
+				.Value(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetOptional)
+				.OnValueChanged(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::Set)
+				.AllowSpin(true)
+				.Delta(1)
+				.MinValue(0)
+				.MaxValue(7)
+				.MinSliderValue(0)
+				.MaxSliderValue(7)
+				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeEditableText")
+			)
 		]
 	];
 	MenuSpace->AddSlot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
 			.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-						.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SNumericEntryBox<int32>)
-						.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-						.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-						.AllowSpin(true)
-						.Delta(1)
-						.MinValue(0)
-						.MaxValue(999)
-						.MinSliderValue(0)
-						.MaxSliderValue(99)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
+				.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+			) :
+			StaticCastSharedRef<SWidget>(
+				SNew(SNumericEntryBox<int32>)
+				.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+				.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+				.AllowSpin(true)
+				.Delta(1)
+				.MinValue(0)
+				.MaxValue(999)
+				.MinSliderValue(0)
+				.MaxSliderValue(99)
+				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeEditableText")
+			)
 		]
 	];
 	MenuSpace->AddSlot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
 			.Text(NSLOCTEXT("UTGameMode", "TimeLimit", "Time Limit"))
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
-						.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SNumericEntryBox<int32>)
-						.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-						.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-						.AllowSpin(true)
-						.Delta(1)
-						.MinValue(0)
-						.MaxValue(999)
-						.MinSliderValue(0)
-						.MaxSliderValue(60)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
+				.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+			) :
+			StaticCastSharedRef<SWidget>(
+				SNew(SNumericEntryBox<int32>)
+				.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+				.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+				.AllowSpin(true)
+				.Delta(1)
+				.MinValue(0)
+				.MaxValue(999)
+				.MinSliderValue(0)
+				.MaxSliderValue(60)
+				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeEditableText")
+			)
 		]
 	];
 }

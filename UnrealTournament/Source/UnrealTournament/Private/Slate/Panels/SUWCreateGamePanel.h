@@ -52,7 +52,7 @@ protected:
 	FSlateDynamicImageBrush* LevelScreenshot;
 
 	TSharedPtr<SWidgetSwitcher> TabSwitcher;
-	TSharedPtr<SScrollBox> GamePanel;
+	TSharedPtr<SVerticalBox> GamePanel;
 
 	TSharedPtr<SUTTabButton> GameSettingsTabButton;
 	TSharedPtr<STextBlock> GameSettingsLabel;
@@ -67,6 +67,7 @@ protected:
 
 	void OnMapSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	TSharedRef<SWidget> GenerateGameNameWidget(UClass* InItem);
+	TSharedRef<SWidget> GenerateMapNameWidget(TSharedPtr<FString> InItem);
 	void OnGameSelected(UClass* NewSelection, ESelectInfo::Type SelectInfo);
 	virtual FReply OfflineClick();
 	virtual FReply HostClick();

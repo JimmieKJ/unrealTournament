@@ -418,42 +418,33 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 	ConfigProps.Add(BalanceTeamsAttr);
 
 	MenuSpace->AddSlot()
-	.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
-	.VAlign(VAlign_Top)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
 			.Text(NSLOCTEXT("UTTeamGameMode", "BalanceTeams", "Balance Teams").ToString())
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(SCheckBox)
-						.IsChecked(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-						.Type(ESlateCheckBoxType::CheckBox)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SCheckBox)
-						.IsChecked(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-						.OnCheckStateChanged(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-						.Type(ESlateCheckBoxType::CheckBox)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+				SNew(SCheckBox)
+				.IsChecked(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+				.Type(ESlateCheckBoxType::CheckBox)
+			) :
+			StaticCastSharedRef<SWidget>(
+				SNew(SCheckBox)
+				.IsChecked(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+				.OnCheckStateChanged(BalanceTeamsAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+				.Type(ESlateCheckBoxType::CheckBox)
+			)
 		]
 	];
 }

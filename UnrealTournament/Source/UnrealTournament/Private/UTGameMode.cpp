@@ -2225,221 +2225,184 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
 	MenuSpace->AddSlot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
 	[
-		
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.Padding(0.0f, 5.0f, 0.0f, 0.0f)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-			.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Max Number of Bot Combatants"))
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
+			.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-						.Text(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SNumericEntryBox<int32>)
-						.Value(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-						.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-						.AllowSpin(true)
-						.Delta(1)
-						.MinValue(1)
-						.MaxValue(32)
-						.MinSliderValue(1)
-						.MaxSliderValue(32)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
+				.Text(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+			) :
+			StaticCastSharedRef<SWidget>(
+				SNew(SNumericEntryBox<int32>)
+				.Value(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+				.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+				.AllowSpin(true)
+				.Delta(1)
+				.MinValue(1)
+				.MaxValue(32)
+				.MinSliderValue(1)
+				.MaxSliderValue(32)
+				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeEditableText")
+			)
 		]
 	];
 	// TODO: BotSkill should be a list box with the usual items; this is a simple placeholder
 	MenuSpace->AddSlot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
 			.Text(NSLOCTEXT("UTGameMode", "BotSkill", "Bot Skill"))
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-						.Text(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetAsText)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SNumericEntryBox<float>)
-						.LabelPadding(FMargin(10.0f, 0.0f))
-						.Value(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetOptional)
-						.OnValueChanged(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::Set)
-						.AllowSpin(true)
-						.Delta(1)
-						.MinValue(0)
-						.MaxValue(7)
-						.MinSliderValue(0)
-						.MaxSliderValue(7)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
+				.Text(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetAsText)
+			) :
+			StaticCastSharedRef<SWidget>(
+				SNew(SNumericEntryBox<float>)
+				.LabelPadding(FMargin(10.0f, 0.0f))
+				.Value(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetOptional)
+				.OnValueChanged(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::Set)
+				.AllowSpin(true)
+				.Delta(1)
+				.MinValue(0)
+				.MaxValue(7)
+				.MinSliderValue(0)
+				.MaxSliderValue(7)
+				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeEditableText")
+			)
 		]
 	];
 	MenuSpace->AddSlot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
 			.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-						.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SNumericEntryBox<int32>)
-						.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-						.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-						.AllowSpin(true)
-						.Delta(1)
-						.MinValue(0)
-						.MaxValue(999)
-						.MinSliderValue(0)
-						.MaxSliderValue(99)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
+				.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+			) :
+			StaticCastSharedRef<SWidget>(
+				SNew(SNumericEntryBox<int32>)
+				.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+				.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+				.AllowSpin(true)
+				.Delta(1)
+				.MinValue(0)
+				.MaxValue(999)
+				.MinSliderValue(0)
+				.MaxSliderValue(99)
+				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeEditableText")
+			)
 		]
 	];
 	MenuSpace->AddSlot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
 			.Text(NSLOCTEXT("UTGameMode", "TimeLimit", "Time Limit"))
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-						.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SNumericEntryBox<int32>)
-						.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-						.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-						.AllowSpin(true)
-						.Delta(1)
-						.MinValue(0)
-						.MaxValue(999)
-						.MinSliderValue(0)
-						.MaxSliderValue(60)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+			SNew(STextBlock)
+			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
+			.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+			) :
+			StaticCastSharedRef<SWidget>(
+			SNew(SNumericEntryBox<int32>)
+			.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+			.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+			.AllowSpin(true)
+			.Delta(1)
+			.MinValue(0)
+			.MaxValue(999)
+			.MinSliderValue(0)
+			.MaxSliderValue(60)
+			.EditableTextBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeEditableText")
+			)
 		]
 	];
 	MenuSpace->AddSlot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 	.AutoHeight()
 	.VAlign(VAlign_Top)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
-		.AutoWidth()
+		.FillWidth(0.6f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
 			.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn").ToString())
 		]
 		+ SHorizontalBox::Slot()
-		.FillWidth(1.0f)
+		.FillWidth(0.4f)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(150.0f)
-				[
-					bCreateReadOnly ?
-					StaticCastSharedRef<SWidget>(
-						SNew(SCheckBox)
-						.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-						.Type(ESlateCheckBoxType::CheckBox)
-					) :
-					StaticCastSharedRef<SWidget>(
-						SNew(SCheckBox)
-						.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-						.OnCheckStateChanged(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-						.Type(ESlateCheckBoxType::CheckBox)
-					)
-				]
-			]
+			bCreateReadOnly ?
+			StaticCastSharedRef<SWidget>(
+				SNew(SCheckBox)
+				.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+				.Type(ESlateCheckBoxType::CheckBox)
+			) :
+			StaticCastSharedRef<SWidget>(
+				SNew(SCheckBox)
+				.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+				.OnCheckStateChanged(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+				.Type(ESlateCheckBoxType::CheckBox)
+			)
 		]
 	];
 }

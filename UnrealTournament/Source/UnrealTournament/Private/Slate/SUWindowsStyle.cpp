@@ -111,7 +111,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	//Style.Set("UT.Backgrounds.BK02", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.BK02", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Backgrounds.Overlay", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.Overlay", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
-
+	Style.Set("UT.Background.Dark", new FSlateColorBrush(FLinearColor(0, 0, 0, .5f)));
 
 	Style.Set("UT.Version.TextStyle", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Bold", 14))
@@ -599,6 +599,20 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	Style.Set("UWindows.Standard.NormalText", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Regular", 12))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UWindows.Standard.LargeText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Regular", 14))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UWindows.Standard.LargeEditableText", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("Play-Regular", 14))
+		);
+
+	Style.Set("UWindows.Standard.ExtraLargeText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Regular", 16))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
