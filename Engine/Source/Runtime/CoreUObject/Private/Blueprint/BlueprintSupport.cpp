@@ -1050,42 +1050,45 @@ void ULinkerLoad::ResolveDeferredExports(UClass* LoadClass)
 			{
 				DEFERRED_DEPENDENCY_CHECK(Export.ClassIndex.IsImport());
 				UClass* ExportClass = GetExportLoadClass(ExportIndex);
-				DEFERRED_DEPENDENCY_CHECK((ExportClass != nullptr) && !ExportClass->HasAnyClassFlags(CLASS_Intrinsic) && ExportClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
-				ULinkerLoad* ClassLinker = ExportClass->GetLinker();
-				DEFERRED_DEPENDENCY_CHECK((ClassLinker != nullptr) && (ClassLinker != this));
-
+				if (ExportClass != NULL) // TODO: temp workaround, engine investigating real fix
 				{
-					// make sure we're not already in ForceRegenerateClass() for
-					// this export (that could cause some bad infinite recursion)
-					DEFERRED_DEPENDENCY_CHECK(!IsExportBeingResolved(ExportIndex));
-					FScopedResolvingExportTracker ForceRegenGuard(this, ExportIndex);
+					DEFERRED_DEPENDENCY_CHECK((ExportClass != nullptr) && !ExportClass->HasAnyClassFlags(CLASS_Intrinsic) && ExportClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
+					ULinkerLoad* ClassLinker = ExportClass->GetLinker();
+					DEFERRED_DEPENDENCY_CHECK((ClassLinker != nullptr) && (ClassLinker != this));
 
-					// make sure this export's class is fully regenerated before  
-					// we instantiate it (so we don't have to re-inst on load)
-					ForceRegenerateClass(ExportClass);
-				}
+					{
+						// make sure we're not already in ForceRegenerateClass() for
+						// this export (that could cause some bad infinite recursion)
+						DEFERRED_DEPENDENCY_CHECK(!IsExportBeingResolved(ExportIndex));
+						FScopedResolvingExportTracker ForceRegenGuard(this, ExportIndex);
 
-				// replace the placeholder with the proper object instance
-				Export.Object = nullptr;
-				UObject* ExportObj = CreateExport(ExportIndex);
+						// make sure this export's class is fully regenerated before  
+						// we instantiate it (so we don't have to re-inst on load)
+						ForceRegenerateClass(ExportClass);
+					}
 
-				// NOTE: we don't count how many references were resolved (and 
-				//       assert on it), because this could have only been created as 
-				//       part of the LoadAllObjects() pass (not for any specific 
-				//       container object).
-				PlaceholderExport->ReplaceReferencingObjectValues(LoadClass, ExportObj);
-				PlaceholderExport->MarkPendingKill();
+					// replace the placeholder with the proper object instance
+					Export.Object = nullptr;
+					UObject* ExportObj = CreateExport(ExportIndex);
 
-				// if we hadn't used a ULinkerPlaceholderExportObject in place of 
-				// the expected export, then someone may have wanted it preloaded
-				Preload(ExportObj);
+					// NOTE: we don't count how many references were resolved (and 
+					//       assert on it), because this could have only been created as 
+					//       part of the LoadAllObjects() pass (not for any specific 
+					//       container object).
+					PlaceholderExport->ReplaceReferencingObjectValues(LoadClass, ExportObj);
+					PlaceholderExport->MarkPendingKill();
+
+					// if we hadn't used a ULinkerPlaceholderExportObject in place of 
+					// the expected export, then someone may have wanted it preloaded
+					Preload(ExportObj);
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-				FReferencerInformationList UnresolvedReferences;
-				UObject* PlaceholderObj = PlaceholderExport;
-				bool const bIsReferenced = false;// IsReferenced(PlaceholderObj, RF_NoFlags, /*bCheckSubObjects =*/false, &UnresolvedReferences);
-				DEFERRED_DEPENDENCY_CHECK(!bIsReferenced);
+					FReferencerInformationList UnresolvedReferences;
+					UObject* PlaceholderObj = PlaceholderExport;
+					bool const bIsReferenced = false;// IsReferenced(PlaceholderObj, RF_NoFlags, /*bCheckSubObjects =*/false, &UnresolvedReferences);
+					DEFERRED_DEPENDENCY_CHECK(!bIsReferenced);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+				}
 			}
 		}
 	}
