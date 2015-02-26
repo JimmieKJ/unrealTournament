@@ -496,6 +496,12 @@ public:
 	{
 		return (Super::NeedsRebuild() || PathNodes.Num() == 0);
 	}
+	virtual void RebuildAll() override
+	{
+		bIsBuilding = true;
+		bUserRequestedBuild = true;
+		Super::RebuildAll();
+	}
 };
 
 inline AUTRecastNavMesh* GetUTNavData(UWorld* World)

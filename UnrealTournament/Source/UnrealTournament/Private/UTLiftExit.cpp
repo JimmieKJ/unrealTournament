@@ -26,7 +26,8 @@ void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, b
 	{
 		// find standing position on lift
 		FHitResult LiftHit;
-		if (TheLift->ActorLineTraceSingle(LiftHit, TheLift->GetActorLocation() + FVector(0.0f, 0.0f, 10000.0f), TheLift->GetActorLocation() - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams()))
+		FVector LiftCenter = TheLift->GetComponentsBoundingBox().GetCenter();
+		if (TheLift->ActorLineTraceSingle(LiftHit, LiftCenter + FVector(0.0f, 0.0f, 10000.0f), LiftCenter - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams()))
 		{
 			const FVector LiftCenterOffset = LiftHit.Location + FVector(0.0f, 0.0f, NavData->AgentHeight * 0.5f) - TheLift->GetActorLocation();
 

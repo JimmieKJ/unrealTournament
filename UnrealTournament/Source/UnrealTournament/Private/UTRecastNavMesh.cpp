@@ -296,13 +296,17 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 
 bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly, NavNodeRef EndPoly, float MaxJumpZ, float* RequiredJumpZ, float* MaxFallSpeed) const
 {
+	const FVector OriginalStart = Start;
 	ACharacter* Char = Cast<ACharacter>(Scout);
 	if (Char == NULL || Char->GetCharacterMovement() == NULL || Char->GetCapsuleComponent() == NULL)
 	{
 		// TODO: what about jumping vehicles?
 		return false;
 	}
-	else if (!GetWorld()->FindTeleportSpot(Char, Start, (End - Start).GetSafeNormal2D().Rotation()))
+	else if ( !GetWorld()->FindTeleportSpot(Char, Start, (End - Start).GetSafeNormal2D().Rotation())
+		// TODO: this is a bit of a workaround for navmesh generating walkable polys inside some solid objects, like blocking volumes
+		//		reject jump sources that require significant XY movement to find open space, since it might have teleported us on the other side of an obstruction that should block a jump
+			|| (Start - OriginalStart).Size2D() > Char->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.5f )
 	{
 		// can't fit at start location
 		return false;
