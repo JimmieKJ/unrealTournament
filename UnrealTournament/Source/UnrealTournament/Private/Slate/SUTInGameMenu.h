@@ -8,14 +8,16 @@
 #if !UE_SERVER
 class SUTInGameMenu : public SUTMenuBase
 {
+public:
+	virtual FReply OnReturnToLobby(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton);
+
 protected:
 
 	virtual void BuildLeftMenuBar();
 	virtual void BuildExitMenu(TSharedPtr <SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
 
 	virtual FReply OnCloseMenu(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OnReturnToLobby(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton);
 
 	virtual FReply OnTeamChangeClick();
 	virtual FReply OnSpectateClick();

@@ -96,20 +96,6 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 		.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
 	];
 
-	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
-	{
-		MenuSpace->AddSlot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToLobby","Return to Hub"))
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUTInGameMenu::OnReturnToLobby, ExitButton)
-		];
-	}
-
 	MenuSpace->AddSlot()
 	.AutoHeight()
 	[

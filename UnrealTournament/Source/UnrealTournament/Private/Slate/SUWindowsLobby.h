@@ -25,6 +25,8 @@ protected:
 	FString GetMatchCount() const;
 
 	FReply MatchButtonClicked();
+	
+	virtual void BuildExitMenu(TSharedPtr <SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
 };
 
 #endif

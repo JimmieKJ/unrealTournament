@@ -95,4 +95,34 @@ FString SUWindowsLobby::GetMatchCount() const
 }
 
 
+void SUWindowsLobby::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace)
+{
+	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+			.ContentPadding(FMargin(10.0f, 5.0f))
+			.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToLobby","Return to Hub"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.OnClicked(this, &SUTInGameMenu::OnReturnToLobby, ExitButton)
+		];
+	}
+
+	MenuSpace->AddSlot()
+	.AutoHeight()
+	[
+		SNew(SButton)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+		.ContentPadding(FMargin(10.0f, 5.0f))
+		.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToMainMenu","Return to Main Menu"))
+		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+		.OnClicked(this, &SUTInGameMenu::OnReturnToMainMenu, ExitButton)
+	];
+
+}
+
+
 #endif
