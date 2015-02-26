@@ -55,7 +55,25 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 
 		Tokens.Empty(2);
 		Tokens.Add(FString("*") + FPackageName::GetAssetPackageExtension());
-		Tokens.Add(FString("*") + FPackageName::GetMapPackageExtension());
+
+		FString MapList;
+		if(FParse::Value(*Params, TEXT("Map="), MapList))
+		{
+			for(int StartIdx = 0; StartIdx < MapList.Len(); StartIdx++)
+			{
+				int EndIdx = StartIdx;
+				while(EndIdx < MapList.Len() && MapList[EndIdx] != '+')
+				{
+					EndIdx++;
+				}
+				Tokens.Add(MapList.Mid(StartIdx, EndIdx - StartIdx) + FPackageName::GetMapPackageExtension());
+				StartIdx = EndIdx + 1;
+			}
+		}
+		else
+		{
+			Tokens.Add(FString("*") + FPackageName::GetMapPackageExtension());
+		}
 		
 		uint8 PackageFilter = NORMALIZE_DefaultFlags;
 		if ( Switches.Contains(TEXT("MAPSONLY")) )
