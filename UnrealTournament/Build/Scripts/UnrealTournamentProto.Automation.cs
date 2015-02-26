@@ -1589,6 +1589,7 @@ public partial class EditorProject : Project
 			Filter.Include("/Engine/Binaries/Win64/AgentInterface.dll");
 			Filter.Include("/Engine/Binaries/Win64/libfbxsdk.dll");
 
+			Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Win64/...");
 			Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/*.dll");
 			Filter.Include("/Engine/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS2013/*.dll");
 			Filter.Include("/Engine/Binaries/ThirdParty/PhysX/PhysX-3.3/Win64/VS2013/*.dll");
@@ -1614,6 +1615,7 @@ public partial class EditorProject : Project
 		Filter.Include("/Engine/Build/BatchFiles/...");
 		Filter.Include("/Engine/Config/...");
 		Filter.Include("/Engine/Content/...");
+		Filter.Include("/Engine/Documentation/Source/Shared/...");
 		Filter.Include("/Engine/Shaders/...");
 
 		// UnrealTournament/...
