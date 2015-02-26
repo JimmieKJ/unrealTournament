@@ -396,6 +396,9 @@ protected:
 public:
 	virtual void ShowConnectingDialog();
 	virtual void CloseConnectingDialog();
+
+	// returns true if this player is in a session
+	virtual bool IsInSession();
 };
 
 

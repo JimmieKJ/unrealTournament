@@ -1713,3 +1713,9 @@ void UUTLocalPlayer::ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, 
 	GEngine->Exec(GetWorld(), TEXT("Cancel"));
 #endif
 }
+
+bool UUTLocalPlayer::IsInSession()
+{ 
+	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+	return (OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName,*UserId));
+}

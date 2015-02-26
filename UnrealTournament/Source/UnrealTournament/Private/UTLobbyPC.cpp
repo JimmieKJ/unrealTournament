@@ -33,6 +33,16 @@ void AUTLobbyPC::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 	UTLobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState);
+
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		if (!LP->IsInSession())
+		{
+			LP->MessageBox(NSLOCTEXT("UTLobbyPC","SessionErrorTitle","Session Error"), NSLOCTEXT("UTLobbyPC","SessionErrorMsg","You can not connect directly to a Hub.  Please select 'PLAY' then 'Find a Game...' from the main menu."));
+			ConsoleCommand("Disconnect");
+		}
+	}
 }
 
 void AUTLobbyPC::PlayerTick( float DeltaTime )
