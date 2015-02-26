@@ -217,7 +217,7 @@ public:
 	/**
 	* Needs to be called after LockData()
 	*/
-	void UnlockData();
+	void UnlockData(uint32 SizeInBytes);
 
 	/** Returns the size of the buffer in pixels. */
 	uint32 GetSizeX() const;

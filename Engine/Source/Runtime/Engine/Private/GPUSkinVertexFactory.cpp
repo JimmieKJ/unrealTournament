@@ -182,11 +182,11 @@ float* FBoneDataVertexBuffer::LockData()
 	return Data;
 }
 
-void FBoneDataVertexBuffer::UnlockData()
+void FBoneDataVertexBuffer::UnlockData(uint32 SizeInBytes)
 {
 	check(IsValidRef(BoneBuffer));
 	check(IsInRenderingThread() && AllocBlock && AllocSize);
-	FRHICommandListExecutor::GetImmediateCommandList().UpdateVertexBuffer(BoneBuffer.VertexBufferRHI, AllocBlock, AllocSize);
+	FRHICommandListExecutor::GetImmediateCommandList().UpdateVertexBuffer(BoneBuffer.VertexBufferRHI, AllocBlock, SizeInBytes ? SizeInBytes : 4);
 	FMemory::Free(AllocBlock);
 	AllocBlock = nullptr;
 	AllocSize = 0;

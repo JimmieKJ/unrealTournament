@@ -1167,11 +1167,12 @@ void FPreviousPerBoneMotionBlur::UnlockData()
 	if(IsLocked())
 	{
 		check(IsInRenderingThread());
-		LockedTexelPosition.Set(0);
 		LockedTexelCount = 0;
 		LockedData = 0;
 
-		PerChunkBoneMatricesTexture[GetWriteBufferIndex()].UnlockData();
+		// we use float4
+		PerChunkBoneMatricesTexture[GetWriteBufferIndex()].UnlockData(LockedTexelPosition.GetValue() * 4 * sizeof(float));
+		LockedTexelPosition.Set(0);
 
 		AdvanceBufferIndex();
 	}
