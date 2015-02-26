@@ -314,6 +314,8 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 
 TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 {
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+
 	// Get Viewport size
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
@@ -447,6 +449,30 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			SAssignNew(SmoothFrameRate, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.IsChecked(GEngine->bSmoothFrameRate ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		]
+	]
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "VSync", "VSync").ToString())
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SAssignNew(VSync, SCheckBox)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.IsChecked(UserSettings->IsVSyncEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]
 	]
 	+ SVerticalBox::Slot()
@@ -671,7 +697,11 @@ FReply SUWSystemSettingsDialog::OKClick()
 	int32 Y=FCString::Atoi(CmdTemp);
 	UserSettings->SetScreenResolution(FIntPoint(X, Y));
 	UserSettings->SetFullscreenMode(Fullscreen->IsChecked() ? EWindowMode::Fullscreen : EWindowMode::Windowed);
+	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SaveConfig();
+
+	static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VSync"));
+	CVar->Set(VSync->IsChecked(), ECVF_SetByGameSetting);
 
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine == NULL) // PIE
