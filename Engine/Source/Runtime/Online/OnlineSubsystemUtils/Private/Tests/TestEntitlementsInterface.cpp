@@ -48,7 +48,7 @@ void FTestEntitlementsInterface::StartNextTest()
 {
 	if (bQueryEntitlements)
 	{
-		EntitlementsOSS->QueryEntitlements(*UserId);
+		EntitlementsOSS->QueryEntitlements(*UserId, FString());
 	}
 	else
 	{
