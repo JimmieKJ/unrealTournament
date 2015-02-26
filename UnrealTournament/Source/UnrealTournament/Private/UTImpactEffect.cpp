@@ -148,6 +148,10 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 					Light->SetCastShadows(false);
 					Light->bAffectTranslucentLighting = false;
 				}
+		/*		else if (Light->bAffectTranslucentLighting)
+				{
+					UE_LOG(UT, Warning, TEXT("%s Light affects translucent!"), *GetName());
+				}*/
 			}
 		}
 	}
@@ -180,6 +184,10 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 				NewComp->SetWorldTransform(FTransform(NewComp->RelativeRotation, NewComp->RelativeLocation, NewComp->RelativeScale3D) * BaseTransform);
 			}
 			NewComp->RegisterComponentWithWorld(World);
+			if (bNoLODForLocalPlayer)
+			{
+				SetNoLocalPlayerLOD(World, NewComp, InstigatedBy);
+			}
 			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy);
 			if (WS != NULL)
 			{
@@ -210,6 +218,10 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 				NewComp->SetWorldTransform(FTransform(NewComp->RelativeRotation, NewComp->RelativeLocation, NewComp->RelativeScale3D) * BaseTransform);
 			}
 			NewComp->RegisterComponentWithWorld(World);
+			if (bNoLODForLocalPlayer)
+			{
+				SetNoLocalPlayerLOD(World, NewComp, InstigatedBy);
+			}
 			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy);
 			if (WS != NULL)
 			{
@@ -217,6 +229,20 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			}
 			// recurse
 			CreateEffectComponents(World, BaseTransform, HitComp, SpawnedBy, InstigatedBy, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
+		}
+	}
+}
+
+void AUTImpactEffect::SetNoLocalPlayerLOD(UWorld* World, USceneComponent* NewComp, AController* InstigatedBy) const
+{
+	if (InstigatedBy != NULL && InstigatedBy->IsLocalPlayerController())
+	{
+		// see if this is a particle system, if so switch to direct LOD
+		//UE_LOG(UT, Warning, TEXT("Force max LOD for %s"), *GetName());
+		UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(NewComp);
+		if (PSC)
+		{
+			PSC->SetLODLevel(0);
 		}
 	}
 }

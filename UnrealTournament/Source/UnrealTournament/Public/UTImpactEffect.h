@@ -28,6 +28,9 @@ class AUTImpactEffect : public AActor
 	/** if set, attach to hit component (if any) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	bool bAttachToHitComp;
+	/** if set, best LOD for local player */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+		bool bNoLODForLocalPlayer;
 	/** if set, apply random roll to any decals */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	bool bRandomizeDecalRoll;
@@ -43,6 +46,9 @@ class AUTImpactEffect : public AActor
 	/** if given a value, materials in created components will have this parameter set to the world time they were created */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	FName WorldTimeParam;
+
+	/** Force no LOD for effects for local player, called if bNoLODForLocalPlayer is true. */
+	virtual void SetNoLocalPlayerLOD(UWorld* World, USceneComponent* NewComp, AController* InstigatedBy) const;
 
 	void CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const;
 
