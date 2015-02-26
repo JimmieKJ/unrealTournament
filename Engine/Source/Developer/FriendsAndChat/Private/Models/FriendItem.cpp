@@ -8,7 +8,7 @@
 
 // FFriendStruct implementation
 
-const FString FFriendItem::LauncherClientId("f3e80378aed4462498774a7951cd263f");
+const FString FFriendItem::LauncherClientIds("f3e80378aed4462498774a7951cd263f, 34a02cf8f4414e29b15921876da36f9a");
 const FString FFriendItem::FortniteClientId("300d79839c914445948e3c1100f211db");
 const FString FFriendItem::UnrealTournamentClientId("1252412dc7704a9690f6ea4611bc81ee");
 
@@ -90,29 +90,23 @@ const FString FFriendItem::GetClientId() const
 const FString FFriendItem::GetClientName() const
 {
 	FString Result;
-	if (OnlineFriend.IsValid())
-	{
-		const FOnlineUserPresence& OnlinePresence = OnlineFriend->GetPresence();
-		const FVariantData* ClientId = OnlinePresence.Status.Properties.Find(DefaultClientIdKey);
-		if (ClientId != nullptr &&
-			ClientId->GetType() == EOnlineKeyValuePairDataType::String)
-		{
-			ClientId->GetValue(Result);
-		}
-	}
+	FString ClientId = GetClientId();
 
-	// hardcoded for now, need a generic way to receive client names or map client ids to names
-	if (Result == FFriendItem::FortniteClientId)
+	if (!ClientId.IsEmpty())
 	{
-		Result = TEXT("Fortnite");
-	}
-	else if (Result == FFriendItem::UnrealTournamentClientId)
-	{
-		Result = TEXT("Unreal Tournament");
-	}
-	else if (Result == FFriendItem::LauncherClientId)
-	{
-		Result = TEXT("Unreal Engine Launcher");
+		// hardcoded for now, need a generic way to receive client names or map client ids to names
+		if (ClientId == FFriendItem::FortniteClientId)
+		{
+			Result = TEXT("Fortnite");
+		}
+		else if (ClientId == FFriendItem::UnrealTournamentClientId)
+		{
+			Result = TEXT("Unreal Tournament");
+		}
+		else if (FFriendItem::LauncherClientIds.Contains(ClientId))
+		{
+			Result = TEXT("Unreal Engine Launcher");
+		}
 	}
 	return Result;
 }
@@ -167,7 +161,7 @@ bool FFriendItem::IsGameJoinable() const
 bool FFriendItem::CanInvite() const
 {
 	FString FriendsClientID = GetClientId();
-	return FriendsClientID == FFriendsAndChatManager::Get()->GetUserClientId() || FriendsClientID == FFriendItem::LauncherClientId;
+	return FriendsClientID == FFriendsAndChatManager::Get()->GetUserClientId() || FFriendItem::LauncherClientIds.Contains(FriendsClientID);
 }
 
 FString FFriendItem::GetGameSessionId() const

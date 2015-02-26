@@ -209,18 +209,21 @@ private:
 		if (ViewModel->IsOnline())
 		{
 			FString ClientId = ViewModel->GetClientId();
-			//@todo samz - better way of finding known ids
-			if (ClientId == FFriendItem::FortniteClientId)
+			if (!ClientId.IsEmpty())
 			{
-				return &FriendStyle.FortniteImageBrush;
-			}
-			else if (ClientId == FFriendItem::LauncherClientId)
-			{
-				return &FriendStyle.LauncherImageBrush;
-			}
-			else if (ClientId == FFriendItem::UnrealTournamentClientId)
-			{
-				return &FriendStyle.UTImageBrush;
+				//@todo samz - better way of finding known ids
+				if (ClientId == FFriendItem::FortniteClientId)
+				{
+					return &FriendStyle.FortniteImageBrush;
+				}
+				else if (FFriendItem::LauncherClientIds.Contains(ClientId))
+				{
+					return &FriendStyle.LauncherImageBrush;
+				}
+				else if (ClientId == FFriendItem::UnrealTournamentClientId)
+				{
+					return &FriendStyle.UTImageBrush;
+				}
 			}
 		}
 		return &FriendStyle.FriendImageBrush;
