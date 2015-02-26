@@ -162,6 +162,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
+			.Padding(FMargin(0.0f, 0.0f))
 			.AutoHeight()
 			[
 				SNew(SButton)
@@ -172,6 +173,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::Deathmatch)
 			]
 			+ SVerticalBox::Slot()
+			.Padding(FMargin(0.0f, 0.0f))
 			.AutoHeight()
 			[
 				SNew(SButton)
@@ -184,13 +186,19 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 			+ SVerticalBox::Slot()
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Fill)
-			.Padding(FMargin(0.0f, 2.0f))
+			.AutoHeight()
+			.Padding(FMargin(0.0f, 0.0f))
 			[
-				SNew(SImage )
-				.Image( SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer") )
+				SNew(SBox)
+				.HeightOverride(16)
+				[
+					SNew(SImage )
+					.Image( SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer") )
+				]
 			]
 		 
 			+ SVerticalBox::Slot()
+			.Padding(FMargin(0.0f, 0.0f))
 			.AutoHeight()
 			[
 				SNew(SButton)
@@ -201,14 +209,20 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel, DropDownButton)
 			]
 			+ SVerticalBox::Slot()
-			.AutoHeight()
+			.Padding(FMargin(0.0f, 0.0f))
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Fill)
+			.AutoHeight()
 			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+				SNew(SBox)
+				.HeightOverride(16)
+				[
+					SNew(SImage )
+					.Image( SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer") )
+				]
 			]
 			+ SVerticalBox::Slot()
+			.Padding(FMargin(0.0f, 0.0f))
 			.AutoHeight()
 			[
 				SNew(SButton)
@@ -219,6 +233,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				.OnClicked(this, &SUTMenuBase::OnShowServerBrowser, DropDownButton)
 			]
 			+ SVerticalBox::Slot()
+			.Padding(FMargin(0.0f, 0.0f))
 			.AutoHeight()
 			[
 				SNew(SButton)

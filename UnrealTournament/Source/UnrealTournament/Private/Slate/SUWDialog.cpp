@@ -43,6 +43,7 @@ void SUWDialog::Construct(const FArguments& InArgs)
 	{
 		SAssignNew(FinalContent, SScrollBox)
 		+ SScrollBox::Slot()
+
 		.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
 		[
 			// Add an Overlay
@@ -134,13 +135,35 @@ void SUWDialog::Construct(const FArguments& InArgs)
 							SNew(SOverlay)
 							+ SOverlay::Slot()
 							[
-								SNew(SVerticalBox)
-								+ SVerticalBox::Slot()
-								.AutoHeight()
-								.HAlign(HAlign_Right)
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.FillWidth(1.0)
 								[
-									BuildButtonBar(InArgs._ButtonMask)
+									SNew(SOverlay)
+									+ SOverlay::Slot()
+									[
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.AutoHeight()
+										.HAlign(HAlign_Right)
+										[
+											SNew(SImage)
+											.Image(SUWindowsStyle::Get().GetBrush("UT.Dialog.RightButtonBackground"))
+										]
+									]
+									+ SOverlay::Slot()
+									[
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.AutoHeight()
+										.HAlign(HAlign_Right)
+										[
+											BuildButtonBar(InArgs._ButtonMask)
+										]
+
+									]
 								]
+
 							]
 							+ SOverlay::Slot()
 							[

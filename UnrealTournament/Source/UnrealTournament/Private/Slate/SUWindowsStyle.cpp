@@ -122,9 +122,14 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("UT.Dialog.Background", new BOX_BRUSH("TopMenu/UT.Dialog.Background", FMargin(10.0f / 256.0f, 64.0f/256.0f, 10.0f / 256.0f, 25.0f/256.0f)));
 	Style.Set("UT.DialogBox.Background", new BOX_BRUSH("TopMenu/UT.DialogBox.Background", FMargin(10.0f / 256.0f, 64.0f / 256.0f, 10.0f / 256.0f, 64.0f / 256.0f)));
 
+
+	Style.Set("UT.Dialog.RightButtonBackground", new BOX_BRUSH("TopMenu/UT.GameMenu.BottomRightTab.Pressed", FMargin(50.0f / 85.0f, 0.0f, 2.0f / 85, 0.0f)));
+	Style.Set("UT.Dialog.LeftButtonBackground", new BOX_BRUSH("TopMenu/UT.GameMenu.BottomLeftTab.Pressed", FMargin(2.0f / 85.0f, 0.0f, 50.0f / 85, 0.0f)));
+
+
 	Style.Set("UT.Dialog.TitleTextStyle", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Bold", 30))
-		.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255)))
+		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 	Style.Set("UT.Dialog.BodyTextStyle", FTextBlockStyle()
@@ -144,6 +149,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetColorAndOpacity(FLinearColor::White)
 		);
 
+		Style.Set("UT.Common.NormalText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Play-Bold", 20))
+			.SetColorAndOpacity(FLinearColor::White)
+		);
+
+
 		Style.Set("UT.Common.NormalText.Black", FTextBlockStyle()
 			.SetFont(TTF_FONT("Play-Bold", 20))
 			.SetColorAndOpacity(FLinearColor::Black)
@@ -155,11 +166,16 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetColorAndOpacity(FLinearColor(FColor(0,255,0,255)))
 		);
 
-		Style.Set("UT.Common.Exo2.20", TTF_FONT("Play-Regular", 20));
+		Style.Set("UT.Common.Exo2.20", TTF_FONT("Play-Regular", 18));
 
 		Style.Set("UT.Common.BoldText", FTextBlockStyle()
 			.SetFont(TTF_FONT("Play-Bold", 22))
-			.SetColorAndOpacity(FLinearColor::Yellow)
+			.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255)))
+		);
+
+		Style.Set("UT.Option.ColumnHeaders", FTextBlockStyle()
+			.SetFont(TTF_FONT("Play-Bold", 18))
+			.SetColorAndOpacity(FLinearColor(FColor(180,180,180, 255)))
 		);
 
 
@@ -176,6 +192,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Common.Editbox.White", FEditableTextBoxStyle()
 			.SetFont(TTF_FONT("Play-Regular", 20))
 			.SetForegroundColor(FLinearColor::White)
+			.SetPadding(FMargin(10.0f,12.0f,10.0f, 10.0f))
 			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
 			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
 			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
@@ -234,8 +251,38 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	}
 
+	Style.Set("UT.ScrollBox.Borderless", FScrollBoxStyle()
+		.SetTopShadowBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBottomShadowBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetLeftShadowBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetRightShadowBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+	);
+
 	{ // Options Menus
 
+	}
+
+	{ // HUB
+	
+		Style.Set("UT.HUB.PlayerListText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Play-Bold", 18))
+			.SetColorAndOpacity(FLinearColor(0.7f,0.7f,0.7f,1.0f))
+		);
+	
+		Style.Set("UT.HUB.PlayerList", FTableRowStyle()
+			.SetSelectorFocusedBrush(FSlateColorBrush(FColor(38,106,255,255)))
+			.SetActiveHoveredBrush(FSlateColorBrush(FColor(34,93,221,255)))
+			.SetActiveBrush(FSlateColorBrush(FColor(36,67,134,255)))
+			.SetInactiveHoveredBrush(FSlateColorBrush(FColor::Black))
+			.SetInactiveBrush(FSlateColorBrush(FColor::Black))
+			.SetEvenRowBackgroundBrush(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetEvenRowBackgroundHoveredBrush(FSlateColorBrush(FColor(32,32,32,255)))
+			.SetOddRowBackgroundBrush(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+			.SetOddRowBackgroundHoveredBrush(FSlateColorBrush(FColor(32,32,32,255)))
+			.SetTextColor(FLinearColor::White)
+			.SetSelectedTextColor(FLinearColor::Yellow)
+		);
+	
 	}
 
 
@@ -346,11 +393,11 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 		Style.Set("UT.ContextMenu.Background", new IMAGE_BRUSH("TopMenu/UT.TopMenu.Background", FVector2D(1, 1)) );
-		Style.Set("UT.ContextMenu.Spacer", new IMAGE_BRUSH("TopMenu/UT.TopMenu.Background", FVector2D(1, 1), FLinearColor::Black) );
+		Style.Set("UT.ContextMenu.Spacer", new BOX_BRUSH("TopMenu/UT.MenuList.Spacer", FMargin(8.0f / 64.0f, 2.0f / 16.0f, 8.0f / 64.0f, 2.0f / 16.0f)));
 
 		Style.Set("UT.ContextMenu.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Regular", 20))
-			.SetColorAndOpacity(FLinearColor::Black)
+			.SetFont(TTF_FONT("Play-Bold", 20))
+			.SetColorAndOpacity(FLinearColor::White)
 			);
 	
 	}
@@ -695,6 +742,7 @@ void SUWindowsStyle::SetTopMenuStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.TopMenu.LightFill", new IMAGE_BRUSH("TopMenu/UT.TopMenu.LightFill", FVector2D(256, 256), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.TopMenu.DarkFill", new IMAGE_BRUSH("TopMenu/UT.TopMenu.DarkFill", FVector2D(256, 256), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.TopMenu.Shadow", new IMAGE_BRUSH("TopMenu/UT.TopMenu.Shadow", FVector2D(64, 64), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.TopMenu.MidFill", new IMAGE_BRUSH("TopMenu/UT.GameMenu.MidFill", FVector2D(256, 256), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
 	Style.Set("UT.TopMenu.Button", FButtonStyle()
 		.SetNormal(FSlateNoResource(FVector2D(256.0f, 256.0f)))
@@ -732,6 +780,16 @@ void SUWindowsStyle::SetTopMenuStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 		);
+
+	Style.Set("UT.TopMenu.OptionTabButton", FButtonStyle()
+		.SetNormal(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHovered(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetPressed(BOX_BRUSH("TopMenu/UT.GameMenu.TabButton.Pressed", FMargin(10.0f / 85.0f, 0.0f, 55.0f / 85.0f, 0.0f)))
+		.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
 
 	Style.Set("UT.TopMenu.Button.TextStyle", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Bold", 30))

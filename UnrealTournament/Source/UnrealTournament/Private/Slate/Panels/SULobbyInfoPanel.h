@@ -101,15 +101,20 @@ protected:
 	TSharedPtr<class SScrollBox> ChatScroller;
 	TSharedPtr<class SListView <TSharedPtr<FPlayerData>>> UserListView;
 	TSharedPtr<class SVerticalBox> MatchArea;
+	TSharedPtr<STextBlock> MatchPlayerList;
 
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FPlayerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 
 	int32 LastChatCount;
 
+	TWeakObjectPtr<AUTLobbyMatchInfo> WatchedMatch;
+
 	virtual void UpdateUserList();
 	void UpdateChatText();
 
 	float GetReverseScale() const;
+
+	FText GetMatchPlayerListText() const;
 
 	virtual void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 

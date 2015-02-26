@@ -159,6 +159,14 @@ void SULobbyInfoPanel::BuildMatchPanel()
 										]
 									]
 								]
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SAssignNew(MatchPlayerList, STextBlock)
+									.Text(this, &SULobbyInfoPanel::GetMatchPlayerListText)
+									.TextStyle(SUWindowsStyle::Get(), "UT.HUB.PlayerListText")
+								]
+
 							]
 						]			
 				];
@@ -467,6 +475,16 @@ void SULobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InC
 		}
 	}
 
+	WatchedMatch.Reset();
+	for (int32 i=0;i<MatchData.Num();i++)
+	{
+		if (MatchData[i]->Panel->IsHovered())
+		{
+			WatchedMatch = MatchData[i]->Info;
+			break;	
+		}
+	}
+
 	UpdateUserList();
 	UpdateChatText();
 }
@@ -641,15 +659,13 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildChatArea()
 
 TSharedRef<ITableRow> SULobbyInfoPanel::OnGenerateWidgetForList( TSharedPtr<FPlayerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
-	FSlateFontInfo Font = SUWindowsStyle::Get().GetFontStyle("UWindows.Standard.Chat");
 	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
-		.Style(SUWindowsStyle::Get(),PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.UserList.Row"))
+		.Style(SUWindowsStyle::Get(),"UT.HUB.PlayerList")
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::White)
-			.Font(Font)
 			.Text(InItem->PlayerState->PlayerName)
+			.TextStyle(SUWindowsStyle::Get(),"UT.HUB.PlayerListText")
 		];
 }
 
@@ -936,6 +952,34 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildNewMatchButton()
 		]
 			
 	];
+}
+
+FText SULobbyInfoPanel::GetMatchPlayerListText() const
+{
+	if (WatchedMatch.IsValid())
+	{
+		FString PlayerList = TEXT("");
+		if (WatchedMatch->CurrentState == ELobbyMatchState::InProgress)
+		{
+			for (int32 i=0;i<WatchedMatch->PlayersInMatchInstance.Num();i++)
+			{
+				PlayerList += PlayerList == TEXT("") ? WatchedMatch->PlayersInMatchInstance[i].PlayerName : TEXT(", ") + WatchedMatch->PlayersInMatchInstance[i].PlayerName;
+			}
+		}
+		else if (WatchedMatch->CurrentState == ELobbyMatchState::WaitingForPlayers || WatchedMatch->CurrentState == ELobbyMatchState::Launching)
+		{
+			for (int32 i=0;i<WatchedMatch->Players.Num();i++)
+			{
+				PlayerList += PlayerList == TEXT("") ? WatchedMatch->Players[i]->PlayerName : TEXT(", ") + WatchedMatch->Players[i]->PlayerName;
+			}
+
+		}
+		return FText::Format( NSLOCTEXT("SULobbytInfoPanel","MatchPlayerListFormat","Players In Match: {0}"), FText::FromString(PlayerList));
+	}
+	else
+	{
+		return FText::GetEmpty();
+	}
 }
 
 #endif

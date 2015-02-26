@@ -355,105 +355,114 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 		TSharedPtr<STextBlock> MessageTextBlock;
 		DialogContent->AddSlot()
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SBox)
-				.HeightOverride(46)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SNew(SBox)
-						.WidthOverride(25)
-						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.LightFill"))
-						]
-					]
-
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SAssignNew(KeyboardSettingsTabButton, SUTTabButton)
-						.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.SimpleTabButton")
-						.ClickMethod(EButtonClickMethod::MouseDown)
-						.Text(NSLOCTEXT("SUWControlSettingsDialog", "ControlTabKeyboard", "Keyboard").ToString())
-						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-						.OnClicked(this, &SUWControlSettingsDialog::OnTabClickKeyboard)
-					]
-
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SAssignNew(MouseSettingsTabButton, SUTTabButton)
-						.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.SimpleTabButton")
-						.ClickMethod(EButtonClickMethod::MouseDown)
-						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-						.Text(NSLOCTEXT("SUWControlSettingsDialog", "ControlTabMouse", "Mouse").ToString())
-						.OnClicked(this, &SUWControlSettingsDialog::OnTabClickMouse)
-					]
-
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SAssignNew(MovementSettingsTabButton, SUTTabButton)
-						.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.SimpleTabButton")
-						.ClickMethod(EButtonClickMethod::MouseDown)
-						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-						.Text(NSLOCTEXT("SUWControlSettingsDialog", "ControlTabMovement", "Movement").ToString())
-						.OnClicked(this, &SUWControlSettingsDialog::OnTabClickMovement)
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0)
-					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.LightFill"))
-					]
-
-				]
-			]
-
-			// Content
-
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
-			.Padding(5.0f, 0.0f, 5.0f, 0.0f)
+			SNew(SOverlay)
+			+SOverlay::Slot()
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 				.AutoHeight()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
 				[
-					//Keyboard Settings
-					SAssignNew(TabWidget, SWidgetSwitcher)
-
-					// Key binds
-
-					+ SWidgetSwitcher::Slot()
+					SNew(SBox)
+					.HeightOverride(46)
 					[
-						BuildKeyboardTab()
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.FillWidth(1.0f)
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.MidFill"))
+						]
 					]
+				]
 
-					//Mouse Settings
-
-					+ SWidgetSwitcher::Slot()
+			]
+			+SOverlay::Slot()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SBox)
+					.HeightOverride(46)
 					[
-						BuildMouseTab()
+						SNew(SHorizontalBox)
+		
+						+ SHorizontalBox::Slot()
+						.Padding(FMargin(25.0f,0.0f,0.0f,0.0f))
+						.AutoWidth()
+						[
+							SAssignNew(KeyboardSettingsTabButton, SUTTabButton)
+							.ContentPadding(FMargin(10.0f, 10.0f, 60.0f, 0.0f))
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
+							.ClickMethod(EButtonClickMethod::MouseDown)
+							.Text(NSLOCTEXT("SUWControlSettingsDialog", "ControlTabKeyboard", "Keyboard").ToString())
+							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.OnClicked(this, &SUWControlSettingsDialog::OnTabClickKeyboard)
+						]
+
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SAssignNew(MouseSettingsTabButton, SUTTabButton)
+							.ContentPadding(FMargin(10.0f, 10.0f, 60.0f, 0.0f))
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
+							.ClickMethod(EButtonClickMethod::MouseDown)
+							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.Text(NSLOCTEXT("SUWControlSettingsDialog", "ControlTabMouse", "Mouse").ToString())
+							.OnClicked(this, &SUWControlSettingsDialog::OnTabClickMouse)
+						]
+
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SAssignNew(MovementSettingsTabButton, SUTTabButton)
+							.ContentPadding(FMargin(10.0f, 10.0f, 60.0f, 0.0f))
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
+							.ClickMethod(EButtonClickMethod::MouseDown)
+							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.Text(NSLOCTEXT("SUWControlSettingsDialog", "ControlTabMovement", "Movement").ToString())
+							.OnClicked(this, &SUWControlSettingsDialog::OnTabClickMovement)
+						]
+
 					]
-					//Movement Settings
-					+ SWidgetSwitcher::Slot()
+				]
+
+				// Content
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Fill)
+				.Padding(5.0f, 0.0f, 5.0f, 0.0f)
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+					.AutoHeight()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
 					[
-						BuildMovementTab()
-					]			
+						//Keyboard Settings
+						SAssignNew(TabWidget, SWidgetSwitcher)
+
+						// Key binds
+
+						+ SWidgetSwitcher::Slot()
+						[
+							BuildKeyboardTab()
+						]
+
+						//Mouse Settings
+
+						+ SWidgetSwitcher::Slot()
+						[
+							BuildMouseTab()
+						]
+						//Movement Settings
+						+ SWidgetSwitcher::Slot()
+						[
+							BuildMovementTab()
+						]			
+					]
 				]
 			]
 		];
@@ -479,7 +488,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 	SAssignNew(KeyboardBox, SVerticalBox)
 	+ SVerticalBox::Slot()
 	.AutoHeight()
-	.Padding(5.0f, 5.0f, 5.0f, 5.0f)
+	.Padding(5.0f, 5.0f, 10.0f, 5.0f)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
@@ -488,7 +497,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 		.HAlign(HAlign_Center)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
+			.TextStyle(SUWindowsStyle::Get(), "UT.Option.ColumnHeaders")
 			.Text(NSLOCTEXT("SUWControlSettingsDialog", "Action", "Action").ToString())
 		]
 		+ SHorizontalBox::Slot()
@@ -498,7 +507,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 		.FillWidth(1.2f)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
+			.TextStyle(SUWindowsStyle::Get(), "UT.Option.ColumnHeaders")
 			.Text(NSLOCTEXT("SUWControlSettingsDialog", "KeyBinds", "Key").ToString())
 		]
 		+ SHorizontalBox::Slot()
@@ -508,7 +517,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 		.FillWidth(1.2f)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
+			.TextStyle(SUWindowsStyle::Get(), "UT.Option.ColumnHeaders")
 			.Text(NSLOCTEXT("SUWControlSettingsDialog", "KeyBinds", "Alternate Key").ToString())
 		]
 	]
@@ -516,7 +525,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 	//Key bind list
 
 	+SVerticalBox::Slot()
-	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+	.Padding(FMargin(10.0f, 10.0f, 10.0f, 5.0f))
 	[
 		SAssignNew(ScrollBox, SScrollBox)
 		+ SScrollBox::Slot()
@@ -539,7 +548,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 					+ SHorizontalBox::Slot()
 					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
+					.HAlign(HAlign_Left)
 					[
 						SNew(STextBlock)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
@@ -717,7 +726,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 
 	return SNew(SVerticalBox)
 	+ SVerticalBox::Slot()
-	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	.Padding(FMargin(10.0f, 25.0f, 10.0f, 5.0f))
 	.AutoHeight()
 	.HAlign(HAlign_Left)
 	[
@@ -743,7 +752,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 		]
 	]
 	+ SVerticalBox::Slot()
-	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 	.AutoHeight()
 	.HAlign(HAlign_Left)
 	[
@@ -771,7 +780,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 	+ SVerticalBox::Slot()
 	.HAlign(HAlign_Left)
 	.AutoHeight()
-	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
@@ -797,7 +806,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 	+ SVerticalBox::Slot()
 	.HAlign(HAlign_Left)
 	.AutoHeight()
-	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
@@ -822,10 +831,11 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 	]
 	+ SVerticalBox::Slot()
 	.HAlign(HAlign_Left)
-	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
 		.AutoWidth()
 		[
 			SNew(SBox)
@@ -844,6 +854,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 			[
 				SAssignNew(MaxDodgeTapTime, SNumericEntryBox<float>)
 				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
+				.LabelPadding(FMargin(50.0f,50.0f))
 				.Font(SUWindowsStyle::Get().GetFontStyle("UT.Common.Exo2.20"))
 				.Value(this, &SUWControlSettingsDialog::GetMaxDodgeTapTimeValue)
 				.OnValueCommitted(this, &SUWControlSettingsDialog::SetMaxDodgeTapTimeValue)
@@ -852,7 +863,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 	]
 	+ SVerticalBox::Slot()
 	.HAlign(HAlign_Left)
-	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
