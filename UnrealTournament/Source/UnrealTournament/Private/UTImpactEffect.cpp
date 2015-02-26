@@ -146,6 +146,7 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 				if (QualitySettings.EffectsQuality < 3)
 				{
 					Light->SetCastShadows(false);
+					Light->bAffectTranslucentLighting = false;
 				}
 			}
 		}
