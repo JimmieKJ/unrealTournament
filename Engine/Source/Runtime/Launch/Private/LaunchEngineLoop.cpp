@@ -2658,6 +2658,8 @@ bool FEngineLoop::AppInit( )
 	// Must be after FThreadStats::StartThread();
 	// Must be before Render/RHI subsystem D3DCreate()
 	// For platform services that need D3D hooks like Steam
+	
+	FModuleManager::Get().LoadModule(TEXT("Http"));
 	FModuleManager::Get().LoadModule(TEXT("OnlineSubsystem"));
 	FModuleManager::Get().LoadModule(TEXT("OnlineSubsystemUtils"));
 #endif
