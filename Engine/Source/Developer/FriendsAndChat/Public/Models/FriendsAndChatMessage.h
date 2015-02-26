@@ -63,7 +63,7 @@ namespace EFriendsDisplayLists
 		static const FText RecentPlayersList = NSLOCTEXT("FriendsListTypes", "RecentPlayersList", "Recent Players");
 		static const FText FriendRequestList = NSLOCTEXT("FriendsListTypes", "InvitesList", "Invitations");
 		static const FText OutgoingFriendRequestList = NSLOCTEXT("FriendsListTypes", "OutgoingInvites", "Outgoing");
-		static const FText GameInviteList = NSLOCTEXT("FriendsListTypes", "GameInvites", "GameInvites");
+		static const FText GameInviteList = NSLOCTEXT("FriendsListTypes", "GameInvites", "Game Invites");
 
 
 		switch (EnumVal)
