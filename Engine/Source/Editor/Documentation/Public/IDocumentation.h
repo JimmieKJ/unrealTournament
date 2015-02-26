@@ -178,6 +178,8 @@ public:
 
 	virtual bool OpenAPIHome() const = 0;
 
+	virtual bool CanOpenAPIHome() const = 0;
+
 	virtual bool Open(const FString& Link, FDocumentationSourceInfo Source = FDocumentationSourceInfo()) const = 0;
 
 	virtual bool Open(const FString& Link, const FCultureRef& Culture, FDocumentationSourceInfo Source = FDocumentationSourceInfo()) const = 0;

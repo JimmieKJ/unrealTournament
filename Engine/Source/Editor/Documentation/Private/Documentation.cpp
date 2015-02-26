@@ -53,6 +53,11 @@ bool FDocumentation::OpenAPIHome() const
 	}
 }
 
+bool FDocumentation::CanOpenAPIHome() const
+{
+	return FPaths::FileExists(FPaths::Combine(*FPaths::EngineDir(), TEXT("Documentation/CHM/API.chm")));
+}
+
 bool FDocumentation::Open(const FString& Link, FDocumentationSourceInfo Source) const
 {
 	FString DocumentationUrl;

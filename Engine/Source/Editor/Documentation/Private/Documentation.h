@@ -19,6 +19,8 @@ public:
 
 	virtual bool OpenAPIHome() const override;
 
+	virtual bool CanOpenAPIHome() const override;
+
 	virtual bool Open( const FString& Link, FDocumentationSourceInfo Source = FDocumentationSourceInfo() ) const override;
 
 	virtual bool Open( const FString& Link, const FCultureRef& Culture, FDocumentationSourceInfo Source = FDocumentationSourceInfo() ) const override;
