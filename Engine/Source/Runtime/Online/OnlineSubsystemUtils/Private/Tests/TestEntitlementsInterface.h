@@ -55,7 +55,7 @@
 	 * @param UserId of the user who was granted entitlements in this callback
 	 * @param Error string representing the error condition if any
 	 */
-	void OnQueryEntitlementsComplete(bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
+	void OnQueryEntitlementsComplete(bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Namespace, const FString& Error);
 
  public:
 	
