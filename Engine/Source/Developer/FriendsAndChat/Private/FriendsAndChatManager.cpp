@@ -1637,28 +1637,38 @@ void FFriendsAndChatManager::ProcessReceivedGameInvites()
 		{
 			const FReceivedGameInvite& Invite = ReceivedGameInvites[Idx];
 
-			TSharedPtr<FOnlineUser> UserInfo;
-			TSharedPtr<IFriendItem> Friend = FindUser(*Invite.FromId);
-			if (Friend.IsValid())
+			if (!Invite.InviteResult->Session.SessionInfo.IsValid() ||
+				Invite.InviteResult->Session.SessionInfo->GetSessionId().ToString() == GetGameSessionId())
 			{
-				UserInfo = Friend->GetOnlineUser();
-			}
-			if (!UserInfo.IsValid())
-			{
-				UserInfo = OnlineSub->GetUserInterface()->GetUserInfo(0, *Invite.FromId);
-			}
-			if (UserInfo.IsValid())
-			{
-				TSharedPtr<FFriendGameInviteItem> GameInvite = MakeShareable(
-					new FFriendGameInviteItem(UserInfo.ToSharedRef(), Invite.InviteResult)
-					);
-
-				PendingGameInvitesList.Add(Invite.FromId->ToString(), GameInvite);
-
-				OnGameInvitesUpdated().Broadcast();
-				SendGameInviteNotification(GameInvite);
-
+				// remove invites if user is already in the game session
 				ReceivedGameInvites.RemoveAt(Idx--);
+			}
+			else
+			{
+				// add to list of pending invites to accept
+				TSharedPtr<FOnlineUser> UserInfo;
+				TSharedPtr<IFriendItem> Friend = FindUser(*Invite.FromId);
+				if (Friend.IsValid())
+				{
+					UserInfo = Friend->GetOnlineUser();
+				}
+				if (!UserInfo.IsValid())
+				{
+					UserInfo = OnlineSub->GetUserInterface()->GetUserInfo(0, *Invite.FromId);
+				}
+				if (UserInfo.IsValid())
+				{
+					TSharedPtr<FFriendGameInviteItem> GameInvite = MakeShareable(
+						new FFriendGameInviteItem(UserInfo.ToSharedRef(), Invite.InviteResult)
+						);
+
+					PendingGameInvitesList.Add(Invite.FromId->ToString(), GameInvite);
+
+					OnGameInvitesUpdated().Broadcast();
+					SendGameInviteNotification(GameInvite);
+
+					ReceivedGameInvites.RemoveAt(Idx--);
+				}
 			}
 		}
 	}
