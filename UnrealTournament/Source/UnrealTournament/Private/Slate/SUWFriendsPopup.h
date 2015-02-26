@@ -21,10 +21,12 @@ class SUWFriendsPopup : public SCompoundWidget
 		return PlayerOwner;
 	}
 
+	void SetOnCloseClicked(FOnClicked InOnClicked);
 
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SWidget> GameViewportWidget;
+	TSharedPtr<class SButton> CloseButton;
 
 /*
 	// HACKS needed to keep window focus

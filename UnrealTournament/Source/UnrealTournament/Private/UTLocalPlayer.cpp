@@ -1356,7 +1356,7 @@ void UUTLocalPlayer::HideContentLoadingMessage()
 	}
 }
 
-TSharedPtr<SWidget> UUTLocalPlayer::GetFriendsPopup()
+TSharedPtr<SUWFriendsPopup> UUTLocalPlayer::GetFriendsPopup()
 {
 	if (!FriendsMenu.IsValid())
 	{

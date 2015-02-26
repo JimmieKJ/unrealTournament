@@ -16,6 +16,7 @@
 #include "SUWInputBox.h"
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
+#include "SUWFriendsPopup.h"
 #include "UTGameEngine.h"
 #include "Panels/SUWServerBrowser.h"
 #include "Panels/SUWStatsViewer.h"
@@ -805,7 +806,9 @@ FReply SUTMenuBase::ToggleFriendsAndFamily()
 	}
 	else
 	{
-		TSharedPtr<SWidget> Popup = PlayerOwner->GetFriendsPopup();
+		TSharedPtr<SUWFriendsPopup> Popup = PlayerOwner->GetFriendsPopup();
+		Popup->SetOnCloseClicked(FOnClicked::CreateSP(this, &SUTMenuBase::ToggleFriendsAndFamily));
+
 		if (Popup.IsValid())
 		{
 			Desktop->AddSlot(200)

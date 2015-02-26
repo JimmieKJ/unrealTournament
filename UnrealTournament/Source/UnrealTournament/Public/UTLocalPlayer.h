@@ -357,7 +357,7 @@ public:
 	virtual void ShowContentLoadingMessage();
 	virtual void HideContentLoadingMessage();
 
-	virtual TSharedPtr<SWidget> GetFriendsPopup();
+	virtual TSharedPtr<SUWFriendsPopup> GetFriendsPopup();
 protected:
 	TSharedPtr<SUWFriendsPopup> FriendsMenu;
 

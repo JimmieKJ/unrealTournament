@@ -18,6 +18,13 @@ void SUWFriendsPopup::Construct(const FArguments& InArgs)
 		.HAlign(HAlign_Fill)
 		[
 			SNew(SOverlay)
+			+ SOverlay::Slot()
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Fill)
+			[
+				SAssignNew(CloseButton, SButton)
+				.ButtonColorAndOpacity(FLinearColor::Transparent)
+			]
 			+SOverlay::Slot()
 			.HAlign(HAlign_Left)
 			.VAlign(VAlign_Bottom)
@@ -43,6 +50,11 @@ void SUWFriendsPopup::Construct(const FArguments& InArgs)
 			]
 
 		];
+}
+
+void SUWFriendsPopup::SetOnCloseClicked(FOnClicked InOnClicked)
+{
+	CloseButton->SetOnClicked(InOnClicked);
 }
 
 /******************** ALL OF THE HACKS NEEDED TO MAINTAIN WINDOW FOCUS *********************************/
