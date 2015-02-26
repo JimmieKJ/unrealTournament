@@ -16,6 +16,10 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 		ShardMesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
 		ShardMesh->AttachParent = RootComponent;
 	}
+	if (PawnOverlapSphere != NULL)
+	{
+		PawnOverlapSphere->SetRelativeLocation(FVector(-20.f, 0.f, 0.f));
+	}
 	InitialLifeSpan = 8.f;
 	ImpactedShardDamage = 12;
 	ImpactedShardMomentum = 100000.f;
