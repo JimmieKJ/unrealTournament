@@ -759,7 +759,7 @@ void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 		{
 			AddAmmo(-AmmoCost[FireModeNum]);
 		}
-		else
+		else if (!AmmoCost.IsValidIndex(FireModeNum))
 		{
 			UE_LOG(UT, Warning, TEXT("Invalid fire mode %i in %s::ConsumeAmmo()"), int32(FireModeNum), *GetName());
 		}
