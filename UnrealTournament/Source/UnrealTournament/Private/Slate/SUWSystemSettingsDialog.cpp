@@ -731,9 +731,6 @@ FReply SUWSystemSettingsDialog::OKClick()
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SaveConfig();
 
-	static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VSync"));
-	CVar->Set(VSync->IsChecked(), ECVF_SetByGameSetting);
-
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine == NULL) // PIE
 	{
