@@ -672,7 +672,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		IOnlineEntitlementsPtr EntitlementsInterface = OnlineSubsystem->GetEntitlementsInterface();
 		if (EntitlementsInterface.IsValid())
 		{
-			EntitlementsInterface->QueryEntitlements(UniqueID);
+			EntitlementsInterface->QueryEntitlements(UniqueID, TEXT("ut"));
 		}
 		FUTAnalytics::LoginStatusChanged(UniqueID.ToString());
 
