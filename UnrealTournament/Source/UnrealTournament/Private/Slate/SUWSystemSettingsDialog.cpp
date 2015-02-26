@@ -449,7 +449,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "VSync", "VSync").ToString())
+				.Text_Raw(this, &SUWSystemSettingsDialog::GetVSyncText)
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "VSync_Tooltip", "Toggle VSync, when on the game will syncronize with your display to avoid frame tearing, this could mean slower framerate.")))
 			]
 		]
@@ -731,6 +731,10 @@ FReply SUWSystemSettingsDialog::OKClick()
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SaveConfig();
 
+	// Immediately change the vsync, UserSettings would do it, but it's in a function that we don't typically call
+	static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VSync"));
+	CVar->Set(VSync->IsChecked(), ECVF_SetByGameSetting);
+
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine == NULL) // PIE
 	{
@@ -848,6 +852,20 @@ FReply SUWSystemSettingsDialog::OnButtonClick(uint16 ButtonID)
 	if (ButtonID == UTDIALOG_BUTTON_OK) OKClick();
 	else if (ButtonID == UTDIALOG_BUTTON_CANCEL) CancelClick();
 	return FReply::Handled();
+}
+
+FText SUWSystemSettingsDialog::GetVSyncText() const
+{
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	int32 RefreshRate = 0;
+	if (UTEngine && UTEngine->GetMonitorRefreshRate(RefreshRate))
+	{
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("RefreshRate"), RefreshRate);
+		return FText::Format(NSLOCTEXT("SUWSystemSettingsDialog", "VSync", "VSync (Monitor {RefreshRate}hz)"), Arguments);
+	}
+
+	return NSLOCTEXT("SUWSystemSettingsDialog", "VSync", "VSync");
 }
 
 #endif

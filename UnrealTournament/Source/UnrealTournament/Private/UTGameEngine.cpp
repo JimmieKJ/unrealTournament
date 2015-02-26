@@ -88,6 +88,23 @@ bool UUTGameEngine::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorl
 	return HandleTravelCommand(Cmd, Ar, InWorld);
 }
 
+bool UUTGameEngine::GetMonitorRefreshRate(int32& MonitorRefreshRate)
+{
+#if PLATFORM_WINDOWS && !UE_SERVER
+	DEVMODE DeviceMode;
+	FMemory::MemZero(DeviceMode);
+	DeviceMode.dmSize = sizeof(DEVMODE);
+
+	if (EnumDisplaySettings(NULL, -1, &DeviceMode) != 0)
+	{
+		MonitorRefreshRate = DeviceMode.dmDisplayFrequency;
+		return true;
+	}
+#endif
+
+	return false;
+}
+
 bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 {
 	if (FParse::Command(&Cmd, TEXT("START")))
@@ -119,13 +136,11 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 	{
 		FString OutputString;
 #if PLATFORM_WINDOWS && !UE_SERVER
-		DEVMODE DeviceMode;
-		FMemory::MemZero(DeviceMode);
-		DeviceMode.dmSize = sizeof(DEVMODE);
 
-		if (EnumDisplaySettings(NULL, -1, &DeviceMode) != 0)
+		int32 CurrentRefreshRate = 0;
+		if (GetMonitorRefreshRate(CurrentRefreshRate))
 		{
-			OutputString = FString::Printf(TEXT("Monitor frequency is %dhz"), DeviceMode.dmDisplayFrequency);
+			OutputString = FString::Printf(TEXT("Monitor frequency is %dhz"), CurrentRefreshRate);
 		}
 		else
 		{
@@ -134,7 +149,7 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 		Out.Logf(*OutputString);
 
 		int32 NewRefreshRate = FCString::Atoi(Cmd);
-		if (NewRefreshRate > 0 && NewRefreshRate != DeviceMode.dmDisplayFrequency)
+		if (NewRefreshRate > 0 && NewRefreshRate != CurrentRefreshRate)
 		{
 			DEVMODE NewSettings;
 			FMemory::MemZero(NewSettings);

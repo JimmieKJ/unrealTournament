@@ -108,6 +108,7 @@ class UUTGameEngine : public UGameEngine
 	/** load the level summary out of a map package */
 	static class UUTLevelSummary* LoadLevelSummary(const FString& MapName);
 
+	bool GetMonitorRefreshRate(int32& MonitorRefreshRate);
 protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;
 	void OnLoadingMoviePlaybackFinished();
