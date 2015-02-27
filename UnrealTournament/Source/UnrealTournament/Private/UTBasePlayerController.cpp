@@ -11,13 +11,29 @@ AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& Objec
 {
 }
 
+void AUTBasePlayerController::Destroyed()
+{
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+	if (MyHUD)
+	{
+		GetWorldTimerManager().ClearAllTimersForObject(MyHUD);
+	}
+	if (PlayerCameraManager != NULL)
+	{
+		GetWorldTimerManager().ClearAllTimersForObject(PlayerCameraManager);
+	}
+	if (PlayerInput != NULL)
+	{
+		GetWorldTimerManager().ClearAllTimersForObject(PlayerInput);
+	}
+	Super::Destroyed();
+}
 
 void AUTBasePlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
 	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTBasePlayerController::ShowMenu);
 }
-
 
 void AUTBasePlayerController::ShowMenu()
 {

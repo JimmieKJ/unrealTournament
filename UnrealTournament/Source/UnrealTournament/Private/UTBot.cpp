@@ -397,6 +397,7 @@ void AUTBot::Destroyed()
 	}
 	
 	SetSquad(NULL);
+	GetWorldTimerManager().ClearAllTimersForObject(this);
 
 	Super::Destroyed();
 }

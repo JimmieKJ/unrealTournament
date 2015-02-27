@@ -14,6 +14,7 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 
 	virtual void SetupInputComponent() override;
 
+	virtual void Destroyed() override;
 
 	/**	Will popup the in-game menu	 **/
 	UFUNCTION(exec)
