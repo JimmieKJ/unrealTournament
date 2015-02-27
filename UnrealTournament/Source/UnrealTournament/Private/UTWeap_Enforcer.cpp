@@ -371,7 +371,10 @@ void AUTWeap_Enforcer::GotoEquippingState(float OverflowTime)
 void AUTWeap_Enforcer::UpdateOverlays()
 {
 	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayMesh);
-	UpdateOverlaysShared(this, GetUTOwner(), LeftMesh, LeftOverlayMesh);
+	if (bBecomeDual)
+	{
+		UpdateOverlaysShared(this, GetUTOwner(), LeftMesh, LeftOverlayMesh);
+	}
 }
 
 void AUTWeap_Enforcer::SetSkin(UMaterialInterface* NewSkin)
