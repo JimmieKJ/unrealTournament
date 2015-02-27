@@ -112,7 +112,7 @@ void SUWDialog::Construct(const FArguments& InArgs)
 					.VAlign(VAlign_Center)
 					.HAlign(HAlign_Center)
 					[
-						SNew(STextBlock)
+						SAssignNew(DialogTitle, STextBlock)
 						.Text(InArgs._DialogTitle)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Dialog.TitleTextStyle")
 					]

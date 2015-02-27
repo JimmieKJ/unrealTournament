@@ -2227,6 +2227,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	MenuSpace->AddSlot()
 	.AutoHeight()
 	.VAlign(VAlign_Top)
+	.Padding(0.0f,0.0f,0.0f,5.0f)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()

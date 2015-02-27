@@ -48,7 +48,17 @@ class SUWBotConfigDialog : public SUWDialog, public FGCObject
 {
 public:
 	SLATE_BEGIN_ARGS(SUWBotConfigDialog)
+	: _DialogTitle(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots"))
+	, _DialogSize(FVector2D(800,900))
+	, _bDialogSizeIsRelative(false)
+	, _DialogPosition(FVector2D(0.5f,0.5f))
+	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	{}
+	SLATE_ARGUMENT(FText, DialogTitle)
+	SLATE_ARGUMENT(FVector2D, DialogSize)
+	SLATE_ARGUMENT(bool, bDialogSizeIsRelative)
+	SLATE_ARGUMENT(FVector2D, DialogPosition)
+	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)
 	SLATE_ARGUMENT(TSubclassOf<AUTGameMode>, GameClass)
 	SLATE_ARGUMENT(TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner)
 	SLATE_ARGUMENT(int32, NumBots) // number of bots that will be added to the game we're setting up
@@ -95,7 +105,7 @@ protected:
 	void NewBotNameResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed);
 	FReply NewBotClick();
 	FReply DeleteBotClick();
-	FReply OKClick();
+	virtual FReply OnButtonClick(uint16 ButtonID);
 
 	inline float ConvertToSliderValue(float SavedValue) const
 	{
@@ -105,6 +115,7 @@ protected:
 	{
 		return (SliderValue * 2.0f) - 1.0f;
 	}
+
 };
 
 #endif

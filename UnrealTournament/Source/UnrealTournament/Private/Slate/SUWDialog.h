@@ -92,6 +92,9 @@ protected:
 	// Stores a list of widgets that are tab'able
 	TArray<TSharedPtr<SWidget>> TabTable;
 
+protected:
+	TSharedPtr<STextBlock> DialogTitle;
+
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SWidget> GameViewportWidget;

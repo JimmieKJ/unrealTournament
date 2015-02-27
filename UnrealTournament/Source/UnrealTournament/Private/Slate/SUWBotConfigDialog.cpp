@@ -18,13 +18,14 @@ SVerticalBox::FSlot& SUWBotConfigDialog::CreateBotSlider(const FText& Desc, TSha
 			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 			[
 				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.Text(Desc)
 			]
 			+ SHorizontalBox::Slot()
 			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 			[
 				SAssignNew(Slider, SSlider)
+				.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 			]
 		];
 }
@@ -35,7 +36,15 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 
 	CurrentlyEditedIndex = INDEX_NONE;
 
-	SUWDialog::Construct(SUWDialog::FArguments().PlayerOwner(InArgs._PlayerOwner));
+	SUWDialog::Construct(SUWDialog::FArguments()
+							.PlayerOwner(InArgs._PlayerOwner)
+							.DialogTitle(InArgs._DialogTitle)
+							.DialogSize(InArgs._DialogSize)
+							.bDialogSizeIsRelative(InArgs._bDialogSizeIsRelative)
+							.DialogPosition(InArgs._DialogPosition)
+							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
+							.ButtonMask(UTDIALOG_BUTTON_OK)
+						);
 
 	GameClass = InArgs._GameClass;
 	MaxSelectedBots = InArgs._NumBots;
@@ -73,177 +82,170 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 
 	static FSlateImageBrush WhiteBar(FPaths::GameContentDir() / TEXT("RestrictedAssets/Slate") / TEXT("UWindows.Standard.White.png"), FVector2D(32, 4), FLinearColor(0.75f, 0.75f, 0.75f, 0.75f));
 
-	ChildSlot
-	.VAlign(VAlign_Center)
-	.HAlign(HAlign_Center)
-	[
-		SNew(SBorder)
-		.VAlign(VAlign_Center)
-		.HAlign(HAlign_Center)
-		.BorderImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
-		[
-			SNew(SScrollBox)
-			+ SScrollBox::Slot()
-			.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+	// At this point, the DialogContent should be ready to have slots added.
+	if (DialogContent.IsValid())
+	{
+		DialogContent->AddSlot()
+		[	
+			SNew(SBorder)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			.BorderImage(SUWindowsStyle::Get().GetBrush("UWindows.Standard.MenuBar.Background"))
 			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.AutoHeight()
+				SNew(SScrollBox)
+				+ SScrollBox::Slot()
+				.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
 				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-					.AutoWidth()
-					.VAlign(VAlign_Top)
-					.HAlign(HAlign_Center)
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.AutoHeight()
 					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()
-						.AutoHeight()
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+						.AutoWidth()
 						.VAlign(VAlign_Top)
 						.HAlign(HAlign_Center)
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
-							.Text(NSLOCTEXT("SUWBotConfigDialog", "BotsToAdd", "Bots to Include:"))
-						]
-						+ SVerticalBox::Slot()
-						.HAlign(HAlign_Center)
-						[
-							SNew(SBox)
-							.WidthOverride(200.0f)
-							.HeightOverride(800.0f)
-							[
-								SNew(SBorder)
-								.Content()
-								[
-									SAssignNew(BotIncludeList, SListView< TSharedPtr<FString> >)
-									.SelectionMode(ESelectionMode::Multi)
-									.ListItemsSource(&BotNames)
-									.OnGenerateRow(this, &SUWBotConfigDialog::GenerateBotListRow)
-								]
-							]
-						]
-					]
-					+ SHorizontalBox::Slot()
-					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.HAlign(HAlign_Center)
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.NormalText")
-							.Text(NSLOCTEXT("SUWBotConfigDialog", "ConfigureBot", "Configure Bot"))
-						]
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-						[
-							SAssignNew(BotToConfigure, SComboBox< TSharedPtr<FString> >)
-							.InitiallySelectedItem(BotNames[0])
-							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-							.OptionsSource(&BotNames)
-							.OnGenerateWidget(this, &SUWBotConfigDialog::GenerateBotNameWidget)
-							.OnSelectionChanged(this, &SUWBotConfigDialog::OnCustomizedBotChange)
-							.Content()
-							[
-								SAssignNew(CustomizedBotName, STextBlock)
-								.MinDesiredWidth(200.0f)
-							]
-						]
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-							[
-								SNew(SButton)
-								.HAlign(HAlign_Center)
-								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-								.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-								.Text(NSLOCTEXT("SUWBotConfigDialog", "CreateNew", "Create New Bot").ToString())
-								.OnClicked(this, &SUWBotConfigDialog::NewBotClick)
-							]
-							+ SHorizontalBox::Slot()
-							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-							[
-								SNew(SButton)
-								.HAlign(HAlign_Center)
-								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-								.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-								.Text(NSLOCTEXT("SUWBotConfigDialog", "Delete", "Delete Bot").ToString())
-								.OnClicked(this, &SUWBotConfigDialog::DeleteBotClick)
-							]
-						]
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-						[
-							SNew(SImage)
-							.Image(&WhiteBar)
-						]
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "SkillModifier", "Skill Modifier"), SkillModifier)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Aggressiveness", "Aggressiveness"), Aggressiveness)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Tactics", "Tactics"), Tactics)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Jumpiness", "Jumpiness"), Jumpiness)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "MovementAbility", "Movement Ability"), MovementAbility)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "ReactionTime", "Reactions"), ReactionTime)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Accuracy", "Accuracy"), Accuracy)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Alertness", "Alertness"), Alertness)
-						+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "MapAwareness", "Map Awareness"), MapAwareness)
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.VAlign(VAlign_Top)
+							.HAlign(HAlign_Center)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
 								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-								.Text(NSLOCTEXT("SUWBotConfigDialog", "FavoriteWeapon", "Favorite Weapon"))
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+								.Text(NSLOCTEXT("SUWBotConfigDialog", "BotsToAdd", "Bots to Include:"))
 							]
-							+ SHorizontalBox::Slot()
+							+ SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							[
+								SNew(SBox)
+								.WidthOverride(250.0f)
+								.HeightOverride(600.0f)
+								[
+									SNew(SBorder)
+									.Content()
+									[
+										SAssignNew(BotIncludeList, SListView< TSharedPtr<FString> >)
+										.SelectionMode(ESelectionMode::Multi)
+										.ListItemsSource(&BotNames)
+										.OnGenerateRow(this, &SUWBotConfigDialog::GenerateBotListRow)
+									]
+								]
+							]
+						]
+						+ SHorizontalBox::Slot()
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.HAlign(HAlign_Center)
 							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
 							[
-								SAssignNew(FavoriteWeapon, SComboBox<UClass*>)
-								.InitiallySelectedItem(WeaponList[0])
-								.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-								.OptionsSource(&WeaponList)
-								.OnGenerateWidget(this, &SUWBotConfigDialog::GenerateWeaponListWidget)
-								.OnSelectionChanged(this, &SUWBotConfigDialog::OnFavoriteWeaponChange)
+								SNew(STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+								.Text(NSLOCTEXT("SUWBotConfigDialog", "ConfigureBot", "Configure Bot"))
+							]
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							[
+								SAssignNew(BotToConfigure, SComboBox< TSharedPtr<FString> >)
+								.InitiallySelectedItem(BotNames[0])
+								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+								.OptionsSource(&BotNames)
+								.OnGenerateWidget(this, &SUWBotConfigDialog::GenerateBotNameWidget)
+								.OnSelectionChanged(this, &SUWBotConfigDialog::OnCustomizedBotChange)
 								.Content()
 								[
-									SAssignNew(SelectedFavWeapon, STextBlock)
+									SAssignNew(CustomizedBotName, STextBlock)
 									.MinDesiredWidth(200.0f)
+									.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
+								]
+							]
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+								[
+									SNew(SButton)
+									.HAlign(HAlign_Center)
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+									.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+									.Text(NSLOCTEXT("SUWBotConfigDialog", "CreateNew", "Create New Bot").ToString())
+									.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
+									.OnClicked(this, &SUWBotConfigDialog::NewBotClick)
+								]
+								+ SHorizontalBox::Slot()
+								.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+								[
+									SNew(SButton)
+									.HAlign(HAlign_Center)
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+									.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+									.Text(NSLOCTEXT("SUWBotConfigDialog", "Delete", "Delete Bot").ToString())
+									.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
+									.OnClicked(this, &SUWBotConfigDialog::DeleteBotClick)
+								]
+							]
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							[
+								SNew(SImage)
+								.Image(&WhiteBar)
+							]
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "SkillModifier", "Skill Modifier"), SkillModifier)
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Aggressiveness", "Aggressiveness"), Aggressiveness)
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Tactics", "Tactics"), Tactics)
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Jumpiness", "Jumpiness"), Jumpiness)
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "MovementAbility", "Movement Ability"), MovementAbility)
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "ReactionTime", "Reactions"), ReactionTime)
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Accuracy", "Accuracy"), Accuracy)
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "Alertness", "Alertness"), Alertness)
+							+ CreateBotSlider(NSLOCTEXT("SUWBotConfigDialog", "MapAwareness", "Map Awareness"), MapAwareness)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+								[
+									SNew(STextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+									.Text(NSLOCTEXT("SUWBotConfigDialog", "FavoriteWeapon", "Favorite Weapon"))
+								]
+								+ SHorizontalBox::Slot()
+								.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+								[
+									SAssignNew(FavoriteWeapon, SComboBox<UClass*>)
+									.InitiallySelectedItem(WeaponList[0])
+									.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+									.OptionsSource(&WeaponList)
+									.OnGenerateWidget(this, &SUWBotConfigDialog::GenerateWeaponListWidget)
+									.OnSelectionChanged(this, &SUWBotConfigDialog::OnFavoriteWeaponChange)
+									.Content()
+									[
+										SAssignNew(SelectedFavWeapon, STextBlock)
+										.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
+										.MinDesiredWidth(200.0f)
+									]
 								]
 							]
 						]
 					]
 				]
-				+ SVerticalBox::Slot()
-				.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-				.AutoHeight()
-				.HAlign(HAlign_Center)
-				.VAlign(VAlign_Bottom)
-				[
-					SNew(SButton)
-					.HAlign(HAlign_Center)
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-					.Text(NSLOCTEXT("SUWBotConfigDialog", "OK", "OK").ToString())
-					.OnClicked(this, &SUWBotConfigDialog::OKClick)
-				]
 			]
-		]
-	];
+		];
+	}
 
 	OnCustomizedBotChange(BotNames[0], ESelectInfo::Direct);
 }
@@ -254,7 +256,7 @@ TSharedRef<ITableRow> SUWBotConfigDialog::GenerateBotListRow(TSharedPtr<FString>
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.Text(*BotName.Get())
 		];
 }
@@ -264,7 +266,7 @@ TSharedRef<SWidget> SUWBotConfigDialog::GenerateBotNameWidget(TSharedPtr<FString
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.Text(*BotName.Get())
 		];
 }
@@ -275,7 +277,7 @@ TSharedRef<SWidget> SUWBotConfigDialog::GenerateWeaponListWidget(UClass* WeaponC
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.Text((WeaponClass == NULL) ? GNone : WeaponClass->GetDefaultObject<AUTWeapon>()->DisplayName)
 		];
 }
@@ -373,7 +375,7 @@ void SUWBotConfigDialog::NewBotNameResult(TSharedPtr<SCompoundWidget> Dialog, ui
 					GetPlayerOwner()->OpenDialog( SNew(SUWDialog)
 												.PlayerOwner(GetPlayerOwner())
 												.DialogTitle(NSLOCTEXT("SUWBotConfigDialog", "NameInUse", "That bot name is already in use."))
-												);
+											);
 				}
 				else
 				{
@@ -391,6 +393,7 @@ FReply SUWBotConfigDialog::NewBotClick()
 {
 	GetPlayerOwner()->OpenDialog( SNew(SUWInputBox)
 								.PlayerOwner(GetPlayerOwner())
+								.DialogSize(FVector2D(600, 300))
 								.MessageText(NSLOCTEXT("SUWBotConfigDialog", "NewBotName", "Enter a name for the new bot profile:"))
 								.OnDialogResult(this, &SUWBotConfigDialog::NewBotNameResult)
 								 );
@@ -420,23 +423,26 @@ FReply SUWBotConfigDialog::DeleteBotClick()
 	return FReply::Handled();
 }
 
-FReply SUWBotConfigDialog::OKClick()
+FReply SUWBotConfigDialog::OnButtonClick(uint16 ButtonID)
 {
-	SaveCustomizedBot();
-	if (GameClass != NULL)
+	if (ButtonID == UTDIALOG_BUTTON_OK)
 	{
-		AUTGameMode* DefGame = GameClass.GetDefaultObject();
-		DefGame->SelectedBots.Empty();
-		TArray< TSharedPtr<FString> > DesiredBots = BotIncludeList->GetSelectedItems();
-		for (TSharedPtr<FString> Bot : DesiredBots)
+		SaveCustomizedBot();
+		if (GameClass != NULL)
 		{
-			if (Bot.IsValid())
+			AUTGameMode* DefGame = GameClass.GetDefaultObject();
+			DefGame->SelectedBots.Empty();
+			TArray< TSharedPtr<FString> > DesiredBots = BotIncludeList->GetSelectedItems();
+			for (TSharedPtr<FString> Bot : DesiredBots)
 			{
-				new(DefGame->SelectedBots) FSelectedBot(FString(*Bot.Get()), 255);
+				if (Bot.IsValid())
+				{
+					new(DefGame->SelectedBots) FSelectedBot(FString(*Bot.Get()), 255);
+				}
 			}
 		}
+		GetPlayerOwner()->CloseDialog(SharedThis(this));
 	}
-	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
 }
 

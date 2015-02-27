@@ -418,7 +418,7 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 	ConfigProps.Add(BalanceTeamsAttr);
 
 	MenuSpace->AddSlot()
-	.Padding(0.0f, 0.0f, 0.0f, 10.0f)
+	.Padding(0.0f,0.0f,0.0f,5.0f)
 	.AutoHeight()
 	[
 		SNew(SHorizontalBox)
