@@ -203,8 +203,11 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		UClass* EnvironmentClass = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewEnvironment.PlayerPreviewEnvironment_C"));
 		PreviewEnvironment = PlayerPreviewWorld->SpawnActor<AActor>(EnvironmentClass, FVector(500.f, 50.f, 0.f), FRotator(0, 0, 0));
 	}
-
 	
+	PlayerPreviewTexture->TargetGamma = GEngine->GetDisplayGamma();
+	PlayerPreviewTexture->InitCustomFormat(ViewportSize.X, ViewportSize.Y, PF_B8G8R8A8, false);
+	PlayerPreviewTexture->UpdateResourceImmediate();
+
 	FVector2D ResolutionScale(ViewportSize.X / 1280.0f, ViewportSize.Y / 720.0f);
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
@@ -988,6 +991,7 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	//ShowFlags.SetLighting(false); // FIXME: create some proxy light and use lit mode
 	ShowFlags.SetMotionBlur(false);
 	ShowFlags.SetGrain(false);
+	//ShowFlags.SetPostProcessing(false);
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
 
 //	EngineShowFlagOverride(ESFIM_Game, VMI_Lit, ViewFamily.EngineShowFlags, NAME_None, false);
@@ -1011,6 +1015,8 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	PlayerPreviewInitOptions.BackgroundColor = FLinearColor::Black;
 	PlayerPreviewInitOptions.WorldToMetersScale = GetPlayerOwner()->GetWorld()->GetWorldSettings()->WorldToMeters;
 	PlayerPreviewInitOptions.CursorPos = FIntPoint(-1, -1);
+	
+	ViewFamily.bUseSeparateRenderTarget = true;
 
 	FSceneView* View = new FSceneView(PlayerPreviewInitOptions); // note: renderer gets ownership
 	View->ViewLocation = FVector::ZeroVector;
