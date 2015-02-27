@@ -271,6 +271,9 @@ void UUTLocalPlayer::ShowMenu()
 void UUTLocalPlayer::HideMenu()
 {
 #if !UE_SERVER
+
+	if (ContentLoadingMessage.IsValid()) return; // Don't allow someone to close the menu while we are loading....
+
 	if (DesktopSlateWidget.IsValid())
 	{
 		GEngine->GameViewport->RemoveViewportWidgetContent(DesktopSlateWidget.ToSharedRef());

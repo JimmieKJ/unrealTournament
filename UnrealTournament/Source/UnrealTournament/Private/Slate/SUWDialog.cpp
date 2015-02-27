@@ -42,9 +42,10 @@ void SUWDialog::Construct(const FArguments& InArgs)
 	if ( InArgs._IsScrollable )
 	{
 		SAssignNew(FinalContent, SScrollBox)
+		.Style(SUWindowsStyle::Get(),"UT.ScrollBox.Borderless")
 		+ SScrollBox::Slot()
 
-		.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+		.Padding(FMargin(0.0f, 15.0f, 0.0f, 15.0f))
 		[
 			// Add an Overlay
 			SAssignNew(DialogContent, SOverlay)
@@ -311,7 +312,6 @@ TSharedRef<SWidget> SUWDialog::GenerateStringListWidget(TSharedPtr<FString> InIt
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
 			.Text(*InItem.Get())
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 		];

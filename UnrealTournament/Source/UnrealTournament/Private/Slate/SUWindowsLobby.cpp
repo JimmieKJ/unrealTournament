@@ -124,5 +124,54 @@ void SUWindowsLobby::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedP
 
 }
 
+TSharedRef<SWidget> SUWindowsLobby::BuildBackground()
+{
+	return SNew(SOverlay)
+	+SOverlay::Slot()
+	.VAlign(VAlign_Fill)
+	.HAlign(HAlign_Fill)
+	[
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SUWScaleBox)
+				.bMaintainAspectRatio(false)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Backgrounds.BK01"))
+				]
+			]
+		]
+	]
+	+SOverlay::Slot()
+	.VAlign(VAlign_Fill)
+	.HAlign(HAlign_Fill)
+	[
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SUWScaleBox)
+				.bMaintainAspectRatio(false)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Backgrounds.Overlay"))
+				]
+			]
+		]
+	];
+}
+
 
 #endif

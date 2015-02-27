@@ -109,7 +109,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddAAModeWidget(const FString& Des
 					[
 						SAssignNew(SelectedItemWidget, STextBlock)
 						.Text(*AAModeList[SettingValue].Get())
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 					]
 				]
 			]
@@ -210,103 +210,120 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 	{
 		DialogContent->AddSlot()
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
+
+			SNew(SOverlay)
+			+SOverlay::Slot()
 			[
-				SNew(SBox)
-				.HeightOverride(46)
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
+					SNew(SBox)
+					.HeightOverride(46)
 					[
-						SNew(SBox)
-						.WidthOverride(25)
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.FillWidth(1.0f)
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.MidFill"))
+						]
+					]
+				]
+
+			]
+			+SOverlay::Slot()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SBox)
+					.HeightOverride(46)
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(FMargin(25.0f,0.0f,0.0f,0.0f))
+						.AutoWidth()
+						[
+							SAssignNew(GeneralSettingsTabButton, SUTTabButton)
+							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
+							.ClickMethod(EButtonClickMethod::MouseDown)
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGeneral", "General").ToString())
+							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickGeneral)
+						]
+
+						+ SHorizontalBox::Slot()
+						.Padding(FMargin(25.0f,0.0f,0.0f,0.0f))
+						.AutoWidth()
+						[
+							SAssignNew(GraphicsSettingsTabButton, SUTTabButton)
+							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
+							.ClickMethod(EButtonClickMethod::MouseDown)
+							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGraphics", "Graphics").ToString())
+							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickGraphics)
+						]
+
+						+ SHorizontalBox::Slot()
+						.Padding(FMargin(25.0f,0.0f,0.0f,0.0f))
+						.AutoWidth()
+						[
+							SAssignNew(AudioSettingsTabButton, SUTTabButton)
+							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
+							.ClickMethod(EButtonClickMethod::MouseDown)
+							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabAudio", "Audio").ToString())
+							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickAudio)
+						]
+
+						+ SHorizontalBox::Slot()
+						.FillWidth(1.0)
 						[
 							SNew(SImage)
 							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.LightFill"))
 						]
 					]
-
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SAssignNew(GeneralSettingsTabButton, SUTTabButton)
-						.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.SimpleTabButton")
-						.ClickMethod(EButtonClickMethod::MouseDown)
-						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGeneral", "General").ToString())
-						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-						.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickGeneral)
-					]
-
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SAssignNew(GraphicsSettingsTabButton, SUTTabButton)
-						.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.SimpleTabButton")
-						.ClickMethod(EButtonClickMethod::MouseDown)
-						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGraphics", "Graphics").ToString())
-						.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickGraphics)
-					]
-
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SAssignNew(AudioSettingsTabButton, SUTTabButton)
-						.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.SimpleTabButton")
-						.ClickMethod(EButtonClickMethod::MouseDown)
-						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-						.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabAudio", "Audio").ToString())
-						.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickAudio)
-					]
-
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0)
-					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.LightFill"))
-					]
 				]
-			]
 
-			// Content
+				// Content
 
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
-			.Padding(5.0f, 0.0f, 5.0f, 0.0f)
-			[
-				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
-				.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 				.AutoHeight()
-				.VAlign(VAlign_Fill)
 				.HAlign(HAlign_Fill)
+				.Padding(5.0f, 0.0f, 5.0f, 0.0f)
 				[
-					// Settings Tabs
-					SAssignNew(TabWidget, SWidgetSwitcher)
-
-					// General Settings
-					+ SWidgetSwitcher::Slot()
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+					.AutoHeight()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
 					[
-						BuildGeneralTab()
-					]
+						// Settings Tabs
+						SAssignNew(TabWidget, SWidgetSwitcher)
 
-					// Graphics Settings
-					+ SWidgetSwitcher::Slot()
-					[
-						BuildGraphicsTab()
-					]
+						// General Settings
+						+ SWidgetSwitcher::Slot()
+						[
+							BuildGeneralTab()
+						]
 
-					// Audio Settings
-					+ SWidgetSwitcher::Slot()
-					[
-						BuildAudioTab()
+						// Graphics Settings
+						+ SWidgetSwitcher::Slot()
+						[
+							BuildGraphicsTab()
+						]
+
+						// Audio Settings
+						+ SWidgetSwitcher::Slot()
+						[
+							BuildAudioTab()
+						]
 					]
 				]
 			]
@@ -362,7 +379,6 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 
 	return SNew(SVerticalBox)
 
-	+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "Options", "- General Options -"))
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -395,7 +411,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SAssignNew(SelectedRes, STextBlock)
 				.Text(*ResList[CurrentResIndex].Get())
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.Black")
 			]
 		]
 	]
@@ -539,8 +555,6 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 
 	return SNew(SVerticalBox)
 
-	+AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "DetailSettings", "- Graphics Detail Settings -"))
-
 	+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange, 
 		GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting, 
 		NSLOCTEXT("SUWSystemSettingsDialog", "ScreenPercentage_Tooltip", "Sets the scale as a percentage of your resolution that the engine renders too, this is later upsampled to your desired resolution.\nThis can be a useful preformance tweak to ensure smooth preformance without changing your resolution away from "))
@@ -577,8 +591,8 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 	[
 		SNew(SButton)
 		.HAlign(HAlign_Center)
-		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.BoldText")
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+		.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 		.ForegroundColor(FLinearColor::Black)
 		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 		.Text(NSLOCTEXT("SUWSystemSettingsDialog", "AutoSettingsButtonText", "Autodetect Settings"))
@@ -592,7 +606,6 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
 
 	return SNew(SVerticalBox)
 
-	+ AddSectionHeader(NSLOCTEXT("SUWSystemSettingsDialog", "SoundSettings", "- Sound/Voice Settings -"))
 	+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), SoundVolumes[EUTSoundClass::Master], UserSettings->GetSoundClassVolume(EUTSoundClass::Master),
 		NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume_Tooltip", "Controls the volume of all audio, this setting in conjuction the vlolumes below will determine the volume of a particular piece of audio."))
 	+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), SoundVolumes[EUTSoundClass::Music], UserSettings->GetSoundClassVolume(EUTSoundClass::Music))

@@ -38,20 +38,22 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 			[ 
 				SNew(STextBlock)
 				.Text(InArgs._MessageText)
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.AutoWrapText(true)
 			]
 			+ SVerticalBox::Slot()
 			.VAlign(VAlign_Bottom)
 			.HAlign(HAlign_Fill)
+			.AutoHeight()
 			.Padding(FMargin(10.0f, 0.0f, 10.0f, 5.0f))
 			[
 				SAssignNew(EditBox, SEditableTextBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.Dark")
+				.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
 				.OnTextChanged(this, &SUWInputBox::OnTextChanged)
 				.OnTextCommitted(this, &SUWInputBox::OnTextCommited)
 				.IsPassword(IsPassword)
 				.MinDesiredWidth(300.0f)
+				.Padding(FMargin(5.0f, 12.0f, 5.0f,10.0f))
 				.Text(FText::FromString(InArgs._DefaultInput))
 			]
 		];
@@ -63,7 +65,7 @@ void SUWInputBox::OnDialogOpened()
 {
 	SUWDialog::OnDialogOpened();
 	// start with the editbox focused
-	FSlateApplication::Get().SetKeyboardFocus(EditBox, EKeyboardFocusCause::Keyboard);
+	FSlateApplication::Get().SetKeyboardFocus(EditBox, EKeyboardFocusCause::SetDirectly);
 }
 
 

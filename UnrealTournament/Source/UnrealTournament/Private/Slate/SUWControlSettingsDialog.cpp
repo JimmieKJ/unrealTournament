@@ -392,7 +392,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 						.AutoWidth()
 						[
 							SAssignNew(KeyboardSettingsTabButton, SUTTabButton)
-							.ContentPadding(FMargin(10.0f, 10.0f, 60.0f, 0.0f))
+							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.Text(NSLOCTEXT("SUWControlSettingsDialog", "ControlTabKeyboard", "Keyboard").ToString())
@@ -404,7 +404,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 						.AutoWidth()
 						[
 							SAssignNew(MouseSettingsTabButton, SUTTabButton)
-							.ContentPadding(FMargin(10.0f, 10.0f, 60.0f, 0.0f))
+							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
@@ -416,7 +416,7 @@ void SUWControlSettingsDialog::Construct(const FArguments& InArgs)
 						.AutoWidth()
 						[
 							SAssignNew(MovementSettingsTabButton, SUTTabButton)
-							.ContentPadding(FMargin(10.0f, 10.0f, 60.0f, 0.0f))
+							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
@@ -525,13 +525,10 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 	//Key bind list
 
 	+SVerticalBox::Slot()
+	.AutoHeight()
 	.Padding(FMargin(10.0f, 10.0f, 10.0f, 5.0f))
 	[
-		SAssignNew(ScrollBox, SScrollBox)
-		+ SScrollBox::Slot()
-		[
-			SAssignNew(ControlList, SVerticalBox)
-		]
+		SAssignNew(ControlList, SVerticalBox)
 	];
 
 	if (KeyboardBox.IsValid())
@@ -542,6 +539,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 			if (Bind->bHeader)
 			{
 				ControlList->AddSlot()
+				.AutoHeight()
 				.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 				[
 					SNew(SHorizontalBox)
@@ -559,6 +557,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 			else
 			{
 				ControlList->AddSlot()
+				.AutoHeight()
 				.Padding(FMargin(10.0f, 4.0f, 10.0f, 4.0f))
 				[
 					SNew(SHorizontalBox)
@@ -578,7 +577,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 						.Key(Bind->Key)
 						.DefaultKey(Bind->DefaultKey)
 						.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 						.OnKeyBindingChanged( this, &SUWControlSettingsDialog::OnKeyBindingChanged, Bind, true)
 					]
 					+ SHorizontalBox::Slot()
@@ -589,7 +588,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 						.Key(Bind->AltKey)
 						.DefaultKey(Bind->DefaultAltKey)
 						.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 						.OnKeyBindingChanged( this, &SUWControlSettingsDialog::OnKeyBindingChanged, Bind, false)
 					]
 				];
@@ -699,7 +698,6 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMouseTab()
 					.MinDesiredWidth(200)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
 					.Text(FText::AsNumber(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity()))
-					.ForegroundColor(FLinearColor::Black)
 					.OnTextCommitted(this, &SUWControlSettingsDialog::EditSensitivity)
 				]		
 			]
@@ -859,7 +857,6 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 				SAssignNew(MaxDodgeTapTime, SNumericEntryBox<float>)
 				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
 				.LabelPadding(FMargin(50.0f,50.0f))
-				.Font(SUWindowsStyle::Get().GetFontStyle("UT.Common.Exo2.20"))
 				.Value(this, &SUWControlSettingsDialog::GetMaxDodgeTapTimeValue)
 				.OnValueCommitted(this, &SUWControlSettingsDialog::SetMaxDodgeTapTimeValue)
 			]
@@ -889,7 +886,6 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 			[
 				SAssignNew(MaxDodgeClickTime, SNumericEntryBox<float>)
 				.EditableTextBoxStyle(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
-				.Font(SUWindowsStyle::Get().GetFontStyle("UT.Common.Exo2.20"))
 				.Value(this, &SUWControlSettingsDialog::GetMaxDodgeClickTimeValue)
 				.OnValueCommitted(this, &SUWControlSettingsDialog::SetMaxDodgeClickTimeValue)
 			]

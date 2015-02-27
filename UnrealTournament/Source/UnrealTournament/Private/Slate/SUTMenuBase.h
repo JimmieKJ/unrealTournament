@@ -40,6 +40,7 @@ protected:
 	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
 	virtual TSharedRef<SWidget> BuildAboutSubMenu();
 	virtual TSharedRef<SWidget> BuildOnlinePresence();
+	virtual TSharedRef<SWidget> BuildBackground();
 
 	virtual void BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
 	
@@ -79,6 +80,5 @@ protected:
 	{
 		return true;
 	}
-
 };
 #endif

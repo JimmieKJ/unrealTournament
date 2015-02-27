@@ -12,6 +12,7 @@
 #include "UTCharacterContent.h"
 #include "UTWeap_ShockRifle.h"
 #include "UTWeaponAttachment.h"
+#include "Engine/UserInterfaceSettings.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -106,11 +107,15 @@ protected:
 
 void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 {
+	FVector2D ViewportSize;
+	InArgs._PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+
+	FVector2D UnscaledDialogSize = ViewportSize / DPIScale;
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
 							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "PlayerSettings", "Player Settings"))
-							.DialogSize(FVector2D(1, 1))
-							.bDialogSizeIsRelative(true)
+							.DialogSize(UnscaledDialogSize)
 							.DialogPosition(InArgs._DialogPosition)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
 							.ContentPadding(FVector2D(0,0))
@@ -170,9 +175,6 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
-
-	FVector2D ViewportSize;
-	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
 
 	PoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E.Pose_E"));
 
@@ -363,7 +365,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							SAssignNew(PlayerName, SEditableTextBox)
 							.OnTextChanged(this, &SUWPlayerSettingsDialog::OnNameTextChanged)
 							.Text(FText::FromString(GetPlayerOwner()->GetNickname()))
-							.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.Dark")
+							.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
 						]
 					]
 
@@ -391,8 +393,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							[
 								SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FString> >)
 								.InitiallySelectedItem(0)
-								.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 								.OptionsSource(&CountyFlagNames)
 								.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 								.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnFlagSelected)
@@ -404,7 +406,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 									[
 										SAssignNew(SelectedFlag, STextBlock)
 										.Text(FString(TEXT("Unreal")))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+										.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 									]
 								]
 							]
@@ -425,8 +427,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(HatComboBox, SComboBox< TSharedPtr<FString> >)
 							.InitiallySelectedItem(0)
-							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 							.OptionsSource(&HatList)
 							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnHatSelected)
@@ -435,7 +437,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							[
 								SAssignNew(SelectedHat, STextBlock)
 								.Text(FString(TEXT("No Hats Available")))
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 							]
 						]
 
@@ -454,8 +456,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(EyewearComboBox, SComboBox< TSharedPtr<FString> >)
 							.InitiallySelectedItem(0)
-							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 							.OptionsSource(&EyewearList)
 							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnEyewearSelected)
@@ -467,7 +469,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								[
 									SAssignNew(SelectedEyewear, STextBlock)
 									.Text(FString(TEXT("No Glasses Available")))
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 								]
 							]
 						]
@@ -487,8 +489,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(CharacterComboBox, SComboBox< TSharedPtr<FString> >)
 							.InitiallySelectedItem(0)
-							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 							.OptionsSource(&CharacterList)
 							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
 							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnCharacterSelected)
@@ -500,7 +502,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								[
 									SAssignNew(SelectedCharacter, STextBlock)
 									.Text(FString(TEXT("No Characters Available")))
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.Options.TextStyle")
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 								]
 							]
 						]
@@ -582,6 +584,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(WeaponBobScaling, SSlider)
 							.Orientation(Orient_Horizontal)
+							.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 							.Value(GetDefault<AUTPlayerController>()->WeaponBobGlobalScaling / BOB_SCALING_FACTOR)
 						]
 
@@ -599,6 +602,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(ViewBobScaling, SSlider)
+							.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 							.Orientation(Orient_Horizontal)
 							.Value(GetDefault<AUTPlayerController>()->EyeOffsetGlobalScaling / BOB_SCALING_FACTOR)
 						]

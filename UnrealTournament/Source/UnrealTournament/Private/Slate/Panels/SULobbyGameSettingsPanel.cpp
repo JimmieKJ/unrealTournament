@@ -55,13 +55,12 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 		.AutoHeight()
 		[
 			SNew(SBox)
-			.HeightOverride(24)
+			.HeightOverride(32)
 			[
 				SNew(SOverlay)
 				+SOverlay::Slot()
 				[
 					SNew(SImage)
-					//.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.DarkBackground"))
 					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBar.Background"))
 				]
 
@@ -71,7 +70,7 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 				[
 					SNew(STextBlock)
 					.Text(NSLOCTEXT("LobbyMessages","PlayersInMatch","- Players In Match -"))
-					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.SmallButton.TextStyle")
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				]
 			]
 		]
@@ -113,7 +112,7 @@ void SULobbyGameSettingsPanel::Construct(const FArguments& InArgs)
 					[
 						SAssignNew(StatusText,STextBlock)
 						.Text(this, &SULobbyGameSettingsPanel::GetMatchMessage )
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.SmallButton.TextStyle")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					]
 				]
 			]
@@ -440,7 +439,7 @@ FText SULobbyGameSettingsPanel::GetMatchMessage() const
 		{
 			if (bIsHost)
 			{
-				return NSLOCTEXT("LobbyMessages","WaitingForPlayers","Setup your match and press PLAY when ready.");
+				return NSLOCTEXT("LobbyMessages","WaitingForPlayers","Setup your match and press Start Match when ready.");
 			}
 
 			return NSLOCTEXT("LobbyMessages","WaitingForHost","Waiting for the host to start...");
@@ -484,22 +483,26 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsPanel()
 	+SHorizontalBox::Slot()
 	.AutoWidth()
 	[
-		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.Padding(5.0f,0.0f,0.0f,0.0f)
-		.AutoHeight()
-		.HAlign(HAlign_Left)
+		SNew(SBox)
+		.WidthOverride(400)
 		[
-			SNew(STextBlock)
-			.Text(NSLOCTEXT("GameSettings","CurrentMap","- Map to Play -"))
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-		]
-		+SVerticalBox::Slot()
-		[
-			SNew(SBox)
-			.HeightOverride(200)
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.Padding(5.0f,0.0f,0.0f,0.0f)
+			.AutoHeight()
+			.HAlign(HAlign_Left)
 			[
-				BuildMapsList()
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("GameSettings","CurrentMap","- Map to Play -"))
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+			]
+			+SVerticalBox::Slot()
+			[
+				SNew(SBox)
+				.HeightOverride(200)
+				[
+					BuildMapsList()
+				]
 			]
 		]
 	]
@@ -511,8 +514,8 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsPanel()
 		.AutoHeight()
 		[
 			SNew(SBox)
-			.WidthOverride(400)
-			.HeightOverride(214)							
+			.WidthOverride(512)
+			.HeightOverride(256)							
 			[
 				SNew(SImage)
 				.Image(LevelScreenshot)
@@ -532,10 +535,7 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsList()
 {
 	if (bIsHost)
 	{
-		return SNew(SBox)
-		.WidthOverride(200)
-		[
-			SAssignNew( MapList, SListView< TSharedPtr<FAllowedMapData> > )
+		return SAssignNew( MapList, SListView< TSharedPtr<FAllowedMapData> > )
 			// List view items are this tall
 			.ItemHeight(24)
 			// Tell the list view where to get its source data
@@ -543,17 +543,13 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsList()
 			// When the list view needs to generate a widget for some data item, use this method
 			.OnGenerateRow(this, &SULobbyGameSettingsPanel::GenerateMapListWidget)
 			.OnSelectionChanged(this, &SULobbyGameSettingsPanel::OnMapListChanged)
-			.SelectionMode(ESelectionMode::Single)
-		];
-
-
-
+			.SelectionMode(ESelectionMode::Single);
 	}
 	else
 	{
 		return SNew(STextBlock)
 		.Text(this, &SULobbyGameSettingsPanel::GetMapText)
-		.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText");
+		.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White");
 	}
 }
 
@@ -563,9 +559,8 @@ TSharedRef<ITableRow> SULobbyGameSettingsPanel::GenerateMapListWidget(TSharedPtr
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::White)
 			.Text(FText::FromString(InItem.Get()->MapName))
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.SmallText")
+			.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
 		];
 }
 

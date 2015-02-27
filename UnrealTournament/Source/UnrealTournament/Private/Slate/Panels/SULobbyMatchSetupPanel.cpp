@@ -51,7 +51,7 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 				[
 					SNew(STextBlock)
 					.Text(NSLOCTEXT("SULobbySetup","GameMode","GAME MODE:"))
-					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
 				]
 				+SHorizontalBox::Slot()
 				.Padding(5.0f,0.0f,10.0f,0.0f)
@@ -88,20 +88,19 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildGameModeWidget()
 	if (LobbyGameState && bIsHost)
 	{
 		return SNew(SBox)
-		.WidthOverride(200)
+		.WidthOverride(250)
 		[
 			SNew(SComboBox< TSharedPtr<FAllowedGameModeData> >)
 			.InitiallySelectedItem(MatchInfo.Get()->CurrentGameModeData)
-			.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+			.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 			.OptionsSource(&LobbyGameState->ClientAvailbleGameModes)
 			.OnGenerateWidget(this, &SULobbyMatchSetupPanel::GenerateGameModeListWidget)
 			.OnSelectionChanged(this, &SULobbyMatchSetupPanel::OnGameModeChanged)
 			.Content()
 			[
 				SAssignNew(CurrentGameMode, STextBlock)
-				//.Text(FText::FromString(MatchInfo.Get()->CurrentGameModeData->DisplayName))
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.Options.TextStyle")
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 			]
 		];
 	}
@@ -116,7 +115,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildGameModeWidget()
 			[
 				SNew(STextBlock)
 				.Text(this, &SULobbyMatchSetupPanel::GetGameModeText)
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.White")
 			]
 		];
 	}
@@ -151,10 +150,11 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			SNew(SCheckBox)
 			.IsChecked(MatchInfo->RankCeiling > 0 ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::RankCeilingChanged)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.Content()
 			[
 				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.Text(NSLOCTEXT("SULobbySetup", "LimitSkill", "Limit Rank").ToString())
 			]
 		];
@@ -168,10 +168,11 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			SNew(SCheckBox)
 			.IsChecked((MatchInfo->bSpectatable ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked))
 			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::AllowSpectatorChanged)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.Content()
 			[
 				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.Text(NSLOCTEXT("SULobbySetup", "AllowSpectators", "Allow Spectating").ToString())
 			]
 		];
@@ -186,10 +187,11 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			SAssignNew(JIPCheckBox, SCheckBox)
 			.IsChecked((MatchInfo->bJoinAnytime ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked))
 			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::JoinAnyTimeChanged)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.Content()
 			[
 				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.Dialog.TextStyle")
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.Text(NSLOCTEXT("SULobbySetup", "AllowJoininProgress", "Allow Join-In-Progress").ToString())
 			]
 		];
@@ -209,7 +211,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 				.WidthOverride(120)
 				[
 					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
 					.Text(this, &SULobbyMatchSetupPanel::GetMaxPlayerLabel)
 				]
 			]
@@ -225,6 +227,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 					.Orientation(Orient_Horizontal)
 					.Value(MaxPlayerValue)
 					.OnValueChanged(this, &SULobbyMatchSetupPanel::OnMaxPlayersChanged)
+					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 				]
 			]
 		];
@@ -258,7 +261,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::GenerateGameModeListWidget(TSharedPt
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 			.Text(FText::FromString(InItem.Get()->DisplayName))
 		];
 }

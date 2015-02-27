@@ -371,22 +371,20 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 	+ SVerticalBox::Slot()
 	.Padding(FMargin(60.0f, 60.0f, 60.0f, 60.0f))
 	[
-		SNew(SHorizontalBox)
+		SNew(SVerticalBox)
 
-		+ SHorizontalBox::Slot()
-		.FillWidth(.5f)
+		// Game type and map selection
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(0, 0, 0, 50))
 		[
-			SNew(SVerticalBox)
-
-			// Game type and map selection
-			+SVerticalBox::Slot()
-			.Padding(FMargin(0, 0, 0, 50))
+			// Selection Controls
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
 			[
-				// Selection Controls
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.FillWidth(.4)
-				.Padding(FMargin(0, 0, 60, 0))
+				SNew(SBox)
+				.WidthOverride(500)
 				[
 					// Game Type
 					SNew(SVerticalBox)
@@ -397,32 +395,41 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
 						.VAlign( VAlign_Center )
-						.FillWidth(.4f)
+						.AutoWidth()
 						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ExtraLargeText")
-							.Text(NSLOCTEXT("SUWCreateGamePanel", "Gametype", "Game Type:"))
+							SNew(SBox)
+							.WidthOverride(200)
+							[
+								SNew(STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+								.Text(NSLOCTEXT("SUWCreateGamePanel", "Gametype", "Game Type:"))
+							]
 						]
 						+ SHorizontalBox::Slot()
-						.FillWidth(.6f)
+						.AutoWidth()
+						.Padding(FMargin(10.0f,0.0f,0.0f,0.0f))
 						[
-							SAssignNew(GameList, SComboBox<UClass*>)
-							.InitiallySelectedItem(InitialSelectedGameClass)
-							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-							.OptionsSource(&AllGametypes)
-							.OnGenerateWidget(this, &SUWCreateGamePanel::GenerateGameNameWidget)
-							.OnSelectionChanged(this, &SUWCreateGamePanel::OnGameSelected)
-							.Content()
+							SNew(SBox)
+							.WidthOverride(290)
 							[
-								SAssignNew(SelectedGameName, STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ExtraLargeText")
-								.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
-								.Text(InitialSelectedGameClass.GetDefaultObject()->DisplayName.ToString())
-								.MinDesiredWidth(200.0f)
+								SAssignNew(GameList, SComboBox<UClass*>)
+								.InitiallySelectedItem(InitialSelectedGameClass)
+								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+								.OptionsSource(&AllGametypes)
+								.OnGenerateWidget(this, &SUWCreateGamePanel::GenerateGameNameWidget)
+								.OnSelectionChanged(this, &SUWCreateGamePanel::OnGameSelected)
+								.Content()
+								[
+									SAssignNew(SelectedGameName, STextBlock)
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+									.Text(InitialSelectedGameClass.GetDefaultObject()->DisplayName.ToString())
+									.MinDesiredWidth(200.0f)
+								]
 							]
 						]
 					]
+
 					// Map
 					+ SVerticalBox::Slot()
 					.AutoHeight()
@@ -433,26 +440,35 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 						.VAlign(VAlign_Center)
 						.FillWidth(.4f)
 						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ExtraLargeText")
-							.Text(NSLOCTEXT("SUWCreateGamePanel", "Map", "Map:"))
+							SNew(SBox)
+							.WidthOverride(200)
+							[
+								SNew(STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+								.Text(NSLOCTEXT("SUWCreateGamePanel", "Map", "Map:"))
+							]
 						]
 						+ SHorizontalBox::Slot()
-						.FillWidth(.6f)
+						.Padding(FMargin(10.0f,0.0f,0.0f,0.0f))
+						.AutoWidth()
 						[
-							SAssignNew(MapList, SComboBox< TSharedPtr<FString> >)
-							.ComboBoxStyle(SUWindowsStyle::Get(), "UWindows.Standard.ComboBox")
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-							.OptionsSource(&AllMaps)
-							.OnGenerateWidget(this, &SUWCreateGamePanel::GenerateMapNameWidget)
-							.OnSelectionChanged(this, &SUWCreateGamePanel::OnMapSelected)
-							.Content()
+							SNew(SBox)
+							.WidthOverride(290)
 							[
-								SAssignNew(SelectedMap, STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ExtraLargeText")
-								.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
-								.Text(NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available").ToString())
-								.MinDesiredWidth(200.0f)
+								SAssignNew(MapList, SComboBox< TSharedPtr<FString> >)
+								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+								.OptionsSource(&AllMaps)
+								.OnGenerateWidget(this, &SUWCreateGamePanel::GenerateMapNameWidget)
+								.OnSelectionChanged(this, &SUWCreateGamePanel::OnMapSelected)
+								.Content()
+								[
+									SAssignNew(SelectedMap, STextBlock)
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+									.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
+									.Text(NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available").ToString())
+									.MinDesiredWidth(200.0f)
+								]
 							]
 						]
 					]
@@ -462,7 +478,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 					.Padding(FMargin( 0, 0, 0, 5))
 					[
 						SAssignNew(MapAuthor, STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 						.Text(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(TEXT("-"))))
 					]
 					// Recommended players
@@ -471,7 +487,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 					.Padding(FMargin( 0, 0, 0, 5))
 					[
 						SAssignNew(MapRecommendedPlayers, STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 						.Text(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)))
 					]
 					// Description
@@ -480,28 +496,45 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 					.Padding(FMargin(0, 0, 0, 20))
 					[
 						SAssignNew(MapDesc, STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 						.Text(FText())
 						.AutoWrapText(true)
 					]
 				]
-				// Map screenshot.
-				+ SHorizontalBox::Slot()
-				.FillWidth(.6)
+			]
+			// Map screenshot.
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(20.0f,0.0f,0.0f,0.0f)
 				[
-					SNew(SImage)
-					.Image(LevelScreenshot)
+					SNew(SBox)
+					.WidthOverride(512)
+					.HeightOverride(256)
+					[
+						SNew(SImage)
+						.Image(LevelScreenshot)
+					]
 				]
 			]
+		]
 
-			// Game Settings and mutators
-			+SVerticalBox::Slot()
+		// Game Settings and mutators
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(0.0f,30.0f,0.0f,0.0f))
+		[
+			SNew(SHorizontalBox)
+			// Game Settings
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(FMargin(0, 0, 60, 0))
 			[
-				SNew(SHorizontalBox)
-				// Game Settings
-				+ SHorizontalBox::Slot()
-				.FillWidth(.4)
-				.Padding(FMargin(0, 0, 60, 0))
+				SNew(SBox)
+				.WidthOverride(700)
 				[
 					SNew(SVerticalBox)
 					// Heading
@@ -510,7 +543,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 					.Padding(FMargin(0, 0, 0, 20))
 					[
 						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ExtraLargeText")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
 						.Text(NSLOCTEXT("SUWCreateGamePanel", "GameSettings", "Game Settings:"))
 					]
 					// Game config panel
@@ -519,10 +552,16 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 						SAssignNew(GameConfigPanel, SVerticalBox)
 					]
 				]
-				// Mutators
-				+ SHorizontalBox::Slot()
-				.FillWidth(.6)
+			]
+			// Mutators
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(30.0f,0.0f,0.0f,0.0f)
+			[
+				SNew(SBox)
+				.WidthOverride(700)
 				[
+
 					SNew(SVerticalBox)
 					// Heading
 					+ SVerticalBox::Slot()
@@ -530,7 +569,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 					.Padding(FMargin(0, 0, 0, 20))
 					[
 						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ExtraLargeText")
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
 						.Text(NSLOCTEXT("SUWCreateGamePanel", "Mutators", "Mutators:"))
 					]
 
@@ -569,13 +608,12 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 								[
 									SNew(SButton)
 									.HAlign(HAlign_Left)
-									.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 									.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 									.OnClicked(this, &SUWCreateGamePanel::AddMutator)
 									[
 										SNew(STextBlock)
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ExtraLargeText")
-										.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
+										.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
 										.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorAdd", "-->").ToString())
 									]
 								]
@@ -585,13 +623,12 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 								[
 									SNew(SButton)
 									.HAlign(HAlign_Left)
-									.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 									.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 									.OnClicked(this, &SUWCreateGamePanel::RemoveMutator)
 									[
 										SNew(STextBlock)
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ExtraLargeText")
-										.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
+										.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
 										.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorRemove", "<--").ToString())
 									]
 								]
@@ -619,25 +656,18 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 						[
 							SNew(SButton)
 							.HAlign(HAlign_Center)
-							.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 							.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
 							.OnClicked(this, &SUWCreateGamePanel::ConfigureMutator)
 							[
 								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
-								.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 								.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureMutator", "Configure Mutator").ToString())
 							]
 						]
 					]
 				]
 			]
-		]
-
-		+ SHorizontalBox::Slot()
-		.FillWidth(.4f)
-		[
-			SNullWidget::NullWidget
 		]
 	];
 
@@ -659,50 +689,88 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildServerPanel()
 	TSharedPtr<TAttributePropertyString> ServerMOTDProp = MakeShareable(new TAttributePropertyString(AUTGameState::StaticClass()->GetDefaultObject(), &AUTGameState::StaticClass()->GetDefaultObject<AUTGameState>()->ServerMOTD));
 	PropertyLinks.Add(ServerMOTDProp);
 
-	return SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-		.AutoHeight()
+	return SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.AutoWidth()
 		[
-			SNew(SHorizontalBox)
-
-			+SHorizontalBox::Slot()
-			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-			.VAlign(VAlign_Center)
-			.AutoWidth()
+			SNew(SBox)
+			.WidthOverride(1000)
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-				.Text(NSLOCTEXT("SUWCreateGamePanel", "ServerName", "Server Name:"))
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-			.AutoWidth()
-			[
-				SNew(SEditableTextBox)
-				.OnTextChanged(ServerNameProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
-				.MinDesiredWidth(300.0f)
-				.Text(ServerNameProp.ToSharedRef(), &TAttributePropertyString::GetAsText)
-			]
-		]
-		+SVerticalBox::Slot()
-		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-		.HAlign(HAlign_Left)
-		.AutoHeight()
-		[
-			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.NormalText")
-			.Text(NSLOCTEXT("SUWCreateGamePanel", "ServerMOTD", "Server MOTD:"))
-		]
-		+SVerticalBox::Slot()
-		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
-		.AutoHeight()
-		[
-			SNew(SEditableTextBox)
-			.OnTextChanged(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
-			.MinDesiredWidth(400.0f)
-			.Text(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::GetAsText)
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.Padding(FMargin(20.0f, 5.0f, 10.0f, 5.0f))
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(300)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+							.Text(NSLOCTEXT("SUWCreateGamePanel", "ServerName", "Server Name:"))
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.Padding(FMargin(20.0f, 5.0f, 10.0f, 5.0f))
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(300)
+						[
+							SNew(SEditableTextBox)
+							.OnTextChanged(ServerNameProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
+							.MinDesiredWidth(300.0f)
+							.Text(ServerNameProp.ToSharedRef(), &TAttributePropertyString::GetAsText)
+							.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
+						]
+					]
+				]
+				+SVerticalBox::Slot()
+				.Padding(FMargin(0.0f, 5.0f, 10.0f, 5.0f))
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.Padding(FMargin(20.0f, 5.0f, 10.0f, 5.0f))
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(300)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+							.Text(NSLOCTEXT("SUWCreateGamePanel", "ServerMOTD", "Server MOTD:"))
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.Padding(FMargin(20.0f, 5.0f, 10.0f, 5.0f))
+					.AutoWidth()
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.Padding(FMargin(0.0f, 5.0f, 10.0f, 5.0f))
+						.AutoWidth()
+						[
+							SNew(SBox)
+							.WidthOverride(700)
+							.HeightOverride(400)
+							[
+								SNew(SMultiLineEditableTextBox)
+								.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
+								.OnTextChanged(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
+								.Text(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::GetAsText)
+							]
+						]
+					]
+				]
+			]					
 		];
+		
+		
 }
 /*
 	int32 ButtonID = 0;
@@ -773,8 +841,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName.ToString())
 		];
 }
@@ -785,8 +852,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TSharedPtr<FString
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.ColorAndOpacity(FLinearColor::Black)
-			.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 			.Text(*InItem.Get())
 		];
 }
@@ -809,53 +875,70 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		TSharedPtr< TAttributePropertyBool > DemoRecAttr = MakeShareable(new TAttributePropertyBool(SelectedGameClass.GetDefaultObject(), &SelectedGameClass.GetDefaultObject()->bRecordDemo));
 		GameConfigProps.Add(DemoRecAttr);
 		GameConfigPanel->AddSlot()
-		.Padding(0.0f, 0.0f, 0.0f, 5.0f)
 		.AutoHeight()
 		.VAlign(VAlign_Top)
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
-			.FillWidth(0.6f)
+			.AutoWidth()
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
-				.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
+				]
 			]
 			+ SHorizontalBox::Slot()
-			.FillWidth(0.4f)
+			.AutoWidth()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
 			[
-				SNew(SCheckBox)
-				.IsChecked(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.OnCheckStateChanged(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-				.Type(ESlateCheckBoxType::CheckBox)
+				SNew(SBox)
+				.WidthOverride(330)
+				[
+					SNew(SCheckBox)
+					.IsChecked(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+					.OnCheckStateChanged(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+					.Type(ESlateCheckBoxType::CheckBox)
+				]
 			]
 		];
 
 		// Configure bots button
 		GameConfigPanel->AddSlot()
-		.Padding(0.0f, 0.0f, 0.0f, 5.0f)
 		.AutoHeight()
 		.VAlign(VAlign_Top)
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
-			.FillWidth(0.6f)
+			.AutoWidth()
 			[
-				SNullWidget::NullWidget
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNullWidget::NullWidget
+				]
 			]
 			+ SHorizontalBox::Slot()
-			.FillWidth(0.4f)
+			.Padding(20.0f,0.0f,0.0f,0.0f)
+			.AutoWidth()
 			[
-				SNew(SButton)
-				.HAlign(HAlign_Center)
-				.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-				.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-				.OnClicked(this, &SUWCreateGamePanel::ConfigureBots)
+				SNew(SBox)
+				.WidthOverride(320)
 				[
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.LargeText")
-					.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
-					.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots").ToString())
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+					.OnClicked(this, &SUWCreateGamePanel::ConfigureBots)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+						.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
+						.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots").ToString())
+					]
 				]
 			]
 		];
@@ -1121,7 +1204,7 @@ TSharedRef<ITableRow> SUWCreateGamePanel::GenerateMutatorListRow(UClass* Mutator
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.LargeText")
+			.TextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
 			.Text(MutatorName)
 		]; 
 }
