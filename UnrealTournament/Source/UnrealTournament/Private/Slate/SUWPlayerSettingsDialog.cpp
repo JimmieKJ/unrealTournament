@@ -283,25 +283,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			}
 		}
 	}
-
-	{
-		TArray<FAssetData> AssetList;
-		GetAllBlueprintAssetData(AUTWeapon::StaticClass(), AssetList);
-		for ( const FAssetData& Asset : AssetList )
-		{
-			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
-			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-			if ( ClassPath != NULL && !ClassPath->Contains(TEXT("/EpicInternal/")) ) // exclude debug/test weapons
-			{
-				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-				if ( TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()) && !TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus )
-				{
-					WeaponList.Add(TestClass);
-				}
-			}
-		}
-	}
-
+	
 	SelectedPlayerColor = GetDefault<AUTPlayerController>()->FFAPlayerColor;
 
 	FMargin NameColumnPadding = FMargin(10, 4);
@@ -715,10 +697,6 @@ void SUWPlayerSettingsDialog::AddReferencedObjects(FReferenceCollector& Collecto
 	Collector.AddReferencedObject(PlayerPreviewMID);
 	Collector.AddReferencedObject(PlayerPreviewWorld);
 	Collector.AddReferencedObject(PoseAnimation);
-	for ( UClass* Weapon : WeaponList )
-	{
-		Collector.AddReferencedObject(Weapon);
-	}
 }
 
 void SUWPlayerSettingsDialog::OnNameTextChanged(const FText& NewText)
@@ -967,14 +945,11 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	}
 
-	for ( UClass* Weapon : WeaponList )
+	UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
+	if (PreviewAttachmentType != NULL)
 	{
-		if ( Weapon->IsChildOf<AUTWeap_ShockRifle>() )
-		{
-			PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(Weapon->GetDefaultObject<AUTWeapon>()->AttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
-			PreviewWeapon->Instigator = PlayerPreviewMesh;
-			break;
-		}
+		PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
+		PreviewWeapon->Instigator = PlayerPreviewMesh;
 	}
 
 	// Tick the world to make sure the animation is up to date.

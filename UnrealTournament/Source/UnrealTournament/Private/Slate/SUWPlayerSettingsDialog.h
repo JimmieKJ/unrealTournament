@@ -85,8 +85,6 @@ protected:
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
 	void OnFlagSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
-	TArray<UClass*> WeaponList;
-
 	int32 Emote1Index;
 	int32 Emote2Index;
 	int32 Emote3Index;
