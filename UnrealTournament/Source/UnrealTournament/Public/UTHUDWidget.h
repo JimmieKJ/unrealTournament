@@ -45,6 +45,13 @@ private:
 
 };
 
+namespace ERenderObjectType
+{
+	extern const FName TextureObject;		
+	extern const FName TextObject;
+}
+
+
 // Forward declare
 class AUTHUD;
 

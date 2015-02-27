@@ -6,6 +6,13 @@
 #include "BatchedElements.h"
 #include "RenderResource.h"
 
+namespace ERenderObjectType
+{
+	const FName TextureObject = FName(TEXT("HUDRenderObject_Texture"));
+	const FName TextObject = FName(TEXT("HUDRenderObject_Text"));
+}
+
+
 DECLARE_CYCLE_STAT(TEXT("CanvasTextItem Time"), STAT_Canvas_TextItemTime, STATGROUP_Canvas);
 void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 {
@@ -467,8 +474,8 @@ void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
 		UStructProperty* Prop = NULL;
 		float PropRenderPriority = 0.0;
 		
-		FString CPPType = PropIt->Struct->GetName();
-		if ( CPPType == TEXT("HUDRenderObject_Texture") )
+		const FName CPPName = PropIt->Struct->GetFName();
+		if ( CPPName == ERenderObjectType::TextureObject) 
 		{
 			// Get the object.
 			Prop = *PropIt;
@@ -478,7 +485,7 @@ void UUTHUDWidget::InitializeWidget(AUTHUD* Hud)
 				PropRenderPriority = PtrToProperty->RenderPriority;
 			}
 		}
-		else if ( CPPType == TEXT("HUDRenderObject_Text") )
+		if ( CPPName == ERenderObjectType::TextObject) 
 		{
 			// Get the object.
 			Prop = *PropIt;
@@ -613,8 +620,8 @@ void UUTHUDWidget::DrawAllRenderObjects(float RenderedTime, FVector2D DrawOffset
 	for (int32 i=0; i < RenderObjectList.Num(); i++)
 	{
 		UStructProperty* Prop = RenderObjectList[i]; 
-		FString CPPType = Prop->Struct->GetName();
-		if ( CPPType == TEXT("HUDRenderObject_Texture") )
+		const FName CPPName = Prop->Struct->GetFName();
+		if ( CPPName == ERenderObjectType::TextureObject) 
 		{
 			// Get the object.
 			FHUDRenderObject_Texture* PtrToTexture = RenderObjectList[i]->ContainerPtrToValuePtr<FHUDRenderObject_Texture>(this,0);
@@ -623,7 +630,7 @@ void UUTHUDWidget::DrawAllRenderObjects(float RenderedTime, FVector2D DrawOffset
 				RenderObj_Texture(*PtrToTexture, DrawOffset);
 			}
 		}
-		else if ( CPPType == TEXT("HUDRenderObject_Text") )
+		else if ( CPPName == ERenderObjectType::TextObject) 
 		{
 			// Get the object.
 			FHUDRenderObject_Text* PtrToText = RenderObjectList[i]->ContainerPtrToValuePtr<FHUDRenderObject_Text>(this, 0);
