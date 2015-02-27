@@ -394,7 +394,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution", "Resolution").ToString())
-				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution_Tooltip", "Set the resolution of the game window")))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution_Tooltip", "Set the resolution of the game window.")))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -430,7 +430,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
-				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen_Tooltip", "Toggle if the application runs in Fullscreen mode or is in a window.")))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen_Tooltip", "Toggle whether the application runs in full-screen mode or is in a window.")))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -455,7 +455,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.Text_Raw(this, &SUWSystemSettingsDialog::GetVSyncText)
-				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "VSync_Tooltip", "Toggle VSync, when on the game will syncronize with your display to avoid frame tearing, this could mean slower framerate.")))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "VSync_Tooltip", "Toggle VSync to avoid frame tearing - may lower framerate.")))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -481,7 +481,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap", "Frame Rate Cap").ToString())
-				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "FrameRateCap_Tooltip", "The maximum framerate you want the game to run at.")))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "FrameRateCap_Tooltip", "Limiting the max frame rate can improve the smoothness of mouse improvement.")))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -508,7 +508,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate").ToString())
-					.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "SmoothFramerate_Tooltip", "If your experiancing spiking framerate this will attempt to smooth that by reducing your framerate.")))
+					.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "SmoothFramerate_Tooltip", "This setting is used to smooth framerate spikes which can affect mouse control.")))
 				]
 			]
 			+ SHorizontalBox::Slot()
@@ -557,33 +557,33 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 
 	+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange, 
 		GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting, 
-		NSLOCTEXT("SUWSystemSettingsDialog", "ScreenPercentage_Tooltip", "Sets the scale as a percentage of your resolution that the engine renders too, this is later upsampled to your desired resolution.\nThis can be a useful preformance tweak to ensure smooth preformance without changing your resolution away from "))
+		NSLOCTEXT("SUWSystemSettingsDialog", "ScreenPercentage_Tooltip", "Reducing screen percentage reduces the effective 3D rendering resolution, with the result upsampled to your desired resolution.\nThis improves performance while keeping your UI and HUD at full resolution and not affecting screen size on certain LCD screens."))
 
 	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, 
 		&SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality, 
-		NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail_Tooltip", "Controls the quality of textures, lower setting can improve preformance when GPU preformance is an issue."))
+		NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail_Tooltip", "Controls the quality of textures, lower setting can improve performance when GPU preformance is an issue."))
 
 	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, 
 		&SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality,
-		NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality_Tooltip", "Controls the quality of shadows, lower setting can improve preformance on both CPU and GPU."))
+		NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality_Tooltip", "Controls the quality of shadows, lower setting can improve performance on both CPU and GPU."))
 	
 	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, 
 		&SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality,
-		NSLOCTEXT("SUWSystemSettingsDialog", "EffectQuality_Tooltip", "Controls the quality of effects, lower setting can improve preformance on both CPU and GPU."))
+		NSLOCTEXT("SUWSystemSettingsDialog", "EffectQuality_Tooltip", "Controls the quality of effects, lower setting can improve performance on both CPU and GPU."))
 
 	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, 
 		&SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality,
-		NSLOCTEXT("SUWSystemSettingsDialog", "PPQuality_Tooltip", "Controls the quality of post processing effect, lower setting can improve preformance when GPU preformance is an issue."))
+		NSLOCTEXT("SUWSystemSettingsDialog", "PPQuality_Tooltip", "Controls the quality of post processing effect, lower setting can improve performance when GPU preformance is an issue."))
 
 	+ AddAAModeWidget(NSLOCTEXT("SUWSystemSettingsDialog", "AAMode", "Anti Aliasing Mode").ToString(), AAMode, SelectedAAMode, 
 		&SUWSystemSettingsDialog::OnAAModeSelected, AAModeSelection,
-		NSLOCTEXT("SUWSystemSettingsDialog", "AAMode_Tooltip", "Controls the type of antialiasing, turning it of can improve preformance."))
+		NSLOCTEXT("SUWSystemSettingsDialog", "AAMode_Tooltip", "Controls the type of antialiasing, turning it off can improve performance."))
 
 	+ AddGeneralSliderWithLabelWidget(DecalLifetime, DecalLifetimeLabel, &SUWSystemSettingsDialog::OnDecalLifetimeChange, GetDecalLifetimeLabelText(DecalSliderSetting), DecalSliderSetting,
-		NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetime_Tooltip", "How long decals with live. One example of a decal is the bullet impact marks left on walls."))
+		NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetime_Tooltip", "Controls how long decals last (like the bullet impact marks left on walls)."))
 	
 	+ AddGeneralSliderWithLabelWidget(FOV, FOVLabel, &SUWSystemSettingsDialog::OnFOVChange, GetFOVLabelText(FOVSliderSetting), FOVSliderSetting,
-		NSLOCTEXT("SUWSystemSettingsDialog", "FOV_Tooltip", "Controls the Field of View of the gameplay camera."))
+		NSLOCTEXT("SUWSystemSettingsDialog", "FOV_Tooltip", "Controls the field of view of the gameplay camera."))
 
 	// Autodetect settings button
 	+SVerticalBox::Slot()
