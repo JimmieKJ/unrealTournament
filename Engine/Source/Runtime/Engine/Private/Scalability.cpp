@@ -247,12 +247,12 @@ FQualityLevels BenchmarkQualityLevels(uint32 WorkScale)
 	// decide on the actual quality needed
 
 	Results.ResolutionQuality = GetRenderScaleLevelFromQualityLevel(ComputeOptionFromPerfIndex(GPUPerfIndex, 15, 45, 70));
-	Results.ViewDistanceQuality = ComputeOptionFromPerfIndex(MinPerfIndex, 50, 90, 130);
-	Results.AntiAliasingQuality = ComputeOptionFromPerfIndex(GPUPerfIndex, 60, 130, 200);
-	Results.ShadowQuality = ComputeOptionFromPerfIndex(MinPerfIndex, 50, 90, 130);
-	Results.PostProcessQuality = ComputeOptionFromPerfIndex(GPUPerfIndex, 60, 130, 200);
-	Results.TextureQuality = ComputeOptionFromPerfIndex(GPUPerfIndex, 60, 130, 200);
-	Results.EffectsQuality = ComputeOptionFromPerfIndex(MinPerfIndex, 50, 90, 130);
+	Results.ViewDistanceQuality = ComputeOptionFromPerfIndex(MinPerfIndex, 20, 55, 110);
+	Results.AntiAliasingQuality = ComputeOptionFromPerfIndex(GPUPerfIndex, 15, 70, 150);
+	Results.ShadowQuality = ComputeOptionFromPerfIndex(MinPerfIndex, 15, 55, 110);
+	Results.PostProcessQuality = ComputeOptionFromPerfIndex(GPUPerfIndex, 20, 70, 150);
+	Results.TextureQuality = ComputeOptionFromPerfIndex(GPUPerfIndex, 10, 70, 150);
+	Results.EffectsQuality = ComputeOptionFromPerfIndex(MinPerfIndex, 25, 55, 110);
 
 	UE_LOG(LogConsoleResponse, Display, TEXT("CPUPerf: %f"), CPUPerfIndex);
 	UE_LOG(LogConsoleResponse, Display, TEXT("GPUPerf: %f"), GPUPerfIndex);
