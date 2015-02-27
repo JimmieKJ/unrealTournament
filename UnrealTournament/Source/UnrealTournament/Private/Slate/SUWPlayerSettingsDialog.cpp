@@ -987,8 +987,11 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	FEngineShowFlags ShowFlags(ESFIM_Game);
 	//ShowFlags.SetLighting(false); // FIXME: create some proxy light and use lit mode
 	ShowFlags.SetMotionBlur(false);
+	ShowFlags.SetGrain(false);
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
-	
+
+//	EngineShowFlagOverride(ESFIM_Game, VMI_Lit, ViewFamily.EngineShowFlags, NAME_None, false);
+
 	FVector CameraPosition(ZoomOffset, -60, -50);
 
 	const float FOV = 45;
@@ -1013,8 +1016,17 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	View->ViewLocation = FVector::ZeroVector;
 	View->ViewRotation = FRotator::ZeroRotator;
 	FPostProcessSettings PPSettings = GetDefault<AUTPlayerCameraManager>()->DefaultPPSettings;
-	View->OverridePostProcessSettings(PPSettings, 1.0f);
+
+
+
 	ViewFamily.Views.Add(View);
+
+	View->StartFinalPostprocessSettings(CameraPosition);
+
+	//View->OverridePostProcessSettings(PPSettings, 1.0f);
+
+	View->EndFinalPostprocessSettings(PlayerPreviewInitOptions);
+
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
 	--GFrameNumber;
 	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
