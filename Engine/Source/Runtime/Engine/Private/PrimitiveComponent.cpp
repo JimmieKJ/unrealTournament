@@ -1328,9 +1328,12 @@ bool UPrimitiveComponent::MoveComponent( const FVector& Delta, const FRotator& N
 
 	AActor* const Actor = GetOwner();
 
+
+
 	// static things can move before they are registered (e.g. immediately after streaming), but not after.
 	// TODO: Static components without an owner can move, should they be able to?
-	if (CheckStaticMobilityAndWarn(LOCTEXT("InvalidMove", "move")))
+	static FText WarnText = LOCTEXT("InvalidMove", "move");
+	if (CheckStaticMobilityAndWarn(WarnText))
 	{
 		if (OutHit)
 		{
