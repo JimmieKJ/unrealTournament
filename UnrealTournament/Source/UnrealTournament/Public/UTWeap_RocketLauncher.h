@@ -220,4 +220,6 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
 
 	virtual bool IsPreparingAttack_Implementation() override;
+
+	virtual void Destroyed() override;
 };

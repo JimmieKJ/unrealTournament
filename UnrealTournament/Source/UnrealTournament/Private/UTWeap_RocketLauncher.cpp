@@ -51,6 +51,12 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	FiringViewKickback = -50.f;
 }
 
+void AUTWeap_RocketLauncher::Destroyed()
+{
+	Super::Destroyed();
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+}
+
 void AUTWeap_RocketLauncher::BeginLoadRocket()
 {
 	//Play the load animation. Speed of anim based on GetLoadTime()
