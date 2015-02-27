@@ -658,7 +658,10 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 			if (ImpactEffect.IsValidIndex(FireMode) && ImpactEffect[FireMode] != NULL)
 			{
 				FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
-				ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+				if (ImpactHit.Component.IsValid())
+				{
+					ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+				}
 			}
 			LastImpactEffectLocation = TargetLoc;
 			LastImpactEffectTime = GetWorld()->TimeSeconds;
