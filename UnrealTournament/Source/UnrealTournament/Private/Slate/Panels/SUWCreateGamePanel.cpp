@@ -319,48 +319,52 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 
 TSharedRef<SWidget> SUWCreateGamePanel::BuildMenu()
 {
-	return SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.Padding(0.0f,0.0f,5.0f,0.0f)
-		.AutoWidth()
-		.VAlign(VAlign_Center)
+	TSharedPtr<SHorizontalBox> Box = SNew(SHorizontalBox);
+	Box->AddSlot()
+	.Padding(0.0f,0.0f,5.0f,0.0f)
+	.AutoWidth()
+	.VAlign(VAlign_Center)
+	[
+		SNew(SButton)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+		.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+		.OnClicked(this, &SUWCreateGamePanel::OfflineClick)
 		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-			.OnClicked(this, &SUWCreateGamePanel::OfflineClick)
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWCreateGamePanel","MenuBar_OFFLINE","PLAY OFFLINE").ToString())
-					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-				]
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUWCreateGamePanel","MenuBar_OFFLINE","PLAY OFFLINE").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 			]
 		]
+	];
 
-		+SHorizontalBox::Slot()
-		.Padding(0.0f,0.0f,5.0f,0.0f)
-		.AutoWidth()
-		.VAlign(VAlign_Center)
+#if PLATFORM_WINDOWS
+	Box->AddSlot()
+	.Padding(0.0f,0.0f,5.0f,0.0f)
+	.AutoWidth()
+	.VAlign(VAlign_Center)
+	[
+		SNew(SButton)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+		.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+		.OnClicked(this, &SUWCreateGamePanel::HostClick)
 		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-			.OnClicked(this, &SUWCreateGamePanel::HostClick)
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWCreateGamePanel","MenuBar_ONLINE","START SERVER").ToString())
-					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-				]
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUWCreateGamePanel","MenuBar_ONLINE","START SERVER").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 			]
-		];
+		]
+	];
+#endif
+
+	return Box.ToSharedRef();
 }
 
 TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> InitialSelectedGameClass)
