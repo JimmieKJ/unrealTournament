@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using UnrealBuildTool;
 
 
 namespace AutomationTool
@@ -200,6 +201,19 @@ namespace AutomationTool
 			else
 			{
 				return String.Empty;
+			}
+		}
+
+		public static string GetEditorExeForCommandlets(string BuildRoot, UnrealTargetPlatform HostPlatform)
+		{
+			switch(HostPlatform)
+			{
+				case UnrealTargetPlatform.Mac:
+					return CommandUtils.CombinePaths(BuildRoot, "Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor");
+				case UnrealTargetPlatform.Win64:
+					return CommandUtils.CombinePaths(BuildRoot, "Engine/Binaries/Win64/UE4Editor-Cmd.exe");
+				default:
+					throw new NotImplementedException();
 			}
 		}
 
