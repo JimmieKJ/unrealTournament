@@ -1488,9 +1488,9 @@ void AUTCharacter::Destroyed()
 			PC->MyHUD->RemovePostRenderedActor(this);
 		}
 	}
-	if (CharacterMovement)
+	if (GetCharacterMovement())
 	{
-		GetWorldTimerManager().ClearAllTimersForObject(CharacterMovement);
+		GetWorldTimerManager().ClearAllTimersForObject(GetCharacterMovement());
 	}
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
