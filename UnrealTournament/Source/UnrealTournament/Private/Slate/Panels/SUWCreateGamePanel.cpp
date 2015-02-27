@@ -494,16 +494,6 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 						.Text(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)))
 					]
-					// Description
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(FMargin(0, 0, 0, 20))
-					[
-						SAssignNew(MapDesc, STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-						.Text(FText())
-						.AutoWrapText(true)
-					]
 				]
 			]
 			// Map screenshot.
@@ -524,6 +514,31 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 					]
 				]
 			]
+
+			+SHorizontalBox::Slot()
+			.FillWidth(1.0)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(20, 0, 20, 0))
+				[
+					SNew(SBox)
+					.HeightOverride(256)
+					[
+						SNew(SScrollBox)
+						+ SScrollBox::Slot()
+						[
+							SAssignNew(MapDesc, STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+							.Text(FText())
+							.AutoWrapText(true)
+						]
+					]
+				]
+			]
+
+
 		]
 
 		// Game Settings and mutators
