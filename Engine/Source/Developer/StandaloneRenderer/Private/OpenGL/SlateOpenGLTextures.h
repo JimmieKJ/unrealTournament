@@ -32,7 +32,7 @@ public:
 	virtual FSlateShaderResource* GetSlateResource() override {return this;}
 	virtual void ResizeTexture( uint32 Width, uint32 Height ) override;
 	virtual void UpdateTexture(const TArray<uint8>& Bytes) override;
-
+	virtual void UpdateTextureThreadSafe(const TArray<uint8>& Bytes) {}
 private:
 	static GLuint NullTexture;
 

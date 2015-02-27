@@ -42,4 +42,11 @@ public:
 	 * @param Bytes Array of texture data
 	 */
 	virtual void UpdateTexture(const TArray<uint8>& Bytes) = 0;
+
+	/**
+	 * Updates the texture contents via a byte array making a copy first for thread safety
+	 *
+	 * @param Bytes Array of texture data
+	 */
+	virtual void UpdateTextureThreadSafe(const TArray<uint8>& Bytes) = 0;
 };

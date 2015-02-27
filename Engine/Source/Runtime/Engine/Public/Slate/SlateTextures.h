@@ -73,7 +73,7 @@ public:
 	virtual FRenderResource* GetRenderResource() override {return this;}
 	virtual void ResizeTexture( uint32 Width, uint32 Height ) override;
 	virtual void UpdateTexture(const TArray<uint8>& Bytes) override;
-
+	virtual void UpdateTextureThreadSafe(const TArray<uint8>& Bytes) override;
 protected:
 	/** Width of this texture */
 	uint32 Width;

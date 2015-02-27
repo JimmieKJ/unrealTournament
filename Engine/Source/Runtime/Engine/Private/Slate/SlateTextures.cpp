@@ -163,6 +163,26 @@ void FSlateTexture2DRHIRef::UpdateTexture(const TArray<uint8>& Bytes)
 	}
 }
 
+void FSlateTexture2DRHIRef::UpdateTextureThreadSafe(const TArray<uint8>& Bytes)
+{
+	if(IsInGameThread())
+	{
+		// Make bulk data for updating the texture memory later
+		FSlateTextureData* BulkData = new FSlateTextureData( Bytes.Num(), 0, 1, Bytes );
+
+		// Update the texture RHI
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+			FSlateTexture2DRHIRef_UpdateTextureThreadSafe,
+			FSlateTexture2DRHIRef*, ThisTexture, this,
+			FSlateTextureData*, BulkData, BulkData,
+			{
+				ThisTexture->UpdateTexture( BulkData->GetRawBytes() );
+				delete BulkData;
+			});
+	}
+}
+
+
 void FSlateRenderTargetRHI::SetRHIRef( FTexture2DRHIRef InRenderTargetTexture, uint32 InWidth, uint32 InHeight )
 {
 	check( IsInRenderingThread() );

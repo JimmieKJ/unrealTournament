@@ -33,6 +33,7 @@ public:
 	virtual FSlateShaderResource* GetSlateResource() override {return this;}
 	virtual void ResizeTexture( uint32 Width, uint32 Height ) override;
 	virtual void UpdateTexture(const TArray<uint8>& Bytes) override;
+	virtual void UpdateTextureThreadSafe(const TArray<uint8>& Bytes) {}
 private:
 	/** Actual texture.  In D3D the SRV is used by the shader so our parent class holds that */
 	TRefCountPtr<ID3D11Texture2D> D3DTexture;
