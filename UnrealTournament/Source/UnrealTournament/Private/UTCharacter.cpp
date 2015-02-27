@@ -1310,6 +1310,7 @@ void AUTCharacter::GibExplosion_Implementation()
 		}
 		SetActorHiddenInGame(true);
 		SetActorEnableCollision(false);
+		GetCharacterMovement()->DisableMovement();
 		if (GetNetMode() == NM_DedicatedServer)
 		{
 			SetLifeSpan(0.25f);
