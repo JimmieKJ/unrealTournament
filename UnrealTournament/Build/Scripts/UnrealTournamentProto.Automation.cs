@@ -581,6 +581,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			BuildProductFilter.Exclude("*.pdb");
 			BuildProductFilter.Exclude("*-Simplygon*");
 			BuildProductFilter.Exclude("*-DDCUtils*");
+			BuildProductFilter.Exclude("*-HTML5*.dylib"); // Manually remove HTML5 dylibs; they crash on startup without having the HTML5 inis
 			BuildProductFilter.Exclude("UnrealFrontend*");
 			BuildProductFilter.Exclude("UnrealHeaderTool*");
 
