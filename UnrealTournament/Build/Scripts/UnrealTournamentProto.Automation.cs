@@ -828,14 +828,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         public override void DoBuild(GUBP bp)
         {
             BuildProducts = new List<string>();
-            if (GUBP.bPreflightBuild || !CommandUtils.P4Enabled || !CommandUtils.AllowSubmit)
-            {
-                CommandUtils.Log("Skipping publish to {0} due to build settings", TargetDirectory);
-			}
-			else
-			{
-				CommandUtils.CloneDirectory(SourceDirectory, TargetDirectory);
-			}
+			CommandUtils.CloneDirectory(SourceDirectory, TargetDirectory);
 			SaveRecordOfSuccessAndAddToBuildProducts();
         }
 	}
@@ -1061,7 +1054,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 	void AddHostNodes(GUBP bp, BranchInfo.BranchUProject GameProj, UnrealTargetPlatform HostPlatform, string PlatformName, string TargetPlatformsForDDC)
 	{
-		string StageDirectory = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "LocalBuilds", "UnrealTournament", UnrealTournamentBuild.CreateBuildVersion(), PlatformName);
+		string StageDirectory = CommandUtils.CombinePaths(CommandUtils.GetDirectoryName(GameProj.FilePath), "Saved", "Builds", HostPlatform.ToString());
 			
 		bp.AddNode(new UnrealTournamentCopyEditorNode(bp, GameProj, HostPlatform, StageDirectory));
 		bp.AddNode(new UnrealTournamentEditorDDCNode(bp, GameProj, HostPlatform, TargetPlatformsForDDC, StageDirectory));
