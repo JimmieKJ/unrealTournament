@@ -97,6 +97,7 @@ void AUTInventory::Destroyed()
 	{
 		UTOwner->RemoveInventory(this);
 	}
+	GetWorldTimerManager().ClearAllTimersForObject(this);
 
 	Super::Destroyed();
 }

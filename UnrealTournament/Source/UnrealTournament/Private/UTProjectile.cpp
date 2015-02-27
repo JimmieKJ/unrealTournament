@@ -764,6 +764,7 @@ void AUTProjectile::Destroyed()
 	{
 		MyFakeProjectile->Destroy();
 	}
+	GetWorldTimerManager().ClearAllTimersForObject(this);
 	Super::Destroyed();
 }
 

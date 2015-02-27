@@ -90,6 +90,7 @@ void AUTPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 
+	GetWorldTimerManager().ClearAllTimersForObject(this);
 	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 	if (NavData != NULL)
 	{

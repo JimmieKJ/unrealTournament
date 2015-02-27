@@ -1488,6 +1488,11 @@ void AUTCharacter::Destroyed()
 			PC->MyHUD->RemovePostRenderedActor(this);
 		}
 	}
+	if (CharacterMovement)
+	{
+		GetWorldTimerManager().ClearAllTimersForObject(CharacterMovement);
+	}
+	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
 void AUTCharacter::SetAmbientSound(USoundBase* NewAmbientSound, bool bClear)

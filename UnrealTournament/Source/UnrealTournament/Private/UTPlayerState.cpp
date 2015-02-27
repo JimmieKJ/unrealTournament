@@ -448,6 +448,7 @@ void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 		Team->RemoveFromTeam(Cast<AController>(GetOwner()));
 	}
 
+	GetWorldTimerManager().ClearAllTimersForObject(this);
 	Super::EndPlay(Reason);
 }
 
