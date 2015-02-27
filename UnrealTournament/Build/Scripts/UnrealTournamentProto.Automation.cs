@@ -32,7 +32,7 @@ public class UnrealTournamentBuild
 {
 	// Use old-style UAT version for UnrealTournament
 	// TODO this should probably use the new Engine Version stuff.
-	static string CreateBuildVersion()
+	public static string CreateBuildVersion()
 	{
 		string P4Change = "UnknownCL";
 		string P4Branch = "UnknownBranch";
@@ -208,36 +208,6 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Mac);
                 BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
             }
-
-            // EDITOR BUILD
-            {
-                // verify the files we need exist first
-                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacEditor");
-
-                var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Mac, BranchName);
-
-                // run the patch tool
-                BuildPatchToolBase.Get().Execute(
-                new BuildPatchToolBase.PatchGenerationOptions
-                {
-                    StagingInfo = StagingInfo,
-                    BuildRoot = RawImagePath,
-                    AppLaunchCmd = @"./Engine/Binaries/Mac/UE4Editor.app",
-                    AppLaunchCmdArgs = "UnrealTournament -installed",
-                    AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-                });
-
-                // post the Editor build to build info service on gamedev
-                string McpConfigName = "MainGameDevNet";
-                CommandUtils.Log("Posting UnrealTournament Editor for Mac to MCP.");
-                BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-                CommandUtils.Log("Labeling new build as Latest in MCP.");
-                string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Mac);
-                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-                // For backwards compatibility, also label as Production-Latest
-                LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Mac);
-                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-            }
         }
         else
         {
@@ -269,36 +239,6 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 // post the Windows build to build info service on gamedev
                 string McpConfigName = "MainGameDevNet";
                 CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
-                BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-                CommandUtils.Log("Labeling new build as Latest in MCP.");
-                string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
-                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-                // For backwards compatibility, also label as Production-Latest
-                LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
-                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-            }
-
-            // EDITOR BUILD
-            {
-                // verify the files we need exist first
-                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsEditor");
-
-                var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
-
-                // run the patch tool
-                BuildPatchToolBase.Get().Execute(
-                new BuildPatchToolBase.PatchGenerationOptions
-                {
-                    StagingInfo = StagingInfo,
-                    BuildRoot = RawImagePath,
-                    AppLaunchCmd = @".\Engine\Binaries\Win64\UE4Editor.exe",
-                    AppLaunchCmdArgs = "UnrealTournament -installed",
-                    AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-                });
-
-                // post the Editor build to build info service on gamedev
-                string McpConfigName = "MainGameDevNet";
-                CommandUtils.Log("Posting UnrealTournament Editor for Windows to MCP.");
                 BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
                 CommandUtils.Log("Labeling new build as Latest in MCP.");
                 string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
@@ -363,7 +303,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
 
 			// Build
-			EditorTargets: new ParamList<string>("UnrealTournamentEditor", "BuildPatchTool"),
+			EditorTargets: new ParamList<string>("BuildPatchTool"),
 			ClientCookedTargets: new ParamList<string>("UnrealTournament"),
 			ServerCookedTargets: new ParamList<string>("UnrealTournamentServer"),
 
@@ -472,7 +412,6 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 		Project.CopyBuildToStagingDirectory(Params);
         CopyAssetRegistryFilesFromSavedCookedToReleases(Params);
         SubmitAssetRegistryFilesToPerforce(Params);
-        EditorProject.CopyEditorBuildToStagingDirectory(this, Params);
 		PrintRunTime();
 		Project.Deploy(Params);
 		Project.Run(Params);
@@ -508,7 +447,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             GameProj = InGameProj;
 
-            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
+			if(!bp.ParseParam("nomac"))
+			{
+				AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj, UnrealTargetPlatform.Mac));
+			}
             AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win64));
             AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Win32));
 			if(!bp.ParseParam("nolinux"))
@@ -522,9 +464,12 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
 
             // Make sure we have the mac version of Chunker as well
-            AddDependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
-            AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
-            AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
+			if(!bp.ParseParam("nomac"))
+			{
+				AddDependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
+				AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
+				AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
+			}
         }
         public override string GetTriggerDescText()
         {
@@ -551,6 +496,444 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             return GameProj.GameName;
         }
     }
+
+	public class UnrealTournamentCopyEditorNode : GUBP.HostPlatformNode
+	{
+        BranchInfo.BranchUProject GameProj;
+		string StageDirectory;
+
+		public UnrealTournamentCopyEditorNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InStageDirectory)
+			: base(InHostPlatform)
+		{
+			GameProj = InGameProj;
+			StageDirectory = InStageDirectory;
+
+			AddDependency(GUBP.RootEditorNode.StaticGetFullName(HostPlatform));
+            AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
+            AddDependency(GUBP.ToolsNode.StaticGetFullName(HostPlatform));
+            AddDependency(GUBP.ToolsForCompileNode.StaticGetFullName(HostPlatform));
+
+			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+		}
+		public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+		{
+            return InGameProj.GameName + "_CopyEditor" + StaticGetHostPlatformSuffix(InHostPlatform);
+		}
+		public override string GetFullName()
+		{
+			return StaticGetFullName(GameProj, HostPlatform);
+		}
+		public override string GameNameIfAnyForTempStorage()
+		{
+			return GameProj.GameName;
+		}
+		public override void DoBuild(GUBP bp)
+		{
+			// Clear the staging directory
+			CommandUtils.DeleteDirectoryContents(StageDirectory);
+
+			// Make a list of files to copy
+			SortedSet<string> RequiredFiles = new SortedSet<string>(StringComparer.InvariantCultureIgnoreCase);
+			AddEditorBuildProducts(bp, HostPlatform, GameProj, RequiredFiles);
+			AddEditorSupportFiles(HostPlatform, RequiredFiles);
+			RemoveUnusedPlugins(RequiredFiles);
+			RemoveConfidentialFiles(HostPlatform, RequiredFiles);
+
+			// Copy them to the staging directory, and add them as build products
+			BuildProducts = new List<string>();
+			foreach(string RequiredFile in RequiredFiles)
+			{
+				string SourceFileName = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, RequiredFile);
+				string TargetFileName = CommandUtils.CombinePaths(StageDirectory, RequiredFile);
+				CommandUtils.CopyFile(SourceFileName, TargetFileName);
+				BuildProducts.Add(TargetFileName);
+			}
+		}
+
+		static void AddEditorBuildProducts(GUBP bp, UnrealTargetPlatform HostPlatform, BranchInfo.BranchUProject GameProj, SortedSet<string> RequiredFiles)
+		{
+			// Build a list of all the nodes we want to copy
+			List<string> NodeNames = new List<string>();
+			NodeNames.Add(GUBP.RootEditorNode.StaticGetFullName(HostPlatform));
+			NodeNames.Add(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
+			NodeNames.Add(GUBP.ToolsNode.StaticGetFullName(HostPlatform));
+            NodeNames.Add(GUBP.ToolsForCompileNode.StaticGetFullName(HostPlatform));
+
+			// Create a list of all the build products
+			List<string> BuildProducts = new List<string>();
+			foreach(string NodeName in NodeNames)
+			{
+				GUBP.GUBPNode Node = bp.FindNode(NodeName);
+				if(Node == null)
+				{
+					throw new AutomationException("Couldn't find node '{0}'", NodeName);
+				}
+				foreach(string BuildProduct in Node.BuildProducts)
+				{
+					BuildProducts.Add(CommandUtils.StripBaseDirectory(Path.GetFullPath(BuildProduct), CommandUtils.CmdEnv.LocalRoot));
+				}
+			}
+
+			// Filter them into the output list
+			FileFilter BuildProductFilter = new FileFilter();
+
+			BuildProductFilter.Include("...");
+			BuildProductFilter.Exclude("*.pdb");
+			BuildProductFilter.Exclude("*-Simplygon*");
+			BuildProductFilter.Exclude("*-DDCUtils*");
+			BuildProductFilter.Exclude("UnrealFrontend*");
+			BuildProductFilter.Exclude("UnrealHeaderTool*");
+
+			RequiredFiles.UnionWith(BuildProductFilter.ApplyTo(BuildProducts));
+		}
+                       
+		static void AddEditorSupportFiles(UnrealTargetPlatform Platform, SortedSet<string> RequiredFiles)
+		{
+			FileFilter Filter = new FileFilter();
+
+			// Engine/Binaries/...
+			if(Platform == UnrealTargetPlatform.Win64)
+			{
+				Filter.Include("/Engine/Binaries/Win64/libfbxsdk.dll");
+
+				Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Win64/...");
+				Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/*.dll");
+				Filter.Include("/Engine/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS2013/*.dll");
+				Filter.Include("/Engine/Binaries/ThirdParty/PhysX/PhysX-3.3/Win64/VS2013/*.dll");
+				Filter.Exclude("/Engine/Binaries/ThirdParty/PhysX/.../*DEBUG*");
+				Filter.Exclude("/Engine/Binaries/ThirdParty/PhysX/.../*CHECKED*");
+				Filter.Include("/Engine/Binaries/ThirdParty/Ogg/Win64/VS2013/*.dll");
+				Filter.Include("/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2013/*.dll");
+				Filter.Include("/Engine/Binaries/ThirdParty/nvTextureTools/Win64/*.dll");
+			}
+			else if(Platform == UnrealTargetPlatform.Mac)
+			{
+				Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Mac/*.dylib");
+				Filter.Include("/Engine/Binaries/ThirdParty/Mono/Mac/...");
+				Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Mac/...");
+			}
+
+			// Engine/Plugins/...
+			Filter.Include("/Engine/Plugins/....uplugin");
+			Filter.Include("/Engine/Plugins/.../Content/...");
+			Filter.Include("/Engine/Plugins/.../Resources/...");
+
+			// Engine/...
+			Filter.Include("/Engine/Build/BatchFiles/...");
+			Filter.Include("/Engine/Config/...");
+			Filter.Include("/Engine/Content/...");
+			Filter.Include("/Engine/Documentation/Source/Shared/...");
+			Filter.Include("/Engine/Shaders/...");
+
+			// UnrealTournament/...
+			Filter.Include("/UnrealTournament/*.uproject");
+			Filter.Include("/UnrealTournament/Plugins/...");
+			Filter.Exclude("/UnrealTournament/Plugins/.../Binaries/...");
+			Filter.Include("/UnrealTournament/Content/...");
+			Filter.Include("/UnrealTournament/Config/...");
+			Filter.Include("/UnrealTournament/Releases/...");
+
+			RequiredFiles.UnionWith(Filter.ApplyToDirectory(CommandUtils.CmdEnv.LocalRoot));
+		}
+
+		static void RemoveUnusedPlugins(SortedSet<string> RequiredFiles)
+		{
+			FileFilter UnusedPluginFilter = new FileFilter();
+
+			UnusedPluginFilter.Include("/Engine/Plugins/...");
+			UnusedPluginFilter.Exclude("/Engine/Plugins/.../Paper2D/...");
+			UnusedPluginFilter.Exclude("/Engine/Plugins/.../ExampleDeviceProfileSelector/...");
+
+			RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
+		}
+
+		static void RemoveConfidentialFiles(UnrealTargetPlatform Platform, SortedSet<string> RequiredFiles)
+		{
+			FileFilter ConfidentialFilter = new FileFilter();
+
+			ConfidentialFilter.Include(".../NotForLicensees/...");
+			ConfidentialFilter.Include(".../NoRedist/...");
+			ConfidentialFilter.Include(".../EpicInternal/...");
+			foreach (UnrealTargetPlatform PossiblePlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
+			{
+				if(PossiblePlatform != Platform && PossiblePlatform != UnrealTargetPlatform.Unknown)
+				{
+					ConfidentialFilter.Include(String.Format(".../{0}/...", PossiblePlatform.ToString()));
+				}
+			}
+			ConfidentialFilter.Exclude("Engine/Binaries/DotNET/AutomationScripts/NoRedist/UnrealTournament.Automation.dll");
+
+			RequiredFiles.RemoveWhere(x => ConfidentialFilter.Matches(x));
+		}
+	}
+
+	public class UnrealTournamentEditorDDCNode : GUBP.HostPlatformNode
+	{
+        BranchInfo.BranchUProject GameProj;
+		string TargetPlatforms;
+		string StageDirectory;
+
+		public UnrealTournamentEditorDDCNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InTargetPlatforms, string InStageDirectory)
+			: base(InHostPlatform)
+		{
+			GameProj = InGameProj;
+			TargetPlatforms = InTargetPlatforms;
+			StageDirectory = InStageDirectory;
+			AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(InGameProj, InHostPlatform));
+
+			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+		}
+		public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+		{
+            return InGameProj.GameName + "_EditorDDC" + StaticGetHostPlatformSuffix(InHostPlatform);
+		}
+		public override string GetFullName()
+		{
+			return StaticGetFullName(GameProj, HostPlatform);
+		}
+		public override string GameNameIfAnyForTempStorage()
+		{
+			return GameProj.GameName;
+		}
+		public override float Priority()
+		{
+			return base.Priority() + 55.0f;
+		}
+		public override void DoBuild(GUBP bp)
+		{
+			// Find all the files in the 
+			List<string> RequiredFiles = new List<string>(Directory.EnumerateFiles(StageDirectory, "*", SearchOption.AllDirectories));
+
+			// Generate the DDC
+			string OutputFileName = CommandUtils.CombinePaths(StageDirectory, "Engine", "DerivedDataCache", "Compressed.ddp");
+			CommandUtils.DeleteFile(OutputFileName);
+			CommandUtils.DDCCommandlet(CommandUtils.MakeRerootedFilePath(GameProj.FilePath, CommandUtils.CmdEnv.LocalRoot, StageDirectory), CommandUtils.GetEditorExeForCommandlets(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateRocketPak -Map=Example_Map");
+			RequiredFiles.Add(OutputFileName);
+
+			// Clean up the directory from everything else
+			CleanDirectory(StageDirectory, RequiredFiles);
+
+			// Return just the new DDP file as build product from this node
+			BuildProducts = new List<string>{ OutputFileName };
+		}
+		static bool RemoveEmptyDirectories(string DirectoryName)
+		{
+			bool bIsEmpty = true;
+			foreach(string ChildDirectoryName in Directory.EnumerateDirectories(DirectoryName))
+			{
+				if(RemoveEmptyDirectories(ChildDirectoryName) && !Directory.EnumerateFiles(ChildDirectoryName).Any())
+				{
+					CommandUtils.DeleteDirectory(ChildDirectoryName);
+				}
+				else
+				{
+					bIsEmpty = false;
+				}
+			}
+			return bIsEmpty;
+		}
+		static void CleanDirectory(string DirectoryName, IEnumerable<string> RetainFiles)
+		{
+			string FullDirectoryName = Path.GetFullPath(DirectoryName);
+
+			// Make a normalized list of files to keep
+			HashSet<string> RetainFilesSet = new HashSet<string>(RetainFiles.Select(File => Path.GetFullPath(File)), StringComparer.InvariantCultureIgnoreCase);
+			foreach(string FileName in Directory.EnumerateFiles(FullDirectoryName, "*", SearchOption.AllDirectories))
+			{
+				if(!RetainFilesSet.Contains(FileName))
+				{
+					CommandUtils.DeleteFile(FileName);
+				}
+			}
+
+			// Remove all the empty folders
+			RemoveEmptyDirectories(DirectoryName);
+		}
+	}
+
+	public class UnrealTournamentCopyAssetRegistryNode : GUBP.HostPlatformNode
+	{
+        BranchInfo.BranchUProject GameProj;
+		string StageDirectory;
+
+		public UnrealTournamentCopyAssetRegistryNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InStageDirectory)
+			: base(InHostPlatform)
+		{
+			GameProj = InGameProj;
+			StageDirectory = InStageDirectory;
+
+			AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(InGameProj, InHostPlatform));
+			AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(InGameProj, InHostPlatform));
+			AddDependency(UnrealTournamentBuildNode.StaticGetFullName(InGameProj));
+
+			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+		}
+		public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+		{
+            return InGameProj.GameName + "_CopyAssetRegistry" + StaticGetHostPlatformSuffix(InHostPlatform);
+		}
+		public override string GetFullName()
+		{
+			return StaticGetFullName(GameProj, HostPlatform);
+		}
+		public override string GameNameIfAnyForTempStorage()
+		{
+			return GameProj.GameName;
+		}
+		public override void DoBuild(GUBP bp)
+		{
+			BuildProducts = new List<string>();
+
+			string SourceDirectory = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UnrealTournament", "Releases");
+			foreach(string SourceFileName in Directory.EnumerateFiles(SourceDirectory, "AssetRegistry.bin", SearchOption.AllDirectories))
+			{
+				string TargetFileName = CommandUtils.MakeRerootedFilePath(SourceFileName, CommandUtils.CmdEnv.LocalRoot, StageDirectory);
+				CommandUtils.CopyFile(SourceFileName, TargetFileName);
+				BuildProducts.Add(TargetFileName);
+			}
+		}
+	}
+
+	public class UnrealTournamentPublishEditorNode : GUBP.HostPlatformNode
+	{
+		BranchInfo.BranchUProject GameProj;
+		string SourceDirectory;
+		string TargetDirectory;
+
+		public UnrealTournamentPublishEditorNode(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InSourceDirectory, string InTargetDirectory)
+            : base(InHostPlatform)
+        {
+			GameProj = InGameProj;
+			SourceDirectory = InSourceDirectory;
+			TargetDirectory = InTargetDirectory;
+
+            AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(GameProj, InHostPlatform));
+            AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(GameProj, InHostPlatform));
+            AddDependency(UnrealTournamentCopyAssetRegistryNode.StaticGetFullName(GameProj, InHostPlatform));
+
+			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+        {
+            return InGameProj.GameName + "_PublishEditor" + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+        public override string GetFullName()
+        {
+            return StaticGetFullName(GameProj, HostPlatform);
+        }
+        public override string GameNameIfAnyForTempStorage()
+        {
+            return GameProj.GameName;
+        }
+        public override void DoBuild(GUBP bp)
+        {
+            BuildProducts = new List<string>();
+            if (GUBP.bPreflightBuild || !CommandUtils.P4Enabled || !CommandUtils.AllowSubmit)
+            {
+                CommandUtils.Log("Skipping publish to {0} due to build settings", TargetDirectory);
+			}
+			else
+			{
+				CommandUtils.CloneDirectory(SourceDirectory, TargetDirectory);
+			}
+			SaveRecordOfSuccessAndAddToBuildProducts();
+        }
+	}
+
+	public class UnrealTournamentChunkEditorNode : GUBP.HostPlatformNode
+	{
+        BranchInfo.BranchUProject GameProj;
+		string StageDirectory;
+
+        public UnrealTournamentChunkEditorNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InStageDirectory)
+            : base(InHostPlatform)
+        {
+            GameProj = InGameProj;
+			StageDirectory = InStageDirectory;
+
+            AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(GameProj, InHostPlatform));
+            AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(GameProj, InHostPlatform));
+            AddDependency(UnrealTournamentCopyAssetRegistryNode.StaticGetFullName(GameProj, InHostPlatform));
+
+			SingleTargetProperties BuildPatchTool = bp.Branch.FindProgram("BuildPatchTool");
+			if (BuildPatchTool.Rules == null)
+			{
+				throw new AutomationException("Could not find program BuildPatchTool.");
+			}
+			AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
+
+			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+        public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+        {
+            return InGameProj.GameName + "_ChunkEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+        }
+        public override string GetFullName()
+        {
+            return StaticGetFullName(GameProj, HostPlatform);
+        }
+        public override string GameNameIfAnyForTempStorage()
+        {
+            return GameProj.GameName;
+        }
+        public override bool SendSuccessEmail()
+        {
+            return true;
+        }
+        public override void DoBuild(GUBP bp)
+        {
+            BuildProducts = new List<string>();
+            if (GUBP.bPreflightBuild)
+            {
+                CommandUtils.Log("Things like a real UT build is likely to cause confusion if done in a preflight build, so we are skipping it.");
+            }
+            else
+            {
+				var BranchName = "";
+				if (CommandUtils.P4Enabled)
+				{
+					BranchName = CommandUtils.P4Env.BuildRootP4;
+				}
+
+				var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(bp, HostPlatform, BranchName);
+
+				// run the patch tool
+				BuildPatchToolBase.Get().Execute(
+				new BuildPatchToolBase.PatchGenerationOptions
+				{
+					StagingInfo = StagingInfo,
+					BuildRoot = StageDirectory,
+					AppLaunchCmd = GetEditorLaunchCmd(HostPlatform),
+					AppLaunchCmdArgs = "UnrealTournament -installed",
+					AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
+				});
+
+				// post the Editor build to build info service on gamedev
+				string McpConfigName = "MainGameDevNet";
+				CommandUtils.Log("Posting UnrealTournament Editor for {0} to MCP.", HostPlatform.ToString());
+				BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+				CommandUtils.Log("Labeling new build as Latest in MCP.");
+				string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", StagingInfo.Platform);
+				BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+				// For backwards compatibility, also label as Production-Latest
+				LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", StagingInfo.Platform);
+				BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+			}
+			SaveRecordOfSuccessAndAddToBuildProducts();
+        }
+		public static string GetEditorLaunchCmd(UnrealTargetPlatform Platform)
+		{
+			switch(Platform)
+			{
+				case UnrealTargetPlatform.Win64:
+					return @".\Engine\Binaries\Win64\UE4Editor.exe";
+				case UnrealTargetPlatform.Mac:
+					return @"./Engine/Binaries/Mac/UE4Editor.app";
+				default:
+					throw new AutomationException("Unknown editor platform '{0}'", Platform);
+			}
+		}
+	}
 
     public class UnrealTournamentChunkNode : GUBP.HostPlatformNode
     {
@@ -642,9 +1025,12 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             }
             else
             {
-                  LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -SkipCook -Chunk");
+                LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -SkipCook -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
+
+			string ReleasesDir = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UnrealTournament", "Releases");
+			BuildProducts.AddRange(CommandUtils.FindFiles("*", true, ReleasesDir));
         }
     }
 
@@ -656,20 +1042,36 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             if (GameProj != null && !GUBP.bBuildRocket)
             {
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
-                if (InHostPlatform == UnrealTargetPlatform.Win64)
-                {
+
+				if (InHostPlatform == UnrealTargetPlatform.Win64)
+				{
+					AddHostNodes(bp, GameProj, InHostPlatform, "WindowsEditor", "Windows");
                     bp.AddNode(new WaitForUnrealTournamentBuildUserInputNode(bp, GameProj, InHostPlatform));
                     bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
                     bp.AddNode(new UnrealTournamentChunkNode(bp, GameProj, InHostPlatform));
                 }
                 else if (InHostPlatform == UnrealTargetPlatform.Mac)
                 {
+					AddHostNodes(bp, GameProj, InHostPlatform, "MacEditor", "Mac");
                     bp.AddNode(new UnrealTournamentChunkNode(bp, GameProj, InHostPlatform));
                 }
             }
         }
     }
 
+	void AddHostNodes(GUBP bp, BranchInfo.BranchUProject GameProj, UnrealTargetPlatform HostPlatform, string PlatformName, string TargetPlatformsForDDC)
+	{
+		string StageDirectory = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "LocalBuilds", "UnrealTournament", UnrealTournamentBuild.CreateBuildVersion(), PlatformName);
+			
+		bp.AddNode(new UnrealTournamentCopyEditorNode(bp, GameProj, HostPlatform, StageDirectory));
+		bp.AddNode(new UnrealTournamentEditorDDCNode(bp, GameProj, HostPlatform, TargetPlatformsForDDC, StageDirectory));
+		bp.AddNode(new UnrealTournamentCopyAssetRegistryNode(bp, GameProj, HostPlatform, StageDirectory));
+		bp.AddNode(new UnrealTournamentChunkEditorNode(bp, GameProj, HostPlatform, StageDirectory));
+
+		string PublishDirectory = CommandUtils.CombinePaths(UnrealTournamentBuild.GetArchiveDir(), PlatformName);
+
+		bp.AddNode(new UnrealTournamentPublishEditorNode(GameProj, HostPlatform, StageDirectory, PublishDirectory));
+	}
 }
 
 
@@ -1471,191 +1873,5 @@ public class MakeUTDLC : BuildCommand
             Cook(SC, Params);
             Stage(SC, Params);
         }
-    }
-}
-
-public class StageUTEditor : BuildCommand
-{
-    static public ProjectParams GetParams(BuildCommand Cmd)
-    {
-        string P4Change = "Unknown";
-        string P4Branch = "Unknown";
-        if (P4Enabled)
-        {
-            P4Change = P4Env.ChangelistString;
-            P4Branch = P4Env.BuildRootEscaped;
-        }
-
-        var Params = new ProjectParams
-        (
-            Command: Cmd,
-            // Shared
-            Cook: true,
-            Stage: true,
-            Pak: true,
-            StageNonMonolithic: true,
-            RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
-            StageDirectoryParam: UnrealTournamentBuild.GetArchiveDir()
-        );
-
-        Params.ValidateAndLog();
-        return Params;
-    }
-
-    public override void ExecuteBuild()
-    {
-        var Params = GetParams(this);
-
-        EditorProject.CopyEditorBuildToStagingDirectory(this, Params, ParseParam("nomac"));
-    }
-}
-
-public partial class EditorProject : Project
-{
-    public static void CopyEditorBuildToStagingDirectory(BuildCommand Cmd, ProjectParams Params, bool bNoMac = false)
-    {
-        if (Params.Stage && !Params.SkipStage)
-        {
-			CopyEditor(Cmd, Params, UnrealTargetPlatform.Win64);
-			if(!bNoMac)
-            {
-				CopyEditor(Cmd, Params, UnrealTargetPlatform.Mac);
-            }
-        }
-    }
-
-	static void CopyEditor(BuildCommand Command, ProjectParams Params, UnrealTargetPlatform StagePlatform)
-	{
-		// Get the staging directory
-		string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
-		if (StagePlatform == UnrealTargetPlatform.Mac)
-		{
-			StageDirectory = CommandUtils.CombinePaths(StageDirectory, "MacEditor");
-		}
-		else
-		{
-			StageDirectory = CommandUtils.CombinePaths(StageDirectory, "WindowsEditor");
-		}
-		CommandUtils.DeleteDirectoryContents(StageDirectory);
-
-		// Make a list of files to copy
-		List<string> RequiredFiles = new List<string>();
-		RequiredFiles.AddRange(GetEditorBuildProducts(Command, StagePlatform));
-		RequiredFiles.AddRange(GetEditorSupportFiles(StagePlatform));
-		RemoveUnusedPlugins(RequiredFiles);
-		RemoveConfidentialFiles(StagePlatform, RequiredFiles);
-
-		// Copy them to the staging directory
-		foreach(string RequiredFile in RequiredFiles)
-		{
-			string SourceFileName = CommandUtils.CombinePaths(CmdEnv.LocalRoot, RequiredFile);
-			string TargetFileName = CommandUtils.CombinePaths(StageDirectory, RequiredFile);
-			CommandUtils.CopyFile(SourceFileName, TargetFileName);
-        }
-    }
-
-	static IEnumerable<string> GetEditorBuildProducts(BuildCommand Command, UnrealTargetPlatform Platform)
-	{
-		UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
-		Agenda.SwarmProject = @"Engine\Source\Programs\UnrealSwarm\UnrealSwarm.sln";
-		Agenda.DotNetSolutions.Add("Engine/Source/Programs/NetworkProfiler/NetworkProfiler.sln");
-		Agenda.AddTarget("UnrealTournamentEditor", Platform, UnrealTargetConfiguration.Development);
-		Agenda.AddTarget("UnrealPak", Platform, UnrealTargetConfiguration.Development);
-		Agenda.AddTarget("CrashReportClient", Platform, UnrealTargetConfiguration.Development);
-		Agenda.AddTarget("UnrealLightmass", Platform, UnrealTargetConfiguration.Development);
-		Agenda.AddTarget("ShaderCompileWorker", Platform, UnrealTargetConfiguration.Development);
-
-		UE4Build Build = new UE4Build(Command);
-		Build.Build(Agenda, InDeleteBuildProducts: false, InBuildProductsOnly: true);
-		Build.AddUATFilesToBuildProducts();
-
-		FileFilter BuildProductFilter = new FileFilter();
-		BuildProductFilter.Include("...");
-		BuildProductFilter.Exclude("*.pdb");
-		BuildProductFilter.Exclude("*-Simplygon*");
-		BuildProductFilter.Exclude("*-DDCUtils*");
-
-		string[] RebasedBuildProducts = Build.BuildProductFiles.Select(FileName => CommandUtils.StripBaseDirectory(FileName, CmdEnv.LocalRoot)).ToArray();
-		return BuildProductFilter.ApplyTo(RebasedBuildProducts);
-	}
-                        
-	static IEnumerable<string> GetEditorSupportFiles(UnrealTargetPlatform Platform)
-	{
-		FileFilter Filter = new FileFilter();
-
-		// Engine/Binaries/...
-		if(Platform == UnrealTargetPlatform.Win64)
-		{
-			Filter.Include("/Engine/Binaries/Win64/AgentInterface.dll");
-			Filter.Include("/Engine/Binaries/Win64/libfbxsdk.dll");
-
-			Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Win64/...");
-			Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/*.dll");
-			Filter.Include("/Engine/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS2013/*.dll");
-			Filter.Include("/Engine/Binaries/ThirdParty/PhysX/PhysX-3.3/Win64/VS2013/*.dll");
-			Filter.Exclude("/Engine/Binaries/ThirdParty/PhysX/.../*DEBUG*");
-			Filter.Exclude("/Engine/Binaries/ThirdParty/PhysX/.../*CHECKED*");
-			Filter.Include("/Engine/Binaries/ThirdParty/Ogg/Win64/VS2013/*.dll");
-			Filter.Include("/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2013/*.dll");
-			Filter.Include("/Engine/Binaries/ThirdParty/nvTextureTools/Win64/*.dll");
-        }
-		else if(Platform == UnrealTargetPlatform.Mac)
-        {
-			Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Mac/*.dylib");
-			Filter.Include("/Engine/Binaries/ThirdParty/Mono/Mac/...");
-			Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Mac/...");
-		}
-
-		// Engine/Plugins/...
-		Filter.Include("/Engine/Plugins/....uplugin");
-		Filter.Include("/Engine/Plugins/.../Content/...");
-		Filter.Include("/Engine/Plugins/.../Resources/...");
-
-		// Engine/...
-		Filter.Include("/Engine/Build/BatchFiles/...");
-		Filter.Include("/Engine/Config/...");
-		Filter.Include("/Engine/Content/...");
-		Filter.Include("/Engine/Documentation/Source/Shared/...");
-		Filter.Include("/Engine/Shaders/...");
-
-		// UnrealTournament/...
-		Filter.Include("/UnrealTournament/*.uproject");
-		Filter.Include("/UnrealTournament/Plugins/...");
-		Filter.Exclude("/UnrealTournament/Plugins/.../Binaries/...");
-		Filter.Include("/UnrealTournament/Config/...");
-		Filter.Include("/UnrealTournament/Content/...");
-		Filter.Include("/UnrealTournament/Releases/...");
-
-		return Filter.ApplyToDirectory(CmdEnv.LocalRoot);
-	}
-
-	static void RemoveUnusedPlugins(List<string> RequiredFiles)
-	{
-		FileFilter UnusedPluginFilter = new FileFilter();
-
-		UnusedPluginFilter.Include("/Engine/Plugins/...");
-		UnusedPluginFilter.Exclude("/Engine/Plugins/.../Paper2D/...");
-		UnusedPluginFilter.Exclude("/Engine/Plugins/.../ExampleDeviceProfileSelector/...");
-
-		RequiredFiles.RemoveAll(FileName => UnusedPluginFilter.Matches(FileName));
-	}
-
-	static void RemoveConfidentialFiles(UnrealTargetPlatform Platform, List<string> RequiredFiles)
-	{
-		FileFilter ConfidentialFilter = new FileFilter();
-
-		ConfidentialFilter.Include(".../NotForLicensees/...");
-		ConfidentialFilter.Include(".../NoRedist/...");
-		ConfidentialFilter.Include(".../EpicInternal/...");
-        foreach (UnrealTargetPlatform PossiblePlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
-        {
-			if(PossiblePlatform != Platform && PossiblePlatform != UnrealTargetPlatform.Unknown)
-            {
-				ConfidentialFilter.Include(String.Format(".../{0}/...", PossiblePlatform.ToString()));
-	        }
-	    }
-		ConfidentialFilter.Exclude("Engine/Binaries/DotNET/AutomationScripts/NoRedist/UnrealTournament.Automation.dll");
-
-		RequiredFiles.RemoveAll(x => ConfidentialFilter.Matches(x));
     }
 }
