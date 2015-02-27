@@ -593,6 +593,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		{
 			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
 		}
+		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsActionNotification().IsBoundToObject(this))
+		{
+			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsActionNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
+		}
 
 		// on successful auto login, attempt to join an accepted friend game invite
 		if (bInitialSignInAttempt)
@@ -1560,6 +1564,16 @@ bool UUTLocalPlayer::AllowFriendsJoinGame()
 {
 	// determine when to disable "join game" option in friends/chat UI
 	return true;
+}
+
+void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage)
+{
+	if (FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::GameInvite ||
+		FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::FriendAccepted || 
+		FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::FriendInvite)
+	{
+		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
+	}
 }
 
 void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FString& SessionId)

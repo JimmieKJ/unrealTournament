@@ -16,7 +16,7 @@ class SUWServerBrowser;
 class SUWFriendsPopup;
 class SUTQuickMatch;
 class SUWLoginDialog;
-
+class FFriendsAndChatMessage;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -346,6 +346,7 @@ protected:
 	virtual void OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult);
 	virtual void HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId);
 	virtual bool AllowFriendsJoinGame();
+	virtual void HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage);
 	FString PendingFriendInviteSessionId;	
 	
 
