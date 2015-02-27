@@ -26,7 +26,10 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 		{
 			if (It->IsChildOf(AUTGameMode::StaticClass()))
 			{
-				AllGametypes.Add(*It);
+				if (!It->GetDefaultObject<AUTGameMode>()->bHideInUI)
+				{
+					AllGametypes.Add(*It);
+				}
 			}
 			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
 			{
@@ -45,7 +48,7 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 			if (ClassPath != NULL)
 			{
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()))
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()) && !TestClass->GetDefaultObject<AUTGameMode>()->bHideInUI)
 				{
 					AllGametypes.AddUnique(TestClass);
 				}

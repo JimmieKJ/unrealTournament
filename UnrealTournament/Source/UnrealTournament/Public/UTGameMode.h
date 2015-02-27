@@ -84,6 +84,9 @@ public:
 	UPROPERTY()
 	bool bHasRespawnChoices;
 
+	UPROPERTY(EditDefaultsOnly)
+	bool bHideInUI;
+
 	/** maximum amount of time (in seconds) to wait for players to be ready before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
 	UPROPERTY(globalconfig)
 	int32 MaxReadyWaitTime;

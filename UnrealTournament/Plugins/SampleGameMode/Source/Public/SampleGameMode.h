@@ -25,7 +25,7 @@ struct FDamageTypeToProgess
 	TArray<TSubclassOf<UDamageType>> DamageType;
 };
 
-UCLASS(Blueprintable, Meta = (ChildCanTick), Config=SampleGameMode)
+UCLASS(Blueprintable, Abstract, Meta = (ChildCanTick), Config = SampleGameMode)
 class ASampleGameMode : public AUTGameMode
 {
 	GENERATED_UCLASS_BODY()
