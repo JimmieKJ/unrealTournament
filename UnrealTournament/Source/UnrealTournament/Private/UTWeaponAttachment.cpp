@@ -53,7 +53,7 @@ void AUTWeaponAttachment::BeginPlay()
 void AUTWeaponAttachment::Destroyed()
 {
 	DetachFromOwner();
-
+	GetWorldTimerManager().ClearAllTimersForObject(this);
 	Super::Destroyed();
 }
 

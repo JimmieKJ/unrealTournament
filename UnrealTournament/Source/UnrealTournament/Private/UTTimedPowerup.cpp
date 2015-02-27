@@ -73,6 +73,7 @@ void AUTTimedPowerup::Destroyed()
 	{
 		MyPickup->Destroy();
 	}
+	GetWorldTimerManager().ClearAllTimersForObject(this);
 	Super::Destroyed();
 }
 
