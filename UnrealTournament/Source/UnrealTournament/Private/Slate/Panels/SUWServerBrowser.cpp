@@ -1329,7 +1329,7 @@ void SUWServerBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FServerData> Sele
 
 FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 {
-	TArray<TSharedPtr<FServerData>> SelectedItems = InternetServerList->GetSelectedItems();
+	TArray<TSharedPtr<FServerData>> SelectedItems = (bShowingLobbies ? HUBServerList->GetSelectedItems() : InternetServerList->GetSelectedItems());
 	if (SelectedItems.Num() > 0)
 	{
 		ConnectTo(*SelectedItems[0],bSpectate);
