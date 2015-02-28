@@ -157,6 +157,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	// Flags by _Lynx
 	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Armenia"))));
 	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Azerbaijan"))));
+	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Bulgaria"))));
 	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Chile"))));
 	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Estonia"))));
 	CountyFlagNames.Add(MakeShareable(new FString(TEXT("EU"))));
