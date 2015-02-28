@@ -38,6 +38,17 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 	}
 }
 
+void UUTHUDWidgetMessage::CacheFonts()
+{
+	if (UTHUDOwner && !bFontsCached)
+	{
+		FText MessageText = NSLOCTEXT("UUTHUDWidgetMessage", "FontCacheText", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';:-=+*(),.?!");
+		DrawText(MessageText, 0.f, 0.f, MessageFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, 0.1f, 0.1f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+		DrawText(MessageText, 0.f, 0.f, SmallMessageFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, 0.1f, 0.1f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+		bFontsCached = true;
+	}
+}
+
 void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	Super::PreDraw(DeltaTime, InUTHUDOwner, InCanvas, InCanvasCenter);
@@ -46,6 +57,10 @@ void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas
 
 void UUTHUDWidgetMessage::Draw_Implementation(float DeltaTime)
 {
+	if (!bFontsCached)
+	{
+		CacheFonts();
+	}
 	DrawMessages(DeltaTime);
 }
 

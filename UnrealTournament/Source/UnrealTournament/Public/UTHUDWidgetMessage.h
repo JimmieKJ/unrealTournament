@@ -151,7 +151,14 @@ public:
 
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 	virtual void Draw_Implementation(float DeltaTime);
-	
+
+	/** Set when HUD fonts have been cached. */
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		bool bFontsCached;
+
+	/** Cache fonts this widget will use */
+	virtual void CacheFonts();
+
 	// This function is called each frame and is used to age out messages in the queue. 
 	UFUNCTION(BlueprintNativeEvent)
 	void AgeMessages(float DeltaTime);
