@@ -68,7 +68,7 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
 				for (int32 j = 0; j < PlayerArray.Num(); j++)
 				{
 					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerArray[j]);
-					if (PS && PS != NewPlayer && PS->PreviousMatch && PS->PreviousMatch == AvailableMatches[i])
+					if (PS && PS != NewPlayer && PS->CurrentMatch == NULL && PS->PreviousMatch && PS->PreviousMatch == AvailableMatches[i])
 					{
 						JoinMatch(NewMatch, PS);
 					}
