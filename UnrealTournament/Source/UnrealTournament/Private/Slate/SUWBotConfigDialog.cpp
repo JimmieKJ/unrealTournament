@@ -192,6 +192,8 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 									.Text(NSLOCTEXT("SUWBotConfigDialog", "Delete", "Delete Bot").ToString())
 									.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 									.OnClicked(this, &SUWBotConfigDialog::DeleteBotClick)
+									// FIXME: temp for GDC to work around crash where spamming new/delete can crash
+									.Visibility(EVisibility::Hidden)
 								]
 							]
 							+ SVerticalBox::Slot()
@@ -308,47 +310,50 @@ void SUWBotConfigDialog::OnFavoriteWeaponChange(UClass* WeaponClass, ESelectInfo
 }
 void SUWBotConfigDialog::OnCustomizedBotChange(TSharedPtr<FString> BotName, ESelectInfo::Type SelectInfo)
 {
-	// save previously edited bot, unless this is startup
-	SaveCustomizedBot();
-
-	CustomizedBotName->SetText(*BotName.Get());
-
-	CurrentlyEditedIndex = BotNames.Find(BotName);
-	TArray<FBotCharacter>& AllBots = UUTBotConfig::StaticClass()->GetDefaultObject<UUTBotConfig>()->BotCharacters;
-	if (!AllBots.IsValidIndex(CurrentlyEditedIndex)) // this is used for adding new items or when the .ini is invalid/cleared
+	if (BotName.IsValid())
 	{
-		AllBots.SetNumZeroed(CurrentlyEditedIndex + 1);
-		AllBots[CurrentlyEditedIndex].PlayerName = *BotName.Get();
-	}
+		// save previously edited bot, unless this is startup
+		SaveCustomizedBot();
 
-	FBotCharacter& LoadBot = AllBots[CurrentlyEditedIndex];
-	SkillModifier->SetValue(ConvertToSliderValue(LoadBot.SkillModifier));
-	Aggressiveness->SetValue(ConvertToSliderValue(LoadBot.Aggressiveness));
-	Tactics->SetValue(ConvertToSliderValue(LoadBot.Tactics));
-	Jumpiness->SetValue(ConvertToSliderValue(LoadBot.Jumpiness));
-	MovementAbility->SetValue(ConvertToSliderValue(LoadBot.MovementAbility));
-	ReactionTime->SetValue(ConvertToSliderValue(LoadBot.ReactionTime));
-	Accuracy->SetValue(ConvertToSliderValue(LoadBot.Accuracy));
-	Alertness->SetValue(ConvertToSliderValue(LoadBot.Alertness));
-	MapAwareness->SetValue(ConvertToSliderValue(LoadBot.MapAwareness));
-	UClass* FavWeapon = NULL;
-	for (UClass* TestWeapon : WeaponList)
-	{
-		// check inheritance chain in case name in .ini is a base class
-		for (UClass* TestClass = TestWeapon; TestClass != NULL; TestClass = TestClass->GetSuperClass())
+		CustomizedBotName->SetText(*BotName.Get());
+
+		CurrentlyEditedIndex = BotNames.Find(BotName);
+		TArray<FBotCharacter>& AllBots = UUTBotConfig::StaticClass()->GetDefaultObject<UUTBotConfig>()->BotCharacters;
+		if (!AllBots.IsValidIndex(CurrentlyEditedIndex)) // this is used for adding new items or when the .ini is invalid/cleared
 		{
-			if (TestClass->GetFName() == LoadBot.FavoriteWeapon)
+			AllBots.SetNumZeroed(CurrentlyEditedIndex + 1);
+			AllBots[CurrentlyEditedIndex].PlayerName = *BotName.Get();
+		}
+
+		FBotCharacter& LoadBot = AllBots[CurrentlyEditedIndex];
+		SkillModifier->SetValue(ConvertToSliderValue(LoadBot.SkillModifier));
+		Aggressiveness->SetValue(ConvertToSliderValue(LoadBot.Aggressiveness));
+		Tactics->SetValue(ConvertToSliderValue(LoadBot.Tactics));
+		Jumpiness->SetValue(ConvertToSliderValue(LoadBot.Jumpiness));
+		MovementAbility->SetValue(ConvertToSliderValue(LoadBot.MovementAbility));
+		ReactionTime->SetValue(ConvertToSliderValue(LoadBot.ReactionTime));
+		Accuracy->SetValue(ConvertToSliderValue(LoadBot.Accuracy));
+		Alertness->SetValue(ConvertToSliderValue(LoadBot.Alertness));
+		MapAwareness->SetValue(ConvertToSliderValue(LoadBot.MapAwareness));
+		UClass* FavWeapon = NULL;
+		for (UClass* TestWeapon : WeaponList)
+		{
+			// check inheritance chain in case name in .ini is a base class
+			for (UClass* TestClass = TestWeapon; TestClass != NULL; TestClass = TestClass->GetSuperClass())
 			{
-				FavWeapon = TestWeapon;
+				if (TestClass->GetFName() == LoadBot.FavoriteWeapon)
+				{
+					FavWeapon = TestWeapon;
+					break;
+				}
+			}
+			if (FavWeapon != NULL)
+			{
 				break;
 			}
 		}
-		if (FavWeapon != NULL)
-		{
-			break;
-		}
+		FavoriteWeapon->SetSelectedItem(FavWeapon);
 	}
-	FavoriteWeapon->SetSelectedItem(FavWeapon);
 }
 
 void SUWBotConfigDialog::NewBotNameResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed)
@@ -391,13 +396,23 @@ void SUWBotConfigDialog::NewBotNameResult(TSharedPtr<SCompoundWidget> Dialog, ui
 
 FReply SUWBotConfigDialog::NewBotClick()
 {
-	GetPlayerOwner()->OpenDialog( SNew(SUWInputBox)
-								.PlayerOwner(GetPlayerOwner())
-								.DialogSize(FVector2D(600, 300))
-								.MessageText(NSLOCTEXT("SUWBotConfigDialog", "NewBotName", "Enter a name for the new bot profile:"))
-								.OnDialogResult(this, &SUWBotConfigDialog::NewBotNameResult)
-								.MaxInputLength(16)
-								 );
+	if (BotNames.Num() > 255)
+	{
+		GetPlayerOwner()->OpenDialog( SNew(SUWDialog)
+									.PlayerOwner(GetPlayerOwner())
+									.DialogTitle(NSLOCTEXT("SUWBotConfigDialog", "TooManyBots", "There is no space for more bots!"))
+									);
+	}
+	else
+	{
+		GetPlayerOwner()->OpenDialog( SNew(SUWInputBox)
+									.PlayerOwner(GetPlayerOwner())
+									.DialogSize(FVector2D(600, 300))
+									.MessageText(NSLOCTEXT("SUWBotConfigDialog", "NewBotName", "Enter a name for the new bot profile:"))
+									.OnDialogResult(this, &SUWBotConfigDialog::NewBotNameResult)
+									.MaxInputLength(16)
+									);
+	}
 	return FReply::Handled();
 }
 
