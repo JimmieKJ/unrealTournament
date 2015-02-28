@@ -396,6 +396,7 @@ FReply SUWBotConfigDialog::NewBotClick()
 								.DialogSize(FVector2D(600, 300))
 								.MessageText(NSLOCTEXT("SUWBotConfigDialog", "NewBotName", "Enter a name for the new bot profile:"))
 								.OnDialogResult(this, &SUWBotConfigDialog::NewBotNameResult)
+								.MaxInputLength(16)
 								 );
 	return FReply::Handled();
 }

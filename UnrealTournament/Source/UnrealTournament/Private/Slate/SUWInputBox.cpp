@@ -23,6 +23,7 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 						);
 	TextFilter = InArgs._TextFilter;
 	IsPassword = InArgs._IsPassword;
+	MaxInputLength = InArgs._MaxInputLength;
 
 	if (DialogContent.IsValid())
 	{
@@ -71,9 +72,9 @@ void SUWInputBox::OnDialogOpened()
 
 void SUWInputBox::OnTextChanged(const FText& NewText)
 {
+	FString Result = NewText.ToString().Left(MaxInputLength);
 	if (TextFilter.IsBound())
 	{
-		FString Result = NewText.ToString();
 		for (int32 i = Result.Len() - 1; i >= 0; i--)
 		{
 			if (!TextFilter.Execute(Result.GetCharArray()[i]))
@@ -81,8 +82,8 @@ void SUWInputBox::OnTextChanged(const FText& NewText)
 				Result.GetCharArray().RemoveAt(i);
 			}
 		}
-		EditBox->SetText(FText::FromString(Result));
 	}
+	EditBox->SetText(FText::FromString(Result));
 }
 
 void SUWInputBox::OnTextCommited(const FText& NewText, ETextCommit::Type CommitType)

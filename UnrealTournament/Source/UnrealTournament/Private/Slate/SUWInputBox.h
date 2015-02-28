@@ -17,6 +17,7 @@ class SUWInputBox : public SUWDialog
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
+	, _MaxInputLength(255)
 	, _ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 	, _IsPassword(false)
 	, _IsScrollable(true)
@@ -27,7 +28,8 @@ class SUWInputBox : public SUWDialog
 	SLATE_ARGUMENT(bool, bDialogSizeIsRelative)									
 	SLATE_ARGUMENT(FVector2D, DialogPosition)									
 	SLATE_ARGUMENT(FVector2D, DialogAnchorPoint)								
-	SLATE_ARGUMENT(FVector2D, ContentPadding)									
+	SLATE_ARGUMENT(FVector2D, ContentPadding)
+	SLATE_ARGUMENT(uint32, MaxInputLength)
 	SLATE_ARGUMENT(uint16, ButtonMask)
 	/** Sets whether this text box is for storing a password */
 	SLATE_ARGUMENT(bool, IsPassword)
@@ -47,6 +49,7 @@ class SUWInputBox : public SUWDialog
 protected:
 	TSharedPtr<class SEditableTextBox> EditBox;
 	FInputBoxFilterDelegate TextFilter;
+	uint32 MaxInputLength;
 
 	/** Sets whether this text box is for storing a password */
 	TAttribute< bool > IsPassword;
