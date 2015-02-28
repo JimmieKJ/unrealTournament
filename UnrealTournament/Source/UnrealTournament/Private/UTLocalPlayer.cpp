@@ -1430,7 +1430,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 					ConnectionString += TEXT("?QuickStart=CTF");
 				}
 			}
-			if (bWantsToConnectAsSpectator) ConnectionString += TEXT("?SpectatorOnly=1");
+			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 	
 			bWantsToConnectAsSpectator = false;
