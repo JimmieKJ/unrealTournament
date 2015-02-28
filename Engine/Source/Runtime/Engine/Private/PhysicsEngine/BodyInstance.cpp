@@ -399,7 +399,8 @@ void FBodyInstance::UpdatePhysicalMaterials()
 			}
 			else
 			{
-				UE_LOG(LogPhysics, Warning, TEXT("FBodyInstance::UpdatePhysicalMaterials : PComplexMats is empty - falling back on simple physical material."));
+				// FIXMESTEVE re-enable post GDC
+				//UE_LOG(LogPhysics, Warning, TEXT("FBodyInstance::UpdatePhysicalMaterials : PComplexMats is empty - falling back on simple physical material."));
 				PShape->setMaterials(&PSimpleMat, 1);
 			}
 
