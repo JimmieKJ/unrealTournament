@@ -590,12 +590,11 @@ namespace EpicGames.MCP.Config
     // Class for storing mcp configuration data
     public class McpConfigData
     {
-		public McpConfigData(string InName, string InAccountBaseUrl, string InFortniteBaseUrl, string InBuildInfoBaseUrl, string InLauncherBaseUrl, string InBuildInfoV2BaseUrl, string InLauncherV2BaseUrl, string InClientId, string InClientSecret)
+		public McpConfigData(string InName, string InAccountBaseUrl, string InFortniteBaseUrl, string InLauncherBaseUrl, string InBuildInfoV2BaseUrl, string InLauncherV2BaseUrl, string InClientId, string InClientSecret)
         {
             Name = InName;
             AccountBaseUrl = InAccountBaseUrl;
             FortniteBaseUrl = InFortniteBaseUrl;
-            BuildInfoBaseUrl = InBuildInfoBaseUrl;
             LauncherBaseUrl = InLauncherBaseUrl;
 			BuildInfoV2BaseUrl = InBuildInfoV2BaseUrl;
 			LauncherV2BaseUrl = InLauncherV2BaseUrl;
@@ -606,7 +605,6 @@ namespace EpicGames.MCP.Config
         public string Name;
         public string AccountBaseUrl;
         public string FortniteBaseUrl;
-        public string BuildInfoBaseUrl;
         public string LauncherBaseUrl;
 		public string BuildInfoV2BaseUrl;
 		public string LauncherV2BaseUrl;
@@ -618,42 +616,12 @@ namespace EpicGames.MCP.Config
             CommandUtils.Log("Name : {0}", Name);
             CommandUtils.Log("AccountBaseUrl : {0}", AccountBaseUrl);
             CommandUtils.Log("FortniteBaseUrl : {0}", FortniteBaseUrl);
-            CommandUtils.Log("BuildInfoBaseUrl : {0}", BuildInfoBaseUrl);
             CommandUtils.Log("LauncherBaseUrl : {0}", LauncherBaseUrl);
 			CommandUtils.Log("BuildInfoV2BaseUrl : {0}", BuildInfoV2BaseUrl);
 			CommandUtils.Log("LauncherV2BaseUrl : {0}", LauncherV2BaseUrl);
             CommandUtils.Log("ClientId : {0}", ClientId);
             // we don't really want this in logs CommandUtils.Log("ClientSecret : {0}", ClientSecret);
         }
-
-		/// <summary>
-		/// Returns Base Urls of build info service(s).
-		/// Will only return properties which have been populated.
-		/// </summary>
-		public IEnumerable<string> BuildInfoBaseUrls
-		{
-			get
-			{
-				return new List<string> { BuildInfoV2BaseUrl, BuildInfoBaseUrl }.Where(x => !string.IsNullOrEmpty(x)).Distinct();
-			}
-		}
-
-		/// <summary>
-		/// Returns the build info base URL to use for get requests.
-		/// Switching to version 2 can be achieved by overriding UseV2BuildInfoService in concrete subclasses and setting
-		/// it to true.
-		/// </summary>
-		public string DefaultBuildInfoBaseUrl
-		{
-			get
-			{
-				return UseV2BuildInfoService ? BuildInfoV2BaseUrl : BuildInfoBaseUrl;
-			}
-		}
-		protected virtual bool UseV2BuildInfoService
-		{
-			get { return true; }
-		}
     }
 
     public class McpConfigMapper
