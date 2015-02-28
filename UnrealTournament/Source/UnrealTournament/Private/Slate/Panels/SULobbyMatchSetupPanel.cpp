@@ -218,9 +218,10 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			+ SHorizontalBox::Slot()
 			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 			.VAlign(VAlign_Center)
+			.AutoWidth()
 			[
 				SNew(SBox)
-				.WidthOverride(75.0f)
+				.WidthOverride(100.0f)
 				.Content()
 				[
 					SNew(SSlider)
@@ -230,6 +231,13 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 				]
 			]
+			+ SHorizontalBox::Slot()
+			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+			[
+				SNew(STextBlock)
+				.Text(this, &SULobbyMatchSetupPanel::GetHostMaxPlayerLabel)
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
+			]
 		];
 
 		JIPCheckBox->SetVisibility(MatchInfo->CurrentGameModeData->DefaultObject->bLobbyAllowJoinInProgress ? EVisibility::Visible : EVisibility::Hidden );
@@ -238,6 +246,12 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 
 	return Container.ToSharedRef();
 }
+
+FText SULobbyMatchSetupPanel::GetHostMaxPlayerLabel() const
+{
+	return FText::Format(NSLOCTEXT("LobbyMatchPanel","HostMaxPlayerFormat","({0})"), FText::AsNumber(MatchInfo.IsValid() ? MatchInfo->MaxPlayers : 0));
+}
+
 
 FText SULobbyMatchSetupPanel::GetMaxPlayerLabel() const
 {

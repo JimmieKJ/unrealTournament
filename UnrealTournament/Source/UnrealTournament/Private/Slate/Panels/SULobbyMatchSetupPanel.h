@@ -95,7 +95,9 @@ protected:
 	void AllowSpectatorChanged(ECheckBoxState NewState);
 	void RankCeilingChanged(ECheckBoxState NewState);
 
+	FText GetHostMaxPlayerLabel() const;
 	FText GetMaxPlayerLabel() const;
+
 	void OnMaxPlayersChanged(float NewValue);
 };
 
