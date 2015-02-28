@@ -392,7 +392,8 @@ public:
 		if (DesktopPlatform != nullptr)
 		{
 #if PLATFORM_WINDOWS
-			FString PakPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() / TEXT("StagedBuilds") / DLCName / TEXT("WindowsNoEditor") / TEXT("UnrealTournament") / TEXT("Content") / TEXT("Paks") / DLCName + TEXT("-WindowsNoEditor.pak"));
+			// Can't use UserDir here as editor may have been run with -installed, UAT will save to GameDir()/Saved
+			FString PakPath = FPaths::ConvertRelativePathToFull(FPaths::GameDir() / TEXT("Saved") / TEXT("StagedBuilds") / DLCName / TEXT("WindowsNoEditor") / TEXT("UnrealTournament") / TEXT("Content") / TEXT("Paks") / DLCName + TEXT("-WindowsNoEditor.pak"));
 			
 			// Copy to game directory for now, launcher may do this for us later
 			FString DestinationPath = FPaths::ConvertRelativePathToFull(FString(FPlatformProcess::UserDir()) / FApp::GetGameName() / TEXT("Saved") / TEXT("Paks") / TEXT("MyContent") / DLCName + "-WindowsNoEditor.pak");
@@ -407,9 +408,10 @@ public:
 			// Copy to game directory for now, launcher may do this for us later
 			FString DestinationPath = FPaths::ConvertRelativePathToFull(FString(FPlatformProcess::UserDir()) / FApp::GetGameName() / TEXT("Saved") / TEXT("Paks") / TEXT("MyContent") / DLCName + "-MacNoEditor.pak");
 #endif
-			if (IFileManager::Get().Copy(*DestinationPath, *PakPath, true) == COPY_OK)
+			if (IFileManager::Get().Copy(*DestinationPath, *PakPath, true) != COPY_OK)
 			{
-
+				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("CopyPackageFailed", "Could not copy completed package file to game directory."));
+				return;
 			}
 
 			TSharedPtr<SWindow> MsgWindow = NULL;
