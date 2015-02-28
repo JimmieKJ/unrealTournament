@@ -782,6 +782,8 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildServerPanel()
 							.HeightOverride(400)
 							[
 								SNew(SMultiLineEditableTextBox)
+								.WrapTextAt(680)
+								.AutoWrapText(true)
 								.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
 								.OnTextChanged(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
 								.Text(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::GetAsText)
