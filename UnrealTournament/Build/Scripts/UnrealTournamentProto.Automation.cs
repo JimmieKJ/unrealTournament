@@ -519,7 +519,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		}
 		public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
 		{
-            return InGameProj.GameName + "_CopyEditor" + StaticGetHostPlatformSuffix(InHostPlatform);
+            return "UT_CopyEditor" + StaticGetHostPlatformSuffix(InHostPlatform);
 		}
 		public override string GetFullName()
 		{
@@ -692,7 +692,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		}
 		public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
 		{
-            return InGameProj.GameName + "_EditorDDC" + StaticGetHostPlatformSuffix(InHostPlatform);
+            return "UT_EditorDDC" + StaticGetHostPlatformSuffix(InHostPlatform);
 		}
 		public override string GetFullName()
 		{
@@ -781,7 +781,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		}
 		public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
 		{
-            return InGameProj.GameName + "_CopyAssetRegistry" + StaticGetHostPlatformSuffix(InHostPlatform);
+            return "UT_CopyAssetRegistry" + StaticGetHostPlatformSuffix(InHostPlatform);
 		}
 		public override string GetFullName()
 		{
@@ -826,7 +826,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         }
         public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
         {
-            return InGameProj.GameName + "_PublishEditor" + StaticGetHostPlatformSuffix(InHostPlatform);
+            return "UT_PublishEditor" + StaticGetHostPlatformSuffix(InHostPlatform);
         }
         public override string GetFullName()
         {
@@ -870,7 +870,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         }
         public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
         {
-            return InGameProj.GameName + "_ChunkEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+            return "UT_ChunkEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
         }
         public override string GetFullName()
         {
@@ -1065,7 +1065,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 	void AddHostNodes(GUBP bp, BranchInfo.BranchUProject GameProj, UnrealTargetPlatform HostPlatform, string PlatformName, string TargetPlatformsForDDC)
 	{
-		string StageDirectory = CommandUtils.CombinePaths(CommandUtils.GetDirectoryName(GameProj.FilePath), "Saved", "Builds", HostPlatform.ToString());
+		string StageDirectory = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UT-Build", HostPlatform.ToString());
 			
 		bp.AddNode(new UnrealTournamentCopyEditorNode(bp, GameProj, HostPlatform, StageDirectory));
 		bp.AddNode(new UnrealTournamentEditorDDCNode(bp, GameProj, HostPlatform, TargetPlatformsForDDC, StageDirectory));
