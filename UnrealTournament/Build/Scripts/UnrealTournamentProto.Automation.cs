@@ -761,49 +761,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		}
 	}
 
-	public class UnrealTournamentCopyAssetRegistryNode : GUBP.HostPlatformNode
-	{
-        BranchInfo.BranchUProject GameProj;
-		string StageDirectory;
-
-		public UnrealTournamentCopyAssetRegistryNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InStageDirectory)
-			: base(InHostPlatform)
-		{
-			GameProj = InGameProj;
-			StageDirectory = InStageDirectory;
-
-			AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(InGameProj, InHostPlatform));
-			AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(InGameProj, InHostPlatform));
-			AddDependency(UnrealTournamentBuildNode.StaticGetFullName(InGameProj));
-
-			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
-		}
-		public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
-		{
-            return "UT_CopyAssetRegistry" + StaticGetHostPlatformSuffix(InHostPlatform);
-		}
-		public override string GetFullName()
-		{
-			return StaticGetFullName(GameProj, HostPlatform);
-		}
-		public override string GameNameIfAnyForTempStorage()
-		{
-			return GameProj.GameName;
-		}
-		public override void DoBuild(GUBP bp)
-		{
-			BuildProducts = new List<string>();
-
-			string SourceDirectory = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UnrealTournament", "Releases");
-			foreach(string SourceFileName in Directory.EnumerateFiles(SourceDirectory, "AssetRegistry.bin", SearchOption.AllDirectories))
-			{
-				string TargetFileName = CommandUtils.MakeRerootedFilePath(SourceFileName, CommandUtils.CmdEnv.LocalRoot, StageDirectory);
-				CommandUtils.CopyFile(SourceFileName, TargetFileName);
-				BuildProducts.Add(TargetFileName);
-			}
-		}
-	}
-
 	public class UnrealTournamentPublishEditorNode : GUBP.HostPlatformNode
 	{
 		BranchInfo.BranchUProject GameProj;
@@ -819,7 +776,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
             AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(GameProj, InHostPlatform));
             AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(GameProj, InHostPlatform));
-            AddDependency(UnrealTournamentCopyAssetRegistryNode.StaticGetFullName(GameProj, InHostPlatform));
 
 			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
         }
@@ -856,7 +812,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
             AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(GameProj, InHostPlatform));
             AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(GameProj, InHostPlatform));
-            AddDependency(UnrealTournamentCopyAssetRegistryNode.StaticGetFullName(GameProj, InHostPlatform));
 
 			SingleTargetProperties BuildPatchTool = bp.Branch.FindProgram("BuildPatchTool");
 			if (BuildPatchTool.Rules == null)
@@ -1068,7 +1023,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			
 		bp.AddNode(new UnrealTournamentCopyEditorNode(bp, GameProj, HostPlatform, StageDirectory));
 		bp.AddNode(new UnrealTournamentEditorDDCNode(bp, GameProj, HostPlatform, TargetPlatformsForDDC, StageDirectory));
-		bp.AddNode(new UnrealTournamentCopyAssetRegistryNode(bp, GameProj, HostPlatform, StageDirectory));
 		bp.AddNode(new UnrealTournamentChunkEditorNode(bp, GameProj, HostPlatform, StageDirectory));
 
 		string PublishDirectory = CommandUtils.CombinePaths(UnrealTournamentBuild.GetArchiveDir(), PlatformName);
