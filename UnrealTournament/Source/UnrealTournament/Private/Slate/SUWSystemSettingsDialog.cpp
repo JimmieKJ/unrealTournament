@@ -595,7 +595,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 		.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 		.ForegroundColor(FLinearColor::Black)
 		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-		.Text(NSLOCTEXT("SUWSystemSettingsDialog", "AutoSettingsButtonText", "Autodetect Settings"))
+		.Text(NSLOCTEXT("SUWSystemSettingsDialog", "AutoSettingsButtonText", "Auto Detect Settings"))
 		.OnClicked(this, &SUWSystemSettingsDialog::OnAutodetectClick)
 	];
 }
