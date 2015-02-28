@@ -462,6 +462,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
             AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
             AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
+			AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(GameProj, UnrealTargetPlatform.Win64));
 
             // Make sure we have the mac version of Chunker as well
 			if(!bp.ParseParam("nomac"))
@@ -469,6 +470,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				AddDependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
 				AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
 				AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
+				AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(GameProj, UnrealTargetPlatform.Mac));
 			}
         }
         public override string GetTriggerDescText()
@@ -526,6 +528,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		public override string GameNameIfAnyForTempStorage()
 		{
 			return GameProj.GameName;
+		}
+		public override int CISFrequencyQuantumShift(GUBP bp)
+		{
+			return base.CISFrequencyQuantumShift(bp) + 3;
 		}
 		public override void DoBuild(GUBP bp)
 		{
@@ -696,6 +702,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		{
 			return GameProj.GameName;
 		}
+		public override int CISFrequencyQuantumShift(GUBP bp)
+		{
+			return base.CISFrequencyQuantumShift(bp) + 3;
+		}
 		public override float Priority()
 		{
 			return base.Priority() + 55.0f;
@@ -767,7 +777,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(InGameProj, InHostPlatform));
 			AddDependency(UnrealTournamentBuildNode.StaticGetFullName(InGameProj));
 
-			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+			AgentSharingGroup = "UnrealTournament_ChunkEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
 		}
 		public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
 		{
@@ -812,7 +822,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(GameProj, InHostPlatform));
             AddDependency(UnrealTournamentCopyAssetRegistryNode.StaticGetFullName(GameProj, InHostPlatform));
 
-			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+			AgentSharingGroup = "UnrealTournament_ChunkEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
         }
         public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
         {
@@ -856,7 +866,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			}
 			AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
 
-			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
+			AgentSharingGroup = "UnrealTournament_ChunkEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
         }
         public static string StaticGetFullName(BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
         {
