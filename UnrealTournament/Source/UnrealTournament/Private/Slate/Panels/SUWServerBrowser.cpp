@@ -974,6 +974,7 @@ void SUWServerBrowser::RefreshServers()
 {
 	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == BrowserState::NAME_ServerIdle)
 	{
+		bNeedsRefresh = false;
 		SetBrowserState(BrowserState::NAME_RequestInProgress);
 
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
@@ -1339,6 +1340,8 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
+	// Flag the browser as needing a refresh the next time it is shown
+	bNeedsRefresh = true;
 	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
 	CleanupQoS();
 	PlayerOwner->HideMenu();
@@ -2049,6 +2052,15 @@ void SUWServerBrowser::EmptyHUBServers()
 */
 
 	FilterAllHUBs();
+}
+
+void SUWServerBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+{
+	SUWPanel::OnShowPanel(inParentWindow);
+	if (bNeedsRefresh)
+	{
+		RefreshServers();
+	}
 }
 
 

@@ -574,7 +574,13 @@ protected:
 	void OnServerListSelectionChanged(TSharedPtr<FServerData> SelectedItem, ESelectInfo::Type SelectInfo);
 	void OnHUBListSelectionChanged(TSharedPtr<FServerData> SelectedItem, ESelectInfo::Type SelectInfo);
 
+	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+
 protected:
+
+	// If true, the server browser will refresh itself as soon as it's loaded.
+	bool bNeedsRefresh;
+
 	virtual void OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo);
 	virtual void OnServerBeaconFailure(AUTServerBeaconClient* Sender);
 	virtual void PingNextServer();
