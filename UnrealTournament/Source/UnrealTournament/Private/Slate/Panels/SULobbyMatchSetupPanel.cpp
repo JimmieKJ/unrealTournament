@@ -115,7 +115,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildGameModeWidget()
 			[
 				SNew(STextBlock)
 				.Text(this, &SULobbyMatchSetupPanel::GetGameModeText)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.White")
+				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
 			]
 		];
 	}
