@@ -94,6 +94,7 @@ void AUTLobbyPC::Chat(FName Destination, FString Message)
 	// Send the Chat to the server so it can be routed to the right place.  
 	// TODO - Once we have MCP friends support, look at routing friends chat directly through the MCP
 
+	Message = Message.Left(128);
 	ServerChat(Destination, Message);
 }
 

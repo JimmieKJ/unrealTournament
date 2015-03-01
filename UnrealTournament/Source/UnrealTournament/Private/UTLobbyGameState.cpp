@@ -529,8 +529,14 @@ TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString Game
 		}
 	}
 
-	// return something valid - code depends on this being valid
-	return ClientAvailbleGameModes[0];
+	FString GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
+	AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(GameMode);
+	if (DefaultGame)
+	{
+		return FAllowedGameModeData::Make(GameMode, DefaultGame->DisplayName.ToString(), DefaultGame);	
+	}
+
+	return NULL;
 }
 
 bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)

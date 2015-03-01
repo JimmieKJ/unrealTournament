@@ -338,15 +338,19 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 
 	for (int32 i=0; i< PlayerData.Num(); i++)
 	{
-		AUTLobbyPlayerState* PS = PlayerData[i].Get()->PlayerState.Get();	
-		if (PS)
+		if (PlayerData[i].IsValid())
 		{
-			PlayerData[i].Get()->ComboButton->SetButtonStyle( !PS->bReadyToPlay ? &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.PlayerButton") : &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.ReadyPlayerButton") );
-			PlayerData[i].Get()->ReadyImage->SetVisibility( PS->bReadyToPlay ? EVisibility::Visible : EVisibility::Hidden);
-			if (PS->UniqueId == MatchInfo->OwnerId)
+
+			AUTLobbyPlayerState* PS = PlayerData[i].Get()->PlayerState.Get();	
+			if (PS)
 			{
-				PlayerData[i].Get()->ReadyImage->SetVisibility( EVisibility::Visible);
-				PlayerData[i].Get()->ReadyImage->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Match.HostImage"));
+				PlayerData[i].Get()->ComboButton->SetButtonStyle( !PS->bReadyToPlay ? &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.PlayerButton") : &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.ReadyPlayerButton") );
+				PlayerData[i].Get()->ReadyImage->SetVisibility( PS->bReadyToPlay ? EVisibility::Visible : EVisibility::Hidden);
+				if (PS->UniqueId == MatchInfo->OwnerId)
+				{
+					PlayerData[i].Get()->ReadyImage->SetVisibility( EVisibility::Visible);
+					PlayerData[i].Get()->ReadyImage->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Match.HostImage"));
+				}
 			}
 		}
 	}

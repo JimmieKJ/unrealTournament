@@ -386,6 +386,7 @@ bool SULobbyInfoPanel::AlreadyTrackingMatch(AUTLobbyMatchInfo* TestMatch)
 void SULobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
+	if (!PlayerState) return;	// Quick out if we don't have an owner player.
 
 	if (bShowingMatchDock)
 	{
