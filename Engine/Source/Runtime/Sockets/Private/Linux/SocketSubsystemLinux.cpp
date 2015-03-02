@@ -102,6 +102,19 @@ TSharedRef<FInternetAddr> FSocketSubsystemLinux::GetLocalHostAddr(FOutputDevice&
 		return Addr;
 	}
 	
+	// If superclass got the address from command line, honor that override
+	TCHAR Home[256] = TEXT("");
+	if (FParse::Value(FCommandLine::Get(), TEXT("MULTIHOME="), Home, ARRAY_COUNT(Home)))
+	{
+		TSharedRef<FInternetAddr> TempAddr = CreateInternetAddr();
+		bool bIsValid = false;
+		TempAddr->SetIp(Home, bIsValid);
+		if (bIsValid)
+		{
+			return Addr;
+		}
+	}
+
 	// we need to go deeper...  (see http://unixhelp.ed.ac.uk/CGI/man-cgi?netdevice+7)
 	int TempSocket = socket(PF_INET, SOCK_STREAM, 0);
 	if (TempSocket)
