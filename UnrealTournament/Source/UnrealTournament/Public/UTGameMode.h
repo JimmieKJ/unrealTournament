@@ -421,6 +421,12 @@ public:
 	 */
 	virtual bool SupportsMap(const FString& MapName) const
 	{
+		// TEMP HACK: sublevel that shouldn't be shown
+		if (MapName.EndsWith(TEXT("DM-Circuit_FX")))
+		{
+			return false;
+		}
+
 		return MapPrefix.Len() == 0 || MapName.StartsWith(MapPrefix + TEXT("-"));
 	}
 
