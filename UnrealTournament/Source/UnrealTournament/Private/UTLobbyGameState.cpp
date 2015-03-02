@@ -53,6 +53,16 @@ void AUTLobbyGameState::CheckInstanceHealth()
 					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
 				}
 			}
+			else
+			{
+				if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+				{
+					UE_LOG(UT,Warning,TEXT("Terminating an invalid match that is inprogress"));
+					FPlatformProcess::TerminateProc(MatchInfo->GameInstanceProcessHandle);
+					FPlatformProcess::CloseProc(MatchInfo->GameInstanceProcessHandle);
+					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
+				}
+			}
 		}
 	}
 }
