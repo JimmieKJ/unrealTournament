@@ -431,26 +431,29 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 		BaseMutator->ModifyLogin(ModdedPortal, ModdedOptions);
 	}
 	APlayerController* Result = Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
-	AUTPlayerState* PS = Cast<AUTPlayerState>(Result->PlayerState);
-	if (PS != NULL)
+	if (Result)
 	{
-		FString InOpt = ParseOption(Options, TEXT("Character"));
-		if (InOpt.Len() > 0)
+		AUTPlayerState* PS = Cast<AUTPlayerState>(Result->PlayerState);
+		if (PS != NULL)
 		{
-			PS->SetCharacter(InOpt);
+			FString InOpt = ParseOption(Options, TEXT("Character"));
+			if (InOpt.Len() > 0)
+			{
+				PS->SetCharacter(InOpt);
+			}
+			InOpt = ParseOption(Options, TEXT("Hat"));
+			if (InOpt.Len() > 0)
+			{
+				PS->ServerReceiveHatClass(InOpt);
+			}
+			InOpt = ParseOption(Options, TEXT("Eyewear"));
+			if (InOpt.Len() > 0)
+			{
+				PS->ServerReceiveEyewearClass(InOpt);
+			}
+			// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
+			PS->ValidateEntitlements();
 		}
-		InOpt = ParseOption(Options, TEXT("Hat"));
-		if (InOpt.Len() > 0)
-		{
-			PS->ServerReceiveHatClass(InOpt);
-		}
-		InOpt = ParseOption(Options, TEXT("Eyewear"));
-		if (InOpt.Len() > 0)
-		{
-			PS->ServerReceiveEyewearClass(InOpt);
-		}
-		// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
-		PS->ValidateEntitlements();
 	}
 	return Result;
 }
