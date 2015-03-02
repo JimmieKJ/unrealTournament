@@ -48,6 +48,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 	if (FailureType == ETravelFailure::PackageMissing)
 	{
+#if !PLATFORM_MAC
 		// Missing map
 		if (!ErrorString.IsEmpty() && FPaths::GetExtension(ErrorString) == FString(TEXT("pak")))
 		{
@@ -109,6 +110,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 			return;
 		}
+#endif
 	}
 
 	FText NetworkErrorMessage;
