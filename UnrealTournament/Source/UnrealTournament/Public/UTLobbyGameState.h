@@ -84,6 +84,8 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void PostInitializeComponents() override;
+
 	// Convert a Classname string in to a default object
 	static AUTGameMode* GetGameModeDefaultObject(FString ClassName);
 
@@ -236,6 +238,7 @@ protected:
 	AUTServerBeaconLobbyHostListener* LobbyBeacon_Listener;
 	AUTServerBeaconLobbyHostObject* LobbyBeacon_Object;
 
+	void CheckInstanceHealth();
 
 };
 

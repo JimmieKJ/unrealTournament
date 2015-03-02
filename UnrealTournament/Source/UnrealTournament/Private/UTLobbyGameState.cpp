@@ -24,6 +24,39 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyGameState, AvailableMatches);
 }
 
+void AUTLobbyGameState::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	if (Role == ROLE_Authority)
+	{
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyGameState::CheckInstanceHealth, 60.0f);	
+	}
+}
+
+	
+void AUTLobbyGameState::CheckInstanceHealth()
+{
+	for (int32 i=0; i < AvailableMatches.Num(); i++)
+	{
+		AUTLobbyMatchInfo* MatchInfo = AvailableMatches[i];
+		if (MatchInfo)
+		{
+			if (MatchInfo->GameInstanceProcessHandle.IsValid())
+			{
+				if ( MatchInfo->CurrentState == ELobbyMatchState::InProgress && !FPlatformProcess::IsProcRunning(MatchInfo->GameInstanceProcessHandle) )
+				{
+					UE_LOG(UT,Warning,TEXT("Terminating an instance that seems to be a zombie."));
+					FPlatformProcess::TerminateProc(MatchInfo->GameInstanceProcessHandle);
+					FPlatformProcess::CloseProc(MatchInfo->GameInstanceProcessHandle);
+					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
+				}
+			}
+		}
+	}
+}
+
 
 void AUTLobbyGameState::BroadcastChat(AUTLobbyPlayerState* SenderPS, FName Destination, const FString& Message)
 {
