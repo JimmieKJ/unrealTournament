@@ -102,6 +102,9 @@ private:
 
 	void NoAvailableMatches();
 	void FindBestMatch();
+
+	FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
+	FReply OnCancelClick();
 };
 
 #endif

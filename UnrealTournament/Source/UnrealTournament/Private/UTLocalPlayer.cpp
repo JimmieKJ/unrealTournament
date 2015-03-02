@@ -1432,7 +1432,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			}
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
-	
+
 			bWantsToConnectAsSpectator = false;
 			return;
 
@@ -1640,7 +1640,7 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 
 	if (PlayerController)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState); 
 		if (PS)
 		{
 			PS->ServerRecieveCountryFlag(NewFlag);
@@ -1654,6 +1654,24 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 {
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
 	{
+		if (QuickMatchDialog.IsValid())
+		{
+			return;
+		}
+
+		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->GetBrowserState() == BrowserState::NAME_RequestInProgress)
+		{
+			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickmatch."));
+			return;
+		}
+
+
+
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->CancelFindSessions();				
+		}
+
 		SAssignNew(QuickMatchDialog, SUTQuickMatch)
 			.PlayerOwner(this)
 			.QuickMatchType(QuickMatchType);
@@ -1670,10 +1688,18 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 }
 void UUTLocalPlayer::CancelQuickMatch()
 {
+	// Cancel out the find session call
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->CancelFindSessions();
+	}
+
+
 	if (QuickMatchDialog.IsValid())
 	{
 		QuickMatchDialog->Cancel();
 		GEngine->GameViewport->RemoveViewportWidgetContent(QuickMatchDialog.ToSharedRef());
+		QuickMatchDialog.Reset();
 	}
 }
 

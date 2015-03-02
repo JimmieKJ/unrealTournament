@@ -95,13 +95,6 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
-	if (OnlineSessionInterface.IsValid())
-	{
-		FOnFindSessionsCompleteDelegate Delegate;
-		Delegate.BindSP(this, &SUWServerBrowser::OnFindSessionsComplete);
-		OnFindSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
-	}
-
 	this->ChildSlot
 	[
 		SNew(SOverlay)
@@ -985,6 +978,10 @@ void SUWServerBrowser::RefreshServers()
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = SearchSettings.ToSharedRef();
 
+		FOnFindSessionsCompleteDelegate Delegate;
+		Delegate.BindSP(this, &SUWServerBrowser::OnFindSessionsComplete);
+		OnFindSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
+
 		OnlineSessionInterface->FindSessions(0, SearchSettingsRef);
 	}
 	else
@@ -996,6 +993,8 @@ void SUWServerBrowser::RefreshServers()
 void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 {
 	CleanupQoS();
+
+	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
 
 	if (bWasSuccessful)
 	{
@@ -1038,6 +1037,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 					}
 				}
 				
+
 				FString ServerMap;
 				Result.Session.SessionSettings.Get(SETTING_MAPNAME,ServerMap);
 				
@@ -1078,14 +1078,15 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 			}
 		}
 
-/*
-		UE_LOG(UT,Log,TEXT("Recieved a list of %i Servers....."), PingList.Num());
-		for (int i=0;i<PingList.Num();i++)
+		if ( FParse::Param(FCommandLine::Get(), TEXT("DumpServers")) )
 		{
-			UE_LOG(UT,Log,TEXT("Recieved Server %i - %s %s"), i, *PingList[i]->Name, *PingList[i]->IP);
+			UE_LOG(UT,Log,TEXT("Recieved a list of %i Servers....."), PingList.Num());
+			for (int i=0;i<PingList.Num();i++)
+			{
+				UE_LOG(UT,Log,TEXT("Recieved Server %i - %s %s  : Players %i/%i"), i, *PingList[i]->Name, *PingList[i]->IP, PingList[i]->NumPlayers, PingList[i]->MaxPlayers);
+			}
+			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 		}
-		UE_LOG(UT,Log, TEXT("----------------------------------------------"));
-*/
 
 		if (OnlineSubsystem)
 		{
@@ -2063,6 +2064,10 @@ void SUWServerBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 	}
 }
 
+FName SUWServerBrowser::GetBrowserState()
+{
+	return BrowserState;
+}
 
 
 #endif

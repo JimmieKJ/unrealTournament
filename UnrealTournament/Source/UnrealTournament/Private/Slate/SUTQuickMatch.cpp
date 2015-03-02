@@ -108,7 +108,7 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 						[
 							SNew(SButton)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-							//.OnClicked(this, &SUWindowsMainMenu::OnTutorialClick)
+							.OnClicked(this, &SUTQuickMatch::OnCancelClick)
 							.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
 							[
 								SNew(SHorizontalBox)
@@ -216,11 +216,6 @@ void SUTQuickMatch::NoAvailableMatches()
 
 void SUTQuickMatch::PingNextBatch()
 {
-	if (ServerList.Num() == 0 && PingTrackers.Num() == 0)
-	{
-		FindBestMatch();
-	}
-
 	while (ServerList.Num() > 0 && PingTrackers.Num() < 10)
 	{
 		int32 Cnt = ServerList.Num() + PingTrackers.Num();
@@ -228,6 +223,12 @@ void SUTQuickMatch::PingNextBatch()
 		PingServer(ServerList[0]);
 		ServerList.RemoveAtSwap(0);
 	}
+
+	if (ServerList.Num() == 0 && PingTrackers.Num() == 0)
+	{
+		FindBestMatch();
+	}
+
 }
 
 void SUTQuickMatch::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
@@ -258,10 +259,10 @@ void SUTQuickMatch::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 			// Server is not responding, so ignore it...
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i, 1);
-
-			PingNextBatch();
+			break;
 		}
 	}
+	PingNextBatch();
 }
 
 void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
@@ -291,11 +292,12 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i, 1);
-
-			// Look to see if there are more servers to Ping...
-			PingNextBatch();
+			break;
 		}
 	}
+
+	PingNextBatch();
+
 }
 
 void SUTQuickMatch::FindBestMatch()
@@ -341,6 +343,25 @@ void SUTQuickMatch::Cancel()
 
 }
 
+FReply SUTQuickMatch::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		return OnCancelClick();
+	}
+
+	return FReply::Unhandled();
+}
+
+
+FReply SUTQuickMatch::OnCancelClick()
+{
+	if (PlayerOwner.IsValid())
+	{
+		PlayerOwner->CancelQuickMatch();		
+	}
+	return FReply::Handled();
+}
 
 
 

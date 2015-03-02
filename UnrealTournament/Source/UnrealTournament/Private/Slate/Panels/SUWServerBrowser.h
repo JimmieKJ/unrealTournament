@@ -461,6 +461,8 @@ public:
 
 	~SUWServerBrowser();
 
+	virtual FName GetBrowserState();
+
 private:
 
 	virtual void ConstructPanel(FVector2D ViewportSize);	

@@ -266,7 +266,7 @@ void SULobbyMatchSetupPanel::OnMaxPlayersChanged(float NewValue)
 
 FString SULobbyMatchSetupPanel::GetGameModeText() const
 {
-	return (MatchInfo->CurrentGameModeData.IsValid() ? MatchInfo->CurrentGameModeData->DisplayName : TEXT("None"));
+	return (MatchInfo.IsValid() && MatchInfo->CurrentGameModeData.IsValid() ? MatchInfo->CurrentGameModeData->DisplayName : TEXT("None"));
 }
 
 TSharedRef<SWidget> SULobbyMatchSetupPanel::GenerateGameModeListWidget(TSharedPtr<FAllowedGameModeData> InItem)
