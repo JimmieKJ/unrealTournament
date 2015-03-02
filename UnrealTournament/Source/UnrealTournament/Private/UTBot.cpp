@@ -669,7 +669,7 @@ void AUTBot::Tick(float DeltaTime)
 			}
 		}
 
-		if (MoveTarget.IsValid())
+		if (MoveTarget.IsValid() && GetPawn() != NULL)
 		{
 			if (MoveTargetPoints.Num() == 0)
 			{
