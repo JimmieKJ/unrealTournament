@@ -13,7 +13,6 @@
 #include "FriendRecentPlayerItems.h"
 #include "FriendGameInviteItem.h"
 #include "ChatDisplayOptionsViewModel.h"
-#include "OnlineIdentityMcp.h"
 
 #define LOCTEXT_NAMESPACE "FriendsAndChatManager"
 
@@ -36,6 +35,7 @@ FFriendsAndChatManager::FFriendsAndChatManager( )
 	: OnlineSub(nullptr)
 	, MessageManager(FFriendsMessageManagerFactory::Create())
 	, bJoinedGlobalChat(false)
+	, bHasGlobalChatPermission(false)
 	, ChatWindowMode(EChatWindowMode::MultiWindow)
 	, ManagerState ( EFriendsAndManagerState::OffLine )
 	, bIsInited( false )
@@ -254,6 +254,11 @@ void FFriendsAndChatManager::JoinPublicChatRoom(const FString& RoomName)
 	}	
 }
 
+void FFriendsAndChatManager::SetPublicChatRoomPermission(bool Allow)
+{
+	bHasGlobalChatPermission = Allow;
+}
+
 void FFriendsAndChatManager::OnChatPublicRoomJoined(const FString& ChatRoomID)
 {
 	if (ChatRoomstoJoin.Contains(ChatRoomID))
@@ -268,18 +273,9 @@ bool FFriendsAndChatManager::IsInGlobalChat() const
 	return bJoinedGlobalChat;
 }
 
-bool FFriendsAndChatManager::HasPermission(const FString& Permission)
+bool FFriendsAndChatManager::HasPermission()
 {
-	if (OnlineIdentity.IsValid())
-	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentity->GetUniquePlayerId(0);
-		const FUserOnlineAccountMcp* McpUserAccount = static_cast<const FUserOnlineAccountMcp*>(OnlineIdentity->GetUserAccount(*UserId).Get());
-		if (McpUserAccount)
-		{
-			return McpUserAccount->HasPermission(Permission);
-		}
-	}
-	return false;
+	return bHasGlobalChatPermission;
 }
 
 // UI Creation

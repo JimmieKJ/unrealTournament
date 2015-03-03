@@ -78,6 +78,12 @@ public:
 	virtual void JoinPublicChatRoom(const FString& RoomName) = 0;
 
 	/**
+	 * Show the global chat room button
+	 * @param True to show the button
+	 */
+	virtual void SetPublicChatRoomPermission(bool Allow) = 0;
+
+	/**
 	 * Delegate when the chat room has been joined
 	 */
 	virtual void OnChatPublicRoomJoined(const FString& ChatRoomID) = 0;
