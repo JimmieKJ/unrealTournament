@@ -732,7 +732,7 @@ void AUTBot::Tick(float DeltaTime)
 							UTChar->UTCharacterMovement->PerformWaterJump();
 						}
 					}
-					else
+					else if (MyPawn->GetMovementComponent() != NULL) // FIXME: remote redeemer doesn't set this, need to control a different way...
 					{
 						MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal2D());
 					}

@@ -153,7 +153,8 @@ float AUTWeap_Redeemer::GetAISelectRating_Implementation()
 
 bool AUTWeap_Redeemer::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
 {
+	bool bResult = Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc);
 	// TODO: support guided fire
 	BestFireMode = 0;
-	return Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc);
+	return bResult;
 }
