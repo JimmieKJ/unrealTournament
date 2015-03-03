@@ -698,7 +698,11 @@ void UUTLocalPlayer::ReadCloudFileListing()
 {
 	if (OnlineUserCloudInterface.IsValid() && OnlineIdentityInterface.IsValid())
 	{
-		OnlineUserCloudInterface->EnumerateUserFiles(*OnlineIdentityInterface->GetUniquePlayerId(GetControllerId()).Get());
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		if (UserId.IsValid())
+		{
+			OnlineUserCloudInterface->EnumerateUserFiles(*UserId.Get());
+		}
 	}
 }
 
@@ -895,7 +899,7 @@ void UUTLocalPlayer::LoadProfileSettings()
 	if (IsLoggedIn())
 	{
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-		if (OnlineUserCloudInterface.IsValid())
+		if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
 		{
 			OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
 		}
@@ -917,7 +921,7 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 	if (IsLoggedIn() && ButtonID == UTDIALOG_BUTTON_YES)
 	{
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-		if (OnlineUserCloudInterface.IsValid())
+		if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
 		{
 			OnlineUserCloudInterface->DeleteUserFile(*UserID, GetProfileFilename(), true, true);
 		}
@@ -1049,7 +1053,7 @@ void UUTLocalPlayer::SaveProfileSettings()
 		{
 			// Save the blob to the cloud
 			TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-			if (OnlineUserCloudInterface.IsValid())
+			if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
 			{
 				OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
 			}
@@ -1107,7 +1111,7 @@ FName UUTLocalPlayer::TeamStyleRef(FName InName)
 void UUTLocalPlayer::ReadELOFromCloud()
 {
 	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (OnlineUserCloudInterface.IsValid())
+	if (OnlineUserCloudInterface.IsValid() && UserId.IsValid())
 	{
 		OnlineUserCloudInterface->ReadUserFile(*UserId, GetStatsFilename());
 	}
@@ -1117,7 +1121,7 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 {
 	TArray<uint8> FileContents;
 	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (OnlineUserCloudInterface.IsValid() && OnlineUserCloudInterface->GetFileContents(*UserId, GetStatsFilename(), FileContents))
+	if (UserId.IsValid() && OnlineUserCloudInterface.IsValid() && OnlineUserCloudInterface->GetFileContents(*UserId, GetStatsFilename(), FileContents))
 	{
 		if (FileContents.Num() <= 0)
 		{
@@ -1392,19 +1396,26 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 
 	bWantsToConnectAsSpectator = bSpectate;
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
-	if (OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UniqueId))
+	if (!UniqueId.IsValid())
 	{
-		UE_LOG(UT,Log, TEXT("--- Alreadyt in a Session -- Deferring while I clean it up"));
-		bPendingSession = true;
-		PendingSession = SearchResult;
-		LeaveSession();
+		return false;
 	}
 	else
 	{
-		OnlineSessionInterface->JoinSession(0,GameSessionName,SearchResult);
-	}
+		if (OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UniqueId))
+		{
+			UE_LOG(UT, Log, TEXT("--- Alreadyt in a Session -- Deferring while I clean it up"));
+			bPendingSession = true;
+			PendingSession = SearchResult;
+			LeaveSession();
+		}
+		else
+		{
+			OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
+		}
 
-	return true;
+		return true;
+	}
 }
 
 void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
