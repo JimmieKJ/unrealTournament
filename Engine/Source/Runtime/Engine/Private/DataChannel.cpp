@@ -448,6 +448,14 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 		}
 		else
 		{
+			// FIXME: we can't assume this data is correct/valid since it came from the network... is this the right handling?
+			if (InPartialBunch == NULL)
+			{
+				UE_LOG(LogNetPartialBunch, Error, TEXT("Received non-initial partial bunch with no prior initial bunch!"));
+				Bunch.SetError();
+				return false;
+			}
+
 			// Merge in next partial bunch to InPartialBunch if:
 			//	-We have a valid InPartialBunch
 			//	-The current InPartialBunch wasn't already complete
