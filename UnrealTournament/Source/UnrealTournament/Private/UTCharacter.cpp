@@ -1826,11 +1826,11 @@ bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type) const
 				Amount += SavedAmmo[i].Amount;
 			}
 		}
-		AUTWeapon* Weapon = FindInventoryType<AUTWeapon>(Type, true);
-		if (Weapon != NULL)
+		AUTWeapon* FoundWeapon = FindInventoryType<AUTWeapon>(Type, true);
+		if (FoundWeapon != NULL)
 		{
-			Amount += Weapon->Ammo;
-			return Amount >= Weapon->MaxAmmo;
+			Amount += FoundWeapon->Ammo;
+			return Amount >= FoundWeapon->MaxAmmo;
 		}
 		else
 		{
@@ -1859,10 +1859,10 @@ int32 AUTCharacter::GetAmmoAmount(TSubclassOf<AUTWeapon> Type) const
 				Amount += SavedAmmo[i].Amount;
 			}
 		}
-		AUTWeapon* Weapon = FindInventoryType<AUTWeapon>(Type, true);
-		if (Weapon != NULL)
+		AUTWeapon* FoundWeapon = FindInventoryType<AUTWeapon>(Type, true);
+		if (FoundWeapon != NULL)
 		{
-			Amount += Weapon->Ammo;
+			Amount += FoundWeapon->Ammo;
 		}
 		return Amount;
 	}
@@ -1894,30 +1894,37 @@ void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 {
 	if (InvToAdd != NULL)
 	{
-		if (InventoryList == NULL)
+		if (InvToAdd->GetUTOwner() != NULL && InvToAdd->GetUTOwner() != this && InvToAdd->GetUTOwner()->IsInInventory(InvToAdd))
 		{
-			InventoryList = InvToAdd;
-		}
-		else if (InventoryList == InvToAdd)
-		{
-			UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
+			UE_LOG(UT, Warning, TEXT("AddInventory (%s): Item %s is already in %s's inventory!"), *GetName(), *InvToAdd->GetName(), *InvToAdd->GetUTOwner()->GetName());
 		}
 		else
 		{
-			AUTInventory* Last = InventoryList;
-			while (Last->NextInventory != NULL)
+			if (InventoryList == NULL)
 			{
-				// avoid recursion
-				if (Last->NextInventory == InvToAdd)
-				{
-					UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
-					return;
-				}
-				Last = Last->NextInventory;
+				InventoryList = InvToAdd;
 			}
-			Last->NextInventory = InvToAdd;
+			else if (InventoryList == InvToAdd)
+			{
+				UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
+			}
+			else
+			{
+				AUTInventory* Last = InventoryList;
+				while (Last->NextInventory != NULL)
+				{
+					// avoid recursion
+					if (Last->NextInventory == InvToAdd)
+					{
+						UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
+						return;
+					}
+					Last = Last->NextInventory;
+				}
+				Last->NextInventory = InvToAdd;
+			}
+			InvToAdd->GivenTo(this, bAutoActivate);
 		}
-		InvToAdd->GivenTo(this, bAutoActivate);
 	}
 }
 
@@ -1925,8 +1932,10 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 {
 	if (InvToRemove != NULL && InventoryList != NULL)
 	{
+		bool bFound = false;
 		if (InvToRemove == InventoryList)
 		{
+			bFound = true;
 			InventoryList = InventoryList->NextInventory;
 		}
 		else
@@ -1935,37 +1944,45 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 			{
 				if (TestInv->NextInventory == InvToRemove)
 				{
+					bFound = true;
 					TestInv->NextInventory = InvToRemove->NextInventory;
 					break;
 				}
 			}
 		}
-		if (InvToRemove == PendingWeapon)
+		if (!bFound)
 		{
-			PendingWeapon = NULL;
+			UE_LOG(UT, Warning, TEXT("RemoveInventory (%s): Item %s was not in this character's inventory!"), *GetName(), *InvToRemove->GetName());
 		}
-		else if (InvToRemove == Weapon)
+		else
 		{
-			Weapon = NULL;
-			if (PendingWeapon != NULL)
+			if (InvToRemove == PendingWeapon)
 			{
-				WeaponChanged();
+				PendingWeapon = NULL;
 			}
-			else
+			else if (InvToRemove == Weapon)
 			{
-				WeaponClass = NULL;
-				WeaponAttachmentClass = NULL;
-				UpdateWeaponAttachment();
-			}
-			if (!bTearOff)
-			{
-				if (IsLocallyControlled())
+				Weapon = NULL;
+				if (PendingWeapon != NULL)
 				{
-					SwitchToBestWeapon();
+					WeaponChanged();
+				}
+				else
+				{
+					WeaponClass = NULL;
+					WeaponAttachmentClass = NULL;
+					UpdateWeaponAttachment();
+				}
+				if (!bTearOff)
+				{
+					if (IsLocallyControlled())
+					{
+						SwitchToBestWeapon();
+					}
 				}
 			}
+			InvToRemove->Removed();
 		}
-		InvToRemove->Removed();
 	}
 }
 
@@ -2013,6 +2030,7 @@ void AUTCharacter::DiscardAllInventory()
 		Inv->Destroy();
 		Inv = NextInv;
 	}
+	Weapon = NULL;
 	SavedAmmo.Empty();
 }
 
@@ -2119,7 +2137,7 @@ bool AUTCharacter::ServerSwitchWeapon_Validate(AUTWeapon* NewWeapon)
 
 void AUTCharacter::WeaponChanged(float OverflowTime)
 {
-	if (PendingWeapon != NULL)
+	if (PendingWeapon != NULL && PendingWeapon->GetUTOwner() == this)
 	{
 		checkSlow(IsInInventory(PendingWeapon));
 		Weapon = PendingWeapon;
@@ -2129,13 +2147,14 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		WeaponAttachmentClass = Weapon->AttachmentType;
 		UpdateWeaponAttachment();
 	}
-	else if (Weapon != NULL)
+	else if (Weapon != NULL && Weapon->GetUTOwner() == this)
 	{
 		// restore current weapon since pending became invalid
 		Weapon->BringUp(OverflowTime);
 	}
 	else
 	{
+		Weapon = NULL;
 		WeaponClass = NULL;
 		WeaponAttachmentClass = NULL;
 		UpdateWeaponAttachment();
