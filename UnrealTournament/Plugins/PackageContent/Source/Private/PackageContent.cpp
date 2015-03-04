@@ -318,18 +318,24 @@ void FPackageContent::Initialize()
 
 void FPackageContent::OpenPackageLevelWindow()
 {
-	UE_LOG(LogPackageContent, Log, TEXT("Starting to publish this level!"));
+	bool bPromptUserToSave = true;
+	bool bSaveMapPackages = true;
+	bool bSaveContentPackages = true;
+	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
+	{
+		UE_LOG(LogPackageContent, Log, TEXT("Starting to publish this level!"));
 	
-	FString MapName = GWorld->GetMapName();
+		FString MapName = GWorld->GetMapName();
 #if PLATFORM_WINDOWS
-	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Win64"), *MapName, *MapName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Win64"), *MapName, *MapName);
 #elif PLATFORM_LINUX
-	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Linux"), *MapName, *MapName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Linux"), *MapName, *MapName);
 #else
-	FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Mac"), *MapName, *MapName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Mac"), *MapName, *MapName);
 #endif
 
-	CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	}
 }
 
 class FPackageContentNotificationTask
@@ -658,43 +664,55 @@ void FPackageContent::PackageHat(UClass* HatClass)
 }
 
 void FPackageContent::OpenPackageWeaponWindow()
-{	
-	PackageDialogTitle = LOCTEXT("PackageWeaponDialogTitle", "Share A Weapon");
+{
+	bool bPromptUserToSave = true;
+	bool bSaveMapPackages = false;
+	bool bSaveContentPackages = true;
+	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
+	{
+		PackageDialogTitle = LOCTEXT("PackageWeaponDialogTitle", "Share A Weapon");
 
-	/** Create the window to host our package dialog widget */
-	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
-		.Title(PackageDialogTitle)
-		.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
+		/** Create the window to host our package dialog widget */
+		TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
+			.Title(PackageDialogTitle)
+			.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
 	
-	TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageWeaponDialogWindowRef)
-																  .PackageContent(SharedThis(this))
-																  .DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Weapon);
+		TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageWeaponDialogWindowRef)
+																	  .PackageContent(SharedThis(this))
+																	  .DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Weapon);
 	
-	// Set the content of the window to our package dialog widget
-	EditorPackageWeaponDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
+		// Set the content of the window to our package dialog widget
+		EditorPackageWeaponDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
 	
-	// Show the package dialog window as a modal window
-	GEditor->EditorAddModalWindow(EditorPackageWeaponDialogWindowRef);
+		// Show the package dialog window as a modal window
+		GEditor->EditorAddModalWindow(EditorPackageWeaponDialogWindowRef);
+	}
 }
 
 void FPackageContent::OpenPackageHatWindow()
 {
-	PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Share A Cosmetic Item");
+	bool bPromptUserToSave = true;
+	bool bSaveMapPackages = false;
+	bool bSaveContentPackages = true;
+	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
+	{
+		PackageDialogTitle = LOCTEXT("PackageHatDialogTitle", "Share A Cosmetic Item");
 
-	/** Create the window to host our package dialog widget */
-	TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
-		.Title(PackageDialogTitle)
-		.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
+		/** Create the window to host our package dialog widget */
+		TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
+			.Title(PackageDialogTitle)
+			.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
 
-	TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageWeaponDialogWindowRef)
-		.PackageContent(SharedThis(this))
-		.DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Hat);
+		TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageWeaponDialogWindowRef)
+			.PackageContent(SharedThis(this))
+			.DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Hat);
 
-	// Set the content of the window to our package dialog widget
-	EditorPackageWeaponDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
+		// Set the content of the window to our package dialog widget
+		EditorPackageWeaponDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
 
-	// Show the package dialog window as a modal window
-	GEditor->EditorAddModalWindow(EditorPackageWeaponDialogWindowRef);
+		// Show the package dialog window as a modal window
+		GEditor->EditorAddModalWindow(EditorPackageWeaponDialogWindowRef);
+	}
 }
 
 void FPackageContent::CreatePackageContentMenu(FToolBarBuilder& Builder)
