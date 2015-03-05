@@ -326,30 +326,34 @@ void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	// find center of the Canvas
-	const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
-
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
-
-	for (int WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
+	if (IsPendingKillPending() || IsPendingKill())
 	{
-		// If we aren't hidden then set the canvas and render..
-		if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden())
+		// find center of the Canvas
+		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
+
+		for (int WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 		{
-			HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
-			if (HudWidgets[WidgetIndex]->ShouldDraw(bShowScores || bPreMatchScoreBoard || bForceScores))
+			// If we aren't hidden then set the canvas and render..
+			if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden() && !HudWidgets[WidgetIndex]->IsPendingKill())
 			{
-				HudWidgets[WidgetIndex]->Draw(RenderDelta);
+				HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
+				if (HudWidgets[WidgetIndex]->ShouldDraw(bShowScores || bPreMatchScoreBoard || bForceScores))
+				{
+					HudWidgets[WidgetIndex]->Draw(RenderDelta);
+				}
+				HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
 			}
-			HudWidgets[WidgetIndex]->PostDraw(GetWorld()->GetTimeSeconds());
+		}
+
+		if (!bShowScores)
+		{
+			DrawDamageIndicators();
 		}
 	}
 
-	if (!bShowScores)
-	{
-		DrawDamageIndicators();
-	}
 }
 
 FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours, bool bForceMinutes, bool bForceTwoDigits) const

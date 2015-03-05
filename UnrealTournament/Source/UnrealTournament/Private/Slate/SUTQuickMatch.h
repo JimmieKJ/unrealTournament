@@ -41,12 +41,15 @@ struct FServerSearchPingTracker
 
 class SUTQuickMatch: public SCompoundWidget
 {
+public:
+
 	SLATE_BEGIN_ARGS(SUTQuickMatch)
 	{}
 
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
 	SLATE_ARGUMENT(FName, QuickMatchType)
 	SLATE_END_ARGS()
+
 
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
@@ -58,6 +61,8 @@ class SUTQuickMatch: public SCompoundWidget
 
 	// Called to cancel the quickmatch process
 	void Cancel();
+
+	virtual void TellSlateIWantKeyboardFocus();
 
 protected:
 
@@ -102,6 +107,9 @@ private:
 
 	void NoAvailableMatches();
 	void FindBestMatch();
+
+
+	virtual bool SupportsKeyboardFocus() const override;
 
 	FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
 	FReply OnCancelClick();

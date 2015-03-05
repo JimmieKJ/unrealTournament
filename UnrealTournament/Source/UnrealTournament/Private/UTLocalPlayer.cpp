@@ -1678,7 +1678,6 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 		}
 
 
-
 		if (OnlineSessionInterface.IsValid())
 		{
 			OnlineSessionInterface->CancelFindSessions();				
@@ -1691,6 +1690,7 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 		if (QuickMatchDialog.IsValid())
 		{
 			GEngine->GameViewport->AddViewportWidgetContent(QuickMatchDialog.ToSharedRef(), 150);
+			QuickMatchDialog->TellSlateIWantKeyboardFocus();
 		}
 	}
 	else

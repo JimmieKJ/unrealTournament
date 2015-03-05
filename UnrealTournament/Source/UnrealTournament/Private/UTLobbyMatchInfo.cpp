@@ -222,7 +222,10 @@ bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
 {
 	if (Joiner && CheckLobbyGameState())
 	{
-		if (CurrentState == ELobbyMatchState::WaitingForPlayers || (CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId))
+		if (CurrentState == ELobbyMatchState::WaitingForPlayers || 
+				(CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId) ||
+				(CurrentState == ELobbyMatchState::Launching && (bJoinAnytime || OwnerId == Joiner->UniqueId) )
+			)
 		{
 			return (MatchGameMode != TEXT("") && MatchMap != TEXT("") && MatchOptions != TEXT("") && OwnerId.IsValid() && LobbyGameState->GetGameModeDefaultObject(MatchGameMode) );
 		}

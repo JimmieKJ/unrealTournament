@@ -129,8 +129,9 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 
 
 	FindHUBToJoin();
-
+	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 }
+
 
 FText SUTQuickMatch::GetStatusText() const
 {
@@ -341,7 +342,22 @@ void SUTQuickMatch::Cancel()
 		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteHandle);
 	}
 
+	for (int32 i=0;i<PingTrackers.Num();i++)
+	{
+		if (PingTrackers[i].Beacon.IsValid())
+		{
+			PingTrackers[i].Beacon->DestroyBeacon();
+		}
+	}
+	PingTrackers.Empty();
+	FinalList.Empty();
 }
+
+bool SUTQuickMatch::SupportsKeyboardFocus() const
+{
+	return true;
+}
+
 
 FReply SUTQuickMatch::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
@@ -363,6 +379,10 @@ FReply SUTQuickMatch::OnCancelClick()
 	return FReply::Handled();
 }
 
+void SUTQuickMatch::TellSlateIWantKeyboardFocus()
+{
+	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
+}
 
 
 #endif

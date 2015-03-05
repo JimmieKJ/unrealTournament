@@ -211,6 +211,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 			{
 				 if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers)
 				 {
+					MatchInfo->AddPlayer(NewPlayer);
 					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), false);
 					return;
 				 }
@@ -223,6 +224,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 
 			if (MatchInfo->bSpectatable)
 			{
+				MatchInfo->AddPlayer(NewPlayer);
 				NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), true);
 				return;
 			}
@@ -362,6 +364,10 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 			if (FPlatformProcess::IsProcRunning(MatchOwner->GameInstanceProcessHandle))
 			{
 				FPlatformProcess::TerminateProc(MatchOwner->GameInstanceProcessHandle);
+				int32 ReturnCode = 0;
+				FPlatformProcess::GetProcReturnCode(MatchOwner->GameInstanceProcessHandle, &ReturnCode);
+
+				UE_LOG(UT,Verbose, TEXT("Terminating an Instance with return code %i"), ReturnCode);
 			}
 		}
 
