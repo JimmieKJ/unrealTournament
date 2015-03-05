@@ -45,7 +45,10 @@ void AUTDMGameMode::UpdateLobbyBadge()
 
 	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n%s"), *DisplayName.ToString(), *LB);
 
-	LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
+	if (ensure(LobbyBeacon))
+	{
+		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
+	}
 
 }
 

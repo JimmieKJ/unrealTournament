@@ -334,6 +334,7 @@ public:
 	virtual void ShowFinalScoreboard();
 	virtual void TravelToNextMap();
 
+	virtual void RecreateLobbyBeacon();
 	virtual void DefaultTimer();
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
@@ -513,6 +514,7 @@ public:
 
 protected:
 	// A Beacon for communicating back to the lobby
+	UPROPERTY(transient)
 	AUTServerBeaconLobbyClient* LobbyBeacon;
 
 	float LastLobbyUpdateTime;

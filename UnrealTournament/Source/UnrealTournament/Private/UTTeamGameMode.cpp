@@ -636,6 +636,9 @@ void AUTTeamGameMode::UpdateLobbyBadge()
 
 	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%i</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>%i</>\n<UWindows.Standard.MatchBadge.Small>%s</>"), *DisplayName.ToString(), Scores[0], Scores[1], *GetWorld()->GetMapName());
 
-	LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
+	if (ensure(LobbyBeacon))
+	{
+		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
+	}
 
 }

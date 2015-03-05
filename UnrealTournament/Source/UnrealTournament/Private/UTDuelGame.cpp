@@ -300,7 +300,10 @@ void AUTDuelGame::UpdateLobbyBadge()
 				*RedPlayer->PlayerName,	int(BluePlayer->Score));
 		}
 
-		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
+		if (ensure(LobbyBeacon))
+		{
+			LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
+		}
 
 
 	}

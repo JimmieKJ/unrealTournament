@@ -222,6 +222,13 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	}
 
 	PostInitGame(Options);
+
+	UE_LOG(UT, Log, TEXT("LobbyInstanceID: %i"), LobbyInstanceID);
+	UE_LOG(UT, Log, TEXT("=================="));
+
+	// If we are a lobby instance, establish a communication beacon with the lobby.  For right now, this beacon is created on the local host
+	// but in time, the lobby's address will have to be passed
+	RecreateLobbyBeacon();
 }
 
 void AUTGameMode::AddMutator(const FString& MutatorPath)
@@ -361,27 +368,6 @@ void AUTGameMode::InitGameState()
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
 	}
-
-	UE_LOG(UT,Log,TEXT("LobbyInstanceID: %i"),LobbyInstanceID);
-	UE_LOG(UT,Log,TEXT("=================="));
-
-	// If we are a lobby instance, establish a communication beacon with the lobby.  For right now, this beacon is created on the local host
-	// but in time, the lobby's address will have to be passed
-	if (LobbyInstanceID > 0)
-	{
-		LobbyBeacon = GetWorld()->SpawnActor<AUTServerBeaconLobbyClient>(AUTServerBeaconLobbyClient::StaticClass());
-		if (LobbyBeacon)
-		{
-			FString BeaconNetDriverName = FString::Printf(TEXT("LobbyBeaconDriver%i"), LobbyInstanceID);
-			FURL LobbyURL(nullptr, TEXT("127.0.0.1"),TRAVEL_Absolute);
-			LobbyURL.Port = HostLobbyListenPort;
-
-			LobbyBeacon->SetBeaconNetDriverName(BeaconNetDriverName);
-			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID);
-			UE_LOG(UT,Log,TEXT("..... Connecting back to lobby on port %i!"), HostLobbyListenPort);
-		}
-	}
-
 }
 
 void AUTGameMode::UpdateOnlineServer()
@@ -623,12 +609,44 @@ void AUTGameMode::CheckBotCount()
 	}
 }
 
+void AUTGameMode::RecreateLobbyBeacon()
+{
+	if (LobbyInstanceID > 0)
+	{
+		if (LobbyBeacon)
+		{
+			// Destroy the existing beacon first
+			LobbyBeacon->DestroyBeacon();
+			LobbyBeacon = nullptr;
+		}
+
+		LobbyBeacon = GetWorld()->SpawnActor<AUTServerBeaconLobbyClient>(AUTServerBeaconLobbyClient::StaticClass());
+		if (LobbyBeacon)
+		{
+			FString BeaconNetDriverName = FString::Printf(TEXT("LobbyBeaconDriver%i"), LobbyInstanceID);
+			FURL LobbyURL(nullptr, TEXT("127.0.0.1"), TRAVEL_Absolute);
+			LobbyURL.Port = HostLobbyListenPort;
+
+			LobbyBeacon->SetBeaconNetDriverName(BeaconNetDriverName);
+			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID);
+			UE_LOG(UT, Log, TEXT("..... Connecting back to lobby on port %i!"), HostLobbyListenPort);
+		}
+	}
+}
+
 /**
  *	DefaultTimer is called once per second and is useful for consistent timed events that don't require to be 
  *  done every frame.
  **/
 void AUTGameMode::DefaultTimer()
 {	
+	if (LobbyBeacon && LobbyBeacon->GetNetConnection()->State == EConnectionState::USOCK_Closed)
+	{
+		// Lost connection with the beacon. Recreate it.
+		UE_LOG(UT, Log, TEXT("Beacon %s lost connection. Attempting to recreate."), *GetNameSafe(this));
+		RecreateLobbyBeacon();
+	}
+
 	// Let the game see if it's time to end the match
 	CheckGameTime();
 
@@ -1154,6 +1172,12 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	SendEndOfGameStats(Reason);
 
 	EndMatch();
+
+	if (LobbyBeacon)
+	{
+		LobbyBeacon->DestroyBeacon();
+		LobbyBeacon = nullptr;
+	}
 }
 
 /**
@@ -2555,7 +2579,10 @@ FString AUTGameMode::GetDefaultLobbyOptions() const
 
 void AUTGameMode::NotifyLobbyGameIsReady()
 {
-	LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID);
+	if (ensure(LobbyBeacon))
+	{
+		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID);
+	}
 }
 
 FString AUTGameMode::GetRedirectURL(const FString& MapName) const
@@ -2594,13 +2621,16 @@ void AUTGameMode::UpdateLobbyMatchStats()
 
 	UE_LOG(UT,Log,TEXT("Sending update to the Lobby"));
 
-	for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+	if (ensure(LobbyBeacon))
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS && !PS->bIsSpectator)
+		for (int i=0;i<UTGameState->PlayerArray.Num();i++)
 		{
-			int32 Score = int(PS->Score);
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, Score);
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS && !PS->bIsSpectator)
+			{
+				int32 Score = int(PS->Score);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, Score);
+			}
 		}
 	}
 
