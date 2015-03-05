@@ -19,6 +19,12 @@ IAnalyticsProvider& FUTAnalytics::GetProvider()
 	checkf(bIsInitialized && Analytics.IsValid(), TEXT("FUTAnalytics::GetProvider called outside of Initialize/Shutdown."));
 	return *Analytics.Get();
 }
+
+TSharedPtr<IAnalyticsProvider> FUTAnalytics::GetProviderPtr()
+{
+	checkf(bIsInitialized && Analytics.IsValid(), TEXT("FUTAnalytics::GetProvider called outside of Initialize/Shutdown."));
+	return Analytics;
+}
  
 void FUTAnalytics::Initialize()
 {

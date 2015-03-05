@@ -10,6 +10,8 @@ class FUTAnalytics : FNoncopyable
 {
 public:
 	static UNREALTOURNAMENT_API IAnalyticsProvider& GetProvider();
+
+	static UNREALTOURNAMENT_API TSharedPtr<IAnalyticsProvider> GetProviderPtr();
 	
 	/** Helper function to determine if the provider is valid. */
 	static UNREALTOURNAMENT_API bool IsAvailable() 

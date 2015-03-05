@@ -584,6 +584,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 
 		// Init the Friends And Chat system
 		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->Login();
+		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
 		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().IsBoundToObject(this))
 		{
