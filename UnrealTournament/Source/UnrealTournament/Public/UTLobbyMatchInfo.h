@@ -260,6 +260,22 @@ public:
 		return RankCeiling < 1 || Rank <= RankCeiling + 400; // MAKE ME CONFIG
 	}
 
+	/**
+	 *	Returns the Owner's UTLobbyPlayerState
+	 **/
+	TWeakObjectPtr<AUTLobbyPlayerState> GetOwnerPlayerState()
+	{
+		for (int32 i=0;i<Players.Num();i++)
+		{
+			if (Players[i].IsValid() && Players[i]->UniqueId == OwnerId)
+			{
+				return Players[i];
+			}
+		}
+
+		return NULL;
+	}
+
 protected:
 
 	// Only available on the server, this holds a cached reference to the GameState.
@@ -293,22 +309,6 @@ protected:
 	// The client has received the OwnerID so we are good to go
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchIsReadyForPlayers();
-
-	/**
-	 *	Returns the Owner's UTLobbyPlayerState
-	 **/
-	TWeakObjectPtr<AUTLobbyPlayerState> GetOwnerPlayerState()
-	{
-		for (int32 i=0;i<Players.Num();i++)
-		{
-			if (Players[i].IsValid() && Players[i]->UniqueId == OwnerId)
-			{
-				return Players[i];
-			}
-		}
-
-		return NULL;
-	}
 
 	// This match info is done.  Kill it.
 	void RecycleMatchInfo();

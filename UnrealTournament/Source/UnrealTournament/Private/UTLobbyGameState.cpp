@@ -63,6 +63,15 @@ void AUTLobbyGameState::CheckInstanceHealth()
 			}
 		}
 	}
+
+	for (int32 i=0; i<GameInstances.Num();i++)
+	{
+		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Dead)
+		{
+			RemoveMatch(GameInstances[i].MatchInfo);
+		}
+	}
+
 }
 
 
@@ -348,8 +357,22 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		}
 		else
 		{
-			// NOTIFY the Match Owner that the server failed to start an instance
+			UE_LOG(UT,Log,TEXT("Could not start an instance (the ProcHandle is Invaliud)"));
+			if (MatchOwner)
+			{
+				TWeakObjectPtr<AUTLobbyPlayerState> OwnerPS = MatchOwner->GetOwnerPlayerState();
+				if (OwnerPS.IsValid())
+				{
+					OwnerPS->ClientMatchError(NSLOCTEXT("LobbyMessage", "FailedToStart", "Unfortunately, the server had trouble starting a new instance.  Please try again in a few moments."));
+				}
+			}
 		}
+	}
+
+	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+	if (GM)
+	{
+		GM->UpdateLobbySession();
 	}
 }
 
@@ -384,6 +407,14 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 		MatchOwner->GameInstanceProcessHandle.Reset();
 		MatchOwner->GameInstanceID = 0;
 	}
+
+	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+	if (GM)
+	{
+		GM->UpdateLobbySession();
+	}
+
+
 }
 
 void AUTLobbyGameState::GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID)
@@ -459,6 +490,12 @@ void AUTLobbyGameState::GameInstance_EndGame(uint32 GameInstanceID, const FStrin
 			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Completed);
 			break;
 		}
+	}
+
+	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+	if (GM)
+	{
+		GM->UpdateLobbySession();
 	}
 }
 

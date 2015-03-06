@@ -326,7 +326,7 @@ void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	if (IsPendingKillPending() || IsPendingKill())
+	if (!IsPendingKillPending() || !IsPendingKill())
 	{
 		// find center of the Canvas
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);

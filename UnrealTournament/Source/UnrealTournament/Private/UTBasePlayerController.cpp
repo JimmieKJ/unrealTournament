@@ -176,6 +176,7 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bS
 	GUIDJoinWantsToSpectate = bSpectate;
 	GUIDJoin_CurrentGUID = ServerGUID;
 	GUIDJoinAttemptCount = 0;
+	GUIDSessionSearchSettings.Reset();
 
 	AttemptGUIDJoin();
 }
@@ -204,9 +205,22 @@ void AUTBasePlayerController::AttemptGUIDJoin()
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = GUIDSessionSearchSettings.ToSharedRef();
 
+		// Cancel any existing find session calls.
+		OnlineSessionInterface->CancelFindSessions();
+
 		if (!OnFindGUIDSessionCompleteDelegate.IsBound())
 		{
 			OnFindGUIDSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnFindSessionsComplete);
+		}
+
+		if (OnFindGUIDSessionCompleteDelegateHandle.IsValid())
+		{
+			OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegateHandle);
+			OnFindGUIDSessionCompleteDelegateHandle.Reset();
+		}
+
+		if (!OnFindGUIDSessionCompleteDelegateHandle.IsValid())
+		{		
 			OnFindGUIDSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegate);
 		}
 

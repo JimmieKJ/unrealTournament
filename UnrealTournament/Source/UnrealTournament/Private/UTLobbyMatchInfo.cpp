@@ -419,6 +419,8 @@ void AUTLobbyMatchInfo::LaunchMatch()
 		LeftBracket = FinalOptions.Find(TEXT("["));
 	}
 
+	FinalOptions += FString::Printf(TEXT("?MaxPlayers=%i"), MaxPlayers);
+
 	AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
 	if (DefaultGame)
 	{
@@ -428,10 +430,14 @@ void AUTLobbyMatchInfo::LaunchMatch()
 		}
 	}
 
+
 	if (CheckLobbyGameState())
 	{
 		LobbyGameState->LaunchGameInstance(this, FinalOptions);
 	}
+
+	
+
 }
 
 bool AUTLobbyMatchInfo::ServerAbortMatch_Validate() { return true; }

@@ -118,6 +118,9 @@ public:
 	virtual int32 GetNumPlayers();
 	virtual int32 GetNumMatches();
 
+	// Attempts to make sure the Lobby has the proper information
+	virtual void UpdateLobbySession();
+
 };
 
 

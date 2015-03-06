@@ -180,14 +180,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 
 	UE_LOG(UT,Log,TEXT("POST LOGIN: %s"), *NewPlayer->PlayerState->GetName());
 
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->UpdateGameState();
-		}
-	}
+	UpdateLobbySession();
 
 	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(NewPlayer->PlayerState);
 	if (LPS)
@@ -241,14 +234,7 @@ void AUTLobbyGameMode::Logout(AController* Exiting)
 		UTLobbyGameState->RemoveFromAMatch(LPS);
 	}
 
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->UpdateGameState();
-		}
-	}
+	UpdateLobbySession();
 }
 
 bool AUTLobbyGameMode::PlayerCanRestart( APlayerController* Player )
@@ -347,5 +333,29 @@ int32 AUTLobbyGameMode::GetNumPlayers()
 
 int32 AUTLobbyGameMode::GetNumMatches()
 {
-	return UTLobbyGameState->GameInstances.Num();
+	int Cnt = 0;
+	if (UTLobbyGameState && UTLobbyGameState->GameInstances.Num())
+	{
+		for (int32 i = 0; i < UTLobbyGameState->GameInstances.Num(); i++)
+		{
+			if (UTLobbyGameState->GameInstances[i].MatchInfo && UTLobbyGameState->GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+			{
+				Cnt++;
+			}
+		}
+	}
+
+	return Cnt;
+}
+
+void AUTLobbyGameMode::UpdateLobbySession()
+{
+	if (GameSession != NULL)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession != NULL)
+		{
+			UTGameSession->UpdateGameState();
+		}
+	}
 }
