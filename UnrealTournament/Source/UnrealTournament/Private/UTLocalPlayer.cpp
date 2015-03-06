@@ -709,7 +709,7 @@ void UUTLocalPlayer::ReadCloudFileListing()
 
 void UUTLocalPlayer::OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId)
 {
-	UE_LOG(UT, Log, TEXT("OnEnumerateUserFilesComplete %d"), bWasSuccessful ? 1 : 0);
+	UE_LOG(UT, Verbose, TEXT("OnEnumerateUserFilesComplete %d"), bWasSuccessful ? 1 : 0);
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine)
 	{
@@ -724,7 +724,7 @@ void UUTLocalPlayer::OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUn
 				TArray<uint8> DecodedHash;
 				FBase64::Decode(UserFiles[i].Hash, DecodedHash);
 				FString Hash = BytesToHex(DecodedHash.GetData(), DecodedHash.Num());
-				UE_LOG(UT, Log, TEXT("%s %s"), *UserFiles[i].FileName, *Hash);
+				UE_LOG(UT, Verbose, TEXT("%s %s"), *UserFiles[i].FileName, *Hash);
 				UTEngine->CloudContentChecksums.Add(FPaths::GetBaseFilename(UserFiles[i].FileName), Hash);
 			}
 		}		
@@ -733,7 +733,7 @@ void UUTLocalPlayer::OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUn
 
 void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 {
-	UE_LOG(UT,Log,TEXT("***[Logout Complete]*** - User %i"), LocalUserNum);
+	UE_LOG(UT,Verbose,TEXT("***[Logout Complete]*** - User %i"), LocalUserNum);
 	// TO-DO: Add a Toast system for displaying stuff like this
 
 	GetWorld()->GetTimerManager().ClearTimer(ProfileWriteTimerHandle);

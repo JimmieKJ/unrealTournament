@@ -191,7 +191,7 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 		{
 			if (CurrentBlockCount != ExpectedBlockCount)
 			{
-				UE_LOG(UT, Log, TEXT("ERROR: Didn't receive everything in the block %i %i %i"), BulkSendID, CurrentBlockCount, ExpectedBlockCount);
+				UE_LOG(UT, Verbose, TEXT("ERROR: Didn't receive everything in the block %i %i %i"), BulkSendID, CurrentBlockCount, ExpectedBlockCount);
 			}
 
 			CurrentBulkID = BulkSendID;
@@ -232,7 +232,7 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 	}
 	else
 	{
-		UE_LOG(UT,Log,TEXT("ERROR: Recieved Bulk data before GameState!!!"));
+		UE_LOG(UT,Verbose,TEXT("ERROR: Recieved Bulk data before GameState!!!"));
 	}
 }
 

@@ -629,7 +629,7 @@ void AUTGameMode::RecreateLobbyBeacon()
 
 			LobbyBeacon->SetBeaconNetDriverName(BeaconNetDriverName);
 			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID);
-			UE_LOG(UT, Log, TEXT("..... Connecting back to lobby on port %i!"), HostLobbyListenPort);
+			UE_LOG(UT, Verbose, TEXT("..... Connecting back to lobby on port %i!"), HostLobbyListenPort);
 		}
 	}
 }
@@ -643,7 +643,7 @@ void AUTGameMode::DefaultTimer()
 	if (LobbyBeacon && LobbyBeacon->GetNetConnection()->State == EConnectionState::USOCK_Closed)
 	{
 		// Lost connection with the beacon. Recreate it.
-		UE_LOG(UT, Log, TEXT("Beacon %s lost connection. Attempting to recreate."), *GetNameSafe(this));
+		UE_LOG(UT, Verbose, TEXT("Beacon %s lost connection. Attempting to recreate."), *GetNameSafe(this));
 		RecreateLobbyBeacon();
 	}
 
@@ -1120,7 +1120,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			}
 		}
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
-		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
+		UE_LOG(UT, Verbose, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
 }
 
@@ -1880,7 +1880,7 @@ void AUTGameMode::HandleEnteringOvertime()
 						AUTCharacter* UTChar = Cast<AUTCharacter>(COwner->GetPawn());
 						if (UTChar != NULL)
 						{
-							UE_LOG(UT, Log, TEXT("    -- Calling Died"));
+							//UE_LOG(UT, Log, TEXT("    -- Calling Died"));
 							// Kill off the pawn...
 							UTChar->Died(NULL, FDamageEvent(UUTDamageType::StaticClass()));
 							// Send this character a message/taunt about not making the cut....
@@ -2619,7 +2619,7 @@ void AUTGameMode::UpdateLobbyMatchStats()
 {
 	// Update the players
 
-	UE_LOG(UT,Log,TEXT("Sending update to the Lobby"));
+	UE_LOG(UT,Verbose,TEXT("Sending update to the Lobby"));
 
 	if (ensure(LobbyBeacon))
 	{
@@ -2685,7 +2685,7 @@ FString AUTGameMode::GetHUBPregameFormatString()
 void AUTGameMode::UpdatePlayersPresence()
 {
 	bool bAllowJoin = (NumPlayers < GameSession->MaxPlayers);
-	UE_LOG(UT,Log,TEXT("AllowJoin: %i %i %i"), bAllowJoin, NumPlayers, GameSession->MaxPlayers);
+	UE_LOG(UT,Verbose,TEXT("AllowJoin: %i %i %i"), bAllowJoin, NumPlayers, GameSession->MaxPlayers);
 	FString PresenceString = FText::Format(NSLOCTEXT("UTGameMode","PlayingPresenceFormatStr","Playing {0} on {1}"), DisplayName, FText::FromString(*GetWorld()->GetMapName())).ToString();
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{

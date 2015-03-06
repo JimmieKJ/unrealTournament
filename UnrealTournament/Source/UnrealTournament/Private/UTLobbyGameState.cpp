@@ -345,7 +345,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 
 		FString ConnectionString = FString::Printf(TEXT("%s:%i"), *GetWorld()->GetNetDriver()->LowLevelGetNetworkNumber(), InstancePort);
 
-		UE_LOG(UT,Log,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
+		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
 
 		MatchOwner->GameInstanceProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
 
@@ -357,7 +357,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		}
 		else
 		{
-			UE_LOG(UT,Log,TEXT("Could not start an instance (the ProcHandle is Invaliud)"));
+			UE_LOG(UT,Warning,TEXT("Could not start an instance (the ProcHandle is Invalid)"));
 			if (MatchOwner)
 			{
 				TWeakObjectPtr<AUTLobbyPlayerState> OwnerPS = MatchOwner->GetOwnerPlayerState();

@@ -283,7 +283,7 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 	}
 	else
 	{
-		UE_LOG(UT,Log,TEXT("No Message Widget to Display Text"));
+		UE_LOG(UT,Verbose,TEXT("No Message Widget to Display Text"));
 	}
 }
 
