@@ -337,12 +337,9 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 			{
 				bAnyHit = true;
 				Start = Hit.Location + Hit.Normal;
-				FBox TestBox(0);
-				TestBox += Start + ScoutShape.GetExtent();
-				TestBox += Start - ScoutShape.GetExtent();
-				if (FMath::PointBoxIntersection(End, TestBox))
+				if ((End - Start).Size2D() <= MoveSlice.Size2D())
 				{
-					// reached target without jumping
+					// either reached target without jumping, or stuck above/below it
 					return false;
 				}
 				NavNodeRef NewStartPoly = FindNearestPoly(Start, ScoutShape.GetExtent());
