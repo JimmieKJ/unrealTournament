@@ -1172,12 +1172,6 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	SendEndOfGameStats(Reason);
 
 	EndMatch();
-
-	if (LobbyBeacon)
-	{
-		LobbyBeacon->DestroyBeacon();
-		LobbyBeacon = nullptr;
-	}
 }
 
 /**

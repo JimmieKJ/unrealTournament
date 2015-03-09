@@ -268,6 +268,9 @@ void AUTLobbyGameState::RemoveFromAMatch(AUTLobbyPlayerState* PlayerOwner)
 
 void AUTLobbyGameState::RemoveMatch(AUTLobbyMatchInfo* MatchToRemove)
 {
+	// Kill any game instances.
+	TerminateGameInstance(MatchToRemove);
+
 	// Match is dead....
 	AvailableMatches.Remove(MatchToRemove);
 }
@@ -394,18 +397,18 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 			}
 		}
 
-		int32 InstanceIndex = -1;
-		for (int32 i=0; i < GameInstances.Num(); i++)
-		{
-			if (GameInstances[i].MatchInfo == MatchOwner)
-			{
-				GameInstances.RemoveAt(i);
-				break;
-			}
-		}
-
 		MatchOwner->GameInstanceProcessHandle.Reset();
 		MatchOwner->GameInstanceID = 0;
+	}
+
+	int32 InstanceIndex = -1;
+	for (int32 i = 0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo == MatchOwner)
+		{
+			GameInstances.RemoveAt(i);
+			break;
+		}
 	}
 
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
@@ -413,9 +416,8 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 	{
 		GM->UpdateLobbySession();
 	}
-
-
 }
+
 
 void AUTLobbyGameState::GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID)
 {
@@ -626,6 +628,6 @@ TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString Game
 bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
 {
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
-	return (GM && GameInstances.Num() < GM->MaxInstances);
+	return (GM && GM->GetNumMatches() < GM->MaxInstances);
 }
 
