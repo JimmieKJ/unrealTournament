@@ -29,7 +29,7 @@ void UUTWeaponReplacementUserWidget::BuildWeaponList()
 		if (ClassPath != NULL)
 		{
 			UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-			if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
+			if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()) && !TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
 			{
 				WeaponList.Add(TestClass->GetDefaultObject<AUTWeapon>());
 			}
