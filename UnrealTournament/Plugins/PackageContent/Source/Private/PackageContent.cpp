@@ -313,6 +313,8 @@ void FPackageContent::Initialize()
 		ActionList->MapAction(Commands.PackageLevel, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageLevelWindow));
 		ActionList->MapAction(Commands.PackageWeapon, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageWeaponWindow));
 		ActionList->MapAction(Commands.PackageHat, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageHatWindow));
+		ActionList->MapAction(Commands.PackageTaunt, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageTauntWindow));
+		ActionList->MapAction(Commands.PackageCharacter, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageCharacterWindow));
 	}
 }
 
@@ -663,6 +665,94 @@ void FPackageContent::PackageHat(UClass* HatClass)
 	}
 }
 
+void FPackageContent::PackageTaunt(UClass* TauntClass)
+{
+	UBlueprintGeneratedClass* UBGC = Cast<UBlueprintGeneratedClass>(TauntClass);
+	if (UBGC && UBGC->ClassGeneratedBy)
+	{
+		FString TauntName = UBGC->ClassGeneratedBy->GetName();
+#if PLATFORM_WINDOWS
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *TauntName);
+#elif PLATFORM_LINUX
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *TauntName);
+#else
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *TauntName);
+#endif
+
+		CreateUATTask(CommandLine, TauntName, LOCTEXT("PackageTauntTaskName", "Packaging Taunt"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	}
+}
+
+void FPackageContent::PackageCharacter(UClass* CharacterClass)
+{
+	UBlueprintGeneratedClass* UBGC = Cast<UBlueprintGeneratedClass>(CharacterClass);
+	if (UBGC && UBGC->ClassGeneratedBy)
+	{
+		FString CharacterName = UBGC->ClassGeneratedBy->GetName();
+#if PLATFORM_WINDOWS
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *CharacterName);
+#elif PLATFORM_LINUX
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *CharacterName);
+#else
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *CharacterName);
+#endif
+
+		CreateUATTask(CommandLine, CharacterName, LOCTEXT("PackageCharacterTaskName", "Packaging Character"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	}
+}
+
+void FPackageContent::OpenPackageCharacterWindow()
+{
+	bool bPromptUserToSave = true;
+	bool bSaveMapPackages = false;
+	bool bSaveContentPackages = true;
+	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
+	{
+		PackageDialogTitle = LOCTEXT("PackageCharacterDialogTitle", "Share A Character");
+
+		/** Create the window to host our package dialog widget */
+		TSharedRef< SWindow > EditorPackageCharacterDialogWindowRef = SNew(SWindow)
+			.Title(PackageDialogTitle)
+			.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
+
+		TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageCharacterDialogWindowRef)
+			.PackageContent(SharedThis(this))
+			.DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Character);
+
+		// Set the content of the window to our package dialog widget
+		EditorPackageCharacterDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
+
+		// Show the package dialog window as a modal window
+		GEditor->EditorAddModalWindow(EditorPackageCharacterDialogWindowRef);
+	}
+}
+
+void FPackageContent::OpenPackageTauntWindow()
+{
+	bool bPromptUserToSave = true;
+	bool bSaveMapPackages = false;
+	bool bSaveContentPackages = true;
+	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
+	{
+		PackageDialogTitle = LOCTEXT("PackageTauntDialogTitle", "Share A Taunt");
+
+		/** Create the window to host our package dialog widget */
+		TSharedRef< SWindow > EditorPackageTauntDialogWindowRef = SNew(SWindow)
+			.Title(PackageDialogTitle)
+			.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
+
+		TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageTauntDialogWindowRef)
+			.PackageContent(SharedThis(this))
+			.DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Taunt);
+
+		// Set the content of the window to our package dialog widget
+		EditorPackageTauntDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
+
+		// Show the package dialog window as a modal window
+		GEditor->EditorAddModalWindow(EditorPackageTauntDialogWindowRef);
+	}
+}
+
 void FPackageContent::OpenPackageWeaponWindow()
 {
 	bool bPromptUserToSave = true;
@@ -733,6 +823,8 @@ TSharedRef<SWidget> FPackageContent::GenerateOpenPackageMenuContent()
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageLevel);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageWeapon);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageHat);
+		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageCharacter);
+		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageTaunt);
 #else
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().ComingSoon);
 #endif
@@ -762,6 +854,18 @@ void SPackageContentDialog::Construct(const FArguments& InArgs, TSharedPtr<SWind
 		TSharedPtr<FHatClassFilter> Filter = MakeShareable(new FHatClassFilter);
 		Options.ClassFilter = Filter;
 		Options.ViewerTitleString = FText::FromString(LOCTEXT("HatClassSelect", "Select Cosmetic Blueprint").ToString());
+	}
+	else if (DialogMode == PACKAGE_Taunt)
+	{
+		TSharedPtr<FTauntClassFilter> Filter = MakeShareable(new FTauntClassFilter);
+		Options.ClassFilter = Filter;
+		Options.ViewerTitleString = FText::FromString(LOCTEXT("TauntClassSelect", "Select Taunt Blueprint").ToString());
+	}
+	else if (DialogMode == PACKAGE_Character)
+	{
+		TSharedPtr<FCharacterClassFilter> Filter = MakeShareable(new FCharacterClassFilter);
+		Options.ClassFilter = Filter;
+		Options.ViewerTitleString = FText::FromString(LOCTEXT("CharacterClassSelect", "Select Character Blueprint").ToString());
 	}
 	else
 	{
@@ -793,6 +897,18 @@ void SPackageContentDialog::ClassChosen(UClass* ChosenClass)
 	else if (DialogMode == PACKAGE_Hat)
 	{
 		PackageContent->PackageHat(ChosenClass);
+	}
+	else if (DialogMode == PACKAGE_Character)
+	{
+		PackageContent->PackageCharacter(ChosenClass);
+	}
+	else if (DialogMode == PACKAGE_Taunt)
+	{
+		PackageContent->PackageTaunt(ChosenClass);
+	}
+	else
+	{
+		// unhandled
 	}
 
 	ParentWindow->RequestDestroyWindow();

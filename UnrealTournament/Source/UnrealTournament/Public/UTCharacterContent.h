@@ -7,7 +7,7 @@
 #include "UTCharacterContent.generated.h"
 
 UCLASS(BlueprintType, Abstract, NotPlaceable)
-class AUTCharacterContent : public AActor
+class UNREALTOURNAMENT_API AUTCharacterContent : public AActor
 {
 	GENERATED_BODY()
 public:

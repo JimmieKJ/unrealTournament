@@ -6,6 +6,8 @@
 #include "Editor/ClassViewer/Public/ClassViewerFilter.h"
 #include "UTWeapon.h"
 #include "UTHat.h"
+#include "UTTaunt.h"
+#include "UTCharacterContent.h"
 
 class FPackageContent : public TSharedFromThis< FPackageContent >
 {
@@ -16,6 +18,8 @@ public:
 
 	void PackageWeapon(UClass* WeaponClass);
 	void PackageHat(UClass* HatClass);
+	void PackageTaunt(UClass* TauntClass);
+	void PackageCharacter(UClass* CharacterClass);
 
 private:
 	FPackageContent(const TSharedRef< FUICommandList >& InActionList);
@@ -25,6 +29,8 @@ private:
 	void OpenPackageLevelWindow();
 	void OpenPackageWeaponWindow();
 	void OpenPackageHatWindow();
+	void OpenPackageTauntWindow();
+	void OpenPackageCharacterWindow();
 	
 	void CreatePackageContentMenu(FToolBarBuilder& Builder);
 	TSharedRef<FExtender> OnExtendLevelEditorViewMenu(const TSharedRef<FUICommandList> CommandList);
@@ -71,6 +77,8 @@ public:
 	{
 		PACKAGE_Weapon,
 		PACKAGE_Hat,
+		PACKAGE_Character,
+		PACKAGE_Taunt,
 	};
 
 	SLATE_BEGIN_ARGS(SPackageContentDialog)
@@ -135,5 +143,51 @@ public:
 		const bool bWeaponBased = InUnloadedClassData->IsChildOf(AUTWeapon::StaticClass());
 		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
 		return bWeaponBased && bBlueprintType;
+	}
+};
+
+class FTauntClassFilter : public IClassViewerFilter
+{
+public:
+
+	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		if (NULL != InClass)
+		{
+			const bool bTauntBased = InClass->IsChildOf(AUTTaunt::StaticClass());
+			const bool bBlueprintType = InClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+			return bTauntBased && bBlueprintType;
+		}
+		return false;
+	}
+
+	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		const bool bTauntBased = InUnloadedClassData->IsChildOf(AUTTaunt::StaticClass());
+		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+		return bTauntBased && bBlueprintType;
+	}
+};
+
+class FCharacterClassFilter : public IClassViewerFilter
+{
+public:
+
+	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		if (NULL != InClass)
+		{
+			const bool bCharacterContentBased = InClass->IsChildOf(AUTCharacterContent::StaticClass());
+			const bool bBlueprintType = InClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+			return bCharacterContentBased && bBlueprintType;
+		}
+		return false;
+	}
+
+	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		const bool bCharacterContentBased = InUnloadedClassData->IsChildOf(AUTCharacterContent::StaticClass());
+		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+		return bCharacterContentBased && bBlueprintType;
 	}
 };
