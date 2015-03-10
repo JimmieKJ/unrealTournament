@@ -267,9 +267,7 @@ void AUTPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("FasterEmote", IE_Pressed, this, &AUTPlayerController::FasterEmote);
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
-	InputComponent->BindAction("PlayEmote1", IE_Pressed, this, &AUTPlayerController::PlayEmote1);
-	InputComponent->BindAction("PlayEmote2", IE_Pressed, this, &AUTPlayerController::PlayEmote2);
-	InputComponent->BindAction("PlayEmote3", IE_Pressed, this, &AUTPlayerController::PlayEmote3);
+	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
 
 }
 
@@ -1666,31 +1664,9 @@ void AUTPlayerController::Emote(int32 EmoteIndex)
 	}
 }
 
-void AUTPlayerController::PlayEmote1()
+void AUTPlayerController::PlayTaunt()
 {
-	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (GS)
-	{
-		Emote(0);
-	}
-}
-
-void AUTPlayerController::PlayEmote2()
-{
-	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (GS)
-	{
-		Emote(1);
-	}
-}
-
-void AUTPlayerController::PlayEmote3()
-{
-	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	if (GS)
-	{
-		Emote(2);
-	}
+	Emote(0);
 }
 
 bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
@@ -1700,9 +1676,9 @@ bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
 
 void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 {
-	if (UTCharacter != nullptr)
+	if (UTCharacter != nullptr && UTPlayerState != nullptr && UTPlayerState->TauntClass != nullptr)
 	{
-		UTCharacter->PlayEmote(EmoteIndex);
+		UTCharacter->PlayTaunt();
 	}
 }
 

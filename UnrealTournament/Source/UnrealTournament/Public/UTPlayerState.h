@@ -9,6 +9,7 @@
 #include "UTDamageType.h"
 #include "UTHat.h"
 #include "UTEyewear.h"
+#include "UTTaunt.h"
 #include "UTPlayerState.generated.h"
 
 USTRUCT(BlueprintType)
@@ -209,6 +210,12 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveEyewearClass(const FString& NewEyewearClass);
+
+	UPROPERTY()
+	TSubclassOf<AUTTaunt> TauntClass;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveTauntClass(const FString& NewTauntClass);
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;

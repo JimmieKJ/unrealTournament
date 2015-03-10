@@ -10,7 +10,8 @@
 #include "UTProfileSettings.generated.h"
 
 static const uint32 VALID_PROFILESETTINGS_VERSION = 6;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 6;
+static const uint32 EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION = 6;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 7;
 
 class UUTLocalPlayer;
 
@@ -49,6 +50,8 @@ class UUTProfileSettings : public UObject
 	 **/
 	void GatherAllSettings(UUTLocalPlayer* ProfilePlayer);
 
+	void VersionFixup();
+
 	/**
 	 *	return the current player name.
 	 **/
@@ -69,6 +72,8 @@ class UUTProfileSettings : public UObject
 	FString HatPath;
 	UPROPERTY()
 	FString EyewearPath;
+	UPROPERTY()
+	FString TauntPath;
 
 	UPROPERTY()
 	FString CharacterPath;

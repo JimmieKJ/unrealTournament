@@ -215,8 +215,6 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	
-	const int EmoteMax = 6;
-
 	{
 		HatList.Add(MakeShareable(new FString(TEXT("No Hat"))));
 		HatPathList.Add(TEXT(""));
@@ -284,7 +282,29 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			}
 		}
 	}
-	
+
+	{
+		TauntList.Add(MakeShareable(new FString(TEXT("No Taunt"))));
+		TauntPathList.Add(TEXT(""));
+
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTTaunt::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTTaunt::StaticClass()))
+				{
+					TauntList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTTaunt>()->DisplayName)));
+					TauntPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));
+				}
+			}
+		}
+	}
+
 	SelectedPlayerColor = GetDefault<AUTPlayerController>()->FFAPlayerColor;
 
 	FMargin NameColumnPadding = FMargin(10, 4);
@@ -457,9 +477,43 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 
-						// Character
+						
+						// Taunt
 						// ---------------------------------------------------------------------------------
 						+ SGridPanel::Slot(0, 3)
+						.Padding(NameColumnPadding)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("TauntSelectionLabel", "Taunt"))
+						]
+
+						+ SGridPanel::Slot(1, 3)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(TauntComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.OptionsSource(&TauntList)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnTauntSelected)
+							.Content()
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								[
+									SAssignNew(SelectedTaunt, STextBlock)
+									.Text(FString(TEXT("No Taunts Available")))
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+								]
+							]
+						]
+
+						// Character
+						// ---------------------------------------------------------------------------------
+						+ SGridPanel::Slot(0, 4)
 						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
@@ -467,7 +521,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Text(LOCTEXT("CharSelectionLabel", "Character"))
 						]
 
-						+ SGridPanel::Slot(1, 3)
+						+ SGridPanel::Slot(1, 4)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(CharacterComboBox, SComboBox< TSharedPtr<FString> >)
@@ -643,6 +697,21 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			EyewearComboBox->SetSelectedItem(EyewearList[0]);
 		}
 
+		bool bFoundSelectedTaunt = false;
+		for (int32 i = 0; i < TauntPathList.Num(); i++)
+		{
+			if (TauntPathList[i] == GetPlayerOwner()->GetTauntPath())
+			{
+				TauntComboBox->SetSelectedItem(TauntList[i]);
+				bFoundSelectedTaunt = true;
+				break;
+			}
+		}
+		if (!bFoundSelectedTaunt && TauntPathList.Num() > 0)
+		{
+			TauntComboBox->SetSelectedItem(TauntList[0]);
+		}
+
 		bool bFoundSelectedCharacter = false;
 		for (int32 i = 0; i < CharacterPathList.Num(); i++)
 		{
@@ -761,6 +830,8 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	GetPlayerOwner()->SetHatPath(HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString());
 	Index = EyewearList.Find(EyewearComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetEyewearPath(EyewearPathList.IsValidIndex(Index) ? EyewearPathList[Index] : FString());
+	Index = TauntList.Find(TauntComboBox->GetSelectedItem());
+	GetPlayerOwner()->SetTauntPath(TauntPathList.IsValidIndex(Index) ? TauntPathList[Index] : FString());
 	Index = CharacterList.Find(CharacterComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetCharacterPath(CharacterPathList.IsValidIndex(Index) ? CharacterPathList[Index] : FString());
 	
@@ -836,6 +907,11 @@ void SUWPlayerSettingsDialog::OnCharacterSelected(TSharedPtr<FString> NewSelecti
 {
 	SelectedCharacter->SetText(*NewSelection.Get());
 	RecreatePlayerPreview();
+}
+
+void SUWPlayerSettingsDialog::OnTauntSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedTaunt->SetText(*NewSelection.Get());
 }
 
 void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
