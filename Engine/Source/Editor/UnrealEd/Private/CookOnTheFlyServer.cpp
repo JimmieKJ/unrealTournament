@@ -392,7 +392,8 @@ const UCookOnTheFlyServer::FCachedPackageFilename& UCookOnTheFlyServer::Cache(co
 	if (FPackageName::DoesPackageExist(PackageName.ToString(), NULL, &Filename))
 {
 		StandardFilename = PackageFilename = FPaths::ConvertRelativePathToFull(Filename);
-
+		
+		UE_LOG(LogCook, Verbose, TEXT("Cached package %s"), *StandardFilename);
 
 		FPaths::MakeStandardFilename(StandardFilename);
 		StandardFileFName = FName(*StandardFilename);
