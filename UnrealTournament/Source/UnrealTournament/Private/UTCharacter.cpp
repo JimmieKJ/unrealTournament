@@ -3801,17 +3801,17 @@ void AUTCharacter::OnRepTaunt()
 
 void AUTCharacter::PlayTaunt()
 {
-	EmoteReplicationInfo.EmoteIndex = 0;
-
-	if (Role == ROLE_Authority)
-	{
-		EmoteReplicationInfo.EmoteCount++;
-	}
-
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
-	if (UTPS && UTPS->TauntClass != nullptr && !bFeigningDeath)
+	if (UTPS != nullptr && UTPS->TauntClass != nullptr && !bFeigningDeath)
 	{
-		if (Hat)
+		EmoteReplicationInfo.EmoteIndex = 0;
+		if (Role == ROLE_Authority)
+		{
+			EmoteReplicationInfo.EmoteCount++;
+		}
+
+		StopFiring();
+		if (Hat != NULL)
 		{
 			Hat->OnWearerEmoteStarted();
 		}
@@ -3837,15 +3837,15 @@ void AUTCharacter::PlayTaunt()
 
 void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
 {
-	EmoteReplicationInfo.EmoteIndex = 0;
-
-	if (Role == ROLE_Authority)
+	if (!bFeigningDeath && TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
 	{
-		EmoteReplicationInfo.EmoteCount++;
-	}
+		EmoteReplicationInfo.EmoteIndex = 0;
+		if (Role == ROLE_Authority)
+		{
+			EmoteReplicationInfo.EmoteCount++;
+		}
 
-	if (!bFeigningDeath && TauntToPlay && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
-	{
+		StopFiring();
 		if (Hat)
 		{
 			Hat->OnWearerEmoteStarted();
