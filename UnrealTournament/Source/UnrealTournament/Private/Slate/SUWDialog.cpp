@@ -227,8 +227,9 @@ TSharedRef<class SWidget> SUWDialog::BuildButtonBar(uint16 ButtonMask)
 	{
 		if (ButtonMask & UTDIALOG_BUTTON_OK)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","OKButton","OK"),					UTDIALOG_BUTTON_OK,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_CANCEL)	BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","CancelButton","CANCEL"),			UTDIALOG_BUTTON_CANCEL,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_YES)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","YesButton","YES"),				UTDIALOG_BUTTON_YES,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_YES)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","YesButton", "YES"),				UTDIALOG_BUTTON_YES, ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_NO)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","NoButton","NO"),					UTDIALOG_BUTTON_NO,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_YESCLEAR)	BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","YesClearButton","CLEAR DUPES"),	UTDIALOG_BUTTON_YESCLEAR, ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_HELP)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","HelpButton","HELP"),				UTDIALOG_BUTTON_HELP,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_RECONNECT) BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ReconnectButton","RECONNECT"),	UTDIALOG_BUTTON_RECONNECT,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_EXIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ExitButton","EXIT"),				UTDIALOG_BUTTON_EXIT,ButtonCount);
