@@ -95,10 +95,10 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 			if (Role == ROLE_Authority)
 			{
 				GiveTo(TouchedBy);
-				if (!GetWorldTimerManager().IsTimerActive(CheckTouchingHandle))
-				{
-					GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTPickupWeapon::CheckTouching, RespawnTime, false);
-				}
+			}
+			if (!GetWorldTimerManager().IsTimerActive(CheckTouchingHandle))
+			{
+				GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTPickupWeapon::CheckTouching, RespawnTime, false);
 			}
 			PlayTakenEffects(false);
 			if (TouchedBy->IsLocallyControlled())
