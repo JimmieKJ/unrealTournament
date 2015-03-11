@@ -9,7 +9,7 @@
 #include "UTGameObjective.generated.h"
 
 UCLASS()
-class AUTGameObjective : public AActor, public IUTPathBuilderInterface, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTGameObjective : public AActor, public IUTPathBuilderInterface, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 
