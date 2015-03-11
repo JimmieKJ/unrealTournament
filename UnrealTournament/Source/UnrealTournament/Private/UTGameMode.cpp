@@ -56,7 +56,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
 	ForceRespawnTime = 3.5f;
-	MaxReadyWaitTime = 20;
+	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
 	MaxWaitForPlayers = 90.f;
@@ -574,7 +574,7 @@ void AUTGameMode::SetBotCount(uint8 NewCount)
 
 void AUTGameMode::AddBots(uint8 Num)
 {
-	BotFillCount = NumPlayers + Num;
+	BotFillCount = FMath::Max(NumPlayers, BotFillCount) + Num;
 }
 
 void AUTGameMode::KillBots()
@@ -1717,14 +1717,14 @@ bool AUTGameMode::ReadyToStartMatch()
 		UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
 		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
-			if ((MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0))
+			if ((MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0) || (GetNetMode() == NM_Standalone))
 			{
 				for (int i=0;i<UTGameState->PlayerArray.Num();i++)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 					if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
 					{
-						return false;					
+						return false;
 					}
 				}
 			}

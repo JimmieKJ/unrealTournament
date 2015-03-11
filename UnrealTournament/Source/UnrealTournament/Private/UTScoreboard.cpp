@@ -367,7 +367,11 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float& YOffset)
 	{
 		if (!UTGameState->HasMatchStarted())
 		{
-			// fixmesteve only draw if there is room above spectator panel
+			// Only draw if there is room above spectator panel
+			if (UTGameState->PlayerArray.Num() > 26)
+			{
+				return;
+			}
 			YOffset = 800;
 		}
 		// Draw the Background

@@ -251,6 +251,15 @@ public:
 	virtual void UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch);
 	virtual void UpdateIndividualSkillRating(FName SkillStatName);
 
+	/** Cached clamped player name for display. */
+	UPROPERTY(BlueprintReadWrite)
+		FString ClampedName;
+
+	/** True if clamped name is currently valid. */
+	bool bHasValidClampedName;
+
+	virtual void SetPlayerName(const FString& S) override;
+
 private:
 	bool bWroteStatsToCloud;
 	int32 DuelSkillRatingThisMatch;

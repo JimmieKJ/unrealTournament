@@ -374,8 +374,8 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
 	if (Players.Num() < MinPlayers)
 	{
-		//GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
-		//return;
+		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+		return;
 	}
 
 	if (Players.Num() > MaxPlayers)

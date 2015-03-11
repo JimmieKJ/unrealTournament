@@ -1028,8 +1028,11 @@ void SUWControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKe
 			}
 		}
 
-		auto OnDuplicateDialogResult = [BindingThatChanged,bPrimaryKey,PreviousKey](TSharedPtr<SCompoundWidget> Widget, uint16 Button )
+		TSharedPtr<SUWControlSettingsDialog> CSD = SharedThis(this);
+
+		auto OnDuplicateDialogResult = [CSD, BindingThatChanged, bPrimaryKey, NewKey, PreviousKey](TSharedPtr<SCompoundWidget> Widget, uint16 Button)
 		{
+			
 			if( Button == UTDIALOG_BUTTON_NO )
 			{
 				if( bPrimaryKey )
@@ -1041,6 +1044,24 @@ void SUWControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKe
 					BindingThatChanged->AltKeyWidget->SetKey( PreviousKey, true, false );
 				}
 			}
+			else if (Button == UTDIALOG_BUTTON_YESCLEAR)
+			{
+				for (const auto& Bind : CSD->Binds)
+				{
+					if (!Bind->bHeader && Bind != BindingThatChanged)
+					{
+						if (NewKey == (*Bind->Key))
+						{
+							Bind->KeyWidget->SetKey(FKey());
+						}
+						
+						if (NewKey == (*Bind->AltKey))
+						{
+							Bind->AltKeyWidget->SetKey(FKey());
+						}
+					}
+				}
+			}
 		};
 
 		if( !DisplayNameOfDuplicate.IsEmpty() )
@@ -1049,7 +1070,7 @@ void SUWControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKe
 			( 
 				NSLOCTEXT("SUWControlSettingsDialog", "DuplicateBindingTitle", "Duplicate Binding"),
 				FText::Format( NSLOCTEXT("SUWControlSettingsDialog", "DuplicateBindingMessage", "{0} is already bound to {1}.\n\nBind to {2} anyway?"), NewKey.GetDisplayName(), FText::FromString( DisplayNameOfDuplicate ), FText::FromString(BindingThatChanged->DisplayName) ),
-				UTDIALOG_BUTTON_YES|UTDIALOG_BUTTON_NO,
+				UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_YESCLEAR | UTDIALOG_BUTTON_NO,
 				FDialogResultDelegate::CreateLambda( OnDuplicateDialogResult )
 			);
 		}

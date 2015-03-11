@@ -881,3 +881,30 @@ UWorld* UUTHUDWidget::GetWorld() const
 {
 	return UTHUDOwner->GetWorld();
 }
+
+FString UUTHUDWidget::GetClampedName(AUTPlayerState* PS, UFont* NameFont, float NameScale, float MaxWidth)
+{
+	if (!PS)
+	{
+		return "";
+	}
+	if (PS->bHasValidClampedName)
+	{
+		return PS->ClampedName;
+	}
+
+	PS->ClampedName = PS->PlayerName;
+	float XL = 0.f;
+	float YL = 0.f;
+	Canvas->TextSize(NameFont, PS->ClampedName, XL, YL, NameScale, NameScale);
+	int32 ClampedLen = PS->PlayerName.Len();
+	while ((XL > MaxWidth) && (ClampedLen > 1))
+	{
+		ClampedLen -= 1;
+		PS->ClampedName = PS->PlayerName.Left(ClampedLen) + "...";
+		Canvas->TextSize(NameFont, PS->ClampedName, XL, YL, NameScale, NameScale);
+	}
+	PS->bHasValidClampedName = true;
+	return PS->ClampedName;
+}
+

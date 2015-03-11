@@ -215,7 +215,7 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 {
 	if (bMustBeHolstered && UTOwner && HasAnyAmmo())
 	{
-		AttachToHolster(UTOwner->GetMesh());
+		AttachToHolster();
 	}
 
 	// make sure we initialized our state; this can be triggered if the weapon is spawned at game startup, since BeginPlay() will be deferred
@@ -259,7 +259,7 @@ void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVeloci
 {
 	if (UTOwner && bMustBeHolstered)
 	{
-		DetachFromHolster(UTOwner->GetMesh());
+		DetachFromHolster();
 	}
 
 	if (!HasAnyAmmo())
@@ -276,6 +276,7 @@ void AUTWeapon::Removed()
 {
 	GotoState(InactiveState);
 	DetachFromOwner();
+	DetachFromHolster();
 
 	Super::Removed();
 }
@@ -286,6 +287,7 @@ void AUTWeapon::ClientRemoved_Implementation()
 	if (Role < ROLE_Authority) // already happened on authority in Removed()
 	{
 		DetachFromOwner();
+		DetachFromHolster();
 	}
 
 	AUTCharacter* OldOwner = UTOwner;
@@ -433,13 +435,13 @@ void AUTWeapon::UnEquip()
 	GotoState(UnequippingState);
 }
 
-void AUTWeapon::AttachToHolster(USkeletalMeshComponent* AttachToMesh)
+void AUTWeapon::AttachToHolster()
 {
 	UTOwner->SetHolsteredWeaponAttachmentClass(AttachmentType);
 	UTOwner->UpdateHolsteredWeaponAttachment();
 }
 
-void AUTWeapon::DetachFromHolster(USkeletalMeshComponent* AttachToMesh)
+void AUTWeapon::DetachFromHolster()
 {
 	UTOwner->SetHolsteredWeaponAttachmentClass(NULL);
 	UTOwner->UpdateHolsteredWeaponAttachment();
@@ -460,7 +462,7 @@ void AUTWeapon::AttachToOwnerNative()
 	if (bMustBeHolstered)
 	{
 		// detach from holster if becoming held
-		DetachFromHolster(UTOwner->GetMesh());
+		DetachFromHolster();
 	}
 
 	// sanity check some settings
@@ -527,7 +529,7 @@ void AUTWeapon::DetachFromOwnerNative()
 
 	if (bMustBeHolstered && HasAnyAmmo() && UTOwner && !UTOwner->IsDead() && !IsPendingKillPending())
 	{
-		AttachToHolster(UTOwner->GetMesh());
+		AttachToHolster();
 	}
 }
 
