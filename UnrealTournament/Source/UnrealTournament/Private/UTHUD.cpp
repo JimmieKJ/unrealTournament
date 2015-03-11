@@ -295,6 +295,8 @@ void AUTHUD::ToggleScoreboard(bool bShow)
 
 void AUTHUD::PostRender()
 {
+	//check(!IsPendingKillPending());
+
 	// Always sort the PlayerState array at the beginning of each frame
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS != NULL)
@@ -302,6 +304,7 @@ void AUTHUD::PostRender()
 		GS->SortPRIArray();
 	}
 
+// why is this called outside of FFA DM
 	CalcStanding();
 
 /* -- ENABLE to see the player list 
@@ -623,7 +626,12 @@ FText AUTHUD::GetPlaceSuffix(int32 Value)
 		case 1:  return NSLOCTEXT("UTHUD","FirstPlaceSuffix","st"); break;
 		case 2:  return NSLOCTEXT("UTHUD","SecondPlaceSuffix","nd"); break;
 		case 3:  return NSLOCTEXT("UTHUD","ThirdPlaceSuffix","rd"); break;
-		default: return NSLOCTEXT("UTHUD","NthPlaceSuffix","th"); break;
+		case 21:  return NSLOCTEXT("UTHUD", "FirstPlaceSuffix", "st"); break;
+		case 22:  return NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd"); break;
+		case 23:  return NSLOCTEXT("UTHUD", "ThirdPlaceSuffix", "rd"); break;
+		case 31:  return NSLOCTEXT("UTHUD", "FirstPlaceSuffix", "st"); break;
+		case 32:  return NSLOCTEXT("UTHUD", "SecondPlaceSuffix", "nd"); break;
+		default: return NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th"); break;
 	}
 
 	return FText::GetEmpty();
