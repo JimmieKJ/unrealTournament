@@ -3835,6 +3835,41 @@ void AUTCharacter::PlayTaunt()
 	}
 }
 
+void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
+{
+	EmoteReplicationInfo.EmoteIndex = 0;
+
+	if (Role == ROLE_Authority)
+	{
+		EmoteReplicationInfo.EmoteCount++;
+	}
+
+	if (!bFeigningDeath && TauntToPlay && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
+	{
+		if (Hat)
+		{
+			Hat->OnWearerEmoteStarted();
+		}
+
+		GetMesh()->bPauseAnims = false;
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance != NULL)
+		{
+			if (AnimInstance->Montage_Play(TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage, EmoteSpeed))
+			{
+				UTCharacterMovement->bIsEmoting = true;
+
+				CurrentEmote = TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage;
+				EmoteCount++;
+
+				FOnMontageEnded EndDelegate;
+				EndDelegate.BindUObject(this, &AUTCharacter::OnEmoteEnded);
+				AnimInstance->Montage_SetEndDelegate(EndDelegate);
+			}
+		}
+	}
+}
+
 void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	EmoteCount--;

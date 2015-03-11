@@ -350,6 +350,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (FriendlyName = "Play Taunt"))
 	void PlayTaunt();
 
+	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
+
 	UFUNCTION()
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
 		
