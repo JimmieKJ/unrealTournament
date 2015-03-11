@@ -574,7 +574,7 @@ void AUTGameMode::SetBotCount(uint8 NewCount)
 
 void AUTGameMode::AddBots(uint8 Num)
 {
-	BotFillCount = NumPlayers + Num;
+	BotFillCount = FMath::Max(NumPlayers, BotFillCount) + Num;
 }
 
 void AUTGameMode::KillBots()
