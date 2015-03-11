@@ -37,6 +37,7 @@ protected:
 
 	virtual void BuildChatDestinationMenu();
 
+	virtual void ChatTextChanged(const FText& NewText);
 	virtual void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 	FText GetChatDestinationText() const;
 	FText GetChatDestinationTag(FName Destination);
