@@ -319,6 +319,26 @@ bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewea
 	return true;
 }
 
+void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTauntClass)
+{
+	TauntClass = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
+
+	AController* Controller = Cast<AController>(GetOwner());
+	if (Controller != NULL)
+	{
+		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+		if (Pawn != NULL)
+		{
+			Pawn->TauntClass = TauntClass;
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewEyewearClass)
+{
+	return true;
+}
+
 /** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have 
     have a proper ID available.  */
 void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
@@ -832,6 +852,11 @@ void AUTPlayerState::ValidateEntitlements()
 				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
 				{
 					ServerReceiveEyewearClass(FString());
+				}
+				Entitlement = GetRequiredEntitlementFromObj(TauntClass);
+				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				{
+					ServerReceiveTauntClass(FString());
 				}
 				Entitlement = GetRequiredEntitlementFromObj(SelectedCharacter);
 				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())

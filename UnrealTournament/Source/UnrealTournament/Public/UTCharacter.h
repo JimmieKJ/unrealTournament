@@ -305,6 +305,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnRepEyewear();
 
+	UPROPERTY(replicated)
+	TSubclassOf<AUTTaunt> TauntClass;
+
 	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepCosmeticFlashCount)
 	int32 CosmeticFlashCount;
 
@@ -323,11 +326,11 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnRepCosmeticSpreeCount();
 
-	UPROPERTY(replicatedUsing=OnRepEmote)
+	UPROPERTY(replicatedUsing=OnRepTaunt)
 	FEmoteRepInfo EmoteReplicationInfo;
 	
 	UFUNCTION()
-	virtual void OnRepEmote();
+	virtual void OnRepTaunt();
 
 	UPROPERTY(replicatedUsing=OnRepEmoteSpeed)
 	float EmoteSpeed;
@@ -345,14 +348,14 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	virtual void ServerSlowerEmote();
 
 	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (FriendlyName = "Play Taunt"))
-	void PlayEmote(int32 EmoteIndex);
+	void PlayTaunt();
+
+	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
 
 	UFUNCTION()
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pawn)
-	TArray<UAnimMontage*> EmoteAnimations;
-	
+		
 	UPROPERTY()
 	UAnimMontage* CurrentEmote;
 

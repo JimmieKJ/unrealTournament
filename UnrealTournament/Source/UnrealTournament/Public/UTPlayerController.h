@@ -283,14 +283,8 @@ public:
 	virtual void SetEmoteSpeed(float NewEmoteSpeed);
 
 	UFUNCTION()
-	virtual void PlayEmote1();
-
-	UFUNCTION()
-	virtual void PlayEmote2();
-
-	UFUNCTION()
-	virtual void PlayEmote3();
-
+	virtual void PlayTaunt();
+	
 	UFUNCTION(Exec)
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
 

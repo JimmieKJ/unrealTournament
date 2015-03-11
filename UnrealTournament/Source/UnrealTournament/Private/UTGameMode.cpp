@@ -437,6 +437,11 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 			{
 				PS->ServerReceiveEyewearClass(InOpt);
 			}
+			InOpt = ParseOption(Options, TEXT("Taunt"));
+			if (InOpt.Len() > 0)
+			{
+				PS->ServerReceiveTauntClass(InOpt);
+			}
 			// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
 			PS->ValidateEntitlements();
 		}

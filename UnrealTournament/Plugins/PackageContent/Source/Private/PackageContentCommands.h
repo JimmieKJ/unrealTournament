@@ -13,6 +13,8 @@ public:
 	TSharedPtr< FUICommandInfo > PackageLevel;
 	TSharedPtr< FUICommandInfo > PackageWeapon;
 	TSharedPtr< FUICommandInfo > PackageHat;
+	TSharedPtr< FUICommandInfo > PackageCharacter;
+	TSharedPtr< FUICommandInfo > PackageTaunt;
 
 	TSharedPtr< FUICommandInfo > ComingSoon;
 };

@@ -982,6 +982,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			FMemoryReader MemoryReader(FileContents, true);
 			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, false);
 			CurrentProfileSettings->Serialize(Ar);
+			CurrentProfileSettings->VersionFixup();
 
 			FString CmdLineSwitch = TEXT("");
 			bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
@@ -1277,6 +1278,26 @@ void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 		if (PS != NULL)
 		{
 			PS->ServerSetCharacter(NewCharacterPath);
+		}
+	}
+}
+FString UUTLocalPlayer::GetTauntPath() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->TauntPath : GetDefaultURLOption(TEXT("Taunt"));
+}
+void UUTLocalPlayer::SetTauntPath(const FString& NewTauntPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->TauntPath = NewTauntPath;
+	}
+	SetDefaultURLOption(TEXT("Taunt"), NewTauntPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveTauntClass(NewTauntPath);
 		}
 	}
 }

@@ -22,7 +22,7 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 	// may end up deleting the new PlayerStates they had just spaned.
 	bNetLoadOnClient = false;
 
-	MaxPlayers = 2;
+	MaxPlayers = 20;
 	bSpectatable = true;
 	bJoinAnytime = false;
 }

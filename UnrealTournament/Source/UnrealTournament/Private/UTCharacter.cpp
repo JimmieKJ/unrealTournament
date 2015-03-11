@@ -2318,6 +2318,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearClass, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, TauntClass, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 }
@@ -3793,21 +3794,22 @@ void AUTCharacter::OnRepEmoteSpeed()
 	}
 }
 
-void AUTCharacter::OnRepEmote()
+void AUTCharacter::OnRepTaunt()
 {
-	PlayEmote(EmoteReplicationInfo.EmoteIndex);
+	PlayTaunt();
 }
 
-void AUTCharacter::PlayEmote(int32 EmoteIndex)
+void AUTCharacter::PlayTaunt()
 {
-	EmoteReplicationInfo.EmoteIndex = EmoteIndex;
+	EmoteReplicationInfo.EmoteIndex = 0;
 
 	if (Role == ROLE_Authority)
 	{
 		EmoteReplicationInfo.EmoteCount++;
 	}
 
-	if (EmoteAnimations.IsValidIndex(EmoteIndex) && EmoteAnimations[EmoteIndex] != nullptr && !bFeigningDeath)
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	if (UTPS && UTPS->TauntClass != nullptr && !bFeigningDeath)
 	{
 		if (Hat)
 		{
@@ -3818,17 +3820,52 @@ void AUTCharacter::PlayEmote(int32 EmoteIndex)
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
-			if (AnimInstance->Montage_Play(EmoteAnimations[EmoteIndex], EmoteSpeed))
+			if (AnimInstance->Montage_Play(UTPS->TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, EmoteSpeed))
 			{
 				UTCharacterMovement->bIsEmoting = true;
 
-				CurrentEmote = EmoteAnimations[EmoteIndex];
+				CurrentEmote = UTPS->TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage;
 				EmoteCount++;
 
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &AUTCharacter::OnEmoteEnded);
 				AnimInstance->Montage_SetEndDelegate(EndDelegate);
 			}			
+		}
+	}
+}
+
+void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
+{
+	EmoteReplicationInfo.EmoteIndex = 0;
+
+	if (Role == ROLE_Authority)
+	{
+		EmoteReplicationInfo.EmoteCount++;
+	}
+
+	if (!bFeigningDeath && TauntToPlay && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
+	{
+		if (Hat)
+		{
+			Hat->OnWearerEmoteStarted();
+		}
+
+		GetMesh()->bPauseAnims = false;
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance != NULL)
+		{
+			if (AnimInstance->Montage_Play(TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage, EmoteSpeed))
+			{
+				UTCharacterMovement->bIsEmoting = true;
+
+				CurrentEmote = TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage;
+				EmoteCount++;
+
+				FOnMontageEnded EndDelegate;
+				EndDelegate.BindUObject(this, &AUTCharacter::OnEmoteEnded);
+				AnimInstance->Montage_SetEndDelegate(EndDelegate);
+			}
 		}
 	}
 }

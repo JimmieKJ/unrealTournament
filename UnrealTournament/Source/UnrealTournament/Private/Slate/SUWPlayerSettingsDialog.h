@@ -74,6 +74,12 @@ protected:
 	TSharedPtr<STextBlock> SelectedEyewear;
 	void OnEyewearSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
+	TArray<TSharedPtr<FString>> TauntList;
+	TArray<FString> TauntPathList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > TauntComboBox;
+	TSharedPtr<STextBlock> SelectedTaunt;
+	void OnTauntSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
 	TArray<TSharedPtr<FString>> CharacterList;
 	TArray<FString> CharacterPathList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CharacterComboBox;

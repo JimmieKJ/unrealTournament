@@ -298,15 +298,9 @@ void SUWControlSettingsDialog::CreateBinds()
 		->AddDefaults(EKeys::Zero)));
 	//Emotes
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunts", "Taunts")))->MakeHeader()));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt1", "Taunt 1")))
-		->AddMapping("PlayEmote1")
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt", "Taunt")))
+		->AddMapping("PlayTaunt")
 		->AddDefaults(EKeys::J)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt2", "Taunt 2")))
-		->AddMapping("PlayEmote2")
-		->AddDefaults(EKeys::K)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt3", "Taunt 3")))
-		->AddMapping("PlayEmote3")
-		->AddDefaults(EKeys::L)));
 	//Misc
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Misc", "Misc")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Feign Death", "Feign Death")))

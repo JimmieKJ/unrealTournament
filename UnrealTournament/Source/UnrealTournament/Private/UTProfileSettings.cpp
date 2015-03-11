@@ -16,6 +16,24 @@ void UUTProfileSettings::ClearWeaponPriorities()
 }
 
 
+void UUTProfileSettings::VersionFixup()
+{
+	if (SettingsRevisionNum == EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION)
+	{
+		for (auto Iter = ActionMappings.CreateIterator(); Iter; ++Iter)
+		{
+			if (Iter->ActionName == FName(TEXT("PlayEmote1")))
+			{
+				Iter->ActionName = FName(TEXT("PlayTaunt"));
+			}
+			else if (Iter->ActionName == FName(TEXT("PlayEmote2")) || Iter->ActionName == FName(TEXT("PlayEmote3")))
+			{
+				ActionMappings.RemoveAt(Iter.GetIndex());
+			}
+		}
+	}
+}
+
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
 {
 	for (int32 i=0;i<WeaponPriorities.Num(); i++)

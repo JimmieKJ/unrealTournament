@@ -105,6 +105,7 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 									SAssignNew(ChatText, SEditableTextBox)
 									.Style(SUWindowsStyle::Get(), "UT.ChatBar.Editbox.ChatEditBox")
 									.OnTextCommitted(this, &SUInGameHomePanel::ChatTextCommited)
+									.OnTextChanged(this, &SUInGameHomePanel::ChatTextChanged)
 									.ClearKeyboardFocusOnCommit(false)
 									.MinDesiredWidth(300.0f)
 									.Text(FText::GetEmpty())
@@ -270,20 +271,28 @@ FText SUInGameHomePanel::GetChatDestinationText() const
 	return NSLOCTEXT("Chat", "GlobalTag","Global Chat");
 }
 
+void SUInGameHomePanel::ChatTextChanged(const FText& NewText)
+{
+	if (NewText.ToString().Len() > 128)
+	{
+		ChatText->SetText(FText::FromString(NewText.ToString().Left(128)));
+	}
+}
+
 void SUInGameHomePanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
 {
 	if (CommitType == ETextCommit::OnEnter)
 	{
-		FString FianlText = NewText.ToString();
+		FString FinalText = NewText.ToString();
 		// Figure out the type of chat...
-		if (FianlText != TEXT(""))
+		if (FinalText != TEXT(""))
 		{
-			if (ChatDestination == ChatDestinations::Global)	ConsoleCommand(FString::Printf(TEXT("GlobalChat %s"), *FianlText));
-			if (ChatDestination == ChatDestinations::Friends)	ConsoleCommand(FString::Printf(TEXT("FriendSay %s"), *FianlText));
-			if (ChatDestination == ChatDestinations::Lobby)		ConsoleCommand(FString::Printf(TEXT("LobbySay %s"), *FianlText));
-			if (ChatDestination == ChatDestinations::Local)		ConsoleCommand(FString::Printf(TEXT("Say %s"), *FianlText));
-			if (ChatDestination == ChatDestinations::Match)		ConsoleCommand(FString::Printf(TEXT("MatchChat %s"), *FianlText));
-			if (ChatDestination == ChatDestinations::Team)		ConsoleCommand(FString::Printf(TEXT("TeamSay %s"), *FianlText));
+			if (ChatDestination == ChatDestinations::Global)	ConsoleCommand(FString::Printf(TEXT("GlobalChat %s"), *FinalText));
+			if (ChatDestination == ChatDestinations::Friends)	ConsoleCommand(FString::Printf(TEXT("FriendSay %s"), *FinalText));
+			if (ChatDestination == ChatDestinations::Lobby)		ConsoleCommand(FString::Printf(TEXT("LobbySay %s"), *FinalText));
+			if (ChatDestination == ChatDestinations::Local)		ConsoleCommand(FString::Printf(TEXT("Say %s"), *FinalText));
+			if (ChatDestination == ChatDestinations::Match)		ConsoleCommand(FString::Printf(TEXT("MatchChat %s"), *FinalText));
+			if (ChatDestination == ChatDestinations::Team)		ConsoleCommand(FString::Printf(TEXT("TeamSay %s"), *FinalText));
 			ChatText->SetText(FText::GetEmpty());
 		}
 		else
