@@ -98,7 +98,6 @@ void AUTWeaponAttachment::HolsterToOwnerNative()
 	Mesh->SetRelativeRotation(HolsterRotation);
 	Mesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;
 	Mesh->LastRenderTime = UTOwner->GetMesh()->LastRenderTime;
-	UpdateOverlays();
 	SetSkin(UTOwner->GetSkin());
 }
 
