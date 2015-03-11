@@ -35,4 +35,6 @@ class UUTCheatManager : public UCheatManager
 
 	UFUNCTION(exec)
 	virtual void Ann(int32 Switch);
+
+	virtual void BugItWorker(FVector TheLocation, FRotator TheRotation) override;
 };

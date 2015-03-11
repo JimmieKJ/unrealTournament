@@ -251,6 +251,7 @@ public:
 	TArray<TSharedPtr<FAllowedMapData>> AvailableMaps;
 
 	// This will be true if this match is a dedicated match and shouldn't ever go down
+	UPROPERTY(Replicated)
 	bool bDedicatedMatch;
 
 	FText GetDebugInfo();

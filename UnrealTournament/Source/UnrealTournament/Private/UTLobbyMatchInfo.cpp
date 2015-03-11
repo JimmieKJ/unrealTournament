@@ -24,10 +24,8 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 
 	MaxPlayers = 20;
 	bSpectatable = true;
-	bJoinAnytime = false;
+	bJoinAnytime = true;
 }
-
-
 
 void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
@@ -47,7 +45,7 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, bJoinAnytime);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable);
 	DOREPLIFETIME(AUTLobbyMatchInfo, RankCeiling);
-
+	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
 }
 
 void AUTLobbyMatchInfo::PreInitializeComponents()
@@ -376,8 +374,8 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
 	if (Players.Num() < MinPlayers)
 	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
-		return;
+		//GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+		//return;
 	}
 
 	if (Players.Num() > MaxPlayers)
@@ -503,7 +501,15 @@ bool AUTLobbyMatchInfo::IsInProgress()
 
 bool AUTLobbyMatchInfo::ShouldShowInDock()
 {
-	return OwnerId.IsValid() && (Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && (CurrentState == ELobbyMatchState::InProgress || CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers);
+	if (bDedicatedMatch)
+	{
+		// dedicated instances always show unless they are dead
+		return (CurrentState != ELobbyMatchState::Aborting && CurrentState != ELobbyMatchState::Dead && CurrentState != ELobbyMatchState::Recycling);
+	}
+	else
+	{
+		return OwnerId.IsValid() && (Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && (CurrentState == ELobbyMatchState::InProgress || CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers);
+	}
 }
 
 bool AUTLobbyMatchInfo::ServerSetLobbyMatchState_Validate(FName NewMatchState) { return true; }

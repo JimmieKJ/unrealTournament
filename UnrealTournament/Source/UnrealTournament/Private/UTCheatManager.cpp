@@ -138,3 +138,11 @@ void UUTCheatManager::ImpartEyewear(const FString& Eyewear)
 		}
 	}
 }
+
+void UUTCheatManager::BugItWorker(FVector TheLocation, FRotator TheRotation)
+{
+	Super::BugItWorker(TheLocation, TheRotation);
+
+	// The teleport doesn't play nice with our physics, so just go to walk mode rather than fall through the world
+	Walk();
+}
