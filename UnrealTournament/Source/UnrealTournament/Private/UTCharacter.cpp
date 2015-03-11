@@ -719,7 +719,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 
-			if (Game->bDamageHurtsHealth || !Cast<AUTPlayerController>(GetController())) 
+			if (Game->bDamageHurtsHealth || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))))
 			{
 				Health -= ResultDamage;
 			}
