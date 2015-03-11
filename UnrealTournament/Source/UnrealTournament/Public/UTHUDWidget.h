@@ -155,6 +155,9 @@ public:
 
 	bool bShowBounds;
 
+	/** Returns clamped name for player, and caches it in the PlayerState. */
+	virtual FString GetClampedName(AUTPlayerState* PS, UFont* NameFont, float NameScale, float MaxWidth);
+
 protected:
 	// if TRUE, this widget will not be rendered
 	UPROPERTY(BlueprintReadOnly, Category="Widgets Live")

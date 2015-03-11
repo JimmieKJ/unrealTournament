@@ -57,6 +57,12 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSpreeDamage, COND_OwnerOnly);
 }
 
+void AUTPlayerState::SetPlayerName(const FString& S)
+{
+	Super::SetPlayerName(S);
+	bHasValidClampedName = false;
+}
+
 void AUTPlayerState::UpdatePing(float InPing)
 {
 	APlayerController* PC = Cast<APlayerController>(GetOwner());

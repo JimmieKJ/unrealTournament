@@ -70,15 +70,16 @@ void UUTHUDWidget_DMPlayerLeaderboard::DrawPlayer(float& YPosition, int32 Player
 	MyPlace++;
 
 	// Draw the player name
-
 	float XPosition = BarWidth * -1;
-
 	RenderObj_TextureAt(Header[0], XPosition, YPosition, Header[0].GetWidth(), Header[0].GetHeight());
 	RenderObj_TextureAt(Header[1], XPosition, YPosition, Header[1].GetWidth(), Header[1].GetHeight());
 	RenderObj_TextureAt(Bar[0], XPosition, YPosition, BarWidth, Bar[0].GetHeight());
 	RenderObj_TextureAt(Bar[1], XPosition, YPosition, BarWidth, Bar[1].GetHeight());
 
-	NameTextTemplate.Text = FText::FromString(PS->PlayerName);
+	float NameScale = bScaleByDesignedResolution ? RenderScale : 1.f;
+	NameScale *= SpreadTextTemplate.TextScale;
+	FString PlayerName = GetClampedName(PS, SpreadTextTemplate.Font, NameScale, 0.7f * BarWidth);
+	NameTextTemplate.Text = FText::FromString(PlayerName);
 	NameTextTemplate.RenderColor = (bIsOwner) ? OwnerNameColor : GetClass()->GetDefaultObject<UUTHUDWidget_DMPlayerLeaderboard>()->NameTextTemplate.RenderColor;
 	RenderObj_TextAt(NameTextTemplate, XPosition + NameTextTemplate.Position.X, YPosition + NameTextTemplate.Position.Y);
 
