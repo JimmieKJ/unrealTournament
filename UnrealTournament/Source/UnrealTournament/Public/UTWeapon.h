@@ -196,10 +196,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	bool bHideInMenus;
 
 	UFUNCTION()
-	virtual void AttachToHolster(USkeletalMeshComponent* AttachToMesh);
+	virtual void AttachToHolster();
 
 	UFUNCTION()
-	virtual void DetachFromHolster(USkeletalMeshComponent* AttachToMesh);
+	virtual void DetachFromHolster();
 
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
