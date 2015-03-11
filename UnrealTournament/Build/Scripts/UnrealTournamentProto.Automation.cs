@@ -53,11 +53,7 @@ public class UnrealTournamentBuild
 		{
 			AppName = UnrealTournamentAppName.UnrealTournamentDev;
 		}
-		else if (BranchName.Contains("Release"))
-		{
-			AppName = UnrealTournamentAppName.UnrealTournamentTest;
-		}
-        		
+
 		return AppName;
 	}
 
