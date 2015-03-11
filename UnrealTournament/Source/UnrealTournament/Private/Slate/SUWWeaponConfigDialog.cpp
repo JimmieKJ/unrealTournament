@@ -242,9 +242,20 @@ FReply SUWWeaponConfigDialog::OKClick()
 	// note that the array mirrors the list widget so we can use it directly
 	for (int32 i = 0; i < WeaponList.Num(); i++)
 	{
-		WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = float(WeaponList.Num() - i); // top of list is highest priority
+		float NewPriority = float(WeaponList.Num() - i); // top of list is highest priority
+		WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = NewPriority;
 		WeaponList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
-
+		// update instances so changes take effect immediately
+		if (UTPlayerController != NULL)
+		{
+			for (TActorIterator<AUTWeapon> It(UTPlayerController->GetWorld()); It; ++It)
+			{
+				if (It->GetClass() == WeaponList[i])
+				{
+					It->AutoSwitchPriority = NewPriority;
+				}
+			}
+		}
 		if (ProfileSettings != NULL)
 		{
 			ProfileSettings->SetWeaponPriority(GetNameSafe(WeaponList[i]), WeaponList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);

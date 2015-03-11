@@ -371,6 +371,12 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			}
 		}
 	}
+	else if (UTOwner != NULL)
+	{
+		// ignore jump/slide key presses this frame since the character is in ragdoll and they don't apply
+		UTOwner->bPressedJump = false;
+		bPressedSlide = false;
+	}
 	AvgSpeed = AvgSpeed * (1.f - 2.f*DeltaTime) + 2.f*DeltaTime * Velocity.Size2D();
 	if (CharacterOwner != NULL)
 	{
