@@ -63,7 +63,7 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 		{
 			FireShot();
 		}
-		if (bClearPendingFire)
+		if (bClearPendingFire && GetUTOwner() != NULL) // FireShot() could result in suicide!
 		{
 			GetUTOwner()->SetPendingFire(PendingFireSequence, false);
 		}
