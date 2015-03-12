@@ -358,7 +358,7 @@ static void LoadUObjectForBrush( const FSlateBrush& InBrush )
 	// Load the utexture
 	FString Path = InBrush.GetResourceName().ToString();
 
-	if( !Path.IsEmpty() )
+	if (!Path.IsEmpty() && Path.StartsWith(FSlateBrush::UTextureIdentifier()))
 	{
 		FString NewPath = Path.RightChop(FSlateBrush::UTextureIdentifier().Len());
 		UObject* TextureObject = LoadObject<UTexture2D>(NULL, *NewPath, NULL, LOAD_None, NULL);

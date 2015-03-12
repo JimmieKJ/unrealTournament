@@ -16,16 +16,23 @@ UObject* FSlateSound::GetResourceObject( ) const
 
 		if (!LegacyResourceObject)
 		{
-			// We can't check the object type against USoundBase as we don't have access to it here
-			// The user is required to cast the result of FSlateSound::GetResourceObject so we should be fine
-			LegacyResourceObject = StaticFindObject(UObject::StaticClass(), nullptr, *LegacyResourceName_DEPRECATED.ToString());
-			if (!ResourceObject)
+			if (!IsInGameThread())
 			{
-				LegacyResourceObject = StaticLoadObject(UObject::StaticClass(), nullptr, *LegacyResourceName_DEPRECATED.ToString());
+				UE_LOG(LogSlate, Warning, TEXT("Can't find/load sound %s because Slate is being updated in another thread! (loading screen?)"), *LegacyResourceName_DEPRECATED.ToString());
 			}
+			else
+			{
+				// We can't check the object type against USoundBase as we don't have access to it here
+				// The user is required to cast the result of FSlateSound::GetResourceObject so we should be fine
+				LegacyResourceObject = StaticFindObject(UObject::StaticClass(), nullptr, *LegacyResourceName_DEPRECATED.ToString());
+				if (!ResourceObject)
+				{
+					LegacyResourceObject = StaticLoadObject(UObject::StaticClass(), nullptr, *LegacyResourceName_DEPRECATED.ToString());
+				}
 
-			// Cache this in the weak-ptr to try and avoid having to load it all the time
-			LegacyResourceObject_DEPRECATED = LegacyResourceObject;
+				// Cache this in the weak-ptr to try and avoid having to load it all the time
+				LegacyResourceObject_DEPRECATED = LegacyResourceObject;
+			}
 		}
 
 		return LegacyResourceObject;

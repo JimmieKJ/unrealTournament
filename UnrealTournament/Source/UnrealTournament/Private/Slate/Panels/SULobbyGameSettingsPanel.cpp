@@ -250,6 +250,7 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 						break;
 					}
 				}
+				bool bLocalPlayer = Cast<APlayerController>(MatchInfo->Players[i]->GetOwner()) != NULL && ((APlayerController*)MatchInfo->Players[i]->GetOwner())->IsLocalController();
 
 				if (!bFound)
 				{
@@ -271,7 +272,7 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 							.OnButtonSubMenuSelect(this, &SULobbyGameSettingsPanel::OnSubMenuSelect)
 							.bRightClickOpensMenu(true)
 							.MenuPlacement(MenuPlacement_MenuRight)
-							.DefaultMenuItems(MenuOptions)
+							.DefaultMenuItems(bLocalPlayer ? MenuOptions : TEXT(""))
 							.ButtonContent()
 							[
 								SNew(SVerticalBox)
