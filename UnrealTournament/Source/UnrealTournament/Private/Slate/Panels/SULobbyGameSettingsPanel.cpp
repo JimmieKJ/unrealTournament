@@ -484,8 +484,8 @@ void SULobbyGameSettingsPanel::OnGameOptionChanged()
 
 TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsPanel()
 {
-	return SNew(SHorizontalBox)
-	+SHorizontalBox::Slot()
+	TSharedRef<SWidget> Result = SNew(SHorizontalBox)
+	+ SHorizontalBox::Slot()
 	.AutoWidth()
 	[
 		SNew(SBox)
@@ -528,12 +528,24 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsPanel()
 		]
 	];
 
-
-	if (MapList.IsValid())
+	if (MapList.IsValid() && MatchInfo->AvailableMaps.Num() > 0)
 	{
-		MapList->SetSelection(MatchInfo->AvailableMaps[0]);
+		TSharedPtr<FAllowedMapData> DefaultSelection = MatchInfo->AvailableMaps[0];
+		if (MatchInfo->CurrentGameModeData.IsValid() && MatchInfo->CurrentGameModeData->DefaultObject.IsValid())
+		{
+			for (TSharedPtr<FAllowedMapData> TestMap : MatchInfo->AvailableMaps)
+			{
+				if (TestMap.Get()->MapName == MatchInfo->CurrentGameModeData->DefaultObject->UILastStartingMap)
+				{
+					DefaultSelection = TestMap;
+					break;
+				}
+			}
+		}
+		MapList->SetSelection(DefaultSelection);
 	}
 
+	return Result;
 }
 
 TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsList()
@@ -571,7 +583,6 @@ TSharedRef<ITableRow> SULobbyGameSettingsPanel::GenerateMapListWidget(TSharedPtr
 
 void SULobbyGameSettingsPanel::OnMapListChanged(TSharedPtr<FAllowedMapData> SelectedItem, ESelectInfo::Type SelectInfo)
 {
-
 	if (MatchInfo.IsValid() && bIsHost)
 	{
 		MatchInfo->ServerMatchMapChanged(SelectedItem->MapName);
