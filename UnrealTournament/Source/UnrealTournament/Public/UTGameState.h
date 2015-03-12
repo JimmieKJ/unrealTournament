@@ -11,11 +11,11 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	GENERATED_UCLASS_BODY()
 
 	/** server settings */
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerName)
 	FString ServerName;
 	
 	// The message of the day
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerMOTD)
 	FString ServerMOTD;
 
 	// A quick string field for the scoreboard and other browsers that contains description of the server
@@ -236,6 +236,12 @@ protected:
 	{
 		MatchEndTime = GetWorld()->TimeSeconds;
 	}
+
+	UFUNCTION()
+	virtual void OnRep_ServerName();
+
+	UFUNCTION()
+	virtual void OnRep_ServerMOTD();
 
 public:
 	// Will be true if this is an instanced server from a lobby.

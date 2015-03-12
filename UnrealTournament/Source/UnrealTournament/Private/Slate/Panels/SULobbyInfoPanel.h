@@ -115,6 +115,7 @@ protected:
 	float GetReverseScale() const;
 
 	FText GetMatchPlayerListText() const;
+	FText GetServerNameText() const;
 
 	virtual void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 

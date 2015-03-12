@@ -74,6 +74,7 @@ namespace ChatDestinations
 	const FName Team = FName(TEXT("CHAT_Team"));
 
 	const FName System = FName(TEXT("CHAT_System"));
+	const FName MOTD = FName(TEXT("CHAT_MOTD"));
 }
 
 // Our Dialog results delegate.  It passes in a reference to the dialog triggering it, as well as the button id 

@@ -158,6 +158,7 @@ private:
 	TSharedPtr<FServerPlayerData> ServerPlayerData;
 };
 
+static const FString LOBBY_GAME_PATH = TEXT("/Script/UnrealTournament.UTLobbyGameMode");
 
 class FServerInstanceData 
 {
@@ -446,13 +447,13 @@ struct FServerPingTracker
 	{};
 };
 
-namespace BrowserState
+namespace EBrowserState
 {
 	// Compressed Texture Formats
-	static FName NAME_NotLoggedIn(TEXT("NotLoggedIn"));
-	static FName NAME_ServerIdle(TEXT("ServerIdle"));
-	static FName NAME_AuthInProgress(TEXT("AuthInProgress"));
-	static FName NAME_RequestInProgress(TEXT("RequrestInProgress"));
+	static FName NotLoggedIn = TEXT("NotLoggedIn");
+	static FName BrowserIdle = TEXT("BrowserIdle");
+	static FName AuthInProgress = TEXT("AuthInProgress");
+	static FName RefreshInProgress = TEXT("RefreshInProgress");
 }
 
 class SUWServerBrowser : public SUWPanel
@@ -462,6 +463,10 @@ public:
 	~SUWServerBrowser();
 
 	virtual FName GetBrowserState();
+	virtual bool IsRefreshing()
+	{
+		return BrowserState == EBrowserState::RefreshInProgress;
+	}
 
 private:
 
@@ -630,6 +635,8 @@ private:
 	float GetReverseScale() const;
 	
 	void OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr);
+
+	virtual FText GetStatusText() const;
 
 
 };

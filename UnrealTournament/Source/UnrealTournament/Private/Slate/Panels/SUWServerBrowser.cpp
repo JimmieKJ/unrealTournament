@@ -246,6 +246,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 							.Padding(20.0f, 0.0f, 20.0f, 0.0f)
 							[
 								SAssignNew(StatusText, STextBlock)
+								.Text(this, &SUWServerBrowser::GetStatusText)
 								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							]
 						]
@@ -293,11 +294,11 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 
 	if (PlayerOwner->IsLoggedIn())
 	{
-		SetBrowserState(BrowserState::NAME_ServerIdle);
+		SetBrowserState(EBrowserState::BrowserIdle);
 	}
 	else
 	{	
-		SetBrowserState(BrowserState::NAME_NotLoggedIn);
+		SetBrowserState(EBrowserState::NotLoggedIn);
 	}
 
 	OnRefreshClick();
@@ -756,14 +757,14 @@ void SUWServerBrowser::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner,
 		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Refresh","Refresh")).TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText"));
 		if (bAutoRefresh)
 		{
-			SetBrowserState(BrowserState::NAME_ServerIdle);
+			SetBrowserState(EBrowserState::BrowserIdle);
 			bAutoRefresh = false;
 			OnRefreshClick();
 		}
 	}
 	else
 	{
-		SetBrowserState(BrowserState::NAME_NotLoggedIn);
+		SetBrowserState(EBrowserState::NotLoggedIn);
 	}
 }
 
@@ -900,12 +901,43 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForPlayersList( TSharedP
 	return SNew( SServerPlayerRow, OwnerTable).ServerPlayerData( InItem ).Style(SUWindowsStyle::Get(),"UWindows.Standard.ServerBrowser.Row");
 }
 
+FText SUWServerBrowser::GetStatusText() const
+{
+	if (BrowserState == EBrowserState::NotLoggedIn)
+	{
+		return NSLOCTEXT("SUWServerBrowser","NotLoggedIn","Login Required!");
+	}
+	else if (BrowserState == EBrowserState::AuthInProgress) 
+	{
+		return NSLOCTEXT("SUWServerBrowser","Auth","Authenticating...");
+	}
+	else 
+	{
+		int32 PingCount = PingList.Num() + PingTrackers.Num();
+
+		FFormatNamedArguments Args;
+		Args.Add( TEXT("PingCount"), FText::AsNumber(PingCount) );
+		Args.Add( TEXT("FilteredHubCount"), FText::AsNumber(FilteredHUBs.Num() > 0 ? FilteredHUBs.Num() : HUBServers.Num()) );
+		Args.Add( TEXT("HubCount"), FText::AsNumber(HUBServers.Num()) );
+		Args.Add( TEXT("FilteredServerCount"), FText::AsNumber(FilteredServers.Num()> 0 ? FilteredServers.Num() : InternetServers.Num()) );
+		Args.Add( TEXT("ServerCount"), FText::AsNumber(InternetServers.Num()) );
+
+		if (PingCount > 0)
+		{
+			return FText::Format( NSLOCTEXT("SUWServerBrowser","PingingStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers - Pinging {PingCount} Servers..."), Args);
+		}
+		else
+		{
+			return FText::Format( NSLOCTEXT("SUWServerBrowser","IdleStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers"), Args);
+		}
+	}
+}
+
 void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 {
 	BrowserState = NewBrowserState;
-	if (BrowserState == BrowserState::NAME_NotLoggedIn) 
+	if (BrowserState == EBrowserState::NotLoggedIn) 
 	{
-		StatusText->SetText(NSLOCTEXT("SUWServerBrowser","NotLoggedIn","Login Required!"));
 		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Login","Login")).TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText"));
 		RefreshButton->SetVisibility(EVisibility::All);
 
@@ -913,22 +945,19 @@ void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 		SpectateButton->SetEnabled(false);
 
 	}
-	else if (BrowserState == BrowserState::NAME_ServerIdle) 
+	else if (BrowserState == EBrowserState::BrowserIdle) 
 	{
-		StatusText->SetText(NSLOCTEXT("SUWServerBrowser","Idle","Idle!"));
 		RefreshButton->SetVisibility(EVisibility::All);
 	}
-	else if (BrowserState == BrowserState::NAME_AuthInProgress) 
+	else if (BrowserState == EBrowserState::AuthInProgress) 
 	{
-		StatusText->SetText(NSLOCTEXT("SUWServerBrowser","Auth","Authenticating..."));
 		RefreshButton->SetVisibility(EVisibility::Hidden);
 
 		JoinButton->SetEnabled(false);
 		SpectateButton->SetEnabled(false);
 	}
-	else if (BrowserState == BrowserState::NAME_RequestInProgress) 
+	else if (BrowserState == EBrowserState::RefreshInProgress) 
 	{
-		StatusText->SetText(NSLOCTEXT("SUWServerBrowser","RecieveingServer","Receiving Server List..."));
 		RefreshButton->SetVisibility(EVisibility::Hidden);
 
 		InternetServers.Empty();
@@ -965,16 +994,17 @@ FReply SUWServerBrowser::OnRefreshClick()
 
 void SUWServerBrowser::RefreshServers()
 {
-	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == BrowserState::NAME_ServerIdle)
+	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == EBrowserState::BrowserIdle)
 	{
 		bNeedsRefresh = false;
-		SetBrowserState(BrowserState::NAME_RequestInProgress);
+		CleanupQoS();
+		SetBrowserState(EBrowserState::RefreshInProgress);
 
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		SearchSettings->MaxSearchResults = 10000;
 		FString GameVer = FString::Printf(TEXT("%i"),GetDefault<UUTGameEngine>()->GameNetworkVersion);
-		SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);		// Must equal the game version
-		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);			// Must not be a lobby server instance
+		SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);											// Must equal the game version
+		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = SearchSettings.ToSharedRef();
 
@@ -986,25 +1016,20 @@ void SUWServerBrowser::RefreshServers()
 	}
 	else
 	{
-		SetBrowserState(BrowserState::NAME_NotLoggedIn);	
+		SetBrowserState(EBrowserState::NotLoggedIn);	
 	}
 }
 
 void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 {
-	CleanupQoS();
-
 	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
 
 	if (bWasSuccessful)
 	{
+		EmptyHUBServers();
 		// See the server list
 		InternetServers.Empty();
 		FilteredServers.Empty();
-		
-		EmptyHUBServers();
-		
-		PingList.Empty();
 
 		if (SearchSettings->SearchResults.Num() > 0)
 		{
@@ -1074,7 +1099,15 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
 				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags);
 				NewServer->SearchResult = Result;
-				PingList.Add( NewServer );
+
+				if (PingList.Num() == 0 || ServerGamePath != LOBBY_GAME_PATH )
+				{
+					PingList.Add( NewServer );
+				}
+				else
+				{
+					PingList.Insert(NewServer,0);
+				}
 			}
 		}
 
@@ -1098,7 +1131,6 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 			}
 		}
 
-
 		AddGameFilters();
 		InternetServerList->RequestListRefresh();
 		HUBServerList->RequestListRefresh();
@@ -1109,7 +1141,8 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		UE_LOG(UT,Log,TEXT("Server List Request Failed!!!"));
 	}
 
-	SetBrowserState(BrowserState::NAME_ServerIdle);	
+	SetBrowserState(EBrowserState::BrowserIdle);
+
 }
 
 void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
@@ -1182,6 +1215,7 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 		}
 
 	}
+	SetBrowserState(EBrowserState::BrowserIdle);	
 }
 
 
@@ -1196,15 +1230,17 @@ void SUWServerBrowser::CleanupQoS()
 		}
 	}
 	PingTrackers.Empty();
+	PingList.Empty();
 }
 
 void SUWServerBrowser::PingNextServer()
 {
-	while (PingList.Num() > 0 && PingTrackers.Num() < 10)
+	while (PingList.Num() > 0 && PingTrackers.Num() < PlayerOwner->ServerPingBlockSize)
 	{
 		PingServer(PingList[0]);
 		PingList.RemoveAt(0,1);
 	}
+
 }
 
 void SUWServerBrowser::PingServer(TSharedPtr<FServerData> ServerToPing)
@@ -1292,7 +1328,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceDescriptions[InstIndex], PingTrackers[i].Beacon->InstanceHostNames[InstIndex]));	
 			}
 
-			if (PingTrackers[i].Server->GameModePath == TEXT("/Script/UnrealTournament.UTLobbyGameMode"))
+			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
 			{
 				HUBServers.Add(PingTrackers[i].Server);
 				FilterHUB(PingTrackers[i].Server);
@@ -1479,23 +1515,12 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		}
 	}
 
-	if (BrowserState != BrowserState::NAME_ServerIdle) 
+	if (BrowserState != EBrowserState::BrowserIdle) 
 	{
 		JoinButton->SetEnabled(false);
 		SpectateButton->SetEnabled(false);
 	}
-	else
-	{
-		int32 PingingServers = PingList.Num() + PingTrackers.Num();
-		if (PingingServers > 0)
-		{
-			StatusText->SetText( FText::Format( NSLOCTEXT("SUWServerBrowser","PingingMsg","Pinging {0} Servers..."), FText::AsNumber(PingingServers)));
-		}
-		else
-		{
-			StatusText->SetText(FText::Format(NSLOCTEXT("SUWServerBrowser","ServerCounts","Showing {0} servers out of {1} total recieved."), FText::AsNumber(FilteredServers.Num()), FText::AsNumber(InternetServers.Num())));
-		}
-	}
+	
 
 	if (!RandomHUB.IsValid() && InternetServers.Num() > 0)
 	{
@@ -1504,7 +1529,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		int32 NumFriends = 0;
 		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
 		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
@@ -1522,7 +1547,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
 		HUBServers.Remove(RandomHUB);
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), TEXT("/Script/UnrealTournament.UTLobbyGameMode"), TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
 		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;

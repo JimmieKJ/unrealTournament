@@ -75,6 +75,19 @@ void SULobbyInfoPanel::ConstructPanel(FVector2D ViewportSize)
 						[
 							SNew(SHorizontalBox)
 							+SHorizontalBox::Slot()
+							.HAlign(HAlign_Left)
+							.VAlign(VAlign_Center)
+							.Padding(10.0f,0.0f,0.0f,0.0f)
+							[
+								SNew(STextBlock)
+								.Text(this, &SULobbyInfoPanel::GetServerNameText)
+								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+							]
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
 							.HAlign(HAlign_Right)
 							[
 								BuildMatchMenu()
@@ -368,8 +381,6 @@ FText SULobbyInfoPanel::GetMatchButtonText() const
 	return FText::GetEmpty();
 }
 
-
-
 bool SULobbyInfoPanel::AlreadyTrackingMatch(AUTLobbyMatchInfo* TestMatch)
 {
 	for (int32 i=0;i<MatchData.Num();i++)
@@ -510,6 +521,15 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildDefaultMatchMessage()
 }
 void SULobbyInfoPanel::OwnerCurrentMatchChanged(AUTLobbyPlayerState* LobbyPlayerState)
 {
+	if (LobbyPlayerState->CurrentMatch) 
+	{
+		if (ChatDestination != ChatDestinations::Match) ChatDestination = ChatDestinations::Match;
+	}
+	else
+	{
+		if (ChatDestination == ChatDestinations::Match) ChatDestination = ChatDestinations::Global;
+	}
+
 	BuildChatDestinationMenu();
 
 	if (LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->MatchIsReadyToJoin(LobbyPlayerState))
@@ -660,12 +680,13 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildChatArea()
 
 TSharedRef<ITableRow> SULobbyInfoPanel::OnGenerateWidgetForList( TSharedPtr<FPlayerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
+	FString PlayerName = InItem.IsValid() && InItem->PlayerState.IsValid() ? InItem->PlayerState->PlayerName : TEXT("???");
 	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
 		.Style(SUWindowsStyle::Get(),"UT.HUB.PlayerList")
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.Text(InItem->PlayerState->PlayerName)
+			.Text(PlayerName)
 			.TextStyle(SUWindowsStyle::Get(),"UT.HUB.PlayerListText")
 		];
 }
@@ -721,47 +742,53 @@ void SULobbyInfoPanel::UpdateChatText()
 		for (int32 i=0;i<PlayerOwner->ChatArchive.Num(); i++)
 		{
 			TSharedPtr<FStoredChatMessage> Msg = PlayerOwner->ChatArchive[i];
-			FString Style;
-
 			if (i>0) RichText += TEXT("\n");
+			if (Msg->Type != ChatDestinations::MOTD)
+			{
+				FString Style;
 
-			if (Msg->Type == ChatDestinations::Friends)
-			{
-				Style = TEXT("UWindows.Chat.Text.Friends");
-			}
-			else if (Msg->Type == ChatDestinations::System)
-			{
-				Style = TEXT("UWindows.Chat.Text.Admin");
-			}
-			else if (Msg->Type == ChatDestinations::Lobby)
-			{
-				Style = TEXT("UWindows.Chat.Text.Lobby");
-			}
-			else if (Msg->Type == ChatDestinations::Match)
-			{
-				Style = TEXT("UWindows.Chat.Text.Match");
-			}
-			else if (Msg->Type == ChatDestinations::Local)
-			{
-				Style = TEXT("UWindows.Chat.Text.Local");
-			}
-			else if (Msg->Type == ChatDestinations::Team)
-			{
-				if (Msg->Color.R > Msg->Color.B)
+				if (Msg->Type == ChatDestinations::Friends)
 				{
-					Style = TEXT("UWindows.Chat.Text.Team.Red"); ;
+					Style = TEXT("UWindows.Chat.Text.Friends");
+				}
+				else if (Msg->Type == ChatDestinations::System || Msg->Type == ChatDestinations::MOTD)
+				{
+					Style = TEXT("UWindows.Chat.Text.Admin");
+				}
+				else if (Msg->Type == ChatDestinations::Lobby)
+				{
+					Style = TEXT("UWindows.Chat.Text.Lobby");
+				}
+				else if (Msg->Type == ChatDestinations::Match)
+				{
+					Style = TEXT("UWindows.Chat.Text.Match");
+				}
+				else if (Msg->Type == ChatDestinations::Local)
+				{
+					Style = TEXT("UWindows.Chat.Text.Local");
+				}
+				else if (Msg->Type == ChatDestinations::Team)
+				{
+					if (Msg->Color.R > Msg->Color.B)
+					{
+						Style = TEXT("UWindows.Chat.Text.Team.Red");;
+					}
+					else
+					{
+						Style = TEXT("UWindows.Chat.Text.Team.Blue");;
+					}
 				}
 				else
 				{
-					Style = TEXT("UWindows.Chat.Text.Team.Blue"); ;
+					Style = TEXT("UWindows.Chat.Text.Global");
 				}
+
+				RichText += FString::Printf(TEXT("<%s>[%s]%s</>"), *Style, *(GetChatDestinationTag(Msg->Type).ToString()), *Msg->Message);
 			}
 			else
 			{
-				Style = TEXT("UWindows.Chat.Text.Global"); 
+				RichText += Msg->Message;
 			}
-
-			RichText += FString::Printf(TEXT("<%s>[%s]%s</>"), *Style, *(GetChatDestinationTag(Msg->Type).ToString()), *Msg->Message);
 		}
 
 		ChatDisplay->SetText(FText::FromString(RichText));
@@ -990,5 +1017,17 @@ FText SULobbyInfoPanel::GetMatchPlayerListText() const
 
 	return FText::GetEmpty();
 }
+
+FText SULobbyInfoPanel::GetServerNameText() const
+{
+	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		return FText::Format(NSLOCTEXT("SULobbyInfoPanel","ServerNameFormat","Connected To: {0}"), FText::FromString(LobbyGameState->ServerName));
+	}
+
+	return FText::GetEmpty();
+}
+
 
 #endif

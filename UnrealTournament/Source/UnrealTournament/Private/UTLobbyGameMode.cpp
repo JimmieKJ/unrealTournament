@@ -74,6 +74,10 @@ void AUTLobbyGameMode::InitGameState()
 		{
 			UTLobbyGameState->CreateAutoMatch(AutoLaunchGameMode, AutoLaunchGameOptions, AutoLaunchMap);
 		}
+
+		// Break the MOTD up in to strings to be sent to clients when they login.
+		FString Converted = UTLobbyGameState->ServerMOTD.Replace( TEXT("\\n"), TEXT("\n"));
+		Converted.ParseIntoArray(&ParsedMOTD,TEXT("\n"),true);
 	}
 	else
 	{
@@ -212,11 +216,15 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode == TEXT("/Script/UnrealTournament.UTCTFGameMode"));
 		}
 	}
-
 	// Set my Initial Presence
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
 	if (PC)
 	{
+		for (int32 i = 0; i < ParsedMOTD.Num(); i++)
+		{
+			PC->ClientSay(NULL, ParsedMOTD[i], ChatDestinations::MOTD);
+		}
+
 		// Set my initial presence....
 		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false, false);
 	}
@@ -359,3 +367,11 @@ void AUTLobbyGameMode::UpdateLobbySession()
 		}
 	}
 }
+
+// Lobbies don't want to track inactive players.  We match up players based on a GUID.  
+void AUTLobbyGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC)
+{
+	PlayerState->Destroy();
+	return;
+}
+

@@ -37,6 +37,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bInitialSignInAttempt = true;
 	LastProfileCloudWriteTime = 0;
 	ProfileCloudWriteCooldownTime = 10;
+	ServerPingBlockSize = 30;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -1446,6 +1447,8 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 	UE_LOG(UT,Log, TEXT("----------- [OnJoinSessionComplete %i"), (Result == EOnJoinSessionCompleteResult::Success));
 
+	ChatArchive.Empty();
+
 	// If we successed, nothing else needs to be done.
 	if (Result == EOnJoinSessionCompleteResult::Success)
 	{
@@ -1463,6 +1466,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 					ConnectionString += TEXT("?QuickStart=CTF");
 				}
 			}
+			QuickMatchJoinType = NAME_None;
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
@@ -1692,7 +1696,7 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 			return;
 		}
 
-		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->GetBrowserState() == BrowserState::NAME_RequestInProgress)
+		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
 		{
 			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickmatch."));
 			return;

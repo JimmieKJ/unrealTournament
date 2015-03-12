@@ -142,8 +142,9 @@ FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (PC)
 		{
-			PC->ConnectToServerViaGUID(PlayerOwner->LastLobbyServerGUID, false);
+			FString GUID = PlayerOwner->LastLobbyServerGUID;
 			PlayerOwner->LastLobbyServerGUID = TEXT("");
+			PC->ConnectToServerViaGUID(GUID, false);
 		}
 	}
 
