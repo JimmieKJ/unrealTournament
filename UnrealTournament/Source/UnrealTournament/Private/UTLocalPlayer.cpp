@@ -37,6 +37,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bInitialSignInAttempt = true;
 	LastProfileCloudWriteTime = 0;
 	ProfileCloudWriteCooldownTime = 10;
+	ServerPingBlockSize = 30;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -1695,7 +1696,7 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 			return;
 		}
 
-		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->GetBrowserState() == BrowserState::NAME_RequestInProgress)
+		if ( ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
 		{
 			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickmatch."));
 			return;

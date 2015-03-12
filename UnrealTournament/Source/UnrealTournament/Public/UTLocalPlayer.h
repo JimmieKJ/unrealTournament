@@ -402,6 +402,11 @@ public:
 
 	// returns true if this player is in a session
 	virtual bool IsInSession();
+
+	UPROPERTY(config)
+	int32 ServerPingBlockSize;
+
+
 };
 
 

@@ -680,12 +680,13 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildChatArea()
 
 TSharedRef<ITableRow> SULobbyInfoPanel::OnGenerateWidgetForList( TSharedPtr<FPlayerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
+	FString PlayerName = InItem.IsValid() && InItem->PlayerState.IsValid() ? InItem->PlayerState->PlayerName : TEXT("???");
 	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
 		.Style(SUWindowsStyle::Get(),"UT.HUB.PlayerList")
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.Text(InItem->PlayerState->PlayerName)
+			.Text(PlayerName)
 			.TextStyle(SUWindowsStyle::Get(),"UT.HUB.PlayerListText")
 		];
 }
