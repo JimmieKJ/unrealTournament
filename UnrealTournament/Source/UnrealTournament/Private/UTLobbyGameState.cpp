@@ -152,12 +152,16 @@ AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host,
 {
 	// Create a match and replicate all of the relevant information
 
+	UE_LOG(UT,Log,TEXT("Starting a QuickMatch for %s (%s)"), *Host->PlayerName, (bIsCTFMatch ? TEXT("True") : TEXT("False")))
+
 	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
 	if (NewMatchInfo)
 	{	
 		AvailableMatches.Add(NewMatchInfo);
 		NewMatchInfo->SetOwner(Host);
 		NewMatchInfo->AddPlayer(Host, true);
+
+		UE_LOG(UT,Log,TEXT("   Added player to Quickmatch.. "))
 
 		if (bIsCTFMatch)
 		{
@@ -175,6 +179,8 @@ AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host,
 		NewMatchInfo->bJoinAnytime = true;
 		NewMatchInfo->bSpectatable = true;
 		NewMatchInfo->MaxPlayers = 10;
+
+		UE_LOG(UT, Log, TEXT("   Launching.. "))
 
 		NewMatchInfo->LaunchMatch();		
 	}

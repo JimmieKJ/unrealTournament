@@ -1446,6 +1446,8 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 	UE_LOG(UT,Log, TEXT("----------- [OnJoinSessionComplete %i"), (Result == EOnJoinSessionCompleteResult::Success));
 
+	ChatArchive.Empty();
+
 	// If we successed, nothing else needs to be done.
 	if (Result == EOnJoinSessionCompleteResult::Success)
 	{
@@ -1463,6 +1465,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 					ConnectionString += TEXT("?QuickStart=CTF");
 				}
 			}
+			QuickMatchJoinType = NAME_None;
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 

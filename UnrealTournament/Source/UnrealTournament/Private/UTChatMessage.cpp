@@ -45,6 +45,8 @@ void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FNa
 		else if (Destination == ChatDestinations::Local) DestinationTag = TEXT("[Chat]");
 		else if (Destination == ChatDestinations::Match) DestinationTag = TEXT("[Match]");
 		else if (Destination == ChatDestinations::Team) DestinationTag = TEXT("[Team]");
+		else if (Destination == ChatDestinations::Team) DestinationTag = TEXT("[Team]");
+		else if (Destination == ChatDestinations::MOTD) DestinationTag = TEXT("[MOTD]");
 
 		FString ChatMessage;
 		ChatMessage = FString::Printf(TEXT("[%s] %s: %s"), *DestinationTag, *PlayerName, *ClientData.MessageString);
@@ -63,8 +65,17 @@ void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FNa
 			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(ClientData.LocalPC->Player);
 			if (LocalPlayer)
 			{
-				FString StoredMessage = FString::Printf(TEXT("%s: %s"), *PlayerName, *ClientData.MessageString);
+				FString StoredMessage;
 				FLinearColor ChatColor = (ClientData.MessageIndex && PlayerController->UTPlayerState && PlayerController->UTPlayerState->Team) ? PlayerController->UTPlayerState->Team->TeamColor : FLinearColor::White;
+
+				if (Destination == ChatDestinations::MOTD || Destination == ChatDestinations::System)
+				{
+					StoredMessage = FString::Printf(TEXT("[System] %s"), *ClientData.MessageString);
+				}
+				else
+				{
+					StoredMessage = FString::Printf(TEXT("%s: %s"), *PlayerName, *ClientData.MessageString);
+				}
 				LocalPlayer->SaveChat(Destination, StoredMessage, ChatColor);
 			}
 		}

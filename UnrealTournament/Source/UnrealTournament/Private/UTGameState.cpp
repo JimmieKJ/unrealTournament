@@ -518,3 +518,13 @@ void AUTGameState::OnRep_MatchState()
 		}
 	}
 }
+
+// By default, do nothing.  
+void AUTGameState::OnRep_ServerName()
+{
+}
+
+// By default, do nothing.  
+void AUTGameState::OnRep_ServerMOTD()
+{
+}

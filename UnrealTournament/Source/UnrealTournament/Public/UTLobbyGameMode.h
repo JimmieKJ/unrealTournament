@@ -62,6 +62,8 @@ public:
 
 	virtual bool IsLobbyServer() { return true; }
 
+	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC);
+
 #if !UE_SERVER
 
 	/**
@@ -120,6 +122,9 @@ public:
 
 	// Attempts to make sure the Lobby has the proper information
 	virtual void UpdateLobbySession();
+
+protected:
+	TArray<FString> ParsedMOTD;
 
 };
 
