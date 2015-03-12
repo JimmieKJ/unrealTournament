@@ -50,6 +50,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
+	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -328,16 +329,6 @@ bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewea
 void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTauntClass)
 {
 	TauntClass = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
-
-	AController* Controller = Cast<AController>(GetOwner());
-	if (Controller != NULL)
-	{
-		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-		if (Pawn != NULL)
-		{
-			Pawn->TauntClass = TauntClass;
-		}
-	}
 }
 
 bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewEyewearClass)

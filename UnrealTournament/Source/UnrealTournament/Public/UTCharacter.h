@@ -304,10 +304,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UFUNCTION()
 	virtual void OnRepEyewear();
-
-	UPROPERTY(replicated)
-	TSubclassOf<AUTTaunt> TauntClass;
-
+	
 	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepCosmeticFlashCount)
 	int32 CosmeticFlashCount;
 
