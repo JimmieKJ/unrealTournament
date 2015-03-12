@@ -12,7 +12,6 @@ UUTHUDWidget_GameClock::UUTHUDWidget_GameClock(const FObjectInitializer& ObjectI
 	Origin=FVector2D(0.5f,0.0f);
 }
 
-
 void UUTHUDWidget_GameClock::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
@@ -26,25 +25,16 @@ void UUTHUDWidget_GameClock::InitializeWidget(AUTHUD* Hud)
 
 void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 {
-	FText StatusText = FText::GetEmpty();
-	if (UTGameState != NULL)
+	GameStateText.Text = (UTGameState != NULL) ? UTGameState->GetGameStatusText() : FText::GetEmpty();
+	float SkullX = (UTHUDOwner->CurrentPlayerScore < 10) ? 110.f : 125.f;
+	if (UTHUDOwner->CurrentPlayerScore > 99)
 	{
-		StatusText = UTGameState->GetGameStatusText();
+		SkullX = 140.f;
 	}
-
-	if (!StatusText.IsEmpty())
-	{
-		GameStateBackground.bHidden = false;
-		GameStateText.bHidden = false;
-		GameStateText.Text = StatusText;
-	}
-	else
-	{
-		GameStateBackground.bHidden = true;
-		GameStateText.bHidden = true;
-		GameStateText.Text = StatusText;
-	}
-
+	bool bEmptyText = GameStateText.Text.IsEmpty();
+	GameStateBackground.bHidden = bEmptyText;
+	GameStateText.bHidden = bEmptyText;
+	Skull.Position = FVector2D(SkullX, 10.f); // position 140, 10
 	Super::Draw_Implementation(DeltaTime);
 }
 
@@ -55,7 +45,7 @@ FText UUTHUDWidget_GameClock::GetPlayerScoreText_Implementation()
 
 FText UUTHUDWidget_GameClock::GetClockText_Implementation()
 {
-	float RemainingTime = 0.0;
+	float RemainingTime = 0.f;
 	if (UTGameState)
 	{
 		RemainingTime = (UTGameState->TimeLimit) ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
