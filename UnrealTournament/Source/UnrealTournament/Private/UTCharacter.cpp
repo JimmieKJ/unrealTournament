@@ -3559,6 +3559,11 @@ void AUTCharacter::FellOutOfWorld(const UDamageType& DmgType)
 
 bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest, bool bNoCheck)
 {
+	if (bNoCheck)
+	{
+		return Super::TeleportTo(DestLocation, DestRotation, bIsATest, bNoCheck);
+	}
+
 	// during teleportation, we need to change our collision to overlap potential telefrag targets instead of block
 	// however, EncroachingBlockingGeometry() doesn't handle reflexivity correctly so we can't get anywhere changing our collision responses
 	// instead, we must change our object type to adjust the query
