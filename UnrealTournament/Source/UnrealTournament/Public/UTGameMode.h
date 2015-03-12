@@ -58,7 +58,7 @@ public:
 	UPROPERTY()
 	AUTGameState* UTGameState;		
 
-	/** Currently not used, but will be needed later*/
+	/** base difficulty of bots */
 	UPROPERTY(globalconfig)
 	float GameDifficulty;		
 
@@ -74,7 +74,7 @@ public:
 	uint32 bAllowOvertime:1;
 
 	/** If TRUE, force dead players to respawn immediately */
-	UPROPERTY()
+	UPROPERTY(config)
 	bool bForceRespawn;
 
 	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
