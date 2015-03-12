@@ -467,6 +467,13 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 		return false;
 	}
 
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (ShotInstigator && GS && GS->OnSameTeam(this, ShotInstigator))
+	{
+		// teammates don't register headshots on each other
+		return false;
+	}
+
 	FVector HeadLocation = GetHeadLocation();
 	bool bHeadShot = FMath::PointDistToLine(HeadLocation, ShotDirection, HitLocation) < HeadRadius * HeadScale * WeaponHeadScaling;
 
