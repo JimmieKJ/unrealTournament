@@ -715,7 +715,11 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 					SNew(SButton)
 					.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 					.OnClicked(this, &SUTMenuBase::ToggleFriendsAndFamily)
+#if PLATFORM_LINUX
+					.ToolTipText(NSLOCTEXT("ToolTips", "TPFriendsNotSupported", "Friends list not supported yet on this platform."))
+#else
 					.ToolTipText(NSLOCTEXT("ToolTips","TPFriends","Show / Hide your friends list."))
+#endif
 					[
 						SNew(SHorizontalBox)
 						+SHorizontalBox::Slot()
@@ -807,6 +811,11 @@ FReply SUTMenuBase::OnShowServerBrowserPanel()
 
 FReply SUTMenuBase::ToggleFriendsAndFamily()
 {
+#if PLATFORM_LINUX
+	// Need launcher so this doesn't work on linux right now
+	return FReply::Handled();
+#endif
+
 	if (bShowingFriends)
 	{
 		Desktop->RemoveSlot(200);
