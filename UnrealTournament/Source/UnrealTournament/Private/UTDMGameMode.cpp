@@ -37,13 +37,13 @@ void AUTDMGameMode::UpdateLobbyBadge()
 		}
 	}
 
-	FString LB = TEXT("");
-	for (int i=0;i<LeaderBoard.Num() && i < 3; i++)
+	FString LB;
+	for (int32 i = 0; i < LeaderBoard.Num() && i < 3; i++)
 	{
 		LB += FString::Printf(TEXT("<UWindows.Standard.MatchBadge>%s (%i)</>\n"), *LeaderBoard[i]->PlayerName, int(LeaderBoard[i]->Score));
 	}
 
-	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n%s"), *DisplayName.ToString(), *LB);
+	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n<UWindows.Standard.MatchBadge.Small>%s</>\n<UWindows.Standard.MatchBadge.Small>(%i Players)</>\n%s"), *DisplayName.ToString(), *GetWorld()->GetMapName(), NumPlayers, *LB);
 
 	if (ensure(LobbyBeacon))
 	{

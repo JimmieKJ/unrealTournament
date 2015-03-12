@@ -634,7 +634,7 @@ void AUTTeamGameMode::UpdateLobbyBadge()
 	Scores.Add( UTGameState->Teams.Num() > 0 ? UTGameState->Teams[0]->Score : 0);
 	Scores.Add( UTGameState->Teams.Num() > 1 ? UTGameState->Teams[1]->Score : 0);
 
-	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%i</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>%i</>\n<UWindows.Standard.MatchBadge.Small>%s</>"), *DisplayName.ToString(), Scores[0], Scores[1], *GetWorld()->GetMapName());
+	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%i</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>%i</>\n<UWindows.Standard.MatchBadge.Small>%s</>\n<UWindows.Standard.MatchBadge.Small>(%s Players)</>"), *DisplayName.ToString(), Scores[0], Scores[1], *GetWorld()->GetMapName(), NumPlayers);
 
 	if (ensure(LobbyBeacon))
 	{
