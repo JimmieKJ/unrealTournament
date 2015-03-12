@@ -49,7 +49,8 @@ void AUTLobbyGameState::CheckInstanceHealth()
 				{
 					UE_LOG(UT,Warning,TEXT("Terminating an instance that seems to be a zombie."));
 					FPlatformProcess::TerminateProc(MatchInfo->GameInstanceProcessHandle);
-					FPlatformProcess::CloseProc(MatchInfo->GameInstanceProcessHandle);
+					int32 ReturnCode = 0;
+					FPlatformProcess::GetProcReturnCode(MatchInfo->GameInstanceProcessHandle, &ReturnCode);
 					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
 				}
 			}
@@ -389,19 +390,14 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 {
 	if (MatchOwner->GameInstanceProcessHandle.IsValid())
 	{
-
 		// if we have an active game instance that is coming up but we have not started the travel to it yet, Kill the instance.
-		if (MatchOwner->GameInstanceProcessHandle.IsValid())
+		if (FPlatformProcess::IsProcRunning(MatchOwner->GameInstanceProcessHandle))
 		{
-			if (FPlatformProcess::IsProcRunning(MatchOwner->GameInstanceProcessHandle))
-			{
-				FPlatformProcess::TerminateProc(MatchOwner->GameInstanceProcessHandle);
-				int32 ReturnCode = 0;
-				FPlatformProcess::GetProcReturnCode(MatchOwner->GameInstanceProcessHandle, &ReturnCode);
-
-				UE_LOG(UT,Verbose, TEXT("Terminating an Instance with return code %i"), ReturnCode);
-			}
+			FPlatformProcess::TerminateProc(MatchOwner->GameInstanceProcessHandle);
 		}
+		int32 ReturnCode = 0;
+		FPlatformProcess::GetProcReturnCode(MatchOwner->GameInstanceProcessHandle, &ReturnCode);
+		UE_LOG(UT, Verbose, TEXT("Terminating an Instance with return code %i"), ReturnCode);
 
 		MatchOwner->GameInstanceProcessHandle.Reset();
 		MatchOwner->GameInstanceID = 0;
