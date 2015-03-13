@@ -6,7 +6,7 @@
 #include "UTMovementBaseInterface.h"
 #include "UTLift.generated.h"
 
-UCLASS(BlueprintType, Blueprintable)
+UCLASS(BlueprintType, Blueprintable, Abstract)
 class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuilderInterface, public IUTMovementBaseInterface
 {
 	GENERATED_UCLASS_BODY()
