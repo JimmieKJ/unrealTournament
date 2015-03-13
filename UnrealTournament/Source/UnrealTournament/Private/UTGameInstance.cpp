@@ -37,3 +37,9 @@ void UUTGameInstance::DeferredStartGameInstance()
 	}
 #endif
 }
+
+// @TODO FIXMESTEVE - we want open to be relative like it used to be
+bool UUTGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	return GEngine->HandleTravelCommand(Cmd, Ar, InWorld);
+}

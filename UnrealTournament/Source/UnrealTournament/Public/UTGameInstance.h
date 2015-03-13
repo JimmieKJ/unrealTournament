@@ -14,5 +14,7 @@ class UUTGameInstance : public UGameInstance
 
 protected:
 	virtual void DeferredStartGameInstance();
+
+	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld) override;
 };
 
