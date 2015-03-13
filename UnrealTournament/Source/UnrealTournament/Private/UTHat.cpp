@@ -11,17 +11,6 @@ AUTHat::AUTHat(const class FObjectInitializer& ObjectInitializer)
 	HeadshotRotationTime = 0.8f;
 }
 
-void AUTHat::PreInitializeComponents()
-{
-	TArray<UPrimitiveComponent*> Primitives;
-	GetComponents<UPrimitiveComponent>(Primitives);
-	for (UPrimitiveComponent* Prim : Primitives)
-	{
-		Prim->bReceivesDecals = false;
-	}
-	Super::PreInitializeComponents();
-}
-
 void AUTHat::SetBodiesToSimulatePhysics()
 {
 	if (GetRootComponent())

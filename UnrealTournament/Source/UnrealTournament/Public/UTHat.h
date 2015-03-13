@@ -28,6 +28,4 @@ class UNREALTOURNAMENT_API AUTHat : public AUTCosmetic
 	virtual void SetBodiesToSimulatePhysics();
 
 	virtual void Tick(float DeltaSeconds) override;
-
-	virtual void PreInitializeComponents() override;
 };
