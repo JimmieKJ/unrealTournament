@@ -3679,17 +3679,24 @@ void AUTCharacter::OnRepHat()
 {
 	if (HatClass != nullptr)
 	{
-		if (Hat != NULL)
+		if (Hat != nullptr)
 		{
 			Hat->Destroy();
+			Hat = nullptr;
 		}
+		if (LeaderHat != nullptr)
+		{
+			LeaderHat->Destroy();
+			LeaderHat = nullptr;
+		}
+
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
 		Params.bNoCollisionFail = true;
 		Params.bNoFail = true;
 		Hat = GetWorld()->SpawnActor<AUTHat>(HatClass, GetActorLocation(), GetActorRotation(), Params);
-		if (Hat != NULL)
+		if (Hat != nullptr)
 		{
 			FVector HatRelativeLocation = Hat->GetRootComponent()->RelativeLocation;
 			FRotator HatRelativeRotation = Hat->GetRootComponent()->RelativeRotation;
