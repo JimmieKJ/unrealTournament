@@ -539,6 +539,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			AddEditorSupportFiles(HostPlatform, RequiredFiles);
 			RemoveUnusedPlugins(RequiredFiles);
 			RemoveConfidentialFiles(HostPlatform, RequiredFiles);
+            CreateDebugManifest(StageDirectory, HostPlatform, RequiredFiles);
 
 			// Copy them to the staging directory, and add them as build products
 			BuildProducts = new List<string>();
@@ -550,6 +551,25 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				BuildProducts.Add(TargetFileName);
 			}
 		}
+
+        static void CreateDebugManifest(string StageDirectory, UnrealTargetPlatform HostPlatform, SortedSet<string> RequiredFiles)
+        {
+            string ManifestFile = "Manifest_DebugFiles.txt";
+            string ManifestPath = CommandUtils.CombinePaths(StageDirectory, ManifestFile);
+            CommandUtils.DeleteFile(ManifestPath);
+            
+            const string Iso8601DateTimeFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffzzz";
+
+            var Lines = new List<string>();
+            foreach (string RequiredFile in RequiredFiles)
+            {
+                string TimeStamp = File.GetLastWriteTimeUtc(RequiredFile).ToString(Iso8601DateTimeFormat);
+                string Dest = RequiredFile + "\t" + TimeStamp;
+
+                Lines.Add(Dest);
+            }
+            CommandUtils.WriteAllLines(ManifestPath, Lines.ToArray());
+        }
 
 		static void AddEditorBuildProducts(GUBP bp, UnrealTargetPlatform HostPlatform, BranchInfo.BranchUProject GameProj, SortedSet<string> RequiredFiles)
 		{
@@ -579,7 +599,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			FileFilter BuildProductFilter = new FileFilter();
 
 			BuildProductFilter.Include("...");
-			BuildProductFilter.Exclude("*.pdb");
 			BuildProductFilter.Exclude("*-Simplygon*");
 			BuildProductFilter.Exclude("*-DDCUtils*");
 			BuildProductFilter.Exclude("*-HTML5*.dylib"); // Manually remove HTML5 dylibs; they crash on startup without having the HTML5 inis
@@ -851,12 +870,19 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 				var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(bp, HostPlatform, BranchName);
 
+                string DebugManifest = CommandUtils.CombinePaths(StageDirectory, "Manifest_DebugFiles.txt");
+                if (!CommandUtils.FileExists(DebugManifest))
+                {
+                    throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", DebugManifest);
+                }
+
 				// run the patch tool
 				BuildPatchToolBase.Get().Execute(
 				new BuildPatchToolBase.PatchGenerationOptions
 				{
 					StagingInfo = StagingInfo,
 					BuildRoot = StageDirectory,
+                    FileIgnoreList = DebugManifest,
 					AppLaunchCmd = GetEditorLaunchCmd(HostPlatform),
 					AppLaunchCmdArgs = "UnrealTournament -installed",
 					AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
