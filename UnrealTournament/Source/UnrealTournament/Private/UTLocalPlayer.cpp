@@ -37,6 +37,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bInitialSignInAttempt = true;
 	LastProfileCloudWriteTime = 0;
 	ProfileCloudWriteCooldownTime = 10;
+	bShowSocialNotification = false;
 	ServerPingBlockSize = 30;
 }
 
@@ -594,6 +595,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
 		{
 			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
+		}
+		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsNotification().IsBoundToObject(this))
+		{
+			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
 		}
 		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsActionNotification().IsBoundToObject(this))
 		{
@@ -1582,6 +1587,11 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 	}
 }
 
+bool UUTLocalPlayer::IsPlayerShowingSocialNotification() const
+{
+	return bShowSocialNotification;
+}
+
 void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful)
 {
 	UE_LOG(UT,Log,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
@@ -1589,7 +1599,7 @@ void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bW
 
 void UUTLocalPlayer::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
-	UE_LOG(UT,Log,TEXT("Presence Recieved %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
+	UE_LOG(UT,Log,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
 
 void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId)
@@ -1601,6 +1611,11 @@ bool UUTLocalPlayer::AllowFriendsJoinGame()
 {
 	// determine when to disable "join game" option in friends/chat UI
 	return true;
+}
+
+void UUTLocalPlayer::HandleFriendsNotificationAvail(bool bAvailable)
+{
+	bShowSocialNotification = bAvailable;
 }
 
 void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage)

@@ -232,7 +232,7 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 	}
 	else
 	{
-		UE_LOG(UT,Verbose,TEXT("ERROR: Recieved Bulk data before GameState!!!"));
+		UE_LOG(UT,Verbose,TEXT("ERROR: Received Bulk data before GameState!!!"));
 	}
 }
 

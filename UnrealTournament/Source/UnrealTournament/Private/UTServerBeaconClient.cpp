@@ -134,7 +134,7 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 
 void AUTServerBeaconClient::ClientRecieveInstance_Implementation(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("---> Recieved Instance [%i] Host [%s] Desc [%s]"), InstanceCount, *InstanceHostName, *InstanceDescription);
+	UE_LOG(LogBeacon, Verbose, TEXT("---> Received Instance [%i] Host [%s] Desc [%s]"), InstanceCount, *InstanceHostName, *InstanceDescription);
 	if (InstanceCount >= 0 && InstanceCount < TotalInstances)
 	{
 		InstanceHostNames.Add(InstanceHostName);

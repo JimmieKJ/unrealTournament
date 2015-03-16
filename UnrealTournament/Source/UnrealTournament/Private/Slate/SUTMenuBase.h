@@ -54,7 +54,7 @@ protected:
 	// The player has clicked on
 	virtual FReply OnCloseClicked();
 	virtual FReply OnShowServerBrowserPanel();
-	virtual FReply ToggleFriendsAndFamily();
+	virtual FReply ToggleFriendsAndChat();
 	virtual FReply OnShowStatsViewer();
 
 	virtual FText GetBrowserButtonText() const;
@@ -67,6 +67,9 @@ private:
 
 	// Builds out the default options for the right menu.  Thisd includes Exit, Info and the Player Online panel
 	TSharedRef<SWidget> BuildDefaultRightMenuBar();
+
+	/** Gets the social notification state for the player - controls the ! bang on the Friends and Chat button */
+	EVisibility GetSocialBangVisibility() const;
 
 protected:
 	bool bNeedsPlayerOptions;

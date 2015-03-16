@@ -332,6 +332,9 @@ public:
 	// Updates this user's online presence
 	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bUseLobbySessionId);
 
+	// Does the player have pending social notifications - should the social bang be shown?
+	bool IsPlayerShowingSocialNotification() const;
+
 protected:
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 	virtual void OnEndSessionComplete(FName SessionName, bool bWasSuccessful);
@@ -348,9 +351,11 @@ protected:
 	virtual void OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult);
 	virtual void HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId);
 	virtual bool AllowFriendsJoinGame();
+	virtual void HandleFriendsNotificationAvail(bool bAvailable);
 	virtual void HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage);
+
 	FString PendingFriendInviteSessionId;	
-	
+	bool bShowSocialNotification;
 
 #if !UE_SERVER
 

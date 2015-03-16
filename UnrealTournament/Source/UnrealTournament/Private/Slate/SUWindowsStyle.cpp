@@ -345,6 +345,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		
 		Style.Set("UT.Icon.Home", new IMAGE_BRUSH("Icons/UT.Icon.Home", Icon48x48));
 		Style.Set("UT.Icon.Online", new IMAGE_BRUSH("Icons/UT.Icon.Online", Icon48x48));
+		Style.Set("UT.Icon.SocialBang", new IMAGE_BRUSH("Icons/UT.Icon.SocialBang", Icon12x12));
 		Style.Set("UT.Icon.Settings", new IMAGE_BRUSH("Icons/UT.Icon.Settings", Icon48x48));
 		Style.Set("UT.Icon.Exit", new IMAGE_BRUSH("Icons/UT.Icon.Exit", Icon48x48));
 		Style.Set("UT.Icon.Stats", new IMAGE_BRUSH("Icons/UT.Icon.Stats", Icon48x48));
@@ -1378,7 +1379,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	const FSlateBrush* FriendsListHeaderBrush = Style.GetBrush("FriendsListHeader");
 	const FSlateBrush* FriendContainerHeaderBrush = Style.GetBrush("FriendsListHeader");
 
-	FLinearColor ComboItemTextColor = FLinearColor(0.1f, 0.1, 0.1f, 1.0f);
+	FLinearColor ComboItemTextColor = FLinearColor(FColor::White);
 	FLinearColor DefaultChatColor = FLinearColor(FColor::White);
 	FLinearColor WhisplerChatColor = FLinearColor(FColor(255, 176, 59));	// orange
 	FLinearColor PartyChatColor = FLinearColor(FColor(89, 234, 186));		// light green
