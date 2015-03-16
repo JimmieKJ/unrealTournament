@@ -6,6 +6,8 @@
 #include "UTOnlineGameSettingsBase.h"
 #include "UTWeap_RocketLauncher.h"
 #include "UTGameEngine.h"
+#include "UnrealNetwork.h"
+
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -199,7 +201,7 @@ void AUTBasePlayerController::AttemptGUIDJoin()
 		
 		GUIDSessionSearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		GUIDSessionSearchSettings->MaxSearchResults = 1;
-		FString GameVer = FString::Printf(TEXT("%i"),GetDefault<UUTGameEngine>()->GameNetworkVersion);
+		FString GameVer = FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion());
 		GUIDSessionSearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);		// Must equal the game version
 		GUIDSessionSearchSettings->QuerySettings.Set(SETTING_SERVERINSTANCEGUID, GUIDJoin_CurrentGUID, EOnlineComparisonOp::Equals);	// The GUID to find
 

@@ -20,6 +20,7 @@
 #include "UTServerBeaconClient.h"
 #include "../SUWScaleBox.h"
 #include "Engine/UserInterfaceSettings.h"
+#include "UnrealNetwork.h"
 
 #if !UE_SERVER
 /** List Sort helpers */
@@ -1011,7 +1012,7 @@ void SUWServerBrowser::RefreshServers()
 
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		SearchSettings->MaxSearchResults = 10000;
-		FString GameVer = FString::Printf(TEXT("%i"),GetDefault<UUTGameEngine>()->GameNetworkVersion);
+		FString GameVer = FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion());
 		SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);											// Must equal the game version
 		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 

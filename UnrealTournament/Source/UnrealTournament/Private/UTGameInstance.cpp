@@ -2,11 +2,24 @@
 
 #include "UnrealTournament.h"
 #include "UTGameInstance.h"
+#include "UnrealNetwork.h"
 
 UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
 
+static uint32 UTGetNetworkVersion()
+{
+	return 3008037;
+}
+
+void UUTGameInstance::Init()
+{
+	// set up our handler for network versioning
+	FNetworkVersion::GetLocalNetworkVersionOverride.BindStatic(&UTGetNetworkVersion);
+
+	Super::Init();
 }
 
 void UUTGameInstance::StartGameInstance()

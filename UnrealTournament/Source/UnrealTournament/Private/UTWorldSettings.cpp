@@ -82,13 +82,6 @@ void AUTWorldSettings::NotifyBeginPlay()
 
 void AUTWorldSettings::BeginPlay()
 {
-	if (GEngineNetVersion == 0)
-	{
-		// @TODO FIXMESTEVE temp hack for network compatibility code
-		GEngineNetVersion = UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->GameNetworkVersion;
-		UE_LOG(UT, Warning, TEXT("************************************Set Net Version %d"), GEngineNetVersion);
-	}
-
 	if (Music != NULL && GetNetMode() != NM_DedicatedServer)
 	{
 		MusicComp = ConstructObject<UAudioComponent>(UAudioComponent::StaticClass(), this);

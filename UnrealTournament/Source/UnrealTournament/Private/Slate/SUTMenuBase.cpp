@@ -21,6 +21,7 @@
 #include "Panels/SUWServerBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
+#include "UnrealNetwork.h"
 
 #if !UE_SERVER
 
@@ -536,7 +537,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 			.AutoHeight()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), GetDefault<UUTGameEngine>()->GameNetworkVersion))).ToString())
+				.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion()))).ToString())
 				.TextStyle(SUWindowsStyle::Get(), "UT.Version.TextStyle")
 			]
 		]

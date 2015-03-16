@@ -10,6 +10,7 @@ class UUTGameInstance : public UGameInstance
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void Init() override;
 	virtual void StartGameInstance() override;
 
 protected:

@@ -20,7 +20,6 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 	bAllowClientNetProfile = false;
 	ReadEULACaption = NSLOCTEXT("UTGameEngine", "ReadEULACaption", "READ ME FIRST");
 	ReadEULAText = NSLOCTEXT("UTGameEngine", "ReadEULAText", "EULA TEXT");
-	GameNetworkVersion = 3008036;
 
 	SmoothedDeltaTime = 0.01f;
 
@@ -36,10 +35,6 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {
-	// @TODO FIXMESTEVE temp hack for network compatibility code
-	GEngineNetVersion = GameNetworkVersion;
-	UE_LOG(UT, Warning, TEXT("************************************Set Net Version %d"), GEngineNetVersion);
-
 	if(bFirstRun)
 	{
 #if !UE_SERVER
