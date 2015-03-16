@@ -18,6 +18,7 @@
 #include "UTCheatManager.h"
 #include "UTSpreeMessage.h"
 #include "UTGameMode.h"
+#include "UTWeap_Translocator.h"
 
 UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -57,7 +58,7 @@ void UUTCheatManager::Loaded()
 		for (TObjectIterator<UClass> It; It; ++It)
 		{
 			// make sure we don't use abstract, deprecated, or blueprint skeleton classes
-			if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")))
+			if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")) && !It->IsChildOf(AUTWeap_Translocator::StaticClass()))
 			{
 				UClass* TestClass = *It;
 				if (!MyPawn->FindInventoryType(TSubclassOf<AUTInventory>(*It), true))
