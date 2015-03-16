@@ -1340,13 +1340,23 @@ void AUTWeapon::Tick(float DeltaTime)
 		// if weapon is up in first person, view bob with movement
 		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled())
 		{
+			// FOV offset - fixmesteve use viewer
+			AUTPlayerController* MyPC = Cast<AUTPlayerController>(UTOwner->GetController());
+			static float DefaultScale = 2.f * FMath::Sin(25.f * PI / 180.f) * FMath::Cos((90.f - 25.f) * PI / 180.f); 
+			const float AngleOverFour = 0.25f * MyPC->PlayerCameraManager->GetFOVAngle();
+			float FOVScale = 2.f * FMath::Sin(AngleOverFour * PI / 180.f) * FMath::Cos((90.f - AngleOverFour) * PI / 180.f);
+			float FOVOffset = (MyPC && MyPC->PlayerCameraManager && (FOVScale > 0.f)) ? DefaultScale/FOVScale : 1.f;
 			if (FirstPMeshOffset.IsZero())
 			{
 				FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
 				FirstPMeshRotation = Mesh->GetRelativeTransform().Rotator();
 			}
-			Mesh->SetRelativeLocation(FirstPMeshOffset);
-			Mesh->SetWorldLocation(Mesh->GetComponentLocation() + UTOwner->GetWeaponBobOffset(DeltaTime, this));
+			FVector ScaledMeshOffset = FirstPMeshOffset;
+			ScaledMeshOffset.X *= FOVOffset;
+			Mesh->SetRelativeLocation(ScaledMeshOffset);
+			FVector BobOffset = UTOwner->GetWeaponBobOffset(DeltaTime, this);
+			BobOffset.X *= FOVOffset;
+			Mesh->SetWorldLocation(Mesh->GetComponentLocation() + BobOffset);
 
 			FRotator NewRotation = UTOwner ? UTOwner->GetControlRotation() : FRotator(0.f,0.f,0.f);
 			FRotator FinalRotation = NewRotation;
