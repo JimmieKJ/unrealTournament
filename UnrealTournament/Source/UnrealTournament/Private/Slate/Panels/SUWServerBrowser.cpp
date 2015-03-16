@@ -773,12 +773,21 @@ void SUWServerBrowser::AddGameFilters()
 {
 	TArray<FString> GameTypes;
 	GameTypes.Add(TEXT("All"));
-	for (int i=0;i<InternetServers.Num();i++)
+	for (int32 i=0;i<InternetServers.Num();i++)
 	{
 		int32 idx = GameTypes.Find(InternetServers[i]->GameModeName);
 		if (idx < 0)
 		{
 			GameTypes.Add(InternetServers[i]->GameModeName);
+		}
+	}
+
+	for (int32 i=0;i<PingList.Num();i++)
+	{
+		int32 idx = GameTypes.Find(PingList[i]->GameModeName);
+		if (idx < 0)
+		{
+			GameTypes.Add(PingList[i]->GameModeName);
 		}
 	}
 
