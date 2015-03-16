@@ -27,6 +27,7 @@ void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 {
 	GameStateText.Text = (UTGameState != NULL) ? UTGameState->GetGameStatusText() : FText::GetEmpty();
 	float SkullX = (UTHUDOwner->CurrentPlayerScore < 10) ? 110.f : 125.f;
+	UTHUDOwner->CalcStanding();
 	if (UTHUDOwner->CurrentPlayerScore > 99)
 	{
 		SkullX = 140.f;

@@ -25,6 +25,7 @@ void UUTHUDWidget_DMPlayerLeaderboard::Draw_Implementation(float DeltaTime)
 {
 	if (UTPlayerOwner)
 	{
+		UTHUDOwner->CalcStanding();
 		AUTPlayerState* OwnerPS = UTPlayerOwner->UTPlayerState;
 		int32 MyIndex = UTHUDOwner->Leaderboard.Find(OwnerPS);
 		float YPosition = 0;
