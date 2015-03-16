@@ -276,7 +276,10 @@ void AUTWeapon::Removed()
 {
 	GotoState(InactiveState);
 	DetachFromOwner();
-	DetachFromHolster();
+	if (bMustBeHolstered)
+	{
+		DetachFromHolster();
+	}
 
 	Super::Removed();
 }
@@ -287,7 +290,10 @@ void AUTWeapon::ClientRemoved_Implementation()
 	if (Role < ROLE_Authority) // already happened on authority in Removed()
 	{
 		DetachFromOwner();
-		DetachFromHolster();
+		if (bMustBeHolstered)
+		{
+			DetachFromHolster();
+		}
 	}
 
 	AUTCharacter* OldOwner = UTOwner;
@@ -443,8 +449,11 @@ void AUTWeapon::AttachToHolster()
 
 void AUTWeapon::DetachFromHolster()
 {
-	UTOwner->SetHolsteredWeaponAttachmentClass(NULL);
-	UTOwner->UpdateHolsteredWeaponAttachment();
+	if (UTOwner != NULL)
+	{
+		UTOwner->SetHolsteredWeaponAttachmentClass(NULL);
+		UTOwner->UpdateHolsteredWeaponAttachment();
+	}
 }
 
 void AUTWeapon::AttachToOwner_Implementation()
