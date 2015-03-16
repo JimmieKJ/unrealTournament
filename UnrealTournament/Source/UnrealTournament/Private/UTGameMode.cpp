@@ -1356,8 +1356,12 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		((AUTBot*)aPlayer)->LastRespawnTime = GetWorld()->TimeSeconds;
 	}
 
+	// clear spawn choices
 	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceA = nullptr;
 	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceB = nullptr;
+
+	// clear multikill in progress
+	Cast<AUTPlayerState>(aPlayer->PlayerState)->LastKillTime = -100.f;
 }
 
 void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)

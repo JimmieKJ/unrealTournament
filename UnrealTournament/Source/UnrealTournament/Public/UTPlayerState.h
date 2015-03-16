@@ -72,8 +72,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bPendingTeamSwitch : 1;
 
+	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;
+
 	/** current multikill level (1 = double, 2 = multi, etc)
 	 * note that the value isn't reset until a new kill comes in
 	 */
@@ -257,6 +259,10 @@ public:
 
 	/** True if clamped name is currently valid. */
 	bool bHasValidClampedName;
+
+	/** object which set clamping for my name. */
+	UPROPERTY(BlueprintReadWrite)
+		UObject* NameClamper;
 
 	virtual void SetPlayerName(const FString& S) override;
 
