@@ -60,7 +60,6 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
 	FlagAtlas = FlagTex.Object;
-
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
@@ -68,11 +67,13 @@ void UUTScoreboard::AdvancePage(int32 Increment)
 	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
 	PageChanged();
 }
+
 void UUTScoreboard::SetPage(uint32 NewPage)
 {
 	UTHUDOwner->ScoreboardPage = FMath::Min<uint32>(NewPage, NumPages - 1);
 	PageChanged();
 }
+
 void UUTScoreboard::PageChanged_Implementation()
 {
 }
@@ -93,7 +94,6 @@ void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCa
 		}
 	}
 }
-
 
 void UUTScoreboard::Draw_Implementation(float RenderDelta)
 {
@@ -165,12 +165,10 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		{
 			FText Timer = (UTGameState->TimeLimit > 0) ? UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->RemainingTime, true, true, true) :
 															UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->ElapsedTime, true, true, true);
-
 			DrawText(Timer, Size.X * 0.985, 88, ClockFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 	}
 }
-
 
 void UUTScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 {
@@ -179,14 +177,12 @@ void UUTScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 
 void UUTScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 {
-	float DrawY = YOffset;
-
 	if (UTGameState)
 	{
+		float DrawY = YOffset;
 		DrawScoreHeaders(RenderDelta, DrawY);
 		DrawPlayerScores(RenderDelta, DrawY);
 	}
-
 }
 
 void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
@@ -282,7 +278,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	float Width = (Size.X * 0.5f) - CenterBuffer;
 
 	FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
-	FText PlayerName = FText::FromString(PlayerState->PlayerName);
+	FText PlayerName = FText::FromString(GetClampedName(PlayerState, MediumFont, 1.f, 0.475f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
 	FText PlayerDeaths = FText::AsNumber(PlayerState->Deaths);
 
