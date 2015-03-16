@@ -1011,7 +1011,26 @@ void AUTGameMode::StartMatch()
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(this)));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GoalScore"), GoalScore));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TimeLimit"), TimeLimit));
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine)
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("CustomContent"), UTEngine->LocalContentChecksums.Num()));
+			}
+			else
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("CustomContent"), 0));
+			}
 			FUTAnalytics::GetProvider().RecordEvent( TEXT("NewMatch"), ParamArray );
+		}
+		else
+		{
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine && UTEngine->LocalContentChecksums.Num() > 0)
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("CustomContent"), UTEngine->LocalContentChecksums.Num()));
+				FUTAnalytics::GetProvider().RecordEvent(TEXT("MatchWithCustomContent"), ParamArray);
+			}
 		}
 	}
 }
