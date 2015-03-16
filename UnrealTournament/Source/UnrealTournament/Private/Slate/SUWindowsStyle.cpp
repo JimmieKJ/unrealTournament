@@ -1369,6 +1369,8 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("PartyChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatParty-XS", Icon16x16));
 	Style.Set("InvalidChatIcon", new IMAGE_BRUSH("Social-WIP/Icon-ChatInvalid-XS", Icon16x16));
 
+	Style.Set("FriendComboDropdownBrush", new IMAGE_BRUSH("Social-WIP/SocialExpander_normal", Icon12x12));
+
 	Style.Set("FriendsDefaultBackground", new IMAGE_BRUSH("Social-WIP/DefaultBackground", FVector2D(8, 8)));
 	const FSlateBrush* FriendsDefaultBackgroundBrush = Style.GetBrush("FriendsDefaultBackground");
 
