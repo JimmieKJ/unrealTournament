@@ -719,28 +719,64 @@ bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVec
 		}
 		return true;
 	}
-	else if (B == NULL /*|| !B->WeaponProficiencyCheck()*/ || B->GetTarget() != B->GetEnemy() || B->LostContact(2.0f) || (!B->IsStopped()/* && !B->IsHunting()*/ && !B->IsCharging()) || (!bPreferCurrentMode && FMath::FRand() > 0.5f))
+	else if (B == NULL)
 	{
-		if (IsPreparingAttack())
-		{
-			// TODO: if high skill, look around for someplace to shoot rockets that won't blow self up
-		}
 		return false;
 	}
 	else
 	{
-		// TODO: use navigation to get more ideal intersection point (will allow targeting incoming heard enemies, etc)
-		FVector PredictedLoc = B->GetEnemyInfo(B->GetEnemy(), false)->LastSeenLoc;
-		if (GetWorld()->LineTraceTest(UTOwner->GetActorLocation(), PredictedLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CanAttack")), false, UTOwner)))
+		if (GetWorld()->TimeSeconds - LastAttackSkillCheckTime < 1.0f)
 		{
-			// can't shoot at LastSeenLoc from here
+			LastAttackSkillCheckTime = GetWorld()->TimeSeconds;
+			bAttackSkillCheckResult = B->WeaponProficiencyCheck() && FMath::FRand() > 0.5f;
+		}
+		if (!bAttackSkillCheckResult || B->GetTarget() != B->GetEnemy() || B->IsCharging() || (!IsPreparingAttack() && B->LostContact(3.0f))/* || !B->IsHunting()*/)
+		{
+			if (IsPreparingAttack() && bAttackSkillCheckResult)
+			{
+				BestFireMode = 1;
+				if (NumLoadedRockets < MaxLoadedRockets - 1)
+				{
+					// don't modify aim yet, not close enough to firing
+					return true;
+				}
+				else
+				{
+					// TODO: if high skill, look around for someplace to shoot rockets that won't blow self up
+					return true;
+				}
+			}
 			return false;
 		}
 		else
 		{
-			OptimalTargetLoc = PredictedLoc;
-			BestFireMode = 1;
-			return true;
+			// consider firing standard rocket in case enemy is coming around corner soon
+			// note: repeat of skill check is intentional
+			if (!bPreferCurrentMode)
+			{
+				BestFireMode = (!B->LostContact(1.5f) && B->WeaponProficiencyCheck() && FMath::FRand() < 0.5f) ? 0 : 1;
+			}
+
+			if (!PredicitiveTargetLoc.IsZero() && !GetWorld()->LineTraceTest(UTOwner->GetActorLocation(), PredicitiveTargetLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("PredictiveRocket")), false, UTOwner), WorldResponseParams))
+			{
+				OptimalTargetLoc = PredicitiveTargetLoc;
+				return true;
+			}
+			else
+			{
+				TArray<FVector> FoundPoints;
+				B->GuessAppearancePoints(Target, TargetLoc, true, FoundPoints);
+				if (FoundPoints.Num() == 0)
+				{
+					return false;
+				}
+				else
+				{
+					PredicitiveTargetLoc = FoundPoints[FMath::RandHelper(FoundPoints.Num())];
+					OptimalTargetLoc = PredicitiveTargetLoc;
+					return true;
+				}
+			}
 		}
 	}
 }

@@ -13,6 +13,12 @@ class AUTWeap_ShockRifle : public AUTWeapon
 	/** shock ball bot is waiting to combo */
 	UPROPERTY()
 	class AUTProj_ShockBall* ComboTarget;
+	/** set when bot intends to throw a prediction shot at an enemy not currently visible */
+	UPROPERTY()
+	FVector PredictiveComboTargetLoc;
+	/** last time we did the expensive prediction check */
+	UPROPERTY()
+	float LastPredictiveComboCheckTime;
 	/** set when bot wants next shock ball fired to set up combo */
 	UPROPERTY()
 	bool bPlanningCombo;

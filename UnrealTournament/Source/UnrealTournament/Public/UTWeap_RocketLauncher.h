@@ -107,11 +107,18 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 
 	/** Burst rocket firing interval */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
-		float BurstInterval;
+	float BurstInterval;
 
 	/**Distance from the center of the launcher to where the rockets fire from*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float BarrelRadius;
+
+	/** AI skill checks in firing are on an interval since firing is queried often when weapon is ready to fire */
+	float LastAttackSkillCheckTime;
+	bool bAttackSkillCheckResult;
+
+	/** AI's target for predictive firing (grenades around corner, etc) */
+	FVector PredicitiveTargetLoc;
 
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireRocketProjectile();

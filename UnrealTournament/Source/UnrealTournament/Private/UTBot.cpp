@@ -1167,7 +1167,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 			if (Enemy != NULL && GetFocusActor() == Enemy)
 			{
 				TArray<FSavedPosition> SavedPositions;
-				if (IsEnemyVisible(Enemy))
+				if (bLeadTarget ? GetEnemyInfo(Enemy, true)->CanUseExactLocation(WorldTime) : IsEnemyVisible(Enemy))
 				{
 					AUTCharacter* TargetP = Cast<AUTCharacter>(Enemy);
 					if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
@@ -2650,7 +2650,7 @@ bool AUTBot::CanCombo()
 	{
 		return true;
 	}
-	else if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && FMath::FRand() < 0.1 * Skill + 0.15 * Personality.ReactionTime + 0.15 * Personality.MovementAbility)
+	else if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && FMath::FRand() > 0.1 * Skill + 0.15 * Personality.ReactionTime + 0.15 * Personality.MovementAbility)
 	{
 		return false;
 	}
@@ -2714,6 +2714,122 @@ EBotMonitoringStatus AUTBot::ShouldTriggerCombo(const FVector& CurrentLoc, const
 	else
 	{
 		return BMS_Monitoring;
+	}
+}
+
+struct FAppearancePointEval : public FUTNodeEvaluator
+{
+	TArray<FVector>& FoundPoints;
+protected:
+	int32 DistanceLimit;
+	float MinResultDistanceSq;
+	const AUTRecastNavMesh* NavData;
+	const UUTPathNode* AskerAnchor;
+	float TargetHalfHeight;
+	bool bStopAtAsker;
+	FCollisionQueryParams TraceParams;
+	TSet<NavNodeRef> TestedPolys;
+
+public:
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
+	{
+		// if the early out at Asker's node was requested, end when we reach it
+		return (bStopAtAsker && Node == AskerAnchor) ? 10.0f : 0.0f;
+	}
+
+	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance) override
+	{
+		if (TotalDistance > DistanceLimit)
+		{
+			return BLOCKED_PATH_COST;
+		}
+		else
+		{
+			// trace test any previously untested nodes along this path
+			TArray<NavNodeRef> Polys;
+			NavData->FindPolyPath(NavData->GetPolyCenter(StartPoly), AgentProps, FRouteCacheItem(Link.Start.Get(), NavData->GetPolyCenter(Link.StartEdgePoly), Link.StartEdgePoly), Polys, false);
+			for (NavNodeRef TestPoly : Polys)
+			{
+				if (!TestedPolys.Contains(TestPoly))
+				{
+					FVector TraceEnd = NavData->GetPolySurfaceCenter(TestPoly);
+					TraceEnd.Z += TargetHalfHeight;
+					bool bTooClose = false;
+					for (const FVector& TestPt : FoundPoints)
+					{
+						if ((TestPt - TraceEnd).SizeSquared() < MinResultDistanceSq)
+						{
+							bTooClose = true;
+							break;
+						}
+					}
+					if (!bTooClose && !NavData->GetWorld()->LineTraceTest(Asker->GetActorLocation(), TraceEnd, ECC_Visibility, TraceParams, WorldResponseParams))
+					{
+						FoundPoints.Add(TraceEnd);
+					}
+					TestedPolys.Add(TestPoly);
+				}
+			}
+
+			// for proceeding the search, bias towards paths that lead back to Asker
+			const FVector StartLoc = NavData->GetPolyCenter(StartPoly);
+			const FVector EndLoc = NavData->GetPolyCenter(Link.EndPoly);
+			const FVector PathDir = (EndLoc - StartLoc).GetSafeNormal();
+			const FVector DirToAsker = (Asker->GetActorLocation() - StartLoc).GetSafeNormal();
+			return FMath::TruncToInt(1000.f * (1.0f - (PathDir | DirToAsker)));
+		}
+	}
+
+	FAppearancePointEval(AActor* InTarget, TArray<FVector>& InFoundPoints, int32 InDistanceLimit = 5000, float InMinResultDistance = 1000.0f, bool bInStopAtAsker = true)
+		: FoundPoints(InFoundPoints), DistanceLimit(InDistanceLimit), MinResultDistanceSq(FMath::Square<float>(InMinResultDistance)), NavData(NULL), AskerAnchor(NULL), TargetHalfHeight(InTarget->GetSimpleCollisionHalfHeight()), bStopAtAsker(bInStopAtAsker)
+	{
+		TestedPolys.Reserve(100);
+	}
+
+	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* InNavData) override
+	{
+		NavData = InNavData;
+		AskerAnchor = NavData->GetNodeFromPoly(InNavData->FindAnchorPoly(Asker->GetNavAgentLocation(), Asker, AgentProps));
+		TraceParams = FCollisionQueryParams(FName(TEXT("AppearancePointEval")), false, Asker);
+		return true;
+	}
+};
+
+void AUTBot::GuessAppearancePoints(AActor* InTarget, const FVector& TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints)
+{
+	FoundPoints.Reset();
+	if (NavData != NULL && InTarget != NULL && GetPawn() != NULL)
+	{
+		const bool bCheckForwardAndBack = !bDoSkillChecks || Skill + Personality.Tactics + Personality.Alertness >= 1.5f + 1.5f * FMath::FRand();
+		APawn* P = Cast<APawn>(InTarget);
+		const FBotEnemyInfo* MyEnemyInfo = (P != NULL) ? GetEnemyInfo(P, false) : NULL;
+		if (MyEnemyInfo != NULL)
+		{
+			const FBotEnemyInfo* TeamEnemyInfo = GetEnemyInfo(P, true);
+			// if last seen loc is still valid, start with that
+			if ( !MyEnemyInfo->LastSeenLoc.IsZero() && (MyEnemyInfo->LastSeenLoc - TargetLoc).Size() < (GetPawn()->GetActorLocation() - TargetLoc).Size() &&
+				!GetWorld()->LineTraceTest(GetPawn()->GetActorLocation(), MyEnemyInfo->LastSeenLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("AppearanceLastSeen")), false, GetPawn()), WorldResponseParams) )
+			{
+				FoundPoints.Add(MyEnemyInfo->LastSeenLoc);
+			}
+			if (bCheckForwardAndBack)
+			{
+				// TODO: do directional back and forward prediction to come up with more points (using enemy info)
+			}
+		}
+		else if (bCheckForwardAndBack && !InTarget->GetVelocity().IsZero())
+		{
+			// TODO: do directional forward prediction to come up with more points (using actor velocity)
+		}
+
+		if (!bDoSkillChecks || Skill + Personality.Tactics + Personality.Alertness >= 5.0f || Personality.Tactics > FMath::FRand())
+		{
+			// use pathing to test additional points that lead back to us
+			FAppearancePointEval NodeEval(InTarget, FoundPoints);
+			float UnusedWeight = 0.0f;
+			TArray<FRouteCacheItem> UnusedRoute;
+			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, TargetLoc - FVector(0.0f, 0.0f, InTarget->GetSimpleCollisionHalfHeight()), UnusedWeight, false, UnusedRoute);
+		}
 	}
 }
 
@@ -3245,7 +3361,7 @@ bool AUTBot::IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateT
 			float MinLostContactTime = 0.5f;
 			if (Skill + Personality.Alertness < 5.0f)
 			{
-				MinLostContactTime += 6.5f - Skill + Personality.Alertness;
+				MinLostContactTime += 6.5f - (Skill + Personality.Alertness);
 			}
 			else
 			{
@@ -3503,6 +3619,7 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 		CollisionParams.AddIgnoredActor(Other);
 
 		bool bHit = GetWorld()->LineTraceTest(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
+		// TODO: suddenly we switch back to GetActorLocation() instead of TargetLocation? Seems incorrect...
 		if (Other == Enemy)
 		{
 			if (bHit)
