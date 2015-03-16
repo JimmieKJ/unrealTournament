@@ -83,6 +83,13 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	bLowPriorityLight = false;
 }
 
+bool AUTProjectile::DisableEmitterLights() const 
+{ 
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
+	return (bLowPriorityLight || (QualitySettings.EffectsQuality < 2)) && Instigator && (!Instigator->IsLocallyControlled() || !Cast<APlayerController>(Instigator->GetController()));
+}
+
 void AUTProjectile::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();

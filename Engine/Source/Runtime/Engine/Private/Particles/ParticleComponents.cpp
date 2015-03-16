@@ -4161,6 +4161,7 @@ void UParticleSystemComponent::InitParticles()
 		WarmupTickRate = Template->WarmupTickRate;
 		bIsViewRelevanceDirty = true;
 		const int32 GlobalDetailMode = GetCachedScalabilityCVars().DetailMode;
+		bool bSkipLights = GetOwner() && GetOwner()->DisableEmitterLights();
 
 		// If nothing is initialized, create EmitterInstances here.
 		if (EmitterInstances.Num() == 0)
@@ -4174,7 +4175,7 @@ void UParticleSystemComponent::InitParticles()
 					// Must have a slot for each emitter instance - even if it's NULL.
 					// This is so the indexing works correctly.
 					UParticleEmitter* Emitter = Template->Emitters[Idx];
-					if (Emitter && Emitter->DetailMode <= GlobalDetailMode && Emitter->HasAnyEnabledLODs())
+					if (Emitter && Emitter->DetailMode <= GlobalDetailMode && Emitter->HasAnyEnabledLODs() && (!bSkipLights || (Emitter->EmitterRenderMode != ERM_LightsOnly)))
 					{
 						EmitterInstances.Add(Emitter->CreateInstance(this));
 					}

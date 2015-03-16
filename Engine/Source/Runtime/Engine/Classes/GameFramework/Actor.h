@@ -2065,6 +2065,9 @@ public:
 	 */
 	virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult);
 
+	// hack for particle system dynamic LOD support
+	virtual bool DisableEmitterLights() const {return false;};
+
 	// Returns the human readable string representation of an object.
 	virtual FString GetHumanReadableName() const;
 
