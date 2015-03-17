@@ -14,9 +14,10 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	MessageFont = Font.Object;
 
 	ScreenPosition = FVector2D(0.5f, 0.0f);
-	Size = FVector2D(0,0);
-	Origin = FVector2D(0.5f,0.5f);
+	Size = FVector2D(0.f, 0.f);
+	Origin = FVector2D(0.5f, 0.5f);
 	AnimationAlpha = 0.0f;
+	StatusScale = 1.f;
 }
 
 void UUTHUDWidget_CTFFlagStatus::InitializeWidget(AUTHUD* Hud)
@@ -34,7 +35,6 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 	for (int32 Team=0;Team<2;Team++)
 	{
-		// Draw Blue Flag
 
 		RenderObj_Texture(CircleSlate[Team]);
 		RenderObj_Texture(CircleBorder[Team]);
@@ -42,23 +42,40 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		float X = CircleSlate[Team].Position.X;
 		float Y = CircleSlate[Team].Position.Y;
 		FlagIconTemplate.RenderColor = Team == 0 ? RedColor : BlueColor;
-		RenderObj_TextureAt(FlagIconTemplate, X, Y,FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
 
 		FName FlagState = GS->GetFlagState(Team);
-
-		if (FlagState == CarriedObjectState::Dropped)
+		if (FlagState == CarriedObjectState::Held)
 		{
-			RenderObj_TextureAt(DroppedIconTemplate, X, Y,DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
-		}
-		else if (FlagState == CarriedObjectState::Held)
-		{
+			if (bStatusDir)
+			{
+				StatusScale += DeltaTime;
+				bStatusDir = (StatusScale < 1.f);
+			}
+			else
+			{
+				StatusScale -= DeltaTime;
+				bStatusDir = (StatusScale < 0.7f);
+			}
 			TakenIconTemplate.RenderColor = Team == 0 ? BlueColor : RedColor;
-			RenderObj_TextureAt(TakenIconTemplate, X, Y,TakenIconTemplate.GetWidth(), TakenIconTemplate.GetHeight());
+			TakenIconTemplate.RenderColor.R *= FMath::Square(StatusScale) - 0.25f;
+			TakenIconTemplate.RenderColor.B *= FMath::Square(StatusScale) - 0.25f;
+			RenderObj_TextureAt(TakenIconTemplate, X + 0.1f * FlagIconTemplate.GetWidth(), Y + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
 			AUTPlayerState* Holder = GS->GetFlagHolder(Team);
 			if (Holder)
 			{
 				FlagHolderNames[Team].Text = FText::FromString(Holder->PlayerName);
 				RenderObj_Text(FlagHolderNames[Team]);
+			}
+			float CarriedX = X - 0.25f * FlagIconTemplate.GetWidth();
+			float CarriedY = Y - 0.25f * FlagIconTemplate.GetHeight();
+			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, StatusScale * FlagIconTemplate.GetWidth(), StatusScale * FlagIconTemplate.GetHeight());
+		}
+		else
+		{
+			RenderObj_TextureAt(FlagIconTemplate, X, Y, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
+			if (FlagState == CarriedObjectState::Dropped)
+			{
+				RenderObj_TextureAt(DroppedIconTemplate, X, Y, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
 			}
 		}
 
