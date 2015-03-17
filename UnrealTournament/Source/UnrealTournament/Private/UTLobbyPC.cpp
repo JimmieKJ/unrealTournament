@@ -42,6 +42,10 @@ void AUTLobbyPC::OnRep_PlayerState()
 			LP->MessageBox(NSLOCTEXT("UTLobbyPC","SessionErrorTitle","Session Error"), NSLOCTEXT("UTLobbyPC","SessionErrorMsg","You can not connect directly to a Hub.  Please select 'PLAY' then 'Find a Game...' from the main menu."));
 			ConsoleCommand("Disconnect");
 		}
+		else
+		{
+			LP->UpdatePresence(TEXT("In Hub"), true, true, true, false, false);
+		}
 	}
 }
 
@@ -132,4 +136,13 @@ void AUTLobbyPC::SetLobbyDebugLevel(int32 NewLevel)
 {
 	AUTLobbyHUD* H = Cast<AUTLobbyHUD>(MyHUD);
 	if (H) H->LobbyDebugLevel = NewLevel;
+}
+
+void AUTLobbyPC::MatchChanged(AUTLobbyMatchInfo* CurrentMatch)
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->UpdatePresence(CurrentMatch == NULL ? TEXT("In Hub") : TEXT("Setting up a Match"), true, true, true, false, false);
+	}
 }

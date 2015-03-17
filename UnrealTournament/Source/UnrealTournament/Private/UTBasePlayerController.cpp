@@ -175,16 +175,44 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 
 void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bSpectate)
 {
-	GUIDJoinWantsToSpectate = bSpectate;
-	GUIDJoin_CurrentGUID = ServerGUID;
-	GUIDJoinAttemptCount = 0;
-	GUIDSessionSearchSettings.Reset();
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
+	{
 
-	AttemptGUIDJoin();
+		UE_LOG(UT,Log,TEXT("Attempting to Connect to Server Via GUID: %s"), *ServerGUID);
+
+		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+
+		GUIDJoinWantsToSpectate = bSpectate;
+		GUIDJoin_CurrentGUID = ServerGUID;
+		GUIDJoinAttemptCount = 0;
+		GUIDSessionSearchSettings.Reset();
+
+		OnCancelGUIDFindSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnCancelGUIDFindSessionComplete);
+		OnCancelGUIDFindSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnCancelFindSessionsCompleteDelegate_Handle(OnCancelGUIDFindSessionCompleteDelegate);
+		OnlineSessionInterface->CancelFindSessions();
+	}
 }
+
+void AUTBasePlayerController::OnCancelGUIDFindSessionComplete(bool bWasSuccessful)
+{
+
+	UE_LOG(UT,Log,TEXT("OnCancelGUIDFindSessionComplete %i"), bWasSuccessful);
+
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
+	{
+		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelGUIDFindSessionCompleteDelegateHandle);
+		AttemptGUIDJoin();
+	}
+}
+
 
 void AUTBasePlayerController::AttemptGUIDJoin()
 {
+
+	UE_LOG(UT,Log,TEXT("Attempting a join #%i"), GUIDJoinAttemptCount);
 
 	if (GUIDJoinAttemptCount > 5)
 	{
@@ -208,23 +236,9 @@ void AUTBasePlayerController::AttemptGUIDJoin()
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = GUIDSessionSearchSettings.ToSharedRef();
 
 		// Cancel any existing find session calls.
-		OnlineSessionInterface->CancelFindSessions();
 
-		if (!OnFindGUIDSessionCompleteDelegate.IsBound())
-		{
-			OnFindGUIDSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnFindSessionsComplete);
-		}
-
-		if (OnFindGUIDSessionCompleteDelegateHandle.IsValid())
-		{
-			OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegateHandle);
-			OnFindGUIDSessionCompleteDelegateHandle.Reset();
-		}
-
-		if (!OnFindGUIDSessionCompleteDelegateHandle.IsValid())
-		{		
-			OnFindGUIDSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegate);
-		}
+		OnFindGUIDSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnFindSessionsComplete);
+		OnFindGUIDSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegate);
 
 		OnlineSessionInterface->FindSessions(0, SearchSettingsRef);
 	}
@@ -232,6 +246,7 @@ void AUTBasePlayerController::AttemptGUIDJoin()
 
 void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 {
+	UE_LOG(UT,Log,TEXT("OnFindSesssionComplete %i"), bWasSuccessful);
 	if (bWasSuccessful)
 	{
 		// Clear the delegate
@@ -262,7 +277,7 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 	
 	GUIDSessionSearchSettings.Reset();
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTBasePlayerController::AttemptGUIDJoin, 5.0f, false);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTBasePlayerController::AttemptGUIDJoin, 10.0f, false);
 }
 
 void AUTBasePlayerController::ClientReturnedToMenus()

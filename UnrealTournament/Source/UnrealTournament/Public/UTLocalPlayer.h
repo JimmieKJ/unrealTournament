@@ -355,6 +355,7 @@ protected:
 	virtual void HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage);
 
 	FString PendingFriendInviteSessionId;	
+	FString PendingFriendInviteFriendId;
 	bool bShowSocialNotification;
 
 #if !UE_SERVER

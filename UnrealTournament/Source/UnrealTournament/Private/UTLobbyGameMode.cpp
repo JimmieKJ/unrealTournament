@@ -166,10 +166,15 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 	{	
 		FString QuickStartOption = ParseOption(Options, TEXT("QuickStart"));
 
-		UE_LOG(UT,Log,TEXT("##### QUICKSTART %s"), *QuickStartOption);
 		if ( QuickStartOption != TEXT("") )
 		{
 			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? TEXT("/Script/UnrealTournament.UTCTFGameMode") : TEXT("/Script/UnrealTournament.UTDMGameMode");
+		}
+
+		FString FriendID = ParseOption(Options, TEXT("Friend"));
+		if (FriendID != TEXT(""))
+		{
+			PS->DesiredFriendToJoin = FriendID;
 		}
 	}
 
@@ -181,8 +186,6 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 {
 	Super::PostLogin(NewPlayer);
-
-	UE_LOG(UT,Log,TEXT("POST LOGIN: %s"), *NewPlayer->PlayerState->GetName());
 
 	UpdateLobbySession();
 

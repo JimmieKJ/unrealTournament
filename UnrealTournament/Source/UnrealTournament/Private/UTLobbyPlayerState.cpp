@@ -124,6 +124,11 @@ void AUTLobbyPlayerState::ClientConnectToInstance_Implementation(const FString& 
 void AUTLobbyPlayerState::OnRep_CurrentMatch()
 {
 	bIsInMatch = CurrentMatch != NULL;
+	AUTLobbyPC* PC = Cast<AUTLobbyPC>(GetOwner());
+	if (PC)
+	{
+		PC->MatchChanged(CurrentMatch);
+	}
 
 #if !UE_SERVER
 	if (CurrentMatchChangedDelegate.IsBound())

@@ -240,6 +240,8 @@ protected:
 
 	void CheckInstanceHealth();
 
+	AUTLobbyMatchInfo* FindMatchPlayerIsIn(FString PlayerID);
+
 };
 
 

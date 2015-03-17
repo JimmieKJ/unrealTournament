@@ -86,6 +86,9 @@ public:
 protected:
 	FOnFindSessionsCompleteDelegate OnFindGUIDSessionCompleteDelegate;
 	FDelegateHandle OnFindGUIDSessionCompleteDelegateHandle;
+	
+	FOnCancelFindSessionsCompleteDelegate OnCancelGUIDFindSessionCompleteDelegate;
+	FDelegateHandle OnCancelGUIDFindSessionCompleteDelegateHandle;
 
 	TSharedPtr<class FUTOnlineGameSearchBase> GUIDSessionSearchSettings;
 
@@ -95,5 +98,5 @@ protected:
 
 	void AttemptGUIDJoin();
 	void OnFindSessionsComplete(bool bWasSuccessful);
-
+	void OnCancelGUIDFindSessionComplete(bool bWasSuccessful);
 };

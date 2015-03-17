@@ -95,6 +95,35 @@ void AUTLobbyGameState::BroadcastChat(AUTLobbyPlayerState* SenderPS, FName Desti
 	}
 }
 
+AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
+{
+	for (int32 i=0;i<AvailableMatches.Num();i++)
+	{
+		if (AvailableMatches[i]->CurrentState == ELobbyMatchState::WaitingForPlayers ||
+			AvailableMatches[i]->CurrentState != ELobbyMatchState::Launching ||
+			AvailableMatches[i]->CurrentState != ELobbyMatchState::InProgress)	
+		{
+			for (int32 j=0;j<AvailableMatches[i]->Players.Num();j++)
+			{
+				if (AvailableMatches[i]->Players[j]->UniqueId.ToString() == PlayerID)
+				{
+					return AvailableMatches[i];
+				}
+			}
+
+			for (int32 j=0;j<AvailableMatches[i]->PlayersInMatchInstance.Num();j++)
+			{
+				if (AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.ToString() == PlayerID)
+				{
+					return AvailableMatches[i];
+				}
+			}
+		}
+	}
+
+	return NULL;
+}
+
 void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
 {
 	for (int32 i=0;i<AvailableMatches.Num();i++)
@@ -144,7 +173,19 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
 					NewPlayer->PreviousMatch = AvailableMatches[i];
 				}
 			}
-			break;
+
+			// We are done creating a new match
+			return;
+		}
+	}
+
+	// We are looking to join a player's match.. see if we can find the player....
+	if (NewPlayer->DesiredFriendToJoin != TEXT(""))
+	{
+		AUTLobbyMatchInfo* FriendsMatch = FindMatchPlayerIsIn(NewPlayer->DesiredFriendToJoin);
+		if (FriendsMatch)
+		{
+			JoinMatch(FriendsMatch, NewPlayer);
 		}
 	}
 }

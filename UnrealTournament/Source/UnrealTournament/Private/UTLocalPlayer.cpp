@@ -1472,6 +1472,13 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 				}
 			}
 			QuickMatchJoinType = NAME_None;
+
+			if (PendingFriendInviteFriendId != TEXT(""))
+			{
+				ConnectionString += FString::Printf(TEXT("?Friend=%s"), *PendingFriendInviteFriendId);
+				PendingFriendInviteFriendId = TEXT("");
+			}
+
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
@@ -1636,6 +1643,7 @@ void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FStri
 
 	//@todo samz - use FindSessionById instead of FindFriendSession with a pending SessionId
 	PendingFriendInviteSessionId = SessionId;
+	PendingFriendInviteFriendId = FriendId.ToString();
 	OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
 	OnlineSessionInterface->FindFriendSession(0, FriendId);
 }
@@ -1651,11 +1659,13 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 		}
 		else
 		{
+			PendingFriendInviteFriendId = TEXT("");
 			MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "InvalidFriendSession", "Friend no longer in session."));
 		}
 	}
 	else
 	{
+		PendingFriendInviteFriendId = TEXT("");
 		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "NoFriendSession", "Couldn't find friend session to join."));
 	}
 	PendingFriendInviteSessionId = FString();
