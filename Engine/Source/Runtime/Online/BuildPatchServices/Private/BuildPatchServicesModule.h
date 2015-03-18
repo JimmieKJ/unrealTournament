@@ -85,6 +85,7 @@ public:
 	virtual bool GenerateChunksManifestFromDirectory( const FBuildPatchSettings& Settings ) override;
 	virtual bool GenerateFilesManifestFromDirectory( const FBuildPatchSettings& Settings ) override;
 	virtual bool CompactifyCloudDirectory( const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const ECompactifyMode::Type Mode ) override;
+	virtual bool EnumerateManifestData(FString ManifestFilePath, FString OutputFile) override;
 #endif
 	virtual IBuildManifestPtr MakeManifestFromJSON( const FString& ManifestJSON ) override;
 	// End IBuildPatchServicesModule interface

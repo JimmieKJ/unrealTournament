@@ -42,6 +42,7 @@
 #include "BuildPatchManifest.h"
 #include "BuildPatchChunkCache.h"
 #include "BuildPatchCompactifier.h"
+#include "BuildPatchDataEnumeration.h"
 #include "BuildPatchFileConstructor.h"
 #include "BuildPatchDownloader.h"
 #include "BuildPatchInstaller.h"
