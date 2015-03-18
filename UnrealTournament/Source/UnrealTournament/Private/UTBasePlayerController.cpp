@@ -165,7 +165,7 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer != NULL && LocalPlayer->LastLobbyServerGUID != TEXT(""))
 	{
-		ConnectToServerViaGUID(LocalPlayer->LastLobbyServerGUID, false);
+		ConnectToServerViaGUID(LocalPlayer->LastLobbyServerGUID, false, true);
 	}
 	else
 	{
@@ -173,7 +173,7 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 	}
 }
 
-void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bSpectate)
+void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bSpectate, bool bFindLastMatch)
 {
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
@@ -184,6 +184,7 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bS
 		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
 		GUIDJoinWantsToSpectate = bSpectate;
+		GUIDJoinWantsToFindMatch = bFindLastMatch;
 		GUIDJoin_CurrentGUID = ServerGUID;
 		GUIDJoinAttemptCount = 0;
 		GUIDSessionSearchSettings.Reset();
@@ -262,13 +263,14 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 				if (LP)
 				{
-					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate))
+					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, NAME_None, GUIDJoinWantsToFindMatch))
 					{
 						LP->HideMenu();
 					}
 				}
 
 				GUIDJoinWantsToSpectate = false;
+				GUIDJoinWantsToFindMatch = false;
 				GUIDSessionSearchSettings.Reset();
 				return;
 			}

@@ -9,7 +9,6 @@
 #include "UTProfileSettings.h"
 #include "Slate/SUWindowsDesktop.h"
 #include "Slate/SUWindowsMainMenu.h"
-#include "Slate/SUWindowsMidGame.h"
 #include "Slate/Panels/SUWServerBrowser.h"
 #include "Slate/Panels/SUWStatsViewer.h"
 #include "Slate/Panels/SUWCreditsPanel.h"
@@ -1414,7 +1413,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	Exec(GetWorld(), TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"), *GLog);
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
@@ -1423,6 +1422,7 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	QuickMatchJoinType = QuickMatchType;
 
 	bWantsToConnectAsSpectator = bSpectate;
+	bWantsToFindMatch = bFindMatch;
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
 	if (!UniqueId.IsValid())
 	{
@@ -1479,9 +1479,15 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 				PendingFriendInviteFriendId = TEXT("");
 			}
 
+			if (bWantsToFindMatch)
+			{
+				ConnectionString += TEXT("?RTM=1");
+			}
+
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
+			bWantsToFindMatch = false;
 			bWantsToConnectAsSpectator = false;
 			return;
 

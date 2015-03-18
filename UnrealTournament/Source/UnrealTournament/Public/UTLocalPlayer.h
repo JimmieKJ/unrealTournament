@@ -120,6 +120,7 @@ protected:
 #endif
 
 	bool bWantsToConnectAsSpectator;
+	bool bWantsToFindMatch;
 
 public:
 	FProcHandle DedicatedServerProcessHandle;
@@ -325,7 +326,7 @@ public:
 	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None);
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false);
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 

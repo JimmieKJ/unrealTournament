@@ -124,58 +124,70 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 	return NULL;
 }
 
-void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
+void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bool bReturnedFromMatch)
 {
-	for (int32 i=0;i<AvailableMatches.Num();i++)
+
+	UE_LOG(UT,Log,TEXT("Checking For ExistingMatch: %s %i"), *NewPlayer->PlayerName, bReturnedFromMatch);
+
+	if (bReturnedFromMatch)
 	{
-		// Check to see if this player belongs in the match
-		if (AvailableMatches[i] && AvailableMatches[i]->WasInMatchInstance(NewPlayer))
+		for (int32 i=0;i<AvailableMatches.Num();i++)
 		{
-			// Remove the player.
-			AvailableMatches[i]->RemoveFromMatchInstance(NewPlayer);
-
-			// Look to see if he is the owner of the match.
-			if (AvailableMatches[i]->OwnerId == NewPlayer->UniqueId)
+			// Check to see if this player belongs in the match
+			if (AvailableMatches[i] && AvailableMatches[i]->WasInMatchInstance(NewPlayer))
 			{
-				// This was the owner, set the match to recycle (so it cleans itself up)
-				AvailableMatches[i]->SetLobbyMatchState(ELobbyMatchState::Recycling);
+				UE_LOG(UT,Log,TEXT("Player %s was in match"), *NewPlayer->PlayerName);
+				// Remove the player.
+				AvailableMatches[i]->RemoveFromMatchInstance(NewPlayer);
 
-				// Create a new match for this player to host using the old one as a template for current settings.
-				AUTLobbyMatchInfo* NewMatch = AddNewMatch(NewPlayer, AvailableMatches[i]);
-
-				// Look for any players who beat the host back.  If they are here, then see them
-
-				for (int32 j = 0; j < PlayerArray.Num(); j++)
+				// Look to see if he is the owner of the match.
+				if (AvailableMatches[i]->OwnerId == NewPlayer->UniqueId)
 				{
-					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerArray[j]);
-					if (PS && PS != NewPlayer && PS->CurrentMatch == NULL && PS->PreviousMatch && PS->PreviousMatch == AvailableMatches[i])
+
+					UE_LOG(UT,Log,TEXT("Found Host's Match -- Checking for kids"));
+
+					// This was the owner, set the match to recycle (so it cleans itself up)
+					AvailableMatches[i]->SetLobbyMatchState(ELobbyMatchState::Recycling);
+
+					// Create a new match for this player to host using the old one as a template for current settings.
+					AUTLobbyMatchInfo* NewMatch = AddNewMatch(NewPlayer, AvailableMatches[i]);
+
+					// Look for any players who beat the host back.  If they are here, then see them
+
+					for (int32 j = 0; j < PlayerArray.Num(); j++)
 					{
-						JoinMatch(NewMatch, PS);
-					}
-				}
-			}
-			else
-			{
-				if (AvailableMatches[i]->CurrentState == ELobbyMatchState::Recycling)
-				{
-					// The host has a new match.  See if we can find it.
-					for (int32 j=0; j<AvailableMatches.Num(); j++)
-					{
-						if (AvailableMatches[j] && AvailableMatches[i] != AvailableMatches[j] && AvailableMatches[i]->OwnerId == AvailableMatches[j]->OwnerId)					
+						AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerArray[j]);
+						UE_LOG(UT,Log,TEXT("Testing %s %s %s"), *PS->PlayerName, 
+								(PS->CurrentMatch != NULL ? *PS->CurrentMatch->GetFullName() : TEXT("None")), 
+								(PS->PreviousMatch != NULL ? *PS->PreviousMatch->GetFullName() : TEXT("None")), 
+								(AvailableMatches[i] != NULL ? *AvailableMatches[i]->GetFullName() : TEXT("None")));
+
+						if (PS && PS != NewPlayer && PS->CurrentMatch == NULL && PS->PreviousMatch && PS->PreviousMatch == AvailableMatches[i])
 						{
-							JoinMatch(AvailableMatches[j], NewPlayer);
-							break;
+							JoinMatch(NewMatch, PS);
 						}
 					}
 				}
-				else if (AvailableMatches[i]->IsInProgress())
+				else
 				{
+					if (AvailableMatches[i]->CurrentState == ELobbyMatchState::Recycling)
+					{
+						// The host has a new match.  See if we can find it.
+						for (int32 j=0; j<AvailableMatches.Num(); j++)
+						{
+							if (AvailableMatches[j] && AvailableMatches[i] != AvailableMatches[j] && AvailableMatches[i]->OwnerId == AvailableMatches[j]->OwnerId)					
+							{
+								JoinMatch(AvailableMatches[j], NewPlayer);
+								break;
+							}
+						}
+					}
 					NewPlayer->PreviousMatch = AvailableMatches[i];
 				}
-			}
 
-			// We are done creating a new match
-			return;
+				// We are done creating a new match
+				return;
+			}
 		}
 	}
 

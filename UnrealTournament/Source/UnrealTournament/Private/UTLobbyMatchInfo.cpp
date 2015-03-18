@@ -114,7 +114,7 @@ void AUTLobbyMatchInfo::OnRep_MatchStats()
 		Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
 		Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
 
-		MatchElapsedTime = FText::Format(NSLOCTEXT("SUWindowsMidGame", "ClockFormat", "{Hours}:{Minutes}:{Seconds}"), Args);
+		MatchElapsedTime = FText::Format(NSLOCTEXT("Generic", "ClockFormat", "{Hours}:{Minutes}:{Seconds}"), Args);
 	}
 }
 

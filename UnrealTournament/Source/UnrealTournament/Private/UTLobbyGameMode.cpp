@@ -176,6 +176,8 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 		{
 			PS->DesiredFriendToJoin = FriendID;
 		}
+
+		PS->bReturnedFromMatch = HasOption(Options,"RTM");
 	}
 
 

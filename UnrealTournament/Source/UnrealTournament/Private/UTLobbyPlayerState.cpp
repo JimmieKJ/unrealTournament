@@ -264,6 +264,6 @@ void AUTLobbyPlayerState::ServerACKReceivedAllData_Implementation()
 	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (GS)
 	{
-		GS->CheckForExistingMatch(this);
+		GS->CheckForExistingMatch(this, bReturnedFromMatch);
 	}
 }
