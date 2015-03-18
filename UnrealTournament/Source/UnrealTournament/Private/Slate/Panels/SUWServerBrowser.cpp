@@ -755,10 +755,10 @@ void SUWServerBrowser::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner,
 {
 	if (NewStatus == ELoginStatus::LoggedIn)
 	{
-		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Refresh","Refresh")).TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText"));
+		SetBrowserState(EBrowserState::BrowserIdle);
+		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Refresh","Refresh")).TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText"));
 		if (bAutoRefresh)
 		{
-			SetBrowserState(EBrowserState::BrowserIdle);
 			bAutoRefresh = false;
 			OnRefreshClick();
 		}
@@ -948,7 +948,7 @@ void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 	BrowserState = NewBrowserState;
 	if (BrowserState == EBrowserState::NotLoggedIn) 
 	{
-		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Login","Login")).TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText"));
+		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Login","Login")).TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText"));
 		RefreshButton->SetVisibility(EVisibility::All);
 
 		JoinButton->SetEnabled(false);
