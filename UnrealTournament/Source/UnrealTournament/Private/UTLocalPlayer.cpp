@@ -1748,18 +1748,10 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 		MessageBox(NSLOCTEXT("Generic","LoginNeededTitle","Login Needed"), NSLOCTEXT("Generic","LoginNeededMessage","You need to login before you can do that."));
 	}
 }
-void UUTLocalPlayer::CancelQuickMatch()
+void UUTLocalPlayer::CloseQuickMatch()
 {
-	// Cancel out the find session call
-	if (OnlineSessionInterface.IsValid())
-	{
-		OnlineSessionInterface->CancelFindSessions();
-	}
-
-
 	if (QuickMatchDialog.IsValid())
 	{
-		QuickMatchDialog->Cancel();
 		GEngine->GameViewport->RemoveViewportWidgetContent(QuickMatchDialog.ToSharedRef());
 		QuickMatchDialog.Reset();
 	}

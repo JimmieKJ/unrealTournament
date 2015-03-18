@@ -74,6 +74,9 @@ protected:
 
 
 private:
+
+	bool bCancelQuickmatch;
+
 	FText MinorStatusText;
 	bool bSearchInProgress;
 
@@ -82,6 +85,7 @@ private:
 	IOnlineSessionPtr OnlineSessionInterface;
 
 	FDelegateHandle OnFindSessionCompleteHandle;
+	FDelegateHandle OnCancelFindSessionCompleteHandle;
 
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
@@ -92,7 +96,10 @@ private:
 	FText GetMinorStatusText() const;
 
 	// Begin the search for a HUB to join
+	void BeginQuickmatch();
+	void OnInitialFindCancel(bool bWasSuccessful);
 	void FindHUBToJoin();
+	void OnSearchCancelled(bool bWasSuccessful);
 
 	virtual void OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo);
 	virtual void OnServerBeaconFailure(AUTServerBeaconClient* Sender);
@@ -107,7 +114,6 @@ private:
 
 	void NoAvailableMatches();
 	void FindBestMatch();
-
 
 	virtual bool SupportsKeyboardFocus() const override;
 

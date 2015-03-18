@@ -81,7 +81,7 @@ public:
 	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
 
 	void StartQuickMatch(FName QuickMatchType);
-	void CancelQuickMatch();
+	void CloseQuickMatch();
 
 	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
 	{
