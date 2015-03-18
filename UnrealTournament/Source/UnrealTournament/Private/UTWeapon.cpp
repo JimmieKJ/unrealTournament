@@ -1347,7 +1347,7 @@ void AUTWeapon::Tick(float DeltaTime)
 		CurrentState->Tick(DeltaTime);
 
 		// if weapon is up in first person, view bob with movement
-		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled())
+		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->Controller) != NULL)
 		{
 			// FOV offset - fixmesteve use viewer
 			AUTPlayerController* MyPC = Cast<AUTPlayerController>(UTOwner->GetController());
