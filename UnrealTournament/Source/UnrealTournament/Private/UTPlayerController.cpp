@@ -268,7 +268,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("FasterEmote", IE_Pressed, this, &AUTPlayerController::FasterEmote);
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
-
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -498,13 +497,32 @@ void AUTPlayerController::SwitchToBestWeapon()
 		UTCharacter->SwitchWeapon(BestWeapon);
 	}
 }
+
 void AUTPlayerController::PrevWeapon()
 {
 	SwitchWeaponInSequence(true);
 }
+
 void AUTPlayerController::NextWeapon()
 {
 	SwitchWeaponInSequence(false);
+}
+
+void AUTPlayerController::ToggleTranslocator()
+{
+	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
+	{
+		int32 CurrentGroup = bUseClassicGroups ? UTCharacter->GetWeapon()->ClassicGroup : UTCharacter->GetWeapon()->Group;
+		if (CurrentGroup == 0)
+		{
+			SwitchWeapon(PreviousWeaponGroup);
+		}
+		else
+		{
+			PreviousWeaponGroup = CurrentGroup;
+			SwitchWeapon(0);
+		}
+	}
 }
 
 void AUTPlayerController::ThrowWeapon()

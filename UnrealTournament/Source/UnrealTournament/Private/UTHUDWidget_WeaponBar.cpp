@@ -147,6 +147,11 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
 		{
+			if (WeaponGroups[GroupIdx].Group == 0)
+			{
+				// skip translocator on weapon bar
+				continue;
+			}
 			// We have no allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.
 			float Y2 = YPosition;
 			float TextXPosition = 0;
@@ -235,12 +240,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 				Opacity = bSelectedGroup ? 1.0 : InactiveIconOpacity;
 
-				// @TODO FIXME - should show the actual key bound to the weapon group
-				if (WeaponGroups[GroupIdx].Group == 0)
-				{
-					GroupText.Text = FText::FromString(TEXT("Q"));
-				}
-				else if (WeaponGroups[GroupIdx].Group == 10)
+				if (WeaponGroups[GroupIdx].Group == 10)
 				{
 					GroupText.Text = FText::FromString(TEXT("0"));
 				}
