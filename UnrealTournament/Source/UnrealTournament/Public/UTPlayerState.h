@@ -213,6 +213,18 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveEyewearClass(const FString& NewEyewearClass);
 
+	UPROPERTY()
+	int32 HatVariant;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveHatVariant(int32 NewVariant);
+
+	UPROPERTY()
+	int32 EyewearVariant;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveEyewearVariant(int32 NewVariant);
+
 	UPROPERTY(replicated)
 	TSubclassOf<AUTTaunt> TauntClass;
 

@@ -237,6 +237,9 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		}
 	}
 
+	HatVariantList.Add(MakeShareable(new FString(TEXT("Default"))));
+	EyewearVariantList.Add(MakeShareable(new FString(TEXT("Default"))));
+
 	{
 		EyewearList.Add(MakeShareable(new FString(TEXT("No Glasses"))));
 		EyewearPathList.Add(TEXT(""));
@@ -306,6 +309,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	}
 
 	SelectedPlayerColor = GetDefault<AUTPlayerController>()->FFAPlayerColor;
+	SelectedHatVariantIndex = GetPlayerOwner()->GetHatVariant();
+	SelectedEyewearVariantIndex = GetPlayerOwner()->GetEyewearVariant();
 
 	FMargin NameColumnPadding = FMargin(10, 4);
 	FMargin ValueColumnPadding = FMargin(0, 4);
@@ -342,7 +347,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				]
 
 				+ SHorizontalBox::Slot()
-				.FillWidth(0.30f)
+				.FillWidth(0.35f)
 				.VAlign(VAlign_Center)
 				[
 					SNew(SVerticalBox)
@@ -443,6 +448,25 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 							]
 						]
+						
+						+ SGridPanel::Slot(2, 1)
+						.Padding(NameColumnPadding)
+						[
+							SAssignNew(HatVariantComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.OptionsSource(&HatVariantList)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnHatVariantSelected)
+							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+							.Content()
+							[
+								SAssignNew(SelectedHatVariant, STextBlock)
+								.Text(FString(TEXT("Default")))
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+							]
+						]
 
 						// Eyewear
 						// ---------------------------------------------------------------------------------
@@ -476,7 +500,25 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								]
 							]
 						]
-
+						
+						+ SGridPanel::Slot(2, 2)
+						.Padding(NameColumnPadding)
+						[
+							SAssignNew(EyewearVariantComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.OptionsSource(&EyewearVariantList)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnEyewearVariantSelected)
+							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+							.Content()
+							[
+								SAssignNew(SelectedEyewearVariant, STextBlock)
+								.Text(FString(TEXT("Default")))
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+							]
+						]
 						
 						// Taunt
 						// ---------------------------------------------------------------------------------
@@ -658,7 +700,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				]
 
 				+ SHorizontalBox::Slot()
-				.FillWidth(0.2f)
+				.FillWidth(0.15f)
 				[
 					SNew(SSpacer)
 					.Size(FVector2D(1,1))
@@ -680,7 +722,11 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		{
 			HatComboBox->SetSelectedItem(HatList[0]);
 		}
-
+		PopulateHatVariants();
+		if (SelectedHatVariantIndex > 0 && SelectedHatVariantIndex < HatVariantList.Num())
+		{
+			HatVariantComboBox->SetSelectedItem(HatVariantList[SelectedHatVariantIndex]);
+		}
 
 		bool bFoundSelectedEyewear = false;
 		for (int32 i = 0; i < EyewearPathList.Num(); i++)
@@ -695,6 +741,11 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		if (!bFoundSelectedEyewear && EyewearPathList.Num() > 0)
 		{
 			EyewearComboBox->SetSelectedItem(EyewearList[0]);
+		}
+		PopulateEyewearVariants();
+		if (SelectedEyewearVariantIndex > 0 && SelectedEyewearVariantIndex < EyewearVariantList.Num())
+		{
+			EyewearVariantComboBox->SetSelectedItem(EyewearVariantList[SelectedEyewearVariantIndex]);
 		}
 
 		bool bFoundSelectedTaunt = false;
@@ -834,7 +885,12 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	GetPlayerOwner()->SetTauntPath(TauntPathList.IsValidIndex(Index) ? TauntPathList[Index] : FString());
 	Index = CharacterList.Find(CharacterComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetCharacterPath(CharacterPathList.IsValidIndex(Index) ? CharacterPathList[Index] : FString());
-	
+
+	Index = HatVariantList.Find(HatVariantComboBox->GetSelectedItem());
+	GetPlayerOwner()->SetHatVariant(Index);
+	Index = EyewearVariantList.Find(EyewearVariantComboBox->GetSelectedItem());
+	GetPlayerOwner()->SetEyewearVariant(Index);
+
 	GetPlayerOwner()->SaveProfileSettings();
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 
@@ -894,12 +950,26 @@ TOptional<int32> SUWPlayerSettingsDialog::GetEmote3Value() const
 void SUWPlayerSettingsDialog::OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedHat->SetText(*NewSelection.Get());
+	PopulateHatVariants();
+	RecreatePlayerPreview();
+}
+
+void SUWPlayerSettingsDialog::OnHatVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedHatVariant->SetText(*NewSelection.Get());
 	RecreatePlayerPreview();
 }
 
 void SUWPlayerSettingsDialog::OnEyewearSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedEyewear->SetText(*NewSelection.Get());
+	PopulateEyewearVariants();
+	RecreatePlayerPreview();
+}
+
+void SUWPlayerSettingsDialog::OnEyewearVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedEyewearVariant->SetText(*NewSelection.Get());
 	RecreatePlayerPreview();
 }
 
@@ -999,6 +1069,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		if (HatClass != NULL)
 		{
 			PlayerPreviewMesh->HatClass = HatClass;
+			PlayerPreviewMesh->HatVariant = HatVariantList.Find(HatVariantComboBox->GetSelectedItem());
 			PlayerPreviewMesh->OnRepHat();
 		}
 	}
@@ -1012,6 +1083,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		if (EyewearClass != NULL)
 		{
 			PlayerPreviewMesh->EyewearClass = EyewearClass;
+			PlayerPreviewMesh->EyewearVariant = EyewearVariantList.Find(EyewearVariantComboBox->GetSelectedItem());
 			PlayerPreviewMesh->OnRepEyewear();
 		}
 	}
@@ -1038,6 +1110,68 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 	if ( PreviewWeapon )
 	{
 		PreviewWeapon->BeginPlay();
+	}
+}
+
+void SUWPlayerSettingsDialog::PopulateHatVariants()
+{
+	HatVariantList.Empty();
+	TSharedPtr<FString> DefaultVariant = MakeShareable(new FString(TEXT("Default")));
+	HatVariantList.Add(DefaultVariant);
+	HatVariantComboBox->SetSelectedItem(DefaultVariant);
+
+	int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
+	FString NewHatPath = HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString();
+	if (NewHatPath.Len() > 0)
+	{
+		TSubclassOf<AUTCosmetic> HatClass = LoadClass<AUTCosmetic>(NULL, *NewHatPath, NULL, LOAD_None, NULL);
+		if (HatClass != NULL)
+		{
+			for (int32 i = 0; i < HatClass->GetDefaultObject<AUTCosmetic>()->VariantNames.Num(); i++)
+			{
+				HatVariantList.Add(MakeShareable(new FString(HatClass->GetDefaultObject<AUTCosmetic>()->VariantNames[i].ToString())));
+			}
+		}
+	}
+
+	if (HatVariantList.Num() == 1)
+	{
+		HatVariantComboBox->SetVisibility(EVisibility::Hidden);
+	}
+	else
+	{
+		HatVariantComboBox->SetVisibility(EVisibility::Visible);
+	}
+}
+
+void SUWPlayerSettingsDialog::PopulateEyewearVariants()
+{
+	EyewearVariantList.Empty();
+	TSharedPtr<FString> DefaultVariant = MakeShareable(new FString(TEXT("Default")));
+	EyewearVariantList.Add(DefaultVariant);
+	EyewearVariantComboBox->SetSelectedItem(DefaultVariant);
+
+	int32 Index = EyewearList.Find(EyewearComboBox->GetSelectedItem());
+	FString NewEyewearPath = EyewearPathList.IsValidIndex(Index) ? EyewearPathList[Index] : FString();
+	if (NewEyewearPath.Len() > 0)
+	{
+		TSubclassOf<AUTCosmetic> EyewearClass = LoadClass<AUTCosmetic>(NULL, *NewEyewearPath, NULL, LOAD_None, NULL);
+		if (EyewearClass != NULL)
+		{
+			for (int32 i = 0; i < EyewearClass->GetDefaultObject<AUTCosmetic>()->VariantNames.Num(); i++)
+			{
+				EyewearVariantList.Add(MakeShareable(new FString(EyewearClass->GetDefaultObject<AUTCosmetic>()->VariantNames[i].ToString())));
+			}
+		}
+	}
+
+	if (EyewearVariantList.Num() == 1)
+	{
+		EyewearVariantComboBox->SetVisibility(EVisibility::Hidden);
+	}
+	else
+	{
+		EyewearVariantComboBox->SetVisibility(EVisibility::Visible);
 	}
 }
 

@@ -139,6 +139,10 @@ public:
 	virtual void SetHatPath(const FString& NewHatPath);
 	virtual FString GetEyewearPath() const;
 	virtual void SetEyewearPath(const FString& NewEyewearPath);
+	virtual int32 GetHatVariant() const;
+	virtual void SetHatVariant(int32 NewVariant);
+	virtual int32 GetEyewearVariant() const;
+	virtual void SetEyewearVariant(int32 NewVariant);
 	virtual FString GetTauntPath() const;
 	virtual void SetTauntPath(const FString& NewTauntPath);
 	/** returns path for player's character (visual only data) */

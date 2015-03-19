@@ -1521,12 +1521,14 @@ void AUTPlayerController::Possess(APawn* PawnToPossess)
 		if (UTPlayerState->HatClass)
 		{
 			UTChar->HatClass = UTPlayerState->HatClass;
+			UTChar->HatVariant = UTPlayerState->HatVariant;
 			UTChar->OnRepHat();
 		}
 
 		if (UTPlayerState->EyewearClass)
 		{
 			UTChar->EyewearClass = UTPlayerState->EyewearClass;
+			UTChar->EyewearVariant = UTPlayerState->EyewearVariant;
 			UTChar->OnRepEyewear();
 		}
 	}

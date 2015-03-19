@@ -1223,6 +1223,50 @@ void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& 
 	}
 }
 
+int32 UUTLocalPlayer::GetHatVariant() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatVariant : FCString::Atoi(*GetDefaultURLOption(TEXT("HatVar")));
+}
+
+void UUTLocalPlayer::SetHatVariant(int32 NewVariant)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->HatVariant = NewVariant;
+	}
+	SetDefaultURLOption(TEXT("HatVar"), FString::FromInt(NewVariant));
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveHatVariant(NewVariant);
+		}
+	}
+}
+
+int32 UUTLocalPlayer::GetEyewearVariant() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->EyewearVariant : FCString::Atoi(*GetDefaultURLOption(TEXT("EyewearVar")));
+
+}
+void UUTLocalPlayer::SetEyewearVariant(int32 NewVariant)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->EyewearVariant = NewVariant;
+	}
+	SetDefaultURLOption(TEXT("EyewearVar"), FString::FromInt(NewVariant));
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveEyewearVariant(NewVariant);
+		}
+	}
+}
+
 FString UUTLocalPlayer::GetHatPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatPath : GetDefaultURLOption(TEXT("Hat"));

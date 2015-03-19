@@ -442,6 +442,11 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 			{
 				PS->ServerReceiveTauntClass(InOpt);
 			}
+			int32 HatVar = GetIntOption(Options, TEXT("HatVar"), 0);
+			PS->ServerReceiveHatVariant(HatVar);
+			int32 EyewearVar = GetIntOption(Options, TEXT("EyewearVar"), 0);
+			PS->ServerReceiveEyewearVariant(EyewearVar);
+
 			// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
 			PS->ValidateEntitlements();
 		}

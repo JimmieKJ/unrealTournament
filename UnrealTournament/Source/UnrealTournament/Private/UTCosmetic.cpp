@@ -23,6 +23,8 @@ void AUTCosmetic::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
 
+	CosmeticWearer = Cast<AUTCharacter>(GetOwner());
+
 	if (GetRootComponent())
 	{
 		bool bRootNotPrimitiveComponent = true;
@@ -60,7 +62,40 @@ void AUTCosmetic::PreInitializeComponents()
 	}
 }
 
+void AUTCosmetic::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(GetRootComponent());
+
+	for (int32 i = 0; i < PrimComponent->GetNumMaterials(); i++)
+	{
+		// FIXME: NULL check is hack for editor reimport bug breaking number of materials
+		if (PrimComponent->GetMaterial(i) != NULL)
+		{
+			CosmeticMIs.Add(PrimComponent->CreateAndSetMaterialInstanceDynamic(i));
+		}
+	}
+}
+
 void AUTCosmetic::OnWearerHeadshot_Implementation()
 {
 
+}
+
+void AUTCosmetic::OnVariantSelected_Implementation(int32 Variant)
+{
+	if (Variant >= 0 && Variant < VariantColorSwaps.Num())
+	{
+		for (UMaterialInstanceDynamic* MI : CosmeticMIs)
+		{
+			if (MI != NULL)
+			{
+				static FName NAME_CosmeticColor1(TEXT("CosmeticColor1"));
+				static FName NAME_CosmeticColor2(TEXT("CosmeticColor2"));
+				MI->SetVectorParameterValue(NAME_CosmeticColor1, VariantColorSwaps[Variant].Color1);
+				MI->SetVectorParameterValue(NAME_CosmeticColor2, VariantColorSwaps[Variant].Color2);
+			}
+		}
+	}
 }

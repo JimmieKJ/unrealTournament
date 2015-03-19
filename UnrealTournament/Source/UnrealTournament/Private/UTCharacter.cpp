@@ -2327,6 +2327,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearClass, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, HatVariant, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearVariant, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 }
@@ -3705,7 +3707,7 @@ void AUTCharacter::OnRepHat()
 			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
 			Hat->SetActorRelativeRotation(HatRelativeRotation);
 			Hat->SetActorRelativeLocation(HatRelativeLocation);
-			Hat->CosmeticWearer = this;
+			Hat->OnVariantSelected(HatVariant);
 
 			// If replication of has high score happened before hat replication, locally update it here
 			if (bHasHighScore)
@@ -3733,8 +3735,29 @@ void AUTCharacter::OnRepEyewear()
 		if (Eyewear != NULL)
 		{
 			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget);
-			Eyewear->CosmeticWearer = this;
+			Eyewear->OnVariantSelected(EyewearVariant);
 		}
+	}
+}
+
+void AUTCharacter::OnRepHatVariant()
+{
+	if (Hat != nullptr)
+	{
+		Hat->OnVariantSelected(HatVariant);
+	}
+
+	if (LeaderHat != nullptr)
+	{
+		LeaderHat->OnVariantSelected(HatVariant);
+	}
+}
+
+void AUTCharacter::OnRepEyewearVariant()
+{
+	if (Eyewear != nullptr)
+	{
+		Eyewear->OnVariantSelected(EyewearVariant);
 	}
 }
 
@@ -4284,7 +4307,7 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 				LeaderHat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
 				LeaderHat->SetActorRelativeRotation(HatRelativeRotation);
 				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
-				LeaderHat->CosmeticWearer = this;
+				LeaderHat->OnVariantSelected(HatVariant);
 
 				Hat->SetActorHiddenInGame(true);
 			}
