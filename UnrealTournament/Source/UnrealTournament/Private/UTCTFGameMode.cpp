@@ -196,7 +196,6 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 					Who->AdjustScore(Points);
 					if (Who != Holder)
 					{
-						Who->Assists++;
 						NewScoringPlay.Assists.AddUnique(FSafePlayerName(Who));
 					}
 				}
@@ -222,6 +221,15 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 						UE_LOG(UT,Verbose, TEXT("    Prox Bonus for %s = %i"), *PS->PlayerName, ProximityCapBonus);
 						PS->AdjustScore(ProximityCapBonus);
 					}
+				}
+			}
+
+			// increment assist counter for players who got them
+			for (const FSafePlayerName& Assist : NewScoringPlay.Assists)
+			{
+				if (Assist.PlayerState != NULL)
+				{
+					Assist.PlayerState->Assists++;
 				}
 			}
 
