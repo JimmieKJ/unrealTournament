@@ -1885,7 +1885,10 @@ public class MakeUTDLC : BuildCommand
             var DeployContextServerList = Project.CreateDeploymentContext(Params, true, true);
             foreach (var SC in DeployContextServerList)
             {
-                Cook(SC, Params);
+                if (!ParseParam("skipcook"))
+                {
+                    Cook(SC, Params);
+                }
                 Stage(SC, Params);
             }
         }
@@ -1894,7 +1897,10 @@ public class MakeUTDLC : BuildCommand
         var DeployClientContextList = Project.CreateDeploymentContext(Params, false, true);
         foreach (var SC in DeployClientContextList)
         {
-            Cook(SC, Params);
+            if (!ParseParam("skipcook"))
+            {
+                Cook(SC, Params);
+            }
             Stage(SC, Params);
         }
     }

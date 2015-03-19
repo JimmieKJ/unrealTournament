@@ -21,10 +21,12 @@ public:
 	void PackageTaunt(UClass* TauntClass);
 	void PackageCharacter(UClass* CharacterClass);
 
+	void CreateUATTask(const FString& CommandLine, const FString& DLCName, const FText& TaskName, const FText &TaskShortName, const FSlateBrush* TaskIcon);
 private:
 	FPackageContent(const TSharedRef< FUICommandList >& InActionList);
 	void Initialize();
 
+	void PackageDLC(const FString& DLCName, const FText& TaskName, const FText& TaskShortName);
 
 	void OpenPackageLevelWindow();
 	void OpenPackageWeaponWindow();
@@ -39,8 +41,6 @@ private:
 	TSharedRef< FUICommandList > ActionList;
 
 	TSharedPtr< FExtender > MenuExtender;
-
-	void CreateUATTask(const FString& CommandLine, const FString& DLCName, const FText& TaskName, const FText &TaskShortName, const FSlateBrush* TaskIcon);
 
 	struct EventData
 	{

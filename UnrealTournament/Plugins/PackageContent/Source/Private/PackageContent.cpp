@@ -10,6 +10,8 @@
 #include "EdGraphSchema_K2.h"
 #include "DesktopPlatformModule.h"
 #include "SHyperlink.h"
+#include "UTUnrealEdEngine.h"
+#include "ITargetPlatformManagerModule.h"
 
 #define LOCTEXT_NAMESPACE "PackageContent"
 
@@ -326,17 +328,9 @@ void FPackageContent::OpenPackageLevelWindow()
 	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
 	{
 		UE_LOG(LogPackageContent, Log, TEXT("Starting to publish this level!"));
-	
+		
 		FString MapName = GWorld->GetMapName();
-#if PLATFORM_WINDOWS
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Win64"), *MapName, *MapName);
-#elif PLATFORM_LINUX
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Linux"), *MapName, *MapName);
-#else
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -Maps=%s -platform=Mac"), *MapName, *MapName);
-#endif
-
-		CreateUATTask(CommandLine, MapName, LOCTEXT("PackageLevelTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		PackageDLC(MapName, LOCTEXT("PackageWeaponTaskName", "Packaging Level"), LOCTEXT("CookingTaskName", "Publishing"));
 	}
 }
 
@@ -384,6 +378,70 @@ private:
 	FText Text;
 };
 
+class FPackageContentInEditorPart2Task
+{
+public:
+	FPackageContentInEditorPart2Task(const FString& InDLCName, FPackageContent* InPackageContent)
+		: DLCName(InDLCName), PackageContent(InPackageContent)
+	{ }
+	
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+#if PLATFORM_WINDOWS
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Win64"), *DLCName);
+#elif PLATFORM_LINUX
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Linux"), *DLCName);
+#else
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Mac"), *DLCName);
+#endif
+		
+		PackageContent->CreateUATTask(CommandLine, DLCName, LOCTEXT("CookingTaskName", "Publishing"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+	ENamedThreads::Type GetDesiredThread() { return ENamedThreads::GameThread; }
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FPackageContentInEditorPart2Task, STATGROUP_TaskGraphTasks);
+	}
+
+private:
+
+	FString DLCName;
+	FPackageContent* PackageContent;
+};
+
+class FPackageContentInEditorTask
+{
+public:
+
+	FPackageContentInEditorTask(const FString& InDLCName, FPackageContent* InPackageContent)
+		: DLCName(InDLCName), PackageContent(InPackageContent)
+	{ }
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		// We're not on the game thread, don't try to access slate or anything fancy here
+		while (GUnrealEd->CookServer->IsCookByTheBookRunning() && !GUnrealEd->IsCookByTheBookInEditorFinished())
+		{
+		}
+
+		// packaging complete, now do makeUAT job to package it
+		TGraphTask<FPackageContentInEditorPart2Task>::CreateTask().ConstructAndDispatchWhenReady(DLCName, PackageContent);
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+	ENamedThreads::Type GetDesiredThread() { return ENamedThreads::AnyThread; }
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FPackageContentInEditorTask, STATGROUP_TaskGraphTasks);
+	}
+
+private:
+
+	FString DLCName;
+	FPackageContent* PackageContent;
+};
 
 class FPackageContentCompleteTask
 {
@@ -635,15 +693,35 @@ void FPackageContent::PackageWeapon(UClass* WeaponClass)
 	if (UBGC && UBGC->ClassGeneratedBy)
 	{
 		FString WeaponName = UBGC->ClassGeneratedBy->GetName();
+
+		PackageDLC(WeaponName, LOCTEXT("PackageWeaponTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Publishing"));
+	}
+}
+
+void FPackageContent::PackageDLC(const FString& DLCName, const FText& TaskName, const FText& TaskShortName)
+{
+	UUTUnrealEdEngine* UTEditor = Cast<UUTUnrealEdEngine>(GEditor);
+	// Disabled for now
+	if (0 && UTEditor && UTEditor->CanCookByTheBookInEditor("WindowsNoEditor"))
+	{
+		TArray<ITargetPlatform*> TargetPlatforms;
+		ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform("WindowsNoEditor");
+		TargetPlatforms.Add(TargetPlatform);
+		UTEditor->StartDLCCookInEditor(TargetPlatforms, DLCName, "UTVersion0");
+		
+		TGraphTask<FPackageContentInEditorTask>::CreateTask().ConstructAndDispatchWhenReady(DLCName, this);
+	}
+	else
+	{
 #if PLATFORM_WINDOWS
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *WeaponName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *DLCName);
 #elif PLATFORM_LINUX
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *WeaponName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *DLCName);
 #else
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *WeaponName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *DLCName);
 #endif
 
-		CreateUATTask(CommandLine, WeaponName, LOCTEXT("PackageWeaponTaskName", "Packaging Weapon"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		CreateUATTask(CommandLine, DLCName, TaskName, TaskShortName, FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 	}
 }
 
@@ -653,15 +731,8 @@ void FPackageContent::PackageHat(UClass* HatClass)
 	if (UBGC && UBGC->ClassGeneratedBy)
 	{
 		FString HatName = UBGC->ClassGeneratedBy->GetName();
-#if PLATFORM_WINDOWS
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *HatName);
-#elif PLATFORM_LINUX
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *HatName);
-#else
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *HatName);
-#endif
 
-		CreateUATTask(CommandLine, HatName, LOCTEXT("PackageCosmeticTaskName", "Packaging Cosmetic Item"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		PackageDLC(HatName, LOCTEXT("PackageCosmeticTaskName", "Packaging Cosmetic Item"), LOCTEXT("CookingTaskName", "Publishing"));
 	}
 }
 
@@ -671,15 +742,7 @@ void FPackageContent::PackageTaunt(UClass* TauntClass)
 	if (UBGC && UBGC->ClassGeneratedBy)
 	{
 		FString TauntName = UBGC->ClassGeneratedBy->GetName();
-#if PLATFORM_WINDOWS
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *TauntName);
-#elif PLATFORM_LINUX
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *TauntName);
-#else
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *TauntName);
-#endif
-
-		CreateUATTask(CommandLine, TauntName, LOCTEXT("PackageTauntTaskName", "Packaging Taunt"), LOCTEXT("CookingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		PackageDLC(TauntName, LOCTEXT("PackageWeaponTaskName", "Packaging Taunt"), LOCTEXT("CookingTaskName", "Publishing"));
 	}
 }
 
@@ -689,15 +752,7 @@ void FPackageContent::PackageCharacter(UClass* CharacterClass)
 	if (UBGC && UBGC->ClassGeneratedBy)
 	{
 		FString CharacterName = UBGC->ClassGeneratedBy->GetName();
-#if PLATFORM_WINDOWS
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *CharacterName);
-#elif PLATFORM_LINUX
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *CharacterName);
-#else
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *CharacterName);
-#endif
-
-		CreateUATTask(CommandLine, CharacterName, LOCTEXT("PackageCharacterTaskName", "Packaging Character"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+		PackageDLC(CharacterName, LOCTEXT("PackageWeaponTaskName", "Packaging Character"), LOCTEXT("CookingTaskName", "Publishing"));
 	}
 }
 
