@@ -95,56 +95,100 @@ void AUTLobbyGameState::BroadcastChat(AUTLobbyPlayerState* SenderPS, FName Desti
 	}
 }
 
-void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer)
+AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 {
 	for (int32 i=0;i<AvailableMatches.Num();i++)
 	{
-		// Check to see if this player belongs in the match
-		if (AvailableMatches[i] && AvailableMatches[i]->WasInMatchInstance(NewPlayer))
+		if (AvailableMatches[i]->CurrentState == ELobbyMatchState::WaitingForPlayers ||
+			AvailableMatches[i]->CurrentState != ELobbyMatchState::Launching ||
+			AvailableMatches[i]->CurrentState != ELobbyMatchState::InProgress)	
 		{
-			// Remove the player.
-			AvailableMatches[i]->RemoveFromMatchInstance(NewPlayer);
-
-			// Look to see if he is the owner of the match.
-			if (AvailableMatches[i]->OwnerId == NewPlayer->UniqueId)
+			for (int32 j=0;j<AvailableMatches[i]->Players.Num();j++)
 			{
-				// This was the owner, set the match to recycle (so it cleans itself up)
-				AvailableMatches[i]->SetLobbyMatchState(ELobbyMatchState::Recycling);
-
-				// Create a new match for this player to host using the old one as a template for current settings.
-				AUTLobbyMatchInfo* NewMatch = AddNewMatch(NewPlayer, AvailableMatches[i]);
-
-				// Look for any players who beat the host back.  If they are here, then see them
-
-				for (int32 j = 0; j < PlayerArray.Num(); j++)
+				if (AvailableMatches[i]->Players[j]->UniqueId.ToString() == PlayerID)
 				{
-					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerArray[j]);
-					if (PS && PS != NewPlayer && PS->CurrentMatch == NULL && PS->PreviousMatch && PS->PreviousMatch == AvailableMatches[i])
-					{
-						JoinMatch(NewMatch, PS);
-					}
+					return AvailableMatches[i];
 				}
 			}
-			else
+
+			for (int32 j=0;j<AvailableMatches[i]->PlayersInMatchInstance.Num();j++)
 			{
-				if (AvailableMatches[i]->CurrentState == ELobbyMatchState::Recycling)
+				if (AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.ToString() == PlayerID)
 				{
-					// The host has a new match.  See if we can find it.
-					for (int32 j=0; j<AvailableMatches.Num(); j++)
+					return AvailableMatches[i];
+				}
+			}
+		}
+	}
+
+	return NULL;
+}
+
+void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bool bReturnedFromMatch)
+{
+	if (bReturnedFromMatch)
+	{
+		for (int32 i=0;i<AvailableMatches.Num();i++)
+		{
+			// Check to see if this player belongs in the match
+			if (AvailableMatches[i] && AvailableMatches[i]->WasInMatchInstance(NewPlayer))
+			{
+				// Remove the player.
+				AvailableMatches[i]->RemoveFromMatchInstance(NewPlayer);
+
+				// Look to see if he is the owner of the match.
+				if (AvailableMatches[i]->OwnerId == NewPlayer->UniqueId)
+				{
+
+					UE_LOG(UT,Log,TEXT("Found Host's Match -- Checking for kids"));
+
+					// This was the owner, set the match to recycle (so it cleans itself up)
+					AvailableMatches[i]->SetLobbyMatchState(ELobbyMatchState::Recycling);
+
+					// Create a new match for this player to host using the old one as a template for current settings.
+					AUTLobbyMatchInfo* NewMatch = AddNewMatch(NewPlayer, AvailableMatches[i]);
+
+					// Look for any players who beat the host back.  If they are here, then see them
+
+					for (int32 j = 0; j < PlayerArray.Num(); j++)
 					{
-						if (AvailableMatches[j] && AvailableMatches[i] != AvailableMatches[j] && AvailableMatches[i]->OwnerId == AvailableMatches[j]->OwnerId)					
+						AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerArray[j]);
+						if (PS && PS != NewPlayer && PS->CurrentMatch == NULL && PS->PreviousMatch && PS->PreviousMatch == AvailableMatches[i])
 						{
-							JoinMatch(AvailableMatches[j], NewPlayer);
-							break;
+							JoinMatch(NewMatch, PS);
 						}
 					}
 				}
-				else if (AvailableMatches[i]->IsInProgress())
+				else
 				{
+					if (AvailableMatches[i]->CurrentState == ELobbyMatchState::Recycling)
+					{
+						// The host has a new match.  See if we can find it.
+						for (int32 j=0; j<AvailableMatches.Num(); j++)
+						{
+							if (AvailableMatches[j] && AvailableMatches[i] != AvailableMatches[j] && AvailableMatches[i]->OwnerId == AvailableMatches[j]->OwnerId)					
+							{
+								JoinMatch(AvailableMatches[j], NewPlayer);
+								break;
+							}
+						}
+					}
 					NewPlayer->PreviousMatch = AvailableMatches[i];
 				}
+
+				// We are done creating a new match
+				return;
 			}
-			break;
+		}
+	}
+
+	// We are looking to join a player's match.. see if we can find the player....
+	if (NewPlayer->DesiredFriendToJoin != TEXT(""))
+	{
+		AUTLobbyMatchInfo* FriendsMatch = FindMatchPlayerIsIn(NewPlayer->DesiredFriendToJoin);
+		if (FriendsMatch)
+		{
+			JoinMatch(FriendsMatch, NewPlayer);
 		}
 	}
 }

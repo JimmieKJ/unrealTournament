@@ -202,6 +202,11 @@ public:
 	{
 		return (WorldTime - LastSeenTime) < 0.25f; // max sight interval in UTBot
 	}
+	/** returns if enemy info was fully updated recently enough that AI can be considered to know this enemy's exact location */
+	bool CanUseExactLocation(float WorldTime) const
+	{
+		return (WorldTime - LastFullUpdateTime) < 0.25f;
+	}
 
 	FBotEnemyInfo()
 		: Pawn(NULL), UTChar(NULL), EffectiveHealthPct(1.0f), bHasExactHealth(false), LastKnownLoc(FVector::ZeroVector), LastSeenLoc(FVector::ZeroVector), LastSeeingLoc(FVector::ZeroVector), LastSeenTime(-100000.0f), LastFullUpdateTime(-100000.0f), LastUpdateTime(-100000.0f), bLostEnemy(false)
@@ -808,6 +813,15 @@ public:
 
 	/** return how bot wants to handle monitored weapon combo (shock combo, etc) */
 	virtual EBotMonitoringStatus ShouldTriggerCombo(const FVector& CurrentLoc, const FVector& ProjVelocity, const FRadialDamageParams& DamageParams);
+
+	/** given a target that is not directly visible and movement capable, determine points from which the target may appear (become visible) if the bot doesn't move
+	 * generally used for predictive shooting (e.g. rockets at enemy that may come around a corner)
+	 * @param InTarget - target to examine (must be valid)
+	 * @param TargetLoc - guess of current target location (if InTarget is an enemy in the bot's enemy list, this value is ignored and the enemy list is used instead)
+	 * @param bDoSkillChecks - if true, low skill bots may not return all potential results (some checks skipped)
+	 * @param FoundPoints (out) - list of appearance points to consider for  targeting
+	 */
+	virtual void GuessAppearancePoints(AActor* InTarget, const FVector& TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints);
 
 protected:
 	FTimerHandle CheckWeaponFiringTimerHandle;

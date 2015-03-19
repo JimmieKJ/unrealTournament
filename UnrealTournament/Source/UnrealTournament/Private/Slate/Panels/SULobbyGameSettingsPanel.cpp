@@ -217,7 +217,7 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 {
 	if (PlayerListBox.IsValid() && MatchInfo.IsValid())
 	{
-		FString MenuOptions = bIsHost ? TEXT("Kick,Ban") : TEXT("");
+		FString MenuOptions = TEXT("Kick,Ban");
 
 		// Find any players who are no longer in the match list.
 		for (int32 i=0; i < PlayerData.Num(); i++)
@@ -250,7 +250,8 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 						break;
 					}
 				}
-				bool bLocalPlayer = Cast<APlayerController>(MatchInfo->Players[i]->GetOwner()) != NULL && ((APlayerController*)MatchInfo->Players[i]->GetOwner())->IsLocalController();
+				
+				bool bNeedsSubMenu = bIsHost && MatchInfo->Players[i]->UniqueId != MatchInfo->OwnerId;
 
 				if (!bFound)
 				{
@@ -272,7 +273,7 @@ void SULobbyGameSettingsPanel::BuildPlayerList(float DeltaTime)
 							.OnButtonSubMenuSelect(this, &SULobbyGameSettingsPanel::OnSubMenuSelect)
 							.bRightClickOpensMenu(true)
 							.MenuPlacement(MenuPlacement_MenuRight)
-							.DefaultMenuItems(bLocalPlayer ? MenuOptions : TEXT(""))
+							.DefaultMenuItems(bNeedsSubMenu ? MenuOptions : TEXT(""))
 							.ButtonContent()
 							[
 								SNew(SVerticalBox)

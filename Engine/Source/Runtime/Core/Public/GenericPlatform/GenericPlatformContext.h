@@ -49,6 +49,11 @@ public:
 		return CommonBuffer;
 	}
 
+	/**
+	 * @return a globally unique crash name.
+	 */
+	const FString& GetUniqueCrashName();
+
 	/** Serializes crash's informations to the specified filename. */
 	void SerializeAsXML( const TCHAR* Filename );
 
@@ -72,8 +77,11 @@ private:
 	/** Writes footer to the buffer. */
 	void AddFooter();
 
+	void BeginSection( const TCHAR* SectionName );
+	void EndSection( const TCHAR* SectionName );
+
 	/** The buffer used to store the crash's properties. */
-	FString& CommonBuffer;
+	FString CommonBuffer;
 
 	// FNoncopyable
 	FGenericCrashContext( const FGenericCrashContext& );

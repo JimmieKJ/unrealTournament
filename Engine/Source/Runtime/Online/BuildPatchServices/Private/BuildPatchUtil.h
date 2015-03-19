@@ -19,7 +19,7 @@ struct FBuildPatchUtils
 	 * @param ChunkHash			The chunk rolling hash value
 	 * @return	the chunk path
 	 */
-	static const FString GetChunkNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& ChunkGUID, const uint64& ChunkHash);
+	static FString GetChunkNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& ChunkGUID, const uint64& ChunkHash);
 
 	/**
 	 * Gets the filename for a file chunk generated from it's GUID and Hash, which is the new format.
@@ -29,8 +29,8 @@ struct FBuildPatchUtils
 	 * @param FileHash			The file hash value
 	 * @return	The file chunk path
 	 */
-	static const FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHashData& FileHash);
-	static const FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const uint64& FilePartHash);
+	static FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHashData& FileHash);
+	static FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const uint64& FilePartHash);
 
 	/**
 	 * Gets the chunk GUID and Hash, from the filename, which is the new format.
@@ -54,7 +54,7 @@ struct FBuildPatchUtils
 	 * @param ChunkGuid			The chunk Guid
 	 * @return	the chunk path
 	 */
-	static const FString GetChunkOldFilename(const FString& RootDirectory, const FGuid& ChunkGUID);
+	static FString GetChunkOldFilename(const FString& RootDirectory, const FGuid& ChunkGUID);
 
 	/**
 	 * Gets the filename for a file data part generated from it's GUID
@@ -62,7 +62,7 @@ struct FBuildPatchUtils
 	 * @param FileGUID			The file part Guid
 	 * @return	The file data path
 	 */
-	static const FString GetFileOldFilename(const FString& RootDirectory, const FGuid& FileGUID);
+	static FString GetFileOldFilename(const FString& RootDirectory, const FGuid& FileGUID);
 
 	/**
 	 * Gets the filename for a specific data part type from it's GUID
@@ -71,7 +71,7 @@ struct FBuildPatchUtils
 	 * @param DataGUID			The data Guid
 	 * @return	the data part path
 	 */
-	static const FString GetDataTypeOldFilename(const FBuildPatchData::Type DataType, const FString& RootDirectory, const FGuid& Guid);
+	static FString GetDataTypeOldFilename(const FBuildPatchData::Type DataType, const FString& RootDirectory, const FGuid& Guid);
 
 	/**
 	 * Gets the filename for any data part. Wraps the choice between all of the above
@@ -80,7 +80,7 @@ struct FBuildPatchUtils
 	 * @param DataGUID			The data Guid
 	 * @return	the data part path
 	 */
-	static const FString GetDataFilename(const FBuildPatchAppManifestRef& Manifest, const FString& RootDirectory, const FGuid& DataGUID);
+	static FString GetDataFilename(const FBuildPatchAppManifestRef& Manifest, const FString& RootDirectory, const FGuid& DataGUID);
 
 	/**
 	 * Gets the GUID for a data file according to it's filename (new or old)

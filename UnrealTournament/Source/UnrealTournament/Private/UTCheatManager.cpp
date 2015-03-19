@@ -17,7 +17,13 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCheatManager.h"
 #include "UTSpreeMessage.h"
+#include "UTCTFGameMessage.h"
+#include "UTCountDownMessage.h"
+#include "UTDeathMessage.h"
+#include "UTPickupMessage.h"
+#include "UTMultiKillMessage.h"
 #include "UTGameMode.h"
+#include "UTWeap_Translocator.h"
 
 UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -27,7 +33,12 @@ UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializ
 void UUTCheatManager::Ann(int32 Switch)
 {
 	// play an announcement for testing
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 }
 
 void UUTCheatManager::AllAmmo()
@@ -57,7 +68,7 @@ void UUTCheatManager::Loaded()
 		for (TObjectIterator<UClass> It; It; ++It)
 		{
 			// make sure we don't use abstract, deprecated, or blueprint skeleton classes
-			if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")))
+			if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")) && !It->IsChildOf(AUTWeap_Translocator::StaticClass()))
 			{
 				UClass* TestClass = *It;
 				if (!MyPawn->FindInventoryType(TSubclassOf<AUTInventory>(*It), true))

@@ -64,7 +64,7 @@ public:
 	/**
 	 *	User a GUID to find a server via the MCP and connect to it.
 	 **/
-	virtual void ConnectToServerViaGUID(FString ServerGUID, bool bSpectate=false);
+	virtual void ConnectToServerViaGUID(FString ServerGUID, bool bSpectate=false, bool bFindLastMatch=false);
 
 	UFUNCTION(Client, Reliable)
 	virtual void ClientReturnToLobby();
@@ -86,14 +86,18 @@ public:
 protected:
 	FOnFindSessionsCompleteDelegate OnFindGUIDSessionCompleteDelegate;
 	FDelegateHandle OnFindGUIDSessionCompleteDelegateHandle;
+	
+	FOnCancelFindSessionsCompleteDelegate OnCancelGUIDFindSessionCompleteDelegate;
+	FDelegateHandle OnCancelGUIDFindSessionCompleteDelegateHandle;
 
 	TSharedPtr<class FUTOnlineGameSearchBase> GUIDSessionSearchSettings;
 
 	FString GUIDJoin_CurrentGUID;
 	bool GUIDJoinWantsToSpectate;
 	int GUIDJoinAttemptCount;
+	bool GUIDJoinWantsToFindMatch;
 
 	void AttemptGUIDJoin();
 	void OnFindSessionsComplete(bool bWasSuccessful);
-
+	void OnCancelGUIDFindSessionComplete(bool bWasSuccessful);
 };

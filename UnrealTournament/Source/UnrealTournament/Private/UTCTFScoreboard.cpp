@@ -104,16 +104,13 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	if (PlayerState == NULL) return;	// Safeguard
 
 	FLinearColor DrawColor = FLinearColor::White;
-	float BarOpacity = 0.3;
-
-	FText PlayerName = FText::FromString(PlayerState->PlayerName);
+	float BarOpacity = 0.3f;
+	float Width = (Size.X * 0.5f) - CenterBuffer;
+	FText PlayerName = FText::FromString(GetClampedName(PlayerState, MediumFont, 1.f, 0.475f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score/10.f));
 	FText PlayerCaps = FText::AsNumber(PlayerState->FlagCaptures);
 	FText PlayerAssists = FText::AsNumber(PlayerState->Assists);
 	FText PlayerReturns = FText::AsNumber(PlayerState->FlagReturns);
-
-	float Width = (Size.X * 0.5f) - CenterBuffer;
-
 	int32 Ping = PlayerState->Ping * 4;
 	if (UTHUDOwner->UTPlayerOwner->UTPlayerState == PlayerState)
 	{
@@ -121,7 +118,6 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 		DrawColor = FLinearColor(0.0f, 0.92f, 1.0f, 1.0f);
 		BarOpacity = 0.5;
 	}
-
 	else if (PlayerState->bIsFriend)
 	{
 		DrawColor = FLinearColor(FColor(254,255,174,255));

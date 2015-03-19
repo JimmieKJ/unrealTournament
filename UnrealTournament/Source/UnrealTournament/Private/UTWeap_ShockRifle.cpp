@@ -281,11 +281,50 @@ bool AUTWeap_ShockRifle::CanAttack_Implementation(AActor* Target, const FVector&
 	{
 		return false;
 	}
-	else if ((bPreferCurrentMode && bPlanningCombo) || B->CanCombo())
+	else if ((bPreferCurrentMode && bPlanningCombo) || GetWorld()->TimeSeconds - LastPredictiveComboCheckTime >= 1.0f)
 	{
-		// TODO: see if shock combo could hit enemy if it came around the corner
-		BestFireMode = 1;
-		return false;
+		// see if shock combo could hit enemy if it came around the corner
+		LastPredictiveComboCheckTime = GetWorld()->TimeSeconds;
+		if (!bPlanningCombo && !B->CanCombo()) // check that we have the skills if we haven't already
+		{
+			bPlanningCombo = false;
+			return false;
+		}
+		else if (bPreferCurrentMode && !PredictiveComboTargetLoc.IsZero() && !GetWorld()->LineTraceTest(GetFireStartLoc(1), PredictiveComboTargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(FName(TEXT("PredictiveCombo")), false, UTOwner)))
+		{
+			OptimalTargetLoc = PredictiveComboTargetLoc;
+			BestFireMode = 1;
+			bPlanningCombo = true;
+			return true;
+		}
+		else
+		{
+			PredictiveComboTargetLoc = FVector::ZeroVector;
+			TArray<FVector> FoundPoints;
+			B->GuessAppearancePoints(Target, TargetLoc, true, FoundPoints);
+			if (FoundPoints.Num() > 0)
+			{
+				int32 StartIndex = FMath::RandHelper(FoundPoints.Num());
+				int32 i = StartIndex;
+				do 
+				{
+					i = (i + 1) % FoundPoints.Num();
+					if (!GetWorld()->LineTraceTest(GetFireStartLoc(1), FoundPoints[i], COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(FName(TEXT("PredictiveCombo")), false, UTOwner)))
+					{
+						PredictiveComboTargetLoc = FoundPoints[i];
+						break;
+					}
+				} while (i != StartIndex);
+
+				bPlanningCombo = !PredictiveComboTargetLoc.IsZero();
+				return bPlanningCombo;
+			}
+			else
+			{
+				bPlanningCombo = false;
+				return false;
+			}
+		}
 	}
 	else
 	{
@@ -309,6 +348,7 @@ AUTProjectile* AUTWeap_ShockRifle::FireProjectile()
 				bMovingComboCheckResult = B->MovingComboCheck();
 			}
 			bPlanningCombo = false;
+			PredictiveComboTargetLoc = FVector::ZeroVector;
 		}
 	}
 	return Result;

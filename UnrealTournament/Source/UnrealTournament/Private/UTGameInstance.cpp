@@ -2,11 +2,24 @@
 
 #include "UnrealTournament.h"
 #include "UTGameInstance.h"
+#include "UnrealNetwork.h"
 
 UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
 
+static uint32 UTGetNetworkVersion()
+{
+	return 3008038;
+}
+
+void UUTGameInstance::Init()
+{
+	// set up our handler for network versioning
+	FNetworkVersion::GetLocalNetworkVersionOverride.BindStatic(&UTGetNetworkVersion);
+
+	Super::Init();
 }
 
 void UUTGameInstance::StartGameInstance()
@@ -36,4 +49,10 @@ void UUTGameInstance::DeferredStartGameInstance()
 		Settings->BenchmarkDetailSettingsIfNeeded(LocalPlayer);
 	}
 #endif
+}
+
+// @TODO FIXMESTEVE - we want open to be relative like it used to be
+bool UUTGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
+{
+	return GEngine->HandleTravelCommand(Cmd, Ar, InWorld);
 }

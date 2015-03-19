@@ -215,7 +215,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 **/
 	void GameInstance_Empty(uint32 GameInstanceID);
 
-	void CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer);
+	void CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bool bReturnedFromMatch);
 
 	bool IsMatchStillValid(AUTLobbyMatchInfo* TestMatch);
 
@@ -239,6 +239,8 @@ protected:
 	AUTServerBeaconLobbyHostObject* LobbyBeacon_Object;
 
 	void CheckInstanceHealth();
+
+	AUTLobbyMatchInfo* FindMatchPlayerIsIn(FString PlayerID);
 
 };
 

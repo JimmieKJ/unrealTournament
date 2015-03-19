@@ -888,12 +888,13 @@ FString UUTHUDWidget::GetClampedName(AUTPlayerState* PS, UFont* NameFont, float 
 	{
 		return "";
 	}
-	if (PS->bHasValidClampedName)
+	if (PS->bHasValidClampedName && (PS->NameClamper == this))
 	{
 		return PS->ClampedName;
 	}
 
 	PS->ClampedName = PS->PlayerName;
+	PS->NameClamper = this;
 	float XL = 0.f;
 	float YL = 0.f;
 	Canvas->TextSize(NameFont, PS->ClampedName, XL, YL, NameScale, NameScale);

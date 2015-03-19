@@ -9,7 +9,6 @@
 #include "UTProfileSettings.h"
 #include "Slate/SUWindowsDesktop.h"
 #include "Slate/SUWindowsMainMenu.h"
-#include "Slate/SUWindowsMidGame.h"
 #include "Slate/Panels/SUWServerBrowser.h"
 #include "Slate/Panels/SUWStatsViewer.h"
 #include "Slate/Panels/SUWCreditsPanel.h"
@@ -37,6 +36,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bInitialSignInAttempt = true;
 	LastProfileCloudWriteTime = 0;
 	ProfileCloudWriteCooldownTime = 10;
+	bShowSocialNotification = false;
 	ServerPingBlockSize = 30;
 }
 
@@ -254,13 +254,7 @@ void UUTLocalPlayer::ShowMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = true;
-/*
-			if (PlayerController->MyHUD)
-			{
-				PlayerController->MyHUD->bShowHUD = false;
-			}
-*/
-
+			PlayerController->SetInputMode( FInputModeUIOnly() );
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -283,12 +277,6 @@ void UUTLocalPlayer::HideMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = false;
-/*
-			if (PlayerController->MyHUD)
-			{
-				PlayerController->MyHUD->bShowHUD = true;
-			}
-*/
 			PlayerController->SetInputMode(FInputModeGameOnly());
 			PlayerController->SetPause(false);
 		}
@@ -595,6 +583,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		{
 			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
 		}
+		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsNotification().IsBoundToObject(this))
+		{
+			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
+		}
 		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsActionNotification().IsBoundToObject(this))
 		{
 			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsActionNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
@@ -671,6 +663,14 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			LoginOnline(PendingLoginName, PendingLoginPassword);
 			PendingLoginPassword = TEXT("");
 		}
+
+
+		// If we are connected to a server, then exit back to the main menu.
+		if (GetWorld()->GetNetMode() == NM_Client)
+		{
+			ReturnToMainMenu();		
+		}
+
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
@@ -692,6 +692,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
 		}
 	}
+
 
 	PlayerOnlineStatusChanged.Broadcast(this, LoginStatus, UniqueID);
 }
@@ -1222,6 +1223,50 @@ void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& 
 	}
 }
 
+int32 UUTLocalPlayer::GetHatVariant() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatVariant : FCString::Atoi(*GetDefaultURLOption(TEXT("HatVar")));
+}
+
+void UUTLocalPlayer::SetHatVariant(int32 NewVariant)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->HatVariant = NewVariant;
+	}
+	SetDefaultURLOption(TEXT("HatVar"), FString::FromInt(NewVariant));
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveHatVariant(NewVariant);
+		}
+	}
+}
+
+int32 UUTLocalPlayer::GetEyewearVariant() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->EyewearVariant : FCString::Atoi(*GetDefaultURLOption(TEXT("EyewearVar")));
+
+}
+void UUTLocalPlayer::SetEyewearVariant(int32 NewVariant)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->EyewearVariant = NewVariant;
+	}
+	SetDefaultURLOption(TEXT("EyewearVar"), FString::FromInt(NewVariant));
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveEyewearVariant(NewVariant);
+		}
+	}
+}
+
 FString UUTLocalPlayer::GetHatPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatPath : GetDefaultURLOption(TEXT("Hat"));
@@ -1406,10 +1451,11 @@ TSharedPtr<SUWFriendsPopup> UUTLocalPlayer::GetFriendsPopup()
 
 void UUTLocalPlayer::ReturnToMainMenu()
 {
+	HideMenu();
 	Exec(GetWorld(), TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"), *GLog);
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
@@ -1418,6 +1464,7 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	QuickMatchJoinType = QuickMatchType;
 
 	bWantsToConnectAsSpectator = bSpectate;
+	bWantsToFindMatch = bFindMatch;
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
 	if (!UniqueId.IsValid())
 	{
@@ -1467,9 +1514,22 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 				}
 			}
 			QuickMatchJoinType = NAME_None;
+
+			if (PendingFriendInviteFriendId != TEXT(""))
+			{
+				ConnectionString += FString::Printf(TEXT("?Friend=%s"), *PendingFriendInviteFriendId);
+				PendingFriendInviteFriendId = TEXT("");
+			}
+
+			if (bWantsToFindMatch)
+			{
+				ConnectionString += TEXT("?RTM=1");
+			}
+
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
+			bWantsToFindMatch = false;
 			bWantsToConnectAsSpectator = false;
 			return;
 
@@ -1582,6 +1642,11 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 	}
 }
 
+bool UUTLocalPlayer::IsPlayerShowingSocialNotification() const
+{
+	return bShowSocialNotification;
+}
+
 void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful)
 {
 	UE_LOG(UT,Log,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
@@ -1589,7 +1654,7 @@ void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bW
 
 void UUTLocalPlayer::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
-	UE_LOG(UT,Log,TEXT("Presence Recieved %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
+	UE_LOG(UT,Log,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
 
 void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId)
@@ -1601,6 +1666,11 @@ bool UUTLocalPlayer::AllowFriendsJoinGame()
 {
 	// determine when to disable "join game" option in friends/chat UI
 	return true;
+}
+
+void UUTLocalPlayer::HandleFriendsNotificationAvail(bool bAvailable)
+{
+	bShowSocialNotification = bAvailable;
 }
 
 void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage)
@@ -1621,6 +1691,7 @@ void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FStri
 
 	//@todo samz - use FindSessionById instead of FindFriendSession with a pending SessionId
 	PendingFriendInviteSessionId = SessionId;
+	PendingFriendInviteFriendId = FriendId.ToString();
 	OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
 	OnlineSessionInterface->FindFriendSession(0, FriendId);
 }
@@ -1636,11 +1707,13 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 		}
 		else
 		{
+			PendingFriendInviteFriendId = TEXT("");
 			MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "InvalidFriendSession", "Friend no longer in session."));
 		}
 	}
 	else
 	{
+		PendingFriendInviteFriendId = TEXT("");
 		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "NoFriendSession", "Couldn't find friend session to join."));
 	}
 	PendingFriendInviteSessionId = FString();
@@ -1723,18 +1796,10 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 		MessageBox(NSLOCTEXT("Generic","LoginNeededTitle","Login Needed"), NSLOCTEXT("Generic","LoginNeededMessage","You need to login before you can do that."));
 	}
 }
-void UUTLocalPlayer::CancelQuickMatch()
+void UUTLocalPlayer::CloseQuickMatch()
 {
-	// Cancel out the find session call
-	if (OnlineSessionInterface.IsValid())
-	{
-		OnlineSessionInterface->CancelFindSessions();
-	}
-
-
 	if (QuickMatchDialog.IsValid())
 	{
-		QuickMatchDialog->Cancel();
 		GEngine->GameViewport->RemoveViewportWidgetContent(QuickMatchDialog.ToSharedRef());
 		QuickMatchDialog.Reset();
 	}

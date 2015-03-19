@@ -91,4 +91,7 @@ class AUTWeap_Translocator : public AUTWeapon
 	virtual float GetAISelectRating_Implementation() override;
 	virtual bool DoAssistedJump() override;
 	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
+	virtual bool HUDShouldRender(UUTHUDWidget* TargetWidget) override;
+	virtual FText GetHUDText() override;
+
 };

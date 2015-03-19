@@ -539,6 +539,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			AddEditorSupportFiles(HostPlatform, RequiredFiles);
 			RemoveUnusedPlugins(RequiredFiles);
 			RemoveConfidentialFiles(HostPlatform, RequiredFiles);
+            CreateDebugManifest(StageDirectory, HostPlatform, RequiredFiles);
 
 			// Copy them to the staging directory, and add them as build products
 			BuildProducts = new List<string>();
@@ -550,6 +551,25 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				BuildProducts.Add(TargetFileName);
 			}
 		}
+
+        static void CreateDebugManifest(string StageDirectory, UnrealTargetPlatform HostPlatform, SortedSet<string> RequiredFiles)
+        {
+            string ManifestFile = "Manifest_DebugFiles.txt";
+            string ManifestPath = CommandUtils.CombinePaths(StageDirectory, ManifestFile);
+            CommandUtils.DeleteFile(ManifestPath);
+            
+            const string Iso8601DateTimeFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffzzz";
+
+            var Lines = new List<string>();
+            foreach (string RequiredFile in RequiredFiles)
+            {
+                string TimeStamp = File.GetLastWriteTimeUtc(RequiredFile).ToString(Iso8601DateTimeFormat);
+                string Dest = RequiredFile + "\t" + TimeStamp;
+
+                Lines.Add(Dest);
+            }
+            CommandUtils.WriteAllLines(ManifestPath, Lines.ToArray());
+        }
 
 		static void AddEditorBuildProducts(GUBP bp, UnrealTargetPlatform HostPlatform, BranchInfo.BranchUProject GameProj, SortedSet<string> RequiredFiles)
 		{
@@ -579,7 +599,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			FileFilter BuildProductFilter = new FileFilter();
 
 			BuildProductFilter.Include("...");
-			BuildProductFilter.Exclude("*.pdb");
 			BuildProductFilter.Exclude("*-Simplygon*");
 			BuildProductFilter.Exclude("*-DDCUtils*");
 			BuildProductFilter.Exclude("*-HTML5*.dylib"); // Manually remove HTML5 dylibs; they crash on startup without having the HTML5 inis
@@ -851,12 +870,19 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 				var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(bp, HostPlatform, BranchName);
 
+                string DebugManifest = CommandUtils.CombinePaths(StageDirectory, "Manifest_DebugFiles.txt");
+                if (!CommandUtils.FileExists(DebugManifest))
+                {
+                    throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", DebugManifest);
+                }
+
 				// run the patch tool
 				BuildPatchToolBase.Get().Execute(
 				new BuildPatchToolBase.PatchGenerationOptions
 				{
 					StagingInfo = StagingInfo,
 					BuildRoot = StageDirectory,
+                    FileIgnoreList = DebugManifest,
 					AppLaunchCmd = GetEditorLaunchCmd(HostPlatform),
 					AppLaunchCmdArgs = "UnrealTournament -installed",
 					AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
@@ -1027,7 +1053,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 	}
 }
 
-
 // Performs the appropriate labeling and other actions for a given promotion
 // See the EC job for an up-to-date description of all parameters
 [Help("PromotionStep", "New label for build.  Dropdown with Latest, Testing, Approved, Staged, Live")]
@@ -1038,6 +1063,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 [Help("SkipLabeling", "Optional.  Perform the promotion step but don't apply the new label to the build.")]
 [Help("OnlyLabel", "Optional.  Perform the labeling step but don't perform any additional promotion actions.")]
 [Help("TestLivePromotion", "Optional.  Use fake production labels and don't perform any actions that would go out to the public, eg. installer redirect.")]
+[Help("AWSCredentialsFile", @"Optional.  The full path to the Amazon credentials file used to access S3. Defaults to P:\Builds\Utilities\S3Credentials.txt.")]
+[Help("AWSCredentialsKey", "Optional. The name of the credentials profile to use when accessing AWS.  Defaults to \"s3_origin_prod\".")]
+[Help("AWSRegion", "Optional. The system name of the Amazon region which contains the S3 bucket.  Defaults to \"us-east-1\".")]
+[Help("AWSBucket", "Optional. The name of the Amazon S3 bucket to copy a build to. Defaults to \"patcher-origin\".")]
 // NOTE: PROMOTION JOB IS ONLY EVER RUN OUT OF UE4-UT, REGARDLESS OF WHICH BRANCH'S BUILD IS BEING PROMOTED
 class UnrealTournament_PromoteBuild : BuildCommand
 {
@@ -1163,6 +1192,24 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		string ProdAndStagingMcpConfigString = StagingMcpConfigString + "," + ProdMcpConfigString;
 		string ProdStagingAndGameDevMcpConfigString = ProdMcpConfigString + "," + GameDevMcpConfigString;
 
+		// S3 PARAMETERS (used during staging and operationg on ProdCom only)
+		CloudStorageBase CloudStorage = null;
+		string S3Bucket = null;
+		if (ProdLabels.Contains(DestinationLabel) || bUseProdCustomLabel)
+		{
+			S3Bucket = ParseParamValue("AWSBucket", "patcher-origin");
+
+			var CloudConfiguration = new Dictionary<string, object>
+			{
+				{ "CredentialsFilePath", ParseParamValue("AWSCredentialsFile", @"P:\Builds\Utilities\S3Credentials.txt") },
+				{ "CredentialsKey",      ParseParamValue("AWSCredentialsKey", "s3_origin_prod") },
+				{ "AWSRegion",           ParseParamValue("AWSRegion", "us-east-1") }
+			};
+
+			CloudStorage = CloudStorageBase.Get();
+			CloudStorage.Init(CloudConfiguration);
+		}
+
 		// Verify build meets prior state criteria for this promotion
 		// If this label will go to Prod, then make sure the build manifests are all staged to the Prod CDN already
 		if (DestinationLabel != "Staged" && (ProdLabels.Contains(DestinationLabel) || bUseProdCustomLabel))
@@ -1175,12 +1222,21 @@ class UnrealTournament_PromoteBuild : BuildCommand
 					BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
 
 					// Check for the manifest on the prod CDN
-					Log("Verifying manifest for prod promotion of Unreal Tournament {0} {1} was already staged to the Prod CDN", BuildVersion, Platform);
+					Log("Verifying manifest for prod promotion of Unreal Tournament {0} {1} was already staged to the internal origin server", BuildVersion, Platform);
 					bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
 					if (!bWasManifestFound)
 					{
 						string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
-						throw new AutomationException("Promotion to Prod requires the build first be staged to the Prod CDN. Manifest {0} not found for promotion to label {1}"
+						throw new AutomationException("Promotion to Prod requires the build first be staged to the internal origin server. Manifest {0} not found for promotion to label {1}"
+							, StagingInfo.ManifestFilename
+							, DestinationLabelWithPlatform);
+					}
+					Log("Verifying manifest for prod promotion of Unreal Tournament {0} {1} was already staged to the S3 origin", BuildVersion, Platform);
+					bWasManifestFound = CloudStorage.IsManifestOnCloudStorage(S3Bucket, StagingInfo);
+					if (!bWasManifestFound)
+					{
+						string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
+						throw new AutomationException("Promotion to Prod requires the build first be staged to the S3 origin. Manifest {0} not found for promotion to label {1}"
 							, StagingInfo.ManifestFilename
 							, DestinationLabelWithPlatform);
 					}
@@ -1190,12 +1246,21 @@ class UnrealTournament_PromoteBuild : BuildCommand
 					BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, EditorAppName);
 
 					// Check for the manifest on the prod CDN
-					Log("Verifying manifest for prod promotion of Unreal Tournament Editor {0} {1} was already staged to the Prod CDN", BuildVersion, Platform);
+					Log("Verifying manifest for prod promotion of Unreal Tournament Editor {0} {1} was already staged to the internal origin server", BuildVersion, Platform);
 					bool bWasManifestFound = BuildInfoPublisherBase.Get().IsManifestOnProductionCDN(StagingInfo);
 					if (!bWasManifestFound)
 					{
 						string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
-						throw new AutomationException("Promotion to Prod requires the build first be staged to the Prod CDN. Manifest {0} not found for promotion to label {1}"
+						throw new AutomationException("Promotion to Prod requires the build first be staged to the internal origin server. Manifest {0} not found for promotion to label {1}"
+							, StagingInfo.ManifestFilename
+							, DestinationLabelWithPlatform);
+					}
+					Log("Verifying manifest for prod promotion of Unreal Tournament Editor {0} {1} was already staged to the S3 origin", BuildVersion, Platform);
+					bWasManifestFound = CloudStorage.IsManifestOnCloudStorage(S3Bucket, StagingInfo);
+					if (!bWasManifestFound)
+					{
+						string DestinationLabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
+						throw new AutomationException("Promotion to Prod requires the build first be staged to the S3 origin. Manifest {0} not found for promotion to label {1}"
 							, StagingInfo.ManifestFilename
 							, DestinationLabelWithPlatform);
 					}
@@ -1229,9 +1294,12 @@ class UnrealTournament_PromoteBuild : BuildCommand
 						}
 						// Copy chunks to production CDN
 						{
-							Log("Promoting game chunks to production CDN");
+							Log("Promoting game chunks to internal origin server");
 							BuildInfoPublisherBase.Get().CopyChunksToProductionCDN(StagingInfo);
-							Log("DONE Promoting game chunks to production CDN");
+							Log("DONE Promoting game chunks to internal origin server");
+							Log("Promoting game chunks to S3 origin");
+							CloudStorage.CopyChunksToCloudStorage(S3Bucket, StagingInfo);
+							Log("DONE Promoting game chunks to S3 origin");
 						}
 					}
 					if (bShouldPromoteEditor)
@@ -1247,9 +1315,12 @@ class UnrealTournament_PromoteBuild : BuildCommand
 						}
 						// Copy chunks to production CDN
 						{
-							Log("Promoting editor chunks to production CDN");
+							Log("Promoting editor chunks to internal origin server");
 							BuildInfoPublisherBase.Get().CopyChunksToProductionCDN(StagingInfo);
-							Log("DONE Promoting editor chunks to production CDN");
+							Log("DONE Promoting editor chunks to internal origin server");
+							Log("Promoting editor chunks to S3 origin");
+							CloudStorage.CopyChunksToCloudStorage(S3Bucket, StagingInfo);
+							Log("DONE Promoting editor chunks to S3 origin");
 						}
 					}
 				}

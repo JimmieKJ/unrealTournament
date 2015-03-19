@@ -24,10 +24,9 @@ class UNREALTOURNAMENT_API AUTHat : public AUTCosmetic
 	void HeadshotRotationComplete();
 
 	virtual void OnWearerHeadshot_Implementation() override;
-	
+	virtual void OnWearerDeath_Implementation(TSubclassOf<UDamageType> DamageType) override;
+
 	virtual void SetBodiesToSimulatePhysics();
 
 	virtual void Tick(float DeltaSeconds) override;
-
-	virtual void PreInitializeComponents() override;
 };

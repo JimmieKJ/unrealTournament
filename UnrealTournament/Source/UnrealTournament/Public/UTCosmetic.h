@@ -4,6 +4,18 @@
 
 #include "UTCosmetic.generated.h"
 
+USTRUCT(BlueprintType)
+struct FColorSwap
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	FLinearColor Color1;
+
+	UPROPERTY(EditDefaultsOnly)
+	FLinearColor Color2;
+};
+
 UCLASS(Abstract)
 class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 {
@@ -17,6 +29,15 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 
 	UPROPERTY(BlueprintReadOnly, Category = UTHat)
 	AUTCharacter* CosmeticWearer;
+
+	UPROPERTY(BlueprintReadOnly)
+	TArray<UMaterialInstanceDynamic*> CosmeticMIs;
+
+	UPROPERTY(EditDefaultsOnly)
+	TArray<FText> VariantNames;
+	
+	UPROPERTY(EditDefaultsOnly)
+	TArray<FColorSwap> VariantColorSwaps;
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Cosmetic Wearer Killed Enemy"))
 	virtual void OnFlashCountIncremented();
@@ -33,5 +54,12 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 	UFUNCTION(BlueprintNativeEvent)
 	void OnWearerHeadshot();
 
+	UFUNCTION(BlueprintNativeEvent, meta = (FriendlyName = "On Variant Selected"))
+	void OnVariantSelected(int32 Variant);
+
+	UFUNCTION(BlueprintNativeEvent, meta = (FriendlyName = "On Cosmetic Wearer Death"))
+	void OnWearerDeath(TSubclassOf<UDamageType> DamageType);
+
 	virtual void PreInitializeComponents() override;
+	virtual void PostInitializeComponents() override;
 };

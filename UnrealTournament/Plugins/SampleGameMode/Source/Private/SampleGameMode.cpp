@@ -18,12 +18,7 @@ void ASampleGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
 	if (UTCharacter != nullptr && UTCharacter->GetInventory() == nullptr)
 	{
-		int32 InventoryIndex = PlayerPawn->PlayerState->Score;
-		if (InventoryIndex >= StartingInventories.Num())
-		{
-			InventoryIndex = StartingInventories.Num() - 1;
-		}
-		
+		int32 InventoryIndex = FMath::Clamp(int32(PlayerPawn->PlayerState->Score), 0, StartingInventories.Num() - 1);
 		if (StartingInventories.IsValidIndex(InventoryIndex))
 		{
 			for (int32 i = 0; i < StartingInventories[InventoryIndex].Inventory.Num(); i++)
@@ -49,12 +44,7 @@ void ASampleGameMode::ScoreKill(AController* Killer, AController* Other, TSubcla
 	ASamplePlayerState* KillerPlayerState = Killer ? Cast<ASamplePlayerState>(Killer->PlayerState) : NULL;
 	if (KillerPlayerState)
 	{
-		int32 DamageIndex = KillerPlayerState->Score;
-		if (DamageIndex >= ScoringDamageTypes.Num())
-		{
-			DamageIndex = ScoringDamageTypes.Num() - 1;
-		}
-
+		int32 DamageIndex = FMath::Clamp(int32(KillerPlayerState->Score), 0, ScoringDamageTypes.Num() - 1);
 		for (int32 i = 0; i < ScoringDamageTypes[DamageIndex].DamageType.Num(); i++)
 		{
 			if (DamageType == ScoringDamageTypes[DamageIndex].DamageType[i])

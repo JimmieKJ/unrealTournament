@@ -10,7 +10,7 @@ UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class
 {
 	ManagedMessageArea = FName(TEXT("DeathMessage"));
 	Position = FVector2D(0.0f, 0.0f);			
-	ScreenPosition = FVector2D(0.5f, 0.35f);
+	ScreenPosition = FVector2D(0.5f, 0.25f);
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.5f, 0.0f);				
 	FadeTime = 1.0;

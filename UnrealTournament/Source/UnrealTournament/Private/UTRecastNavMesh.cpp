@@ -2006,9 +2006,13 @@ void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties
 		// add polys in adjacent pathnodes
 		for (const FUTPathLink& Link : Node->Paths)
 		{
-			if (!bOnlyWalkable || Link.ReachFlags == 0)
+			if (Link.StartEdgePoly == StartPoly && (!bOnlyWalkable || Link.ReachFlags == 0))
 			{
 				Polys.AddUnique(Link.EndPoly);
+				for (NavNodeRef OtherPoly : Link.AdditionalEndPolys)
+				{
+					Polys.AddUnique(OtherPoly);
+				}
 			}
 		}
 	}

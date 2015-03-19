@@ -20,6 +20,7 @@
 #include "UTServerBeaconClient.h"
 #include "../SUWScaleBox.h"
 #include "Engine/UserInterfaceSettings.h"
+#include "UnrealNetwork.h"
 
 #if !UE_SERVER
 /** List Sort helpers */
@@ -754,10 +755,10 @@ void SUWServerBrowser::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner,
 {
 	if (NewStatus == ELoginStatus::LoggedIn)
 	{
-		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Refresh","Refresh")).TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText"));
+		SetBrowserState(EBrowserState::BrowserIdle);
+		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Refresh","Refresh")).TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText"));
 		if (bAutoRefresh)
 		{
-			SetBrowserState(EBrowserState::BrowserIdle);
 			bAutoRefresh = false;
 			OnRefreshClick();
 		}
@@ -773,12 +774,21 @@ void SUWServerBrowser::AddGameFilters()
 {
 	TArray<FString> GameTypes;
 	GameTypes.Add(TEXT("All"));
-	for (int i=0;i<InternetServers.Num();i++)
+	for (int32 i=0;i<InternetServers.Num();i++)
 	{
 		int32 idx = GameTypes.Find(InternetServers[i]->GameModeName);
 		if (idx < 0)
 		{
 			GameTypes.Add(InternetServers[i]->GameModeName);
+		}
+	}
+
+	for (int32 i=0;i<PingList.Num();i++)
+	{
+		int32 idx = GameTypes.Find(PingList[i]->GameModeName);
+		if (idx < 0)
+		{
+			GameTypes.Add(PingList[i]->GameModeName);
 		}
 	}
 
@@ -938,7 +948,7 @@ void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 	BrowserState = NewBrowserState;
 	if (BrowserState == EBrowserState::NotLoggedIn) 
 	{
-		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Login","Login")).TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText"));
+		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Login","Login")).TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText"));
 		RefreshButton->SetVisibility(EVisibility::All);
 
 		JoinButton->SetEnabled(false);
@@ -1002,7 +1012,7 @@ void SUWServerBrowser::RefreshServers()
 
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		SearchSettings->MaxSearchResults = 10000;
-		FString GameVer = FString::Printf(TEXT("%i"),GetDefault<UUTGameEngine>()->GameNetworkVersion);
+		FString GameVer = FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion());
 		SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);											// Must equal the game version
 		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 

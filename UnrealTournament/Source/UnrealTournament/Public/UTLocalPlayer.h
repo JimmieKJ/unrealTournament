@@ -81,7 +81,7 @@ public:
 	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
 
 	void StartQuickMatch(FName QuickMatchType);
-	void CancelQuickMatch();
+	void CloseQuickMatch();
 
 	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
 	{
@@ -120,6 +120,7 @@ protected:
 #endif
 
 	bool bWantsToConnectAsSpectator;
+	bool bWantsToFindMatch;
 
 public:
 	FProcHandle DedicatedServerProcessHandle;
@@ -138,6 +139,10 @@ public:
 	virtual void SetHatPath(const FString& NewHatPath);
 	virtual FString GetEyewearPath() const;
 	virtual void SetEyewearPath(const FString& NewEyewearPath);
+	virtual int32 GetHatVariant() const;
+	virtual void SetHatVariant(int32 NewVariant);
+	virtual int32 GetEyewearVariant() const;
+	virtual void SetEyewearVariant(int32 NewVariant);
 	virtual FString GetTauntPath() const;
 	virtual void SetTauntPath(const FString& NewTauntPath);
 	/** returns path for player's character (visual only data) */
@@ -325,12 +330,15 @@ public:
 	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None);
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false);
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
 	// Updates this user's online presence
 	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bUseLobbySessionId);
+
+	// Does the player have pending social notifications - should the social bang be shown?
+	bool IsPlayerShowingSocialNotification() const;
 
 protected:
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
@@ -348,9 +356,12 @@ protected:
 	virtual void OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult);
 	virtual void HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId);
 	virtual bool AllowFriendsJoinGame();
+	virtual void HandleFriendsNotificationAvail(bool bAvailable);
 	virtual void HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage);
+
 	FString PendingFriendInviteSessionId;	
-	
+	FString PendingFriendInviteFriendId;
+	bool bShowSocialNotification;
 
 #if !UE_SERVER
 

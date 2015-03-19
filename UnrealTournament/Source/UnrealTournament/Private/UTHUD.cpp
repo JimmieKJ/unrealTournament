@@ -303,25 +303,6 @@ void AUTHUD::PostRender()
 	{
 		GS->SortPRIArray();
 	}
-
-// why is this called outside of FFA DM
-	CalcStanding();
-
-/* -- ENABLE to see the player list 
-
-		float Y = Canvas->ClipY * 0.5;
-		for (int i=0;i<GS->PlayerArray.Num();i++)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
-			if (PS != NULL)
-			{
-				FString Text = FString::Printf(TEXT("%s - %i"), *PS->PlayerName, PS->Score);
-				DrawString(FText::FromString(Text), 0, Y, ETextHorzPos::Left, GetFontFromSizeIndex(0), FLinearColor::White);
-				Y+=24;			
-			}
-		}
-	}
-*/
 	Super::PostRender();
 }
 
@@ -532,9 +513,12 @@ FLinearColor AUTHUD::GetWidgetTeamColor()
 
 void AUTHUD::CalcStanding()
 {
-	// NOTE: By here in the Hud rendering chain, the PlayerArray in the GameState
-	// has been sorted.
-
+	// NOTE: By here in the Hud rendering chain, the PlayerArray in the GameState has been sorted.
+	if (CalcStandingTime == GetWorld()->GetTimeSeconds())
+	{
+		return;
+	}
+	CalcStandingTime = GetWorld()->GetTimeSeconds();
 	Leaderboard.Empty();
 
 	CurrentPlayerStanding = 0;

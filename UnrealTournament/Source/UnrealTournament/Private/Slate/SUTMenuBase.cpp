@@ -21,6 +21,7 @@
 #include "Panels/SUWServerBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
+#include "UnrealNetwork.h"
 
 #if !UE_SERVER
 
@@ -321,6 +322,18 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 	return RightMenuBar.ToSharedRef();
 }
 
+EVisibility SUTMenuBase::GetSocialBangVisibility() const
+{
+	if (PlayerOwner.IsValid())
+	{
+		if (PlayerOwner->IsPlayerShowingSocialNotification())
+		{
+			return EVisibility::Visible;
+		}
+	}
+	return EVisibility::Collapsed;
+}
+
 TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 {
 	
@@ -524,7 +537,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 			.AutoHeight()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), GetDefault<UUTGameEngine>()->GameNetworkVersion))).ToString())
+				.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion()))).ToString())
 				.TextStyle(SUWindowsStyle::Get(), "UT.Version.TextStyle")
 			]
 		]
@@ -714,7 +727,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				[
 					SNew(SButton)
 					.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
-					.OnClicked(this, &SUTMenuBase::ToggleFriendsAndFamily)
+					.OnClicked(this, &SUTMenuBase::ToggleFriendsAndChat)
 #if PLATFORM_LINUX
 					.ToolTipText(NSLOCTEXT("ToolTips", "TPFriendsNotSupported", "Friends list not supported yet on this platform."))
 #else
@@ -725,12 +738,24 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 						+SHorizontalBox::Slot()
 						.VAlign(VAlign_Center)
 						[
-							SNew(SBox)
-							.WidthOverride(48)
-							.HeightOverride(48)
+							SNew(SOverlay)
+							+ SOverlay::Slot()
+							[
+								SNew(SBox)
+								.WidthOverride(48)
+								.HeightOverride(48)
+								[
+									SNew(SImage)
+									.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Online"))
+								]
+							]
+							+ SOverlay::Slot()
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Top)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Online"))
+								.Visibility(this, &SUTMenuBase::GetSocialBangVisibility)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.SocialBang"))
 							]
 						]
 					]
@@ -809,7 +834,7 @@ FReply SUTMenuBase::OnShowServerBrowserPanel()
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::ToggleFriendsAndFamily()
+FReply SUTMenuBase::ToggleFriendsAndChat()
 {
 #if PLATFORM_LINUX
 	// Need launcher so this doesn't work on linux right now
@@ -824,7 +849,7 @@ FReply SUTMenuBase::ToggleFriendsAndFamily()
 	else
 	{
 		TSharedPtr<SUWFriendsPopup> Popup = PlayerOwner->GetFriendsPopup();
-		Popup->SetOnCloseClicked(FOnClicked::CreateSP(this, &SUTMenuBase::ToggleFriendsAndFamily));
+		Popup->SetOnCloseClicked(FOnClicked::CreateSP(this, &SUTMenuBase::ToggleFriendsAndChat));
 
 		if (Popup.IsValid())
 		{

@@ -144,7 +144,7 @@ FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 		{
 			FString GUID = PlayerOwner->LastLobbyServerGUID;
 			PlayerOwner->LastLobbyServerGUID = TEXT("");
-			PC->ConnectToServerViaGUID(GUID, false);
+			PC->ConnectToServerViaGUID(GUID, false, true);
 		}
 	}
 

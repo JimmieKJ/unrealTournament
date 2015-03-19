@@ -128,6 +128,15 @@ public:
 	 * @return              true if no file errors occurred
 	 */
 	virtual bool CompactifyCloudDirectory(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const ECompactifyMode::Type Mode) = 0;
+
+	/**
+	 * Saves to file, and logs, a full list of cloud dir relative referenced data file paths
+	 * @param   ManifestFilePath     A full file path for the manifest to be loaded
+	 * @param   OutputFile           A full file path where to save the output text
+	 * @return  true if successful
+	 */
+	virtual bool EnumerateManifestData(FString ManifestFilePath, FString OutputFile) = 0;
+
 #endif // WITH_BUILDPATCHGENERATION
 
 	/**

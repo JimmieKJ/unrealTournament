@@ -5,7 +5,6 @@
 #include "Panels/SUMidGameInfoPanel.h"
 #include "Panels/SULobbyInfoPanel.h"
 #include "Slate/SlateGameResources.h"
-#include "SUInGameMenu.h"
 
 
 #if !UE_SERVER

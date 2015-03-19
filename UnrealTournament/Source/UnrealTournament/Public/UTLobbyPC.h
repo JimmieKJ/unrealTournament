@@ -49,6 +49,8 @@ public:
 	UFUNCTION(exec)
 	virtual void SetLobbyDebugLevel(int32 NewLevel);
 
+	void MatchChanged(AUTLobbyMatchInfo* CurrentMatch);
+
 protected:
 	// Will be true when the initial player replication is completed.  At that point it's safe to bring up the menu
 	bool bInitialReplicationCompleted;

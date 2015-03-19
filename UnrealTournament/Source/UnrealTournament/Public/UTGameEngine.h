@@ -24,10 +24,6 @@ class UUTGameEngine : public UGameEngine
 	UPROPERTY(config)
 	int32 ParallelRendererProcessorRequirement;
 
-	/** UT specific networking version.  Must match for net compatibility. */
-	UPROPERTY()
-	int32 GameNetworkVersion;
-
 	//==================================
 	// Frame Rate Smoothing
 	

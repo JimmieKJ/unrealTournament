@@ -124,6 +124,11 @@ void AUTLobbyPlayerState::ClientConnectToInstance_Implementation(const FString& 
 void AUTLobbyPlayerState::OnRep_CurrentMatch()
 {
 	bIsInMatch = CurrentMatch != NULL;
+	AUTLobbyPC* PC = Cast<AUTLobbyPC>(GetOwner());
+	if (PC)
+	{
+		PC->MatchChanged(CurrentMatch);
+	}
 
 #if !UE_SERVER
 	if (CurrentMatchChangedDelegate.IsBound())
@@ -232,7 +237,7 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 	}
 	else
 	{
-		UE_LOG(UT,Verbose,TEXT("ERROR: Recieved Bulk data before GameState!!!"));
+		UE_LOG(UT,Verbose,TEXT("ERROR: Received Bulk data before GameState!!!"));
 	}
 }
 
@@ -259,6 +264,6 @@ void AUTLobbyPlayerState::ServerACKReceivedAllData_Implementation()
 	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (GS)
 	{
-		GS->CheckForExistingMatch(this);
+		GS->CheckForExistingMatch(this, bReturnedFromMatch);
 	}
 }

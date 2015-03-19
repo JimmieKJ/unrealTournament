@@ -72,8 +72,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bPendingTeamSwitch : 1;
 
+	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;
+
 	/** current multikill level (1 = double, 2 = multi, etc)
 	 * note that the value isn't reset until a new kill comes in
 	 */
@@ -211,6 +213,18 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveEyewearClass(const FString& NewEyewearClass);
 
+	UPROPERTY()
+	int32 HatVariant;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveHatVariant(int32 NewVariant);
+
+	UPROPERTY()
+	int32 EyewearVariant;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveEyewearVariant(int32 NewVariant);
+
 	UPROPERTY(replicated)
 	TSubclassOf<AUTTaunt> TauntClass;
 
@@ -257,6 +271,10 @@ public:
 
 	/** True if clamped name is currently valid. */
 	bool bHasValidClampedName;
+
+	/** object which set clamping for my name. */
+	UPROPERTY(BlueprintReadWrite)
+		UObject* NameClamper;
 
 	virtual void SetPlayerName(const FString& S) override;
 

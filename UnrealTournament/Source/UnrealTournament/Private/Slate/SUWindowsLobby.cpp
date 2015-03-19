@@ -5,7 +5,6 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
-#include "SUWindowsMidGame.h"
 #include "SUWindowsLobby.h"
 #include "SUWindowsStyle.h"
 #include "SUWSystemSettingsDialog.h"

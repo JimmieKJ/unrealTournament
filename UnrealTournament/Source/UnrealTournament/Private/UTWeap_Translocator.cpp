@@ -7,6 +7,7 @@
 #include "UTReachSpec_HighJump.h"
 #include "UTWeaponRedirector.h"
 #include "UTTranslocatorMessage.h"
+#include "UTHUDWidget_Powerups.h"
 
 AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
@@ -20,6 +21,16 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	BaseAISelectRating = -1.0f; // AI shouldn't select this unless wanted by pathing
 	AfterImageType = AUTWeaponRedirector::StaticClass();
 	TranslocatorMessageClass = UUTTranslocatorMessage::StaticClass();
+}
+
+FText AUTWeap_Translocator::GetHUDText()
+{
+	return FText::FromString(TEXT("Q"));
+}
+
+bool AUTWeap_Translocator::HUDShouldRender(UUTHUDWidget* TargetWidget)
+{
+	return (TargetWidget && Cast<UUTHUDWidget_Powerups>(TargetWidget));
 }
 
 void AUTWeap_Translocator::ConsumeAmmo(uint8 FireModeNum)
@@ -46,7 +57,6 @@ void AUTWeap_Translocator::ClearDisk()
 
 void AUTWeap_Translocator::RecallDisk()
 {
-
 	if (Role == ROLE_Authority)
 	{
 		//remove disk server-side

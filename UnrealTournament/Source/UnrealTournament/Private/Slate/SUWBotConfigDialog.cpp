@@ -4,6 +4,7 @@
 #include "../Public/UTBotConfig.h"
 #include "SUWBotConfigDialog.h"
 #include "SUWInputBox.h"
+#include "SUWMessageBox.h"
 
 #if !UE_SERVER
 
@@ -50,6 +51,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 	MaxSelectedBots = InArgs._NumBots;
 
 	// list of weapons for favorite weapon selection
+	WeaponList.Add(NULL); // we want a NULL for no favorite weapon
 	{
 		TArray<FAssetData> AssetList;
 		GetAllBlueprintAssetData(AUTWeapon::StaticClass(), AssetList);
@@ -57,17 +59,16 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 		{
 			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
 			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-			if (ClassPath != NULL)
+			if (ClassPath != NULL && !ClassPath->Contains(TEXT("/EpicInternal/"))) // exclude debug/test weapons
 			{
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()) && !TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
 				{
 					WeaponList.Add(TestClass);
 				}
 			}
 		}
 	}
-	WeaponList.Add(NULL); // we want a NULL for no favorite weapon
 
 	const TArray<FBotCharacter>& AllBots = GetDefault<UUTBotConfig>()->BotCharacters;
 	for (const FBotCharacter& Bot : AllBots)
@@ -192,8 +193,6 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 									.Text(NSLOCTEXT("SUWBotConfigDialog", "Delete", "Delete Bot").ToString())
 									.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 									.OnClicked(this, &SUWBotConfigDialog::DeleteBotClick)
-									// FIXME: temp for GDC to work around crash where spamming new/delete can crash
-									.Visibility(EVisibility::Hidden)
 								]
 							]
 							+ SVerticalBox::Slot()
@@ -353,6 +352,8 @@ void SUWBotConfigDialog::OnCustomizedBotChange(TSharedPtr<FString> BotName, ESel
 			}
 		}
 		FavoriteWeapon->SetSelectedItem(FavWeapon);
+		// make sure it gets called because it won't if the item is the same as previous selection...
+		OnFavoriteWeaponChange(FavWeapon, ESelectInfo::Direct);
 	}
 }
 
@@ -363,7 +364,7 @@ void SUWBotConfigDialog::NewBotNameResult(TSharedPtr<SCompoundWidget> Dialog, ui
 		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Dialog);
 		if (Box.IsValid())
 		{
-			FString InputText = Box->GetInputText();
+			FString InputText = Box->GetInputText().Trim().TrimTrailing();
 			if (InputText.Len() > 0)
 			{
 				bool bFound = false;
@@ -377,7 +378,7 @@ void SUWBotConfigDialog::NewBotNameResult(TSharedPtr<SCompoundWidget> Dialog, ui
 				}
 				if (bFound)
 				{
-					GetPlayerOwner()->OpenDialog( SNew(SUWDialog)
+					GetPlayerOwner()->OpenDialog( SNew(SUWMessageBox)
 												.PlayerOwner(GetPlayerOwner())
 												.DialogTitle(NSLOCTEXT("SUWBotConfigDialog", "NameInUse", "That bot name is already in use."))
 											);
@@ -398,7 +399,7 @@ FReply SUWBotConfigDialog::NewBotClick()
 {
 	if (BotNames.Num() > 255)
 	{
-		GetPlayerOwner()->OpenDialog( SNew(SUWDialog)
+		GetPlayerOwner()->OpenDialog( SNew(SUWMessageBox)
 									.PlayerOwner(GetPlayerOwner())
 									.DialogTitle(NSLOCTEXT("SUWBotConfigDialog", "TooManyBots", "There is no space for more bots!"))
 									);
@@ -420,7 +421,7 @@ FReply SUWBotConfigDialog::DeleteBotClick()
 {
 	if (BotNames.Num() <= 1)
 	{
-		GetPlayerOwner()->OpenDialog( SNew(SUWDialog)
+		GetPlayerOwner()->OpenDialog(SNew(SUWMessageBox)
 									.PlayerOwner(GetPlayerOwner())
 									.DialogTitle(NSLOCTEXT("SUWBotConfigDialog", "NeedABot", "Can't delete the last defined bot!"))
 									);

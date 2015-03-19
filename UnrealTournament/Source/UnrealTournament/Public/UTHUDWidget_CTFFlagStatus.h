@@ -28,7 +28,6 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Message")
 	float AnimationAlpha;
 
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	TArray<FHUDRenderObject_Texture> CircleSlate;
 
@@ -52,6 +51,14 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	TArray<FHUDRenderObject_Text> FlagHolderNames;
+
+	/** Transient value used to pulse color of status indicators. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float StatusScale;
+
+	/** Transient value used to pulse color of status indicators. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		bool bStatusDir;
 
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);

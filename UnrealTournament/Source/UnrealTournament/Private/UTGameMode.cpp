@@ -442,6 +442,11 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 			{
 				PS->ServerReceiveTauntClass(InOpt);
 			}
+			int32 HatVar = GetIntOption(Options, TEXT("HatVar"), 0);
+			PS->ServerReceiveHatVariant(HatVar);
+			int32 EyewearVar = GetIntOption(Options, TEXT("EyewearVar"), 0);
+			PS->ServerReceiveEyewearVariant(EyewearVar);
+
 			// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
 			PS->ValidateEntitlements();
 		}
@@ -1011,7 +1016,26 @@ void AUTGameMode::StartMatch()
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(this)));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GoalScore"), GoalScore));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TimeLimit"), TimeLimit));
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine)
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("CustomContent"), UTEngine->LocalContentChecksums.Num()));
+			}
+			else
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("CustomContent"), 0));
+			}
 			FUTAnalytics::GetProvider().RecordEvent( TEXT("NewMatch"), ParamArray );
+		}
+		else
+		{
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine && UTEngine->LocalContentChecksums.Num() > 0)
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("CustomContent"), UTEngine->LocalContentChecksums.Num()));
+				FUTAnalytics::GetProvider().RecordEvent(TEXT("MatchWithCustomContent"), ParamArray);
+			}
 		}
 	}
 }
@@ -1356,8 +1380,12 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		((AUTBot*)aPlayer)->LastRespawnTime = GetWorld()->TimeSeconds;
 	}
 
+	// clear spawn choices
 	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceA = nullptr;
 	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceB = nullptr;
+
+	// clear multikill in progress
+	Cast<AUTPlayerState>(aPlayer->PlayerState)->LastKillTime = -100.f;
 }
 
 void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)

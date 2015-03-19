@@ -69,6 +69,14 @@
 	-CloudDir="E:\BuildPatchCloud" -compactify -DataAgeThreshold=14
 	-CloudDir="E:\BuildPatchCloud" -compactify -DataAgeThreshold=14 -ManifestsList="Example_V1.manifest,Example_V2.manifest"
 	-CloudDir="E:\BuildPatchCloud" -compactify -DataAgeThreshold=14 -ManifestsFile="preserve_manifests.txt"
+
+	DATA ENUMERATE MODE
+
+	Required arguments:
+	-ManifestFile=""	Specifies in quotes the file path to the manifest to enumerate from
+	-OutputFile=""		Specifies in quotes the file path to a file where the list will be saved out, \r\n separated cloud relative paths.
+	-dataenumerate		Must be specified to launch the tool in cloud seeder mode
+
 =============================================================================*/
 
 #include "RequiredProgramMainCPPInclude.h"
@@ -87,9 +95,11 @@ IMPLEMENT_APPLICATION( BuildPatchTool, "BuildPatchTool" );
 
 struct FCommandLineMatcher
 {
-	FString Command;
+	const FString Command;
 
-	FCommandLineMatcher(){}
+	FCommandLineMatcher(FString Command)
+		: Command(MoveTemp(Command))
+	{}
 
 	FORCEINLINE bool operator()(const FString& ToMatch) const
 	{
@@ -115,6 +125,18 @@ public:
 		fflush( stdout );
 	}
 };
+
+namespace EBuildPatchToolMode
+{
+	enum Type
+	{
+		PatchGeneration,
+		Compactify,
+		DataEnumeration,
+
+		Unknown
+	};
+}
 
 
 int32 BuildPatchToolMain( const TCHAR* CommandLine )
@@ -154,9 +176,10 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 	float DataAgeThreshold = 0.0f;
 	FString IniFile;
 	TMap<FString, FVariant> CustomFields;
+	FString ManifestFile;
+	FString OutputFile;
 
-	bool bCompactify = false;
-	bool bPatchGeneration = true;
+	EBuildPatchToolMode::Type ToolMode = EBuildPatchToolMode::Unknown;
 	bool bPreview = false;
 	bool bNoPatchDelete = false;
 	bool bPatchWithReuseAgeThreshold = true;
@@ -181,87 +204,82 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		int32 ManifestsListIdx;
 		int32 ManifestsFileIdx;
 		int32 DataAgeThresholdIdx;
-
-		FCommandLineMatcher Matcher;
+		int32 ManifestFileIdx;
+		int32 OutputFileIdx;
 		bSuccess = true;
 
-		Matcher.Command = TEXT("compactify");
-		bCompactify = Switches.IndexOfByPredicate(Matcher) != INDEX_NONE;
-		bPatchGeneration = !bCompactify;
-
-		Matcher.Command = TEXT("preview");
-		bPreview = bCompactify && Switches.IndexOfByPredicate(Matcher) != INDEX_NONE;
-
-		Matcher.Command = TEXT("nopatchdelete");
-		bNoPatchDelete = bCompactify && Switches.IndexOfByPredicate(Matcher) != INDEX_NONE;
-		
-		Matcher.Command = TEXT( "BuildRoot" );
-		BuildRootIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "CloudDir" );
-		CloudDirIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "AppID" );
-		AppIDIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "AppName" );
-		AppNameIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "BuildVersion" );
-		BuildVersionIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "AppLaunch" );
-		AppLaunchIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "AppArgs" );
-		AppArgsIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "FileIgnoreList" );
-		FileIgnoreListIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT("FileAttributeList");
-		FileAttributeListIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "PrereqName" );
-		PrereqNameIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "PrereqPath" );
-		PrereqPathIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT( "PrereqArgs" );
-		PrereqArgsIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT("ManifestsList");
-		ManifestsListIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT("ManifestsFile");
-		ManifestsFileIdx = Switches.IndexOfByPredicate(Matcher);
-
-		Matcher.Command = TEXT("DataAgeThreshold");
-		DataAgeThresholdIdx = Switches.IndexOfByPredicate(Matcher);
+		if (Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("compactify"))) != INDEX_NONE)
+		{
+			ToolMode = EBuildPatchToolMode::Compactify;
+		}
+		else if (Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("dataenumerate"))) != INDEX_NONE)
+		{
+			ToolMode = EBuildPatchToolMode::DataEnumeration;
+		}
+		else
+		{
+			ToolMode = EBuildPatchToolMode::PatchGeneration;
+		}
+		bPreview = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("preview"))) != INDEX_NONE;
+		bNoPatchDelete = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("nopatchdelete"))) != INDEX_NONE;
+		BuildRootIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("BuildRoot")));
+		CloudDirIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("CloudDir")));
+		AppIDIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("AppID")));
+		AppNameIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("AppName")));
+		BuildVersionIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("BuildVersion")));
+		AppLaunchIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("AppLaunch")));
+		AppArgsIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("AppArgs")));
+		FileIgnoreListIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("FileIgnoreList")));
+		FileAttributeListIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("FileAttributeList")));
+		PrereqNameIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("PrereqName")));
+		PrereqPathIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("PrereqPath")));
+		PrereqArgsIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("PrereqArgs")));
+		ManifestsListIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("ManifestsList")));
+		ManifestsFileIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("ManifestsFile")));
+		DataAgeThresholdIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("DataAgeThreshold")));
+		ManifestFileIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("ManifestFile")));
+		OutputFileIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("OutputFile")));
 
 		// Check required param indexes
-		bSuccess = bSuccess && CloudDirIdx != INDEX_NONE;
-		if (bPatchGeneration)
+		switch (ToolMode)
 		{
+		case EBuildPatchToolMode::PatchGeneration:
+			bSuccess = bSuccess && CloudDirIdx != INDEX_NONE;
 			bSuccess = bSuccess && BuildRootIdx != INDEX_NONE;
 			bSuccess = bSuccess && AppIDIdx != INDEX_NONE;
 			bSuccess = bSuccess && AppNameIdx != INDEX_NONE;
 			bSuccess = bSuccess && BuildVersionIdx != INDEX_NONE;
 			bSuccess = bSuccess && AppLaunchIdx != INDEX_NONE;
 			bSuccess = bSuccess && AppArgsIdx != INDEX_NONE;
+			break;
+		case EBuildPatchToolMode::Compactify:
+			bSuccess = bSuccess && CloudDirIdx != INDEX_NONE;
+			break;
+		case EBuildPatchToolMode::DataEnumeration:
+			bSuccess = bSuccess && ManifestFileIdx != INDEX_NONE;
+			bSuccess = bSuccess && OutputFileIdx != INDEX_NONE;
+			break;
 		}
 
 		// Get required param values
-		bSuccess = bSuccess && FParse::Value( *Switches[CloudDirIdx], TEXT( "CloudDir=" ), CloudDirectory );
-		if (bPatchGeneration)
+		switch (ToolMode)
 		{
+		case EBuildPatchToolMode::PatchGeneration:
+			bSuccess = bSuccess && FParse::Value(*Switches[CloudDirIdx], TEXT("CloudDir="), CloudDirectory);
 			bSuccess = bSuccess && FParse::Value(*Switches[BuildRootIdx], TEXT("BuildRoot="), RootDirectory);
 			bSuccess = bSuccess && FParse::Value(*Switches[AppIDIdx], TEXT("AppID="), AppID);
 			bSuccess = bSuccess && FParse::Value(*Switches[AppNameIdx], TEXT("AppName="), AppName);
 			bSuccess = bSuccess && FParse::Value(*Switches[BuildVersionIdx], TEXT("BuildVersion="), BuildVersion);
 			bSuccess = bSuccess && FParse::Value(*Switches[AppLaunchIdx], TEXT("AppLaunch="), LaunchExe);
 			bSuccess = bSuccess && FParse::Value(*Switches[AppArgsIdx], TEXT("AppArgs="), LaunchCommand);
+			break;
+		case EBuildPatchToolMode::Compactify:
+			bSuccess = bSuccess && FParse::Value(*Switches[CloudDirIdx], TEXT("CloudDir="), CloudDirectory);
+			break;
+		case EBuildPatchToolMode::DataEnumeration:
+			bSuccess = bSuccess && FParse::Value(*Switches[ManifestFileIdx], TEXT("ManifestFile="), ManifestFile);
+			bSuccess = bSuccess && FParse::Value(*Switches[OutputFileIdx], TEXT("OutputFile="), OutputFile);
+			break;
 		}
 
 		// Get optional param values
@@ -358,31 +376,35 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 			// Initialize the configuration system, we can only do this reliably if we have CloudDirectory (i.e. bSuccess is true)
 			IniFile = CloudDirectory / TEXT("BuildPatchTool.ini");
 			GConfig->InitializeConfigSystem();
-		}
 
-		if (DataAgeThresholdIdx != INDEX_NONE)
-		{
-			FParse::Value(*Switches[DataAgeThresholdIdx], TEXT("DataAgeThreshold="), DataAgeThreshold);
-		}
-		else if (bSuccess && bCompactify)
-		{
-			// For compactification, if we don't pass in DataAgeThreshold, and it's not in BuildPatchTool.ini,
-			// then we set it to zero, to indicate that any unused chunks are valid for deletion
-			if (!GConfig->GetFloat(TEXT("Compactify"), TEXT("DataAgeThreshold"), DataAgeThreshold, IniFile))
+			if (DataAgeThresholdIdx != INDEX_NONE)
 			{
-				GLog->Log(ELogVerbosity::Warning, TEXT("DataAgeThreshold not supplied, so all unreferenced data is eliglble for deletion. Note that this process is NOT compatible with any concurrently running patch generaiton processes"));
-				DataAgeThreshold = 0.0f;
+				FParse::Value(*Switches[DataAgeThresholdIdx], TEXT("DataAgeThreshold="), DataAgeThreshold);
 			}
-		}
-		else if (bSuccess && bPatchGeneration)
-		{
-			// For patch generation, if we don't pass in DataAgeThreshold, and it's not specified in BuildPatchTool.ini,
-			// then we set bChunkWithReuseAgeThreshold to false, which indicates that *all* patch data is valid for reuse
-			if (!GConfig->GetFloat(TEXT("PatchGeneration"), TEXT("DataAgeThreshold"), DataAgeThreshold, IniFile))
+			else
 			{
-				GLog->Log(ELogVerbosity::Warning, TEXT("DataAgeThreshold not supplied, so all existing data is eligible for reuse. Note that this process is NOT compatible with any concurrently running compactify processes"));
-				DataAgeThreshold = 0.0f;
-				bPatchWithReuseAgeThreshold = false;
+				switch (ToolMode)
+				{
+				case EBuildPatchToolMode::Compactify:
+					// For compactification, if we don't pass in DataAgeThreshold, and it's not in BuildPatchTool.ini,
+					// then we set it to zero, to indicate that any unused chunks are valid for deletion
+					if (!GConfig->GetFloat(TEXT("Compactify"), TEXT("DataAgeThreshold"), DataAgeThreshold, IniFile))
+					{
+						GLog->Log(ELogVerbosity::Warning, TEXT("DataAgeThreshold not supplied, so all unreferenced data is eliglble for deletion. Note that this process is NOT compatible with any concurrently running patch generaiton processes"));
+						DataAgeThreshold = 0.0f;
+					}
+					break;
+				case EBuildPatchToolMode::PatchGeneration:
+					// For patch generation, if we don't pass in DataAgeThreshold, and it's not specified in BuildPatchTool.ini,
+					// then we set bChunkWithReuseAgeThreshold to false, which indicates that *all* patch data is valid for reuse
+					if (!GConfig->GetFloat(TEXT("PatchGeneration"), TEXT("DataAgeThreshold"), DataAgeThreshold, IniFile))
+					{
+						GLog->Log(ELogVerbosity::Warning, TEXT("DataAgeThreshold not supplied, so all existing data is eligible for reuse. Note that this process is NOT compatible with any concurrently running compactify processes"));
+						DataAgeThreshold = 0.0f;
+						bPatchWithReuseAgeThreshold = false;
+					}
+					break;
+				}
 			}
 		}
 	}
@@ -391,13 +413,13 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 	IFileManager::Get().ProcessCommandLineOptions();
 
 	// Check for argument error
-	if( !bSuccess )
+	if (!bSuccess)
 	{
 		GLog->Log(ELogVerbosity::Error, TEXT("An error occurred processing arguments"));
 		return 1;
 	}
 
-	if (bCompactify && bPreview && bNoPatchDelete)
+	if (ToolMode == EBuildPatchToolMode::Compactify && bPreview && bNoPatchDelete)
 	{
 		GLog->Log(ELogVerbosity::Error, TEXT("Only one of -preview and -nopatchdelete can be specified"));
 		return 5;
@@ -426,79 +448,91 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 	// Setup the module
 	BuildPatchServicesModule->SetCloudDirectory( CloudDirectory + TEXT( "/" ) );
 
-	if (bCompactify)
+	// Run the mode!
+	switch (ToolMode)
 	{
-		// Split out our manifests to keep arg (if any) into an array of manifest filenames
-		TArray<FString> ManifestsArr;
-		if (ManifestsList.Len() > 0)
+		case EBuildPatchToolMode::Compactify:
 		{
-			ManifestsList.ParseIntoArray(&ManifestsArr, TEXT(","), true);
-		}
-		else if (ManifestsFile.Len() > 0)
-		{
-			FString ManifestsFilePath = CloudDirectory / ManifestsFile;
-			FString Temp;
-			if (FFileHelper::LoadFileToString(Temp, *ManifestsFilePath))
+			// Split out our manifests to keep arg (if any) into an array of manifest filenames
+			TArray<FString> ManifestsArr;
+			if (ManifestsList.Len() > 0)
 			{
-				Temp.ReplaceInline(TEXT("\r"), TEXT("\n"));
-				Temp.ParseIntoArray(&ManifestsArr, TEXT("\n"), true);
+				ManifestsList.ParseIntoArray(&ManifestsArr, TEXT(","), true);
+			}
+			else if (ManifestsFile.Len() > 0)
+			{
+				FString ManifestsFilePath = CloudDirectory / ManifestsFile;
+				FString Temp;
+				if (FFileHelper::LoadFileToString(Temp, *ManifestsFilePath))
+				{
+					Temp.ReplaceInline(TEXT("\r"), TEXT("\n"));
+					Temp.ParseIntoArray(&ManifestsArr, TEXT("\n"), true);
+				}
+				else
+				{
+					GLog->Log(ELogVerbosity::Error, TEXT("Could not open specified manifests to keep file"));
+					BuildPatchServicesModule.Reset();
+					FCoreDelegates::OnExit.Broadcast();
+					return 2;
+				}
+			}
+
+			// Determine our mode of operation
+			ECompactifyMode::Type CompactifyMode = ECompactifyMode::Full;
+			if (bPreview)
+			{
+				CompactifyMode = ECompactifyMode::Preview;
+			}
+			else if (bNoPatchDelete)
+			{
+				CompactifyMode = ECompactifyMode::NoPatchDelete;
+			}
+
+			// Run the compactify routine
+			bSuccess = BuildPatchServicesModule->CompactifyCloudDirectory(ManifestsArr, DataAgeThreshold, CompactifyMode);
+		}
+		break;
+		case EBuildPatchToolMode::PatchGeneration:
+		{
+			FBuildPatchSettings Settings;
+			Settings.RootDirectory = RootDirectory + TEXT("/");
+			Settings.AppID = AppID;
+			Settings.AppName = AppName;
+			Settings.BuildVersion = BuildVersion;
+			Settings.LaunchExe = LaunchExe;
+			Settings.LaunchCommand = LaunchCommand;
+			Settings.IgnoreListFile = IgnoreListFile;
+			Settings.AttributeListFile = AttributeListFile;
+			Settings.PrereqName = PrereqName;
+			Settings.PrereqPath = PrereqPath;
+			Settings.PrereqArgs = PrereqArgs;
+			Settings.DataAgeThreshold = DataAgeThreshold;
+			Settings.bShouldHonorReuseThreshold = bPatchWithReuseAgeThreshold;
+			Settings.CustomFields = CustomFields;
+
+			// Run the build generation
+			if (FParse::Param(FCommandLine::Get(), TEXT("nochunks")))
+			{
+				bSuccess = BuildPatchServicesModule->GenerateFilesManifestFromDirectory(Settings);
 			}
 			else
 			{
-				GLog->Log(ELogVerbosity::Error, TEXT("Could not open specified manifests to keep file"));
-				BuildPatchServicesModule.Reset();
-				FCoreDelegates::OnExit.Broadcast();
-				return 2;
+				bSuccess = BuildPatchServicesModule->GenerateChunksManifestFromDirectory(Settings);
 			}
 		}
-
-		// Determine our mode of operation
-		ECompactifyMode::Type CompactifyMode = ECompactifyMode::Full;
-		if (bPreview)
+		break;
+		case EBuildPatchToolMode::DataEnumeration:
 		{
-			CompactifyMode = ECompactifyMode::Preview;
+			// Run the data enumeration routine
+			bSuccess = BuildPatchServicesModule->EnumerateManifestData(MoveTemp(ManifestFile), MoveTemp(OutputFile));
 		}
-		else if (bNoPatchDelete)
+		break;
+		default:
 		{
-			CompactifyMode = ECompactifyMode::NoPatchDelete;
+			GLog->Log(ELogVerbosity::Error, TEXT("Unknown tool mode"));
+			BuildPatchServicesModule.Reset();
+			FCoreDelegates::OnExit.Broadcast();
 		}
-
-		// Run the compactify routine
-		bSuccess = BuildPatchServicesModule->CompactifyCloudDirectory(ManifestsArr, DataAgeThreshold, CompactifyMode);
-	}
-	else if (bPatchGeneration)
-	{
-		FBuildPatchSettings Settings;
-		Settings.RootDirectory = RootDirectory + TEXT("/");
-		Settings.AppID = AppID;
-		Settings.AppName = AppName;
-		Settings.BuildVersion = BuildVersion;
-		Settings.LaunchExe = LaunchExe;
-		Settings.LaunchCommand = LaunchCommand;
-		Settings.IgnoreListFile = IgnoreListFile;
-		Settings.AttributeListFile = AttributeListFile;
-		Settings.PrereqName = PrereqName;
-		Settings.PrereqPath = PrereqPath;
-		Settings.PrereqArgs = PrereqArgs;
-		Settings.DataAgeThreshold = DataAgeThreshold;
-		Settings.bShouldHonorReuseThreshold = bPatchWithReuseAgeThreshold;
-		Settings.CustomFields = CustomFields;
-
-		// Run the build generation
-		if (FParse::Param(FCommandLine::Get(), TEXT("nochunks")))
-		{
-			bSuccess = BuildPatchServicesModule->GenerateFilesManifestFromDirectory(Settings);
-		}
-		else
-		{
-			bSuccess = BuildPatchServicesModule->GenerateChunksManifestFromDirectory(Settings);
-		}
-	}
-	else
-	{
-		GLog->Log(ELogVerbosity::Error, TEXT("Unknown tool mode"));
-		BuildPatchServicesModule.Reset();
-		FCoreDelegates::OnExit.Broadcast();
 		return 3;
 	}
 

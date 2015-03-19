@@ -650,6 +650,7 @@ void FProcHandle::Wait()
 {
 	if (bHasBeenWaitedFor)
 	{
+		UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::WaitForProc: already waited on process %d"), static_cast< int32 >(Get()));
 		return;	// we could try waitpid() another time, but why
 	}
 
@@ -674,6 +675,8 @@ void FProcHandle::Wait()
 			bIsRunning = false;	// set in advance
 			break;
 		}
+
+		UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::WaitForProc: process %d waited on and returned %d"), static_cast<int32>(Get()), ReturnCode);
 	}
 }
 
@@ -695,6 +698,7 @@ void FLinuxPlatformProcess::TerminateProc( FProcHandle & ProcessHandle, bool Kil
 		STUBBED("FLinuxPlatformProcess::TerminateProc() : Killing a subtree is not implemented yet");
 	}
 
+	UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::TerminateProc: terminated process %d"), static_cast< int32 >(ProcessHandle.Get()));
 	int KillResult = kill(ProcessHandle.Get(), SIGTERM);	// graceful
 	check(KillResult != -1 || errno != EINVAL);
 }

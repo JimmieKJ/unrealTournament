@@ -9,7 +9,6 @@
 #include "UTDmgType_Fell.h"
 #include "UTDmgType_Drown.h"
 #include "UTDmgType_FallingCrush.h"
-#include "UTDmg_SniperHeadshot.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
@@ -607,8 +606,10 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	CurrentJumpBob.Y = (1.f - JumpYInterp)*CurrentJumpBob.Y + JumpYInterp*DesiredJumpBob.Y;
 	CurrentJumpBob.Z = (1.f - InterpTime)*CurrentJumpBob.Z + InterpTime*DesiredJumpBob.Z;
 
-	float WeaponBobGlobalScaling = MyWeapon->WeaponBobScaling * (Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->WeaponBobGlobalScaling : 1.f);
-	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
+	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetController()); // fixmesteve use the viewer rather than the controller
+	float WeaponBobGlobalScaling = MyWeapon->WeaponBobScaling * (MyPC ? MyPC->WeaponBobGlobalScaling : 1.f);
+	float EyeOffsetGlobalScaling = MyPC ? MyPC->EyeOffsetGlobalScaling : 1.f;
+
 	return WeaponBobGlobalScaling*(CurrentWeaponBob.Y + CurrentJumpBob.Y)*Y + WeaponBobGlobalScaling*(CurrentWeaponBob.Z + CurrentJumpBob.Z)*Z + CrouchEyeOffset + EyeOffsetGlobalScaling*GetTransformedEyeOffset();
 }
 
@@ -1228,14 +1229,7 @@ void AUTCharacter::PlayDying()
 	{
 		Hat->DetachRootComponentFromParent(true);
 
-		if (LastTakeHitInfo.DamageType->IsChildOf(UUTDmg_SniperHeadshot::StaticClass()))
-		{
-			Hat->OnWearerHeadshot();
-		}
-		else
-		{
-			Hat->SetBodiesToSimulatePhysics();
-		}
+		Hat->OnWearerDeath(LastTakeHitInfo.DamageType);
 
 		Hat->SetLifeSpan(7.0f);
 	}
@@ -1244,14 +1238,7 @@ void AUTCharacter::PlayDying()
 	{
 		LeaderHat->DetachRootComponentFromParent(true);
 
-		if (LastTakeHitInfo.DamageType->IsChildOf(UUTDmg_SniperHeadshot::StaticClass()))
-		{
-			LeaderHat->OnWearerHeadshot();
-		}
-		else
-		{
-			LeaderHat->SetBodiesToSimulatePhysics();
-		}
+		LeaderHat->OnWearerDeath(LastTakeHitInfo.DamageType);
 
 		LeaderHat->SetLifeSpan(7.0f);
 	}
@@ -2325,6 +2312,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearClass, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, HatVariant, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearVariant, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 }
@@ -3679,24 +3668,31 @@ void AUTCharacter::OnRepHat()
 {
 	if (HatClass != nullptr)
 	{
-		if (Hat != NULL)
+		if (Hat != nullptr)
 		{
 			Hat->Destroy();
+			Hat = nullptr;
 		}
+		if (LeaderHat != nullptr)
+		{
+			LeaderHat->Destroy();
+			LeaderHat = nullptr;
+		}
+
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
 		Params.bNoCollisionFail = true;
 		Params.bNoFail = true;
 		Hat = GetWorld()->SpawnActor<AUTHat>(HatClass, GetActorLocation(), GetActorRotation(), Params);
-		if (Hat != NULL)
+		if (Hat != nullptr)
 		{
 			FVector HatRelativeLocation = Hat->GetRootComponent()->RelativeLocation;
 			FRotator HatRelativeRotation = Hat->GetRootComponent()->RelativeRotation;
 			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
 			Hat->SetActorRelativeRotation(HatRelativeRotation);
 			Hat->SetActorRelativeLocation(HatRelativeLocation);
-			Hat->CosmeticWearer = this;
+			Hat->OnVariantSelected(HatVariant);
 
 			// If replication of has high score happened before hat replication, locally update it here
 			if (bHasHighScore)
@@ -3724,8 +3720,29 @@ void AUTCharacter::OnRepEyewear()
 		if (Eyewear != NULL)
 		{
 			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget);
-			Eyewear->CosmeticWearer = this;
+			Eyewear->OnVariantSelected(EyewearVariant);
 		}
+	}
+}
+
+void AUTCharacter::OnRepHatVariant()
+{
+	if (Hat != nullptr)
+	{
+		Hat->OnVariantSelected(HatVariant);
+	}
+
+	if (LeaderHat != nullptr)
+	{
+		LeaderHat->OnVariantSelected(HatVariant);
+	}
+}
+
+void AUTCharacter::OnRepEyewearVariant()
+{
+	if (Eyewear != nullptr)
+	{
+		Eyewear->OnVariantSelected(EyewearVariant);
 	}
 }
 
@@ -4275,7 +4292,7 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 				LeaderHat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
 				LeaderHat->SetActorRelativeRotation(HatRelativeRotation);
 				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
-				LeaderHat->CosmeticWearer = this;
+				LeaderHat->OnVariantSelected(HatVariant);
 
 				Hat->SetActorHiddenInGame(true);
 			}

@@ -281,6 +281,48 @@ void AUTPlayerState::Tick(float DeltaTime)
 	}
 }
 
+void AUTPlayerState::ServerReceiveHatVariant_Implementation(int32 NewVariant)
+{
+	HatVariant = NewVariant;
+
+	AController* Controller = Cast<AController>(GetOwner());
+	if (Controller != NULL)
+	{
+		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+		if (Pawn != NULL)
+		{
+			Pawn->HatVariant = NewVariant;
+			Pawn->OnRepHatVariant();
+		}
+	}	
+}
+
+bool AUTPlayerState::ServerReceiveHatVariant_Validate(int32 NewVariant)
+{
+	return true;
+}
+
+void AUTPlayerState::ServerReceiveEyewearVariant_Implementation(int32 NewVariant)
+{
+	EyewearVariant = NewVariant;
+
+	AController* Controller = Cast<AController>(GetOwner());
+	if (Controller != NULL)
+	{
+		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+		if (Pawn != NULL)
+		{
+			Pawn->EyewearVariant = NewVariant;
+			Pawn->OnRepEyewearVariant();
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
+{
+	return true;
+}
+
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
 	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
@@ -408,6 +450,8 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->Assists = Assists;
 		PS->HatClass = HatClass;
 		PS->EyewearClass = EyewearClass;
+		PS->HatVariant = HatVariant;
+		PS->EyewearVariant = EyewearVariant;
 		PS->SelectedCharacter = SelectedCharacter;
 		PS->StatManager = StatManager;
 		if (PS->StatManager)

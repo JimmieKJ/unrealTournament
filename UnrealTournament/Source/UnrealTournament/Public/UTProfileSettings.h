@@ -71,7 +71,11 @@ class UUTProfileSettings : public UObject
 	UPROPERTY()
 	FString HatPath;
 	UPROPERTY()
+	int32 HatVariant;
+	UPROPERTY()
 	FString EyewearPath;
+	UPROPERTY()
+	int32 EyewearVariant;
 	UPROPERTY()
 	FString TauntPath;
 

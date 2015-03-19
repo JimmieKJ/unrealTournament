@@ -63,6 +63,9 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 	// Allows for UI/etc to pickup changes to the current match.
 	FCurrentMatchChangedDelegate CurrentMatchChangedDelegate;
 
+	// Will be true if the client has returned from a match previously (?RTM=1 on the URL)
+	bool bReturnedFromMatch;
+
 protected:
 
 	// This flag is managed on both sides of the pond but isn't replicated.  It's only valid on the server and THIS client.
@@ -137,6 +140,8 @@ protected:
 
 public:
 	FString DesiredQuickStartGameMode;
+	// The Unique ID of a friend this player wants to join
+	FString DesiredFriendToJoin;
 
 };
 

@@ -67,12 +67,26 @@ protected:
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > HatComboBox;
 	TSharedPtr<STextBlock> SelectedHat;
 	void OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-	
+
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > HatVariantComboBox;
+	TArray<TSharedPtr<FString>> HatVariantList;
+	TSharedPtr<STextBlock> SelectedHatVariant;
+	int32 SelectedHatVariantIndex;
+	void OnHatVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void PopulateHatVariants();
+
 	TArray<TSharedPtr<FString>> EyewearList;
 	TArray<FString> EyewearPathList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > EyewearComboBox;
 	TSharedPtr<STextBlock> SelectedEyewear;
 	void OnEyewearSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > EyewearVariantComboBox;
+	TArray<TSharedPtr<FString>> EyewearVariantList;
+	TSharedPtr<STextBlock> SelectedEyewearVariant;
+	int32 SelectedEyewearVariantIndex;
+	void OnEyewearVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void PopulateEyewearVariants();
 
 	TArray<TSharedPtr<FString>> TauntList;
 	TArray<FString> TauntPathList;

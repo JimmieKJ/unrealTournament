@@ -1,6 +1,7 @@
 	// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTBasePlayerController.h"
 #include "UTPlayerController.generated.h"
 
 // range user is allowed to configure FOV angle
@@ -459,14 +460,16 @@ protected:
 	/** weapon selection */
 	void PrevWeapon();
 	void NextWeapon();
-	
+
+	UFUNCTION(exec)
+	void ToggleTranslocator();
+
 	void ThrowWeapon();
 	
 	UFUNCTION(Reliable, Server, WithValidation)
 	virtual void ServerThrowWeapon();
 
 	int32 PreviousWeaponGroup;
-
 
 	virtual void SwitchWeaponInSequence(bool bPrev);
 

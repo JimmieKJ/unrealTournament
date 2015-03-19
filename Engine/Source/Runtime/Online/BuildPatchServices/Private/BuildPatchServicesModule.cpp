@@ -195,6 +195,11 @@ bool FBuildPatchServicesModule::CompactifyCloudDirectory(const TArray<FString>& 
 	return FBuildDataCompactifier::CompactifyCloudDirectory(ManifestsToKeep, DataAgeThreshold, bPreview, bNoPatchDelete);
 }
 
+bool FBuildPatchServicesModule::EnumerateManifestData(FString ManifestFilePath, FString OutputFile)
+{
+	return FBuildDataEnumeration::EnumerateManifestData(MoveTemp(ManifestFilePath), MoveTemp(OutputFile));
+}
+
 #endif //WITH_BUILDPATCHGENERATION
 
 void FBuildPatchServicesModule::SetStagingDirectory( const FString& StagingDir )

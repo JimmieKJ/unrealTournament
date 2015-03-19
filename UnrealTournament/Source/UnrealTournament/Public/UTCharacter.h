@@ -304,7 +304,19 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UFUNCTION()
 	virtual void OnRepEyewear();
-	
+
+	UPROPERTY(replicatedUsing = OnRepHatVariant)
+	int32 HatVariant;
+
+	UFUNCTION()
+	virtual void OnRepHatVariant();
+
+	UPROPERTY(replicatedUsing = OnRepEyewearVariant)
+	int32 EyewearVariant;
+
+	UFUNCTION()
+	virtual void OnRepEyewearVariant();
+
 	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepCosmeticFlashCount)
 	int32 CosmeticFlashCount;
 

@@ -242,10 +242,13 @@ protected:
 	// Helper function to take a JSON object and try to convert it to the FVector2D.  
 	virtual FVector2D JSon2FVector2D(const TSharedPtr<FJsonObject> Vector2DObject, FVector2D Default);
 
-	// Calculates the currently viewed player's standing.  NOTE: Happens once per frame
-	void CalcStanding();
+	/** Last time CalcStanding() was run. */
+	float CalcStandingTime;
 
 public:
+
+	// Calculates the currently viewed player's standing.  NOTE: Happens once per frame
+	void CalcStanding();
 
 	// Takes seconds and converts it to a string
 	FText ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true) const;

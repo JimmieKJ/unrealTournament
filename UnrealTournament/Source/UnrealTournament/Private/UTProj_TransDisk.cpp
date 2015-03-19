@@ -19,7 +19,7 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	ProjectileMovement->Buoyancy = 0.5f;
 	MaxSpeedUnderWater = 1300.f;
-	DisruptDestroyTime = 15.f;
+	DisruptDestroyTime = 11.f;
 	RemainingHealth = 10;
 }
 

@@ -10,7 +10,7 @@
 #include "UTGameEngine.h"
 #include "UTServerBeaconClient.h"
 #include "Engine/UserInterfaceSettings.h"
-
+#include "UnrealNetwork.h"
 
 #if !UE_SERVER
 
@@ -128,7 +128,7 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 		];
 
 
-	FindHUBToJoin();
+	BeginQuickmatch();
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 }
 
@@ -145,12 +145,48 @@ FText SUTQuickMatch::GetMinorStatusText() const
 }
 
 
-void SUTQuickMatch::FindHUBToJoin()
+void SUTQuickMatch::BeginQuickmatch()
 {
+	bCancelQuickmatch = false;
+	
 	OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem) OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
+	if (OnlineSessionInterface.IsValid())
+	{
+		// First step, cancel out any existing MCP searches...
+
+		FOnCancelFindSessionsCompleteDelegate Delegate;
+		Delegate.BindSP(this, &SUTQuickMatch::OnInitialFindCancel);
+		OnCancelFindSessionCompleteHandle = OnlineSessionInterface->AddOnCancelFindSessionsCompleteDelegate_Handle(Delegate);
+		OnlineSessionInterface->CancelFindSessions();
+	}
+}
+
+void SUTQuickMatch::OnInitialFindCancel(bool bWasSuccessful)
+{
+	// We don't really care if this succeeded since a failure just means there were
+	// no sessions.
+
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelFindSessionCompleteHandle);
+		OnCancelFindSessionCompleteHandle.Reset();
+	}
+
+	if (bCancelQuickmatch)
+	{
+		PlayerOwner->CloseQuickMatch();
+	}
+	else
+	{
+		FindHUBToJoin();
+	}
+}
+
+void SUTQuickMatch::FindHUBToJoin()
+{
 	if (OnlineSessionInterface.IsValid())
 	{
 		// Setup our Find complete Delegate
@@ -162,9 +198,8 @@ void SUTQuickMatch::FindHUBToJoin()
 
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		SearchSettings->MaxSearchResults = 10000;
-		FString GameVer = FString::Printf(TEXT("%i"), GetDefault<UUTGameEngine>()->GameNetworkVersion);
+		FString GameVer = FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion());
 		SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);			// Must equal the game version
-
 		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);				// Must not be a lobby server instance
 
 		FString GameMode = TEXT("/Script/UnrealTournament.UTLobbyGameMode");
@@ -184,9 +219,16 @@ void SUTQuickMatch::FindHUBToJoin()
 
 void SUTQuickMatch::OnFindSessionsComplete(bool bWasSuccessful)
 {
+	// Clear this delegate
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteHandle);
+		OnFindSessionCompleteHandle.Reset();
+	}
+
 	if (bWasSuccessful)
 	{
-		// Itterate through all of the hubs and first the best one...
+		// Iterate through all of the hubs and first the best one...
 
 		if (SearchSettings->SearchResults.Num() > 0)
 		{
@@ -205,13 +247,14 @@ void SUTQuickMatch::OnFindSessionsComplete(bool bWasSuccessful)
 			}
 		}
 	}
+
 	// We get here, we just force the find best match call.  This will fail and error out but insures and clean up happens
 	FindBestMatch();
 }
 
 void SUTQuickMatch::NoAvailableMatches()
 {
-	PlayerOwner->CancelQuickMatch();
+	PlayerOwner->CloseQuickMatch();
 	PlayerOwner->MessageBox(NSLOCTEXT("QuickMatch", "NoServersTitle", "ONLINE FAILURE"), NSLOCTEXT("QuickMatch", "NoServerTitle", "The Online System is down for maintenance, please try again in a few minutes."));
 }
 
@@ -326,7 +369,7 @@ void SUTQuickMatch::FindBestMatch()
 		
 		}
 
-		PlayerOwner->CancelQuickMatch();
+		PlayerOwner->CloseQuickMatch();
 		PlayerOwner->JoinSession(BestServer->SearchResult, false, QuickMatchType);
 	}
 	else
@@ -337,10 +380,11 @@ void SUTQuickMatch::FindBestMatch()
 
 void SUTQuickMatch::Cancel()
 {
-	if (OnlineSessionInterface.IsValid())
-	{
-		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteHandle);
-	}
+	if (bCancelQuickmatch) return;	// Quick out if we are already cancelling
+
+	bCancelQuickmatch = true;
+
+	// Shut down any ping trackers and clean up the lists.
 
 	for (int32 i=0;i<PingTrackers.Num();i++)
 	{
@@ -351,6 +395,39 @@ void SUTQuickMatch::Cancel()
 	}
 	PingTrackers.Empty();
 	FinalList.Empty();
+
+	if (OnlineSessionInterface.IsValid())
+	{
+		// Look to see if we are currently in the search phase.  If we are, we have to cancel it first.
+		if (OnFindSessionCompleteHandle.IsValid())
+		{
+			// We clear the find session delegate to insure it's not fired while we are trying to cancel
+			OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteHandle);
+			OnFindSessionCompleteHandle.Reset();
+		}
+
+		// Tell the MCP to cancel if we are not already in that process.
+		if (!OnCancelFindSessionCompleteHandle.IsValid())
+		{
+			// Start the cancel process
+			FOnCancelFindSessionsCompleteDelegate Delegate;
+			Delegate.BindSP(this, &SUTQuickMatch::OnSearchCancelled);
+			OnCancelFindSessionCompleteHandle = OnlineSessionInterface->AddOnCancelFindSessionsCompleteDelegate_Handle(Delegate);
+			OnlineSessionInterface->CancelFindSessions();
+		}
+	}
+
+}
+
+void SUTQuickMatch::OnSearchCancelled(bool bWasSuccessful)
+{
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnCancelFindSessionsCompleteDelegate_Handle(OnCancelFindSessionCompleteHandle);
+		OnCancelFindSessionCompleteHandle.Reset();
+	}
+
+	PlayerOwner->CloseQuickMatch();
 }
 
 bool SUTQuickMatch::SupportsKeyboardFocus() const
@@ -372,14 +449,12 @@ FReply SUTQuickMatch::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKe
 
 FReply SUTQuickMatch::OnCancelClick()
 {
-	if (PlayerOwner.IsValid())
-	{
-		PlayerOwner->CancelQuickMatch();		
-	}
+	Cancel();
 	return FReply::Handled();
 }
 
 void SUTQuickMatch::TellSlateIWantKeyboardFocus()
+
 {
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 }
