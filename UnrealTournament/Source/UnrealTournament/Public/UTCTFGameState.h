@@ -19,7 +19,6 @@ protected:
 	UPROPERTY()
 	FString PlayerName;
 public:
-	/* FIXME: disabled because of engine level assertion
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 	{
 		UObject* Data = PlayerState;
@@ -31,7 +30,7 @@ public:
 			Ar << PlayerName;
 		}
 		return true;
-	}*/
+	}
 
 	FSafePlayerName()
 	: PlayerState(NULL)
@@ -57,7 +56,6 @@ public:
 		return (PlayerState != NULL) ? PlayerState->PlayerName : PlayerName;
 	}
 };
-/* FIXME: disabled because of engine level assertion
 template<>
 struct TStructOpsTypeTraits<FSafePlayerName> : public TStructOpsTypeTraitsBase
 {
@@ -65,7 +63,7 @@ struct TStructOpsTypeTraits<FSafePlayerName> : public TStructOpsTypeTraitsBase
 	{
 		WithNetSerializer = true
 	};
-};*/
+};
 inline uint32 GetTypeHash(const FSafePlayerName& N)
 {
 	return GetTypeHash(N.PlayerName) + GetTypeHash(N.PlayerState);
