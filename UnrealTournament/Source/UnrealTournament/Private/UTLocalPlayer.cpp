@@ -254,13 +254,7 @@ void UUTLocalPlayer::ShowMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = true;
-/*
-			if (PlayerController->MyHUD)
-			{
-				PlayerController->MyHUD->bShowHUD = false;
-			}
-*/
-
+			PlayerController->SetInputMode( FInputModeUIOnly() );
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -283,12 +277,6 @@ void UUTLocalPlayer::HideMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = false;
-/*
-			if (PlayerController->MyHUD)
-			{
-				PlayerController->MyHUD->bShowHUD = true;
-			}
-*/
 			PlayerController->SetInputMode(FInputModeGameOnly());
 			PlayerController->SetPause(false);
 		}
