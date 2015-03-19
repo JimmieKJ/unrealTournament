@@ -323,7 +323,7 @@ void UUTProjectileMovementComponent::ServerUpdateState_Implementation(FVector In
 
 FVector UUTProjectileMovementComponent::ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const
 {
-	FVector HomingAcceleration = ((HomingTargetComponent->GetComponentLocation() - UpdatedComponent->GetComponentLocation()).GetSafeNormal() * HomingAccelerationMagnitude);
+	FVector HomingAcceleration = (HomingTargetComponent.IsValid() && UpdatedComponent) ? ((HomingTargetComponent->GetComponentLocation() - UpdatedComponent->GetComponentLocation()).GetSafeNormal() * HomingAccelerationMagnitude) : FVector(0.f);
 	if (bPreventZHoming)
 	{
 		HomingAcceleration.Z = 0.f;
