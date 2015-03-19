@@ -555,7 +555,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         static void CreateDebugManifest(string StageDirectory, UnrealTargetPlatform HostPlatform, SortedSet<string> RequiredFiles)
         {
             string ManifestFile = "Manifest_DebugFiles.txt";
-            string ManifestPath = CommandUtils.CombinePaths(StageDirectory, ManifestFile);
+            string ManifestPath = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Saved", "Logs", ManifestFile);
             CommandUtils.DeleteFile(ManifestPath);
             
             const string Iso8601DateTimeFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffzzz";
@@ -870,7 +870,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 				var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(bp, HostPlatform, BranchName);
 
-                string DebugManifest = CommandUtils.CombinePaths(StageDirectory, "Manifest_DebugFiles.txt");
+                string DebugManifest = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Saved", "Logs", "Manifest_DebugFiles.txt");
                 if (!CommandUtils.FileExists(DebugManifest))
                 {
                     throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", DebugManifest);
