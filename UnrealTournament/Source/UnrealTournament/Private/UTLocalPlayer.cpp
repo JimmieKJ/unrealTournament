@@ -675,6 +675,14 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			LoginOnline(PendingLoginName, PendingLoginPassword);
 			PendingLoginPassword = TEXT("");
 		}
+
+
+		// If we are connected to a server, then exit back to the main menu.
+		if (GetWorld()->GetNetMode() == NM_Client)
+		{
+			ReturnToMainMenu();		
+		}
+
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
@@ -696,6 +704,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
 		}
 	}
+
 
 	PlayerOnlineStatusChanged.Broadcast(this, LoginStatus, UniqueID);
 }
@@ -1410,6 +1419,7 @@ TSharedPtr<SUWFriendsPopup> UUTLocalPlayer::GetFriendsPopup()
 
 void UUTLocalPlayer::ReturnToMainMenu()
 {
+	HideMenu();
 	Exec(GetWorld(), TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"), *GLog);
 }
 
