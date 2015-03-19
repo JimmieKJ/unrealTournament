@@ -126,9 +126,6 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 
 void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bool bReturnedFromMatch)
 {
-
-	UE_LOG(UT,Log,TEXT("Checking For ExistingMatch: %s %i"), *NewPlayer->PlayerName, bReturnedFromMatch);
-
 	if (bReturnedFromMatch)
 	{
 		for (int32 i=0;i<AvailableMatches.Num();i++)
@@ -136,7 +133,6 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bo
 			// Check to see if this player belongs in the match
 			if (AvailableMatches[i] && AvailableMatches[i]->WasInMatchInstance(NewPlayer))
 			{
-				UE_LOG(UT,Log,TEXT("Player %s was in match"), *NewPlayer->PlayerName);
 				// Remove the player.
 				AvailableMatches[i]->RemoveFromMatchInstance(NewPlayer);
 
@@ -157,11 +153,6 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bo
 					for (int32 j = 0; j < PlayerArray.Num(); j++)
 					{
 						AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PlayerArray[j]);
-						UE_LOG(UT,Log,TEXT("Testing %s %s %s"), *PS->PlayerName, 
-								(PS->CurrentMatch != NULL ? *PS->CurrentMatch->GetFullName() : TEXT("None")), 
-								(PS->PreviousMatch != NULL ? *PS->PreviousMatch->GetFullName() : TEXT("None")), 
-								(AvailableMatches[i] != NULL ? *AvailableMatches[i]->GetFullName() : TEXT("None")));
-
 						if (PS && PS != NewPlayer && PS->CurrentMatch == NULL && PS->PreviousMatch && PS->PreviousMatch == AvailableMatches[i])
 						{
 							JoinMatch(NewMatch, PS);
