@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTDmg_SniperHeadshot.h"
 #include "UTHat.h"
 
 
