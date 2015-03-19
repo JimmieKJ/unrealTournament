@@ -120,6 +120,12 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 					}
 				}
 			}
+
+			if (BaseMutator != NULL)
+			{
+				BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+			}
+
 			// if all flags are returned, end advantage time right away
 			if (CTFGameState->bPlayingAdvantage)
 			{
@@ -221,6 +227,11 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 
 			CTFGameState->AddScoringPlay(NewScoringPlay);
 
+			if (BaseMutator != NULL)
+			{
+				BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+			}
+
 			if (CTFGameState->IsMatchInOvertime())
 			{
 				EndGame(Holder, FName(TEXT("GoldenCap")));	
@@ -238,11 +249,6 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 		}
 
 		UE_LOG(UT,Verbose,TEXT("========================================="));
-		
-		if (BaseMutator != NULL)
-		{
-			BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
-		}
 	}
 }
 
