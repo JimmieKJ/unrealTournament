@@ -701,7 +701,7 @@ void FPackageContent::PackageWeapon(UClass* WeaponClass)
 void FPackageContent::PackageDLC(const FString& DLCName, const FText& TaskName, const FText& TaskShortName)
 {
 	UUTUnrealEdEngine* UTEditor = Cast<UUTUnrealEdEngine>(GEditor);
-	// Disabled for now
+	// Disabled for now, doesn't seem faster
 	if (0 && UTEditor && UTEditor->CanCookByTheBookInEditor("WindowsNoEditor"))
 	{
 		TArray<ITargetPlatform*> TargetPlatforms;
