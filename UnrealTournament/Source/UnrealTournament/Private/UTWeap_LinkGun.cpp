@@ -34,6 +34,9 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	LinkFlexibility = 0.64f;
 	LinkDistanceScaling = 1.5f;
 
+	BeamPulseInterval = 0.6f;
+	BeamPulseMomentum = -200000.0f;
+
 	PerLinkDamageScalingPrimary = 1.f;
 	PerLinkDamageScalingSecondary = 1.25f;
 	PerLinkDistanceScalingSecondary = 0.2f;
@@ -56,6 +59,15 @@ AUTProjectile* AUTWeap_LinkGun::FireProjectile()
 
 void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 {
+	AController* PulseInstigator = UTOwner->Controller;
+	FVector PulseStart = UTOwner->GetActorLocation();
+
+	FHitResult TempHit;
+	if (OutHit == NULL)
+	{
+		OutHit = &TempHit;
+	}
+
 	const FVector SpawnLocation = GetFireStartLoc();
 
 	FHitResult Hit;
@@ -80,6 +92,38 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		ClearLinksTo();
 
 		Super::FireInstantHit(bDealDamage, OutHit);
+	}
+
+	if (bPendingBeamPulse)
+	{
+		if (PulseInstigator != NULL)
+		{
+			AActor* PulseTarget = (LinkTarget != NULL) ? LinkTarget : OutHit->Actor.Get();
+			if (PulseTarget != NULL)
+			{
+				// use owner to target direction instead of exactly the weapon orientation so that shooting below center doesn't cause the pull to send them over the shooter's head
+				const FVector Dir = (PulseTarget->GetActorLocation() - PulseStart).GetSafeNormal();
+				PulseTarget->TakeDamage(0.0f, FUTPointDamageEvent(0.0f, *OutHit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), PulseInstigator, this);
+			}
+		}
+		if (UTOwner != NULL)
+		{
+			UTOwner->SetFlashExtra(UTOwner->FlashExtra + 1, CurrentFireMode);
+		}
+		LastBeamPulseTime = GetWorld()->TimeSeconds;
+		bPendingBeamPulse = false;
+	}
+}
+
+void AUTWeap_LinkGun::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (MuzzleFlash.IsValidIndex(1) && MuzzleFlash[1] != NULL)
+	{
+		static FName NAME_PulseScale(TEXT("PulseScale"));
+		float NewScale = 1.0f + FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - LastBeamPulseTime) / 0.25f);
+		MuzzleFlash[1]->SetVectorParameter(NAME_PulseScale, FVector(NewScale, NewScale, NewScale));
 	}
 }
 
@@ -352,6 +396,15 @@ void AUTWeap_LinkGun::ServerStopFire_Implementation(uint8 FireModeNum)
 {
 	LinkedBio = NULL;
 	Super::ServerStopFire_Implementation(FireModeNum);
+}
+
+void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
+{
+	if (CurrentFireMode == 1 && OtherFireMode == 0 && GetWorld()->TimeSeconds - LastBeamPulseTime >= BeamPulseInterval)
+	{
+		bPendingBeamPulse = true;
+	}
+	Super::OnMultiPress_Implementation(OtherFireMode);
 }
 
 void AUTWeap_LinkGun::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

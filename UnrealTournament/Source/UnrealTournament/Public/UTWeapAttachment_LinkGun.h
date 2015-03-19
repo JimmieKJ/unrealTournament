@@ -9,5 +9,16 @@ class UNREALTOURNAMENT_API AUTWeapAttachment_LinkGun : public AUTWeaponAttachmen
 {
 	GENERATED_BODY()
 
+	AUTWeapAttachment_LinkGun(const FObjectInitializer& OI)
+	: Super(OI)
+	{
+		PrimaryActorTick.bCanEverTick = true;
+		PrimaryActorTick.bStartWithTickEnabled = true;
+	}
+
+	float LastBeamPulseTime;
+
 	virtual void PlayFiringEffects() override;
+	virtual void FiringExtraUpdated() override;
+	virtual void Tick(float DeltaTime) override;
 };

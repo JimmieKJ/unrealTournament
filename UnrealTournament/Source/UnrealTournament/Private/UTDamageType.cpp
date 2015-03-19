@@ -14,6 +14,7 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	DamageImpulse = 50000.0f;
 	DestructibleImpulse = 50000.0f;
 	bForceZMomentum = true;
+	ForceZMomentumPct = 0.4f;
 	GibHealthThreshold = -50;
 	GibDamageThreshold = 99;
 	bCausesBlood = true;

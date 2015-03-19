@@ -53,3 +53,24 @@ void AUTWeapAttachment_LinkGun::PlayFiringEffects()
 	}
 }
 
+void AUTWeapAttachment_LinkGun::FiringExtraUpdated()
+{
+	if (UTOwner->FlashExtra > 0 && UTOwner->FireMode == 1)
+	{
+		// display beam pulse
+		LastBeamPulseTime = GetWorld()->TimeSeconds;
+	}
+}
+
+void AUTWeapAttachment_LinkGun::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (MuzzleFlash.IsValidIndex(1) && MuzzleFlash[1] != NULL)
+	{
+		static FName NAME_PulseScale(TEXT("PulseScale"));
+		float NewScale = 1.0f + FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - LastBeamPulseTime) / 0.25f);
+		MuzzleFlash[1]->SetVectorParameter(NAME_PulseScale, FVector(NewScale, NewScale, NewScale));
+	}
+}
+

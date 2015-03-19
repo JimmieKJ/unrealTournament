@@ -209,6 +209,10 @@ void AUTWeaponAttachment::PlayBulletWhip()
 	}
 }
 
+void AUTWeaponAttachment::FiringExtraUpdated()
+{
+}
+
 void AUTWeaponAttachment::StopFiringEffects(bool bIgnoreCurrentMode)
 {
 	// we need to default to stopping all modes' firing effects as we can't rely on the replicated value to be correct at this point
