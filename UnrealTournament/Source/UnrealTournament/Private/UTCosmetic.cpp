@@ -83,6 +83,11 @@ void AUTCosmetic::OnWearerHeadshot_Implementation()
 
 }
 
+void AUTCosmetic::OnWearerDeath_Implementation()
+{
+
+}
+
 void AUTCosmetic::OnVariantSelected_Implementation(int32 Variant)
 {
 	if (Variant >= 0 && Variant < VariantColorSwaps.Num())

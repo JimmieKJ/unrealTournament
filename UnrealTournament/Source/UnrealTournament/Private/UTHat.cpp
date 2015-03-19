@@ -36,6 +36,20 @@ void AUTHat::OnWearerHeadshot_Implementation()
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTHat::HeadshotRotationComplete, HeadshotRotationTime, false);
 }
 
+void AUTHat::OnWearerDeath_Implementation(TSubclassOf<UDamageType> DamageType)
+{
+	DetachRootComponentFromParent(true);
+	
+	if (DamageType->IsChildOf(UUTDmg_SniperHeadshot::StaticClass()))
+	{
+		OnWearerHeadshot();
+	}
+	else
+	{
+		SetBodiesToSimulatePhysics();
+	}
+}
+
 void AUTHat::HeadshotRotationComplete()
 {
 	bHeadshotRotating = false;

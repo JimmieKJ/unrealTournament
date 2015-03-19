@@ -9,7 +9,6 @@
 #include "UTDmgType_Fell.h"
 #include "UTDmgType_Drown.h"
 #include "UTDmgType_FallingCrush.h"
-#include "UTDmg_SniperHeadshot.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
@@ -1230,14 +1229,7 @@ void AUTCharacter::PlayDying()
 	{
 		Hat->DetachRootComponentFromParent(true);
 
-		if (LastTakeHitInfo.DamageType->IsChildOf(UUTDmg_SniperHeadshot::StaticClass()))
-		{
-			Hat->OnWearerHeadshot();
-		}
-		else
-		{
-			Hat->SetBodiesToSimulatePhysics();
-		}
+		Hat->OnWearerDeath(LastTakeHitInfo.DamageType);
 
 		Hat->SetLifeSpan(7.0f);
 	}
@@ -1246,14 +1238,7 @@ void AUTCharacter::PlayDying()
 	{
 		LeaderHat->DetachRootComponentFromParent(true);
 
-		if (LastTakeHitInfo.DamageType->IsChildOf(UUTDmg_SniperHeadshot::StaticClass()))
-		{
-			LeaderHat->OnWearerHeadshot();
-		}
-		else
-		{
-			LeaderHat->SetBodiesToSimulatePhysics();
-		}
+		LeaderHat->OnWearerDeath(LastTakeHitInfo.DamageType);
 
 		LeaderHat->SetLifeSpan(7.0f);
 	}
