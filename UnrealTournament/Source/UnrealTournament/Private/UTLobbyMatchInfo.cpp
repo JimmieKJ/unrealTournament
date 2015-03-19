@@ -132,7 +132,7 @@ void AUTLobbyMatchInfo::OnRep_MatchMap()
 
 void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 {
-	UE_LOG(UT,Log,TEXT(" -- SetLobbyMatchState [%s]"), *NewMatchState.ToString());
+	
 	if ((CurrentState != ELobbyMatchState::Recycling || NewMatchState == ELobbyMatchState::Dead) && CurrentState != ELobbyMatchState::Dead)
 	{
 		// When the client receives it's startup info, it will attempt to switch the match's state from Setup to waiting for players

@@ -86,6 +86,10 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 			SubMenuItems.Add(FText::FromString(*MenuItems[i]));
 		}
 	}
+	else
+	{
+		SubMenuItems.Add(FText::GetEmpty());
+	}
 
 	if (SubMenuItems.Num() > 0)
 	{
