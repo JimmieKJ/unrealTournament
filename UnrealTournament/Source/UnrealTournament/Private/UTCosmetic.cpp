@@ -83,7 +83,7 @@ void AUTCosmetic::OnWearerHeadshot_Implementation()
 
 }
 
-void AUTCosmetic::OnWearerDeath_Implementation()
+void AUTCosmetic::OnWearerDeath_Implementation(TSubclassOf<UDamageType> DamageType)
 {
 
 }
