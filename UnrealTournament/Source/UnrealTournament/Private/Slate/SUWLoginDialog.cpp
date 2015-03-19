@@ -21,7 +21,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
 	//float ScaledX = ViewportSize.X / DPIScale;
 	FVector2D DesignedRez = ViewportSize / DPIScale; //(ScaledX, Viewport);
-	FVector2D DesignedSize(500, 700);
+	FVector2D DesignedSize(500, 800);
 	FVector2D Pos = (DesignedRez * 0.5f) - (DesignedSize * 0.5f);
 	ChildSlot
 	.VAlign(VAlign_Fill)
@@ -199,11 +199,20 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
 					.HAlign(HAlign_Center)
+					.Padding(10.0f,0.0f,10.f,0.0f)
 					.AutoWidth()
 					[
-						SNew(STextBlock)
-						.Text(InArgs._ErrorText)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Login.Error.TextStyle")
+						SNew(SBox)
+						.WidthOverride(DesignedSize.X * 0.9)
+						[
+							SNew(SRichTextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Login.Error.TextStyle")
+							.Justification(ETextJustify::Center)
+							.DecoratorStyleSet( &SUWindowsStyle::Get() )
+							.AutoWrapText( true )
+							.WrapTextAt(DesignedSize.X * 0.9)
+							.Text(InArgs._ErrorText)
+						]
 					]
 				]
 

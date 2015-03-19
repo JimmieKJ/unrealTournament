@@ -228,7 +228,7 @@ protected:
 #endif
 
 	// Call this function to Attempt to load the Online Profile Settings for this user.
-	virtual void GetAuth(bool bLastFailed=false);
+	virtual void GetAuth(FString ErrorMessage = TEXT(""));
 
 private:
 
