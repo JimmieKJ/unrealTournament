@@ -15,6 +15,9 @@ struct ILanguageSpec
 	// half3x3 <-> float3x3
 	virtual bool SupportsMatrixConversions() const = 0;
 	virtual void SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, exec_list* ir) = 0;
+
+	// Experimental!
+	virtual bool UseSamplerInnerType() const { return false; }
 };
 
 enum

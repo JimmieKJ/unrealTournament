@@ -105,6 +105,7 @@ struct SCmdOptions
 	bool bGroupFlattenedUB;
 	bool bExpandExpressions;
 	bool bCSE;
+	bool bSeparateShaderObjects;
 	const char* OutFile;
 
 	SCmdOptions() 
@@ -121,6 +122,7 @@ struct SCmdOptions
 		bGroupFlattenedUB = false;
 		bExpandExpressions = false;
 		bCSE = false;
+		bSeparateShaderObjects = false;
 		OutFile = nullptr;
 	}
 };
@@ -209,6 +211,10 @@ static int ParseCommandLine( int argc, char** argv, SCmdOptions& OutOptions)
 			else if (!strncmp(*argv, "-o=", 3))
 			{
 				OutOptions.OutFile = (*argv) + 3;
+			}
+			else if (!strcmp( *argv, "-separateshaders"))
+			{
+				OutOptions.bSeparateShaderObjects = true;
 			}
 			else
 			{
@@ -325,6 +331,7 @@ int main( int argc, char** argv)
 	Flags |= Options.bGroupFlattenedUB ? HLSLCC_GroupFlattenedUniformBuffers : 0;
 	Flags |= Options.bCSE ? HLSLCC_ApplyCommonSubexpressionElimination : 0;
 	Flags |= Options.bExpandExpressions ? HLSLCC_ExpandSubexpressions : 0;
+	Flags |= Options.bSeparateShaderObjects ? HLSLCC_SeparateShaderObjects : 0;
 
 	FGlslCodeBackend GlslCodeBackend(Flags);
 	FGlslLanguageSpec GlslLanguageSpec;//(Options.Target == HCT_FeatureLevelES2);

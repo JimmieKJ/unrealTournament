@@ -1217,18 +1217,6 @@ protected:
 
 	void print_image_op( ir_dereference_image *deref, ir_rvalue *src)
 	{
-		const char* swizzle[] =
-		{
-			"x", "xy", "xyz", "xyzw"
-		};
-		const char* expand[] =
-		{
-			"xxxx", "xyxx", "xyzx", "xyzw"
-		};
-		const char* int_cast[] =
-		{
-			"int", "int2", "int3", "int4"
-		};
 		const int dst_elements = deref->type->vector_elements;
 		const int src_elements = (src) ? src->type->vector_elements : 1;
 		

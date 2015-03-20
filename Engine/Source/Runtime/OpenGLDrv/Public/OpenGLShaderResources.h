@@ -48,6 +48,35 @@ inline FArchive& operator<<(FArchive& Ar, FOpenGLShaderResourceTable& SRT)
 	return Ar;
 }
 
+struct FOpenGLShaderVarying
+{
+	FString Varying;
+	int32 Location;
+	
+	friend bool operator==(const FOpenGLShaderVarying& A, const FOpenGLShaderVarying& B)
+	{
+		if(&A != &B)
+		{
+			return (A.Location == B.Location) && (A.Varying == B.Varying);
+		}
+		return true;
+	}
+	
+	friend uint32 GetTypeHash(const FOpenGLShaderVarying &Var)
+	{
+		uint32 Hash = GetTypeHash(Var.Location);
+		Hash ^= GetTypeHash(Var.Varying);
+		return Hash;
+	}
+};
+
+inline FArchive& operator<<(FArchive& Ar, FOpenGLShaderVarying& Var)
+{
+	Ar << Var.Varying;
+	Ar << Var.Location;
+	return Ar;
+}
+
 /**
  * Shader binding information.
  */
@@ -55,6 +84,8 @@ struct FOpenGLShaderBindings
 {
 	TArray<TArray<CrossCompiler::FPackedArrayInfo>>	PackedUniformBuffers;
 	TArray<CrossCompiler::FPackedArrayInfo>			PackedGlobalArrays;
+	TArray<FOpenGLShaderVarying>					InputVaryings;
+	TArray<FOpenGLShaderVarying>					OutputVaryings;
 	FOpenGLShaderResourceTable				ShaderResourceTable;
 
 	uint16	InOutMask;
@@ -84,6 +115,8 @@ struct FOpenGLShaderBindings
 		bEqual &= A.bFlattenUB == B.bFlattenUB;
 		bEqual &= A.PackedGlobalArrays.Num() == B.PackedGlobalArrays.Num();
 		bEqual &= A.PackedUniformBuffers.Num() == B.PackedUniformBuffers.Num();
+		bEqual &= A.InputVaryings.Num() == B.InputVaryings.Num();
+		bEqual &= A.OutputVaryings.Num() == B.OutputVaryings.Num();
 		bEqual &= A.ShaderResourceTable == B.ShaderResourceTable;
 
 		if ( !bEqual )
@@ -99,6 +132,16 @@ struct FOpenGLShaderBindings
 			const TArray<CrossCompiler::FPackedArrayInfo> &ArrayB = B.PackedUniformBuffers[Item];
 
 			bEqual &= FMemory::Memcmp(ArrayA.GetData(),ArrayB.GetData(),ArrayA.GetTypeSize()*ArrayA.Num()) == 0;
+		}
+		
+		for (int32 Item = 0; bEqual && Item < A.InputVaryings.Num(); Item++)
+		{
+			bEqual &= A.InputVaryings[Item] == B.InputVaryings[Item];
+		}
+		
+		for (int32 Item = 0; bEqual && Item < A.OutputVaryings.Num(); Item++)
+		{
+			bEqual &= A.OutputVaryings[Item] == B.OutputVaryings[Item];
 		}
 
 		return bEqual;
@@ -121,6 +164,16 @@ struct FOpenGLShaderBindings
 			const TArray<CrossCompiler::FPackedArrayInfo> &Array = Binding.PackedUniformBuffers[Item];
 			Hash ^= FCrc::MemCrc_DEPRECATED( Array.GetData(), Array.GetTypeSize()* Array.Num());
 		}
+		
+		for (int32 Item = 0; Item < Binding.InputVaryings.Num(); Item++)
+		{
+			Hash ^= GetTypeHash(Binding.InputVaryings[Item]);
+		}
+		
+		for (int32 Item = 0; Item < Binding.OutputVaryings.Num(); Item++)
+		{
+			Hash ^= GetTypeHash(Binding.OutputVaryings[Item]);
+		}
 		return Hash;
 	}
 };
@@ -129,6 +182,8 @@ inline FArchive& operator<<(FArchive& Ar, FOpenGLShaderBindings& Bindings)
 {
 	Ar << Bindings.PackedUniformBuffers;
 	Ar << Bindings.PackedGlobalArrays;
+	Ar << Bindings.InputVaryings;
+	Ar << Bindings.OutputVaryings;
 	Ar << Bindings.ShaderResourceTable;
 	Ar << Bindings.InOutMask;
 	Ar << Bindings.NumSamplers;

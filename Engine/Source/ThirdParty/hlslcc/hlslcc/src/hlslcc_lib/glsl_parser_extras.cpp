@@ -75,6 +75,7 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(
 	bFlattenUniformBuffers = false;
 	bGenerateES = false;
 	bGenerateLayoutLocations = false;
+	bSeparateShaderObjects = false;
 	next_in_location_slot = 0;
 	next_out_location_slot = 0;
 

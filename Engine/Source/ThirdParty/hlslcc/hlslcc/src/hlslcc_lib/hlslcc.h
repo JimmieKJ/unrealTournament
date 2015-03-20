@@ -8,7 +8,7 @@
 enum
 {
 	HLSLCC_VersionMajor = 0,
-	HLSLCC_VersionMinor = 56,
+	HLSLCC_VersionMinor = 59,
 };
 
 /**
@@ -52,6 +52,8 @@ enum EHlslCompileFlag
 	HLSLCC_ApplyCommonSubexpressionElimination = 0x100,
 	// Expand subexpressions/obfuscate (to workaround certain drivers who can't deal with long nested expressions)
 	HLSLCC_ExpandSubexpressions = 0x200,
+	// Generate shaders compatible with the separate_shader_objects extension
+	HLSLCC_SeparateShaderObjects = 0x400,
 };
 
 /**

@@ -52,6 +52,7 @@ DEFINE_STAT(STAT_OpenGLUniformBufferCleanupTime);
 DEFINE_STAT(STAT_OpenGLEmulatedUniformBufferTime);
 DEFINE_STAT(STAT_OpenGLFreeUniformBufferMemory);
 DEFINE_STAT(STAT_OpenGLNumFreeUniformBuffers);
+DEFINE_STAT(STAT_OpenGLShaderFirstDrawTime);
 
 #if OPENGLRHI_DETAILED_STATS
 DEFINE_STAT(STAT_OpenGLDrawPrimitiveTime);

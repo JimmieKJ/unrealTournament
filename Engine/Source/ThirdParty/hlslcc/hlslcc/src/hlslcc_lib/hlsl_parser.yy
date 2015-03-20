@@ -127,7 +127,7 @@ static void yyerror(YYLTYPE *loc, _mesa_glsl_parse_state *st, const char *msg)
 %token BUFFER TEXTURE1D TEXTURE1D_ARRAY TEXTURE2D TEXTURE2D_ARRAY TEXTURE2DMS
 %token TEXTURE2DMS_ARRAY TEXTURE3D TEXTURECUBE TEXTURECUBE_ARRAY
 %token RWBUFFER RWTEXTURE1D RWTEXTURE1D_ARRAY RWTEXTURE2D RWTEXTURE2D_ARRAY
-%token RWTEXTURE3D
+%token RWTEXTURE3D RWSTRUCTUREDBUFFER RWBYTEADDRESSBUFFER
 
 /** HLSL geometry shader keywords. */
 %token POINT_TOK LINE_TOK TRIANGLE_TOK LINEADJ_TOK TRIANGLEADJ_TOK POINTSTREAM LINESTREAM TRIANGLESTREAM
@@ -1526,6 +1526,12 @@ type_specifier_nonarray:
 		$$ = new(ctx) ast_type_specifier($1,$3);
 		$$->set_location(yylloc);
 	}
+	| RWSTRUCTUREDBUFFER '<' TYPE_IDENTIFIER '>'
+	{
+		void *ctx = state;
+		$$ = new(ctx) ast_type_specifier($1,$3);
+		$$->set_location(yylloc);
+	}
 	| outputstream_type_specifier_nonarray '<' TYPE_IDENTIFIER '>'
 	{
 		void *ctx = state;
@@ -1647,6 +1653,7 @@ texture_type_specifier_nonarray:
 	| TEXTURECUBE			{ $$ = "TextureCube"; }
 	| TEXTURECUBE_ARRAY		{ $$ = "TextureCubeArray"; }
 	| RWBUFFER				{ $$ = "RWBuffer"; }
+	| RWBYTEADDRESSBUFFER	{ $$ = "RWByteAddressBuffer"; }
 	| RWTEXTURE1D			{ $$ = "RWTexture1D"; }
 	| RWTEXTURE1D_ARRAY		{ $$ = "RWTexture1DArray"; }
 	| RWTEXTURE2D			{ $$ = "RWTexture2D"; }

@@ -720,6 +720,7 @@ public:
 
 	bool NeedsTextureStage(int32 TextureStageIndex);
 	int32 MaxTextureStageUsed();
+	bool RequiresDriverInstantiation();
 
 	virtual ~FOpenGLBoundShaderState();
 };

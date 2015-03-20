@@ -1711,15 +1711,19 @@ ir_rvalue* ast_expression::hir(exec_list *instructions, struct _mesa_glsl_parse_
 			texop->coordinate = op[1];
 			apply_type_conversion(index_type, texop->coordinate, instructions, state, false, &loc);
 
+			texop->type = glsl_type::vec4_type;
 			if (array->type->sampler_buffer)
 			{
 				texop->lod_info.lod = NULL;
+				if (state->LanguageSpec->UseSamplerInnerType() && array->type->inner_type)
+				{
+					texop->type = array->type->inner_type;
+				}
 			}
 			else
 			{
 				texop->lod_info.lod = new(ctx)ir_constant(0);
 			}
-			texop->type = glsl_type::vec4_type;
 
 			result = texop;
 
