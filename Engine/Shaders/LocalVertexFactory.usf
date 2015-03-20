@@ -328,7 +328,11 @@ FMaterialVertexParameters GetMaterialVertexParameters( FVertexFactoryInput Input
 		YVec *= UseScale.y;
 
 		// Build overall transform
+#if MAC // @todo Remove once there is a fix for Intel Iris/HD5000 GPUs from rendering corrupt geometry without the normalize calls
+		float3x3 SliceTransform3 = mul(transpose(float3x3(normalize(SplineMeshDir), normalize(SplineMeshX), normalize(SplineMeshY))), float3x3(float3(0,0,0), XVec, YVec));
+#else
 		float3x3 SliceTransform3 = mul(transpose(float3x3(SplineMeshDir, SplineMeshX, SplineMeshY)), float3x3(float3(0,0,0), XVec, YVec));
+#endif
 		float4x3 SliceTransform = float4x3(SliceTransform3[0], SliceTransform3[1], SliceTransform3[2], SplinePos);
 
 		return SliceTransform;
@@ -364,7 +368,11 @@ FMaterialVertexParameters GetMaterialVertexParameters( FVertexFactoryInput Input
 		YVec *= sign(UseScale.y);
 
 		// Build rotation transform
+#if MAC // @todo Remove once there is a fix for Intel Iris/HD5000 GPUs from rendering corrupt geometry without the normalize calls
+		half3x3 SliceTransform = mul(transpose(half3x3(normalize(SplineMeshDir), normalize(SplineMeshX), normalize(SplineMeshY))), half3x3(SplineDir, XVec, YVec));
+#else
 		half3x3 SliceTransform = mul(transpose(half3x3(SplineMeshDir, SplineMeshX, SplineMeshY)), half3x3(SplineDir, XVec, YVec));
+#endif
 
 		return SliceTransform;
 	}
