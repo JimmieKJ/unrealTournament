@@ -167,32 +167,11 @@ static bool VerifyCompiledShader(GLuint Shader, const ANSICHAR* GlslCode )
 static bool VerifyProgramPipeline(GLuint Program)
 {
 	bool bOK = true;
-	if (FOpenGL::SupportsSeparateShaderObjects())
+	// Don't try and validate SSOs here - the draw state matters to SSOs and it definitely can't be guaranteed to be valid at this stage
+	if ( FOpenGL::SupportsSeparateShaderObjects() )
 	{
 #if DEBUG_GL_SHADERS
-		FOpenGL::ValidateProgramPipeline(Program);
-		GLint LinkStatus = GL_FALSE;
-		FOpenGL::GetProgramPipelineiv(Program, GL_VALIDATE_STATUS, &LinkStatus);
-		if (LinkStatus == GL_FALSE)
-		{
-			GLint LogLength = 0;
-			FOpenGL::GetProgramPipelineiv(Program, GL_INFO_LOG_LENGTH, &LogLength);
-			ANSICHAR DefaultLog[] = "No log";
-			ANSICHAR *CompileLog = DefaultLog;
-			if (LogLength > 1)
-			{
-				CompileLog = (ANSICHAR *)FMemory::Malloc(LogLength);
-				FOpenGL::GetProgramPipelineInfoLog(Program, LogLength, NULL, CompileLog);
-			}
-			
-			UE_LOG(LogRHI,Warning,TEXT("Failed to validate pipeline %d during compile. This may be harmless. Compile log:\n%s"), Program,
-				   ANSI_TO_TCHAR(CompileLog));
-			
-			if (LogLength > 1)
-			{
-				FMemory::Free(CompileLog);
-			}
-		}
+		bOK = FOpenGL::IsProgramPipeline(Program);
 #endif
 	}
 	else
@@ -357,6 +336,13 @@ namespace
 	}
 }
 
+typedef TArray<ANSICHAR> FAnsiCharArray;
+
+inline uint32 GetTypeHash(FAnsiCharArray const& CharArray)
+{
+	return FCrc::MemCrc32(CharArray.GetData(), CharArray.Num() * sizeof(ANSICHAR));
+}
+
 static void BindShaderLocations(GLenum TypeEnum, GLuint Resource, uint16 InOutMask)
 {
 	if ( OpenGLShaderPlatformNeedsBindLocation(GMaxRHIShaderPlatform) )
@@ -437,8 +423,6 @@ static void BindShaderLocations(GLenum TypeEnum, GLuint Resource, uint16 InOutMa
 template <typename ShaderType>
 ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 {
-	typedef TArray<ANSICHAR> FAnsiCharArray;
-
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderCompileTime);
 	VERIFY_GL_SCOPE();
 
@@ -834,9 +818,9 @@ void FOpenGLDynamicRHI::BindUniformBufferBase(FOpenGLContextState& ContextState,
 
 // ============================================================================================================================
 
-static TMap<GLuint, TMap<FString, GLint64>>& GetOpenGLUniformBlockLocations()
+static TMap<GLuint, TMap<FAnsiCharArray, int64>>& GetOpenGLUniformBlockLocations()
 {
-	static TMap<GLuint, TMap<FString, GLint64>> UniformBlockLocations;
+	static TMap<GLuint, TMap<FAnsiCharArray, int64>> UniformBlockLocations;
 	return UniformBlockLocations;
 }
 
@@ -848,16 +832,18 @@ static TMap<GLuint, TMap<GLint64, GLint64>>& GetOpenGLUniformBlockBindings()
 
 static GLuint GetOpenGLProgramUniformBlockIndex(GLuint Program, const GLchar* UniformBlockName)
 {
-	TMap<FString, GLint64>& Locations = GetOpenGLUniformBlockLocations().FindOrAdd(Program);
-	GLint64* Location = Locations.Find(UniformBlockName);
+	TMap<FAnsiCharArray, int64>& Locations = GetOpenGLUniformBlockLocations().FindOrAdd(Program);
+	FAnsiCharArray Name;
+	Name.Append(UniformBlockName, FCStringAnsi::Strlen(UniformBlockName) + 1);
+	int64* Location = Locations.Find(Name);
 	if(Location)
 	{
 		return *Location;
 	}
 	else
 	{
-		GLint64& Loc = Locations.Emplace(UniformBlockName);
-		Loc = (GLint64)FOpenGL::GetUniformBlockIndex(Program, UniformBlockName);
+		int64& Loc = Locations.Emplace(Name);
+		Loc = (int64)FOpenGL::GetUniformBlockIndex(Program, UniformBlockName);
 		return Loc;
 	}
 }
@@ -1693,6 +1679,14 @@ FComputeShaderRHIRef FOpenGLDynamicRHI::RHICreateComputeShader(const TArray<uint
 
 	check( ComputeShader != 0);
 
+	// @todo WARNING: We have to hash here because of the way we immediately link and don't afford the cache a chance to set the OutputHash from ShaderCore.
+	if (FShaderCache::GetShaderCache())
+	{
+		FSHAHash Hash;
+		FSHA1::HashBuffer(Code.GetData(), Code.Num(), Hash.Hash);
+		ComputeShader->SetHash(Hash);
+	}
+
 	FOpenGLLinkedProgramConfiguration Config;
 
 	Config.Shaders[CrossCompiler::SHADER_STAGE_COMPUTE].Resource = ComputeShader->Resource;
@@ -1749,7 +1743,7 @@ static FString GetShaderStageSource(TOpenGLStage* Shader)
 
 struct FOpenGLShaderVaryingMapping
 {
-	FString Name;
+	FAnsiCharArray Name;
 	int32 WriteLoc;
 	int32 ReadLoc;
 };
@@ -1784,25 +1778,33 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 		else
 		{
 			FOpenGLShaderBindings& PrevStageBindings = PrevStage->Bindings;
-			TMap<FString, int32> PrevStageVaryings;
+			TMap<FAnsiCharArray, int32> PrevStageVaryings;
 			for (int32 i = 0; i < PrevStageBindings.OutputVaryings.Num(); i++)
 			{
-				FString Name = PrevStageBindings.OutputVaryings[i].Varying;
-				Name.RemoveFromStart(TEXT("out_"));
-				Name.RemoveFromStart(TEXT("var_"));
+				FAnsiCharArray Name = PrevStageBindings.OutputVaryings[i].Varying;
+				if ( Name.Num() >= 4 && (FCStringAnsi::Strncmp(Name.GetData(), "out_", 4) == 0 || FCStringAnsi::Strncmp(Name.GetData(), "var_", 4) == 0) )
+				{
+					Name.RemoveAt(0, 4);
+				}
 				PrevStageVaryings.Add(Name, PrevStageBindings.OutputVaryings[i].Location);
 			}
 			
 			bool bInterpolatorMatches = true;
 			
-			TMap<FString, int32> NextStageVaryings;
+			TMap<FAnsiCharArray, int32> NextStageVaryings;
 			TArray<FString> InputErrors;
 			TArray<FOpenGLShaderVaryingMapping> VaryingMapping;
 			for (int32 i = 0; i < NextStageBindings.InputVaryings.Num(); i++)
 			{
-				FString Name = NextStageBindings.InputVaryings[i].Varying;
-				Name.RemoveFromStart(TEXT("in_"));
-				Name.RemoveFromStart(TEXT("var_"));
+				FAnsiCharArray Name = NextStageBindings.InputVaryings[i].Varying;
+				if ( Name.Num() >= 3 && FCStringAnsi::Strncmp(Name.GetData(), "in_", 3) == 0 )
+				{
+					Name.RemoveAt(0, 3);
+				}
+				if ( Name.Num() >= 4 && FCStringAnsi::Strncmp(Name.GetData(), "var_", 4) == 0 )
+				{
+					Name.RemoveAt(0, 4);
+				}
 				NextStageVaryings.Add(Name, NextStageBindings.InputVaryings[i].Location);
 				if( PrevStageVaryings.Contains(Name) )
 				{
@@ -1816,22 +1818,22 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 							Pair.WriteLoc = PrevLocation;
 							Pair.ReadLoc = NextStageBindings.InputVaryings[i].Location;
 							VaryingMapping.Add(Pair);
-							UE_LOG(LogRHI,Warning,TEXT("Separate Shader Object Binding Warning: Input %s @ %d of stage 0x%x written by stage 0x%x at wrong location %d"), *NextStageBindings.InputVaryings[i].Varying, NextStageBindings.InputVaryings[i].Location, TOpenGLStage0::TypeEnum, TOpenGLStage1::TypeEnum, PrevLocation);
+							UE_LOG(LogRHI,Warning,TEXT("Separate Shader Object Binding Warning: Input %s @ %d of stage 0x%x written by stage 0x%x at wrong location %d"), ANSI_TO_TCHAR(NextStageBindings.InputVaryings[i].Varying.GetData()), NextStageBindings.InputVaryings[i].Location, TOpenGLStage0::TypeEnum, TOpenGLStage1::TypeEnum, PrevLocation);
 						}
 						else if(NextStageBindings.InputVaryings[i].Location == -1)
 						{
-							InputErrors.Add(FString::Printf(TEXT("Separate Shader Object Binding Error: Input %s of stage 0x%x written by stage 0x%x at location %d, can't be rewritten."), *NextStageBindings.InputVaryings[i].Varying, TOpenGLStage0::TypeEnum, TOpenGLStage1::TypeEnum, PrevLocation));
+							InputErrors.Add(FString::Printf(TEXT("Separate Shader Object Binding Error: Input %s of stage 0x%x written by stage 0x%x at location %d, can't be rewritten."), ANSI_TO_TCHAR(NextStageBindings.InputVaryings[i].Varying.GetData()), TOpenGLStage0::TypeEnum, TOpenGLStage1::TypeEnum, PrevLocation));
 											}
 						else
 						{
-							InputErrors.Add(FString::Printf(TEXT("Separate Shader Object Binding Error: Input %s @ %d of stage 0x%x written by stage 0x%x without location, can't be rewritten."), *NextStageBindings.InputVaryings[i].Varying, NextStageBindings.InputVaryings[i].Location, TOpenGLStage0::TypeEnum, TOpenGLStage1::TypeEnum));
+							InputErrors.Add(FString::Printf(TEXT("Separate Shader Object Binding Error: Input %s @ %d of stage 0x%x written by stage 0x%x without location, can't be rewritten."), ANSI_TO_TCHAR(NextStageBindings.InputVaryings[i].Varying.GetData()), NextStageBindings.InputVaryings[i].Location, TOpenGLStage0::TypeEnum, TOpenGLStage1::TypeEnum));
 						}
 						bInterpolatorMatches = false;
 					}
 				}
 				else
 				{
-					InputErrors.Add(FString::Printf(TEXT("Separate Shader Object Binding Error: Input %s @ %d of stage 0x%x not written by stage 0x%x"), *NextStageBindings.InputVaryings[i].Varying, NextStageBindings.InputVaryings[i].Location, TOpenGLStage0::TypeEnum, TOpenGLStage1::TypeEnum));
+					InputErrors.Add(FString::Printf(TEXT("Separate Shader Object Binding Error: Input %s @ %d of stage 0x%x not written by stage 0x%x"), ANSI_TO_TCHAR(NextStageBindings.InputVaryings[i].Varying.GetData()), NextStageBindings.InputVaryings[i].Location, TOpenGLStage0::TypeEnum, TOpenGLStage1::TypeEnum));
 					bInterpolatorMatches = false;
 				}
 			}
@@ -1841,13 +1843,15 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 			{
 				if ( PrevStageBindings.OutputVaryings[i].Location == -1 )
 				{
-					FString Name = PrevStageBindings.OutputVaryings[i].Varying;
-					Name.RemoveFromStart(TEXT("out_"));
-					Name.RemoveFromStart(TEXT("var_"));
+					FAnsiCharArray Name = PrevStageBindings.OutputVaryings[i].Varying;
+					if ( Name.Num() >= 4 && (FCStringAnsi::Strncmp(Name.GetData(), "out_", 4) == 0 || FCStringAnsi::Strncmp(Name.GetData(), "var_", 4) == 0) )
+					{
+						Name.RemoveAt(0, 4);
+					}
 					if( !NextStageVaryings.Contains(Name) )
 					{
 						OutputElimination.Add(PrevStageBindings.OutputVaryings[i]);
-						UE_LOG(LogRHI,Warning,TEXT("Separate Shader Object Binding Warning: Named output %s of stage 0x%x not read by stage 0x%x"), *PrevStageBindings.OutputVaryings[i].Varying, TOpenGLStage1::TypeEnum, TOpenGLStage0::TypeEnum);
+						UE_LOG(LogRHI,Warning,TEXT("Separate Shader Object Binding Warning: Named output %s of stage 0x%x not read by stage 0x%x"), ANSI_TO_TCHAR(PrevStageBindings.OutputVaryings[i].Varying.GetData()), TOpenGLStage1::TypeEnum, TOpenGLStage0::TypeEnum);
 						bInterpolatorMatches = false;
 					}
 				}
@@ -1895,7 +1899,7 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 					{
 						for(int32 i = 0; i < PrevLines.Num(); i++)
 						{
-							if(PrevLines[i].Contains(Output.Varying))
+							if(PrevLines[i].Contains(Output.Varying.GetData()))
 							{
 								PrevLines[i].Empty();
 							}
@@ -2181,11 +2185,7 @@ FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState(
 			DomainShaderRHI
 			);
 
-		FShaderCache* ShaderCache = FShaderCache::GetShaderCache();
-		if(ShaderCache)
-		{
-			ShaderCache->LogBoundShaderState(FOpenGL::GetShaderPlatform(), VertexDeclarationRHI, VertexShaderRHI, PixelShaderRHI, HullShaderRHI, DomainShaderRHI, GeometryShaderRHI);
-		}
+		FShaderCache::LogBoundShaderState(FOpenGL::GetShaderPlatform(), VertexDeclarationRHI, VertexShaderRHI, PixelShaderRHI, HullShaderRHI, DomainShaderRHI, GeometryShaderRHI, BoundShaderState);
 
 		return BoundShaderState;
 	}

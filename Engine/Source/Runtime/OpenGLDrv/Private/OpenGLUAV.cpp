@@ -2,6 +2,7 @@
 
 
 #include "OpenGLDrvPrivate.h"
+#include "ShaderCache.h"
 
 FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint8 Format)
 {
@@ -31,11 +32,16 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FVertex
 	// and the next draw will take care of cleaning it up; or
 	// next operation that needs the stage will switch something else in on it.
 
-	return new FOpenGLShaderResourceView(this,TextureID,GL_TEXTURE_BUFFER,VertexBufferRHI,Format);
+	FShaderResourceViewRHIRef Result = new FOpenGLShaderResourceView(this,TextureID,GL_TEXTURE_BUFFER,VertexBufferRHI,Format);
+	FShaderCache::LogSRV(Result, VertexBufferRHI, Stride, Format);
+
+	return Result;
 }
 
 FOpenGLShaderResourceView::~FOpenGLShaderResourceView()
 {
+	FShaderCache::RemoveSRV(this);
+	
 	if (Resource && OwnsResource)
 	{
 		OpenGLRHI->InvalidateTextureResourceInCache( Resource );

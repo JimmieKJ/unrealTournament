@@ -50,14 +50,14 @@ inline FArchive& operator<<(FArchive& Ar, FOpenGLShaderResourceTable& SRT)
 
 struct FOpenGLShaderVarying
 {
-	FString Varying;
+	TArray<ANSICHAR> Varying;
 	int32 Location;
 	
 	friend bool operator==(const FOpenGLShaderVarying& A, const FOpenGLShaderVarying& B)
 	{
 		if(&A != &B)
 		{
-			return (A.Location == B.Location) && (A.Varying == B.Varying);
+			return (A.Location == B.Location) && (A.Varying.Num() == B.Varying.Num()) && (FMemory::Memcmp(A.Varying.GetData(), B.Varying.GetData(), A.Varying.Num() * sizeof(ANSICHAR)) == 0);
 		}
 		return true;
 	}
@@ -65,7 +65,7 @@ struct FOpenGLShaderVarying
 	friend uint32 GetTypeHash(const FOpenGLShaderVarying &Var)
 	{
 		uint32 Hash = GetTypeHash(Var.Location);
-		Hash ^= GetTypeHash(Var.Varying);
+		Hash ^= FCrc::MemCrc32(Var.Varying.GetData(), Var.Varying.Num() * sizeof(ANSICHAR));
 		return Hash;
 	}
 };

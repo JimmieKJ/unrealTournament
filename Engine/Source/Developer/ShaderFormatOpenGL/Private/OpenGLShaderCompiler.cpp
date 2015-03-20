@@ -494,6 +494,23 @@ void ParseGlslError(TArray<FShaderCompilerError>& OutErrors, const FString& InLi
 	}
 }
 
+static TArray<ANSICHAR> ParseIdentifierANSI(const ANSICHAR* &Str)
+{
+	TArray<ANSICHAR> Result;
+	
+	while ((*Str >= 'A' && *Str <= 'Z')
+		   || (*Str >= 'a' && *Str <= 'z')
+		   || (*Str >= '0' && *Str <= '9')
+		   || *Str == '_')
+	{
+		Result.Add(FChar::ToLower(*Str));
+		++Str;
+	}
+	Result.Add('\0');
+	
+	return Result;
+}
+
 static FString ParseIdentifier(const ANSICHAR* &Str)
 {
 	FString Result;
@@ -630,7 +647,7 @@ static void BuildShaderOutput(
             {
                 FOpenGLShaderVarying Var;
                 Var.Location = Location;
-                Var.Varying = ParseIdentifier(ShaderSource);
+                Var.Varying = ParseIdentifierANSI(ShaderSource);
                 Header.Bindings.InputVaryings.Add(Var);
             }
 
@@ -683,7 +700,7 @@ static void BuildShaderOutput(
             {
                 FOpenGLShaderVarying Var;
                 Var.Location = Location;
-                Var.Varying = ParseIdentifier(ShaderSource);
+                Var.Varying = ParseIdentifierANSI(ShaderSource);
                 Header.Bindings.OutputVaryings.Add(Var);
             }
 

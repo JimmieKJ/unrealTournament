@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "OpenGLDrvPrivate.h"
+#include "ShaderCache.h"
 
 /*-----------------------------------------------------------------------------
 	Texture allocator support.
@@ -108,6 +109,8 @@ void OpenGLTextureAllocated(FRHITexture* Texture, uint32 Flags)
 
 void OpenGLTextureDeleted( FRHITexture* Texture )
 {
+	FShaderCache::RemoveTexture(Texture);
+	
 	bool bRenderTarget = !ShouldCountAsTextureMemory(Texture->GetFlags());
 	int32 TextureSize = 0;
 	if (Texture->GetTextureCube())
@@ -1689,6 +1692,8 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FTextur
 	{
 		View = new FOpenGLShaderResourceView(this, Texture2D->Resource, Texture2D->Target, MipLevel, false);
 	}
+	
+	FShaderCache::LogSRV(View, Texture2DRHI, MipLevel, Texture2DRHI->GetNumMips(), Texture2DRHI->GetFormat());
 
 	return View;
 }
@@ -1742,6 +1747,8 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FTextur
 	{
 		View = new FOpenGLShaderResourceView(this, Texture2D->Resource, Texture2D->Target, MipLevel, false);
 	}
+	
+	FShaderCache::LogSRV(View, Texture2DRHI, MipLevel, NumMipLevels, Format);
 
 	return View;
 }
