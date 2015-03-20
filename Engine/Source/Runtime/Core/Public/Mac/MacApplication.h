@@ -155,8 +155,6 @@ private:
 
 	bool bUsingTrackpad;
 
-	FVector2D HighPrecisionMousePos;
-
 	EMouseButtons::Type LastPressedMouseButton;
 
 	FCriticalSection WindowsMutex;

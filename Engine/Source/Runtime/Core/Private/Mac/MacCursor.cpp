@@ -5,12 +5,30 @@
 #include "MacWindow.h"
 #include "MacApplication.h"
 
+#import <IOKit/hid/IOHIDKeys.h>
+#import <IOKit/hidsystem/IOHIDShared.h>
+
+int32 GMacDisableMouseCoalescing = 1;
+static FAutoConsoleVariableRef CVarMacDisableMouseCoalescing(
+	TEXT("r.Mac.HighPrecisionDisablesMouseCoalescing"),
+	GMacDisableMouseCoalescing,
+	TEXT("If set to true then OS X mouse event coalescing will be disabled while using high-precision mouse mode, to send all mouse events to UE4's event handling routines to reduce apparent mouse lag. (Default: True)"));
+
+int32 GMacDisableMouseAcceleration = 0;
+static FAutoConsoleVariableRef CVarMacDisableMouseAcceleration(
+	TEXT("r.Mac.HighPrecisionDisablesMouseAcceleration"),
+	GMacDisableMouseAcceleration,
+	TEXT("If set to true then OS X's mouse acceleration curve will be disabled while using high-precision mouse mode (typically used when games capture the mouse) resulting in a linear relationship between mouse movement & on-screen cursor movement. For some pointing devices this will make the cursor very slow. (Default: False)"));
+
 FMacCursor::FMacCursor()
 :	bIsVisible(true)
-,	bAssociateMouseCursor(false)
+,	bUseHighPrecisionMode(false)
 ,	CurrentPosition(FVector2D::ZeroVector)
 ,	MouseWarpDelta(FVector2D::ZeroVector)
 ,	MouseScale(1.0f, 1.0f)
+,	bIsPositionInitialised(false)
+,	HIDInterface(0)
+,	SavedAcceleration(0)
 {
 	SCOPED_AUTORELEASE_POOL;
 
@@ -79,11 +97,11 @@ FMacCursor::FMacCursor()
 			case EMouseCursor::GrabHand:
 				CursorHandle = [NSCursor openHandCursor];
 				break;
-				
+
 			case EMouseCursor::GrabHandClosed:
 				CursorHandle = [NSCursor closedHandCursor];
 				break;
-				
+
 			case EMouseCursor::SlashedCircle:
 				CursorHandle = [NSCursor operationNotAllowedCursor];
 				break;
@@ -114,12 +132,43 @@ FMacCursor::FMacCursor()
 	CFRelease(Event);
 
 	CurrentPosition = FVector2D(FMath::TruncToFloat(CursorPos.x), FMath::TruncToFloat(CursorPos.y));
+
+	// Get the IOHIDSystem so we can disable mouse acceleration
+	mach_port_t MasterPort;
+	kern_return_t KernResult = IOMasterPort(MACH_PORT_NULL, &MasterPort);
+	if (KERN_SUCCESS == KernResult)
+	{
+		CFMutableDictionaryRef ClassesToMatch = IOServiceMatching("IOHIDSystem");
+		if (ClassesToMatch)
+		{
+			io_iterator_t MatchingServices;
+			KernResult = IOServiceGetMatchingServices(MasterPort, ClassesToMatch, &MatchingServices);
+			if (KERN_SUCCESS == KernResult)
+			{
+				io_object_t IntfService;
+				if ((IntfService = IOIteratorNext(MatchingServices)))
+				{
+					KernResult = IOServiceOpen(IntfService, mach_task_self(), kIOHIDParamConnectType, &HIDInterface);
+					if (KernResult == KERN_SUCCESS)
+					{
+						KernResult = IOHIDGetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), &SavedAcceleration);
+					}
+					if (KERN_SUCCESS != KernResult)
+					{
+						HIDInterface = 0;
+					}
+				}
+			}
+		}
+	}
 }
 
 FMacCursor::~FMacCursor()
 {
 	SCOPED_AUTORELEASE_POOL;
-
+	
+	SetHighPrecisionMouseMode( false );
+	
 	// Release cursors
 	// NOTE: Shared cursors will automatically be destroyed when the application is destroyed.
 	//       For dynamically created cursors, use [CursorHandles[CurCursorIndex] release];
@@ -157,16 +206,36 @@ FMacCursor::~FMacCursor()
 
 FVector2D FMacCursor::GetPosition() const
 {
-	return FVector2D(FMath::TruncToFloat(CurrentPosition.X * MouseScale.X), FMath::TruncToFloat(CurrentPosition.Y * MouseScale.Y));
+	FVector2D CurrentPos = CurrentPosition;
+	if ( !bIsPositionInitialised )
+	{
+		SCOPED_AUTORELEASE_POOL;
+		NSPoint CursorPos = [NSEvent mouseLocation];
+		CursorPos.y--; // The y coordinate of the point returned by mouseLocation starts from a base of 1
+		CurrentPos = FVector2D(CursorPos.x, FPlatformMisc::ConvertSlateYPositionToCocoa(CursorPos.y));
+	}
+	return FVector2D(FMath::TruncToFloat(CurrentPos.X * MouseScale.X), FMath::TruncToFloat(CurrentPos.Y * MouseScale.Y));
 }
 
 void FMacCursor::SetPosition( const int32 X, const int32 Y )
 {
-	FVector2D CurrentPos = GetPosition();
-	FVector2D NewPos(X, Y);
-	MouseWarpDelta += (NewPos - CurrentPos) / MouseScale;
-
-	WarpCursor(X / MouseScale.X, Y / MouseScale.Y);
+	FVector2D NewPos(X / MouseScale.X, Y / MouseScale.Y);
+	
+	UpdateCursorClipping(NewPos);
+	
+	MouseWarpDelta += (NewPos - CurrentPosition);
+	
+	if ( !bIsPositionInitialised || FIntVector(NewPos.X, NewPos.Y, 0) != FIntVector(CurrentPosition.X, CurrentPosition.Y, 0) )
+	{
+		if ( !bUseHighPrecisionMode || (CurrentCursor && bIsVisible) )
+		{
+			WarpCursor(NewPos.X, NewPos.Y);
+		}
+		else
+		{
+			UpdateCurrentPosition(NewPos);
+		}
+	}
 }
 
 void FMacCursor::SetType( const EMouseCursor::Type InNewCursor )
@@ -253,17 +322,22 @@ bool FMacCursor::UpdateCursorClipping( FVector2D& CursorPosition )
 
 void FMacCursor::UpdateVisibility()
 {
-	// @TODO: Remove usage of deprecated CGCursorIsVisible function
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+	SCOPED_AUTORELEASE_POOL;
 	if([NSApp isActive])
 	{
+		// @TODO: Remove usage of deprecated CGCursorIsVisible function
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		if (CurrentCursor && bIsVisible)
 		{
 			// Enable the cursor.
 			if (!CGCursorIsVisible())
 			{
 				CGDisplayShowCursor(kCGDirectMainDisplay);
+			}
+			if ( GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode )
+			{
+				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), SavedAcceleration);
 			}
 		}
 		else
@@ -273,14 +347,23 @@ void FMacCursor::UpdateVisibility()
 			{
 				CGDisplayHideCursor(kCGDirectMainDisplay);
 			}
+			if ( GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode && (!CurrentCursor || !bIsVisible) )
+			{
+				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), -1);
+			}
 		}
-	}
 #pragma clang diagnostic pop
+	}
+	else if ( GMacDisableMouseAcceleration && HIDInterface && bUseHighPrecisionMode && (!CurrentCursor || !bIsVisible) )
+	{
+		IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), SavedAcceleration);
+	}
 }
 
 void FMacCursor::UpdateCurrentPosition(const FVector2D &Position)
 {
 	CurrentPosition = Position;
+	bIsPositionInitialised = true;
 }
 
 void FMacCursor::WarpCursor( const int32 X, const int32 Y )
@@ -289,7 +372,7 @@ void FMacCursor::WarpCursor( const int32 X, const int32 Y )
 	// Previously there was CGSetLocalEventsSuppressionInterval to explicitly control this behaviour but that is deprecated.
 	// The replacement CGEventSourceSetLocalEventsSuppressionInterval isn't useful because it is unclear how to obtain the correct event source.
 	// Instead, when we want the warp to be visible we need to disassociate mouse & cursor...
-	if( bAssociateMouseCursor )
+	if( !bUseHighPrecisionMode )
 	{
 		CGAssociateMouseAndMouseCursorPosition( false );
 	}
@@ -298,27 +381,65 @@ void FMacCursor::WarpCursor( const int32 X, const int32 Y )
 	CGWarpMouseCursorPosition( NSMakePoint( FMath::TruncToInt( X ), FMath::TruncToInt( Y ) ) );
 	
 	// And then reassociate the mouse cursor, which forces the mouse events to come through.
-	if( bAssociateMouseCursor )
+	if( !bUseHighPrecisionMode )
 	{
 		CGAssociateMouseAndMouseCursorPosition( true );
 	}
-
-	CurrentPosition = FVector2D(X, Y);
+	
+	UpdateCurrentPosition( FVector2D(X, Y) );
 }
 
-FVector2D FMacCursor::GetMouseWarpDelta( bool const bClearAccumulatedDelta )
+FVector2D FMacCursor::GetMouseWarpDelta()
 {
-	FVector2D Result = MouseWarpDelta;
-	MouseWarpDelta = bClearAccumulatedDelta ? FVector2D::ZeroVector : MouseWarpDelta;
+	FVector2D Result = ( !bUseHighPrecisionMode || (CurrentCursor && bIsVisible) ) ? MouseWarpDelta : FVector2D::ZeroVector;
+	MouseWarpDelta = FVector2D::ZeroVector;
 	return Result;
 }
 
-void FMacCursor::AssociateMouseAndCursorPosition( bool const bEnable )
+void FMacCursor::SetHighPrecisionMouseMode( bool const bEnable )
 {
-	if( bEnable != bAssociateMouseCursor )
+	if( bUseHighPrecisionMode != bEnable )
 	{
-		bAssociateMouseCursor = bEnable;
-		CGAssociateMouseAndMouseCursorPosition( bEnable );
+		bUseHighPrecisionMode = bEnable;
+		
+		CGAssociateMouseAndMouseCursorPosition( !bUseHighPrecisionMode );
+		
+		if ( GMacDisableMouseCoalescing )
+		{
+			SCOPED_AUTORELEASE_POOL;
+			[NSEvent setMouseCoalescingEnabled: !bUseHighPrecisionMode];
+		}
+		
+		if ( HIDInterface && GMacDisableMouseAcceleration && (!CurrentCursor || !bIsVisible) )
+		{
+			if ( !bUseHighPrecisionMode )
+			{
+				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), SavedAcceleration);
+			}
+			else
+			{
+				// Update the current saved acceleration.
+				double CurrentSetting = 0;
+				IOHIDGetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), &CurrentSetting);
+				
+				// Need to check that we aren't picking up an invalid setting from ourselves.
+				if ( CurrentSetting >= 0 && CurrentSetting <= 3.0001 )
+				{
+					SavedAcceleration = CurrentSetting;
+				}
+				
+				IOHIDSetAccelerationWithKey(HIDInterface, CFSTR(kIOHIDMouseAccelerationType), -1);
+			}
+		}
+		
+		UpdateVisibility();
+		
+		// On disable put the cursor where the user would expect it
+		if ( !bEnable && (!CurrentCursor || !bIsVisible) )
+		{
+			FVector2D Pos = GetPosition();
+			SetPosition(Pos.X, Pos.Y);
+		}
 	}
 }
 
