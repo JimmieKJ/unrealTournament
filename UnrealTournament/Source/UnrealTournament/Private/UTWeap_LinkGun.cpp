@@ -34,8 +34,8 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	LinkFlexibility = 0.64f;
 	LinkDistanceScaling = 1.5f;
 
-	BeamPulseInterval = 0.6f;
-	BeamPulseMomentum = -200000.0f;
+	BeamPulseInterval = 0.5f;
+	BeamPulseMomentum = -220000.0f;
 
 	PerLinkDamageScalingPrimary = 1.f;
 	PerLinkDamageScalingSecondary = 1.25f;
