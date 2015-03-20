@@ -19,6 +19,7 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 {
 	DefaultPawnClass = NULL;
+	MinPlayersToStart = 2;
 
 	// use our custom HUD class
 	HUDClass = AUTLobbyHUD::StaticClass();
@@ -30,7 +31,6 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	GameMessageClass = UUTGameMessage::StaticClass();
 
 	DisplayName = NSLOCTEXT("UTLobbyGameMode", "HUB", "HUB");
-
 }
 
 // Parse options for this game...
@@ -41,6 +41,8 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 	UE_LOG(UT,Log,TEXT("===================="));
 
 	Super::InitGame(MapName, Options, ErrorMessage);
+
+	MinPlayersToStart = FMath::Max(1, GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	// I should move this code up in to UTBaseGameMode and probably will (the code hooks are all there) but
 	// for right now I want to limit this to just Lobbies.
@@ -379,4 +381,3 @@ void AUTLobbyGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerContr
 	PlayerState->Destroy();
 	return;
 }
-

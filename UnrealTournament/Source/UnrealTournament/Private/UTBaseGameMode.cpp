@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "UTGameEngine.h"
 
 AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -98,6 +99,26 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, const FStrin
 	return Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
 }
 
+void AUTBaseGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+
+	FString CloudID = GetCloudID();
+
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	AUTPlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (NewPlayer != LocalPC && PC && UTEngine)
+	{
+		PC->ClientRequireContentItemListBegin(CloudID);
+		for (auto It = UTEngine->LocalContentChecksums.CreateConstIterator(); It; ++It)
+		{
+			PC->ClientRequireContentItem(It.Key(), It.Value());
+		}
+		PC->ClientRequireContentItemListComplete();
+	}
+}
+
 void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 {
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
@@ -105,4 +126,65 @@ void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 	{
 		PC->ClientGenericInitialization();
 	}
+}
+
+FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
+{
+	for (int32 i = 0; i < RedirectReferences.Num(); i++)
+	{
+		if (RedirectReferences[i].MapName == MapName)
+		{
+			return RedirectReferences[i].MapURL;
+		}
+	}
+
+	FString CloudID = GetCloudID();
+	FString RedirectURL;
+
+	if (!CloudID.IsEmpty())
+	{
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+		FString McpConfigOverride;
+		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+		if (McpConfigOverride == TEXT("gamedev"))
+		{
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+		}
+
+		FString MapBaseFilename = FPaths::GetBaseFilename(MapName);
+		RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapBaseFilename + TEXT("-WindowsNoEditor.pak");
+	}
+
+	return RedirectURL;
+}
+
+FString AUTBaseGameMode::GetCloudID() const
+{
+	FString CloudID;
+
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+
+	// For dedicated server, will need to pass stats id as a commandline parameter
+	if (!FParse::Value(FCommandLine::Get(), TEXT("CloudID="), CloudID))
+	{
+		if (LocalPC)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(LocalPC->Player);
+			IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+			if (OnlineSubsystem && LP)
+			{
+				IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+				if (OnlineIdentityInterface.IsValid())
+				{
+					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+					if (UserId.IsValid())
+					{
+						CloudID = UserId->ToString();
+					}
+				}
+			}
+		}
+	}
+
+	return CloudID;
 }

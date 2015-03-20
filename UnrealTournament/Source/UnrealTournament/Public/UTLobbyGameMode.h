@@ -43,6 +43,10 @@ public:
 	UPROPERTY(GlobalConfig)
 	int32 MaxInstances;
 
+	/** Minimum number of players that must have joined an instance before it can be started */
+	UPROPERTY(GlobalConfig)
+	int32 MinPlayersToStart;
+
 	UPROPERTY()
 	TSubclassOf<class UUTLocalMessage>  GameMessageClass;
 
@@ -125,8 +129,4 @@ public:
 
 protected:
 	TArray<FString> ParsedMOTD;
-
 };
-
-
-
