@@ -93,7 +93,7 @@ public:
 		if(!bForceDrainAll)
 		{
 			// Index of the bucket that is now old enough to be reused
-			const int32 SafeFrameIndex = GFrameNumberRenderThread % ResourcePoolPolicy::NumSafeFrames;
+			const int32 SafeFrameIndex = (GFrameNumberRenderThread + 1) % ResourcePoolPolicy::NumSafeFrames;
 			
 			// Merge the bucket into the free pool array
 			for (int32 BucketIndex = 0; BucketIndex < ResourcePoolPolicy::NumPoolBuckets; BucketIndex++)
