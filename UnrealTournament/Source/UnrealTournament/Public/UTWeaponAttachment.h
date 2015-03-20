@@ -100,6 +100,12 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();
+	/** called when FlashExtra on the owner is changed
+	 * some weapons may use this to display intermediate firing states (e.g. charging)
+	 * or to provide extra data to a normal firing sequence (e.g. rocket type used for rocket launcher fire)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void FiringExtraUpdated();
 	/** stops any looping fire effects */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void StopFiringEffects(bool bIgnoreCurrentMode = false);

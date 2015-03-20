@@ -62,6 +62,14 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	float WalkMovementReductionDuration;
 
+	/** if set, force this percentage of the momentum of impacts to also be applied to upward Z
+	* this makes hits more consistently noticeable and gameplay relevant, particularly in UT
+	* because walking acceleration is very fast
+	* however, this causes a juggle/lockdown effect if many hits are applied rapidly
+	*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Meta = (EditCondition = "bForceZMomentum"), Category = Momentum)
+	float ForceZMomentumPct;
+
 	/** Multiplying factor for momentum applied to self */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Momentum)
 	float SelfMomentumBoost;

@@ -742,7 +742,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				if (UTDamageTypeCDO->bForceZMomentum && GetCharacterMovement()->MovementMode == MOVE_Walking)
 				{
-					ResultMomentum.Z = FMath::Max<float>(ResultMomentum.Z, 0.4f * ResultMomentum.Size());
+					ResultMomentum.Z = FMath::Max<float>(ResultMomentum.Z, UTDamageTypeCDO->ForceZMomentumPct * ResultMomentum.Size());
 				}
 				if (bIsSelfDamage)
 				{
@@ -1730,11 +1730,18 @@ void AUTCharacter::IncrementFlashCount(uint8 InFireMode)
 	FireMode = InFireMode;
 	FiringInfoUpdated();
 }
+void AUTCharacter::SetFlashExtra(uint8 NewFlashExtra, uint8 InFireMode)
+{
+	FlashExtra = NewFlashExtra;
+	FireMode = InFireMode;
+	FiringExtraUpdated();
+}
 void AUTCharacter::ClearFiringInfo()
 {
 	bLocalFlashLoc = false;
 	FlashLocation = FVector::ZeroVector;
 	FlashCount = 0;
+	FlashExtra = 0;
 	FiringInfoUpdated();
 }
 void AUTCharacter::FiringInfoReplicated()
@@ -1778,6 +1785,18 @@ void AUTCharacter::FiringInfoUpdated()
 		}
 	}
 }
+void AUTCharacter::FiringExtraUpdated()
+{
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
+	if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
+	{
+		if (FlashExtra != 0)
+		{
+			WeaponAttachment->FiringExtraUpdated();
+		}
+	}
+}
+
 
 void AUTCharacter::AddAmmo(const FStoredAmmo& AmmoToAdd)
 {
@@ -2286,6 +2305,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, FlashExtra, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponAttachmentClass, COND_SkipOwner);

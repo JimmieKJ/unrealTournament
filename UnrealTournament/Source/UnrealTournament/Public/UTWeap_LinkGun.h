@@ -42,6 +42,19 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	float LinkBreakDelay;
 
+	// every this many seconds the user can use primary while holding down alt to fire a pulse that pulls the current target
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+	float BeamPulseInterval;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+	float BeamPulseMomentum;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+	TSubclassOf<UDamageType> BeamPulseDamageType;
+
+	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
+	bool bPendingBeamPulse;
+	// last time pulse was used
+	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
+	float LastBeamPulseTime;
 
 	UFUNCTION(exec)
 	virtual void DebugSetLinkGunLinks(int32 newLinks);
@@ -136,4 +149,8 @@ public:
     
 	// reset links
 	virtual bool PutDown() override;
+
+	virtual void OnMultiPress_Implementation(uint8 OtherFireMode) override;
+
+	virtual void Tick(float DeltaTime) override;
 };

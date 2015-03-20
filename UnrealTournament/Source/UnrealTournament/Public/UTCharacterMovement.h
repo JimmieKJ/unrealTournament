@@ -4,7 +4,7 @@
 #include "UTCharacterMovement.generated.h"
 
 UCLASS()
-class UUTCharacterMovement : public UCharacterMovementComponent
+class UNREALTOURNAMENT_API UUTCharacterMovement : public UCharacterMovementComponent
 {
 	GENERATED_UCLASS_BODY()
 

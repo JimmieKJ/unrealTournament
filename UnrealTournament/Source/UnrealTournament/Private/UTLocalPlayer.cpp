@@ -618,11 +618,11 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 	// Otherwise if this is the first attempt, then silently fair
 	else if (!bSilentLoginFail)
 	{
-		GetAuth(true);
+		GetAuth(ErrorMessage);
 	}
 }
 
-void UUTLocalPlayer::GetAuth(bool bLastFailed)
+void UUTLocalPlayer::GetAuth(FString ErrorMessage)
 {
 #if !UE_SERVER
 	if (GetWorld()->IsPlayInEditor())
@@ -635,10 +635,12 @@ void UUTLocalPlayer::GetAuth(bool bLastFailed)
 		return;
 	}
 
+	bool bError = ErrorMessage != TEXT("");
+
 	SAssignNew(LoginDialog, SUWLoginDialog)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))
 		.UserIDText(PendingLoginUserName)
-		.ErrorText(bLastFailed ? NSLOCTEXT("MCPMessages", "LoginFailure", "(Bad Username or Password)") : FText::GetEmpty())
+		.ErrorText(bError ? FText::FromString(ErrorMessage) : FText::GetEmpty())
 		.PlayerOwner(this);
 
 	GEngine->GameViewport->AddViewportWidgetContent(LoginDialog.ToSharedRef(), 160);

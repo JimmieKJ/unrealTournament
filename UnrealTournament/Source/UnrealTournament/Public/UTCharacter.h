@@ -548,6 +548,12 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	uint8 FlashCount;
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
 	uint8 FireMode;
+	/** weapon/attachment type specific extra data (for example, can be used to replicate charging without complicated FlashCount/FlashLocation gymnastics)
+	 * note: setting this value goes through a different call chain and does NOT imply a shot
+	 * if the information is needed to display the effects for an actual shot, set this prior to calling IncrementFlashCount() or SetFlashLocation()
+	 */
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringExtraUpdated, Category = "Weapon")
+	uint8 FlashExtra;
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoReplicated, Category = "Weapon")
 	FVector_NetQuantize FlashLocation;
 	/** set when client is locally simulating FlashLocation so ignore any replicated value */
@@ -565,12 +571,22 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void IncrementFlashCount(uint8 InFireMode);
 
+	/** set FlashExtra for indicating additional state that doesn't necessarily correspond to firing
+	 * this uses a different WeaponAttachment notify path via FiringExtraUpdated(); since it may be e.g. charging instead of a shot, it doesn't call FiringInfoUpdated()
+	 * this only triggers third person effects; first person aspects are assumed to be handled locally in UTWeapon
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void SetFlashExtra(uint8 NewFlashExtra, uint8 InFireMode);
+
 	/** clears firing variables; i.e. because the weapon has stopped firing */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void ClearFiringInfo();
 
 	/** called when firing variables are updated to trigger/stop effects */
 	virtual void FiringInfoUpdated();
+	/** called when FlashExtra is updated; routes call to weapon attachment */
+	UFUNCTION()
+	virtual void FiringExtraUpdated();
 	/** repnotify handler for firing variables, generally just calls FiringInfoUpdated() */
 	UFUNCTION()
 	virtual void FiringInfoReplicated();

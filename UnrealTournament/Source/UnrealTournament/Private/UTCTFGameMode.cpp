@@ -120,6 +120,12 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 					}
 				}
 			}
+
+			if (BaseMutator != NULL)
+			{
+				BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+			}
+
 			// if all flags are returned, end advantage time right away
 			if (CTFGameState->bPlayingAdvantage)
 			{
@@ -190,7 +196,6 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 					Who->AdjustScore(Points);
 					if (Who != Holder)
 					{
-						Who->Assists++;
 						NewScoringPlay.Assists.AddUnique(FSafePlayerName(Who));
 					}
 				}
@@ -219,7 +224,21 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 				}
 			}
 
+			// increment assist counter for players who got them
+			for (const FSafePlayerName& Assist : NewScoringPlay.Assists)
+			{
+				if (Assist.PlayerState != NULL)
+				{
+					Assist.PlayerState->Assists++;
+				}
+			}
+
 			CTFGameState->AddScoringPlay(NewScoringPlay);
+
+			if (BaseMutator != NULL)
+			{
+				BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+			}
 
 			if (CTFGameState->IsMatchInOvertime())
 			{
@@ -238,11 +257,6 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 		}
 
 		UE_LOG(UT,Verbose,TEXT("========================================="));
-		
-		if (BaseMutator != NULL)
-		{
-			BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
-		}
 	}
 }
 
