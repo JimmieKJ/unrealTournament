@@ -52,7 +52,7 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
-	MinPlayers = 2; // TODO: This should be pulled from the game type at some point
+	MinPlayers = 2;
 
 	MatchBadge = TEXT("Loading...");
 	UpdateBadgeForNewGameMode();
@@ -305,18 +305,12 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchI
 		bJoinAnytime = MatchToCopy->bJoinAnytime;
 		bSpectatable = MatchToCopy->bSpectatable;
 		MaxPlayers = MatchToCopy->MaxPlayers;
+		MinPlayers = MatchToCopy->MinPlayers;
 	}
 	else
 	{
 		// Set the defaults for this match...
-
-		MatchGameMode = GameState->AllowedGameModeClasses[0];
-		AUTGameMode* StartingGameMode = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
-		if (StartingGameMode)
-		{
-			 MatchMap = StartingGameMode->DefaultLobbyMap;
-			 MatchOptions = StartingGameMode->DefaultLobbyOptions;
-		}
+		ServerMatchGameModeChanged_Implementation(GameState->AllowedGameModeClasses[0]);
 	}
 }
 
@@ -325,10 +319,19 @@ void AUTLobbyMatchInfo::ServerMatchGameModeChanged_Implementation(const FString&
 {
 	MatchGameMode = NewMatchGameMode;
 	AUTGameMode* StartingGameMode = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
-	if (StartingGameMode)
+	if (StartingGameMode != NULL)
 	{
-			MatchMap = StartingGameMode->DefaultLobbyMap;
-			MatchOptions = StartingGameMode->DefaultLobbyOptions;
+		MatchMap = StartingGameMode->DefaultLobbyMap;
+		MatchOptions = StartingGameMode->DefaultLobbyOptions;
+	}
+	if (StartingGameMode != NULL && StartingGameMode->HubMinPlayers > 0)
+	{
+		MinPlayers = StartingGameMode->HubMinPlayers;
+	}
+	else
+	{
+		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+		MinPlayers = (GM != NULL) ? GM->MinPlayersToStart : GetClass()->GetDefaultObject<AUTLobbyMatchInfo>()->MinPlayers;
 	}
 }
 
@@ -381,7 +384,7 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
 	if (Players.Num() < MinPlayers)
 	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start. ({0} required)"), MinPlayers);
 		return;
 	}
 

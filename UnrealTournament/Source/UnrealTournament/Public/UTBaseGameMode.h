@@ -7,6 +7,18 @@
 #include "Private/Slate/SUTInGameMenu.h"
 #include "UTBaseGameMode.generated.h"
 
+USTRUCT()
+struct FRedirectReference
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString MapName;
+
+	UPROPERTY()
+		FString MapURL;
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTBaseGameMode : public AGameMode
 {
@@ -43,6 +55,7 @@ public:
 
 	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
 	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void GenericPlayerInitialization(AController* C);
 	
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
@@ -105,5 +118,10 @@ public:
 		}
 	}
 
+	UPROPERTY(Config)
+	TArray<FRedirectReference> RedirectReferences;
 
+	virtual FString GetRedirectURL(const FString& MapName) const;
+private:
+	FString GetCloudID() const;
 };

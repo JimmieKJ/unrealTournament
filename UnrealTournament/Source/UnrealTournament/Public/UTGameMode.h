@@ -16,18 +16,6 @@ namespace MatchState
 	extern const FName MatchIsInOvertime;				// The game is in overtime
 }
 
-USTRUCT()
-struct FRedirectReference
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	FString MapName;
-
-	UPROPERTY()
-	FString MapURL;
-};
-
 /** list of bots user asked to put into the game */
 USTRUCT()
 struct FSelectedBot
@@ -70,7 +58,7 @@ public:
 	UPROPERTY(globalconfig)
 	float EndScoreboardDelay;			
 
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly)
 	uint32 bAllowOvertime:1;
 
 	/** If TRUE, force dead players to respawn immediately */
@@ -113,6 +101,12 @@ public:
 
 	UPROPERTY()
 	bool bFirstBloodOccurred;
+
+	/** if set, this setting overrides the number of players that are needed to start a hub instance
+	 * (defaults to UTLobbyGameMode's MinPlayersToStart)
+	 */
+	UPROPERTY(config)
+	int32 HubMinPlayers;
 
 	/** Minimum number of players that must have joined match before it will start. */
 	UPROPERTY()
@@ -252,9 +246,6 @@ public:
 	/** filename for demos... should use one of the replacement strings or it'll overwrite every game */
 	UPROPERTY(GlobalConfig)
 	FString DemoFilename;
-
-	UPROPERTY(Config)
-	TArray<FRedirectReference> RedirectReferences;
 
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
@@ -401,8 +392,6 @@ public:
 
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
 
-	virtual FString GetRedirectURL(const FString& MapName) const;
-
 #if !UE_SERVER
 	/** called on the default object of this class by the UI to create widgets to manipulate this game type's settings
 	 * you can use TAttributeProperty<> to easily implement get/set delegates that map directly to the config property address
@@ -475,8 +464,6 @@ protected:
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);
-
-	FString GetCloudID() const;
 
 public:
 	/**

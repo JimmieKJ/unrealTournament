@@ -2070,37 +2070,6 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 
 }
 
-FString AUTGameMode::GetCloudID() const
-{
-	FString CloudID;
-
-	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-
-	// For dedicated server, will need to pass stats id as a commandline parameter
-	if (!FParse::Value(FCommandLine::Get(), TEXT("CloudID="), CloudID))
-	{
-		if (LocalPC)
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(LocalPC->Player);
-			IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-			if (OnlineSubsystem && LP)
-			{
-				IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-				if (OnlineIdentityInterface.IsValid())
-				{
-					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-					if (UserId.IsValid())
-					{
-						CloudID = UserId->ToString();
-					}
-				}
-			}
-		}
-	}
-
-	return CloudID;
-}
-
 void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 {
 	Super::PostLogin(NewPlayer);
@@ -2113,22 +2082,6 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 		{
 			UTGameSession->UpdateGameState();
 		}
-	}
-	
-
-	FString CloudID = GetCloudID();
-
-	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-	AUTPlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
-	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (NewPlayer != LocalPC && PC && UTEngine)
-	{
-		PC->ClientRequireContentItemListBegin(CloudID);
-		for (auto It = UTEngine->LocalContentChecksums.CreateConstIterator(); It; ++It)
-		{
-			PC->ClientRequireContentItem(It.Key(), It.Value());
-		}
-		PC->ClientRequireContentItemListComplete();
 	}
 
 	CheckBotCount();
@@ -2610,36 +2563,6 @@ void AUTGameMode::NotifyLobbyGameIsReady()
 	{
 		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID);
 	}
-}
-
-FString AUTGameMode::GetRedirectURL(const FString& MapName) const
-{
-	for (int32 i = 0; i < RedirectReferences.Num(); i++)
-	{
-		if (RedirectReferences[i].MapName == MapName)
-		{
-			return RedirectReferences[i].MapURL;
-		}
-	}
-
-	FString CloudID = GetCloudID();
-	FString RedirectURL;
-
-	if (!CloudID.IsEmpty())
-	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
-		FString McpConfigOverride;
-		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-		if (McpConfigOverride == TEXT("gamedev"))
-		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
-		}
-	
-		FString MapBaseFilename = FPaths::GetBaseFilename(MapName);
-		RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapBaseFilename + TEXT("-WindowsNoEditor.pak");
-	}
-
-	return RedirectURL;
 }
 
 void AUTGameMode::UpdateLobbyMatchStats()

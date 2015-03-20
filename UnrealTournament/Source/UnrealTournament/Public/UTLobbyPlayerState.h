@@ -50,7 +50,7 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 
 	// Client-Side - Causes a error message to occur
 	UFUNCTION(Client, Reliable)
-	virtual void ClientMatchError(const FText &MatchErrorMessage);
+	virtual void ClientMatchError(const FText& MatchErrorMessage, int32 OptionalInt = 0);
 
 	/**
 	 *	Tells a client to connect to a game instance.  InstanceGUID is the server GUID of the game instance this client should connect to.  The client

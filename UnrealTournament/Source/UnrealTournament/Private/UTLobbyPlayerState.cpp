@@ -95,13 +95,13 @@ void AUTLobbyPlayerState::RemovedFromMatch(AUTLobbyMatchInfo* Match)
 	bReadyToPlay = false;
 }
 
-void AUTLobbyPlayerState::ClientMatchError_Implementation(const FText &MatchErrorMessage)
+void AUTLobbyPlayerState::ClientMatchError_Implementation(const FText &MatchErrorMessage, int32 OptionalInt)
 {
 	AUTBasePlayerController* BasePC = Cast<AUTBasePlayerController>(GetOwner());
 	if (BasePC)
 	{
 #if !UE_SERVER
-		BasePC->ShowMessage(NSLOCTEXT("LobbyMessage","MatchMessage","Match Message"), MatchErrorMessage, UTDIALOG_BUTTON_OK, NULL);	
+		BasePC->ShowMessage(NSLOCTEXT("LobbyMessage","MatchMessage","Match Message"), FText::Format(MatchErrorMessage, FText::AsNumber(OptionalInt)), UTDIALOG_BUTTON_OK, NULL);	
 #endif
 	}
 }
