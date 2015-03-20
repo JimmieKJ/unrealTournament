@@ -53,7 +53,10 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	InitialLifeSpan = 2.f;
 	BounceFinalLifeSpanIncrement = 0.5f;
 	BouncesRemaining = 2;
-	BounceDamping = 0.5f;
+	FirstBounceDamping = 0.9f;
+	BounceDamping = 0.75f;
+	BounceDamagePct = 0.8f;
+	RandomBounceCone = 0.2f;
 	FullGravityDelay = 0.5f;
 
 	PrimaryActorTick.bCanEverTick = true;
@@ -61,14 +64,12 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	bNetTemporary = true;
 }
 
-
 void AUTProj_FlakShard::CatchupTick(float CatchupTickDelta)
 {
 	Super::CatchupTick(CatchupTickDelta);
 	FullGravityDelay -= CatchupTickDelta;
 	// @TODO FIXMESTEVE - not synchronizing this correctly on other clients unless we replicate it.  Needed?
 }
-
 
 void AUTProj_FlakShard::PostInitializeComponents()
 {
@@ -98,10 +99,14 @@ void AUTProj_FlakShard::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 
 void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
+	float CurrentBounceDamping = (ProjectileMovement->ProjectileGravityScale == 0.f) ? FirstBounceDamping : BounceDamping;
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 
 	// manually handle bounce velocity to match UT3 for now
-	ProjectileMovement->Velocity = BounceDamping * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
+	ProjectileMovement->Velocity = CurrentBounceDamping * (ImpactVelocity - 2.0f * ImpactResult.Normal * (ImpactVelocity | ImpactResult.Normal));
+
+	// add random bounce factor
+	ProjectileMovement->Velocity = ProjectileMovement->Velocity.Size() * FMath::VRandCone(ProjectileMovement->Velocity, RandomBounceCone);
 
 	// Set gravity on bounce
 	ProjectileMovement->ProjectileGravityScale = 1.f;
@@ -126,6 +131,10 @@ FRadialDamageParams AUTProj_FlakShard::GetDamageParams_Implementation(AActor* Ot
 	else
 	{
 		Result.BaseDamage = FMath::Max<float>(Result.MinimumDamage, Result.BaseDamage - DamageAttenuation * FMath::Max<float>(0.0f, GetWorld()->GetTimeSeconds() - CreationTime - DamageAttenuationDelay));
+		if (ProjectileMovement->ProjectileGravityScale != 0.f)
+		{
+			Result.BaseDamage *= BounceDamagePct;
+		}
 	}
 	return Result;
 }

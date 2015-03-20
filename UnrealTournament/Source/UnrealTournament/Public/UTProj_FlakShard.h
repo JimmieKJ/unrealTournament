@@ -36,9 +36,21 @@ class AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 	float BounceFinalLifeSpanIncrement;
 
-	/** How much velocity is damped on bounce. */
+	/** How much velocity is damped on first bounce. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float FirstBounceDamping;
+
+	/** How much velocity is damped on successive bounces. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 		float BounceDamping;
+
+	/** Pct of damage applied on hits after shard has bounced. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float BounceDamagePct;
+
+	/** Max angle to randomize bounce, in radians. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
+		float RandomBounceCone;
 
 	/** Minimum speed at which damage can be applied */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
