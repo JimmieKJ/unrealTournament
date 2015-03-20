@@ -1102,7 +1102,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					{
 						// try head
 						TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
-						bClean = !GetWorld()->LineTraceTest(FireStart, FocalPoint, Params, ResultParams);
+						bClean = !GetWorld()->LineTraceTest(FireStart, TargetLoc, Params, ResultParams);
 						bCheckedHead = true;
 						bHeadClean = bClean;
 					}
@@ -1111,14 +1111,14 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					{
 						// try middle
 						TargetLoc.Z = FocalPoint.Z;
-						bClean = !GetWorld()->LineTraceTest(FireStart, FocalPoint, Params, ResultParams);
+						bClean = !GetWorld()->LineTraceTest(FireStart, TargetLoc, Params, ResultParams);
 					}
 
 					if (!bClean)
 					{
 						// try head
 						TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
-						bClean = bCheckedHead ? bHeadClean : !GetWorld()->LineTraceTest(FireStart, FocalPoint, Params, ResultParams);
+						bClean = bCheckedHead ? bHeadClean : !GetWorld()->LineTraceTest(FireStart, TargetLoc, Params, ResultParams);
 					}
 					if (!bClean && Enemy != NULL && GetFocusActor() == Enemy)
 					{

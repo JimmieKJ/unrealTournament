@@ -1129,7 +1129,12 @@ void SUWCreateGamePanel::StartGameInternal(EServerStartMode Mode)
 	// save changes
 	GConfig->SetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), *SelectedGameClass->GetPathName(), GGameIni);
 	SelectedGameClass.GetDefaultObject()->UILastStartingMap = SelectedMap->GetText().ToString();
-	SelectedGameClass.GetDefaultObject()->SaveConfig();
+	// we need to save up the heirarchy for globalconfig settings
+	// TODO: isn't this really an engine bug?
+	for (UClass* TestClass = SelectedGameClass; TestClass->IsChildOf(AUTGameMode::StaticClass()); TestClass = TestClass->GetSuperClass())
+	{
+		TestClass->GetDefaultObject()->SaveConfig();
+	}
 	AUTGameState::StaticClass()->GetDefaultObject()->SaveConfig();
 
 	FString NewURL = FString::Printf(TEXT("%s?game=%s"), *SelectedMap->GetText().ToString(), *SelectedGameClass->GetPathName());
