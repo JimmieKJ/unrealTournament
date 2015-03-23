@@ -94,6 +94,10 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void HolsterToOwner();
 
+	/** blueprint hook to modify spawned instance of FireEffect (e.g. tracer or beam) */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+	void ModifyFireEffect(UParticleSystemComponent* Effect);
+
 	/** play firing effects (both muzzle flash and any tracers/beams/impact effects)
 	 * use UTOwner's FlashLocation and FireMode to determine firing data
 	 * don't play sounds as those are played/replicated from UTWeapon by the server as the Pawn/WeaponAttachment may not be relevant
