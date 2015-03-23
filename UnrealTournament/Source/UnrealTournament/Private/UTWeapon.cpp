@@ -492,6 +492,12 @@ void AUTWeapon::AttachToOwnerNative()
 			Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
 			Mesh->LastRenderTime = GetWorld()->TimeSeconds;
 			Mesh->bRecentlyRendered = true;
+			if (OverlayMesh != NULL)
+			{
+				OverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose;
+				OverlayMesh->LastRenderTime = GetWorld()->TimeSeconds;
+				OverlayMesh->bRecentlyRendered = true;
+			}
 		}
 	}
 	// register components now
@@ -532,6 +538,10 @@ void AUTWeapon::DetachFromOwnerNative()
 	{
 		Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 		Mesh->DetachFromParent();
+		if (OverlayMesh != NULL)
+		{
+			OverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+		}
 	}
 	// unregister components so they go away
 	UnregisterAllComponents();
