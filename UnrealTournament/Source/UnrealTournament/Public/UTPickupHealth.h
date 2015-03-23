@@ -4,7 +4,7 @@
 #include "UTPickupHealth.generated.h"
 
 UCLASS(Blueprintable, Abstract)
-class AUTPickupHealth : public AUTPickup
+class UNREALTOURNAMENT_API AUTPickupHealth : public AUTPickup
 {
 	GENERATED_UCLASS_BODY()
 

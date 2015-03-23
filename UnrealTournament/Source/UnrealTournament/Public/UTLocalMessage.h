@@ -5,7 +5,7 @@
 #include "UTLocalMessage.generated.h"
 
 UCLASS(Blueprintable, Abstract, NotPlaceable)
-class UUTLocalMessage : public ULocalMessage
+class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

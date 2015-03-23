@@ -5,7 +5,7 @@
 #include "UTCTFFlag.generated.h"
 
 UCLASS()
-class AUTCTFFlag : public AUTCarriedObject
+class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 {
 	GENERATED_UCLASS_BODY()
 

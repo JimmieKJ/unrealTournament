@@ -12,7 +12,7 @@
 const int32 MESSAGE_QUEUE_LENGTH = 8;
 
 USTRUCT(BlueprintType)
-struct FLocalizedMessageData
+struct UNREALTOURNAMENT_API FLocalizedMessageData
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -95,7 +95,7 @@ struct FLocalizedMessageData
 };
 
 UCLASS()
-class UUTHUDWidgetMessage : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidgetMessage : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
