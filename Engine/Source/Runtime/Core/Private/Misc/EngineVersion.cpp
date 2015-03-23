@@ -59,6 +59,11 @@ bool FEngineVersion::IsCompatibleWith(const FEngineVersion &Other) const
 		return true;
 	}
 
+	if (FEngineBuildSettings::IsPerforceBuild() && Other.Branch == FString(TEXT("++depot+UE4-UT-Releases")))
+	{
+		return true;
+	}
+
 	// Otherwise compare the versions
 	EVersionComponent Component;
 	EVersionComparison Comparison = FEngineVersion::GetNewest(*this, Other, &Component);
