@@ -107,13 +107,13 @@ public:
 
 protected:
 	/** Called by slate when it needs to generate a new item for the combobox */
-	TSharedRef<SWidget> HandleGenerateWidget(TSharedPtr<FString> Item) const;
+	virtual TSharedRef<SWidget> HandleGenerateWidget(TSharedPtr<FString> Item) const;
 
 	/** Called by slate when the underlying comobobox selection changes */
-	void HandleSelectionChanged(TSharedPtr<FString> Item, ESelectInfo::Type SelectionType);
+	virtual void HandleSelectionChanged(TSharedPtr<FString> Item, ESelectInfo::Type SelectionType);
 
 	/** Called by slate when the underlying comobobox is opening */
-	void HandleOpening();
+	virtual void HandleOpening();
 
 	// UWidget interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
