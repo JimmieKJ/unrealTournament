@@ -24,6 +24,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectIniti
 	FullImpactChargePct = 0.4f;
 	MinAutoChargePct = 1.f;
 	ImpactJumpTraceDist = 220.f;
+	FOVOffset = FVector(0.1f, 1.f, 2.f);
 
 	DroppedPickupClass = NULL; // doesn't drop
 

@@ -20,6 +20,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	FirstRocketLoadTime = 0.4f;
 	CurrentRocketFireMode = 0;
 	bDrawRocketModeString = false;
+	FOVOffset = FVector(0.5f, 1.f, 1.f);
 
 	bLockedOnTarget = false;
 	LockCheckTime = 0.1f;

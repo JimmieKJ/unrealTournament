@@ -18,6 +18,7 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 	bMustBeHolstered = true;
 	BasePickupDesireability = 1.5f;
 	BaseAISelectRating = 1.5f;
+	FOVOffset = FVector(1.f, 3.f, 3.f);
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()

@@ -21,6 +21,7 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 	FireInterval.SetNum(2);
 	FireInterval[0] = 1.0;
 	FireInterval[1] = 1.0;
+	FOVOffset = FVector(0.5f, 1.f, 1.15f);
 
 	AmmoCost.SetNum(2);
 	AmmoCost[0] = 1;

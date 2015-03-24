@@ -14,6 +14,7 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 	MaxAmmo = 100;
 	AmmoCost[0] = 2;
 	AmmoCost[1] = 2;
+	FOVOffset = FVector(1.7f, 1.f, 1.f);
 
 	FireInterval[0] = 0.4f;
 	FireInterval[1] = 0.66f;

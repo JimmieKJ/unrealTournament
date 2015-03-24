@@ -19,6 +19,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	RunningHeadshotScale = 1.0f;
 	HeadshotDamageMult = 2.0f;
 	ProjClass.Insert(AUTProj_Sniper::StaticClass(), 0);
+	FOVOffset = FVector(0.1f, 1.f, 1.7f);
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 726, 532, 165, 51);
 
