@@ -972,27 +972,17 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		// generate map list
 		const AUTGameMode* GameDefaults = SelectedGameClass.GetDefaultObject();
 		AllMaps.Empty();
-		TArray<FString> Paths;
-		FPackageName::QueryRootContentPaths(Paths);
-		int32 MapExtLen = FPackageName::GetMapPackageExtension().Len();
-		for (int32 i = 0; i < Paths.Num(); i++)
+		TArray<FAssetData> MapAssets;
+		GetAllAssetData(UWorld::StaticClass(), MapAssets);
+		for (const FAssetData& Asset : MapAssets)
 		{
+			FString MapPackageName = Asset.PackageName.ToString();
 			// ignore /Engine/ as those aren't real gameplay maps
-			if (!Paths[i].StartsWith(TEXT("/Engine/")))
+			// make sure expected file is really there
+			if ( GameDefaults->SupportsMap(Asset.AssetName.ToString()) && !MapPackageName.StartsWith(TEXT("/Engine/")) &&
+				IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
 			{
-				TArray<FString> List;
-				FPackageName::FindPackagesInDirectory(List, *FPackageName::LongPackageNameToFilename(Paths[i]));
-				for (int32 j = 0; j < List.Num(); j++)
-				{
-					if (List[j].Right(MapExtLen) == FPackageName::GetMapPackageExtension())
-					{
-						TSharedPtr<FString> BaseName = MakeShareable(new FString(FPaths::GetBaseFilename(List[j])));
-						if (GameDefaults->SupportsMap(*BaseName.Get()) && LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(**BaseName.Get()))))
-						{
-							AllMaps.Add(BaseName);
-						}
-					}
-				}
+				AllMaps.Add(MakeShareable(new FString(Asset.AssetName.ToString())));
 			}
 		}
 		AllMaps.Sort([](const TSharedPtr<FString>& A, const TSharedPtr<FString>& B){ return *A.Get() < *B.Get(); });

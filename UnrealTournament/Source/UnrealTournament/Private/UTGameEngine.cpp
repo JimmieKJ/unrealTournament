@@ -570,7 +570,19 @@ UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
 {
 	UUTLevelSummary* Summary = NULL;
 	FString MapFullName;
-	if (FPackageName::SearchForPackageOnDisk(MapName + FPackageName::GetMapPackageExtension(), &MapFullName))
+	// querying the asset registry and iterating its results is actually faster than SearchForPackageOnDisk() assuming the registry has been initialized already
+	TArray<FAssetData> AssetList;
+	GetAllAssetData(UWorld::StaticClass(), AssetList, false);
+	FName MapFName(*MapName);
+	for (const FAssetData& Asset : AssetList)
+	{
+		if (Asset.AssetName == MapFName)
+		{
+			MapFullName = Asset.PackageName.ToString();
+			break;
+		}
+	}
+	if (MapFullName.Len() > 0 || FPackageName::SearchForPackageOnDisk(MapName + FPackageName::GetMapPackageExtension(), &MapFullName))
 	{
 		static FName NAME_LevelSummary(TEXT("LevelSummary"));
 

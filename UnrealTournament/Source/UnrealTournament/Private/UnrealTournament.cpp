@@ -173,6 +173,57 @@ bool LocallyHasEntitlement(const FString& Entitlement)
 	}
 }
 
+void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)
+{
+	// calling this with UBlueprint::StaticClass() is probably a bug where the user intended to call GetAllBlueprintAssetData()
+	if (BaseClass == UBlueprint::StaticClass())
+	{
+#if DO_GUARD_SLOW
+		UE_LOG(UT, Fatal, TEXT("GetAllAssetData() should not be used for blueprints; call GetAllBlueprintAssetData() instead"));
+#else
+		UE_LOG(UT, Error, TEXT("GetAllAssetData() should not be used for blueprints; call GetAllBlueprintAssetData() instead"));
+#endif
+		return;
+	}
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	TArray<FString> RootPaths;
+	FPackageName::QueryRootContentPaths(RootPaths);
+
+#if WITH_EDITOR
+	// Cooked data has the asset data already set up
+	AssetRegistry.ScanPathsSynchronous(RootPaths);
+#endif
+
+	FARFilter ARFilter;
+	if (BaseClass != NULL)
+	{
+		ARFilter.ClassNames.Add(BaseClass->GetFName());
+		// Add any old names to the list in case things haven't been resaved
+		TArray<FName> OldNames = ULinkerLoad::FindPreviousNamesForClass(BaseClass->GetPathName(), false);
+		ARFilter.ClassNames.Append(OldNames);
+	}
+	ARFilter.bRecursivePaths = true;
+	ARFilter.bIncludeOnlyOnDiskAssets = true;
+	ARFilter.bRecursiveClasses = true;
+
+	AssetRegistry.GetAssets(ARFilter, AssetList);
+
+	// query entitlements for any assets and remove those that are not usable
+	if (bRequireEntitlements)
+	{
+		for (int32 i = AssetList.Num() - 1; i >= 0; i--)
+		{
+			if (!LocallyHasEntitlement(GetRequiredEntitlementFromAsset(AssetList[i])))
+			{
+				AssetList.RemoveAt(i);
+			}
+		}
+	}
+}
+
 void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
