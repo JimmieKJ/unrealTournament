@@ -652,6 +652,15 @@ void AUTGameMode::DefaultTimer()
 {	
 	if (LobbyBeacon && LobbyBeacon->GetNetConnection()->State == EConnectionState::USOCK_Closed)
 	{
+		// if the server is empty and would be asking the hub to kill it, just kill ourselves rather than waiting for reconnection
+		// this relies on there being good monitoring and cleanup code in the hub, but it's better than some kind of network port failure leaving an instance spamming connection attempts forever
+		// also handles the hub itself failing
+		if (!bDedicatedInstance && NumPlayers <= 0)
+		{
+			FPlatformMisc::RequestExit(false);
+			return;
+		}
+
 		// Lost connection with the beacon. Recreate it.
 		UE_LOG(UT, Verbose, TEXT("Beacon %s lost connection. Attempting to recreate."), *GetNameSafe(this));
 		RecreateLobbyBeacon();
