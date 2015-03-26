@@ -620,7 +620,7 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 	NewPlayer->StartServerToClientDataPush();
 }
 
-AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(FString ClassName)
+AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(const FString& ClassName)
 {
 	// Try to load the native class
 	UClass* GameModeClass = NULL;
