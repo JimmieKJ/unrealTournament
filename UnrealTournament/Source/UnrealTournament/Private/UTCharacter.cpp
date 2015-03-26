@@ -1407,7 +1407,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 				else
 				{
 					// nudge body in random direction
-					FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).SafeNormal();
+					FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).GetSafeNormal();
 					FeignNudge.Z = 0.4f*FeignNudgeMag;
 					GetMesh()->AddImpulseAtLocation(FeignNudge, GetMesh()->GetComponentLocation());
 				}

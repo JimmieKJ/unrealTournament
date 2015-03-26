@@ -106,7 +106,7 @@ void AUTBaseGameMode::PostLogin(APlayerController* NewPlayer)
 	FString CloudID = GetCloudID();
 
 	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-	AUTPlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (NewPlayer != LocalPC && PC && UTEngine)
 	{

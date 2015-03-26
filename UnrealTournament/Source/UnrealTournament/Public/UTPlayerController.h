@@ -127,16 +127,7 @@ public:
 
 	/**	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun	 **/
 	virtual void ServerRestartPlayer_Implementation();
-
-	UFUNCTION(client, reliable)
-	virtual void ClientRequireContentItemListBegin(const FString& CloudId);
-
-	UFUNCTION(client, reliable)
-	virtual void ClientRequireContentItem(const FString& PakFile, const FString& MD5);
-
-	UFUNCTION(client, reliable)
-	virtual void ClientRequireContentItemListComplete();
-
+	
 	/**  Added a check to see if the player's RespawnTimer is > 0	 **/
 	virtual bool CanRestartPlayer();
 
@@ -350,6 +341,8 @@ public:
 	APawn* LastShotTargetGuess;
 
 	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
+
+	virtual void ClientRequireContentItemListComplete_Implementation() override;
 
 	UFUNCTION(Exec)
 	virtual void RconAuth(FString Password);
