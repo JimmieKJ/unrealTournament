@@ -34,6 +34,7 @@
 	#include "DerivedDataCacheInterface.h"
 	#include "RenderCore.h"
 	#include "ShaderCompiler.h"
+	#include "ShaderCache.h"
 	#include "DistanceFieldAtlas.h"
 	#include "GlobalShader.h"
 	#include "ParticleHelper.h"
@@ -2357,6 +2358,7 @@ void FEngineLoop::Tick()
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
 			EndFrame,
 		{
+			FShaderCache::PreDrawShaders(RHICmdList);
 			RHICmdList.EndFrame();
 			RHICmdList.PopEvent();
 		});

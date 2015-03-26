@@ -80,6 +80,14 @@ extern UNREALTOURNAMENT_API FString GetRequiredEntitlementFromPackageName(FName 
 /** returns whether any locally logged in player (via OSS) has the specified entitlement */
 extern UNREALTOURNAMENT_API bool LocallyHasEntitlement(const FString& Entitlement);
 
+/** returns asset data for all assets of the specified class 
+ * do not use for Blueprints as you can only query for all blueprints period; use GetAllBlueprintAssetData() to query the blueprint's underlying class
+ * if bRequireEntitlements is set, assets on disk for which no local player has the required entitlement will not be returned
+ *
+ * WARNING: the asset registry does a class name search not a path search so the returned assets may not actually be the class you want in the case of name conflicts
+ *			if you load any returned assets always verify that you got back what you were expecting!
+ */
+extern UNREALTOURNAMENT_API void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements = true);
 /** returns asset data for all blueprints of the specified base class in the asset registry
  * this does not actually load assets, so it's fast in a cooked build, although the first time it is run
  * in an uncooked build it will hitch while scanning the asset registry

@@ -37,23 +37,22 @@ public:
 public:
 
 	bool UpdateCursorClipping( FVector2D& CursorPosition );
-	
-	void WarpCursor( const int32 X, const int32 Y );
-	
-	FVector2D GetMouseWarpDelta( bool const bClearAccumulatedDelta );
 
-	void AssociateMouseAndCursorPosition( bool const bEnable );
-	
+	void WarpCursor( const int32 X, const int32 Y );
+
+	FVector2D GetMouseWarpDelta();
+
+	void SetHighPrecisionMouseMode( bool const bEnable );
+
 	void SetMouseScaling( FVector2D Scale );
-	
+
 	FVector2D GetMouseScaling( void );
 
 	void UpdateCurrentPosition( const FVector2D& Position );
 
-private:
-
 	void UpdateVisibility();
 
+private:
 	EMouseCursor::Type CurrentType;
 
 	/** Cursors */
@@ -62,10 +61,14 @@ private:
 	FIntRect CusorClipRect;
 
 	bool bIsVisible;
-	bool bAssociateMouseCursor;
+	bool bUseHighPrecisionMode;
 	NSCursor* CurrentCursor;
 
 	FVector2D CurrentPosition;
 	FVector2D MouseWarpDelta;
 	FVector2D MouseScale;
+	bool bIsPositionInitialised;
+
+	io_object_t HIDInterface;
+	double SavedAcceleration;
 };

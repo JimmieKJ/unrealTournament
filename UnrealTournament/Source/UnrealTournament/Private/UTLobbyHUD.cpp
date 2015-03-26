@@ -39,9 +39,9 @@ void AUTLobbyHUD::PostRender()
 			}
 			if (LobbyDebugLevel > 1)
 			{
-				for (int32 i=0;i < GS->ClientAvailbleGameModes.Num();i++)
+				for (int32 i = 0; i < GS->ClientAvailableGameModes.Num(); i++)
 				{
-					DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugC", " Available Game Mode {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailbleGameModes[i]->DisplayName)), 10, Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
+					DrawString(FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugC", " Available Game Mode {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailableGameModes[i]->DisplayName)), 10, Y, ETextHorzPos::Left, ETextVertPos::Top, SmallFont, FLinearColor::White, 1.0, true);
 					Y+=20;
 				}
 				for (int32 i = 0; i < GS->ClientAvailableMaps.Num(); i++)

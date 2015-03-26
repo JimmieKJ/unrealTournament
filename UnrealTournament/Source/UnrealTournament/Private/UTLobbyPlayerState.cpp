@@ -213,9 +213,10 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 			if (DataType.ToLower() == TEXT("game"))
 			{
 				AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(Data);
-				if (DefaultGame)
+				if (DefaultGame != NULL)
 				{
-					GS->ClientAvailbleGameModes.Add(FAllowedGameModeData::Make(Data, DefaultGame->DisplayName.ToString(), DefaultGame));
+					GS->LoadedGametypes.AddUnique(DefaultGame->GetClass()); // make sure it stays loaded, the below is a weak pointer
+					GS->ClientAvailableGameModes.Add(FAllowedGameModeData::Make(Data, DefaultGame->DisplayName.ToString(), DefaultGame));
 				}
 			}
 			else if (DataType.ToLower() == TEXT("map"))

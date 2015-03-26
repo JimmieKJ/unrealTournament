@@ -78,7 +78,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	RotChgSpeed = 3.f;
 	ReturnChgSpeed = 3.f;
 	MaxYawLag = 4.4f;
-	MaxPitchLag = 3.3f; 
+	MaxPitchLag = 3.3f;
+	FOVOffset = FVector(1.f);
 
 	// default icon texture
 	static ConstructorHelpers::FObjectFinder<UTexture> WeaponTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseB.UI_HUD_BaseB'"));
@@ -492,6 +493,12 @@ void AUTWeapon::AttachToOwnerNative()
 			Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
 			Mesh->LastRenderTime = GetWorld()->TimeSeconds;
 			Mesh->bRecentlyRendered = true;
+			if (OverlayMesh != NULL)
+			{
+				OverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose;
+				OverlayMesh->LastRenderTime = GetWorld()->TimeSeconds;
+				OverlayMesh->bRecentlyRendered = true;
+			}
 		}
 	}
 	// register components now
@@ -532,6 +539,10 @@ void AUTWeapon::DetachFromOwnerNative()
 	{
 		Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 		Mesh->DetachFromParent();
+		if (OverlayMesh != NULL)
+		{
+			OverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+		}
 	}
 	// unregister components so they go away
 	UnregisterAllComponents();
@@ -1351,20 +1362,22 @@ void AUTWeapon::Tick(float DeltaTime)
 		{
 			// FOV offset - fixmesteve use viewer
 			AUTPlayerController* MyPC = Cast<AUTPlayerController>(UTOwner->GetController());
-			static float DefaultScale = 2.f * FMath::Sin(25.f * PI / 180.f) * FMath::Cos((90.f - 25.f) * PI / 180.f); 
-			const float AngleOverFour = 0.25f * MyPC->PlayerCameraManager->GetFOVAngle();
-			float FOVScale = 2.f * FMath::Sin(AngleOverFour * PI / 180.f) * FMath::Cos((90.f - AngleOverFour) * PI / 180.f);
-			float FOVOffset = (MyPC && MyPC->PlayerCameraManager && (FOVScale > 0.f)) ? DefaultScale/FOVScale : 1.f;
 			if (FirstPMeshOffset.IsZero())
 			{
 				FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
 				FirstPMeshRotation = Mesh->GetRelativeTransform().Rotator();
 			}
 			FVector ScaledMeshOffset = FirstPMeshOffset;
-			ScaledMeshOffset.X *= FOVOffset;
+			const float FOVScaling = (MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f;
+			if (FOVScaling > 0.f)
+			{
+				ScaledMeshOffset.X *= (1.f + (FOVOffset.X - 1.f) * FOVScaling);
+				ScaledMeshOffset.Y *= (1.f + (FOVOffset.Y - 1.f) * FOVScaling);
+				ScaledMeshOffset.Z *= (1.f + (FOVOffset.Z - 1.f) * FOVScaling);
+			}
+
 			Mesh->SetRelativeLocation(ScaledMeshOffset);
 			FVector BobOffset = UTOwner->GetWeaponBobOffset(DeltaTime, this);
-			BobOffset.X *= FOVOffset;
 			Mesh->SetWorldLocation(Mesh->GetComponentLocation() + BobOffset);
 
 			FRotator NewRotation = UTOwner ? UTOwner->GetControlRotation() : FRotator(0.f,0.f,0.f);

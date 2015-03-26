@@ -8,7 +8,6 @@
 #include "SUWindowsStyle.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
-#include "SUWCreateGameDialog.h"
 #include "SUWControlSettingsDialog.h"
 #include "SUWInputBox.h"
 #include "SUWMessageBox.h"

@@ -87,7 +87,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	virtual void PostInitializeComponents() override;
 
 	// Convert a Classname string in to a default object
-	static AUTGameMode* GetGameModeDefaultObject(FString ClassName);
+	static AUTGameMode* GetGameModeDefaultObject(const FString& ClassName);
 
 	// Holds a list of running Game Instances.
 	TArray<FGameInstanceData> GameInstances;
@@ -118,7 +118,11 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 
 	// Holds a list of all Game modes available to both the server and this client.  The HOST will replicate it's AllowedGameModeClasses 
 	// data and it will be resolved client-side to fill out this array.  IT is only available client-side.
-	TArray<TSharedPtr<FAllowedGameModeData>> ClientAvailbleGameModes;
+	TArray<TSharedPtr<FAllowedGameModeData>> ClientAvailableGameModes;
+
+	/** maintains a reference to gametypes that have been requested as the UI refs are weak pointers and won't prevent GC on their own */
+	UPROPERTY(Transient)
+	TArray<UClass*> LoadedGametypes;
 
 	// CLIENT-ONLY - finds a GameModeClass in the ClientAvailableGameModes array anda returns it.
 	TSharedPtr<FAllowedGameModeData> ResolveGameMode(FString GameModeClass);

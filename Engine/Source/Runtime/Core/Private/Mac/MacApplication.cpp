@@ -164,6 +164,8 @@ FMacApplication::FMacApplication()
 										}
 									}
 								}
+							 
+								static_cast<FMacCursor*>( Cursor.Get() )->UpdateVisibility();
 
 								// If editor thread doesn't have the focus, don't suck up too much CPU time.
 								if (GIsEditor)
@@ -210,6 +212,8 @@ FMacApplication::FMacApplication()
 										}
 									}
 								}
+							   
+								static_cast<FMacCursor*>( Cursor.Get() )->UpdateVisibility();
 
 								// If editor thread doesn't have the focus, don't suck up too much CPU time.
 								if (GIsEditor)
@@ -619,27 +623,33 @@ void FMacApplication::ProcessNSEvent(NSEvent* const Event)
 				MessageHandler->OnMovedWindow(CurrentEventWindow.ToSharedRef(), X, Y);
 			}
 
+			FVector2D const MouseScaling = MacCursor->GetMouseScaling();
+			
 			if (bUsingHighPrecisionMouseInput)
 			{
 				// Under OS X we disassociate the cursor and mouse position during hi-precision mouse input.
 				// The game snaps the mouse cursor back to the starting point when this is disabled, which
 				// accumulates mouse delta that we want to ignore.
-				const FVector2D AccumDelta = MacCursor->GetMouseWarpDelta(true);
-
+				const FVector2D AccumDelta = MacCursor->GetMouseWarpDelta() * MouseScaling;
+				
+				// Get the mouse position
+				FVector2D HighPrecisionMousePos = MacCursor->GetPosition();
+				
 				// Find the screen the cursor is currently on.
 				NSEnumerator *ScreenEnumerator = [[NSScreen screens] objectEnumerator];
 				NSScreen *Screen;
-				while ((Screen = [ScreenEnumerator nextObject]) && !NSMouseInRect(NSMakePoint(HighPrecisionMousePos.X, HighPrecisionMousePos.Y), Screen.frame, NO))
+				while ((Screen = [ScreenEnumerator nextObject]) && !NSMouseInRect(NSMakePoint(HighPrecisionMousePos.X / MouseScaling.X, HighPrecisionMousePos.Y / MouseScaling.Y), Screen.frame, NO))
 					;
-
-				// Clamp to no more than the reported delta - a single event of no mouse movement won't be noticed
-				// but going in the wrong direction will.
-				const FVector2D FullDelta([Event deltaX], [Event deltaY]);
-				const FVector2D WarpDelta(FMath::Abs(AccumDelta.X)<FMath::Abs(FullDelta.X) ? AccumDelta.X : FullDelta.X, FMath::Abs(AccumDelta.Y)<FMath::Abs(FullDelta.Y) ? AccumDelta.Y : FullDelta.Y);
-
-				FVector2D Delta = ((FullDelta - WarpDelta) / 2.f) * MacCursor->GetMouseScaling();
-
-				HighPrecisionMousePos = MacCursor->GetPosition() + Delta;
+				
+				// Account for warping delta's
+				FVector2D Delta = FVector2D([Event deltaX], [Event deltaY]) * MouseScaling;
+				const FVector2D WarpDelta(FMath::Abs(AccumDelta.X)<FMath::Abs(Delta.X) ? AccumDelta.X : Delta.X, FMath::Abs(AccumDelta.Y)<FMath::Abs(Delta.Y) ? AccumDelta.Y : Delta.Y);
+				Delta -= WarpDelta;
+				
+				// Update to latest position
+				HighPrecisionMousePos += Delta;
+				
+				// Clip to lock rect
 				MacCursor->UpdateCursorClipping(HighPrecisionMousePos);
 
 				// Clamp to the current screen and avoid the menu bar and dock to prevent popups and other
@@ -653,11 +663,14 @@ void FMacApplication::ProcessNSEvent(NSEvent* const Event)
 				}
 				NSRect FullFrame = [Screen frame];
 				VisibleFrame.origin.y = (FullFrame.origin.y+FullFrame.size.height) - (VisibleFrame.origin.y + VisibleFrame.size.height);
-
-				HighPrecisionMousePos.X = FMath::Clamp(HighPrecisionMousePos.X / MacCursor->GetMouseScaling().X, (float)VisibleFrame.origin.x, (float)(VisibleFrame.origin.x + VisibleFrame.size.width)-1.f);
-				HighPrecisionMousePos.Y = FMath::Clamp(HighPrecisionMousePos.Y / MacCursor->GetMouseScaling().Y, (float)VisibleFrame.origin.y, (float)(VisibleFrame.origin.y + VisibleFrame.size.height)-1.f);
-
-				MacCursor->WarpCursor(HighPrecisionMousePos.X, HighPrecisionMousePos.Y);
+				
+				int32 ScaledX = (int32)(HighPrecisionMousePos.X / MouseScaling.X);
+				int32 ScaledY = (int32)(HighPrecisionMousePos.Y / MouseScaling.Y);
+				int32 ClampedPosX = FMath::Clamp(ScaledX, (int32)VisibleFrame.origin.x, (int32)(VisibleFrame.origin.x + VisibleFrame.size.width)-1);
+				int32 ClampedPosY = FMath::Clamp(ScaledY, (int32)VisibleFrame.origin.y, (int32)(VisibleFrame.origin.y + VisibleFrame.size.height)-1);
+				MacCursor->SetPosition(ClampedPosX * MouseScaling.X, ClampedPosY * MouseScaling.Y);
+				
+				// Forward the delta on to Slate
 				MessageHandler->OnRawMouseMove(Delta.X, Delta.Y);
 			}
 			else
@@ -670,7 +683,7 @@ void FMacApplication::ProcessNSEvent(NSEvent* const Event)
 				}
 				CursorPos.y--; // The y coordinate in the point returned by locationInWindow starts from a base of 1
 				const FVector2D MousePosition = FVector2D(CursorPos.x, FPlatformMisc::ConvertSlateYPositionToCocoa(CursorPos.y));
-				FVector2D CurrentPosition = MousePosition * MacCursor->GetMouseScaling();
+				FVector2D CurrentPosition = MousePosition * MouseScaling;
 				if (MacCursor->UpdateCursorClipping(CurrentPosition))
 				{
 					MacCursor->SetPosition(CurrentPosition.X, CurrentPosition.Y);
@@ -1114,8 +1127,7 @@ void FMacApplication::UpdateMouseCaptureWindow( FCocoaWindow* TargetWindow )
 void FMacApplication::SetHighPrecisionMouseMode( const bool Enable, const TSharedPtr< FGenericWindow >& InWindow )
 {
 	bUsingHighPrecisionMouseInput = Enable;
-	HighPrecisionMousePos = static_cast<FMacCursor*>( Cursor.Get() )->GetPosition();
-	static_cast<FMacCursor*>( Cursor.Get() )->AssociateMouseAndCursorPosition( !Enable );
+	static_cast<FMacCursor*>( Cursor.Get() )->SetHighPrecisionMouseMode( Enable );
 }
 
 FModifierKeysState FMacApplication::GetModifierKeys() const

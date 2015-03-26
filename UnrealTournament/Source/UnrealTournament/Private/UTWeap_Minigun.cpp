@@ -26,6 +26,7 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	FireEffectInterval = 2;
 	Ammo = 100;
 	MaxAmmo = 300;
+	FOVOffset = FVector(0.01f, 1.f, 1.6f);
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 509.0f, 148.0f, 53.0f);
 

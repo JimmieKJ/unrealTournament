@@ -368,7 +368,20 @@
 	EnumMacro(PFNGLTEXBUFFERPROC,glTexBufferEXT) \
 	EnumMacro(PFNGLDEPTHRANGEFPROC,glDepthRangef) \
 	EnumMacro(PFNGLCLEARDEPTHFPROC,glClearDepthf) \
-	EnumMacro(PFNGLGETSHADERPRECISIONFORMATPROC, glGetShaderPrecisionFormat)
+	EnumMacro(PFNGLGETSHADERPRECISIONFORMATPROC, glGetShaderPrecisionFormat) \
+	EnumMacro(PFNGLPROGRAMPARAMETERIPROC, glProgramParameteri) \
+	EnumMacro(PFNGLUSEPROGRAMSTAGESPROC, glUseProgramStages) \
+	EnumMacro(PFNGLBINDPROGRAMPIPELINEPROC, glBindProgramPipeline) \
+	EnumMacro(PFNGLDELETEPROGRAMPIPELINESPROC, glDeleteProgramPipelines) \
+	EnumMacro(PFNGLGENPROGRAMPIPELINESPROC, glGenProgramPipelines) \
+	EnumMacro(PFNGLPROGRAMUNIFORM1IPROC, glProgramUniform1i) \
+	EnumMacro(PFNGLPROGRAMUNIFORM4IVPROC, glProgramUniform4iv) \
+	EnumMacro(PFNGLPROGRAMUNIFORM4FVPROC, glProgramUniform4fv) \
+	EnumMacro(PFNGLPROGRAMUNIFORM4UIVPROC, glProgramUniform4uiv) \
+	EnumMacro(PFNGLGETPROGRAMPIPELINEIVPROC, glGetProgramPipelineiv) \
+	EnumMacro(PFNGLVALIDATEPROGRAMPIPELINEPROC, glValidateProgramPipeline) \
+	EnumMacro(PFNGLGETPROGRAMPIPELINEINFOLOGPROC, glGetProgramPipelineInfoLog) \
+	EnumMacro(PFNGLISPROGRAMPIPELINEPROC, glIsProgramPipeline)
 
 /** List of all OpenGL entry points. */
 #define ENUM_GL_ENTRYPOINTS_ALL(EnumMacro) \

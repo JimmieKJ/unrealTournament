@@ -260,7 +260,7 @@ typedef union YYSTYPE
 {
 
 /* Line 2068 of yacc.c  */
-#line 61 "../../../Source/ThirdParty/hlslcc/hlslcc/src/hlslcc_lib/mesa/hlsl_parser.yy"
+#line 61 "../../../Source/ThirdParty/hlslcc/hlslcc/src/hlslcc_lib/hlsl_parser.yy"
 
    int n;
    float real;
@@ -302,7 +302,7 @@ typedef union YYSTYPE
 
 
 /* Line 2068 of yacc.c  */
-#line 306 "../../../Source/ThirdParty/hlslcc/hlslcc/src/hlslcc_lib/mesa/hlsl_parser.h"
+#line 306 "../../../Source/ThirdParty/hlslcc/hlslcc/src/hlslcc_lib/hlsl_parser.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

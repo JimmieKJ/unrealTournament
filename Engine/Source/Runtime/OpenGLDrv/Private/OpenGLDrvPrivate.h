@@ -74,6 +74,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Uniform buffer pool cleanup time"),STAT_OpenGLUn
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Uniform buffer pool memory"),STAT_OpenGLFreeUniformBufferMemory,STATGROUP_OpenGLRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Emulated Uniform buffer time"), STAT_OpenGLEmulatedUniformBufferTime,STATGROUP_OpenGLRHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Uniform buffer pool num free"),STAT_OpenGLNumFreeUniformBuffers,STATGROUP_OpenGLRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Time for first draw of shader programs"), STAT_OpenGLShaderFirstDrawTime,STATGROUP_OpenGLRHI, );
 
 #if OPENGLRHI_DETAILED_STATS
 DECLARE_CYCLE_STAT_EXTERN(TEXT("DrawPrimitive Time"),STAT_OpenGLDrawPrimitiveTime,STATGROUP_OpenGLRHI, );
@@ -513,6 +514,29 @@ inline bool OpenGLShaderPlatformNeedsBindLocation(const EShaderPlatform InShader
 		case SP_OPENGL_ES2_WEBGL:
 		case SP_OPENGL_ES2_IOS:
 			return true;
+		default:
+			check(IsOpenGLPlatform(InShaderPlatform));
+			checkf(false, TEXT("invalid shader platform (%d)"), int(InShaderPlatform));
+			return true;
+			break;
+	}
+}
+
+inline bool OpenGLShaderPlatformSeparable(const EShaderPlatform InShaderPlatform)
+{
+	switch (InShaderPlatform)
+	{
+		case SP_OPENGL_SM5:
+		case SP_OPENGL_SM4_MAC:
+		case SP_OPENGL_SM4:
+		case SP_OPENGL_PCES2:
+			return true;
+
+		case SP_OPENGL_ES31_EXT:
+		case SP_OPENGL_ES2:
+		case SP_OPENGL_ES2_WEBGL:
+		case SP_OPENGL_ES2_IOS:
+			return false;
 		default:
 			check(IsOpenGLPlatform(InShaderPlatform));
 			checkf(false, TEXT("invalid shader platform (%d)"), int(InShaderPlatform));

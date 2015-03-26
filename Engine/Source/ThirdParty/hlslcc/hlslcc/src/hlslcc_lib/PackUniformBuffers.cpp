@@ -809,12 +809,12 @@ static int ProcessPackedImages(int UniformIndex, _mesa_glsl_parse_state* ParseSt
 			break;
 		}
 
-		glsl_packed_uniform PackedSampler;
+		glsl_packed_uniform PackedImage;
 		check(var->name);
-		PackedSampler.Name = var->name;
-		PackedSampler.offset = NumElements;
-		PackedSampler.num_components = var->type->is_array() ? var->type->length : 1;
-		ParseState->GlobalPackedArraysMap[EArrayType_Image].push_back(PackedSampler);
+		PackedImage.Name = var->name;
+		PackedImage.offset = NumElements;
+		PackedImage.num_components = var->type->is_array() ? var->type->length : 1;
+		ParseState->GlobalPackedArraysMap[EArrayType_Image].push_back(PackedImage);
 		var->name = ralloc_asprintf(var, "%si%d",
 			glsl_variable_tag_from_parser_target(ParseState->target),
 			NumElements);
@@ -833,7 +833,7 @@ static int ProcessPackedImages(int UniformIndex, _mesa_glsl_parse_state* ParseSt
 			}
 		}
 
-		NumElements += PackedSampler.num_components;
+		NumElements += PackedImage.num_components;
 	}
 
 	return UniformIndex;

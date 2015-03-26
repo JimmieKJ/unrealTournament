@@ -586,33 +586,28 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 	if (AllowedMaps.Num() == 0)
 	{
 		// if server .ini didn't define allowed maps, assume all maps are acceptable
-		if (AllowedMapNames.Num() == 0)
+		const bool bWantAllGameMaps = AllowedMaps.Num() == 0;
+
+		TArray<FAssetData> MapAssets;
+		GetAllAssetData(UWorld::StaticClass(), MapAssets, false); // don't check entitlements here, check for individual instance owners
+		for (int32 i = 0; i < MapAssets.Num(); i++)
 		{
-			TArray<FString> Paths;
-			FPackageName::QueryRootContentPaths(Paths);
-			int32 MapExtLen = FPackageName::GetMapPackageExtension().Len();
-			for (int32 i = 0; i < Paths.Num(); i++)
+			FString MapPackageName = MapAssets[i].PackageName.ToString();
+			bool bAllowedMap;
+			if (bWantAllGameMaps)
 			{
 				// ignore /Engine/ as those aren't real gameplay maps
-				if (!Paths[i].StartsWith(TEXT("/Engine/")))
-				{
-					TArray<FString> List;
-					FPackageName::FindPackagesInDirectory(List, *FPackageName::LongPackageNameToFilename(Paths[i]));
-					for (int32 j = 0; j < List.Num(); j++)
-					{
-						if (List[j].Right(MapExtLen) == FPackageName::GetMapPackageExtension())
-						{
-							AllowedMapNames.Add(FPaths::GetBaseFilename(List[j]));
-						}
-					}
-				}
+				// make sure expected file is really there
+				bAllowedMap = (!MapPackageName.StartsWith(TEXT("/Engine/")) && IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0);
 			}
-		}
-		for (const FString& MapName : AllowedMapNames)
-		{
-			FString MapFullName;
-			FPackageName::SearchForPackageOnDisk(FString(MapName) + FPackageName::GetMapPackageExtension(), &MapFullName);
-			new(AllowedMaps) FAllowedMapData(MapName, GEngine->GetPackageGuid(FName(*MapFullName)));
+			else
+			{
+				bAllowedMap = (AllowedMapNames.Contains(MapAssets[i].AssetName.ToString()) || AllowedMapNames.Contains(MapPackageName));
+			}
+			if (bAllowedMap)
+			{
+				new(AllowedMaps) FAllowedMapData(MapAssets[i].AssetName.ToString(), GEngine->GetPackageGuid(FName(*MapPackageName)));
+			}
 		}
 	}
 	for (int32 i = 0; i < AllowedMaps.Num(); i++)
@@ -625,7 +620,7 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 	NewPlayer->StartServerToClientDataPush();
 }
 
-AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(FString ClassName)
+AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(const FString& ClassName)
 {
 	// Try to load the native class
 	UClass* GameModeClass = NULL;
@@ -644,20 +639,20 @@ AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(FString ClassName)
 
 TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString GameModeClass)
 {
-	for (int32 i=0; i<ClientAvailbleGameModes.Num();i++)
+	for (int32 i = 0; i<ClientAvailableGameModes.Num(); i++)
 	{
-		if (ClientAvailbleGameModes[i]->ClassName == GameModeClass)
+		if (ClientAvailableGameModes[i]->ClassName == GameModeClass)
 		{
-			return ClientAvailbleGameModes[i];
+			return ClientAvailableGameModes[i];
 		}
 	}
 
 	// try to fall back to DM
-	for (int32 i = 0; i<ClientAvailbleGameModes.Num(); i++)
+	for (int32 i = 0; i<ClientAvailableGameModes.Num(); i++)
 	{
-		if (ClientAvailbleGameModes[i]->ClassName == TEXT("/Script/UnrealTournament.UTDMGameMode"))
+		if (ClientAvailableGameModes[i]->ClassName == TEXT("/Script/UnrealTournament.UTDMGameMode"))
 		{
-			return ClientAvailbleGameModes[i];
+			return ClientAvailableGameModes[i];
 		}
 	}
 

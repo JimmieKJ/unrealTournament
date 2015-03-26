@@ -255,11 +255,11 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	return Widget;
 }
 
-UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass)
+UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass, bool bExactClass)
 {
-	for (int i=0;i<HudWidgets.Num();i++)
+	for (int i=0; i<HudWidgets.Num(); i++)
 	{
-		if (HudWidgets[i]->GetClass() == SearchWidgetClass)
+		if (bExactClass ? HudWidgets[i]->GetClass() == SearchWidgetClass : HudWidgets[i]->IsA(SearchWidgetClass))
 		{
 			return HudWidgets[i];
 		}

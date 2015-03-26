@@ -1224,6 +1224,9 @@ void FMacOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	{
 		GMacMustFlushTexStorage = ((FPlatformMisc::IsRunningOnMavericks() && IsRHIDeviceNVIDIA()) || GMacUseMTGL);
 	}
+	
+	// SSOs require structs in geometry shaders - which only work in 10.10.0 and later
+	bSupportsSeparateShaderObjects &= (FMacPlatformMisc::MacOSXVersionCompare(10,10,0) >= 0);
 }
 
 void FMacOpenGL::MacQueryTimestampCounter(GLuint QueryID)

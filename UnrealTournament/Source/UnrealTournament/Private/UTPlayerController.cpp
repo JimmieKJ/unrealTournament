@@ -2195,9 +2195,9 @@ void AUTPlayerController::ClientRequireContentItem_Implementation(const FString&
 			bContentMatched = true;
 		}
 
-		if (UTEngine->DownloadedContentChecksums.Contains(PakFile))
+		if (UTEngine->MountedDownloadedContentChecksums.Contains(PakFile))
 		{
-			if (UTEngine->DownloadedContentChecksums[PakFile] == MD5)
+			if (UTEngine->MountedDownloadedContentChecksums[PakFile] == MD5)
 			{
 				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded"), *PakFile);
 				bContentMatched = true;
@@ -2206,6 +2206,11 @@ void AUTPlayerController::ClientRequireContentItem_Implementation(const FString&
 			{
 				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded, but an old version"), *PakFile);
 			}
+		}
+
+		if (UTEngine->DownloadedContentChecksums.Contains(PakFile))
+		{
+			UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded, but it is not mounted yet"), *PakFile);
 		}
 
 		if (!bContentMatched)

@@ -414,7 +414,7 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
 		FoundPaks.Empty();
-		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads")), PakVisitor);
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
@@ -429,24 +429,24 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 
 		FoundPaks.Empty();
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameContentDir(), TEXT("Paks")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
-			
-			TArray<uint8> Data;
-			if (FFileHelper::LoadFileToArray(Data, *PakPath))
+			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
-				FString MD5 = MD5Sum(Data);
-				LocalContentChecksums.Add(PakFilename, MD5);
-			}
-
-			FArrayReader SerializedAssetData;
-			int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-			if (DashPosition != -1)
-			{
-				PakFilename = PakFilename.Left(DashPosition);
-				if (!PakFilename.Equals(TEXT("UnrealTournament"), ESearchCase::IgnoreCase))
+				TArray<uint8> Data;
+				if (FFileHelper::LoadFileToArray(Data, *PakPath))
 				{
+					FString MD5 = MD5Sum(Data);
+					LocalContentChecksums.Add(PakFilename, MD5);
+				}
+
+				FArrayReader SerializedAssetData;
+				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+				if (DashPosition != -1)
+				{
+					PakFilename = PakFilename.Left(DashPosition);
 					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
 					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
 					{
@@ -570,7 +570,19 @@ UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
 {
 	UUTLevelSummary* Summary = NULL;
 	FString MapFullName;
-	if (FPackageName::SearchForPackageOnDisk(MapName + FPackageName::GetMapPackageExtension(), &MapFullName))
+	// querying the asset registry and iterating its results is actually faster than SearchForPackageOnDisk() assuming the registry has been initialized already
+	TArray<FAssetData> AssetList;
+	GetAllAssetData(UWorld::StaticClass(), AssetList, false);
+	FName MapFName(*MapName);
+	for (const FAssetData& Asset : AssetList)
+	{
+		if (Asset.AssetName == MapFName)
+		{
+			MapFullName = Asset.PackageName.ToString();
+			break;
+		}
+	}
+	if (MapFullName.Len() > 0 || FPackageName::SearchForPackageOnDisk(MapName + FPackageName::GetMapPackageExtension(), &MapFullName))
 	{
 		static FName NAME_LevelSummary(TEXT("LevelSummary"));
 

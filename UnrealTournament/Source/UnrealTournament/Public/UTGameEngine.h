@@ -71,6 +71,7 @@ class UUTGameEngine : public UGameEngine
 	uint32 OwningProcessID;
 
 	TMap<FString, FString> DownloadedContentChecksums;
+	TMap<FString, FString> MountedDownloadedContentChecksums;
 	TMap<FString, FString> LocalContentChecksums;
 	TMap<FString, FString> CloudContentChecksums;
 

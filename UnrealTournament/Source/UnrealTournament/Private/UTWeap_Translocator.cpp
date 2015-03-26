@@ -21,6 +21,7 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	BaseAISelectRating = -1.0f; // AI shouldn't select this unless wanted by pathing
 	AfterImageType = AUTWeaponRedirector::StaticClass();
 	TranslocatorMessageClass = UUTTranslocatorMessage::StaticClass();
+	FOVOffset = FVector(1.2f, 1.f, 3.f);
 }
 
 FText AUTWeap_Translocator::GetHUDText()

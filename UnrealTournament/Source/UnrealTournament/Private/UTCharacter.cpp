@@ -108,6 +108,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	WeaponDirChangeDeflection = 4.f;
 	RagdollBlendOutTime = 0.75f;
 	bApplyWallSlide = false;
+	FeignNudgeMag = 100000.f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -1172,6 +1173,8 @@ void AUTCharacter::StopRagdoll()
 	}
 	GetCapsuleComponent()->SetRelativeRotation(FixedRotation);
 	GetCapsuleComponent()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetCapsuleComponent()->RelativeScale3D);
+	GetCapsuleComponent()->SetCapsuleSize(GetCapsuleComponent()->GetUnscaledCapsuleRadius(), GetCharacterMovement()->CrouchedHalfHeight);
+	bIsCrouched = true;
 	RootComponent = GetCapsuleComponent();
 
 	GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
@@ -1180,7 +1183,7 @@ void AUTCharacter::StopRagdoll()
 	GetMesh()->bShouldUpdatePhysicsVolume = false;
 
 	// TODO: make sure cylinder is in valid position (navmesh?)
-	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+	FVector AdjustedLoc = GetActorLocation() + FVector(0.0f, 0.0f, GetCharacterMovement()->CrouchedHalfHeight);
 	GetWorld()->FindTeleportSpot(this, AdjustedLoc, GetActorRotation());
 	GetCapsuleComponent()->SetWorldLocation(AdjustedLoc);
 	if (UTCharacterMovement)
@@ -1378,9 +1381,17 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 			if (GetWorld()->TimeSeconds >= FeignDeathRecoverStartTime)
 			{
 				FVector ActorLocation = GetCapsuleComponent()->GetComponentLocation();
+				ActorLocation.Z += GetCharacterMovement()->CrouchedHalfHeight;
 				UnfeignCount++;
-				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 0.75f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());				
-				if (IsInWater() || GetWorld()->SweepTest(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
+				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(GetCapsuleComponent()->GetUnscaledCapsuleRadius(), GetCharacterMovement()->CrouchedHalfHeight);
+				static const FName NAME_FeignTrace = FName(TEXT("FeignTrace"));
+				FCollisionQueryParams CapsuleParams(NAME_FeignTrace, false, this);
+				FCollisionResponseParams ResponseParam;
+
+				// Expand in place 
+				TArray<FOverlapResult> Overlaps;
+				bool bEncroached = GetWorld()->OverlapMulti(Overlaps, ActorLocation, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
+				if (!bEncroached)
 				{
 					UnfeignCount = 0;
 					bFeigningDeath = false;
@@ -1392,6 +1403,13 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 					FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_FeignFail::StaticClass());
 					UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
 					Died(NULL, FakeDamageEvent);
+				}
+				else
+				{
+					// nudge body in random direction
+					FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).SafeNormal();
+					FeignNudge.Z = 0.4f*FeignNudgeMag;
+					GetMesh()->AddImpulseAtLocation(FeignNudge, GetMesh()->GetComponentLocation());
 				}
 			}
 		}

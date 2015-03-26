@@ -1,5 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-// .
+// 
 
 #include "ShaderFormatOpenGL.h"
 #include "Core.h"
@@ -70,6 +70,15 @@ static FORCEINLINE bool IsES2Platform(GLSLVersion Version)
 static FORCEINLINE bool IsPCES2Platform(GLSLVersion Version)
 {
 	return (Version == GLSL_150_ES2);
+}
+
+// This function should match OpenGLShaderPlatformSeparable
+static FORCEINLINE bool SupportsSeparateShaderObjects(GLSLVersion Version)
+{
+	// Only desktop shader platforms can use separable shaders for now,
+	// the generated code relies on macros supplied at runtime to determine whether
+	// shaders may be separable and/or linked.
+	return Version == GLSL_150 || Version == GLSL_150_MAC || Version == GLSL_150_ES2 || Version == GLSL_430;
 }
 
 /*------------------------------------------------------------------------------
@@ -485,6 +494,23 @@ void ParseGlslError(TArray<FShaderCompilerError>& OutErrors, const FString& InLi
 	}
 }
 
+static TArray<ANSICHAR> ParseIdentifierANSI(const ANSICHAR* &Str)
+{
+	TArray<ANSICHAR> Result;
+	
+	while ((*Str >= 'A' && *Str <= 'Z')
+		   || (*Str >= 'a' && *Str <= 'z')
+		   || (*Str >= '0' && *Str <= '9')
+		   || *Str == '_')
+	{
+		Result.Add(FChar::ToLower(*Str));
+		++Str;
+	}
+	Result.Add('\0');
+	
+	return Result;
+}
+
 static FString ParseIdentifier(const ANSICHAR* &Str)
 {
 	FString Result;
@@ -598,93 +624,99 @@ static void BuildShaderOutput(
 	{
 		ShaderSource += InputsPrefixLen;
 
-		// Only inputs for vertex shaders must be tracked.
-		if (Frequency == SF_Vertex)
-		{
-			const ANSICHAR* AttributePrefix = "in_ATTRIBUTE";
-			const int32 AttributePrefixLen = FCStringAnsi::Strlen(AttributePrefix);
-			while (*ShaderSource && *ShaderSource != '\n')
-			{
-				// Skip the type.
-				while (*ShaderSource && *ShaderSource++ != ':') {}
-				
-				// Only process attributes.
-				if (FCStringAnsi::Strncmp(ShaderSource, AttributePrefix, AttributePrefixLen) == 0)
-				{
-					ShaderSource += AttributePrefixLen;
-					uint8 AttributeIndex = ParseNumber(ShaderSource);
-					Header.Bindings.InOutMask |= (1 << AttributeIndex);
-				}
+		const ANSICHAR* AttributePrefix = "in_ATTRIBUTE";
+        const int32 AttributePrefixLen = FCStringAnsi::Strlen(AttributePrefix);
+        while (*ShaderSource && *ShaderSource != '\n')
+        {
+            // Get the location
+            while (*ShaderSource && *ShaderSource++ != ';') {}
+            int32 Location = FCStringAnsi::Atoi(ShaderSource);
+            
+            // Skip the type.
+            while (*ShaderSource && *ShaderSource++ != ':') {}
+            
+            // Only process attributes for vertex shaders.
+            if (Frequency == SF_Vertex && FCStringAnsi::Strncmp(ShaderSource, AttributePrefix, AttributePrefixLen) == 0)
+            {
+                ShaderSource += AttributePrefixLen;
+                uint8 AttributeIndex = ParseNumber(ShaderSource);
+                Header.Bindings.InOutMask |= (1 << AttributeIndex);
+            }
+            // Record user-defined input varyings
+            else if( FCStringAnsi::Strncmp(ShaderSource, "gl_", 3) != 0 )
+            {
+                FOpenGLShaderVarying Var;
+                Var.Location = Location;
+                Var.Varying = ParseIdentifierANSI(ShaderSource);
+                Header.Bindings.InputVaryings.Add(Var);
+            }
 
-				// Skip to the next.
-				while (*ShaderSource && *ShaderSource != ',' && *ShaderSource != '\n')
-				{
-					ShaderSource++;
-				}
+            // Skip to the next.
+            while (*ShaderSource && *ShaderSource != ',' && *ShaderSource != '\n')
+            {
+                ShaderSource++;
+            }
 
-				if (Match(ShaderSource, '\n'))
-				{
-					break;
-				}
+            if (Match(ShaderSource, '\n'))
+            {
+                break;
+            }
 
-				verify(Match(ShaderSource, ','));
-			}
-		}
-		else
-		{
-			// Skip to the next line.
-			while (*ShaderSource && *ShaderSource++ != '\n') {}
-		}
+            verify(Match(ShaderSource, ','));
+        }
 	}
 
 	// Then the list of outputs.
 	if (FCStringAnsi::Strncmp(ShaderSource, OutputsPrefix, OutputsPrefixLen) == 0)
 	{
 		ShaderSource += OutputsPrefixLen;
+        
+        const ANSICHAR* TargetPrefix = "out_Target";
+        const int32 TargetPrefixLen = FCStringAnsi::Strlen(TargetPrefix);
+        
+		while (*ShaderSource && *ShaderSource != '\n')
+        {
+            // Get the location
+            while (*ShaderSource && *ShaderSource++ != ';') {}
+            int32 Location = FCStringAnsi::Atoi(ShaderSource);
+            
+            // Skip the type.
+            while (*ShaderSource && *ShaderSource++ != ':') {}
 
-		// Only outputs for pixel shaders must be tracked.
-		if (Frequency == SF_Pixel)
-		{
-			const ANSICHAR* TargetPrefix = "out_Target";
-			const int32 TargetPrefixLen = FCStringAnsi::Strlen(TargetPrefix);
+            // Only targets for pixel shaders must be tracked.
+            if (Frequency == SF_Pixel && FCStringAnsi::Strncmp(ShaderSource, TargetPrefix, TargetPrefixLen) == 0)
+            {
+                ShaderSource += TargetPrefixLen;
+                uint8 TargetIndex = ParseNumber(ShaderSource);
+                Header.Bindings.InOutMask |= (1 << TargetIndex);
+            }
+            // Only depth writes for pixel shaders must be tracked.
+            else if (Frequency == SF_Pixel && FCStringAnsi::Strcmp(ShaderSource, "gl_FragDepth") == 0)
+            {
+                Header.Bindings.InOutMask |= 0x8000;
+            }
+            // Record user-defined output varyings
+            else if( FCStringAnsi::Strncmp(ShaderSource, "gl_", 3) != 0 )
+            {
+                FOpenGLShaderVarying Var;
+                Var.Location = Location;
+                Var.Varying = ParseIdentifierANSI(ShaderSource);
+                Header.Bindings.OutputVaryings.Add(Var);
+            }
 
-			while (*ShaderSource && *ShaderSource != '\n')
-			{
-				// Skip the type.
-				while (*ShaderSource && *ShaderSource++ != ':') {}
+            // Skip to the next.
+            while (*ShaderSource && *ShaderSource != ',' && *ShaderSource != '\n')
+            {
+                ShaderSource++;
+            }
 
-				// Handle targets.
-				if (FCStringAnsi::Strncmp(ShaderSource, TargetPrefix, TargetPrefixLen) == 0)
-				{
-					ShaderSource += TargetPrefixLen;
-					uint8 TargetIndex = ParseNumber(ShaderSource);
-					Header.Bindings.InOutMask |= (1 << TargetIndex);
-				}
-				// Handle depth writes.
-				else if (FCStringAnsi::Strcmp(ShaderSource, "gl_FragDepth") == 0)
-				{
-					Header.Bindings.InOutMask |= 0x8000;
-				}
+            if (Match(ShaderSource, '\n'))
+            {
+                break;
+            }
 
-				// Skip to the next.
-				while (*ShaderSource && *ShaderSource != ',' && *ShaderSource != '\n')
-				{
-					ShaderSource++;
-				}
-
-				if (Match(ShaderSource, '\n'))
-				{
-					break;
-				}
-
-				verify(Match(ShaderSource, ','));
-			}
-		}
-		else
-		{
-			// Skip to the next line.
-			while (*ShaderSource && *ShaderSource++ != '\n') {}
-		}
+            verify(Match(ShaderSource, ','));
+        }
 	}
 
 	// Then 'normal' uniform buffers.
@@ -1463,15 +1495,15 @@ static FString CreateCrossCompilerBatchFile( const FString& ShaderFile, const FS
 	switch (Version)
 	{
 		case GLSL_150:
-			VersionSwitch = TEXT(" -gl3");
+			VersionSwitch = TEXT(" -gl3 -separateshaders");
 			break;
 
 		case GLSL_150_MAC:
-			VersionSwitch = TEXT(" -gl3 -mac");
+			VersionSwitch = TEXT(" -gl3 -mac -separateshaders");
 			break;
 
 		case GLSL_150_ES2:
-			VersionSwitch = TEXT(" -gl3 -flattenub -flattenubstruct");
+			VersionSwitch = TEXT(" -gl3 -flattenub -flattenubstruct -separateshaders");
 			break;
 
 		case GLSL_310_ES_EXT:
@@ -1479,7 +1511,7 @@ static FString CreateCrossCompilerBatchFile( const FString& ShaderFile, const FS
 			break;
 
 		case GLSL_430:
-			VersionSwitch = TEXT(" -gl4");
+			VersionSwitch = TEXT(" -gl4 -separateshaders");
 			break;
 
 		case GLSL_ES2:
@@ -1628,6 +1660,11 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 			CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
 			// Currently only enabled for ES2, as there are still features to implement for SM4+ (atomics, global store, UAVs, etc)
 			CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
+		}
+		
+		if(SupportsSeparateShaderObjects(Version))
+		{
+			CCFlags |= HLSLCC_SeparateShaderObjects;
 		}
 
 		if (bDumpDebugInfo)

@@ -108,7 +108,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Hud)
 	virtual UUTHUDWidget* AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass);
 
-	UUTHUDWidget* FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass);
+	UUTHUDWidget* FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass, bool bExactClass = false);
 
 	// We override PostRender so that we can cache bunch of vars that need caching.
 	virtual void PostRender();

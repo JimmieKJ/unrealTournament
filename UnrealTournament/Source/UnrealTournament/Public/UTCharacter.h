@@ -728,6 +728,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	bool bInRagdollRecovery;
 
+	/** Magnitude of impulse to push ragdoll around if fail to get up from feign. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
+		float FeignNudgeMag;
+
 	/** Count failed attempts to unfeign, kill player if too many. */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		int32 UnfeignCount;

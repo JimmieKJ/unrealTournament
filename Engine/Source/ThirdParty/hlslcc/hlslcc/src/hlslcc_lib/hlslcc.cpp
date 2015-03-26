@@ -135,6 +135,7 @@ int HlslCrossCompile(
 	const bool bPrintAST = (InFlags & HLSLCC_PrintAST) != 0;
 	const bool bDoCSE = (InFlags & HLSLCC_ApplyCommonSubexpressionElimination) != 0;
 	const bool bDoSubexpressionExpansion = (InFlags & HLSLCC_ExpandSubexpressions) != 0;
+	const bool bSeparateShaderObjects = (InFlags & HLSLCC_SeparateShaderObjects) != 0;
 
 #if ENABLE_TIMING
 	const int MAX_TIMERS = 16;
@@ -195,7 +196,8 @@ int HlslCrossCompile(
 	ParseState->adjust_clip_space_dx11_to_opengl = (InFlags & HLSLCC_DX11ClipSpace) != 0;
 	ParseState->bFlattenUniformBuffers = bFlattenUniformBuffers;
 	ParseState->bGenerateES = bIsES;
-	ParseState->bGenerateLayoutLocations = (InCompileTarget == HCT_FeatureLevelSM5) || (InCompileTarget == HCT_FeatureLevelES3_1Ext);
+	ParseState->bGenerateLayoutLocations = (InCompileTarget == HCT_FeatureLevelSM5) || (InCompileTarget == HCT_FeatureLevelES3_1Ext) || bSeparateShaderObjects;
+	ParseState->bSeparateShaderObjects = bSeparateShaderObjects;
 
 	if (bPreprocess)
 	{

@@ -290,7 +290,8 @@ struct _mesa_glsl_parse_state
 	struct ILanguageSpec* LanguageSpec;
 	bool bFlattenUniformBuffers;
 	bool bGenerateES;		// Did we requested to compile FOR ES
-
+	bool bSeparateShaderObjects;
+	
 	bool es_shader;	// Should we process the input code as ES (legacy mesa)
 	unsigned language_version;
 	const char *version_string;

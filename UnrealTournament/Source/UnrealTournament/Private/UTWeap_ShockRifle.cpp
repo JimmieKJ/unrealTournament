@@ -13,6 +13,7 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	ScreenMaterialID = 5;
 	LastClientKillTime = -100000.0f;
 	bFPIgnoreInstantHitFireOffset = false; // needed so any fire offset set for shock ball is matched by primary for standing combos
+	FOVOffset = FVector(0.6f, 0.9f, 1.2f);
 }
 
 void AUTWeap_ShockRifle::AttachToOwnerNative()

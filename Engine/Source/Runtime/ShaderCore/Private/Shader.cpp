@@ -340,11 +340,7 @@ void FShaderResource::Serialize(FArchive& Ar)
 		INC_DWORD_STAT_BY_FName(GetMemoryStatType((EShaderFrequency)Target.Frequency).GetName(), (int64)Code.Num());
 		INC_DWORD_STAT_BY(STAT_Shaders_ShaderResourceMemory, GetSizeBytes());
 
-		FShaderCache* ShaderCache = FShaderCache::GetShaderCache();
-		if (ShaderCache)
-		{
-			ShaderCache->LogShader((EShaderPlatform)Target.Platform, (EShaderFrequency)Target.Frequency, OutputHash, Code);
-		}
+		FShaderCache::LogShader((EShaderPlatform)Target.Platform, (EShaderFrequency)Target.Frequency, OutputHash, Code);
 	}
 }
 
@@ -474,7 +470,7 @@ void FShaderResource::InitRHI()
 	}
 	else if (Target.Frequency == SF_Compute)
 	{
-		ComputeShader = ShaderCache ? ShaderCache->GetComputeShader((EShaderPlatform)Target.Platform, OutputHash, Code) : RHICreateComputeShader(Code);
+		ComputeShader = ShaderCache ? ShaderCache->GetComputeShader((EShaderPlatform)Target.Platform, Code) : RHICreateComputeShader(Code);
 	}
 
 	if (!FPlatformProperties::HasEditorOnlyData())

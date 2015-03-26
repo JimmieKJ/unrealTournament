@@ -45,6 +45,20 @@ typedef GLfloat GLdouble;
 #define UGL_TIME_ELAPSED		GL_TIME_ELAPSED_EXT
 
 #define GL_HALF_FLOAT_OES 0x8D61
+/** Map GL_EXT_separate_shader_objects to GL_ARB_separate_shader_objects */
+#define GL_VERTEX_SHADER_BIT			0x00000001
+#define GL_FRAGMENT_SHADER_BIT			0x00000002
+#define GL_ALL_SHADER_BITS				0xFFFFFFFF
+#define GL_PROGRAM_SEPARABLE			0x8258
+#define GL_ACTIVE_PROGRAM				0x8259
+#define GL_PROGRAM_PIPELINE_BINDING		0x825A
+/** For the shader stage bits that don't exist just use 0 */
+#define GL_GEOMETRY_SHADER_BIT			0x00000000
+#define GL_TESS_CONTROL_SHADER_BIT		0x00000000
+#define GL_TESS_EVALUATION_SHADER_BIT	0x00000000
+#ifndef GL_COMPUTE_SHADER_BIT
+#define GL_COMPUTE_SHADER_BIT			0x00000000
+#endif
 
 
 

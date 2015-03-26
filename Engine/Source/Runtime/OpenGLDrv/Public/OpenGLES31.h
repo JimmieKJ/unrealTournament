@@ -349,6 +349,11 @@ struct FOpenGLES31 : public FOpenGLBase
 	{
 		glUniform4uiv(Location, Count, Value);
 	}
+	
+	static FORCEINLINE void ProgramUniform4uiv(GLuint Program, GLint Location, GLsizei Count, const GLuint *Value)
+	{
+		glUniform4uiv(Location, Count, Value);
+	}
 
 	static FORCEINLINE void BlitFramebuffer(GLint SrcX0, GLint SrcY0, GLint SrcX1, GLint SrcY1, GLint DstX0, GLint DstY0, GLint DstX1, GLint DstY1, GLbitfield Mask, GLenum Filter)
 	{
