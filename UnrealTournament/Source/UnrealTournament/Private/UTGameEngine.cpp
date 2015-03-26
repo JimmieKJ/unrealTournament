@@ -414,7 +414,7 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
 		FoundPaks.Empty();
-		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads")), PakVisitor);
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);

@@ -174,7 +174,7 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 		{
 			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		
-			FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads"));
+			FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"));
 			if (!PlatformFile.DirectoryExists(*Path))
 			{
 				PlatformFile.CreateDirectoryTree(*Path);
@@ -186,12 +186,14 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpRe
 			if (UTEngine)
 			{
 				FString MD5 = UTEngine->MD5Sum(HttpResponse->GetContent());
-				UTEngine->DownloadedContentChecksums.Add(FPaths::GetBaseFilename(RedirectToURL), MD5);
-			}
+				FString BaseFilename = FPaths::GetBaseFilename(RedirectToURL);
+				UTEngine->DownloadedContentChecksums.Add(BaseFilename, MD5);
 
-			if (FCoreDelegates::OnMountPak.IsBound())
-			{
-				FCoreDelegates::OnMountPak.Execute(FullFilePath, 0);
+				if (FCoreDelegates::OnMountPak.IsBound())
+				{
+					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0);
+					UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, MD5);
+				}
 			}
 		}
 	}

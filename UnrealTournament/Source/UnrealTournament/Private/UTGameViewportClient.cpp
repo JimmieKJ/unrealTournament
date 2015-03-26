@@ -64,6 +64,8 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 			return;
 		}
 
+		bool bMountedPreviousDownload = false;
+
 		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 		if (UTEngine &&	!UTEngine->ContentDownloadCloudId.IsEmpty() && UTEngine->FilesToDownload.Num() > 0)
 		{
@@ -73,9 +75,11 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 			for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
 			{
-				if (UTEngine->DownloadedContentChecksums.Contains(It.Key()))
+				bool bNeedsToDownload = true;
+
+				if (UTEngine->MountedDownloadedContentChecksums.Contains(It.Key()))
 				{
-					FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("Downloads"), *It.Key()) + TEXT(".pak");
+					FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *It.Key()) + TEXT(".pak");
 
 					// Unmount the pak
 					if (FCoreDelegates::OnUnmountPak.IsBound())
@@ -84,29 +88,56 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 					}
 
 					// Remove the CRC entry
+					UTEngine->MountedDownloadedContentChecksums.Remove(It.Key());
 					UTEngine->DownloadedContentChecksums.Remove(It.Key());
 
 					// Delete the original file
 					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
 				}
-
-				FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
-				FString McpConfigOverride;
-				FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-				if (McpConfigOverride == TEXT("gamedev"))
+				else if (UTEngine->DownloadedContentChecksums.Contains(It.Key()))
 				{
-					BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+					if (UTEngine->DownloadedContentChecksums[It.Key()] == It.Value())
+					{
+						FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *It.Key()) + TEXT(".pak");
+
+						if (FCoreDelegates::OnMountPak.IsBound())
+						{
+							FCoreDelegates::OnMountPak.Execute(Path, 0);
+							UTEngine->MountedDownloadedContentChecksums.Add(Path, It.Value());
+							bNeedsToDownload = false;
+							bMountedPreviousDownload = true;
+						}
+					}
 				}
 
-				FileURLs.Add(BaseURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key() + TEXT(".pak"));
+				if (bNeedsToDownload)
+				{
+					FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+					FString McpConfigOverride;
+					FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+					if (McpConfigOverride == TEXT("gamedev"))
+					{
+						BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+					}
+
+					FileURLs.Add(BaseURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key() + TEXT(".pak"));
+				}
 			}
 
-			FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
-				.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::CloudRedirectResult))
-				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
-				.RedirectURLs(FileURLs)
-				.PlayerOwner(FirstPlayer)
-				);
+			if (FileURLs.Num() > 0)
+			{
+				FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
+					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::CloudRedirectResult))
+					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
+					.RedirectURLs(FileURLs)
+					.PlayerOwner(FirstPlayer)
+					);
+			}
+			else if (bMountedPreviousDownload)
+			{
+				// Assume we mounted all the files that we needed
+				VerifyFilesToDownloadAndReconnect();
+			}
 
 			return;
 		}
@@ -352,42 +383,48 @@ void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, u
 #endif
 }
 
+void UUTGameViewportClient::VerifyFilesToDownloadAndReconnect()
+{
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	if (FirstPlayer != nullptr)
+	{
+		if (UTEngine)
+		{
+			for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
+			{
+				if (!UTEngine->MountedDownloadedContentChecksums.Contains(It.Key()))
+				{
+					// File failed to download at all.
+					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "DownloadFail", "Download Failed"), NSLOCTEXT("UTGameViewportClient", "DownloadFailMsg", "The download of cloud content failed."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+					return;
+				}
+
+				if (UTEngine->MountedDownloadedContentChecksums[It.Key()] != It.Value())
+				{
+					// File was the wrong checksum.
+					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "WrongChecksum", "Checksum failed"), NSLOCTEXT("UTGameViewportClient", "WrongChecksumMsg", "The files downloaded from the cloud do not match the files the server is using."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+					return;
+				}
+			}
+		}
+
+		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
+		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+	}
+}
+
 void UUTGameViewportClient::CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
 #if !UE_SERVER
-	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-		if (FirstPlayer != nullptr)
-		{
-			if (UTEngine)
-			{
-				for (auto It = UTEngine->FilesToDownload.CreateConstIterator(); It; ++It)
-				{
-					if (!UTEngine->DownloadedContentChecksums.Contains(It.Key()))
-					{
-						// File failed to download at all.
-						FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "DownloadFail", "Download Failed"), NSLOCTEXT("UTGameViewportClient", "DownloadFailMsg", "The download of cloud content failed."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
-						return;
-					}
-
-					if (UTEngine->DownloadedContentChecksums[It.Key()] != It.Value())
-					{
-						// File was the wrong checksum.
-						FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "WrongChecksum", "Checksum failed"), NSLOCTEXT("UTGameViewportClient", "WrongChecksumMsg", "The files downloaded from the cloud do not match the files the server is using."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
-						return;
-					}
-				}
-			}
-
-			FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
-			FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
-		}
+		VerifyFilesToDownloadAndReconnect();
 	}
 	else
 	{
+		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 		if (FirstPlayer != nullptr)
 		{
 			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "UnableToGetCustomContent", "Server running custom content"), NSLOCTEXT("UTGameViewportClient", "UnableToGetCustomContentMsg", "The server is running custom content and your client was unable to download it."), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));

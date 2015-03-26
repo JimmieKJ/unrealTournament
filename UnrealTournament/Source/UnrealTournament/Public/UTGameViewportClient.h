@@ -34,5 +34,7 @@ protected:
 	virtual void ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+	virtual void VerifyFilesToDownloadAndReconnect();
 };
 
