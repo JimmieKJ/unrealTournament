@@ -170,6 +170,7 @@ public class ICU : ModuleRules
             string LibraryNamePostfix = (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT) ?
                 "d" : string.Empty;
 
+		ICULinkType = (Target.Platform == UnrealTargetPlatform.IOS || Target.IsMonolithic || Target.Type == TargetRules.TargetType.Game) ? EICULinkType.Static : EICULinkType.Dynamic;
             // Library Paths
             switch (ICULinkType)
             {
