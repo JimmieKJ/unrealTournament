@@ -385,6 +385,7 @@ void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, u
 
 void UUTGameViewportClient::VerifyFilesToDownloadAndReconnect()
 {
+#if !UE_SERVER
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 	if (FirstPlayer != nullptr)
@@ -412,6 +413,7 @@ void UUTGameViewportClient::VerifyFilesToDownloadAndReconnect()
 		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
 		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
 	}
+#endif
 }
 
 void UUTGameViewportClient::CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
