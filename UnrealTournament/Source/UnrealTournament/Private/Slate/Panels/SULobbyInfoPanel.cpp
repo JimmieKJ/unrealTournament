@@ -315,12 +315,6 @@ FReply SULobbyInfoPanel::ReadyButtonClicked()
 
 					if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 					{
-						if (MatchInfo->Players.Num() > MatchInfo->CurrentGameModeData->DefaultObject->MaxLobbyPlayers)
-						{
-							PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","TooManyPlayersTitle","Too many players"),NSLOCTEXT("LobbyMessages","TooManyPlayersMsg","There are too many players in this Lobby to start the match!"), UTDIALOG_BUTTON_OK);
-							return FReply::Handled();
-						}
-
 						MatchInfo->ServerStartMatch();	
 					}
 					else

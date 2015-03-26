@@ -394,6 +394,8 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 		return;
 	}
 
+	// TODO: need to check for ready ups on server side
+
 	if (!CheckLobbyGameState() || !LobbyGameState->CanLaunch(this))
 	{
 		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
