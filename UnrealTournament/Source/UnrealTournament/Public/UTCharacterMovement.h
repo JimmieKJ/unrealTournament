@@ -461,6 +461,10 @@ public:
 	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite, meta = (DisplayName = "Sprint Acceleration"))
 		float SprintAccel;
 
+	/** Max dotproduct of wall surface sprinter ran into that doesn't stop sprint. */
+	UPROPERTY(Category = "Autosprint", EditAnywhere, BlueprintReadWrite)
+		float SprintMaxWallNormal;
+
 	/** World time when sprinting can start. */
 	UPROPERTY(Category = "Autosprint", BlueprintReadWrite, meta = (DisplayName = "Sprint Start Time"))
 		float SprintStartTime;

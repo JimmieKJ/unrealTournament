@@ -35,6 +35,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeResetInterval = 0.2f;
 	SprintSpeed = 1250.f;
 	SprintAccel = 200.f;
+	SprintMaxWallNormal = -0.7f;
 	AutoSprintDelayInterval = 2.f;
 	LandingStepUp = 40.f;
 	LandingAssistBoost = 380.f;
@@ -739,7 +740,7 @@ bool UUTCharacterMovement::CanSprint() const
 {
 	if (CharacterOwner && IsMovingOnGround() && !IsCrouching() && (GetCurrentMovementTime() > SprintStartTime)) 
 	{
-		// must be movin mostly forward
+		// must be moving mostly forward
 		FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
 		FVector X = FRotationMatrix(TurnRot).GetScaledAxis(EAxis::X);
 		return ((X | Velocity.GetSafeNormal()) > 0.6f);
@@ -1109,7 +1110,12 @@ void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlic
 	{
 		NeedsClientAdjustment();
 	}
-
+	float ImpactDot = Impact.ImpactNormal | Velocity.GetSafeNormal();
+	if (bIsSprinting && (ImpactDot < SprintMaxWallNormal))
+	{
+		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+		UE_LOG(UT, Warning, TEXT("Handle Wall %f"), ImpactDot);
+	}
 	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
 }
 
