@@ -880,9 +880,9 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
 			if (GS)
 			{
-				for (int32 i=0;i < GS->ClientAvailbleGameModes.Num();i++)
+				for (int32 i = 0; i < GS->ClientAvailableGameModes.Num(); i++)
 				{
-					FText Text3 = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugC", " Available Game Mode {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailbleGameModes[i]->DisplayName));
+					FText Text3 = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugC", " Available Game Mode {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailableGameModes[i]->DisplayName));
 					PlayerOwner->SaveChat(FName(TEXT("Debug")), Text3.ToString(), FLinearColor::White);
 				}
 

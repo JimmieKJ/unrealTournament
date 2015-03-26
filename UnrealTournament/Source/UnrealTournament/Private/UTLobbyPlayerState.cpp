@@ -216,7 +216,7 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 				if (DefaultGame != NULL)
 				{
 					GS->LoadedGametypes.AddUnique(DefaultGame->GetClass()); // make sure it stays loaded, the below is a weak pointer
-					GS->ClientAvailbleGameModes.Add(FAllowedGameModeData::Make(Data, DefaultGame->DisplayName.ToString(), DefaultGame));
+					GS->ClientAvailableGameModes.Add(FAllowedGameModeData::Make(Data, DefaultGame->DisplayName.ToString(), DefaultGame));
 				}
 			}
 			else if (DataType.ToLower() == TEXT("map"))

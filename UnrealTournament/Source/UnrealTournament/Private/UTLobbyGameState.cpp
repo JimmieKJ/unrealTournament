@@ -639,20 +639,20 @@ AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(const FString& ClassNam
 
 TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString GameModeClass)
 {
-	for (int32 i=0; i<ClientAvailbleGameModes.Num();i++)
+	for (int32 i = 0; i<ClientAvailableGameModes.Num(); i++)
 	{
-		if (ClientAvailbleGameModes[i]->ClassName == GameModeClass)
+		if (ClientAvailableGameModes[i]->ClassName == GameModeClass)
 		{
-			return ClientAvailbleGameModes[i];
+			return ClientAvailableGameModes[i];
 		}
 	}
 
 	// try to fall back to DM
-	for (int32 i = 0; i<ClientAvailbleGameModes.Num(); i++)
+	for (int32 i = 0; i<ClientAvailableGameModes.Num(); i++)
 	{
-		if (ClientAvailbleGameModes[i]->ClassName == TEXT("/Script/UnrealTournament.UTDMGameMode"))
+		if (ClientAvailableGameModes[i]->ClassName == TEXT("/Script/UnrealTournament.UTDMGameMode"))
 		{
-			return ClientAvailbleGameModes[i];
+			return ClientAvailableGameModes[i];
 		}
 	}
 
