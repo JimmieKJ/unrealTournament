@@ -36,6 +36,7 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 			return;
 		}
 
+		GetUTOwner()->SetFlashExtra(1, GetFireMode());
 		RocketLauncher->BeginLoadRocket();
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(LoadTimerHandle, this, &UUTWeaponStateFiringChargedRocket::LoadTimer, RocketLauncher->GetLoadTime(), false);
 	}

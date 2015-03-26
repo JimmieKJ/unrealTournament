@@ -61,7 +61,7 @@ void AUTWeap_RocketLauncher::Destroyed()
 void AUTWeap_RocketLauncher::BeginLoadRocket()
 {
 	//Play the load animation. Speed of anim based on GetLoadTime()
-	if (GetNetMode() != NM_DedicatedServer && UTOwner != NULL)
+	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets) && LoadingAnimation[NumLoadedRockets] != NULL)
@@ -83,6 +83,7 @@ void AUTWeap_RocketLauncher::EndLoadRocket()
 {
 	ConsumeAmmo(CurrentFireMode);
 	NumLoadedRockets++;
+	UTOwner->SetFlashExtra(NumLoadedRockets + 1, CurrentFireMode);
 	LastLoadTime = GetWorld()->TimeSeconds;
 
 	UUTGameplayStatics::UTPlaySound(GetWorld(), RocketLoadedSound, UTOwner, SRT_AllButOwner);
@@ -125,6 +126,10 @@ void AUTWeap_RocketLauncher::ClearLoadedRockets()
 {
 	CurrentRocketFireMode = 0;
 	NumLoadedRockets = 0;
+	if (UTOwner != NULL)
+	{
+		UTOwner->SetFlashExtra(0, CurrentFireMode);
+	}
 	bDrawRocketModeString = false;
 	LastLoadTime = 0.0f;
 }
@@ -235,6 +240,8 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		UE_LOG(UT, Warning, TEXT("%s::FireProjectile(): Weapon is not owned (owner died during firing sequence)"), *GetName());
 		return NULL;
 	}
+
+	UTOwner->SetFlashExtra(0, CurrentFireMode);
 
 	//For the alternate fire, the number of flashes are replicated by the FireMode. 
 	if (CurrentFireMode == 1)
