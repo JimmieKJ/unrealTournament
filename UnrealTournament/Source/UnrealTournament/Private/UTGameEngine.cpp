@@ -429,6 +429,7 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 
 		FoundPaks.Empty();
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameContentDir(), TEXT("Paks")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
@@ -445,7 +446,7 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 			if (DashPosition != -1)
 			{
 				PakFilename = PakFilename.Left(DashPosition);
-				if (!PakFilename.Equals(TEXT("UnrealTournament"), ESearchCase::IgnoreCase))
+				if (!PakFilename.StartsWith(TEXT("UnrealTournament"), ESearchCase::IgnoreCase))
 				{
 					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
 					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
