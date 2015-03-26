@@ -433,21 +433,20 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		for (const auto& PakPath : FoundPaks)
 		{
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
-			
-			TArray<uint8> Data;
-			if (FFileHelper::LoadFileToArray(Data, *PakPath))
+			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
-				FString MD5 = MD5Sum(Data);
-				LocalContentChecksums.Add(PakFilename, MD5);
-			}
-
-			FArrayReader SerializedAssetData;
-			int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-			if (DashPosition != -1)
-			{
-				PakFilename = PakFilename.Left(DashPosition);
-				if (!PakFilename.StartsWith(TEXT("UnrealTournament"), ESearchCase::IgnoreCase))
+				TArray<uint8> Data;
+				if (FFileHelper::LoadFileToArray(Data, *PakPath))
 				{
+					FString MD5 = MD5Sum(Data);
+					LocalContentChecksums.Add(PakFilename, MD5);
+				}
+
+				FArrayReader SerializedAssetData;
+				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+				if (DashPosition != -1)
+				{
+					PakFilename = PakFilename.Left(DashPosition);
 					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
 					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
 					{
