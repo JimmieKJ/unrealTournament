@@ -78,8 +78,8 @@ void AUTGameSession::CleanUpOnlineSubsystem()
 			SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(OnStartSessionCompleteDelegate);
 			SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
 			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
+			SessionInterface->ClearOnUpdateSessionCompleteDelegate_Handle(OnUpdateSessionCompleteDelegate);
 		}
-
 	}
 }
 
@@ -285,6 +285,11 @@ void AUTGameSession::UpdateGameState()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
+			if (!OnUpdateSessionCompleteDelegate.IsValid())
+			{
+				OnUpdateSessionCompleteDelegate = SessionInterface->AddOnUpdateSessionCompleteDelegate_Handle(FOnUpdateSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnUpdateSessionComplete));
+			}
+
 			EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
 			if (State != EOnlineSessionState::Creating && State != EOnlineSessionState::Ended && State != EOnlineSessionState::Ending && State != EOnlineSessionState::Destroying && State != EOnlineSessionState::NoSession )
 			{
@@ -301,6 +306,19 @@ void AUTGameSession::UpdateGameState()
 	}
 }
 
+void AUTGameSession::OnUpdateSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	// workaround for the online service sometimes losing sessions
+	// if we lost our session and have no players, restart to try to acquire a new session
+	if (!bWasSuccessful && UTGameMode != NULL && UTGameMode->NumPlayers == 0 && UTGameMode->GetNumMatches() <= 1 && !UTGameMode->IsGameInstanceServer())
+	{
+		static double LastMCPHackTime = FPlatformTime::Seconds();
+		if (FPlatformTime::Seconds() - LastMCPHackTime > 600.0)
+		{
+			GetWorld()->ServerTravel(GetWorld()->GetOutermost()->GetName());
+		}
+	}
+}
 
 void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 {
