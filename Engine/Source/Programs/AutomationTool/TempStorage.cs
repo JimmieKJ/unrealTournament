@@ -135,8 +135,12 @@ namespace AutomationTool
 						bFound = DirectoryExists_NoExceptions(Directoryname);
 						Retry++;
 					}
-				}				
-			}
+				}
+            }
+            else
+            {
+                bFound = true;
+            }
 			return bFound;
 		}
 
