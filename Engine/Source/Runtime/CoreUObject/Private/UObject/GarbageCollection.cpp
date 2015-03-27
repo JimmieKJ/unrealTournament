@@ -1075,6 +1075,7 @@ void CollectGarbage( EObjectFlags KeepFlags, bool bPerformFullPurge )
 	// Only verify assumptions if option is enabled. This avoids false positives in the Editor or commandlets.
 	if( GUObjectArray.DisregardForGCEnabled() && GShouldVerifyGCAssumptions )
 	{
+		UE_LOG(LogGarbage, Verbose, TEXT("--- verifying GC assumptions --- "))
 		// Verify that objects marked to be disregarded for GC are not referencing objects that are not part of the root set.
 		for( FObjectIterator It; It; ++It )
 		{
