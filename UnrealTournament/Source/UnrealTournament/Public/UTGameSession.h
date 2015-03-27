@@ -56,11 +56,11 @@ protected:
 	FDelegateHandle OnStartSessionCompleteDelegate;
 	FDelegateHandle OnEndSessionCompleteDelegate;
 	FDelegateHandle OnDestroySessionCompleteDelegate;
-	
+	FDelegateHandle OnUpdateSessionCompleteDelegate;
 	
 	virtual void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnStartSessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnEndSessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
-
+	virtual void OnUpdateSessionComplete(FName SessionName, bool bWasSuccessful);
 };
