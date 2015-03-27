@@ -3842,6 +3842,10 @@ public class GUBP : BuildCommand
         else
         {
             Result = TempStorageExists(CmdEnv, NodeStoreName, GameNameIfAny, bQuiet: true);
+			if(GameNameIfAny != "" && Result == false)
+			{
+				Result = TempStorageExists(CmdEnv, NodeStoreName, "", bQuiet: true);
+			}
         }
         if (Result)
         {
@@ -7042,7 +7046,21 @@ public class GUBP : BuildCommand
                 {
                     Log("***** Retrieving GUBP Node {0} from {1}", GUBPNodes[NodeToDo].GetFullName(), NodeStoreName);
                     bool WasLocal;
-                    GUBPNodes[NodeToDo].BuildProducts = RetrieveFromTempStorage(CmdEnv, NodeStoreName, out WasLocal, GameNameIfAny, StorageRootIfAny);
+					try
+					{
+						GUBPNodes[NodeToDo].BuildProducts = RetrieveFromTempStorage(CmdEnv, NodeStoreName, out WasLocal, GameNameIfAny, StorageRootIfAny);
+					}
+					catch
+					{
+						if(GameNameIfAny != "")
+						{
+							GUBPNodes[NodeToDo].BuildProducts = RetrieveFromTempStorage(CmdEnv, NodeStoreName, out WasLocal, "", StorageRootIfAny);
+						}
+						else
+						{
+							throw new AutomationException("Build Products cannot be found for node {0}", NodeToDo);
+						}
+					}
                     if (!WasLocal)
                     {
                         GUBPNodes[NodeToDo].PostLoadFromSharedTempStorage(this);
