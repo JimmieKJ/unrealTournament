@@ -35,8 +35,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	/** True if plaeyrs are allowed to switch teams (if team game). */
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
-		uint32 bAllowTeamSwitches : 1;
-
+	uint32 bAllowTeamSwitches : 1;
 
 	/** If true, we will stop the game clock */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameState)
@@ -44,11 +43,11 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
-	uint32 GoalScore;
+	int32 GoalScore;
 
 	/** The maximum amount of time the game will be */
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
-	uint32 TimeLimit;
+	int32 TimeLimit;
 
 	/** amount of time after a player spawns where they are immune to damage from enemies */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = GameState)
@@ -69,7 +68,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	// Tell clients if more players are needed before match starts
 	UPROPERTY(Replicated)
-		int32 PlayersNeeded;
+	int32 PlayersNeeded;
 
 	UPROPERTY(Replicated)
 	uint32 bOnlyTheStrongSurvive:1;
@@ -79,7 +78,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	/** How much time is remaining in this match. */
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = GameState)
-	uint32 RemainingTime;
+	int32 RemainingTime;
 
 	/** local world time that game ended (i.e. relative to World->TimeSeconds) */
 	UPROPERTY(BlueprintReadOnly, Category = GameState)

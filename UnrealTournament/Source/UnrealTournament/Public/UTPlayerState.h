@@ -99,15 +99,15 @@ public:
 
 	/** How many times has the player captured the flag */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
-	uint32 FlagCaptures;
+	int32 FlagCaptures;
 
 	/** How many times has the player returned the flag */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
-	uint32 FlagReturns;
+	int32 FlagReturns;
 
 	/** How many times has the player captured the flag */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
-	uint32 Assists;
+	int32 Assists;
 
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
