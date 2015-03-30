@@ -52,6 +52,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	TArray<FString> HudWidgetClasses;
 
+	// The tiny font to use
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	class UFont* TinyFont;
+
 	// The Small font to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* SmallFont;
@@ -66,11 +70,22 @@ public:
 
 	// The "extreme" font to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	class UFont* ExtremeFont;
+	class UFont* HugeFont;
+
+	// The score font to use
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	class UFont* ScoreFont;
 
 	// The font that only contains numbers
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* NumberFont;
+
+	/** Set when HUD fonts have been cached. */
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		bool bFontsCached;
+
+	/** Cache fonts this HUD will use */
+	virtual void CacheFonts();
 
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)

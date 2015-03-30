@@ -17,9 +17,6 @@ public:
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* MessageFont;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spectator")
 	UTexture2D* TextureAtlas;
 

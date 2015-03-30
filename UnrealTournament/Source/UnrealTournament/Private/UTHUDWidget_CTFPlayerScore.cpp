@@ -26,7 +26,7 @@ void UUTHUDWidget_CTFPlayerScore::Draw_Implementation(float DeltaTime)
 		NumberOpts.MinimumIntegralDigits=6;
 		FText ScoreText = FText::AsNumber(Score, &NumberOpts);
 
-		DrawText(ScoreText, 90, 26, UTHUDOwner->NumberFont, 0.5 + (0.1 * ScoreFlashOpacity), 1.0, FLinearColor::White,ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(ScoreText, 90, 26, UTHUDOwner->NumberFont, 0.5 + (0.1 * ScoreFlashOpacity), 1.0, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		if (ScoreFlashOpacity > 0.0f) ScoreFlashOpacity = FMath::Max<float>(0.0f, ScoreFlashOpacity - DeltaTime * 1.25f);
 	}
 }

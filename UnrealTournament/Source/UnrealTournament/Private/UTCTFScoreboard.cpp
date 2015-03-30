@@ -53,9 +53,9 @@ void UUTCTFScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		FText StatusText = UTGameState->GetGameStatusText();
 		if (!StatusText.IsEmpty())
 		{
-			DrawText(StatusText, 1255, 38, MediumFont, 1.0, 1.0, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(StatusText, 1255, 38, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		} 
-		DrawText(UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->RemainingTime, true, true, true), 1255, 88, ClockFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+		DrawText(UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->RemainingTime, true, true, true), 1255, 88, UTHUDOwner->NumberFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	}
 }
 
@@ -65,12 +65,12 @@ void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	float Width = (Size.X * 0.5f) - CenterBuffer;
 	float Height = 23;
 
-	FText CH_PlayerName = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerName", "PLAYER");
-	FText CH_Score = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerScore", "SCORE");
+	FText CH_PlayerName = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerName", "Player");
+	FText CH_Score = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerScore", "Score");
 	FText CH_Caps = NSLOCTEXT("UTCTFScoreboard", "ColumnHeader_PlayerCaps", "C");
 	FText CH_Assists = NSLOCTEXT("UTCTFScoreboard", "ColumnHeader_PlayerAssists", "A");
 	FText CH_Returns = NSLOCTEXT("UTCTFScoreboard", "ColumnHeader_PlayerReturns", "R");
-	FText CH_Ping = (GetWorld()->GetNetMode() == NM_Standalone) ? NSLOCTEXT("UTScoreboard", "ColumnHeader_BotSkill", "SKILL") : NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "PING");
+	FText CH_Ping = (GetWorld()->GetNetMode() == NM_Standalone) ? NSLOCTEXT("UTScoreboard", "ColumnHeader_BotSkill", "Skill") : NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "Ping");
 	FText CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "");
 
 	for (int32 i = 0; i < 2; i++)
@@ -78,20 +78,20 @@ void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		// Draw the background Border
 		DrawTexture(TextureAtlas, XOffset, YOffset, Width, Height, 149, 138, 32, 32, 1.0, FLinearColor(0.72f, 0.72f, 0.72f, 0.85f));
 
-		DrawText(CH_PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(CH_PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
 		if (UTGameState && UTGameState->HasMatchStarted())
 		{
-			DrawText(CH_Score, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-			DrawText(CH_Caps, XOffset + (Width * ColumnHeaderCapsX), YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-			DrawText(CH_Assists, XOffset + (Width * ColumnHeaderAssistsX), YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-			DrawText(CH_Returns, XOffset + (Width * ColumnHeaderReturnsX), YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Score, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Caps, XOffset + (Width * ColumnHeaderCapsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Assists, XOffset + (Width * ColumnHeaderAssistsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Returns, XOffset + (Width * ColumnHeaderReturnsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 		else
 		{
-			DrawText(CH_Ready, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Ready, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 
-		DrawText(CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 
 		XOffset = Size.X - Width;
 	}
@@ -118,8 +118,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 		bIsUnderCursor = (CursorPosition.X >= Bounds.X && CursorPosition.X <= Bounds.Z && CursorPosition.Y >= Bounds.Y && CursorPosition.Y <= Bounds.W);
 	}
 
-
-	FText PlayerName = FText::FromString(GetClampedName(PlayerState, MediumFont, 1.f, 0.475f*Width));
+	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.475f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score/10.f));
 	FText PlayerCaps = FText::AsNumber(PlayerState->FlagCaptures);
 	FText PlayerAssists = FText::AsNumber(PlayerState->Assists);
@@ -172,7 +171,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 32,24, FlagU,FlagV,32,24,1.0, FLinearColor::White, FVector2D(0.0f,0.5f));	// Add a function to support additional flags
 
 	// Draw the Text
-	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX) , YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	if (PlayerState->bIsFriend)
 	{
@@ -181,10 +180,10 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
-		DrawText(PlayerScore, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-		DrawText(PlayerCaps, XOffset + (Width * ColumnHeaderCapsX), YOffset + ColumnY, SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-		DrawText(PlayerAssists, XOffset + (Width * ColumnHeaderAssistsX), YOffset + ColumnY, SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-		DrawText(PlayerReturns, XOffset + (Width * ColumnHeaderReturnsX), YOffset + ColumnY, SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(PlayerScore, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(PlayerCaps, XOffset + (Width * ColumnHeaderCapsX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(PlayerAssists, XOffset + (Width * ColumnHeaderAssistsX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(PlayerReturns, XOffset + (Width * ColumnHeaderReturnsX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	else
 	{
@@ -193,10 +192,10 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP");
 		}
-		DrawText(PlayerReady, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(PlayerReady, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 
-	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
 void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
@@ -227,9 +226,9 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	TextRenderInfo.bClipText = true;
 	{
 		float XL, YL;
-		Canvas->TextSize(LargeFont, ScoringPlaysHeader.ToString(), XL, YL, RenderScale, RenderScale);
+		Canvas->TextSize(UTHUDOwner->LargeFont, ScoringPlaysHeader.ToString(), XL, YL, RenderScale, RenderScale);
 		YPos += YL * 0.5f;
-		Canvas->DrawText(LargeFont, ScoringPlaysHeader, (Canvas->ClipX - XL) * 0.5, YPos, RenderScale, RenderScale, TextRenderInfo);
+		Canvas->DrawText(UTHUDOwner->LargeFont, ScoringPlaysHeader, (Canvas->ClipX - XL) * 0.5, YPos, RenderScale, RenderScale, TextRenderInfo);
 		YPos += YL * 1.2f;
 	}
 	TArray<int32> ScoresSoFar;
@@ -257,9 +256,9 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				if (!bDrewSomething)
 				{
 					// draw headers
-					Canvas->DrawText(MediumFont, CaptureText, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-					Canvas->TextSize(MediumFont, ScoreText.ToString(), XL, YL, RenderScale, RenderScale);
-					Canvas->DrawText(MediumFont, ScoreText, Canvas->ClipX * 1.0f - XOffset - XL, YPos, RenderScale, RenderScale, TextRenderInfo);
+					Canvas->DrawText(UTHUDOwner->MediumFont, CaptureText, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+					Canvas->TextSize(UTHUDOwner->MediumFont, ScoreText.ToString(), XL, YL, RenderScale, RenderScale);
+					Canvas->DrawText(UTHUDOwner->MediumFont, ScoreText, Canvas->ClipX * 1.0f - XOffset - XL, YPos, RenderScale, RenderScale, TextRenderInfo);
 					YPos += YL * 1.1f;
 				}
 				bDrewSomething = true;
@@ -272,8 +271,8 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 					ScoredByLine += FString::Printf(TEXT(" (%i)"), *PlayerCaps);
 				}
 				float PrevYPos = YPos;
-				Canvas->TextSize(MediumFont, ScoredByLine, XL, YL, RenderScale, RenderScale);
-				Canvas->DrawText(MediumFont, ScoredByLine, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+				Canvas->TextSize(UTHUDOwner->MediumFont, ScoredByLine, XL, YL, RenderScale, RenderScale);
+				Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 				YPos += YL;
 				// assists
 				FString AssistLine;
@@ -290,13 +289,13 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				{
 					AssistLine = UnassistedText.ToString();
 				}
-				Canvas->TextSize(SmallFont, AssistLine, XL, YL, RenderScale, RenderScale);
-				Canvas->DrawText(SmallFont, AssistLine, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+				Canvas->TextSize(UTHUDOwner->SmallFont, AssistLine, XL, YL, RenderScale, RenderScale);
+				Canvas->DrawText(UTHUDOwner->SmallFont, AssistLine, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 				YPos += YL;
 				// time of game
 				FString TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), Play.ElapsedTime, false, true, false).ToString();
-				Canvas->TextSize(SmallFont, TimeStampLine, XL, YL, RenderScale, RenderScale);
-				Canvas->DrawText(SmallFont, TimeStampLine, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+				Canvas->TextSize(UTHUDOwner->SmallFont, TimeStampLine, XL, YL, RenderScale, RenderScale);
+				Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 				YPos += YL;
 				// team score after this cap
 				Canvas->SetLinearDrawColor(FLinearColor::White);
@@ -305,7 +304,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				{
 					CurrentScoreLine += FString::Printf(TEXT("%i      "), Score);
 				}
-				Canvas->TextSize(MediumFont, CurrentScoreLine, XL, YL, RenderScale, RenderScale);
+				Canvas->TextSize(UTHUDOwner->MediumFont, CurrentScoreLine, XL, YL, RenderScale, RenderScale);
 				{
 					float XPos = Canvas->ClipX - XOffset - XL;
 					for (int32 i = 0; i < ScoresSoFar.Num(); i++)
@@ -313,8 +312,8 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 						Canvas->SetLinearDrawColor(CTFState->Teams[i]->TeamColor);
 						FString SingleScorePart = FString::Printf(TEXT("      %i"), ScoresSoFar[i]);
 						float SingleXL, SingleYL;
-						Canvas->TextSize(MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
-						Canvas->DrawText(MediumFont, SingleScorePart, XPos, PrevYPos + (YPos - PrevYPos - YL) * 0.5, RenderScale, RenderScale, TextRenderInfo);
+						Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
+						Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, XPos, PrevYPos + (YPos - PrevYPos - YL) * 0.5, RenderScale, RenderScale, TextRenderInfo);
 						XPos += SingleXL;
 					}
 				}
@@ -332,7 +331,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	if (!bDrewSomething)
 	{
 		float XL, YL;
-		Canvas->TextSize(MediumFont, NoScoringText.ToString(), XL, YL, RenderScale, RenderScale);
-		Canvas->DrawText(MediumFont, NoScoringText, Canvas->ClipX * 0.5f - XL * 0.5f, YPos, RenderScale, RenderScale, TextRenderInfo);
+		Canvas->TextSize(UTHUDOwner->MediumFont, NoScoringText.ToString(), XL, YL, RenderScale, RenderScale);
+		Canvas->DrawText(UTHUDOwner->MediumFont, NoScoringText, Canvas->ClipX * 0.5f - XL * 0.5f, YPos, RenderScale, RenderScale, TextRenderInfo);
 	}
 }

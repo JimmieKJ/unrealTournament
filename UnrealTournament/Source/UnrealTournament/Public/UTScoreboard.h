@@ -37,26 +37,6 @@ class UUTScoreboard : public UUTHUDWidget
 	GENERATED_UCLASS_BODY()
 
 public:
-	// This font is used for the game rules's values
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* LargeFont;
-
-	// This font is used for Game rules descriptions and player names
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* MediumFont;
-
-	// This font is used for Player Values, Server Name and Server Rules
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* SmallFont;
-
-	// This font is used for player headings
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* TinyFont;
-
-	// The font for the clock
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* ClockFont;
-
 	// The main drawing stub
 	virtual void Draw_Implementation(float DeltaTime);
 

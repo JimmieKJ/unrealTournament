@@ -28,29 +28,34 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldHudTextureObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
 	OldHudTexture = OldHudTextureObj.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> SFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntSmallFont.fntSmallFont'"));
+	static ConstructorHelpers::FObjectFinder<UFont> TFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Tiny.fntScoreboard_Tiny'"));
+	TinyFont = TFont.Object;
+
+	static ConstructorHelpers::FObjectFinder<UFont> SFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Small.fntScoreboard_Small'"));
 	SmallFont = SFont.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> MFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntMediumFont.fntMediumFont'"));
+	static ConstructorHelpers::FObjectFinder<UFont> MFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Medium.fntScoreboard_Medium'"));
 	MediumFont = MFont.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> LFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntLargeFont.fntLargeFont'"));
+	static ConstructorHelpers::FObjectFinder<UFont> LFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Large.fntScoreboard_Large'"));
 	LargeFont = LFont.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> EFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntExtreme.fntExtreme'"));
-	ExtremeFont = LFont.Object;
+	static ConstructorHelpers::FObjectFinder<UFont> HFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Huge.fntScoreboard_Huge'"));
+	HugeFont = HFont.Object;
 
+	static ConstructorHelpers::FObjectFinder<UFont> ScFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Score.fntScoreboard_Score'"));
+	ScoreFont = ScFont.Object;
 
-	static ConstructorHelpers::FObjectFinder<UFont> NFont(TEXT("Font'/Game/RestrictedAssets/Fonts/fntNumbers.fntNumbers'"));
-	NumberFont = NFont.Object;
-
+	// non-proportional FIXMESTEVE need better font and just numbers
+	static ConstructorHelpers::FObjectFinder<UFont> CFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Clock.fntScoreboard_Clock'"));
+	NumberFont = CFont.Object;
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
-
+	bFontsCached = false;
 	bShowOverlays = true;
 }
 
@@ -70,7 +75,6 @@ void AUTHUD::BeginPlay()
 		BuildHudWidget(HudWidgetClasses[WidgetIndex]);
 	}
 
-
 	DamageIndicators.AddZeroed(MAX_DAMAGE_INDICATORS);
 	for (int i=0;i<MAX_DAMAGE_INDICATORS;i++)
 	{
@@ -85,7 +89,6 @@ void AUTHUD::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
 }
-
 
 void AUTHUD::ShowDebugInfo(float& YL, float& YPos)
 {
@@ -108,11 +111,10 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 {
 	switch (FontSizeIndex)
 	{
-		case 0: return GEngine->GetTinyFont();
-		case 1: return SmallFont;
-		case 2: return MediumFont;
-		case 3: return LargeFont;
-		case 4: return ExtremeFont;
+	case 0: return TinyFont;
+	case 1: return SmallFont;
+	case 2: return MediumFont;
+	case 3: return LargeFont;
 	}
 
 	return MediumFont;
@@ -132,7 +134,6 @@ AUTPlayerState* AUTHUD::GetViewedPlayerState()
 TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceName)
 {
 	UClass* WidgetClass = LoadClass<UUTHUDWidget>(NULL, ResourceName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
-
 	if (WidgetClass != NULL)
 	{
 		return WidgetClass;
@@ -140,29 +141,21 @@ TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceNa
 	FString BlueprintResourceName = FString::Printf(TEXT("%s_C"), ResourceName);
 	
 	WidgetClass = LoadClass<UUTHUDWidget>(NULL, *BlueprintResourceName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
-	if (WidgetClass != NULL)
-	{
-		return WidgetClass;
-	}
-
-	return NULL;
+	return WidgetClass;
 }
 
 FVector2D AUTHUD::JSon2FVector2D(const TSharedPtr<FJsonObject> Vector2DObject, FVector2D Default)
 {
 	FVector2D Final = Default;
 
-	// Grab X
 	const TSharedPtr<FJsonValue>* XVal = Vector2DObject->Values.Find(TEXT("X"));
 	if (XVal != NULL && (*XVal)->Type == EJson::Number) Final.X = (*XVal)->AsNumber();
 
-	// Grab Y
 	const TSharedPtr<FJsonValue>* YVal = Vector2DObject->Values.Find(TEXT("Y"));
 	if (YVal != NULL && (*YVal)->Type == EJson::Number) Final.Y = (*YVal)->AsNumber();
 
 	return Final;
 }
-
 
 void AUTHUD::BuildHudWidget(FString NewWidgetString)
 {
@@ -187,7 +180,6 @@ void AUTHUD::BuildHudWidget(FString NewWidgetString)
 					UUTHUDWidget* NewWidget = AddHudWidget(NewWidgetClass);
 
 					// Now Look for position Overrides
-
 					const TSharedPtr<FJsonValue>* PositionVal = JSONObject->Values.Find(TEXT("Position"));
 					if (PositionVal != NULL && (*PositionVal)->Type == EJson::Object) 
 					{
@@ -211,8 +203,6 @@ void AUTHUD::BuildHudWidget(FString NewWidgetString)
 					{
 						NewWidget->Size = JSon2FVector2D( (*SizeVal)->AsObject(), NewWidget->Size);
 					}
-
-
 				}
 			}
 		}
@@ -228,12 +218,8 @@ void AUTHUD::BuildHudWidget(FString NewWidgetString)
 	}
 }
 
-
-
-
 UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 {
-
 	if (NewWidgetClass == NULL) return NULL;
 
 	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass,GetTransientPackage());
@@ -266,7 +252,6 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 	}
 	return NULL;
 }
-
 
 void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
 {
@@ -306,6 +291,29 @@ void AUTHUD::PostRender()
 	Super::PostRender();
 }
 
+void AUTHUD::CacheFonts()
+{
+	FText MessageText = NSLOCTEXT("AUTHUD", "FontCacheText", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';:-=+*(),.?!");
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	float YPos = 0.f;
+	Canvas->DrawColor = FLinearColor::White;
+	Canvas->DrawText(TinyFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
+	//YPos += 0.1f*Canvas->ClipY;
+	Canvas->DrawText(SmallFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
+	//YPos += 0.1f*Canvas->ClipY;
+	Canvas->DrawText(MediumFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
+	//YPos += 0.1f*Canvas->ClipY;
+	Canvas->DrawText(LargeFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
+	//YPos += 0.1f*Canvas->ClipY;
+	Canvas->DrawText(ScoreFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
+	//YPos += 0.1f*Canvas->ClipY;
+	Canvas->DrawText(NumberFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
+	//YPos += 0.1f*Canvas->ClipY;
+	Canvas->DrawText(HugeFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
+	bFontsCached = true;
+}
+
 void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -317,6 +325,11 @@ void AUTHUD::DrawHUD()
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
+
+		if (!bFontsCached)
+		{
+			CacheFonts();
+		}
 
 		for (int WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 		{
@@ -337,7 +350,6 @@ void AUTHUD::DrawHUD()
 			DrawDamageIndicators();
 		}
 	}
-
 }
 
 FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours, bool bForceMinutes, bool bForceTwoDigits) const
@@ -410,7 +422,7 @@ void AUTHUD::DrawNumber(int Number, float X, float Y, FLinearColor Color, float 
 {
 	FNumberFormattingOptions Opts;
 	Opts.MinimumIntegralDigits = MinDigits;
-	DrawString(FText::AsNumber(Number,&Opts), X, Y, bRightAlign ?  ETextHorzPos::Right : ETextHorzPos::Left, ETextVertPos::Top, NumberFont, Color, Scale, true);
+	DrawString(FText::AsNumber(Number, &Opts), X, Y, bRightAlign ? ETextHorzPos::Right : ETextHorzPos::Left, ETextVertPos::Top, NumberFont, Color, Scale, true);
 }
 
 void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire)
