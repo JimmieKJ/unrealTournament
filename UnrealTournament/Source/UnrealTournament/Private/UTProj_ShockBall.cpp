@@ -10,6 +10,7 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectIniti
 	ComboDamageParams = FRadialDamageParams(215.0f, 550.0f);
 	ComboAmmoCost = 3;
 	bComboExplosion = false;
+	bUsingClientSideHits = false;
 	ComboMomentum = 330000.0f;
 	bIsEnergyProjectile = true;
 	PrimaryActorTick.bCanEverTick = true;
@@ -30,6 +31,11 @@ void AUTProj_ShockBall::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 	}
 }
 
+void AUTProj_ShockBall::SetForwardTicked(bool bWasForwardTicked)
+{
+	bUsingClientSideHits = bWasForwardTicked;
+}
+
 void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
 {
 	if (bFakeClientProjectile)
@@ -42,22 +48,28 @@ void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* 
 	}
 	if (ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
 	{
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
-		bool bUsingClientSideHits = UTPC && (UTPC->MaxPredictionPing > 0.f);
-
-		if ((Role == ROLE_Authority) && !bUsingClientSideHits)
+		if (Role != ROLE_Authority)
+		{
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
+			if (UTPC)
+			{
+				UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
+			}
+		}
+		else if (!bUsingClientSideHits)
 		{
 			PerformCombo(InstigatedBy, DamageCauser);
-		}
-		else if ((Role != ROLE_Authority) && bUsingClientSideHits)
-		{
-			UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
 		}
 	}
 }
 
 void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
 {
+	if (!bUsingClientSideHits)
+	{
+		return;
+	}
+
 	// @TODO FIXMESTEVE - do I limit how far I move combo, so fair to all?
 	TArray<USphereComponent*> Components;
 	GetComponents<USphereComponent>(Components);
