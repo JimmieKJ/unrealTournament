@@ -170,6 +170,12 @@ protected:
 
 	virtual void UpdateSkillRating() override;
 
+#if !UE_SERVER
+public:
+	virtual void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState);
+#endif
+
+
 };
 
 
