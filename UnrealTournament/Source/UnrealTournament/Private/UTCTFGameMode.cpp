@@ -991,6 +991,7 @@ void AUTCTFGameMode::UpdateSkillRating()
 	// No more ctf ranking
 }
 
+#if !UE_SERVER
 void AUTCTFGameMode::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState)
 {
 	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 0.0)
@@ -1008,4 +1009,4 @@ void AUTCTFGameMode::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerSt
 
 	Super::BuildPlayerInfo(Panel, PlayerState);
 }
-
+#endif
