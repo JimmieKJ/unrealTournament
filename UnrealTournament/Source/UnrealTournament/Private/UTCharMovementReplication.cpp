@@ -441,15 +441,7 @@ void UUTCharacterMovement::SendClientAdjustment()
 	{
 		if (GetWorld()->GetTimeSeconds() - LastGoodMoveAckTime > MinTimeBetweenClientAdjustments)
 		{
-			if (Cast<AUTCharacter>(CharacterOwner))
-			{
-				Cast<AUTCharacter>(CharacterOwner)->GoodMoveAckTime = ServerData->PendingAdjustment.TimeStamp;
-			}
-			else
-			{
-				// just notify client this move was received
-				ClientAckGoodMove(ServerData->PendingAdjustment.TimeStamp);
-			}
+			ClientAckGoodMove(ServerData->PendingAdjustment.TimeStamp);
 			LastGoodMoveAckTime = GetWorld()->GetTimeSeconds();
 		}
 	}
@@ -1015,12 +1007,18 @@ void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 
 	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
 	check(ClientData);
+	// UE_LOG(UT, Warning, TEXT("Ack ping is %f vs ExactPing %f"), GetCurrentMovementTime() - TimeStamp, CharacterOwner->PlayerState->ExactPing); // @TODO FIXMESTEVE note that this needs to be RPC to be accurate enough
 
-	//UE_LOG(UT, Warning, TEXT("Ack ping is %f vs ExactPing %f"), GetCurrentMovementTime() - TimeStamp, CharacterOwner->PlayerState->ExactPing); // @TODO FIXMESTEVE note that this needs to be RPC to be accurate enough
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(CharacterOwner->PlayerState);
+	if (UTPS)
+	{
+		UTPS->CalculatePing(GetCurrentMovementTime() - TimeStamp);
+	}
+
 	// Ack move if it has not expired.
 	int32 MoveIndex = ClientData->GetSavedMoveIndex(TimeStamp);
 
-	// @TODO FIXMESTEVE - need this implementation, because it's legit to sometimes have moves be already gone (after client adjustment called)
+	// It's legit to sometimes have moves be already gone (after client adjustment called)
 	if (MoveIndex == INDEX_NONE)
 	{
 		return;

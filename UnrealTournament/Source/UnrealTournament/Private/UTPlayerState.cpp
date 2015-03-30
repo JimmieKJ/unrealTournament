@@ -66,14 +66,22 @@ void AUTPlayerState::SetPlayerName(const FString& S)
 
 void AUTPlayerState::UpdatePing(float InPing)
 {
-	APlayerController* PC = Cast<APlayerController>(GetOwner());
-	if (PC && !PC->GetPawn() && (ExactPing > 0.f) && (InPing > 0.001f * ExactPing))
+}
+
+void AUTPlayerState::CalculatePing(float NewPing)
+{
+	float OldPing = ExactPing;
+	Super::UpdatePing(NewPing);
+
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	if (PC)
 	{
-		// ping not valid when not doing ServerMoves
-		CurPingBucketTimestamp = GetWorld()->GetTimeSeconds();
-		return;
+		PC->LastPingCalcTime = GetWorld()->GetTimeSeconds();
+		if (ExactPing != OldPing)
+		{
+			PC->ServerUpdatePing(ExactPing);
+		}
 	}
-	Super::UpdatePing(InPing);
 }
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()

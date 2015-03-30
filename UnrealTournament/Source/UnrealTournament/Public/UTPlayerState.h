@@ -54,7 +54,11 @@ public:
 		return SelectedCharacter;
 	}
 
+	/** Don't do engine style ping updating. */
 	virtual void UpdatePing(float InPing) override;
+
+	/** Called on client using the roundtrip time for servermove/ack. */
+	virtual void CalculatePing(float NewPing);
 
 	/** player's team if we're playing a team game */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)

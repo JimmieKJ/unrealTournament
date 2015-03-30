@@ -131,7 +131,6 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 	MaxShotSynchDelay = 0.1f;
 
-	GoodMoveAckTime = 0.f;
 	MaxStackedArmor = 200;
 	MaxDeathLifeSpan = 30.0f;
 	MinWaterSoundInterval = 0.8f;
@@ -2312,7 +2311,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTCharacter, UTReplicatedMovement, COND_SimulatedOrPhysics);
-	DOREPLIFETIME_CONDITION(AUTCharacter, GoodMoveAckTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_None); // would be nice to bind to teammates and spectators, but that's not an option :(
 
 	//DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
@@ -3343,14 +3341,6 @@ void AUTCharacter::OnRep_PlayerState()
 	if (PlayerState != NULL)
 	{
 		NotifyTeamChanged();
-	}
-}
-
-void AUTCharacter::OnRep_GoodMoveAckTime()
-{
-	if (GetCharacterMovement())
-	{
-		GetCharacterMovement()->ClientAckGoodMove_Implementation(GoodMoveAckTime);
 	}
 }
 

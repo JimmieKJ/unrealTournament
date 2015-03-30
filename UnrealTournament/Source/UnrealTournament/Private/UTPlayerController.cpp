@@ -65,7 +65,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bSpectateBehindView = true;
 	StylizedPPIndex = INDEX_NONE;
 
-	PredictionFudgeFactor = 30.f;
+	PredictionFudgeFactor = 15.f;
 	MaxPredictionPing = 0.f; 
 	DesiredPredictionPing = 0.f;
 
@@ -90,6 +90,7 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerController, MaxPredictionPing, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, PredictionFudgeFactor, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
 }
 
@@ -1536,7 +1537,6 @@ void AUTPlayerController::Possess(APawn* PawnToPossess)
 			UTChar->OnRepEyewear();
 		}
 	}
-
 }
 
 void AUTPlayerController::PawnLeavingGame()
@@ -1552,6 +1552,39 @@ void AUTPlayerController::PawnLeavingGame()
 	}
 }
 
+void AUTPlayerController::ServerBouncePing_Implementation(float TimeStamp)
+{
+	ClientReturnPing(TimeStamp);
+}
+
+bool AUTPlayerController::ServerBouncePing_Validate(float TimeStamp)
+{
+	return true;
+}
+
+void AUTPlayerController::ClientReturnPing_Implementation(float TimeStamp)
+{
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	if (UTPS)
+	{
+		UTPS->CalculatePing(GetWorld()->GetTimeSeconds()-TimeStamp);
+	}
+}
+
+void AUTPlayerController::ServerUpdatePing_Implementation(float ExactPing)
+{
+	if (PlayerState)
+	{
+		PlayerState->ExactPing = ExactPing;
+		PlayerState->Ping = FMath::Min(255, (int32)(ExactPing * 0.25f));
+	}
+}
+
+bool AUTPlayerController::ServerUpdatePing_Validate(float ExactPing)
+{
+	return true;
+}
+
 void AUTPlayerController::PlayerTick( float DeltaTime )
 {
 	Super::PlayerTick(DeltaTime);
@@ -1559,10 +1592,18 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	{
 		UpdateRotation(DeltaTime);
 	}
+
 	// if we have no UTCharacterMovement, we need to apply firing here since it won't happen from the component
 	if (GetPawn() == NULL || Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent()) == NULL)
 	{
 		ApplyDeferredFireInputs();
+	}
+
+	// Force ping update if servermoves aren't triggering it.
+	if ((GetWorld()->GetTimeSeconds() - LastPingCalcTime > 0.5f) && (GetNetMode() == NM_Client))
+	{
+		LastPingCalcTime = GetWorld()->GetTimeSeconds();
+		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
 
 	// Follow the last spectated player again when they respawn

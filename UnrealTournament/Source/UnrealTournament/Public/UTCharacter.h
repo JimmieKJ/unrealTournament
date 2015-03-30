@@ -226,10 +226,6 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(ReplicatedUsing = OnRep_UTReplicatedMovement)
 	struct FRepUTMovement UTReplicatedMovement;
 
-	/** Replicated property used to replicate last acknowledged good move timestamp from server, replaces ClientAckGoodMove() */
-	UPROPERTY(ReplicatedUsing = OnRep_GoodMoveAckTime)
-	float GoodMoveAckTime;
-
 	/** @TODO FIXMESTEVE Temporary different name until engine team makes UpdateSimulatedPosition() virtual */
 	virtual void UTUpdateSimulatedPosition(const FVector & NewLocation, const FRotator & NewRotation, const FVector& NewVelocity);
 
@@ -242,10 +238,6 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** UTReplicatedMovement struct replication event */
 	UFUNCTION()
 	virtual void OnRep_UTReplicatedMovement();
-
-	/** GoodMoveAckTimereplication event */
-	UFUNCTION()
-	virtual void OnRep_GoodMoveAckTime();
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 

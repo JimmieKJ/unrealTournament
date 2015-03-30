@@ -303,7 +303,7 @@ public:
 	//-----------------------------------------------
 	// Perceived latency reduction
 	/** Used to correct prediction error. */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category=Network)
+	UPROPERTY(EditAnywhere, Replicated, GlobalConfig, Category=Network)
 	float PredictionFudgeFactor;
 
 	/** Negotiated max amount of ping to predict ahead for. */
@@ -334,8 +334,27 @@ public:
 	/** List of fake projectiles currently out there for this client */
 	UPROPERTY()
 	TArray<class AUTProjectile*> FakeProjectiles;
-	//-----------------------------------------------
 
+	//-----------------------------------------------
+	// Ping calculation
+
+	/** Last time this client's ping was updated. */
+	UPROPERTY()
+		float LastPingCalcTime;
+
+	/** Client sends ping request to server - used when servermoves aren't happening. */
+	UFUNCTION(unreliable, server, WithValidation)
+		virtual void ServerBouncePing(float TimeStamp);
+
+	/** Server bounces ping request back to client - used when servermoves aren't happening. */
+	UFUNCTION(unreliable, client)
+		virtual void ClientReturnPing(float TimeStamp);
+
+	/** Client informs server of new ping update. */
+	UFUNCTION(unreliable, server, WithValidation)
+		virtual void ServerUpdatePing(float ExactPing);
+
+	//-----------------------------------------------
 	/** guess of this player's target on last shot, used by AI */
 	UPROPERTY(BlueprintReadWrite, Category = AI)
 	APawn* LastShotTargetGuess;
