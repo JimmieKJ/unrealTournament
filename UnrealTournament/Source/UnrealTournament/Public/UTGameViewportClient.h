@@ -36,5 +36,6 @@ protected:
 	virtual void CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	virtual void VerifyFilesToDownloadAndReconnect();
+	virtual void ReconnectAfterDownloadingMap();
 };
 

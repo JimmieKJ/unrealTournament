@@ -134,7 +134,7 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
 	{
 		if (RedirectReferences[i].MapName == MapName)
 		{
-			return RedirectReferences[i].MapURL;
+			return RedirectReferences[i].MapURL + TEXT(" ") + RedirectReferences[i].MapChecksum;
 		}
 	}
 

@@ -45,28 +45,67 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 	Super::PeekTravelFailureMessages(World, FailureType, ErrorString);
 #if !UE_SERVER
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 
 	if (FailureType == ETravelFailure::PackageMissing)
 	{
 #if !PLATFORM_MAC
 		// Missing map
-		if (!ErrorString.IsEmpty() && FPaths::GetExtension(ErrorString) == FString(TEXT("pak")))
+		if (!ErrorString.IsEmpty())
 		{
-			LastAttemptedURL = GEngine->PendingNetGameFromWorld(World)->URL;
+			bool bAlreadyDownloaded = false;
+			int32 SpaceIndex;
+			FString URL;
+			if (ErrorString.FindChar(TEXT(' '), SpaceIndex))
+			{
+				URL = ErrorString.Left(SpaceIndex);
 
-			FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
-				.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::RedirectResult))
-				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
-				.RedirectToURL(ErrorString)
-				.PlayerOwner(FirstPlayer)
-				);
+				FString Checksum = ErrorString.RightChop(SpaceIndex);
+				FString BaseFilename = FPaths::GetBaseFilename(URL);
 
-			return;
+				// If it already exists with the correct checksum, just mount it again
+				if (UTEngine && UTEngine->DownloadedContentChecksums.Contains(BaseFilename))
+				{
+					if (UTEngine->DownloadedContentChecksums[BaseFilename] == Checksum)
+					{
+						FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *BaseFilename) + TEXT(".pak");
+
+						if (FCoreDelegates::OnMountPak.IsBound())
+						{
+							FCoreDelegates::OnMountPak.Execute(Path, 0);
+							UTEngine->MountedDownloadedContentChecksums.Add(Path, Checksum);
+							bAlreadyDownloaded = true;
+						}
+					}
+				}
+			}
+			else
+			{
+				URL = ErrorString;
+			}
+			
+			if (bAlreadyDownloaded)
+			{
+				ReconnectAfterDownloadingMap();
+				return;
+			}
+			else if (FPaths::GetExtension(URL) == FString(TEXT("pak")))
+			{
+				LastAttemptedURL = GEngine->PendingNetGameFromWorld(World)->URL;
+
+				FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
+					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::RedirectResult))
+					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
+					.RedirectToURL(URL)
+					.PlayerOwner(FirstPlayer)
+					);
+
+				return;
+			}
 		}
 
 		bool bMountedPreviousDownload = false;
 
-		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 		if (UTEngine &&	!UTEngine->ContentDownloadCloudId.IsEmpty() && UTEngine->FilesToDownload.Num() > 0)
 		{
 			LastAttemptedURL = UTEngine->LastURLFromWorld(World);
@@ -368,17 +407,22 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 #endif
 }
 
+void UUTGameViewportClient::ReconnectAfterDownloadingMap()
+{
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	if (FirstPlayer != nullptr)
+	{
+		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
+		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+	}
+}
+
 void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
 #if !UE_SERVER
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
-		if (FirstPlayer != nullptr)
-		{
-			FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
-			FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
-		}
+		ReconnectAfterDownloadingMap();
 	}
 #endif
 }
