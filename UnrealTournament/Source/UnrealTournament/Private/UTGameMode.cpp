@@ -2655,3 +2655,50 @@ void AUTGameMode::UpdatePlayersPresence()
 		}
 	}
 }
+
+#if !UE_SERVER
+// TODO: use Attribs to make this live instead of fixed.
+TSharedRef<SWidget> AUTGameMode::NewPlayerInfoLine(FString LeftStr, FString RightStr)
+{
+	TSharedPtr<SOverlay> Line;
+	SAssignNew(Line, SOverlay)
+	+SOverlay::Slot()
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(LeftStr))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+			.ColorAndOpacity(FLinearColor::Gray)
+		]
+	]
+	+ SOverlay::Slot()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Right)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(RightStr))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+		]
+	];
+
+	return Line.ToSharedRef();
+}
+
+void AUTGameMode::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState)
+{
+	Panel->AddSlot().Padding(30.0,5.0,30.0,0.0)
+	[
+		NewPlayerInfoLine(FString("Kills"), FString::Printf(TEXT("%i"), PlayerState->Kills))
+	];
+	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 0.0)
+	[
+		NewPlayerInfoLine(FString("Deaths"), FString::Printf(TEXT("%i"), PlayerState->Deaths))
+	];
+
+}
+#endif

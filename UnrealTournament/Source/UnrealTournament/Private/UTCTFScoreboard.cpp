@@ -106,6 +106,19 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
 	float Width = (Size.X * 0.5f) - CenterBuffer;
+
+	bool bIsUnderCursor = false;
+	// If we are interactive, store off the bounds of this cell for selection
+	if (bIsInteractive)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+										RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+
+		SelectionStack.Add(FSelectionObject(PlayerState, Bounds));
+		bIsUnderCursor = (CursorPosition.X >= Bounds.X && CursorPosition.X <= Bounds.Z && CursorPosition.Y >= Bounds.Y && CursorPosition.Y <= Bounds.W);
+	}
+
+
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, MediumFont, 1.f, 0.475f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score/10.f));
 	FText PlayerCaps = FText::AsNumber(PlayerState->FlagCaptures);
@@ -137,7 +150,21 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	// Draw the position
 
 	// Draw the background border.
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, BarOpacity, FLinearColor::Black);	// NOTE: Once I make these interactable.. have a selection color too
+
+	FLinearColor BarColor = FLinearColor::Black;
+	float FinalBarOpacity = BarOpacity;
+	if (bIsUnderCursor) 
+	{
+		BarColor = FLinearColor(0.0, 0.3, 0.0, 1.0);
+		FinalBarOpacity = 0.75f;
+	}
+	if (PlayerState == SelectedPlayer) 
+	{
+		BarColor = FLinearColor(0.0, 0.3, 0.3, 1.0);
+		FinalBarOpacity = 0.75f;
+	}
+
+	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	int32 FlagU = (PlayerState->CountryFlag % 8) * 32;
 	int32 FlagV = (PlayerState->CountryFlag / 8) * 24;

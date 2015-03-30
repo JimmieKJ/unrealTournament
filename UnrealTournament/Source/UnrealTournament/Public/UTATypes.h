@@ -348,3 +348,13 @@ public:
 };
 
 const FString HUBSessionIdKey = "HUBSessionId";
+
+namespace FFriendsStatus
+{
+	const FName IsBot = FName(TEXT("IsBot"));
+	const FName IsYou = FName(TEXT("IsYou"));
+	const FName NotAFriend = FName(TEXT("NotAFriend"));
+	const FName FriendRequestPending = FName(TEXT("FriendRequestPending"));
+	const FName Friend = FName(TEXT("Friend"));
+}
+

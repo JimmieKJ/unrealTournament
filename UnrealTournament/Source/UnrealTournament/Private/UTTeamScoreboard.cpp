@@ -29,7 +29,7 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(TextureAtlas, XOffset + FrontSize, YOffset + 22, MiddleSize, 65, 39,188,64,65, 1.0, FLinearColor::Red);
 	DrawTexture(TextureAtlas, XOffset + FrontSize + MiddleSize, YOffset + 22, EndSize, 65, 39,188,64,65, 1.0, FLinearColor::Red);
 
-	DrawText(NSLOCTEXT("UTTeamScoreboard","RedTeam","RED"), 36, YOffset + 40, HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(NSLOCTEXT("UTTeamScoreboard","RedTeam","RED"), 36, YOffset + CellHeight, HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), Width * 0.9, YOffset + 48, ScoreFont, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 
 	XOffset = Size.X - Width;
@@ -38,7 +38,7 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(TextureAtlas, XOffset + EndSize, YOffset + 22, MiddleSize, 65, 130,188,64,65, 1.0, FLinearColor::Blue);
 	DrawTexture(TextureAtlas, XOffset, YOffset + 22, EndSize, 65, 117, 188, 16, 65, 1.0, FLinearColor::Blue);
 
-	DrawText(NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE"), 1237, YOffset + 40, HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE"), 1237, YOffset + CellHeight, HugeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), Size.X - Width + (Width * 0.1), YOffset + 48, ScoreFont, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black, 0.75, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 
 	YOffset += 119;
@@ -70,7 +70,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 					{
 						DrawPlayer(Place, PlayerState, RenderDelta, XOffset, DrawOffset);
 						Place++;
-						DrawOffset += 40;
+						DrawOffset += CellHeight;
 					}
 				} 
 				else if (Team == 0)
@@ -91,4 +91,62 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	}
 }
 
+void UUTTeamScoreboard::SelectNext(int32 Offset, bool bDoNoWrap)
+{
+	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (GS == NULL) return;
+
+	GS->SortPRIArray();
+	int32 SelectedIndex = GS->PlayerArray.Find(SelectedPlayer.Get());
+
+	if (SelectedIndex >= 0 && SelectedIndex < GS->PlayerArray.Num())
+	{
+		AUTPlayerState* Next = NULL;
+		int32 Step = Offset > 0 ? 1 : -1;
+		do
+		{
+			SelectedIndex += Step;
+			if (SelectedIndex < 0 || SelectedIndex >= GS->PlayerArray.Num()) return;
+
+			Next = Cast<AUTPlayerState>(GS->PlayerArray[SelectedIndex]);
+			if (Next && !Next->bOnlySpectator && !Next->bIsSpectator && GS->OnSameTeam(Next, SelectedPlayer.Get()))
+			{
+				// Valid potential player.
+				Offset -= Step;
+				if (Offset == 0)
+				{
+					SelectedPlayer = Next;
+					return;
+				}
+			}
+
+		}
+		while (Next != SelectedPlayer.Get());
+	}
+	else
+	{
+		DefaultSelection(GS);
+	}
+
+}
+
+void UUTTeamScoreboard::SelectionLeft()
+{
+	SelectionRight();
+}
+void UUTTeamScoreboard::SelectionRight()
+{
+	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (GS == NULL) return;
+	GS->SortPRIArray();
+
+	if (SelectedPlayer.IsValid())
+	{
+		DefaultSelection(GS, SelectedPlayer->GetTeamNum() == 0 ? 1 : 0);
+	}
+	else
+	{
+		DefaultSelection(GS, 0);
+	}
+}
 

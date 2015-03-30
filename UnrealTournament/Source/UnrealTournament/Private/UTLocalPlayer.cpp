@@ -19,6 +19,7 @@
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWLoginDialog.h"
 #include "Slate/SUWPlayerSettingsDialog.h"
+#include "Slate/SUWPlayerInfoDialog.h"
 #include "Slate/SUWHUDSettingsDialog.h"
 #include "Slate/SUTQuickMatch.h"
 #include "Slate/SUWFriendsPopup.h"
@@ -1036,6 +1037,7 @@ void UUTLocalPlayer::WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uin
 		OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(this));			
 	}
 }
+
 #endif
 
 void UUTLocalPlayer::SaveProfileSettings()
@@ -1865,4 +1867,19 @@ bool UUTLocalPlayer::IsInSession()
 { 
 	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
 	return (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName,*UserId));
+}
+
+void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
+{
+#if !UE_SERVER
+	OpenDialog(SNew(SUWPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
+#endif
+}
+
+void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
+{
+	if (OnlineFriendsInterface.IsValid())
+	{
+		OnlineFriendsInterface->SendInvite(0, *FriendID.Get(), EFriendsLists::ToString(EFriendsLists::Default));
+	}
 }

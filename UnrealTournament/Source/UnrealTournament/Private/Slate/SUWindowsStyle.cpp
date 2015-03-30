@@ -159,6 +159,11 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			.SetColorAndOpacity(FLinearColor::White)
 		);
 
+		Style.Set("UT.Common.ButtonText.Black", FTextBlockStyle()
+			.SetFont(TTF_FONT("Play-Bold", 18))
+			.SetColorAndOpacity(FLinearColor::Black)
+		);
+
 		Style.Set("", FTextBlockStyle()
 			.SetFont(TTF_FONT("Play-Bold", 16))
 			.SetColorAndOpacity(FLinearColor::Black)

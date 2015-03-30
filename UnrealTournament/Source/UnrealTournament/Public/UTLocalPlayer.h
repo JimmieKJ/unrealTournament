@@ -17,6 +17,7 @@ class SUWFriendsPopup;
 class SUTQuickMatch;
 class SUWLoginDialog;
 class FFriendsAndChatMessage;
+class AUTPlayerState;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -327,7 +328,7 @@ public:
 	virtual int32 GetBaseELORank();
 
 	// Returns what badge should represent player's skill level.
-	virtual void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
+	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
 	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false);
@@ -417,6 +418,10 @@ public:
 	UPROPERTY(config)
 	int32 ServerPingBlockSize;
 
+	virtual void ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target);
+
+	// Request someone be my friend...
+	virtual void RequestFriendship(TSharedPtr<FUniqueNetId> FriendID);
 
 };
 

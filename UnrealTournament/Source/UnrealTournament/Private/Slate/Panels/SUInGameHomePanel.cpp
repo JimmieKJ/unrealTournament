@@ -3,12 +3,12 @@
 
 #include "../Public/UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
+#include "../Public/UTGameViewportClient.h"
+
 #include "SlateBasics.h"
 #include "../SUWScaleBox.h"
 #include "Slate/SlateGameResources.h"
 #include "SUInGameHomePanel.h"
-
-
 
 #if !UE_SERVER
 
@@ -248,6 +248,11 @@ void SUInGameHomePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 	if (PC && PC->MyUTHUD)
 	{
 		PC->MyUTHUD->bForceScores = true;
+		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+		if (SB)
+		{
+			SB->BecomeInteractive();
+		}
 	}
 }
 void SUInGameHomePanel::OnHidePanel()
@@ -257,6 +262,11 @@ void SUInGameHomePanel::OnHidePanel()
 	if (PC && PC->MyUTHUD)
 	{
 		PC->MyUTHUD->bForceScores = false;
+		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+		if (SB)
+		{
+			SB->BecomeNonInteractive();
+		}
 	}
 }
 
@@ -313,6 +323,111 @@ FText SUInGameHomePanel::GetChatDestinationTag(FName Destination)
 	
 	return NSLOCTEXT("Chat", "GlobalTag","Global");
 }
+
+FReply SUInGameHomePanel::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	return FReply::Unhandled();
+}
+
+// @Returns true if the mouse position is inside the viewport
+bool SUInGameHomePanel::GetGameMousePosition(FVector2D& MousePosition)
+{
+	// We need to get the mouse input but the mouse event only has the mouse in screen space.  We need it in viewport space and there
+	// isn't a good way to get there.  So we punt and just get it from the game viewport.
+
+	UUTGameViewportClient* GVC = Cast<UUTGameViewportClient>(PlayerOwner->ViewportClient);
+	if (GVC)
+	{
+		return GVC->GetMousePosition(MousePosition);
+	}
+	return false;
+}
+
+FReply SUInGameHomePanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		PC->MyUTHUD->bForceScores = true;
+		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+		if (SB)
+		{
+			FVector2D MousePosition;
+			if (GetGameMousePosition(MousePosition))
+			{
+				if (SB->AttemptSelection(MousePosition))
+				{
+					SB->SelectionClick();
+					return FReply::Handled();
+				}
+			}
+		}
+	}
+
+	return FReply::Unhandled();
+}
+
+FReply SUInGameHomePanel::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		PC->MyUTHUD->bForceScores = true;
+		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+		if (SB)
+		{
+			FVector2D MousePosition;
+			if (GetGameMousePosition(MousePosition))
+			{
+				SB->TrackMouseMovement(MousePosition);
+			}
+		}
+	}
+
+	return FReply::Unhandled();
+}
+
+FReply SUInGameHomePanel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent)
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		PC->MyUTHUD->bForceScores = true;
+		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+		if (SB)
+		{
+			if (InKeyboardEvent.GetKey() == EKeys::Up || InKeyboardEvent.GetKey() == EKeys::Gamepad_DPad_Up)
+			{
+				SB->SelectionUp();
+				return FReply::Handled();
+			}
+			else if (InKeyboardEvent.GetKey() == EKeys::Down || InKeyboardEvent.GetKey() == EKeys::Gamepad_DPad_Down)
+			{
+				SB->SelectionDown();
+				return FReply::Handled();
+			}
+			else if (InKeyboardEvent.GetKey() == EKeys::Left || InKeyboardEvent.GetKey() == EKeys::Gamepad_DPad_Left)
+			{
+				SB->SelectionLeft();
+				return FReply::Handled();
+			}
+			else if (InKeyboardEvent.GetKey() == EKeys::Right || InKeyboardEvent.GetKey() == EKeys::Gamepad_DPad_Right)
+			{
+				SB->SelectionRight();
+				return FReply::Handled();
+			}
+			else if (InKeyboardEvent.GetKey() == EKeys::Enter)
+			{
+				SB->SelectionClick();
+				return FReply::Handled();
+			}
+		}
+	}
+	return FReply::Unhandled();
+
+}
+
 
 
 #endif

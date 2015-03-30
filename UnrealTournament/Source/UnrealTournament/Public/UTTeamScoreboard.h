@@ -18,6 +18,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UFont* ScoreFont;
 
+	virtual void SelectNext(int32 Offset, bool bDoNoWrap=false);
+	virtual void SelectionLeft();
+	virtual void SelectionRight();
+
 
 protected:
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);

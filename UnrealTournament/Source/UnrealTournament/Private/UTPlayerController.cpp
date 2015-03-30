@@ -2165,6 +2165,13 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
+	if (MyUTHUD)
+	{
+		UUTScoreboard* Scoreboard = MyUTHUD->GetScoreboard();
+		if (Scoreboard) Scoreboard->BecomeInteractive();
+	}
+
+
 	TArray<FString> Keys;
 	ResolveKeybind(TestCommand, Keys);
 	if (Keys.Num() > 0)

@@ -302,6 +302,14 @@ public:
 	// Calculated client-side by the local player when 
 	bool bIsFriend;
 
+#if !UE_SERVER
+public:
+	const FSlateBrush* GetELOBadgeImage() const;
+	const FSlateBrush* GetELOBadgeNumberImage() const;
+	void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel);
+#endif
+
+
 };
 
 

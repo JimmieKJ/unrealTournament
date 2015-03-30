@@ -990,3 +990,22 @@ void AUTCTFGameMode::UpdateSkillRating()
 {
 	// No more ctf ranking
 }
+
+void AUTCTFGameMode::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState)
+{
+	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 0.0)
+	[
+		NewPlayerInfoLine(FString("Captures"), FString::Printf(TEXT("%i"), PlayerState->FlagCaptures))
+	];
+	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 0.0)
+	[
+		NewPlayerInfoLine(FString("Returns"), FString::Printf(TEXT("%i"), PlayerState->FlagReturns))
+	];
+	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 15.0)
+	[
+		NewPlayerInfoLine(FString("Assists"), FString::Printf(TEXT("%i"), PlayerState->Assists))
+	];
+
+	Super::BuildPlayerInfo(Panel, PlayerState);
+}
+

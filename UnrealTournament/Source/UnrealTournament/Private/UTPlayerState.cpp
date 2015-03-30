@@ -922,3 +922,156 @@ void AUTPlayerState::OnRep_UniqueId()
 		bIsFriend = LP->IsAFriend(UniqueId);
 	}
 }
+
+#if !UE_SERVER
+
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage() const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	UUTLocalPlayer::GetBadgeFromELO(AverageRank, Badge, Level);
+	FString BadgeStr = FString::Printf(TEXT("UT.Badge.%i"), Badge);
+	return SUWindowsStyle::Get().GetBrush(*BadgeStr);
+}
+
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage() const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	UUTLocalPlayer::GetBadgeFromELO(AverageRank, Badge, Level);
+	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
+	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
+}
+
+void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
+{
+
+	Panel->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SOverlay)
+		+SOverlay::Slot()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(150)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("Generic", "PlayerNamePrompt", "Name :"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.ColorAndOpacity(FLinearColor::Gray)
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.Padding(5.0,0.0,0.0,0.0)
+			.AutoWidth()
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(PlayerName))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+			]
+		]
+		+SOverlay::Slot()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(32)
+				.HeightOverride(32)
+				[
+					SNew(SOverlay)
+					+ SOverlay::Slot()
+					[
+						SNew(SImage)
+						.Image(GetELOBadgeImage())
+					]
+					+ SOverlay::Slot()
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Top)
+					[
+						SNew(SImage)
+						.Image(GetELOBadgeNumberImage())
+					]
+				]
+			]
+		]
+	];
+
+	Panel->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "ScorePrompt", "Score :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::AsNumber(Score))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		]
+	];
+
+	Panel->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "RankPrompt", "Rank :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::AsNumber(AverageRank))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		]
+	];
+
+
+}
+#endif
+
