@@ -132,6 +132,11 @@ void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
 	}
 }
 
+bool AUTWeaponAttachment::CancelImpactEffect(const FHitResult& ImpactHit)
+{
+	return ImpactHit.Actor.IsValid() && (Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get()));
+}
+
 void AUTWeaponAttachment::PlayFiringEffects()
 {
 	// stop any firing effects for other firemodes
@@ -171,7 +176,10 @@ void AUTWeaponAttachment::PlayFiringEffects()
 		if (ImpactEffect.IsValidIndex(UTOwner->FireMode) && ImpactEffect[UTOwner->FireMode] != NULL)
 		{
 			FHitResult ImpactHit = AUTWeapon::GetImpactEffectHit(UTOwner, SpawnLocation, UTOwner->FlashLocation);
-			ImpactEffect[UTOwner->FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+			if (!CancelImpactEffect(ImpactHit))
+			{
+				ImpactEffect[UTOwner->FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+			}
 		}
 		LastImpactEffectLocation = UTOwner->FlashLocation;
 		LastImpactEffectTime = GetWorld()->TimeSeconds;

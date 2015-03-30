@@ -651,6 +651,11 @@ void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnL
 	SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
 }
 
+bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit)
+{
+	return ImpactHit.Actor.IsValid() && (Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get()));
+}
+
 void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	if (GetNetMode() != NM_DedicatedServer)
@@ -680,7 +685,7 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 			if (ImpactEffect.IsValidIndex(FireMode) && ImpactEffect[FireMode] != NULL)
 			{
 				FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
-				if (ImpactHit.Component.IsValid())
+				if (ImpactHit.Component.IsValid() && !CancelImpactEffect(ImpactHit))
 				{
 					ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
 				}
