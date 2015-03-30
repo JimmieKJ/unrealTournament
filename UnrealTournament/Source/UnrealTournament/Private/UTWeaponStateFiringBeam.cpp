@@ -25,6 +25,7 @@ void UUTWeaponStateFiringBeam::FireShot()
 
 void UUTWeaponStateFiringBeam::Tick(float DeltaTime)
 {
+	HandleDelayedShot();
 	if (!GetOuterAUTWeapon()->FireShotOverride() && GetOuterAUTWeapon()->InstantHitInfo.IsValidIndex(GetOuterAUTWeapon()->GetCurrentFireMode()))
 	{
 		const FInstantHitDamageInfo& DamageInfo = GetOuterAUTWeapon()->InstantHitInfo[GetOuterAUTWeapon()->GetCurrentFireMode()];

@@ -81,7 +81,7 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 	GetOuterAUTWeapon()->bNetDelayedShot = false;
 }
 
-void UUTWeaponStateFiring::Tick(float DeltaTime)
+void UUTWeaponStateFiring::HandleDelayedShot()
 {
 	if (bDelayShot)
 	{
@@ -90,6 +90,11 @@ void UUTWeaponStateFiring::Tick(float DeltaTime)
 		bDelayShot = false;
 		GetOuterAUTWeapon()->bNetDelayedShot = false;
 	}
+}
+
+void UUTWeaponStateFiring::Tick(float DeltaTime)
+{
+	HandleDelayedShot();
 }
 
 void UUTWeaponStateFiring::FireShot()

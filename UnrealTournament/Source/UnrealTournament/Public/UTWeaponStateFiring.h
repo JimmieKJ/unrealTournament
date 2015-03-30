@@ -48,6 +48,9 @@ class UUTWeaponStateFiring : public UUTWeaponState
 	virtual void PutDown() override;
 	virtual void Tick(float DeltaTime) override;
 
+	/** If bDelayedShot, fire. */
+	virtual void HandleDelayedShot();
+
 	/** Pending fire mode on server when equip completes. */
 	int32 PendingFireSequence;
 
