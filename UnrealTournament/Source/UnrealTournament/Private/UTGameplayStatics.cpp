@@ -246,7 +246,8 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 
 		// if it's friendly fire, possibly redirect to alternate Controller for damage credit
 		AController* ResolvedInstigator = InstigatedByController;
-		if (FFInstigatedBy != NULL && InstigatedByController != NULL && GS != NULL && GS->OnSameTeam(InstigatedByController, Victim))
+		if ( FFInstigatedBy != NULL && InstigatedByController != NULL && FFInstigatedBy != InstigatedByController &&
+			((GS != NULL && GS->OnSameTeam(InstigatedByController, Victim)) || (InstigatedByController == Victim)) )
 		{
 			ResolvedInstigator = FFInstigatedBy;
 			if (FFDamageType != NULL)
