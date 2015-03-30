@@ -438,7 +438,7 @@ void FPlayWorldCommands::BuildToolbar( FToolBarBuilder& ToolbarBuilder, bool bIn
 		true
 	);
 
-	if (bIncludeLaunchButtonAndOptions)
+	if (bIncludeLaunchButtonAndOptions && GetDefault<UEditorStyleSettings>()->bShowLaunchMenus)
 	{
 		// Launch
 		ToolbarBuilder.AddToolBarButton( 
