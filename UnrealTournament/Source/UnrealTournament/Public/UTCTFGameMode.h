@@ -55,6 +55,8 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime() override;
 
+	virtual void PlacePlayersAroundFlagBase(int32 TeamNum);
+
 	virtual void DefaultTimer();
 	virtual bool PlayerCanRestart( APlayerController* Player );
 

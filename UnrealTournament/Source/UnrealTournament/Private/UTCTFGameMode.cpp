@@ -415,6 +415,42 @@ void AUTCTFGameMode::HandleHalftime()
 {
 }
 
+void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
+{
+	TArray<AController*> Members = Teams[TeamNum]->GetTeamMembers();
+	FVector FlagLoc = CTFGameState->FlagBases[TeamNum]->GetActorLocation();
+	float AngleSlices = 360.0f / FMath::Min(8, Members.Num());
+	int32 PlacementCounter = 0;
+	for (AController* C : Members)
+	{
+		APawn* P = C->GetPawn();
+		if (P)
+		{
+			FRotator AdjustmentAngle(0, AngleSlices * PlacementCounter, 0);
+			FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(FVector(200, 0, 0));			
+			PlacementLoc.Z += P->GetSimpleCollisionHalfHeight();
+
+			FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(P->GetSimpleCollisionRadius(), P->GetSimpleCollisionHalfHeight());
+			static const FName NAME_FlagPlacement = FName(TEXT("FlagPlacement"));
+			FCollisionQueryParams CapsuleParams(NAME_FlagPlacement, false, this);
+			FCollisionResponseParams ResponseParam;
+			TArray<FOverlapResult> Overlaps;
+			bool bEncroached = GetWorld()->OverlapMulti(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
+			if (!bEncroached)
+			{
+				P->SetActorLocation(PlacementLoc);
+			}
+
+			PlacementCounter++;
+		}
+
+		if (PlacementCounter == 8)
+		{
+			break;
+		}
+	}
+}
+
 void AUTCTFGameMode::HandleEnteringHalftime()
 {
 
@@ -423,11 +459,19 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 
 	// Init targets
 	TArray<AUTCharacter*> BestPlayers;
+	int32 BestTeam = 0;
+	int32 BestTeamScore = 0;
 	for (int i=0;i<Teams.Num();i++)
 	{
 		BestPlayers.Add(NULL);
-	}
 
+		if (i == BestTeam || Teams[i]->Score > BestTeamScore)
+		{
+			BestTeamScore = Teams[i]->Score;
+			BestTeam = i;
+		}
+	}
+	
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 
@@ -450,14 +494,15 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		}
 	}	
 
-	// Tell the controllers to look at their flags
+	PlacePlayersAroundFlagBase(BestTeam);
+	// Tell the controllers to look at winning team flag
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 		if (PC != NULL)
 		{
 			PC->ClientHalftime();
-			PC->SetViewTarget(CTFGameState->FlagBases[CTFGameState->FlagBases.IsValidIndex(PC->GetTeamNum()) ? PC->GetTeamNum() : 0]);
+			PC->SetViewTarget(CTFGameState->FlagBases[BestTeam]);
 		}
 	}
 	
@@ -960,6 +1005,8 @@ void AUTCTFGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 	if (Winner != NULL)
 	{
 		WinningBase = CTFGameState->FlagBases[Winner->GetTeamNum()];
+
+		PlacePlayersAroundFlagBase(Winner->GetTeamNum());
 	}
 
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
