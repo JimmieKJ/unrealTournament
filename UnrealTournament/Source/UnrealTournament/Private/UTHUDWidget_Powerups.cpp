@@ -17,10 +17,6 @@ void UUTHUDWidget_Powerups::InitializeWidget(AUTHUD* Hud)
 	Super::InitializeWidget(Hud);
 }
 
-/**
- *	We aren't going tor use DrawAllRenderObjects.  Instead we are going to have a nice little custom bit of drawing based on what weapon gropup this 
- *  is.
- **/
 void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 {
 	if (UTCharacterOwner && TimeText.Font)
@@ -52,7 +48,6 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 		TArray<FRenderItemInfo> RenderItems;
 
 		// First pass is a sizing pass and builds the RenderItems Array.
-
 		for (TInventoryIterator<> It(UTCharacterOwner); It; ++It)
 		{
 			AUTInventory* InventoryItem = (*It);
@@ -65,10 +60,8 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 				}
 
 				float Width = (Height * (InventoryItem->HUDIcon.UL / InventoryItem->HUDIcon.VL));
-
 				FText Text = InventoryItem->GetHUDText();
 				BarWidth += Width + 10.0f + (Text.IsEmpty() ? 0.0f : TextWidth);
-
 				int32 InsertPoint = -1;
 				for (int32 i=0;i<RenderItems.Num();i++)
 				{
@@ -87,15 +80,13 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 				{
 					RenderItems.Add(FRenderItemInfo(InventoryItem, Width, Height, Text));
 				}
-
 				IconCount++;
 			}
 		}
 
-		BarWidth += 5.0;	// A little extra space at the end
-
 		if (IconCount == 0) return;
 
+		BarWidth += 5.0;	// A little extra space at the end
 		float XOffset = 0;
 
 		RenderObj_TextureAt(LeftTexture[0], XOffset + LeftTexture[0].Position.X, LeftTexture[0].Position.Y, LeftTexture[0].GetWidth(), LeftTexture[0].GetHeight());
@@ -123,7 +114,6 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 					TimeText.Text = RenderItems[i].TextToRender;
 					RenderObj_TextAt(TimeText, DrawXOffset + TimeText.Position.X, TimeText.Position.Y);
 					XOffset += TextWidth;
-
 				}
 
 				IconTexture.UVs.U = InventoryItem->HUDIcon.U;
@@ -131,8 +121,14 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 				IconTexture.UVs.UL = InventoryItem->HUDIcon.UL;
 				IconTexture.UVs.VL = InventoryItem->HUDIcon.VL;
 				IconTexture.Atlas = InventoryItem->HUDIcon.Texture;
+				float Scale = 1.f;
+				if (InventoryItem->FlashTimer > 0.f)
+				{
+					Scale += InventoryItem->InitialFlashScale * (InventoryItem->FlashTimer / InventoryItem->InitialFlashTime);
+					InventoryItem->FlashTimer -= DeltaTime;
+				}
 
-				RenderObj_TextureAt(IconTexture, DrawXOffset + IconTexture.Position.X, IconTexture.Position.Y, RenderItems[i].Width, RenderItems[i].Height);
+				RenderObj_TextureAt(IconTexture, DrawXOffset + IconTexture.Position.X, IconTexture.Position.Y, Scale*RenderItems[i].Width, Scale*RenderItems[i].Height);
 				XOffset += RenderItems[i].Width;
 			}
 		}
