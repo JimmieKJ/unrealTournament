@@ -23,7 +23,7 @@ struct FSelectionObject
 		ScoreBounds = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
-	FSelectionObject(TWeakObjectPtr<AUTPlayerState> inScoreOwner, FVector4 inScoreBounds)
+	FSelectionObject(TWeakObjectPtr<AUTPlayerState> inScoreOwner, const FVector4& inScoreBounds)
 	{
 		ScoreOwner = inScoreOwner;
 		ScoreBounds = inScoreBounds;
