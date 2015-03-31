@@ -1265,7 +1265,7 @@ void AUTWeapon::SpawnDelayedFakeProjectile()
 		if (NewProjectile)
 		{
 			NewProjectile->InitFakeProjectile(OwningPlayer);
-			NewProjectile->SetLifeSpan(FMath::Min(NewProjectile->GetLifeSpan(), 0.001f * FMath::Max(0.f, OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor)));
+			NewProjectile->SetLifeSpan(FMath::Min(NewProjectile->GetLifeSpan(), 0.002f * FMath::Max(0.f, OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor)));
 		}
 	}
 }
