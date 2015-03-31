@@ -1,0 +1,4 @@
+../../../Samples/StarterContent/Content/*.*
+../../../Samples/StarterContent/manifest.json
+../../../Samples/StarterContent/Media/StarterContent.png
+../../../Samples/StarterContent/Media/StarterContent_Preview.png
