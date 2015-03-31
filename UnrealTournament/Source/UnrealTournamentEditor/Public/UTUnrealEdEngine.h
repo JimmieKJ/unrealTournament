@@ -7,6 +7,7 @@
 #include "UTWorldSettings.h"
 #include "UTMenuGameMode.h"
 #include "CookOnTheSide/CookOnTheFlyServer.h"
+#include "UTLocalPlayer.h"
 
 #include "UTUnrealEdEngine.generated.h"
 
@@ -21,6 +22,22 @@ class UNREALTOURNAMENTEDITOR_API UUTUnrealEdEngine : public UUnrealEdEngine
 
 	UT_LOADMAP_DEFINITION()
 
+	virtual FString BuildPlayWorldURL(const TCHAR* MapName, bool bSpectatorMode, FString AdditionalURLOptions) override
+	{
+		FString URL = Super::BuildPlayWorldURL(MapName, bSpectatorMode, AdditionalURLOptions);
+
+		if (!URL.Contains(TEXT("Taunt")))
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetFirstGamePlayer(PlayWorld));
+			if (LP)
+			{
+				URL += TEXT("?Taunt=");
+				URL += LP->GetDefaultURLOption(TEXT("Taunt"));
+			}
+		}
+
+		return URL;
+	}
 
 	void StartDLCCookInEditor(const TArray<ITargetPlatform*> &TargetPlatforms, FString DLCName, FString BasedOnReleaseVersion)
 	{

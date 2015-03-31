@@ -49,7 +49,7 @@ public:
 
 
 UCLASS(config=Engine)
-class UUTLocalPlayer : public ULocalPlayer
+class UNREALTOURNAMENT_API UUTLocalPlayer : public ULocalPlayer
 {
 	GENERATED_UCLASS_BODY()
 
