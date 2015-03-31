@@ -226,16 +226,12 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 	if (DefaultGameMode)
 	{
 		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultGameMode->DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
-		PlayerPreviewMesh->HatClass = TargetPlayerState->HatClass;
-		PlayerPreviewMesh->HatVariant = TargetPlayerState->HatVariant;
-		PlayerPreviewMesh->EyewearClass = TargetPlayerState->EyewearClass;
-		PlayerPreviewMesh->EyewearVariant = TargetPlayerState->EyewearVariant;
-
+		
 		PlayerPreviewMesh->ApplyCharacterData(TargetPlayerState->GetSelectedCharacter());
-		PlayerPreviewMesh->OnRepHat();
-		PlayerPreviewMesh->OnRepHatVariant();
-		PlayerPreviewMesh->OnRepEyewear();
-		PlayerPreviewMesh->OnRepEyewearVariant();
+		PlayerPreviewMesh->SetHatClass(TargetPlayerState->HatClass);
+		PlayerPreviewMesh->SetHatVariant(TargetPlayerState->HatVariant);
+		PlayerPreviewMesh->SetEyewearClass(TargetPlayerState->EyewearClass);
+		PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
 
 		if ( PoseAnimation )
 		{

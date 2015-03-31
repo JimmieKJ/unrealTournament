@@ -51,6 +51,10 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
+	DOREPLIFETIME(AUTPlayerState, HatClass);
+	DOREPLIFETIME(AUTPlayerState, EyewearClass);
+	DOREPLIFETIME(AUTPlayerState, HatVariant);
+	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -289,20 +293,71 @@ void AUTPlayerState::Tick(float DeltaTime)
 	}
 }
 
-void AUTPlayerState::ServerReceiveHatVariant_Implementation(int32 NewVariant)
+AUTCharacter* AUTPlayerState::GetUTCharacter()
 {
-	HatVariant = NewVariant;
-
 	AController* Controller = Cast<AController>(GetOwner());
 	if (Controller != NULL)
 	{
-		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-		if (Pawn != NULL)
+		AUTCharacter* UTChar = Cast<AUTCharacter>(Controller->GetPawn());
+		if (UTChar != NULL)
 		{
-			Pawn->HatVariant = NewVariant;
-			Pawn->OnRepHatVariant();
+			return UTChar;
 		}
-	}	
+	}
+
+	// iterate through all pawns and find matching playerstate ref
+	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+	{
+		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
+		if (UTChar && UTChar->PlayerState == this)
+		{
+			return UTChar;
+		}
+	}
+
+	return nullptr;
+}
+
+void AUTPlayerState::OnRepHat()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		UTChar->SetHatClass(HatClass);
+	}
+}
+
+void AUTPlayerState::OnRepHatVariant()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		UTChar->SetHatVariant(HatVariant);
+	}
+}
+
+void AUTPlayerState::OnRepEyewear()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		UTChar->SetEyewearClass(EyewearClass);
+	}
+}
+
+void AUTPlayerState::OnRepEyewearVariant()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		UTChar->SetEyewearVariant(EyewearVariant);
+	}
+}
+
+void AUTPlayerState::ServerReceiveHatVariant_Implementation(int32 NewVariant)
+{
+	HatVariant = NewVariant;
+	OnRepHatVariant();
 }
 
 bool AUTPlayerState::ServerReceiveHatVariant_Validate(int32 NewVariant)
@@ -313,17 +368,7 @@ bool AUTPlayerState::ServerReceiveHatVariant_Validate(int32 NewVariant)
 void AUTPlayerState::ServerReceiveEyewearVariant_Implementation(int32 NewVariant)
 {
 	EyewearVariant = NewVariant;
-
-	AController* Controller = Cast<AController>(GetOwner());
-	if (Controller != NULL)
-	{
-		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-		if (Pawn != NULL)
-		{
-			Pawn->EyewearVariant = NewVariant;
-			Pawn->OnRepEyewearVariant();
-		}
-	}
+	OnRepEyewearVariant();
 }
 
 bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
@@ -334,19 +379,14 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
 	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
-	
+
 	if (!HatClass->IsChildOf(AUTHatLeader::StaticClass()))
 	{
-		AController* Controller = Cast<AController>(GetOwner());
-		if (Controller != NULL)
-		{
-			AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-			if (Pawn != NULL)
-			{
-				Pawn->HatClass = HatClass;
-				Pawn->OnRepHat();
-			}
-		}
+		OnRepHat();
+	}
+	else
+	{
+		HatClass = nullptr;
 	}
 }
 
@@ -358,17 +398,7 @@ bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& NewEyewearClass)
 {
 	EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
-
-	AController* Controller = Cast<AController>(GetOwner());
-	if (Controller != NULL)
-	{
-		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-		if (Pawn != NULL)
-		{
-			Pawn->EyewearClass = EyewearClass;
-			Pawn->OnRepEyewear();
-		}
-	}
+	OnRepEyewear();
 }
 
 bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewearClass)

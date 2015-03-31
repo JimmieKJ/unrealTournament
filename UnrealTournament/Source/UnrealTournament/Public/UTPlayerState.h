@@ -205,26 +205,41 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRecieveCountryFlag(uint32 NewCountryFlag);
 
-	UPROPERTY()
+	UFUNCTION()
+	AUTCharacter* GetUTCharacter();
+
+	UPROPERTY(replicatedUsing = OnRepHat)
 	TSubclassOf<AUTHat> HatClass;
+
+	UFUNCTION()
+	virtual void OnRepHat();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveHatClass(const FString& NewHatClass);
 
-	UPROPERTY()
+	UPROPERTY(replicatedUsing = OnRepEyewear)
 	TSubclassOf<AUTEyewear> EyewearClass;
+	
+	UFUNCTION()
+	virtual void OnRepEyewear();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveEyewearClass(const FString& NewEyewearClass);
 
-	UPROPERTY()
+	UPROPERTY(replicatedUsing = OnRepHatVariant)
 	int32 HatVariant;
+
+	UFUNCTION()
+	virtual void OnRepHatVariant();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveHatVariant(int32 NewVariant);
 
-	UPROPERTY()
+	UPROPERTY(replicatedUsing = OnRepEyewearVariant)
 	int32 EyewearVariant;
+	
+	UFUNCTION()
+	virtual void OnRepEyewearVariant();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveEyewearVariant(int32 NewVariant);

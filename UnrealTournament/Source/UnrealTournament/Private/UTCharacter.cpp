@@ -2346,10 +2346,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearClass, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, HatVariant, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearVariant, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 }
@@ -3342,6 +3338,15 @@ void AUTCharacter::OnRep_PlayerState()
 	{
 		NotifyTeamChanged();
 	}
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS)
+	{
+		SetHatVariant(PS->HatVariant);
+		SetHatClass(PS->HatClass);
+		SetEyewearVariant(PS->EyewearVariant);
+		SetEyewearClass(PS->EyewearClass);
+	}
 }
 
 void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
@@ -3692,7 +3697,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	}
 }
 
-void AUTCharacter::OnRepHat()
+void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 {
 	if (HatClass != nullptr)
 	{
@@ -3731,7 +3736,7 @@ void AUTCharacter::OnRepHat()
 	}
 }
 
-void AUTCharacter::OnRepEyewear()
+void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 {
 	if (EyewearClass != nullptr)
 	{
@@ -3753,8 +3758,10 @@ void AUTCharacter::OnRepEyewear()
 	}
 }
 
-void AUTCharacter::OnRepHatVariant()
+void AUTCharacter::SetHatVariant(int32 NewHatVariant)
 {
+	HatVariant = NewHatVariant;
+
 	if (Hat != nullptr)
 	{
 		Hat->OnVariantSelected(HatVariant);
@@ -3766,8 +3773,10 @@ void AUTCharacter::OnRepHatVariant()
 	}
 }
 
-void AUTCharacter::OnRepEyewearVariant()
+void AUTCharacter::SetEyewearVariant(int32 NewEyewearVariant)
 {
+	EyewearVariant = NewEyewearVariant;
+
 	if (Eyewear != nullptr)
 	{
 		Eyewear->OnVariantSelected(EyewearVariant);
@@ -3776,12 +3785,12 @@ void AUTCharacter::OnRepEyewearVariant()
 
 bool AUTCharacter::IsWearingAnyCosmetic()
 {
-	if (HatClass != nullptr)
+	if (Hat != nullptr)
 	{
 		return true;
 	}
 
-	if (EyewearClass != nullptr)
+	if (Eyewear != nullptr)
 	{
 		return true;
 	}

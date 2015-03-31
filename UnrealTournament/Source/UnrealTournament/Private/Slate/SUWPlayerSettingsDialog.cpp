@@ -993,9 +993,8 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		TSubclassOf<AUTHat> HatClass = LoadClass<AUTHat>(NULL, *NewHatPath, NULL, LOAD_None, NULL);
 		if (HatClass != NULL)
 		{
-			PlayerPreviewMesh->HatClass = HatClass;
 			PlayerPreviewMesh->HatVariant = HatVariantList.Find(HatVariantComboBox->GetSelectedItem());
-			PlayerPreviewMesh->OnRepHat();
+			PlayerPreviewMesh->SetHatClass(HatClass);
 		}
 	}
 
@@ -1007,9 +1006,8 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		TSubclassOf<AUTEyewear> EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearPath, NULL, LOAD_None, NULL);
 		if (EyewearClass != NULL)
 		{
-			PlayerPreviewMesh->EyewearClass = EyewearClass;
 			PlayerPreviewMesh->EyewearVariant = EyewearVariantList.Find(EyewearVariantComboBox->GetSelectedItem());
-			PlayerPreviewMesh->OnRepEyewear();
+			PlayerPreviewMesh->SetEyewearClass(EyewearClass);
 		}
 	}
 
