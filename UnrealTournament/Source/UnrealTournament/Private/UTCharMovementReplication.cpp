@@ -660,7 +660,7 @@ void UUTCharacterMovement::UTCallServerMove()
 		{
 			//UE_LOG(UTNet, Warning, TEXT("Sending pending %f  flags %d"), MoveToSend->TimeStamp, MoveToSend->GetCompressedFlags());
 			ClientData->ClientUpdateTime = MoveToSend->TimeStamp;
-			if (true) // @TODO FIXMESTEVE bandwidth optimization ((FSavedMove_UTCharacter*)(MoveToSend.Get()))->NeedsRotationSent())
+			if (((FSavedMove_UTCharacter*)(MoveToSend.Get()))->NeedsRotationSent())
 			{
 				UTCharacterOwner->UTServerMoveSaved(MoveToSend->TimeStamp, MoveToSend->Acceleration, MoveToSend->GetCompressedFlags(), MoveToSend->SavedControlRotation.Yaw, MoveToSend->SavedControlRotation.Pitch);
 			}
