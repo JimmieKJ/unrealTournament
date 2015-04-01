@@ -42,7 +42,6 @@ void AUTWeaponAttachment::BeginPlay()
 			ImpactEffectSkipDistance = WeaponType.GetDefaultObject()->ImpactEffectSkipDistance;
 			MaxImpactEffectSkipTime = WeaponType.GetDefaultObject()->MaxImpactEffectSkipTime;
 		}
-		AttachToOwner();
 	}
 	else
 	{

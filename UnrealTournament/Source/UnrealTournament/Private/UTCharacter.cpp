@@ -2257,6 +2257,10 @@ void AUTCharacter::UpdateWeaponAttachment()
 			Params.Instigator = this;
 			Params.Owner = this;
 			WeaponAttachment = GetWorld()->SpawnActor<AUTWeaponAttachment>(NewAttachmentClass, Params);
+			if (WeaponAttachment != NULL)
+			{
+				WeaponAttachment->AttachToOwner();
+			}
 		}
 	}
 }
@@ -2285,7 +2289,10 @@ void AUTCharacter::UpdateHolsteredWeaponAttachment()
 			Params.Instigator = this;
 			Params.Owner = this;
 			HolsteredWeaponAttachment = GetWorld()->SpawnActor<AUTWeaponAttachment>(NewAttachmentClass, Params);
-			HolsteredWeaponAttachment->HolsterToOwner();
+			if (HolsteredWeaponAttachment != NULL)
+			{
+				HolsteredWeaponAttachment->HolsterToOwner();
+			}
 		}
 	}
 }
