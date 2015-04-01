@@ -11,9 +11,6 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 	ScreenPosition=FVector2D(0.0f, 0.85f);
 	Origin=FVector2D(0.0f,0.0f);
 
-	static ConstructorHelpers::FObjectFinder<UFont> MFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Large.fntScoreboard_Large'"));
-	MessageFont = MFont.Object;
-
 	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
 	TextureAtlas = Tex.Object;
 }
@@ -149,7 +146,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				}
 			}
 		}
-		DrawText(SpectatorMessage, 360, 50, MessageFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(SpectatorMessage, 360, 50, UTHUDOwner->LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 }
 

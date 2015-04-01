@@ -131,7 +131,6 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 	MaxShotSynchDelay = 0.1f;
 
-	GoodMoveAckTime = 0.f;
 	MaxStackedArmor = 200;
 	MaxDeathLifeSpan = 30.0f;
 	MinWaterSoundInterval = 0.8f;
@@ -1407,7 +1406,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 				else
 				{
 					// nudge body in random direction
-					FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).SafeNormal();
+					FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).GetSafeNormal();
 					FeignNudge.Z = 0.4f*FeignNudgeMag;
 					GetMesh()->AddImpulseAtLocation(FeignNudge, GetMesh()->GetComponentLocation());
 				}
@@ -2258,6 +2257,10 @@ void AUTCharacter::UpdateWeaponAttachment()
 			Params.Instigator = this;
 			Params.Owner = this;
 			WeaponAttachment = GetWorld()->SpawnActor<AUTWeaponAttachment>(NewAttachmentClass, Params);
+			if (WeaponAttachment != NULL)
+			{
+				WeaponAttachment->AttachToOwner();
+			}
 		}
 	}
 }
@@ -2286,7 +2289,10 @@ void AUTCharacter::UpdateHolsteredWeaponAttachment()
 			Params.Instigator = this;
 			Params.Owner = this;
 			HolsteredWeaponAttachment = GetWorld()->SpawnActor<AUTWeaponAttachment>(NewAttachmentClass, Params);
-			HolsteredWeaponAttachment->HolsterToOwner();
+			if (HolsteredWeaponAttachment != NULL)
+			{
+				HolsteredWeaponAttachment->HolsterToOwner();
+			}
 		}
 	}
 }
@@ -2312,7 +2318,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTCharacter, UTReplicatedMovement, COND_SimulatedOrPhysics);
-	DOREPLIFETIME_CONDITION(AUTCharacter, GoodMoveAckTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, Health, COND_None); // would be nice to bind to teammates and spectators, but that's not an option :(
 
 	//DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_OwnerOnly);
@@ -2348,10 +2353,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AUTCharacter, HatClass, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearClass, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, HatVariant, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, EyewearVariant, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 }
@@ -3344,13 +3345,14 @@ void AUTCharacter::OnRep_PlayerState()
 	{
 		NotifyTeamChanged();
 	}
-}
 
-void AUTCharacter::OnRep_GoodMoveAckTime()
-{
-	if (GetCharacterMovement())
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS)
 	{
-		GetCharacterMovement()->ClientAckGoodMove_Implementation(GoodMoveAckTime);
+		SetHatVariant(PS->HatVariant);
+		SetHatClass(PS->HatClass);
+		SetEyewearVariant(PS->EyewearVariant);
+		SetEyewearClass(PS->EyewearClass);
 	}
 }
 
@@ -3702,7 +3704,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	}
 }
 
-void AUTCharacter::OnRepHat()
+void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 {
 	if (HatClass != nullptr)
 	{
@@ -3741,7 +3743,7 @@ void AUTCharacter::OnRepHat()
 	}
 }
 
-void AUTCharacter::OnRepEyewear()
+void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 {
 	if (EyewearClass != nullptr)
 	{
@@ -3763,8 +3765,10 @@ void AUTCharacter::OnRepEyewear()
 	}
 }
 
-void AUTCharacter::OnRepHatVariant()
+void AUTCharacter::SetHatVariant(int32 NewHatVariant)
 {
+	HatVariant = NewHatVariant;
+
 	if (Hat != nullptr)
 	{
 		Hat->OnVariantSelected(HatVariant);
@@ -3776,8 +3780,10 @@ void AUTCharacter::OnRepHatVariant()
 	}
 }
 
-void AUTCharacter::OnRepEyewearVariant()
+void AUTCharacter::SetEyewearVariant(int32 NewEyewearVariant)
 {
+	EyewearVariant = NewEyewearVariant;
+
 	if (Eyewear != nullptr)
 	{
 		Eyewear->OnVariantSelected(EyewearVariant);
@@ -3786,12 +3792,12 @@ void AUTCharacter::OnRepEyewearVariant()
 
 bool AUTCharacter::IsWearingAnyCosmetic()
 {
-	if (HatClass != nullptr)
+	if (Hat != nullptr)
 	{
 		return true;
 	}
 
-	if (EyewearClass != nullptr)
+	if (Eyewear != nullptr)
 	{
 		return true;
 	}

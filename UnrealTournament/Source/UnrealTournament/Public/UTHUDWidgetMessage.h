@@ -105,12 +105,20 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	FName ManagedMessageArea;
 
+	// Index into HUD font list to use for messagefont (0=tiny, 1=small, etc.)
+	UPROPERTY(EditDefaultsOnly, Category = HUD)
+		int32 MessageFontIndex;
+
+	// Index into HUD font list to use for smallmessagefont (0=tiny, 1=small, etc.)
+	UPROPERTY(EditDefaultsOnly, Category = HUD)
+		int32 SmallMessageFontIndex;
+
 	// The large Font that messages will be displayed in. 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
 		UFont* MessageFont;
 
 	// The small Font that messages will be displayed in. 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	UFont* SmallMessageFont;
 
 	// If true, this text will be drawn with an outline
@@ -151,13 +159,6 @@ public:
 
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 	virtual void Draw_Implementation(float DeltaTime);
-
-	/** Set when HUD fonts have been cached. */
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-		bool bFontsCached;
-
-	/** Cache fonts this widget will use */
-	virtual void CacheFonts();
 
 	// This function is called each frame and is used to age out messages in the queue. 
 	UFUNCTION(BlueprintNativeEvent)

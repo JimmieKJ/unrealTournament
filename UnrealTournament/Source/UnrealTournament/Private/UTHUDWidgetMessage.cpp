@@ -6,18 +6,13 @@
 UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	FadeTime = 0.0f;
-
-	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Medium.fntScoreboard_Medium'"));
-	MessageFont = Font.Object;
-
-	static ConstructorHelpers::FObjectFinder<UFont> SmallFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Small.fntScoreboard_Small'"));
-	SmallMessageFont = SmallFont.Object;
-
 	bShadowedText = true;
 	LargeShadowDirection = FVector2D(1.5f, 3.f);
 	SmallShadowDirection = FVector2D(1.f, 2.f);
 	ShadowDirection = LargeShadowDirection;
 	ScaleInDirection = 0.f;
+	MessageFontIndex = 2;
+	SmallMessageFontIndex = 1;
 }
 
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
@@ -36,17 +31,9 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 		MessageQueue[i].MessageCount = 0;
 		MessageQueue[i].MessageIndex = 0;
 	}
-}
 
-void UUTHUDWidgetMessage::CacheFonts()
-{
-	if (UTHUDOwner && !bFontsCached)
-	{
-		FText MessageText = NSLOCTEXT("UUTHUDWidgetMessage", "FontCacheText", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';:-=+*(),.?!");
-		DrawText(MessageText, 0.f, 0.f, MessageFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, 0.1f, 0.1f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
-		DrawText(MessageText, 0.f, 0.f, SmallMessageFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, 0.1f, 0.1f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
-		bFontsCached = true;
-	}
+	MessageFont = Hud->GetFontFromSizeIndex(MessageFontIndex);
+	SmallMessageFont = Hud->GetFontFromSizeIndex(SmallMessageFontIndex);
 }
 
 void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
@@ -57,10 +44,6 @@ void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas
 
 void UUTHUDWidgetMessage::Draw_Implementation(float DeltaTime)
 {
-	if (!bFontsCached)
-	{
-		CacheFonts();
-	}
 	DrawMessages(DeltaTime);
 }
 

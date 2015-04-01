@@ -197,6 +197,18 @@ public:
 	{
 		return false;
 	}
+
+	/** Used to initially flash icon if HUD rendered */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float InitialFlashTime;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float InitialFlashScale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FLinearColor InitialFlashColor;
+
+	float FlashTimer;
 };
 
 // template to access a character's inventory

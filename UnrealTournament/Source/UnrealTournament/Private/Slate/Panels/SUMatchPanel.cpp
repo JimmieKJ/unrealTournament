@@ -175,7 +175,7 @@ const FSlateBrush* SUMatchPanel::GetELOBadgeImage() const
 					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(GS->PlayerArray[i]);
 					if (PS)
 					{
-						PlayerOwner->GetBadgeFromELO(PS->AverageRank, Badge, Level);
+						UUTLocalPlayer::GetBadgeFromELO(PS->AverageRank, Badge, Level);
 						break;
 					}
 				}
@@ -203,7 +203,7 @@ const FSlateBrush* SUMatchPanel::GetELOBadgeNumberImage() const
 					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(GS->PlayerArray[i]);
 					if (PS)
 					{
-						PlayerOwner->GetBadgeFromELO(PS->AverageRank, Badge, Level);
+						UUTLocalPlayer::GetBadgeFromELO(PS->AverageRank, Badge, Level);
 						break;
 					}
 				}

@@ -51,6 +51,10 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
+	DOREPLIFETIME(AUTPlayerState, HatClass);
+	DOREPLIFETIME(AUTPlayerState, EyewearClass);
+	DOREPLIFETIME(AUTPlayerState, HatVariant);
+	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -66,14 +70,22 @@ void AUTPlayerState::SetPlayerName(const FString& S)
 
 void AUTPlayerState::UpdatePing(float InPing)
 {
-	APlayerController* PC = Cast<APlayerController>(GetOwner());
-	if (PC && !PC->GetPawn() && (ExactPing > 0.f) && (InPing > 0.001f * ExactPing))
+}
+
+void AUTPlayerState::CalculatePing(float NewPing)
+{
+	float OldPing = ExactPing;
+	Super::UpdatePing(NewPing);
+
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	if (PC)
 	{
-		// ping not valid when not doing ServerMoves
-		CurPingBucketTimestamp = GetWorld()->GetTimeSeconds();
-		return;
+		PC->LastPingCalcTime = GetWorld()->GetTimeSeconds();
+		if (ExactPing != OldPing)
+		{
+			PC->ServerUpdatePing(ExactPing);
+		}
 	}
-	Super::UpdatePing(InPing);
 }
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()
@@ -281,20 +293,71 @@ void AUTPlayerState::Tick(float DeltaTime)
 	}
 }
 
-void AUTPlayerState::ServerReceiveHatVariant_Implementation(int32 NewVariant)
+AUTCharacter* AUTPlayerState::GetUTCharacter()
 {
-	HatVariant = NewVariant;
-
 	AController* Controller = Cast<AController>(GetOwner());
 	if (Controller != NULL)
 	{
-		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-		if (Pawn != NULL)
+		AUTCharacter* UTChar = Cast<AUTCharacter>(Controller->GetPawn());
+		if (UTChar != NULL)
 		{
-			Pawn->HatVariant = NewVariant;
-			Pawn->OnRepHatVariant();
+			return UTChar;
 		}
-	}	
+	}
+
+	// iterate through all pawns and find matching playerstate ref
+	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+	{
+		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
+		if (UTChar && UTChar->PlayerState == this)
+		{
+			return UTChar;
+		}
+	}
+
+	return nullptr;
+}
+
+void AUTPlayerState::OnRepHat()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		UTChar->SetHatClass(HatClass);
+	}
+}
+
+void AUTPlayerState::OnRepHatVariant()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		UTChar->SetHatVariant(HatVariant);
+	}
+}
+
+void AUTPlayerState::OnRepEyewear()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		UTChar->SetEyewearClass(EyewearClass);
+	}
+}
+
+void AUTPlayerState::OnRepEyewearVariant()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		UTChar->SetEyewearVariant(EyewearVariant);
+	}
+}
+
+void AUTPlayerState::ServerReceiveHatVariant_Implementation(int32 NewVariant)
+{
+	HatVariant = NewVariant;
+	OnRepHatVariant();
 }
 
 bool AUTPlayerState::ServerReceiveHatVariant_Validate(int32 NewVariant)
@@ -305,17 +368,7 @@ bool AUTPlayerState::ServerReceiveHatVariant_Validate(int32 NewVariant)
 void AUTPlayerState::ServerReceiveEyewearVariant_Implementation(int32 NewVariant)
 {
 	EyewearVariant = NewVariant;
-
-	AController* Controller = Cast<AController>(GetOwner());
-	if (Controller != NULL)
-	{
-		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-		if (Pawn != NULL)
-		{
-			Pawn->EyewearVariant = NewVariant;
-			Pawn->OnRepEyewearVariant();
-		}
-	}
+	OnRepEyewearVariant();
 }
 
 bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
@@ -326,19 +379,14 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
 	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
-	
+
 	if (!HatClass->IsChildOf(AUTHatLeader::StaticClass()))
 	{
-		AController* Controller = Cast<AController>(GetOwner());
-		if (Controller != NULL)
-		{
-			AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-			if (Pawn != NULL)
-			{
-				Pawn->HatClass = HatClass;
-				Pawn->OnRepHat();
-			}
-		}
+		OnRepHat();
+	}
+	else
+	{
+		HatClass = nullptr;
 	}
 }
 
@@ -350,17 +398,7 @@ bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& NewEyewearClass)
 {
 	EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
-
-	AController* Controller = Cast<AController>(GetOwner());
-	if (Controller != NULL)
-	{
-		AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
-		if (Pawn != NULL)
-		{
-			Pawn->EyewearClass = EyewearClass;
-			Pawn->OnRepEyewear();
-		}
-	}
+	OnRepEyewear();
 }
 
 bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewearClass)
@@ -922,3 +960,156 @@ void AUTPlayerState::OnRep_UniqueId()
 		bIsFriend = LP->IsAFriend(UniqueId);
 	}
 }
+
+#if !UE_SERVER
+
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage() const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	UUTLocalPlayer::GetBadgeFromELO(AverageRank, Badge, Level);
+	FString BadgeStr = FString::Printf(TEXT("UT.Badge.%i"), Badge);
+	return SUWindowsStyle::Get().GetBrush(*BadgeStr);
+}
+
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage() const
+{
+	int32 Badge = 0;
+	int32 Level = 0;
+
+	UUTLocalPlayer::GetBadgeFromELO(AverageRank, Badge, Level);
+	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
+	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
+}
+
+void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
+{
+
+	Panel->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SOverlay)
+		+SOverlay::Slot()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(150)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("Generic", "PlayerNamePrompt", "Name :"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.ColorAndOpacity(FLinearColor::Gray)
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.Padding(5.0,0.0,0.0,0.0)
+			.AutoWidth()
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(PlayerName))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+			]
+		]
+		+SOverlay::Slot()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox)
+				.WidthOverride(32)
+				.HeightOverride(32)
+				[
+					SNew(SOverlay)
+					+ SOverlay::Slot()
+					[
+						SNew(SImage)
+						.Image(GetELOBadgeImage())
+					]
+					+ SOverlay::Slot()
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Top)
+					[
+						SNew(SImage)
+						.Image(GetELOBadgeNumberImage())
+					]
+				]
+			]
+		]
+	];
+
+	Panel->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "ScorePrompt", "Score :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::AsNumber(Score))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		]
+	];
+
+	Panel->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "RankPrompt", "Rank :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::AsNumber(AverageRank))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		]
+	];
+
+
+}
+#endif
+

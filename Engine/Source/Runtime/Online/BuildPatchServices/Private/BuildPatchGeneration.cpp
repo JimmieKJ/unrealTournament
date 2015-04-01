@@ -1919,6 +1919,13 @@ void FBuildDataGenerator::StripIgnoredFiles( TArray< FString >& AllFiles, const 
 	}
 	for (FString& Filename : IgnoreFiles)
 	{
+		int32 TabLocation = Filename.Find(TEXT("\t"));
+		if (TabLocation != INDEX_NONE)
+		{
+			// Strip tab deliminated timestamp if it exists
+			Filename = Filename.Left(TabLocation);
+		}
+
 		Filename = DepotDirectory / Filename;
 		FPaths::NormalizeFilename(Filename);
 	}

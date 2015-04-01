@@ -79,10 +79,10 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 				Canvas->K2_DrawTexture(RespawnChoiceBCaptureComponent->TextureTarget, PositionB, Size, FVector2D(0, 0), FVector2D::UnitVector, FLinearColor::White, BLEND_Opaque);
 						
 				FText ChoiceA = NSLOCTEXT("UTHUDWidth_RespawnChoice", "FIRE", "FIRE to select this spawn");
-				DrawText(ChoiceA, PositionA.X + Size.X / 2.0f, PositionA.Y + Size.Y, UTHUDOwner->GetFontFromSizeIndex(2), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+				DrawText(ChoiceA, PositionA.X + Size.X / 2.0f, PositionA.Y + Size.Y, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 
 				FText ChoiceB = NSLOCTEXT("UTHUDWidth_RespawnChoice", "ALT-FIRE", "ALT-FIRE to select this spawn");
-				DrawText(ChoiceB, PositionB.X + Size.X / 2.0f, PositionB.Y + Size.Y, UTHUDOwner->GetFontFromSizeIndex(2), 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
+				DrawText(ChoiceB, PositionB.X + Size.X / 2.0f, PositionB.Y + Size.Y, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Top);
 			}
 		}
 	}

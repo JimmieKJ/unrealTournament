@@ -20,24 +20,16 @@ void UUTHUDWidget_Paperdoll::InitializeWidget(AUTHUD* Hud)
 	Super::InitializeWidget(Hud);
 	HealthText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerHealth_Implementation);
 	ArmorText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_Paperdoll::GetPlayerArmor_Implementation);
-
 	LastHealth = 100;
 	LastArmor = 0;
-
 	ArmorFlashTimer = 0.0f;
 	HealthFlashTimer = 0.0f;
-
 }
 
 FText UUTHUDWidget_Paperdoll::GetPlayerHealth_Implementation()
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	if (UTC != NULL && !UTC->IsDead())
-	{
-		return FText::AsNumber(UTC->Health);
-	}
-
-	return FText::AsNumber(0);
+	return (UTC != NULL && !UTC->IsDead()) ? FText::AsNumber(UTC->Health) : FText::AsNumber(0);
 }
 
 FText UUTHUDWidget_Paperdoll::GetPlayerArmor_Implementation()
@@ -100,15 +92,21 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			ArmorText.RenderColor = (PlayerArmor > LastArmor) ? ArmorPositiveFlashColor : ArmorNegativeFlashColor;
 			ArmorFlashTimer = ArmorFlashTime;		
 			LastArmor = PlayerArmor;
+			ArmorText.TextScale = 2.f;
 		}
-		else if (ArmorFlashTimer > 0.0f)
+		else if (ArmorFlashTimer > 0.f)
 		{
 			ArmorFlashTimer = ArmorFlashTimer - DeltaTime;
-			ArmorText.RenderColor = FMath::CInterpTo(ArmorText.RenderColor, DefObj->ArmorText.RenderColor, DeltaTime, (1.0 / (ArmorFlashTime > 0 ? ArmorFlashTime : 1.0)));
+			if (ArmorFlashTimer < 0.5f*ArmorFlashTime)
+			{
+				ArmorText.RenderColor = FMath::CInterpTo(ArmorText.RenderColor, DefObj->ArmorText.RenderColor, DeltaTime, (1.f / (ArmorFlashTime > 0.f ? 2.f*ArmorFlashTime : 1.f)));
+			}
+			ArmorText.TextScale = 1.f + ArmorFlashTimer / ArmorFlashTime;
 		}
 		else
 		{
-			ArmorText.RenderColor = DefObj->ArmorText.RenderColor;
+			ArmorText.RenderColor = DefObj->ArmorText.RenderColor; 
+			ArmorText.TextScale = 1.f;
 		}
 
 		if (UTC->Health != LastHealth)
@@ -116,15 +114,22 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			HealthText.RenderColor = (UTC->Health > LastHealth) ? HealthPositiveFlashColor : HealthNegativeFlashColor;
 			HealthFlashTimer = HealthFlashTime;		
 			LastHealth = UTC->Health;
+			HealthText.TextScale = 2.f;
+
 		}
-		else if (HealthFlashTimer > 0.0f)
+		else if (HealthFlashTimer > 0.f)
 		{
 			HealthFlashTimer = HealthFlashTimer - DeltaTime;
-			HealthText.RenderColor = FMath::CInterpTo(HealthText.RenderColor, DefObj->HealthText.RenderColor, DeltaTime, (1.0 / (HealthFlashTime > 0 ? HealthFlashTime : 1.0)));
+			if (HealthFlashTimer < 0.5f*HealthFlashTime)
+			{
+				HealthText.RenderColor = FMath::CInterpTo(HealthText.RenderColor, DefObj->HealthText.RenderColor, DeltaTime, (1.f / (HealthFlashTime > 0.f ? 2.f*HealthFlashTime : 1.f)));
+			}
+			HealthText.TextScale = 1.f + HealthFlashTimer / HealthFlashTime;
 		}
 		else
 		{
 			HealthText.RenderColor = DefObj->HealthText.RenderColor;
+			HealthText.TextScale = 1.f;
 		}
 	}
 

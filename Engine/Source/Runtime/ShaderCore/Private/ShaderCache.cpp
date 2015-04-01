@@ -6,6 +6,7 @@
 
 #include "ShaderCore.h"
 #include "ShaderCache.h"
+#include "Shader.h"
 #include "RHI.h"
 #include "RenderingThread.h"
 
@@ -15,7 +16,7 @@ FCustomVersionRegistration GRegisterShaderCacheVersion(FShaderCacheCustomVersion
 static TCHAR const* GShaderCacheFileName = TEXT("ShaderCache.ushadercache");
 
 // Only the cooked Mac build defaults to using the shader cache for now, Editor is too likely to invalidate shader keys leading to ever growing cache
-int32 FShaderCache::bUseShaderCaching = (PLATFORM_MAC && !WITH_EDITOR) ? 1 : 0;
+int32 FShaderCache::bUseShaderCaching = ((PLATFORM_MAC || PLATFORM_LINUX) && !WITH_EDITOR) ? 1 : 0;
 FAutoConsoleVariableRef FShaderCache::CVarUseShaderCaching(
 	TEXT("r.UseShaderCaching"),
 	bUseShaderCaching,
@@ -25,7 +26,7 @@ FAutoConsoleVariableRef FShaderCache::CVarUseShaderCaching(
 
 // Predrawing takes an existing shader cache with draw log & renders each shader + draw-state combination before use to avoid in-driver recompilation
 // This requires plenty of setup & is done in batches at frame-end.
-int32 FShaderCache::bUseShaderPredraw = (PLATFORM_MAC && !WITH_EDITOR) ? 1 : 0;
+int32 FShaderCache::bUseShaderPredraw = ((PLATFORM_MAC || PLATFORM_LINUX) && !WITH_EDITOR) ? 1 : 0;
 FAutoConsoleVariableRef FShaderCache::CVarUseShaderPredraw(
 	TEXT("r.UseShaderPredraw"),
 	bUseShaderPredraw,
@@ -33,8 +34,8 @@ FAutoConsoleVariableRef FShaderCache::CVarUseShaderPredraw(
 	ECVF_ReadOnly|ECVF_RenderThreadSafe
 	);
 
-// The actual draw loggging is even more expensive as it has to cache all the RHI draw state & is disabled by default if you aren't a developer.
-int32 FShaderCache::bUseShaderDrawLog = (PLATFORM_MAC && !WITH_EDITOR && !UE_BUILD_SHIPPING) ? 1 : 0;
+// The actual draw loggging is even more expensive as it has to cache all the RHI draw state & is disabled by default.
+int32 FShaderCache::bUseShaderDrawLog = 0;
 FAutoConsoleVariableRef FShaderCache::CVarUseShaderDrawLog(
 	TEXT("r.UseShaderDrawLog"),
 	bUseShaderDrawLog,
@@ -308,14 +309,37 @@ FComputeShaderRHIRef FShaderCache::GetComputeShader(EShaderPlatform Platform, TA
 
 void FShaderCache::InternalLogShader(EShaderPlatform Platform, EShaderFrequency Frequency, FSHAHash Hash, TArray<uint8> const& Code)
 {
-	FShaderCacheKey Key;
-	Key.Hash = Hash;
-	Key.Platform = Platform;
-	Key.Frequency = Frequency;
-	Key.bActive = true;
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(LogShader, FShaderCacheKey,Key,Key, TArray<uint8>,Code,Code, {
-		FShaderCache::GetShaderCache()->SubmitShader(Key, Code);
-	});
+	bool bUsable = FShaderResource::ArePlatformsCompatible(GMaxRHIShaderPlatform, Platform);
+	switch (Frequency)
+	{
+		case SF_Geometry:
+			bUsable &= RHISupportsGeometryShaders(GMaxRHIShaderPlatform);
+			break;
+			
+		case SF_Hull:
+		case SF_Domain:
+			bUsable &= RHISupportsTessellation(GMaxRHIShaderPlatform);
+			break;
+			
+		case SF_Compute:
+			bUsable &= RHISupportsComputeShaders(GMaxRHIShaderPlatform);
+			break;
+			
+		default:
+			break;
+	}
+	
+	if ( bUsable )
+	{
+		FShaderCacheKey Key;
+		Key.Hash = Hash;
+		Key.Platform = Platform;
+		Key.Frequency = Frequency;
+		Key.bActive = true;
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(LogShader, FShaderCacheKey,Key,Key, TArray<uint8>,Code,Code, {
+			FShaderCache::GetShaderCache()->SubmitShader(Key, Code);
+		});
+	}
 }
 
 void FShaderCache::InternalLogVertexDeclaration(const FVertexDeclarationElementList& VertexElements, FVertexDeclarationRHIParamRef VertexDeclaration)
@@ -918,10 +942,11 @@ void FShaderCache::SubmitShader(FShaderCacheKey const& Key, TArray<uint8> const&
 				if (IsValidRef(Shader))
 				{
 					// @todo WARNING: The RHI is responsible for hashing Compute shaders, unlike other stages because of how OpenGLDrv implements compute.
-					// Shader->SetHash(Key.Hash);
-					CachedComputeShaders.Add(Key, Shader);
-					PrebindShader(Key);
-					PlatformCache.Shaders.Add(Key);
+					FShaderCacheKey ComputeKey = Key;
+					ComputeKey.Hash = Shader->GetHash();
+					CachedComputeShaders.Add(ComputeKey, Shader);
+					PrebindShader(ComputeKey);
+					PlatformCache.Shaders.Add(ComputeKey);
 				}
 			}
 			break;

@@ -21,10 +21,6 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText BothFlagsText;
 
-	// The font to display in
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
-	UFont* MessageFont;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Message")
 	float AnimationAlpha;
 

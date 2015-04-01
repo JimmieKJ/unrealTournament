@@ -395,7 +395,7 @@ void FShaderResource::FinishCleanup()
 	delete this;
 }
 
-bool ArePlatformsCompatible(EShaderPlatform CurrentPlatform, EShaderPlatform TargetPlatform)
+bool FShaderResource::ArePlatformsCompatible(EShaderPlatform CurrentPlatform, EShaderPlatform TargetPlatform)
 {
 	bool bFeatureLevelCompatible = CurrentPlatform == TargetPlatform;
 	

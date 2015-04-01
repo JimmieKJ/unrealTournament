@@ -10,9 +10,6 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	EnemyHasFlagText = NSLOCTEXT("CTFScore","EnemyHasFlagText","The enemy has your flag, recover it!");
 	BothFlagsText = NSLOCTEXT("CTFScore","BothFlagsText","You have the enemy flag - hold it until your flag is returned!");
 
-	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/Fonts/fntAmbex36.fntAmbex36'"));
-	MessageFont = Font.Object;
-
 	ScreenPosition = FVector2D(0.5f, 0.0f);
 	Size = FVector2D(0.f, 0.f);
 	Origin = FVector2D(0.5f, 0.5f);

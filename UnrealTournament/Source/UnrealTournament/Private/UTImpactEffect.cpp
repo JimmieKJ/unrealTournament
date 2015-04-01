@@ -247,5 +247,3 @@ void AUTImpactEffect::SetNoLocalPlayerLOD(UWorld* World, USceneComponent* NewCom
 		}
 	}
 }
-
-//GetCachedScalabilityCVars().DetailMode

@@ -4,32 +4,39 @@
 #include "UTHUDWidget.h"
 #include "UTScoreboard.generated.h"
 
+USTRUCT()
+struct FSelectionObject
+{
+	GENERATED_USTRUCT_BODY()
+
+	// Holds a reference to PS that is under this score element
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoreboard")
+	TWeakObjectPtr<AUTPlayerState> ScoreOwner;
+
+	// Holds the X1/Y1/X2/Y2 bounds of this score element.  
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoreboard")
+	FVector4 ScoreBounds;
+
+	FSelectionObject()
+	{
+		ScoreOwner.Reset();
+		ScoreBounds = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
+	}
+
+	FSelectionObject(TWeakObjectPtr<AUTPlayerState> inScoreOwner, const FVector4& inScoreBounds)
+	{
+		ScoreOwner = inScoreOwner;
+		ScoreBounds = inScoreBounds;
+	}
+
+};
+
 UCLASS()
 class UUTScoreboard : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
 public:
-	// This font is used for the game rules's values
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* LargeFont;
-
-	// This font is used for Game rules descriptions and player names
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* MediumFont;
-
-	// This font is used for Player Values, Server Name and Server Rules
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* SmallFont;
-
-	// This font is used for player headings
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* TinyFont;
-
-	// The font for the clock
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-	UFont* ClockFont;
-
 	// The main drawing stub
 	virtual void Draw_Implementation(float DeltaTime);
 
@@ -48,8 +55,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnHeaderY;
 
+	// The offset of text data within the cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnY;
+
+	// The total Height of a given cell
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+	float CellHeight;
 
 	// How much space in between each column
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
@@ -113,5 +125,45 @@ protected:
 
 
 	virtual void DrawServerPanel(float RenderDelta, float& YOffset);
+
+protected:
+
+	// Will be true when the scoreboard is interactive.  This will cause the
+	// scoreboard to track the SelectionStack and display selected items.
+	bool bIsInteractive;
+
+	// Holds a list of selectable objects on the scoreboard.  NOTE: this is regenerated every frame
+	TArray<FSelectionObject> SelectionStack;
+
+	int32 SelectionHitTest(FVector2D Position);
+
+	FVector2D CursorPosition;
+
+	TWeakObjectPtr<AUTPlayerState> SelectedPlayer;
+
+public:
+
+	void BecomeInteractive();
+	void BecomeNonInteractive();
+
+	// Each time a mouse is moved, then 
+	virtual void TrackMouseMovement(FVector2D NewMousePosition);
+
+	// Attempts to select an item in the stack.  Returns true and flags the PS if it succeeds or false and clears all selections if fails.
+	virtual bool AttemptSelection(FVector2D SelectionPosition);
+
+	// Clears any selected PS
+	virtual void ClearSelection();
+
+	// Finds next selected PRI given an offset
+	virtual void SelectNext(int32 Offset, bool bDoNoWrap=false);
+	virtual void DefaultSelection(AUTGameState* GS, uint8 TeamIndex = 255);
+
+	virtual void SelectionUp();
+	virtual void SelectionDown();
+	virtual void SelectionLeft();
+	virtual void SelectionRight();
+	virtual void SelectionClick();
+
 };
 

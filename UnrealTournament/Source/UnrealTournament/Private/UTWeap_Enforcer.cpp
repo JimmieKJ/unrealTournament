@@ -265,7 +265,10 @@ void AUTWeap_Enforcer::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMod
 				if (ImpactEffect.IsValidIndex(CurrentFireMode) && ImpactEffect[CurrentFireMode] != NULL)
 				{
 					FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
-					ImpactEffect[CurrentFireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+					if (!CancelImpactEffect(ImpactHit))
+					{
+						ImpactEffect[CurrentFireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
+					}
 				}
 				LastImpactEffectLocation = TargetLoc;
 				LastImpactEffectTime = GetWorld()->TimeSeconds;

@@ -366,7 +366,7 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildELOBadgeForPlayer(TWeakObject
 
 	if (PlayerOwner.IsValid() && MatchInfo.IsValid())
 	{
-		PlayerOwner->GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
+		UUTLocalPlayer::GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
 	}
 
 	FString BadgeStr = FString::Printf(TEXT("UT.Badge.%i"), Badge);

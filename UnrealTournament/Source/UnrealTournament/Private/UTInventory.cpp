@@ -23,6 +23,9 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	DroppedPickupClass = AUTDroppedPickup::StaticClass();
 	BasePickupDesireability = 0.5f;
 	DisplayName = NSLOCTEXT("PickupMessage", "InventoryPickedUp", "Item");
+	InitialFlashTime = 0.3f;
+	InitialFlashScale = 5.f;
+	InitialFlashColor = FLinearColor::White;
 }
 
 void AUTInventory::PostInitProperties()
@@ -154,6 +157,7 @@ void AUTInventory::ClientGivenTo_Implementation(APawn* NewInstigator, bool bAuto
 	{
 		Instigator = NewInstigator;
 	}
+	FlashTimer = InitialFlashTime;
 
 	if (Instigator == NULL || !Cast<AUTCharacter>(Instigator)->IsInInventory(this))
 	{

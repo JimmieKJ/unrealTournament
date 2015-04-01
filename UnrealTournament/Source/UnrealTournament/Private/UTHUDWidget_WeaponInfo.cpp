@@ -21,6 +21,7 @@ void UUTHUDWidget_WeaponInfo::InitializeWidget(AUTHUD* Hud)
 
 	LastWeapon = NULL;
 	LastAmmoAmount = 0;
+	FlashTimer = 0.f;
 	AmmoText.GetTextDelegate.BindUObject(this, &UUTHUDWidget_WeaponInfo::GetAmmoAmount_Implementation);
 }
 
@@ -37,7 +38,6 @@ void UUTHUDWidget_WeaponInfo::Draw_Implementation(float DeltaTime)
 	if (UTC)	
 	{
 		UUTHUDWidget_WeaponInfo* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_WeaponInfo>();
-		bool bCalcFlash = true;
 		AUTWeapon* CurrentWeapon = UTC->GetWeapon();
 		if (CurrentWeapon)
 		{
@@ -46,7 +46,6 @@ void UUTHUDWidget_WeaponInfo::Draw_Implementation(float DeltaTime)
 				FlashTimer = AmmoFlashTime;
 				AmmoText.RenderColor = WeaponChangeFlashColor;
 				LastAmmoAmount = CurrentWeapon->Ammo;
-				bCalcFlash = false;
 			}
 		
 			LastWeapon = CurrentWeapon;
@@ -58,22 +57,24 @@ void UUTHUDWidget_WeaponInfo::Draw_Implementation(float DeltaTime)
 			{
 				FlashTimer = AmmoFlashTime;
 				AmmoText.RenderColor = AmmoFlashColor;
-				bCalcFlash = false;
+				AmmoText.TextScale = 2.f;
 			}
 			LastAmmoAmount = LastWeapon->Ammo;
 		}
 
-		if (FlashTimer > 0)
+		if (FlashTimer > 0.f)
 		{
-			if (bCalcFlash)
+			FlashTimer = FlashTimer - DeltaTime;
+			if (FlashTimer < 0.5f* AmmoFlashTime)
 			{
-				FlashTimer = FlashTimer - DeltaTime;
-				AmmoText.RenderColor = FMath::CInterpTo(AmmoText.RenderColor, DefObj->AmmoText.RenderColor, DeltaTime, (1.0 / (AmmoFlashTime > 0 ? AmmoFlashTime : 1.0)));
+				AmmoText.RenderColor = FMath::CInterpTo(AmmoText.RenderColor, DefObj->AmmoText.RenderColor, DeltaTime, (1.f / (AmmoFlashTime > 0.f ? 2.f*AmmoFlashTime : 1.f)));
 			}
+			AmmoText.TextScale = 1.f + FlashTimer / AmmoFlashTime;
 		}
 		else
 		{
 			AmmoText.RenderColor = DefObj->AmmoText.RenderColor;
+			AmmoText.TextScale = 1.f;
 		}
 	}
 

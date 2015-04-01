@@ -78,6 +78,10 @@ public:
 	UPROPERTY(config)
 	uint32 bShowProjectMenus : 1;
 
+	/** When enabled, the Launch menu items will be shown. */
+	UPROPERTY(config)
+	uint32 bShowLaunchMenus : 1;
+
 	/** The display mode for timestamps in the output log */
 	UPROPERTY(EditAnywhere, config, Category=UserInterface)
 	TEnumAsByte<ELogTimes::Type> LogTimestampMode;

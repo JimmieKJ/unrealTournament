@@ -54,7 +54,11 @@ public:
 		return SelectedCharacter;
 	}
 
+	/** Don't do engine style ping updating. */
 	virtual void UpdatePing(float InPing) override;
+
+	/** Called on client using the roundtrip time for servermove/ack. */
+	virtual void CalculatePing(float NewPing);
 
 	/** player's team if we're playing a team game */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
@@ -99,15 +103,15 @@ public:
 
 	/** How many times has the player captured the flag */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
-	uint32 FlagCaptures;
+	int32 FlagCaptures;
 
 	/** How many times has the player returned the flag */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
-	uint32 FlagReturns;
+	int32 FlagReturns;
 
 	/** How many times has the player captured the flag */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
-	uint32 Assists;
+	int32 Assists;
 
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
@@ -201,26 +205,41 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRecieveCountryFlag(uint32 NewCountryFlag);
 
-	UPROPERTY()
+	UFUNCTION()
+	AUTCharacter* GetUTCharacter();
+
+	UPROPERTY(replicatedUsing = OnRepHat)
 	TSubclassOf<AUTHat> HatClass;
+
+	UFUNCTION()
+	virtual void OnRepHat();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveHatClass(const FString& NewHatClass);
 
-	UPROPERTY()
+	UPROPERTY(replicatedUsing = OnRepEyewear)
 	TSubclassOf<AUTEyewear> EyewearClass;
+	
+	UFUNCTION()
+	virtual void OnRepEyewear();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveEyewearClass(const FString& NewEyewearClass);
 
-	UPROPERTY()
+	UPROPERTY(replicatedUsing = OnRepHatVariant)
 	int32 HatVariant;
+
+	UFUNCTION()
+	virtual void OnRepHatVariant();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveHatVariant(int32 NewVariant);
 
-	UPROPERTY()
+	UPROPERTY(replicatedUsing = OnRepEyewearVariant)
 	int32 EyewearVariant;
+	
+	UFUNCTION()
+	virtual void OnRepEyewearVariant();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveEyewearVariant(int32 NewVariant);
@@ -301,6 +320,14 @@ public:
 
 	// Calculated client-side by the local player when 
 	bool bIsFriend;
+
+#if !UE_SERVER
+public:
+	const FSlateBrush* GetELOBadgeImage() const;
+	const FSlateBrush* GetELOBadgeNumberImage() const;
+	void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel);
+#endif
+
 
 };
 

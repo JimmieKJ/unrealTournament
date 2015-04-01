@@ -65,7 +65,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bSpectateBehindView = true;
 	StylizedPPIndex = INDEX_NONE;
 
-	PredictionFudgeFactor = 30.f;
+	PredictionFudgeFactor = 15.f;
 	MaxPredictionPing = 0.f; 
 	DesiredPredictionPing = 0.f;
 
@@ -90,6 +90,7 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerController, MaxPredictionPing, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, PredictionFudgeFactor, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
 }
 
@@ -1524,19 +1525,16 @@ void AUTPlayerController::Possess(APawn* PawnToPossess)
 	{
 		if (UTPlayerState->HatClass)
 		{
-			UTChar->HatClass = UTPlayerState->HatClass;
 			UTChar->HatVariant = UTPlayerState->HatVariant;
-			UTChar->OnRepHat();
+			UTChar->SetHatClass(UTPlayerState->HatClass);
 		}
 
 		if (UTPlayerState->EyewearClass)
 		{
-			UTChar->EyewearClass = UTPlayerState->EyewearClass;
 			UTChar->EyewearVariant = UTPlayerState->EyewearVariant;
-			UTChar->OnRepEyewear();
+			UTChar->SetEyewearClass(UTPlayerState->EyewearClass);
 		}
 	}
-
 }
 
 void AUTPlayerController::PawnLeavingGame()
@@ -1552,6 +1550,39 @@ void AUTPlayerController::PawnLeavingGame()
 	}
 }
 
+void AUTPlayerController::ServerBouncePing_Implementation(float TimeStamp)
+{
+	ClientReturnPing(TimeStamp);
+}
+
+bool AUTPlayerController::ServerBouncePing_Validate(float TimeStamp)
+{
+	return true;
+}
+
+void AUTPlayerController::ClientReturnPing_Implementation(float TimeStamp)
+{
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	if (UTPS)
+	{
+		UTPS->CalculatePing(GetWorld()->GetTimeSeconds()-TimeStamp);
+	}
+}
+
+void AUTPlayerController::ServerUpdatePing_Implementation(float ExactPing)
+{
+	if (PlayerState)
+	{
+		PlayerState->ExactPing = ExactPing;
+		PlayerState->Ping = FMath::Min(255, (int32)(ExactPing * 0.25f));
+	}
+}
+
+bool AUTPlayerController::ServerUpdatePing_Validate(float ExactPing)
+{
+	return true;
+}
+
 void AUTPlayerController::PlayerTick( float DeltaTime )
 {
 	Super::PlayerTick(DeltaTime);
@@ -1559,10 +1590,18 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	{
 		UpdateRotation(DeltaTime);
 	}
+
 	// if we have no UTCharacterMovement, we need to apply firing here since it won't happen from the component
 	if (GetPawn() == NULL || Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent()) == NULL)
 	{
 		ApplyDeferredFireInputs();
+	}
+
+	// Force ping update if servermoves aren't triggering it.
+	if ((GetWorld()->GetTimeSeconds() - LastPingCalcTime > 0.5f) && (GetNetMode() == NM_Client))
+	{
+		LastPingCalcTime = GetWorld()->GetTimeSeconds();
+		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
 
 	// Follow the last spectated player again when they respawn
@@ -2165,6 +2204,13 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
+	if (MyUTHUD)
+	{
+		UUTScoreboard* Scoreboard = MyUTHUD->GetScoreboard();
+		if (Scoreboard) Scoreboard->BecomeInteractive();
+	}
+
+
 	TArray<FString> Keys;
 	ResolveKeybind(TestCommand, Keys);
 	if (Keys.Num() > 0)
@@ -2179,54 +2225,6 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 	else
 	{
 		UE_LOG(UT,Log,TEXT("Command %s = [NONE]"), *TestCommand);		
-	}
-}
-
-void AUTPlayerController::ClientRequireContentItem_Implementation(const FString& PakFile, const FString& MD5)
-{
-	bool bContentMatched = false;
-
-	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (UTEngine)
-	{
-		if (UTEngine->LocalContentChecksums.Contains(PakFile) && UTEngine->LocalContentChecksums[PakFile] == MD5)
-		{
-			UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s is my content"), *PakFile);
-			bContentMatched = true;
-		}
-
-		if (UTEngine->MountedDownloadedContentChecksums.Contains(PakFile))
-		{
-			if (UTEngine->MountedDownloadedContentChecksums[PakFile] == MD5)
-			{
-				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded"), *PakFile);
-				bContentMatched = true;
-			}
-			else
-			{
-				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded, but an old version"), *PakFile);
-			}
-		}
-
-		if (UTEngine->DownloadedContentChecksums.Contains(PakFile))
-		{
-			UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded, but it is not mounted yet"), *PakFile);
-		}
-
-		if (!bContentMatched)
-		{
-			UTEngine->FilesToDownload.Add(PakFile, MD5);
-		}
-	}
-}
-
-void AUTPlayerController::ClientRequireContentItemListBegin_Implementation(const FString& CloudId)
-{
-	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (UTEngine)
-	{
-		UTEngine->ContentDownloadCloudId = CloudId;
-		UTEngine->FilesToDownload.Empty();
 	}
 }
 

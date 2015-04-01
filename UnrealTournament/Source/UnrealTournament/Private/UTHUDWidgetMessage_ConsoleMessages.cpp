@@ -12,13 +12,8 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.0f, 0.0f);				
 	NumVisibleLines=4;
-
-	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Tiny.fntScoreboard_Tiny'"));
-	MessageFont = Font.Object;
-
-	static ConstructorHelpers::FObjectFinder<UFont> SmallFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Tiny.fntScoreboard_Tiny'"));
-	SmallMessageFont = SmallFont.Object;
-
+	MessageFontIndex = 0;
+	SmallMessageFontIndex = 0;
 	LargeShadowDirection = FVector2D(1.f, 1.f);
 	SmallShadowDirection = FVector2D(1.f, 1.f);
 }

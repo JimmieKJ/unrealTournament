@@ -106,7 +106,7 @@ void AUTBaseGameMode::PostLogin(APlayerController* NewPlayer)
 	FString CloudID = GetCloudID();
 
 	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-	AUTPlayerController* PC = Cast<AUTPlayerController>(NewPlayer);
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (NewPlayer != LocalPC && PC && UTEngine)
 	{
@@ -134,7 +134,7 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
 	{
 		if (RedirectReferences[i].MapName == MapName)
 		{
-			return RedirectReferences[i].MapURL;
+			return RedirectReferences[i].MapURL + TEXT(" ") + RedirectReferences[i].MapChecksum;
 		}
 	}
 

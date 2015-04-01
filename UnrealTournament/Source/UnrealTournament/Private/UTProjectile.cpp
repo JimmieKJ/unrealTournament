@@ -261,7 +261,7 @@ void AUTProjectile::BeginPlay()
 			else if (MyPlayer != NULL && MyPlayer->bIsDebuggingProjectiles && MyPlayer->GetPredictionTime() > 0.0f)
 			{
 				// debug logging of failed match
-				UE_LOG(UT, Warning, TEXT("%s FAILED to find fake projectile match"), *GetName());
+				UE_LOG(UT, Warning, TEXT("%s FAILED to find fake projectile match with velocity %f %f %f"), *GetName(), GetVelocity().X, GetVelocity().Y, GetVelocity().Z);
 				for (int32 i = 0; i < MyPlayer->FakeProjectiles.Num(); i++)
 				{
 					AUTProjectile* Fake = MyPlayer->FakeProjectiles[i];
@@ -296,7 +296,6 @@ void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
 	}
 
 	// @TODO FIXMESTEVE - teleport to bestmatch location and interpolate?
-	// @TODO FIXMESTEVE - rep to server to reduce error by changing Server ping overhead value
 	MyFakeProjectile = InFakeProjectile;
 	MyFakeProjectile->MasterProjectile = this;
 
@@ -310,19 +309,27 @@ void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
 	MyFakeProjectile->ReplicatedMovement.Location = GetActorLocation();
 	MyFakeProjectile->ReplicatedMovement.Rotation = GetActorRotation();
 	MyFakeProjectile->PostNetReceiveLocationAndRotation();
-
-	// @TODO FIXMESTEVE Can I move components instead of having two actors?
-	// @TODO FIXMESTEVE if not, should interp fake projectile to my location instead of teleporting?
-	SetActorHiddenInGame(true);
-	TArray<USceneComponent*> Components;
-	GetComponents<USceneComponent>(Components);
-	for (int32 i = 0; i < Components.Num(); i++)
-	{
-		Components[i]->SetVisibility(false);
-	}
 	MyFakeProjectile->SetLifeSpan(GetLifeSpan());
-	//MyFakeProjectile->Destroy();
-	// @TODO FIXMESTEVE If bNetTemporary, destroy me right away (after fully replicated - need to copy over those properties), let fake become real
+
+	if (bNetTemporary)
+	{
+		// @TODO FIXMESTEVE - will have issues if there are replicated properties that haven't been received yet
+		MyFakeProjectile = NULL;
+		Destroy();
+		//UE_LOG(UT, Warning, TEXT("%s DESTROY pending kill %d"), *GetName(), IsPendingKillPending());
+	}
+	else
+	{
+		// @TODO FIXMESTEVE Can I move components instead of having two actors?
+		// @TODO FIXMESTEVE if not, should interp fake projectile to my location instead of teleporting?
+		SetActorHiddenInGame(true);
+		TArray<USceneComponent*> Components;
+		GetComponents<USceneComponent>(Components);
+		for (int32 i = 0; i < Components.Num(); i++)
+		{
+			Components[i]->SetVisibility(false);
+		}
+	}
 }
 
 void AUTProjectile::SendInitialReplication()

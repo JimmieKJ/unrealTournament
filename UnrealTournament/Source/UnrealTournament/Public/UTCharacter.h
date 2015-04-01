@@ -226,10 +226,6 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(ReplicatedUsing = OnRep_UTReplicatedMovement)
 	struct FRepUTMovement UTReplicatedMovement;
 
-	/** Replicated property used to replicate last acknowledged good move timestamp from server, replaces ClientAckGoodMove() */
-	UPROPERTY(ReplicatedUsing = OnRep_GoodMoveAckTime)
-	float GoodMoveAckTime;
-
 	/** @TODO FIXMESTEVE Temporary different name until engine team makes UpdateSimulatedPosition() virtual */
 	virtual void UTUpdateSimulatedPosition(const FVector & NewLocation, const FRotator & NewRotation, const FVector& NewVelocity);
 
@@ -242,10 +238,6 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** UTReplicatedMovement struct replication event */
 	UFUNCTION()
 	virtual void OnRep_UTReplicatedMovement();
-
-	/** GoodMoveAckTimereplication event */
-	UFUNCTION()
-	virtual void OnRep_GoodMoveAckTime();
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 
@@ -283,10 +275,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Cached UTCharacterMovement casted CharacterMovement */
 	UPROPERTY(Category = Character, VisibleAnywhere, BlueprintReadOnly)
 	class UUTCharacterMovement* UTCharacterMovement;
-
-	UPROPERTY(replicatedUsing=OnRepHat)
-	TSubclassOf<AUTHat> HatClass;
-	
+		
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	AUTHat* Hat;
 
@@ -294,28 +283,25 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	AUTHatLeader* LeaderHat;
 
 	UFUNCTION()
-	virtual void OnRepHat();
-
-	UPROPERTY(replicatedUsing = OnRepEyewear)
-	TSubclassOf<AUTEyewear> EyewearClass;
-
+	virtual void SetHatClass(TSubclassOf<AUTHat> HatClass);
+		
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	AUTEyewear* Eyewear;
 
 	UFUNCTION()
-	virtual void OnRepEyewear();
+	virtual void SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass);
 
-	UPROPERTY(replicatedUsing = OnRepHatVariant)
+	UPROPERTY()
 	int32 HatVariant;
 
 	UFUNCTION()
-	virtual void OnRepHatVariant();
+	virtual void SetHatVariant(int32 NewHatVariant);
 
-	UPROPERTY(replicatedUsing = OnRepEyewearVariant)
+	UPROPERTY()
 	int32 EyewearVariant;
 
 	UFUNCTION()
-	virtual void OnRepEyewearVariant();
+	virtual void SetEyewearVariant(int32 NewEyewearVariant);
 
 	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepCosmeticFlashCount)
 	int32 CosmeticFlashCount;

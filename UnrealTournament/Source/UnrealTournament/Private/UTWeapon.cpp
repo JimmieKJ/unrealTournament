@@ -651,6 +651,11 @@ void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnL
 	SpawnRotation = (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL) ? MuzzleFlash[CurrentFireMode]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation();
 }
 
+bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit)
+{
+	return ImpactHit.Actor.IsValid() && (Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get()));
+}
+
 void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
 	if (GetNetMode() != NM_DedicatedServer)
@@ -680,7 +685,7 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 			if (ImpactEffect.IsValidIndex(FireMode) && ImpactEffect[FireMode] != NULL)
 			{
 				FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
-				if (ImpactHit.Component.IsValid())
+				if (ImpactHit.Component.IsValid() && !CancelImpactEffect(ImpactHit))
 				{
 					ImpactEffect[FireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);
 				}
@@ -1231,6 +1236,11 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 			{
 				// server ticks projectile to match with when client actually fired
 				NewProjectile->ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
+				NewProjectile->SetForwardTicked(true);
+			}
+			else
+			{
+				NewProjectile->SetForwardTicked(false);
 			}
 		}
 		else
@@ -1255,7 +1265,7 @@ void AUTWeapon::SpawnDelayedFakeProjectile()
 		if (NewProjectile)
 		{
 			NewProjectile->InitFakeProjectile(OwningPlayer);
-			NewProjectile->SetLifeSpan(FMath::Min(NewProjectile->GetLifeSpan(), 0.001f * FMath::Max(0.f, OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor)));
+			NewProjectile->SetLifeSpan(FMath::Min(NewProjectile->GetLifeSpan(), 0.002f * FMath::Max(0.f, OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor)));
 		}
 	}
 }

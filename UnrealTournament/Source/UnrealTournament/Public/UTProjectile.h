@@ -204,6 +204,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	/** Server catchup ticking for client's projectile */
 	virtual void CatchupTick(float CatchupTickDelta);
 
+	/** Called if server isn't ticking this projectile to make up for network latency. */
+	virtual void SetForwardTicked(bool bWasForwardTicked) {};
+
 	/** true if already exploded (to avoid recursion, etc) */
 	bool bExploded;
 

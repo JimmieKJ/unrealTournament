@@ -353,14 +353,17 @@ void AUTCarriedObject::SendHome()
 	NoLongerHeld();
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
-	MoveToHome();
 	AssistTracking.Empty();
 	PreviousHolders.Empty();
 	TotalHeldTime = 0.0f;
+	MoveToHome();
 }
 
 void AUTCarriedObject::MoveToHome()
 {
+	// important to realize the move to home base might immediately result in a new pickup if someone is camping there
+	PreviousHolders.Empty();
+
 	if (HomeBase != NULL)
 	{
 		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + (FVector(0,0,1) * Collision->GetScaledCapsuleHalfHeight());
@@ -369,8 +372,6 @@ void AUTCarriedObject::MoveToHome()
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
 		ForceNetUpdate();
 	}
-
-	PreviousHolders.Empty();
 }
 
 void AUTCarriedObject::Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)

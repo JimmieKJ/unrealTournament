@@ -51,6 +51,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FRotator HolsterRotation;
 
+	/** If true, don't spawn impact effect.  Used for hitscan hits, skips by default for pawn and projectile hits. */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+		virtual bool CancelImpactEffect(const FHitResult& ImpactHit);
+
 	/** particle system for firing effects (instant hit beam and such)
 	* particles will be sourced at FireOffset and a parameter HitLocation will be set for the target, if applicable
 	*/

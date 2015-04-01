@@ -16,7 +16,10 @@ struct FRedirectReference
 	FString MapName;
 
 	UPROPERTY()
-		FString MapURL;
+	FString MapURL;
+
+	UPROPERTY()
+	FString MapChecksum;
 };
 
 UCLASS()

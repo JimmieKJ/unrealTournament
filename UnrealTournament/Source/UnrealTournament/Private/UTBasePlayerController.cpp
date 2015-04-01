@@ -318,3 +318,56 @@ void AUTBasePlayerController::ServerRecieveAverageRank_Implementation(int32 NewA
 	if (PS) PS->AverageRank = NewAverageRank;
 }
 
+
+void AUTBasePlayerController::ClientRequireContentItem_Implementation(const FString& PakFile, const FString& MD5)
+{
+	bool bContentMatched = false;
+
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine)
+	{
+		if (UTEngine->LocalContentChecksums.Contains(PakFile) && UTEngine->LocalContentChecksums[PakFile] == MD5)
+		{
+			UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s is my content"), *PakFile);
+			bContentMatched = true;
+		}
+
+		if (UTEngine->MountedDownloadedContentChecksums.Contains(PakFile))
+		{
+			if (UTEngine->MountedDownloadedContentChecksums[PakFile] == MD5)
+			{
+				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded"), *PakFile);
+				bContentMatched = true;
+			}
+			else
+			{
+				UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded, but an old version"), *PakFile);
+			}
+		}
+
+		if (UTEngine->DownloadedContentChecksums.Contains(PakFile))
+		{
+			UE_LOG(UT, Log, TEXT("ClientRequireContentItem %s was already downloaded, but it is not mounted yet"), *PakFile);
+		}
+
+		if (!bContentMatched)
+		{
+			UTEngine->FilesToDownload.Add(PakFile, MD5);
+		}
+	}
+}
+
+void AUTBasePlayerController::ClientRequireContentItemListBegin_Implementation(const FString& CloudId)
+{
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine)
+	{
+		UTEngine->ContentDownloadCloudId = CloudId;
+		UTEngine->FilesToDownload.Empty();
+	}
+}
+
+void AUTBasePlayerController::ClientRequireContentItemListComplete_Implementation()
+{
+
+}

@@ -28,13 +28,13 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	AUTCTFGameState* CTFGameState;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
-	uint32 HalftimeDuration;
+	int32 HalftimeDuration;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
-	uint32 OvertimeDuration;
+	int32 OvertimeDuration;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
-	uint32 SuddenDeathHealthDrain;
+	int32 SuddenDeathHealthDrain;
 
 	virtual void InitGameState();
 
@@ -54,6 +54,8 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void HandleSuddenDeath();
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime() override;
+
+	virtual void PlacePlayersAroundFlagBase(int32 TeamNum);
 
 	virtual void DefaultTimer();
 	virtual bool PlayerCanRestart( APlayerController* Player );
@@ -169,6 +171,12 @@ protected:
 	virtual void EndOfHalf();
 
 	virtual void UpdateSkillRating() override;
+
+#if !UE_SERVER
+public:
+	virtual void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState);
+#endif
+
 
 };
 

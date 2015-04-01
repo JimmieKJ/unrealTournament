@@ -345,6 +345,10 @@ protected:
 	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
 	/** check for adding/removing bots to satisfy BotFillCount */
 	virtual void CheckBotCount();
+	/** returns whether we should allow removing the given bot to satisfy the desired player/bot count settings
+	 * generally used to defer destruction of bots that currently are important to the current game state, like flag carriers
+	 */
+	virtual bool AllowRemovingBot(AUTBot* B);
 public:
 	/** adds a bot to the game, ignoring game settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
@@ -522,6 +526,11 @@ protected:
 	// When players leave/join or during the end of game state
 	virtual void UpdatePlayersPresence();
 
+#if !UE_SERVER
+public:
+	TSharedRef<SWidget> NewPlayerInfoLine(FString LeftStr, FString RightStr);
+	virtual void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState);
+#endif
 
 };
 
