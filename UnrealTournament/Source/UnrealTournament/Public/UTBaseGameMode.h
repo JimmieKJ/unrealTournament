@@ -16,6 +16,9 @@ struct FRedirectReference
 	FString MapName;
 
 	UPROPERTY()
+	FString MapURLProtocol;
+
+	UPROPERTY()
 	FString MapURL;
 
 	UPROPERTY()
