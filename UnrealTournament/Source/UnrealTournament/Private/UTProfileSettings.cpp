@@ -257,3 +257,33 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	}
 	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->ForceRebuildingKeyMaps(true);
 }
+
+bool UUTProfileSettings::HasTokenBeenPickedUpBefore(FName TokenUniqueID)
+{
+	return FoundTokenUniqueIDs.Contains(TokenUniqueID);
+}
+
+void UUTProfileSettings::TokenPickedUp(FName TokenUniqueID)
+{
+	TempFoundTokenUniqueIDs.AddUnique(TokenUniqueID);
+}
+
+void UUTProfileSettings::TokenRevoke(FName TokenUniqueID)
+{
+	TempFoundTokenUniqueIDs.Remove(TokenUniqueID);
+}
+
+void UUTProfileSettings::TokensCommit()
+{
+	for (auto ID : TempFoundTokenUniqueIDs)
+	{
+		FoundTokenUniqueIDs.AddUnique(ID);
+	}
+
+	TempFoundTokenUniqueIDs.Empty();
+}
+
+void UUTProfileSettings::TokensReset()
+{
+	TempFoundTokenUniqueIDs.Empty();
+}

@@ -16,4 +16,13 @@ class AUTPickupToken : public AActor
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = Pickup)
 	FName TokenUniqueID;
+
+	UFUNCTION(BlueprintNativeEvent, Category = Pickup)
+	bool HasBeenPickedUpBefore();
+
+	UFUNCTION(BlueprintNativeEvent, Category = Pickup)
+	void PickedUp();
+
+	UFUNCTION(BlueprintNativeEvent, Category = Pickup)
+	void Revoke();
 };

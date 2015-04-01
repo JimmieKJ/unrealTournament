@@ -45,6 +45,13 @@ class UUTProfileSettings : public UObject
 	void ClearWeaponPriorities();
 	void SetWeaponPriority(FString WeaponClassName, float NewPriority);
 	float GetWeaponPriority(FString WeaponClassName, float DefaultPriority);
+
+	bool HasTokenBeenPickedUpBefore(FName TokenUniqueID);
+	void TokenPickedUp(FName TokenUniqueID);
+	void TokenRevoke(FName TokenUniqueID);
+	void TokensCommit();
+	void TokensReset();
+
 	/**
 	 *	Gather all of the settings so that this profile object can be saved.
 	 **/
@@ -168,4 +175,10 @@ protected:
 
 	UPROPERTY()
 	float PlayerFOV;
+
+	// Linear list of token unique ids for serialization
+	UPROPERTY()
+	TArray<FName> FoundTokenUniqueIDs;
+
+	TArray<FName> TempFoundTokenUniqueIDs;
 };

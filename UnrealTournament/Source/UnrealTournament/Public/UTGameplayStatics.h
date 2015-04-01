@@ -87,4 +87,31 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Config")
 	static void SaveConfig(UObject* Obj);
+
+
+	/** Not replicated. Plays a sound cue on an actor, sound wave may change depending on team affiliation compared to the listener */
+	UFUNCTION(BlueprintCosmetic, BlueprintCallable, Category = "UT", meta = (DefaultToSelf = "SoundTarget"))
+	static class UAudioComponent* PlaySoundTeamAdjusted(USoundCue* SoundToPlay, AActor* SoundInstigator, AActor* SoundTarget, bool Attached);
+
+	UFUNCTION(BlueprintCosmetic, BlueprintCallable, Category = "UT")
+	static void AssignTeamAdjustmentValue(UAudioComponent* AudioComponent, AActor* SoundInstigator);
+
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static bool HasTokenBeenPickedUpBefore(UObject* WorldContextObject, FName TokenUniqueID);
+
+	/** Token pick up noted in temporary storage, not committed to profile storage until TokenCommit called */
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static void TokenPickedUp(UObject* WorldContextObject, FName TokenUniqueID);
+
+	/** Remove a token pick up from temporary storage so it won't get committed to profile storage */
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static void TokenRevoke(UObject* WorldContextObject, FName TokenUniqueID);
+
+	/** Save tokens picked up this level to profile */
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static void TokensCommit(UObject* WorldContextObject);
+
+	/** Reset tokens picked up this level so they don't get saved to profile */
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static void TokensReset(UObject* WorldContextObject);
 };
