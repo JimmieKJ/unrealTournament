@@ -261,20 +261,12 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 	return BestTeams[FMath::RandHelper(BestTeams.Num())]->TeamIndex;
 }
 
-struct FTeamSizeSort
-{
-	bool operator()(AUTTeamInfo& A, AUTTeamInfo& B) const
-	{
-		return (A.GetSize() > B.GetSize());
-	}
-};
-
 void AUTTeamGameMode::CheckBotCount()
 {
 	if (NumPlayers + NumBots > BotFillCount)
 	{
 		TArray<AUTTeamInfo*> SortedTeams = UTGameState->Teams;
-		SortedTeams.Sort(FTeamSizeSort());
+		SortedTeams.Sort([](AUTTeamInfo& A, AUTTeamInfo& B) { return A.GetSize() > B.GetSize(); });
 
 		// try to remove bots from team with the most players
 		for (AUTTeamInfo* Team : SortedTeams)
@@ -286,7 +278,7 @@ void AUTTeamGameMode::CheckBotCount()
 				AUTBot* B = Cast<AUTBot>(C);
 				if (B != NULL)
 				{
-					if (B->GetPawn() == NULL)
+					if (AllowRemovingBot(B))
 					{
 						B->Destroy();
 					}
@@ -315,7 +307,7 @@ void AUTTeamGameMode::DefaultTimer()
 	if (bBalanceTeams && NumBots > 0)
 	{
 		TArray<AUTTeamInfo*> SortedTeams = UTGameState->Teams;
-		SortedTeams.Sort(FTeamSizeSort());
+		SortedTeams.Sort([](AUTTeamInfo& A, AUTTeamInfo& B) { return A.GetSize() > B.GetSize(); });
 
 		for (int32 i = 1; i < SortedTeams.Num(); i++)
 		{

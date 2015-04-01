@@ -596,20 +596,51 @@ void AUTGameMode::KillBots()
 	}
 }
 
+bool AUTGameMode::AllowRemovingBot(AUTBot* B)
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(B->PlayerState);
+	// flag carriers should stay in the game until they lose it
+	if (PS != NULL && PS->CarriedObject != NULL)
+	{
+		return false;
+	}
+	else
+	{
+		// score leader should stay in the game unless it's the last bot
+		if (NumBots > 1 && PS != NULL)
+		{
+			bool bHighScore = true;
+			for (APlayerState* OtherPS : GameState->PlayerArray)
+			{
+				if (OtherPS->Score > PS->Score)
+				{
+					bHighScore = false;
+					break;
+				}
+			}
+			if (bHighScore)
+			{
+				return false;
+			}
+		}
+
+		// remove as soon as dead or out of combat
+		// TODO: if this isn't getting them out fast enough we can restrict to only human players
+		return B->GetPawn() == NULL || B->GetEnemy() == NULL || B->LostContact(5.0f);
+	}
+}
+
 void AUTGameMode::CheckBotCount()
 {
 	if (NumPlayers + NumBots > BotFillCount)
 	{
 		for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 		{
-			if (It->Get()->GetPawn() == NULL)
+			AUTBot* B = Cast<AUTBot>(It->Get());
+			if (B != NULL && AllowRemovingBot(B))
 			{
-				AUTBot* B = Cast<AUTBot>(It->Get());
-				if (B != NULL)
-				{
-					B->Destroy();
-					break;
-				}
+				B->Destroy();
+				break;
 			}
 		}
 	}
