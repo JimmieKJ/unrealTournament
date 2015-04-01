@@ -16,6 +16,9 @@ private:
 	static TSharedPtr<class FSlateStyleSet> UWindowsStyleInstance;
 
 
+	static void SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef);
+	static void SetLoginStyle(TSharedRef<FSlateStyleSet> StyleRef);
+	static void SetDialogStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetTopMenuStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetServerBrowserStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetMidGameMenuRedStyle(TSharedRef<FSlateStyleSet> StyleRef);

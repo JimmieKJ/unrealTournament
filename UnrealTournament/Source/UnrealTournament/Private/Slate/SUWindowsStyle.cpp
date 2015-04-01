@@ -142,147 +142,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		.SetColorAndOpacity(FLinearColor::Gray)
 		);
 
-	{ // Common
-
-		Style.Set("UT.Common.NormalText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 20))
-			.SetColorAndOpacity(FLinearColor::White)
-		);
-
-		Style.Set("UT.Common.NormalText.Black", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 20))
-			.SetColorAndOpacity(FLinearColor::Black)
-		);
-
-		Style.Set("UT.Common.ButtonText.White", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 18))
-			.SetColorAndOpacity(FLinearColor::White)
-		);
-
-		Style.Set("UT.Common.ButtonText.Black", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 18))
-			.SetColorAndOpacity(FLinearColor::Black)
-		);
-
-		Style.Set("", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 16))
-			.SetColorAndOpacity(FLinearColor::Black)
-		);
-
-		Style.Set("UT.Common.ToolTipFont", TTF_FONT("Play-Bold", 16));
-
-
-
-		Style.Set("UT.Common.ButtonText.Black", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 18))
-			.SetColorAndOpacity(FLinearColor::Black)
-		);
-
-
-
-
-		Style.Set("UT.Common.ActiveText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 20))
-			.SetColorAndOpacity(FLinearColor(FColor(0,255,0,255)))
-		);
-
-		Style.Set("UT.Common.Exo2.20", TTF_FONT("Play-Regular", 18));
-
-		Style.Set("UT.Common.BoldText", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 22))
-			.SetColorAndOpacity(FLinearColor(FColor(93, 160, 220, 255)))
-		);
-
-		Style.Set("UT.Option.ColumnHeaders", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 18))
-			.SetColorAndOpacity(FLinearColor(FColor(180,180,180, 255)))
-		);
-
-
-		Style.Set("UT.Common.Editbox", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Play-Bold", 18))
-			.SetForegroundColor(FLinearColor::White)
-			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			);
-
-
-		Style.Set("UT.Common.Editbox.White", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Play-Bold", 18))
-			.SetForegroundColor(FLinearColor::Black)
-			.SetPadding(FMargin(10.0f,12.0f,10.0f, 10.0f))
-			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			);
-
-		Style.Set("UT.Common.NumEditbox.White", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Play-Bold", 18))
-			.SetForegroundColor(FLinearColor::Black)
-			.SetPadding(FMargin(10.0f,10.0f,10.0f, 8.0f))
-			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			);
-
-
-		Style.Set("UT.Common.Editbox.Dark", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Play-Bold", 18))
-			.SetForegroundColor(FLinearColor::Black)
-			.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			);
-
-
-		Style.Set("UT.Common.CheckBox", FCheckBoxStyle()
-			.SetCheckBoxType(ESlateCheckBoxType::CheckBox)
-			.SetUncheckedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Normal", Icon32x32))
-			.SetUncheckedHoveredImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Hovered", Icon32x32))
-			.SetUncheckedPressedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Pressed", Icon32x32))
-			.SetCheckedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
-			.SetCheckedHoveredImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
-			.SetCheckedPressedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
-			.SetUndeterminedImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
-			.SetUndeterminedHoveredImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
-			.SetUndeterminedPressedImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
-			);
-
-		Style.Set("UT.Common.Slider", FSliderStyle()
-			.SetNormalBarImage(FSlateColorBrush(FColor::White))
-			.SetDisabledBarImage(FSlateColorBrush(FLinearColor::Gray))
-			.SetNormalThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Normal", Icon32x32))
-			.SetDisabledThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Disabled", Icon32x32))
-			);
-
-		Style.Set("UT.Button.White", FButtonStyle()
-			.SetNormal(BOX_BRUSH("UTCommon/UT.Button.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetHovered(BOX_BRUSH("UTCommon/UT.Button.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetPressed(BOX_BRUSH("UTCommon/UT.Button.White.Pressed", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetDisabled(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
-			.SetNormalPadding(FMargin(0.0f,5.0f,0.0f,5.0f))
-			.SetPressedPadding(FMargin(0.0f,5.0f,0.0f,5.0f))
-			.SetHoveredSound(ButtonHoverSound)
-			.SetPressedSound(ButtonPressSound)
-			);
-
-		FComboButtonStyle UTComboButton = FComboButtonStyle()
-			.SetButtonStyle(Style.GetWidgetStyle<FButtonStyle>("UT.Button.White"))
-			.SetDownArrowImage(IMAGE_BRUSH("UTCommon/UT.ComboTick", Icon16x16))
-			.SetMenuBorderBrush(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f)))
-			.SetMenuBorderPadding(FMargin(5.0f, 5.0, 5.0f, 5.0f));
-		Style.Set("UWindows.Standard.ComboButton", UTComboButton);
-
-		Style.Set("UT.ComboBox", FComboBoxStyle()
-			.SetComboButtonStyle(UTComboButton)
-			);
-
-	}
+	SetCommonStyle(StyleRef);
 
 	Style.Set("UT.ScrollBox.Borderless", FScrollBoxStyle()
 		.SetTopShadowBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
@@ -446,64 +306,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	
 	}
 
-	{	// Login
-
-		Style.Set("UT.Login.Dialog.Background", new BOX_BRUSH("Login/UT.Login.Dialog.Background", FMargin(8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f)));
-		Style.Set("UT.Login.EpicLogo", new IMAGE_BRUSH("Login/UT.Login.EpicLogo", FVector2D(110,126), FLinearColor(1.0f,1.0f,1.0f,1.0f) ));
-		Style.Set("UT.Login.Editbox.Background", new BOX_BRUSH("Login/UT.Login.Editbox.Normal", FMargin(4.0f / 338.0f, 4.0f / 62.0f, 4.0f / 338.0f, 4.0f / 62.0f)));
-
-		Style.Set("UT.Login.Editbox", FEditableTextBoxStyle()
-			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
-			.SetForegroundColor(FLinearColor::Black)
-			.SetBackgroundImageNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
-			.SetBackgroundImageHovered(FSlateNoResource(FVector2D(128.0f, 128.0f)))
-			.SetBackgroundImageFocused(FSlateNoResource(FVector2D(128.0f, 128.0f)))
-			.SetBackgroundImageReadOnly(FSlateNoResource(FVector2D(128.0f, 128.0f)))
-			);
-
-		Style.Set("UT.Login.Error.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Rajdhani-SemiBold", 16))
-			.SetColorAndOpacity(FLinearColor(FColor(126, 7, 13, 255))));
-
-
-
-		Style.Set("UT.Login.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
-			.SetColorAndOpacity(FLinearColor(FColor(78,78,78,255))));
-
-		Style.Set("UT.Login.Label.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
-			.SetColorAndOpacity(FLinearColor(FColor(148, 148, 148, 255))));
-
-		Style.Set("UT.Login.Button", FButtonStyle()
-			.SetNormal(BOX_BRUSH("Login/UT.Login.Button.Normal", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
-			.SetHovered(BOX_BRUSH("Login/UT.Login.Button.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
-			.SetPressed(BOX_BRUSH("Login/UT.Login.Button.Pressed", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
-			.SetDisabled(BOX_BRUSH("Login/UT.Login.Button.Normal", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
-			.SetHoveredSound(ButtonHoverSound)
-			.SetPressedSound(ButtonPressSound)
-			);
-
-		Style.Set("UT.Login.Button.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
-			.SetColorAndOpacity(FLinearColor::White));
-
-		Style.Set("UT.Login.EmptyButton", FButtonStyle()
-			.SetNormal(FSlateNoResource(FVector2D(256.0f, 256.0f)))
-			.SetHovered(BOX_BRUSH("Login/UT.Login.EmptyButton.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
-			.SetPressed(BOX_BRUSH("Login/UT.Login.EmptyButton.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
-			.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
-			.SetHoveredSound(ButtonHoverSound)
-			.SetPressedSound(ButtonPressSound)
-			);
-
-		Style.Set("UT.Login.EmptyButton.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
-			.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255))));
-
-	}
-
-
+	SetLoginStyle(StyleRef);
+	
 	{ // Server Browser
 	
 		Style.Set("UT.Icon.Epic", new IMAGE_BRUSH("Icons/UT.Icon.Epic", Icon54x54));
@@ -621,51 +425,8 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	}
 
-	// Dialogs
-	{
-		Style.Set("UWindows.Standard.Dialog.Background", new BOX_BRUSH("UWindows.Standard.Dialog.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
-
-		Style.Set("UWindows.Standard.Dialog.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Roboto-Regular", 12))
-			.SetColorAndOpacity(FLinearColor::White)
-			);
-
-		Style.Set("UWindows.Standard.Dialog.ErrorTextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Roboto-Regular", 10))
-			.SetColorAndOpacity(FLinearColor::Yellow)
-			);
-
-		Style.Set("UWindows.Standard.Dialog.Title.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Play-Bold", 10))
-			.SetColorAndOpacity(FLinearColor::Yellow)
-			);
-
-		Style.Set("UWindows.Standard.Dialog.TextStyle.Legal", FTextBlockStyle()
-			.SetFont(TTF_FONT("Roboto-Regular", 12))
-			.SetColorAndOpacity(FLinearColor::White)
-			);
-
-		Style.Set("UWindows.Standard.Dialog.Options.TextStyle", FTextBlockStyle()
-			.SetFont(TTF_FONT("Roboto-Regular", 12))
-			.SetColorAndOpacity(FLinearColor::Black)
-			);
-
-
-		// Legacy style; still being used by some editor widgets
-		Style.Set( "UWindows.ComboBox.TickMark", new IMAGE_BRUSH("UWindows.ComboBox.TickMark", Icon8x4 ) );
-
-		FComboButtonStyle ComboButton = FComboButtonStyle()
-			.SetButtonStyle(Style.GetWidgetStyle<FButtonStyle>("UWindows.Standard.Button"))
-			.SetDownArrowImage(IMAGE_BRUSH("UWindows.ComboBox.TickMark", Icon8x4))
-			.SetMenuBorderBrush(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f/64.0f)))
-			.SetMenuBorderPadding(FMargin(5.0f,0.05,5.0f,0.0f));
-		Style.Set( "UWindows.Standard.ComboButton", ComboButton );
-
-		Style.Set( "UWindows.Standard.ComboBox", FComboBoxStyle()
-			.SetComboButtonStyle(ComboButton)
-			);
-	}
-
+	SetDialogStyle(StyleRef);
+	
 	// Toasts
 	{
 		Style.Set("UWindows.Standard.Toast.Background", new BOX_BRUSH("UWindows.Standard.Toast.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
@@ -763,6 +524,256 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	SetMOTDStyle(StyleRef);
 
 	return StyleRef;
+}
+
+void SUWindowsStyle::SetDialogStyle(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UWindows.Standard.Dialog.Background", new BOX_BRUSH("UWindows.Standard.Dialog.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+
+	Style.Set("UWindows.Standard.Dialog.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Roboto-Regular", 12))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UWindows.Standard.Dialog.ErrorTextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Roboto-Regular", 10))
+		.SetColorAndOpacity(FLinearColor::Yellow)
+		);
+
+	Style.Set("UWindows.Standard.Dialog.Title.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 10))
+		.SetColorAndOpacity(FLinearColor::Yellow)
+		);
+
+	Style.Set("UWindows.Standard.Dialog.TextStyle.Legal", FTextBlockStyle()
+		.SetFont(TTF_FONT("Roboto-Regular", 12))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UWindows.Standard.Dialog.Options.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Roboto-Regular", 12))
+		.SetColorAndOpacity(FLinearColor::Black)
+		);
+
+
+	// Legacy style; still being used by some editor widgets
+	Style.Set("UWindows.ComboBox.TickMark", new IMAGE_BRUSH("UWindows.ComboBox.TickMark", Icon8x4));
+
+	FComboButtonStyle ComboButton = FComboButtonStyle()
+		.SetButtonStyle(Style.GetWidgetStyle<FButtonStyle>("UWindows.Standard.Button"))
+		.SetDownArrowImage(IMAGE_BRUSH("UWindows.ComboBox.TickMark", Icon8x4))
+		.SetMenuBorderBrush(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f)))
+		.SetMenuBorderPadding(FMargin(5.0f, 0.05, 5.0f, 0.0f));
+	Style.Set("UWindows.Standard.ComboButton", ComboButton);
+
+	Style.Set("UWindows.Standard.ComboBox", FComboBoxStyle()
+		.SetComboButtonStyle(ComboButton)
+		);
+}
+
+void SUWindowsStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UT.Common.NormalText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 20))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UT.Common.NormalText.Black", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 20))
+		.SetColorAndOpacity(FLinearColor::Black)
+		);
+
+	Style.Set("UT.Common.ButtonText.White", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UT.Common.ButtonText.Black", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetColorAndOpacity(FLinearColor::Black)
+		);
+
+	Style.Set("", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 16))
+		.SetColorAndOpacity(FLinearColor::Black)
+		);
+
+	Style.Set("UT.Common.ToolTipFont", TTF_FONT("Play-Bold", 16));
+
+
+
+	Style.Set("UT.Common.ButtonText.Black", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetColorAndOpacity(FLinearColor::Black)
+		);
+
+
+
+
+	Style.Set("UT.Common.ActiveText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 20))
+		.SetColorAndOpacity(FLinearColor(FColor(0, 255, 0, 255)))
+		);
+
+	Style.Set("UT.Common.Exo2.20", TTF_FONT("Play-Regular", 18));
+
+	Style.Set("UT.Common.BoldText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 22))
+		.SetColorAndOpacity(FLinearColor(FColor(93, 160, 220, 255)))
+		);
+
+	Style.Set("UT.Option.ColumnHeaders", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetColorAndOpacity(FLinearColor(FColor(180, 180, 180, 255)))
+		);
+
+
+	Style.Set("UT.Common.Editbox", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetForegroundColor(FLinearColor::White)
+		.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		);
+
+
+	Style.Set("UT.Common.Editbox.White", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetForegroundColor(FLinearColor::Black)
+		.SetPadding(FMargin(10.0f, 12.0f, 10.0f, 10.0f))
+		.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		);
+
+	Style.Set("UT.Common.NumEditbox.White", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetForegroundColor(FLinearColor::Black)
+		.SetPadding(FMargin(10.0f, 10.0f, 10.0f, 8.0f))
+		.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		);
+
+
+	Style.Set("UT.Common.Editbox.Dark", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetForegroundColor(FLinearColor::Black)
+		.SetBackgroundImageNormal(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageHovered(BOX_BRUSH("UTCommon/UT.Editbox.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageFocused(BOX_BRUSH("UTCommon/UT.Editbox.White.Focused", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetBackgroundImageReadOnly(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		);
+
+
+	Style.Set("UT.Common.CheckBox", FCheckBoxStyle()
+		.SetCheckBoxType(ESlateCheckBoxType::CheckBox)
+		.SetUncheckedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Normal", Icon32x32))
+		.SetUncheckedHoveredImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Hovered", Icon32x32))
+		.SetUncheckedPressedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.UnChecked.Pressed", Icon32x32))
+		.SetCheckedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
+		.SetCheckedHoveredImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
+		.SetCheckedPressedImage(IMAGE_BRUSH("UTCommon/UT.CheckBox.Checked.Normal", Icon32x32))
+		.SetUndeterminedImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetUndeterminedHoveredImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetUndeterminedPressedImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		);
+
+	Style.Set("UT.Common.Slider", FSliderStyle()
+		.SetNormalBarImage(FSlateColorBrush(FColor::White))
+		.SetDisabledBarImage(FSlateColorBrush(FLinearColor::Gray))
+		.SetNormalThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Normal", Icon32x32))
+		.SetDisabledThumbImage(IMAGE_BRUSH("UTCommon/UT.SliderHandle.Disabled", Icon32x32))
+		);
+
+	Style.Set("UT.Button.White", FButtonStyle()
+		.SetNormal(BOX_BRUSH("UTCommon/UT.Button.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetHovered(BOX_BRUSH("UTCommon/UT.Button.White.Hovered", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetPressed(BOX_BRUSH("UTCommon/UT.Button.White.Pressed", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetDisabled(BOX_BRUSH("UTCommon/UT.Editbox.White.Normal", FMargin(8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f, 8.0f / 64.0f)))
+		.SetNormalPadding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+		.SetPressedPadding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+	FComboButtonStyle UTComboButton = FComboButtonStyle()
+		.SetButtonStyle(Style.GetWidgetStyle<FButtonStyle>("UT.Button.White"))
+		.SetDownArrowImage(IMAGE_BRUSH("UTCommon/UT.ComboTick", Icon16x16))
+		.SetMenuBorderBrush(BOX_BRUSH("UWindows.Standard.MenuList.Normal", FMargin(8.0f / 64.0f)))
+		.SetMenuBorderPadding(FMargin(5.0f, 5.0, 5.0f, 5.0f));
+	Style.Set("UWindows.Standard.ComboButton", UTComboButton);
+
+	Style.Set("UT.ComboBox", FComboBoxStyle()
+		.SetComboButtonStyle(UTComboButton)
+		);
+}
+
+
+void SUWindowsStyle::SetLoginStyle(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UT.Login.Dialog.Background", new BOX_BRUSH("Login/UT.Login.Dialog.Background", FMargin(8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f, 8.0f / 256.0f)));
+	Style.Set("UT.Login.EpicLogo", new IMAGE_BRUSH("Login/UT.Login.EpicLogo", FVector2D(110, 126), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Login.Editbox.Background", new BOX_BRUSH("Login/UT.Login.Editbox.Normal", FMargin(4.0f / 338.0f, 4.0f / 62.0f, 4.0f / 338.0f, 4.0f / 62.0f)));
+
+	Style.Set("UT.Login.Editbox", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+		.SetForegroundColor(FLinearColor::Black)
+		.SetBackgroundImageNormal(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageHovered(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageFocused(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageReadOnly(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		);
+
+	Style.Set("UT.Login.Error.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Rajdhani-SemiBold", 16))
+		.SetColorAndOpacity(FLinearColor(FColor(126, 7, 13, 255))));
+
+
+
+	Style.Set("UT.Login.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+		.SetColorAndOpacity(FLinearColor(FColor(78, 78, 78, 255))));
+
+	Style.Set("UT.Login.Label.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+		.SetColorAndOpacity(FLinearColor(FColor(148, 148, 148, 255))));
+
+	Style.Set("UT.Login.Button", FButtonStyle()
+		.SetNormal(BOX_BRUSH("Login/UT.Login.Button.Normal", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetHovered(BOX_BRUSH("Login/UT.Login.Button.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetPressed(BOX_BRUSH("Login/UT.Login.Button.Pressed", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetDisabled(BOX_BRUSH("Login/UT.Login.Button.Normal", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+	Style.Set("UT.Login.Button.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+		.SetColorAndOpacity(FLinearColor::White));
+
+	Style.Set("UT.Login.EmptyButton", FButtonStyle()
+		.SetNormal(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHovered(BOX_BRUSH("Login/UT.Login.EmptyButton.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetPressed(BOX_BRUSH("Login/UT.Login.EmptyButton.Hovered", FMargin(4.0f / 298.0f, 4.0f / 44.0f, 4.0f / 298.0f, 4.0f / 44.0f)))
+		.SetDisabled(FSlateNoResource(FVector2D(256.0f, 256.0f)))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+	Style.Set("UT.Login.EmptyButton.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Rajdhani-SemiBold", 20))
+		.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255))));
+
 }
 
 void SUWindowsStyle::SetTopMenuStyle(TSharedRef<FSlateStyleSet> StyleRef)
