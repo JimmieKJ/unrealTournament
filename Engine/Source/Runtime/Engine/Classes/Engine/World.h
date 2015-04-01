@@ -2655,6 +2655,9 @@ public:
 	// Delegate type for level change events
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLevelChanged, ULevel*, UWorld*);
 
+	// delegate for generating world asset registry tags so project/game scope can add additional tags for filtering levels in their UI, etc
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FWorldGetAssetTags, const UWorld*, TArray<UObject::FAssetRegistryTag>&);
+
 	// Callback for world creation
 	static FWorldEvent OnPostWorldCreation;
 	
@@ -2685,6 +2688,9 @@ public:
 	// LoadMap (a NULL object means the LoadMap case, because all levels will be 
 	// removed from the world without a RemoveFromWorld call for each)
 	static FOnLevelChanged			LevelRemovedFromWorld;
+
+	// called by UWorld::GetAssetRegistryTags()
+	static FWorldGetAssetTags GetAssetTags;
 
 private:
 	FWorldDelegates() {}
