@@ -663,7 +663,9 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 			UnusedPluginFilter.Include("/Engine/Plugins/...");
 			UnusedPluginFilter.Exclude("/Engine/Plugins/.../Paper2D/...");
-			UnusedPluginFilter.Exclude("/Engine/Plugins/.../ExampleDeviceProfileSelector/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../ExampleDeviceProfileSelector/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../VisualStudioSourceCodeAccess/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../XCodeSourceCodeAccess/...");
 
 			RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
 		}
