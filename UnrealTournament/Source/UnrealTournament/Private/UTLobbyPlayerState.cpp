@@ -221,10 +221,11 @@ void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCo
 			}
 			else if (DataType.ToLower() == TEXT("map"))
 			{
-				FString Name, Guid;
-				Data.Split(TEXT(":"), &Name, &Guid);
-				// Add code to check if the map exists..
-				GS->ClientAvailableMaps.Add(FAllowedMapData::MakeShared(Name, Guid));
+				FString Name, GuidAndTitle, Guid, Title;
+				Data.Split(TEXT(":"), &Name, &GuidAndTitle);
+				GuidAndTitle.Split(TEXT(":"), &Guid, &Title);
+
+				GS->ClientAvailableMaps.Add(FAllowedMapData::MakeShared(Name, Guid, Title));
 			}
 		}
 

@@ -36,8 +36,24 @@ protected:
 
 	TSharedPtr<SVerticalBox> GameConfigPanel;
 
-	TArray< TSharedPtr<FString> > AllMaps;
-	TSharedPtr< SComboBox< TSharedPtr<FString> > > MapList;
+	struct FMapListItem
+	{
+		/** package name (actual loaded name and also display name if there's no title) */
+		FString PackageName;
+		/** optional title pulled from asset registry, if it exists */
+		FString Title;
+
+		FMapListItem(const FString& InPackageName, const FString& InTitle)
+			: PackageName(InPackageName), Title(InTitle)
+		{}
+
+		FString GetDisplayName() const
+		{
+			return !Title.IsEmpty() ? Title : PackageName;
+		}
+	};
+	TArray< TSharedPtr<FMapListItem> > AllMaps;
+	TSharedPtr< SComboBox< TSharedPtr<FMapListItem> > > MapList;
 	TSharedPtr<STextBlock> SelectedMap;
 	TArray<UClass*> AllGametypes;
 	TSharedPtr< SComboBox<UClass*> > GameList;
@@ -65,9 +81,9 @@ protected:
 	// holders for pointers to game config properties so the objects don't die and invalidate the delegates
 	TArray< TSharedPtr<TAttributePropertyBase> > GameConfigProps;
 
-	void OnMapSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo);
 	TSharedRef<SWidget> GenerateGameNameWidget(UClass* InItem);
-	TSharedRef<SWidget> GenerateMapNameWidget(TSharedPtr<FString> InItem);
+	TSharedRef<SWidget> GenerateMapNameWidget(TSharedPtr<FMapListItem> InItem);
 	void OnGameSelected(UClass* NewSelection, ESelectInfo::Type SelectInfo);
 	virtual FReply OfflineClick();
 	virtual FReply HostClick();

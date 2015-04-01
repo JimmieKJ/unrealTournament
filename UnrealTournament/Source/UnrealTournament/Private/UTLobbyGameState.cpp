@@ -606,13 +606,33 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 			}
 			if (bAllowedMap)
 			{
-				new(AllowedMaps) FAllowedMapData(MapAssets[i].AssetName.ToString(), GEngine->GetPackageGuid(FName(*MapPackageName)));
+				static FName NAME_Title(TEXT("Title"));
+				const FString* Title = MapAssets[i].TagsAndValues.Find(NAME_Title);
+				new(AllowedMaps) FAllowedMapData(MapAssets[i].AssetName.ToString(), GEngine->GetPackageGuid(FName(*MapPackageName)), (Title != NULL) ? *Title : FString());
 			}
 		}
+		AllowedMaps.Sort([](const FAllowedMapData& A, const FAllowedMapData& B)
+						{
+							bool bHasTitleA = !A.MapTitle.IsEmpty();
+							bool bHasTitleB = !B.MapTitle.IsEmpty();
+							if (bHasTitleA && !bHasTitleB)
+							{
+								return true;
+							}
+							else if (!bHasTitleA && bHasTitleB)
+							{
+								return false;
+							}
+							else
+							{
+								return A.GetDisplayName() < B.GetDisplayName();
+							}
+						});
 	}
 	for (int32 i = 0; i < AllowedMaps.Num(); i++)
 	{
-		FString Option = FString::Printf(TEXT("map=%s:%s"), *AllowedMaps[i].MapName, *AllowedMaps[i].MapGuid.ToString());
+		// note: title intentionally in server's language here - client will override with local language if it has the asset and loc data downloaded
+		FString Option = FString::Printf(TEXT("map=%s:%s:%s"), *AllowedMaps[i].MapName, *AllowedMaps[i].MapGuid.ToString(), *AllowedMaps[i].MapTitle);
 		NewPlayer->AddHostData(Option);
 	}
 

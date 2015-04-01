@@ -462,7 +462,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 							SNew(SBox)
 							.WidthOverride(290)
 							[
-								SAssignNew(MapList, SComboBox< TSharedPtr<FString> >)
+								SAssignNew(MapList, SComboBox< TSharedPtr<FMapListItem> >)
 								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
 								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 								.OptionsSource(&AllMaps)
@@ -838,11 +838,11 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildServerPanel()
 */
 
 
-void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedMap->SetText(NewSelection.IsValid() ? *NewSelection.Get() : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available").ToString());
+	SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection.Get()->GetDisplayName()) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
 
-	UUTLevelSummary* Summary = NewSelection.IsValid() ? UUTGameEngine::LoadLevelSummary(*NewSelection.Get()) : NULL;
+	UUTLevelSummary* Summary = NewSelection.IsValid() ? UUTGameEngine::LoadLevelSummary(NewSelection.Get()->PackageName) : NULL;
 	if (Summary != NULL)
 	{
 		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(Summary->Author)));
@@ -870,14 +870,14 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 		];
 }
 
-TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TSharedPtr<FString> InItem)
+TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TSharedPtr<FMapListItem> InItem)
 {
 	return SNew(SBox)
 		.Padding(5)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(*InItem.Get())
+			.Text(InItem.Get()->GetDisplayName())
 		];
 }
 
@@ -982,19 +982,37 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 			if ( GameDefaults->SupportsMap(Asset.AssetName.ToString()) && !MapPackageName.StartsWith(TEXT("/Engine/")) &&
 				IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
 			{
-				AllMaps.Add(MakeShareable(new FString(Asset.AssetName.ToString())));
+				static FName NAME_Title(TEXT("Title"));
+				const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
+				AllMaps.Add(MakeShareable(new FMapListItem(Asset.AssetName.ToString(), (Title != NULL) ? *Title : FString())));
 			}
 		}
-		AllMaps.Sort([](const TSharedPtr<FString>& A, const TSharedPtr<FString>& B){ return *A.Get() < *B.Get(); });
+		AllMaps.Sort([](const TSharedPtr<FMapListItem>& A, const TSharedPtr<FMapListItem>& B)
+					{
+						bool bHasTitleA = !A.Get()->Title.IsEmpty();
+						bool bHasTitleB = !B.Get()->Title.IsEmpty();
+						if (bHasTitleA && !bHasTitleB)
+						{
+							return true;
+						}
+						else if (!bHasTitleA && bHasTitleB)
+						{
+							return false;
+						}
+						else
+						{
+							return A.Get()->GetDisplayName() < B.Get()->GetDisplayName();
+						}
+					});
 
 		MapList->RefreshOptions();
 		if (AllMaps.Num() > 0)
 		{
 			MapList->SetSelectedItem(AllMaps[0]);
 			// remember last selection
-			for (TSharedPtr<FString> TestMap : AllMaps)
+			for (TSharedPtr<FMapListItem> TestMap : AllMaps)
 			{
-				if (*TestMap.Get() == SelectedGameClass.GetDefaultObject()->UILastStartingMap)
+				if (TestMap.Get()->PackageName == SelectedGameClass.GetDefaultObject()->UILastStartingMap)
 				{
 					MapList->SetSelectedItem(TestMap);
 					break;

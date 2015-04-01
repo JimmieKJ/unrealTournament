@@ -2,6 +2,8 @@
 
 #include "UnrealTournament.h"
 #include "AssetRegistryModule.h"
+#include "UTWorldSettings.h"
+#include "UTLevelSummary.h"
 
 class FUTModule : public FDefaultGameModuleImpl
 {
@@ -19,6 +21,16 @@ DEFINE_LOG_CATEGORY(UTNet);
 #include "SlateBasics.h"
 #include "UTDetailsCustomization.h"
 
+static void AddLevelSummaryAssetTags(const UWorld* InWorld, TArray<UObject::FAssetRegistryTag>& OutTags)
+{
+	// add level summary data to the asset registry as part of the world
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(InWorld->GetWorldSettings());
+	if (Settings != NULL && Settings->GetLevelSummary() != NULL)
+	{
+		Settings->GetLevelSummary()->GetAssetRegistryTags(OutTags);
+	}
+}
+
 void FUTModule::StartupModule()
 {
 	FDefaultGameModuleImpl::StartupModule();
@@ -28,6 +40,8 @@ void FUTModule::StartupModule()
 	PropertyModule.RegisterCustomClassLayout("UTWeaponAttachment", FOnGetDetailCustomizationInstance::CreateStatic(&FUTDetailsCustomization::MakeInstance));
 
 	PropertyModule.NotifyCustomizationModuleChanged();
+
+	FWorldDelegates::GetAssetTags.AddStatic(&AddLevelSummaryAssetTags);
 }
 
 #else
