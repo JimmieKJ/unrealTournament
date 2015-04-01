@@ -4240,7 +4240,7 @@ void AUTCharacter::TurnOff()
 	Super::TurnOff();
 }
 
-// @TODO FIXMESTEVE no NetQuantize ClientLoc for verification of perfect synchronization
+//  Don't NetQuantize ClientLoc for verification of perfect synchronization
 void AUTCharacter::UTServerMove_Implementation(
 	float TimeStamp,
 	FVector_NetQuantize InAccel,

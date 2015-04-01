@@ -923,6 +923,12 @@ void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const doub
 		PlayerPreviewTexture->UpdateResource();
 	}
 
+	// Force the preview mesh to put the highest mips into memory
+	if (PlayerPreviewMesh != nullptr)
+	{
+		PlayerPreviewMesh->PrestreamTextures(1, true);
+	}
+
 	if (WeaponConfigDelayFrames > 0)
 	{
 		WeaponConfigDelayFrames--;

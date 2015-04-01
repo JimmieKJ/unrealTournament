@@ -225,7 +225,7 @@ bool SUWRedirectDialog::DownloadFile(FString URL)
 		HttpRequest->OnProcessRequestComplete().BindRaw(this, &SUWRedirectDialog::HttpRequestComplete);
 		HttpRequest->OnRequestProgress().BindRaw(this, &SUWRedirectDialog::HttpRequestProgress);
 
-		if (OnlineIdentityInterface.IsValid())
+		if (URL.Contains(TEXT("epicgames")) && OnlineIdentityInterface.IsValid())
 		{
 			FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
 			HttpRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);

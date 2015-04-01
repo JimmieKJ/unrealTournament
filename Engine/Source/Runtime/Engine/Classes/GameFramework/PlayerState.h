@@ -113,11 +113,10 @@ private:
 	/** The current PingBucket index that is being filled */
 	uint8			CurPingBucket;
 
-public:
-
-	/** The timestamp for when the current PingBucket began filling  @TODO FIXMESTEVE - either move UTPlayerState UpdatePing stuff here or add accessor for this*/
+	/** The timestamp for when the current PingBucket began filling */
 	float			CurPingBucketTimestamp;
 
+public:
 	/** Replication Notification Callbacks */
 	UFUNCTION()
 	virtual void OnRep_Score();

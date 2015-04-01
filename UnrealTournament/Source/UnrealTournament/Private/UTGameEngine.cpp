@@ -466,6 +466,7 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 void UUTGameEngine::SetupLoadingScreen()
 {
 #if !UE_SERVER
+	/* temporarily disabled due to Slate threading fails
 	if (IsMoviePlayerEnabled())
 	{
 		FLoadingScreenAttributes LoadingScreen;
@@ -475,7 +476,7 @@ void UUTGameEngine::SetupLoadingScreen()
 		LoadingScreen.WidgetLoadingScreen = SNew(SImage).Image(SUWindowsStyle::Get().GetBrush("LoadingScreen"));
 		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
 		FCoreUObjectDelegates::PreLoadMap.Broadcast();
-	}
+	}*/
 #endif
 }
 
