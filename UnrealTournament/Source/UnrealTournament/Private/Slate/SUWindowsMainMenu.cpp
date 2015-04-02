@@ -329,13 +329,7 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 
-	// don't override map game type
-	FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(PlayerOwner->GetWorld());
-	if (Context.LastURL.HasOption(TEXT("Game")))
-	{
-		Context.LastURL.RemoveOption(TEXT("Game"));
-	}
-	ConsoleCommand(TEXT("open TUT-BasicTraining?timelimit=0"));
+	ConsoleCommand(TEXT("start TUT-BasicTraining?timelimit=0"));
 	return FReply::Handled();
 }
 
