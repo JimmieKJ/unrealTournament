@@ -122,6 +122,11 @@ protected:
 	virtual void CreateLevelSummary();
 public:
 
+	inline const UUTLevelSummary* GetLevelSummary() const
+	{
+		return LevelSummary;
+	}
+
 	/** whether to allow side switching (swap bases in CTF, etc) if the gametype wants */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameSettings)
 	bool bAllowSideSwitching;

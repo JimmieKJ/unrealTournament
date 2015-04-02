@@ -544,6 +544,7 @@ TSharedRef<SWidget> SULobbyGameSettingsPanel::BuildMapsPanel()
 			}
 		}
 		MapList->SetSelection(DefaultSelection);
+		MapChanged();
 	}
 
 	return Result;
@@ -577,7 +578,7 @@ TSharedRef<ITableRow> SULobbyGameSettingsPanel::GenerateMapListWidget(TSharedPtr
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.Text(FText::FromString(InItem.Get()->MapName))
+			.Text(FText::FromString(InItem.Get()->GetDisplayName()))
 			.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
 		];
 }

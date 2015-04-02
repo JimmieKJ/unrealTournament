@@ -1114,7 +1114,6 @@ void UUTCharacterMovement::HandleImpact(FHitResult const& Impact, float TimeSlic
 	if (bIsSprinting && (ImpactDot < SprintMaxWallNormal))
 	{
 		SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
-		UE_LOG(UT, Warning, TEXT("Handle Wall %f"), ImpactDot);
 	}
 	Super::HandleImpact(Impact, TimeSlice, MoveDelta);
 }

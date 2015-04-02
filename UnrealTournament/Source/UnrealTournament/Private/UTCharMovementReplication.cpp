@@ -27,13 +27,12 @@ float UUTCharacterMovement::GetCurrentSynchTime() const
 	return GetCurrentMovementTime();
 }
 
-/* @TODO FIXMESTEVE when virtual
 void UUTCharacterMovement::ResetPredictionData_Client()
 {
 	Super::ResetPredictionData_Client();
 	ResetTimers();
 }
-*/
+
 void UUTCharacterMovement::MoveAutonomous
 (
 float ClientTimeStamp,
@@ -449,7 +448,6 @@ void UUTCharacterMovement::SendClientAdjustment()
 	{
 		// in case of packet loss, more frequent correction updates if error is larger
 		LastClientAdjustmentTime = bLargeCorrection ? GetWorld()->GetTimeSeconds() - 0.05f : GetWorld()->GetTimeSeconds();
-		// @TODO FIXMESTEVE separate client adjust position for relative to base, rather than zero velocity also want to not do good move acks every frame
 		bool bHasBase = (ServerData->PendingAdjustment.NewBase != NULL) || (ServerData->PendingAdjustment.MovementMode == MOVE_Walking);
 		if (CharacterOwner->IsPlayingNetworkedRootMotionMontage())
 		{
@@ -470,17 +468,14 @@ void UUTCharacterMovement::SendClientAdjustment()
 				ServerData->PendingAdjustment.MovementMode
 				);
 		}
-		else if (ServerData->PendingAdjustment.NewVel.IsZero())
+		else if (!ServerData->PendingAdjustment.bBaseRelativePosition && (ServerData->PendingAdjustment.NewBaseBoneName == NAME_None))
 		{
-			//UE_LOG(UTNet, Warning, TEXT("SEND ClientVeryShortAdjustPosition"));
-			ClientVeryShortAdjustPosition
+			//UE_LOG(UTNet, Warning, TEXT("SEND ClientNoBaseAdjustPosition"));
+			ClientNoBaseAdjustPosition
 				(
 				ServerData->PendingAdjustment.TimeStamp,
 				ServerData->PendingAdjustment.NewLoc,
-				ServerData->PendingAdjustment.NewBase,
-				ServerData->PendingAdjustment.NewBaseBoneName,
-				bHasBase,
-				ServerData->PendingAdjustment.bBaseRelativePosition,
+				ServerData->PendingAdjustment.NewVel,
 				ServerData->PendingAdjustment.MovementMode
 				);
 		}
@@ -503,6 +498,20 @@ void UUTCharacterMovement::SendClientAdjustment()
 
 	ServerData->PendingAdjustment.TimeStamp = 0;
 	ServerData->PendingAdjustment.bAckGoodMove = false;
+}
+
+void UUTCharacterMovement::ClientNoBaseAdjustPosition_Implementation(float TimeStamp, FVector NewLocation, FVector NewVelocity, uint8 ServerMovementMode)
+{
+	if (!HasValidData() || !IsComponentTickEnabled())
+	{
+		return;
+	}
+	if (MovementBaseUtility::UseRelativeLocation(CharacterOwner->GetMovementBase()))
+	{
+		// need to change to no base, cause server doesn't think I'm based on something relative.
+		SetBase(NULL);
+	}
+	ClientAdjustPosition_Implementation(TimeStamp, NewLocation, NewVelocity, CharacterOwner->GetMovementBase(), NAME_None, (CharacterOwner->GetMovementBase() != NULL), false, ServerMovementMode);
 }
 
 void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector& NewAcceleration)
@@ -754,6 +763,12 @@ void UUTCharacterMovement::ProcessServerMove(float TimeStamp, FVector InAccel, F
 			PC->UpdateRotation(DeltaTime);
 		}
 		MoveAutonomous(TimeStamp, DeltaTime, MoveFlags, Accel);
+
+		FVector CurrLoc = CharacterOwner->GetActorLocation();
+		if (InAccel.IsZero() && (MovementMode == MOVE_Walking) && (ClientLoc.X == CurrLoc.X) && (ClientLoc.Y == CurrLoc.Y) && (FMath::Abs(CurrLoc.Z - ClientLoc.Z) < 0.1f))
+		{
+			CharacterOwner->SetActorLocation(ClientLoc);
+		}
 	}
 	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("ServerMove Time %f Acceleration %s Position %s DeltaTime %f"),
 		TimeStamp, *Accel.ToString(), *CharacterOwner->GetActorLocation().ToString(), DeltaTime);
@@ -904,10 +919,6 @@ void UUTCharacterMovement::ProcessQuickServerMove(float TimeStamp, FVector InAcc
 	// Perform actual movement
 	if ((CharacterOwner->GetWorldSettings()->Pauser == NULL) && (DeltaTime > 0.f))
 	{
-		/*  FIXMESTEVE NOT NEEDED? if (PC)
-		{
-			PC->UpdateRotation(DeltaTime);
-		}*/
 		MoveAutonomous(TimeStamp, DeltaTime, MoveFlags, Accel);
 	}
 	UE_LOG(LogNetPlayerMovement, Verbose, TEXT("QuickServerMove Time %f Acceleration %s Position %s DeltaTime %f"),
@@ -1007,7 +1018,7 @@ void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 
 	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
 	check(ClientData);
-	// UE_LOG(UT, Warning, TEXT("Ack ping is %f vs ExactPing %f"), GetCurrentMovementTime() - TimeStamp, CharacterOwner->PlayerState->ExactPing); // @TODO FIXMESTEVE note that this needs to be RPC to be accurate enough
+	// UE_LOG(UT, Warning, TEXT("Ack ping is %f vs ExactPing %f"), GetCurrentMovementTime() - TimeStamp, CharacterOwner->PlayerState->ExactPing); 
 
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(CharacterOwner->PlayerState);
 	if (UTPS)

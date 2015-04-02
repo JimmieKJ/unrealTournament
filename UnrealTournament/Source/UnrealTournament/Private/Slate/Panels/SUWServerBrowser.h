@@ -275,6 +275,37 @@ public:
 		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inMaxSpectators, inNumMatches, inMinRank, inMaxRank, inVersion, inPing, inFlags ) );
 	}
 
+	void Update(TSharedPtr<FServerData> NewData)
+	{
+		Name = NewData->Name;
+		IP = NewData->IP;
+		BeaconIP = NewData->BeaconIP;
+		GameModePath = NewData->GameModePath;
+		GameModeName = NewData->GameModeName;
+		Map = NewData->Map;
+		NumPlayers = NewData->NumPlayers;
+		NumSpectators = NewData->NumSpectators;
+		MaxPlayers = NewData->MaxPlayers;
+		MaxSpectators = NewData->MaxSpectators;
+		NumFriends = NewData->NumFriends;
+		NumMatches = NewData->NumMatches;
+		Rating = NewData->Rating;
+		MinRank = NewData->MinRank;
+		MaxRank = NewData->MaxRank;
+		Version = NewData->Version;
+		Ping = NewData->Ping;
+		Flags = NewData->Flags;
+		MOTD = NewData->MOTD;
+		SearchResult = NewData->SearchResult;
+
+
+		HUBInstances.Empty(); Rules.Empty(); Players.Empty();
+		for (int32 i=0;i<NewData->HUBInstances.Num();i++) HUBInstances.Add(NewData->HUBInstances[i]);
+		for (int32 i=0;i<NewData->Rules.Num();i++) Rules.Add(NewData->Rules[i]);
+		for (int32 i=0;i<NewData->Players.Num();i++) Players.Add(NewData->Players[i]);
+	}
+
+
 	void AddPlayer(const FString& PlayerName, const FString& Score, const FString& PlayerId)
 	{
 		Players.Add(FServerPlayerData::Make(PlayerName, Score, PlayerId));
@@ -283,6 +314,50 @@ public:
 	void AddRule(const FString& Rule, const FString& Value)
 	{
 		Rules.Add( FServerRuleData::Make(Rule, Value));
+	}
+
+	FSlateColor GetDrawColorAndOpacity() const
+	{
+		return Ping >= 0 ? FSlateColor(FLinearColor::White) : FSlateColor(FLinearColor::Red);
+	}
+
+	FText GetBrowserName() 
+	{ 
+		return FText::FromString(Name); 
+	}
+
+	FText GetBrowserIP() 
+	{ 
+		return FText::FromString(IP); 
+	}
+
+	FText GetBrowserGameMode() 
+	{ 
+		return FText::FromString(GameModeName); 
+	}
+
+	FText GetBrowserMapName() 
+	{ 
+		return FText::FromString(Map); 
+	}
+
+	FText GetBrowserPing() 
+	{ 
+		if (Ping < 0)
+		{
+			return NSLOCTEXT("ServerBrowser", "BadPing", "---");
+		}
+	
+		return FText::AsNumber(Ping); 
+	}
+
+	FText GetHubPing()
+	{
+		if (Ping < 0)
+		{
+			return NSLOCTEXT("ServerBrowser", "BadPing", "---");
+		}
+		return FText::Format(NSLOCTEXT("ServerBrowser","PingFormat","{0}ms"), FText::AsNumber(Ping));	
 	}
 
 	FText GetBrowserNumPlayers()
@@ -315,7 +390,6 @@ public:
 	{
 		return FText::Format(NSLOCTEXT("HUBBrowser", "NumPlayersFormat", "{0} Players"), FText::AsNumber(NumPlayers));
 	}
-
 
 	FText GetNumFriends()
 	{
@@ -362,32 +436,61 @@ public:
 		FText ColumnText;
 		if (ServerData.IsValid())
 		{
-			if (ColumnName == FName(TEXT("ServerName"))) ColumnText = FText::FromString(ServerData->Name);
-			else if (ColumnName == FName(TEXT("ServerIP"))) ColumnText = FText::FromString(ServerData->IP);
-			else if (ColumnName == FName(TEXT("ServerGame"))) ColumnText = FText::FromString(ServerData->GameModeName);
-			else if (ColumnName == FName(TEXT("ServerMap"))) ColumnText = FText::FromString(ServerData->Map);
-			else if (ColumnName == FName(TEXT("ServerVer"))) ColumnText = FText::FromString(ServerData->Version);
+			if (ColumnName == FName(TEXT("ServerName"))) 
+			{
+				return SNew(STextBlock)
+					.Font(ItemEditorFont)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserName)))
+					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetDrawColorAndOpacity)));
+			}
+			else if (ColumnName == FName(TEXT("ServerIP"))) 
+			{
+				return SNew(STextBlock)
+					.Font(ItemEditorFont)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserIP)))
+					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetDrawColorAndOpacity)));
+			}
+			else if (ColumnName == FName(TEXT("ServerGame"))) 
+			{
+				return SNew(STextBlock)
+					.Font(ItemEditorFont)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserGameMode)))
+					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetDrawColorAndOpacity)));
+			}
+			else if (ColumnName == FName(TEXT("ServerMap"))) 
+			{
+				return SNew(STextBlock)
+					.Font(ItemEditorFont)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserMapName)))
+					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetDrawColorAndOpacity)));
+			}
 			else if (ColumnName == FName(TEXT("ServerNumPlayers")))
 			{
 				return SNew(STextBlock)
 					.Font(ItemEditorFont)
-					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumPlayers)));
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumPlayers)))
+					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetDrawColorAndOpacity)));
 			}
 			else if (ColumnName == FName(TEXT("ServerNumSpecs"))) 
 			{
 				return SNew(STextBlock)
 					.Font(ItemEditorFont)
-					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumSpectators)));
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumSpectators)))
+					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetDrawColorAndOpacity)));
 			}
 			else if (ColumnName == FName(TEXT("ServerNumFriends")))
 			{
 				return SNew(STextBlock)
 					.Font(ItemEditorFont)
-					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumFriends)));
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserNumFriends)))
+					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetDrawColorAndOpacity)));
 			}
 			else if (ColumnName == FName(TEXT("ServerPing"))) 
 			{
-				ColumnText = bErrorPing ? NSLOCTEXT("SUWServerBrowser","BadPing", "--") : FText::AsNumber(ServerData->Ping);
+				return SNew(STextBlock)
+					.Font(ItemEditorFont)
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetBrowserPing)))
+					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(ServerData.Get(), &FServerData::GetDrawColorAndOpacity)));
 			}
 			else if (ColumnName == FName(TEXT("ServerFlags"))) 
 			{
@@ -476,7 +579,7 @@ protected:
 
 	FName BrowserState;
 
-	bool bShowingLobbies;
+	bool bShowingHubs;
 
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
@@ -507,21 +610,22 @@ protected:
 	TArray< TSharedPtr< FServerPlayerData > > PlayersListSource;
 
 	// The list being displays.  It only includes servers that have met the filter requirement.
-	TArray< TSharedPtr< FServerData > > FilteredServers;
+	TArray< TSharedPtr< FServerData > > FilteredServersSource;
 
 	// The list being displays.  It only includes servers that have met the filter requirement.
-	TArray< TSharedPtr< FServerData > > FilteredHUBs;
+	TArray< TSharedPtr< FServerData > > FilteredHubsSource;
 
 	// When there is a server in this list, then the game will attempt to ping them.  
 	TArray< TSharedPtr< FServerData > > PingList;
 
-	// The whole list of servers
-	TArray< TSharedPtr< FServerData > > InternetServers;
+	// The whole list of non-Hub Servers
+	TArray< TSharedPtr< FServerData > > AllInternetServers;
 
-	TArray< TSharedPtr< FServerData > > HUBServers;
+	// The whole list of Hubs
+	TArray< TSharedPtr< FServerData > > AllHubServers;
 
 	// The list of lan servers
-	TArray< TSharedPtr< FServerData > > LanServers;
+	TArray< TSharedPtr< FServerData > > AllLanServers;
 
 	// A list of "pending ping requests".
 	TArray< FServerPingTracker> PingTrackers;
@@ -551,12 +655,10 @@ protected:
 
 	void SortServers(FName ColumnName);
 	void SortHUBs();
-	virtual void FilterAllServers(FString InitialGameType);
-	virtual void FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true);
+	virtual void FilterAllServers();
+	virtual void FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true, float BestPing = 0);
 	virtual void FilterAllHUBs();
-	virtual void FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true);
-
-	virtual void EmptyHUBServers();
+	virtual void FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true, float BestPing = 0);
 
 	FDelegateHandle PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
@@ -604,6 +706,15 @@ protected:
 	virtual void OnQuickFilterTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 	virtual FReply BrowserTypeChanged();
 	
+	// Walk over both the lists and expire out any servers not available on the MCP
+	virtual void ExpireDeadServers();
+
+	// Adds a server if it doesn't exist
+	virtual void AddServer(TSharedPtr<FServerData> Server);
+
+	// Adds a hub if it doesn't exist
+	virtual void AddHub(TSharedPtr<FServerData> Hub);
+
 	virtual void ShowServers(FString InitialGameType);
 	virtual void ShowHUBs();
 
@@ -638,6 +749,15 @@ private:
 
 	virtual FText GetStatusText() const;
 
+protected:
+	ECheckBoxState ShouldHideUnresponsiveServers() const;
+	void OnHideUnresponsiveServersChanged(const ECheckBoxState NewState);
+	TSharedPtr<SCheckBox> HideUnresponsiveServersCheckbox;
+	bool bHideUnresponsiveServers;
+
+	bool IsUnresponsive(TSharedPtr<FServerData> Server, float BestPing = 0);
+
+	bool bWantsAFullRefilter;
 
 };
 

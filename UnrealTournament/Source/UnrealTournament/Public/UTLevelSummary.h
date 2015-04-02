@@ -19,6 +19,9 @@ class UUTLevelSummary : public UObject
 		OptimalPlayerCount.Y = 12;
 	}
 
+	/** localized title of the map */
+	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
+	FString Title;
 	/** desired number of players for best gameplay */
 	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
 	FIntPoint OptimalPlayerCount;

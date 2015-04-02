@@ -66,11 +66,16 @@ void USkeletalMeshComponent::BlendPhysicsBones( TArray<FBoneIndexType>& InRequir
 	UPhysicsAsset * const PhysicsAsset = GetPhysicsAsset();
 	check( PhysicsAsset );
 
+	if (GetNumSpaceBases() == 0)
+	{
+		return;
+	}
+
 	// Make sure scratch space is big enough.
 	TArray<FAssetWorldBoneTM> WorldBoneTMs;
 	WorldBoneTMs.Reset();
 	WorldBoneTMs.AddZeroed(GetNumSpaceBases());
-
+	
 	FTransform LocalToWorldTM = ComponentToWorld;
 	LocalToWorldTM.RemoveScaling();
 

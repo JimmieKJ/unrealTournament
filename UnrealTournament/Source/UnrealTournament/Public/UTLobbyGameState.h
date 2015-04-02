@@ -43,16 +43,22 @@ class FAllowedMapData
 public:
 	FString MapName;
 	FGuid MapGuid;
+	FString MapTitle;
 
-	FAllowedMapData(const FString& InName, const FGuid& InGuid)
-		: MapName(InName), MapGuid(InGuid)
+	FAllowedMapData(const FString& InName, const FGuid& InGuid, const FString& InTitle)
+		: MapName(InName), MapGuid(InGuid), MapTitle(InTitle)
 	{}
 
-	static inline TSharedRef<FAllowedMapData> MakeShared(const FString& InMapName, const FString& InGuid)
+	static inline TSharedRef<FAllowedMapData> MakeShared(const FString& InMapName, const FString& InGuid, const FString& InTitle)
 	{
 		FGuid RealGuid;
 		FGuid::Parse(InGuid, RealGuid);
-		return MakeShareable(new FAllowedMapData(InMapName, RealGuid));
+		return MakeShareable(new FAllowedMapData(InMapName, RealGuid, InTitle));
+	}
+
+	inline FString GetDisplayName() const
+	{
+		return !MapTitle.IsEmpty() ? MapTitle : MapName;
 	}
 };
 

@@ -8,6 +8,12 @@ class UUTGameEngine : public UGameEngine
 {
 	GENERATED_UCLASS_BODY()
 
+private:
+	/** used to have the standard weapon set always loaded for UI performance and load times */
+	UPROPERTY()
+	TArray< TSubclassOf<AUTWeapon> > AlwaysLoadedWeapons;
+
+public:
 	/** default screenshot used for levels when none provided in the level itself */
 	UPROPERTY()
 	UTexture2D* DefaultLevelScreenshot;

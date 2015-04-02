@@ -175,7 +175,6 @@ void AUTPlayerController::SetAutoSlide(bool bNewAutoSlide)
 	}
 	if (Role != ROLE_Authority)
 	{
-		// @TODO FIXMESTEVE - only replicate if we know it has changed
 		ServerSetAutoSlide(bAutoSlide);
 	}
 }

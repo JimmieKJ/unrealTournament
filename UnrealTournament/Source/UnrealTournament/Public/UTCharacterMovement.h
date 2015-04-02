@@ -44,6 +44,12 @@ public:
 	/** Sets LastClientAdjustmentTime so there will be no delay in sending any needed adjustment. */
 	virtual void NeedsClientAdjustment();
 
+	virtual void ResetPredictionData_Client() override;
+
+	/* Bandwidth saving version, when position is not relative to base */
+	UFUNCTION(unreliable, client)
+	virtual void ClientNoBaseAdjustPosition(float TimeStamp, FVector NewLoc, FVector NewVelocity, uint8 ServerMovementMode);
+
 	/** Last time a client adjustment was sent.  Used to limit frequency (for when client hasn't had a chance to respond yet. */
 	UPROPERTY()
 	float LastClientAdjustmentTime;

@@ -12,6 +12,9 @@
 #include "UTGameEngine.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 #if !UE_SERVER
 
@@ -173,83 +176,9 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 
 				SNew(SVerticalBox)
 				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(SBox)
-					.HeightOverride(56)
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SBox)
-							.WidthOverride(25)
-							[
-								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.LightFill"))
-							]
-						]
-
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SAssignNew(GameSettingsTabButton, SUTTabButton)
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.TabButton")
-							.ClickMethod(EButtonClickMethod::MouseDown)
-							.OnClicked(this, &SUWCreateGamePanel::GameSettingsClick)
-							.ContentPadding(FMargin(25.0,0.0,60.0,5.0))
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.VAlign(VAlign_Center)
-								[
-									SAssignNew(GameSettingsLabel, STextBlock)
-									.Text(NSLOCTEXT("SUWCreateGamePanel","TabBar","Game Settings").ToString())
-									.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-								]
-							]
-						]
-
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SAssignNew(ServerSettingsTabButton,SUTTabButton)
-							.ClickMethod(EButtonClickMethod::MouseDown)
-							.OnClicked(this, &SUWCreateGamePanel::ServerSettingsClick)
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.TabButton")
-							.ContentPadding(FMargin(25.0,0.0,60.0,5.0))
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.VAlign(VAlign_Center)
-								[
-									SAssignNew(ServerSettingsLabel,STextBlock)
-									.Text(NSLOCTEXT("SUWCreateGamePanel","TabBar","Server Settings").ToString())
-									.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-								]
-							]
-						]
-						+SHorizontalBox::Slot()
-						.FillWidth(1.0)
-						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.LightFill"))
-						]
-
-					]
-				]
-				+SVerticalBox::Slot()
 				.VAlign(VAlign_Fill)
 				[
-					SAssignNew(TabSwitcher, SWidgetSwitcher)
-					+ SWidgetSwitcher::Slot()
-					[
-						BuildGamePanel(InitialSelectedGameClass)
-					]
-					+ SWidgetSwitcher::Slot()
-					[
-						BuildServerPanel()
-					]
+					BuildGamePanel(InitialSelectedGameClass)
 				]
 			]
 			+SVerticalBox::Slot()
@@ -315,8 +244,6 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 			]
 		]
 	];
-
-	GameSettingsTabButton->BePressed();
 
 }
 
@@ -462,7 +389,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 							SNew(SBox)
 							.WidthOverride(290)
 							[
-								SAssignNew(MapList, SComboBox< TSharedPtr<FString> >)
+								SAssignNew(MapList, SComboBox< TSharedPtr<FMapListItem> >)
 								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
 								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 								.OptionsSource(&AllMaps)
@@ -703,146 +630,13 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 }
 
 
-TSharedRef<SWidget> SUWCreateGamePanel::BuildServerPanel()
+
+
+void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo)
 {
+	SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection.Get()->GetDisplayName()) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
 
-	TSharedPtr<TAttributePropertyString> ServerNameProp = MakeShareable(new TAttributePropertyString(AUTGameState::StaticClass()->GetDefaultObject(), &AUTGameState::StaticClass()->GetDefaultObject<AUTGameState>()->ServerName));
-	PropertyLinks.Add(ServerNameProp);
-	TSharedPtr<TAttributePropertyString> ServerMOTDProp = MakeShareable(new TAttributePropertyString(AUTGameState::StaticClass()->GetDefaultObject(), &AUTGameState::StaticClass()->GetDefaultObject<AUTGameState>()->ServerMOTD));
-	PropertyLinks.Add(ServerMOTDProp);
-
-	return SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(1000)
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
-				.AutoHeight()
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.Padding(FMargin(20.0f, 5.0f, 10.0f, 5.0f))
-					.AutoWidth()
-					[
-						SNew(SBox)
-						.WidthOverride(300)
-						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-							.Text(NSLOCTEXT("SUWCreateGamePanel", "ServerName", "Server Name:"))
-						]
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(FMargin(20.0f, 5.0f, 10.0f, 5.0f))
-					.AutoWidth()
-					[
-						SNew(SBox)
-						.WidthOverride(300)
-						[
-							SNew(SEditableTextBox)
-							.OnTextChanged(ServerNameProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
-							.MinDesiredWidth(300.0f)
-							.Text(ServerNameProp.ToSharedRef(), &TAttributePropertyString::GetAsText)
-							.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
-						]
-					]
-				]
-				+SVerticalBox::Slot()
-				.Padding(FMargin(0.0f, 5.0f, 10.0f, 5.0f))
-				.AutoHeight()
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.Padding(FMargin(20.0f, 5.0f, 10.0f, 5.0f))
-					.AutoWidth()
-					[
-						SNew(SBox)
-						.WidthOverride(300)
-						[
-							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-							.Text(NSLOCTEXT("SUWCreateGamePanel", "ServerMOTD", "Server MOTD:"))
-						]
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(FMargin(20.0f, 5.0f, 10.0f, 5.0f))
-					.AutoWidth()
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.Padding(FMargin(0.0f, 5.0f, 10.0f, 5.0f))
-						.AutoWidth()
-						[
-							SNew(SBox)
-							.WidthOverride(700)
-							.HeightOverride(400)
-							[
-								SNew(SMultiLineEditableTextBox)
-								.WrapTextAt(680)
-								.AutoWrapText(true)
-								.Style(SUWindowsStyle::Get(), "UT.Common.Editbox.White")
-								.OnTextChanged(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::SetFromText)
-								.Text(ServerMOTDProp.ToSharedRef(), &TAttributePropertyString::GetAsText)
-							]
-						]
-					]
-				]
-			]					
-		];
-		
-		
-}
-/*
-	int32 ButtonID = 0;
-	if (InArgs._IsOnline)
-	{
-		ButtonRow->AddSlot(ButtonID++, 0)
-		[
-			SNew(SButton)
-			.HAlign(HAlign_Left)
-			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWCreateGamePanel", "StartDedicatedButton", "Start Dedicated").ToString())
-			.OnClicked(this, &SUWCreateGamePanel::StartClick, SERVER_Dedicated)
-		];
-	}
-	else
-	{
-		ButtonRow->AddSlot(ButtonID++, 0)
-		[
-			SNew(SButton)
-			.HAlign(HAlign_Left)
-			.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-			.Text(NSLOCTEXT("SUWCreateGamePanel", "StartButton", "Start").ToString())
-			.OnClicked(this, &SUWCreateGamePanel::StartClick, SERVER_Standalone)
-		];
-	}
-	ButtonRow->AddSlot(ButtonID++, 0)
-	[
-		SNew(SButton)
-		.HAlign(HAlign_Left)
-		.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.Button")
-		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-		.Text(NSLOCTEXT("SUWMessageBox", "CancelButton", "Cancel").ToString())
-		.OnClicked(this, &SUWCreateGamePanel::CancelClick)
-	];
-}
-
-
-	return SNew(SCanvas);
-*/
-
-
-void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	SelectedMap->SetText(NewSelection.IsValid() ? *NewSelection.Get() : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available").ToString());
-
-	UUTLevelSummary* Summary = NewSelection.IsValid() ? UUTGameEngine::LoadLevelSummary(*NewSelection.Get()) : NULL;
+	UUTLevelSummary* Summary = NewSelection.IsValid() ? UUTGameEngine::LoadLevelSummary(NewSelection.Get()->PackageName) : NULL;
 	if (Summary != NULL)
 	{
 		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(Summary->Author)));
@@ -870,14 +664,14 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 		];
 }
 
-TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TSharedPtr<FString> InItem)
+TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TSharedPtr<FMapListItem> InItem)
 {
 	return SNew(SBox)
 		.Padding(5)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(*InItem.Get())
+			.Text(InItem.Get()->GetDisplayName())
 		];
 }
 
@@ -982,19 +776,37 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 			if ( GameDefaults->SupportsMap(Asset.AssetName.ToString()) && !MapPackageName.StartsWith(TEXT("/Engine/")) &&
 				IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
 			{
-				AllMaps.Add(MakeShareable(new FString(Asset.AssetName.ToString())));
+				static FName NAME_Title(TEXT("Title"));
+				const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
+				AllMaps.Add(MakeShareable(new FMapListItem(Asset.AssetName.ToString(), (Title != NULL) ? *Title : FString())));
 			}
 		}
-		AllMaps.Sort([](const TSharedPtr<FString>& A, const TSharedPtr<FString>& B){ return *A.Get() < *B.Get(); });
+		AllMaps.Sort([](const TSharedPtr<FMapListItem>& A, const TSharedPtr<FMapListItem>& B)
+					{
+						bool bHasTitleA = !A.Get()->Title.IsEmpty();
+						bool bHasTitleB = !B.Get()->Title.IsEmpty();
+						if (bHasTitleA && !bHasTitleB)
+						{
+							return true;
+						}
+						else if (!bHasTitleA && bHasTitleB)
+						{
+							return false;
+						}
+						else
+						{
+							return A.Get()->GetDisplayName() < B.Get()->GetDisplayName();
+						}
+					});
 
 		MapList->RefreshOptions();
 		if (AllMaps.Num() > 0)
 		{
 			MapList->SetSelectedItem(AllMaps[0]);
 			// remember last selection
-			for (TSharedPtr<FString> TestMap : AllMaps)
+			for (TSharedPtr<FMapListItem> TestMap : AllMaps)
 			{
-				if (*TestMap.Get() == SelectedGameClass.GetDefaultObject()->UILastStartingMap)
+				if (TestMap.Get()->PackageName == SelectedGameClass.GetDefaultObject()->UILastStartingMap)
 				{
 					MapList->SetSelectedItem(TestMap);
 					break;
@@ -1089,6 +901,16 @@ void SUWCreateGamePanel::CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget
 
 FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 {
+	if (FUTAnalytics::IsAvailable())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		if (Mode == EServerStartMode::SERVER_Dedicated)		ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Dedicated")));
+		if (Mode == EServerStartMode::SERVER_Listen)		ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Listen")));
+		if (Mode == EServerStartMode::SERVER_Standalone)	ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Standalone")));
+		
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("MenuStartGame"), ParamArray );
+	}
+
 	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
 	if (Mode != SERVER_Standalone && Engine != NULL && !Engine->IsCloudAndLocalContentInSync())
 	{
@@ -1096,7 +918,7 @@ FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
 		FText DialogText = NSLOCTEXT("UT", "ContentOutOfSyncWarning", "You have locally created custom content that is not in your cloud storage. Players may be unable to join your server. Are you sure?");
 		FDialogResultDelegate Callback;
 		Callback.BindSP(this, &SUWCreateGamePanel::StartGameWarningComplete);
-		GetPlayerOwner()->ShowMessage(NSLOCTEXT("UT", "ContentNotInSync", "Custom Content Out of Sync"), DialogText, UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, Callback);
+		GetPlayerOwner()->ShowMessage(NSLOCTEXT("U1T", "ContentNotInSync", "Custom Content Out of Sync"), DialogText, UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, Callback);
 	}
 	else
 	{
@@ -1269,34 +1091,6 @@ FReply SUWCreateGamePanel::ConfigureMutator()
 FReply SUWCreateGamePanel::ConfigureBots()
 {
 	GetPlayerOwner()->OpenDialog(SNew(SUWBotConfigDialog).PlayerOwner(GetPlayerOwner()).GameClass(SelectedGameClass).NumBots(SelectedGameClass->GetDefaultObject<AUTGameMode>()->BotFillCount - 1));
-	return FReply::Handled();
-}
-
-FReply SUWCreateGamePanel::GameSettingsClick()
-{
-	const FTextBlockStyle* SelectedStyle = &(SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>("UT.TopMenu.Button.SmallTextStyle.Selected"));
-	const FTextBlockStyle* NormalStyle = &(SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>("UT.TopMenu.Button.SmallTextStyle"));
-
-	GameSettingsLabel->SetTextStyle(SelectedStyle);
-
-	ServerSettingsTabButton->UnPressed();
-	ServerSettingsLabel->SetTextStyle(NormalStyle);
-
-	TabSwitcher->SetActiveWidgetIndex(0);
-	return FReply::Handled();
-}
-
-FReply SUWCreateGamePanel::ServerSettingsClick()
-{
-	const FTextBlockStyle* SelectedStyle = &(SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>("UT.TopMenu.Button.SmallTextStyle.Selected"));
-	const FTextBlockStyle* NormalStyle = &(SUWindowsStyle::Get().GetWidgetStyle<FTextBlockStyle>("UT.TopMenu.Button.SmallTextStyle"));
-
-	ServerSettingsLabel->SetTextStyle(SelectedStyle);
-
-	GameSettingsLabel->SetTextStyle(NormalStyle);
-	GameSettingsTabButton->UnPressed();
-
-	TabSwitcher->SetActiveWidgetIndex(1);
 	return FReply::Handled();
 }
 

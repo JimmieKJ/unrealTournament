@@ -50,7 +50,7 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 			return (HitActor->GetActorLocation() - RadialEvent.Origin).GetSafeNormal() * Magnitude;
 		}
 		// accommodate origin being same as hit location
-		else if (RadialEvent.ComponentHits.Num() == 1 && (RadialEvent.ComponentHits[0].Location - RadialEvent.Origin).IsNearlyZero())
+		else if (RadialEvent.ComponentHits.Num() == 1 && (RadialEvent.ComponentHits[0].Location - RadialEvent.Origin).IsNearlyZero() && RadialEvent.ComponentHits[0].Component.IsValid())
 		{
 			if ((RadialEvent.ComponentHits[0].TraceStart - RadialEvent.ComponentHits[0].TraceEnd).IsNearlyZero())
 			{
