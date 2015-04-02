@@ -250,6 +250,12 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveTauntClass(const FString& NewTauntClass);
 
+	UPROPERTY(replicated)
+	TSubclassOf<AUTTaunt> Taunt2Class;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveTaunt2Class(const FString& NewTauntClass);
+
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;
 

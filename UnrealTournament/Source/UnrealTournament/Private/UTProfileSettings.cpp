@@ -26,11 +26,22 @@ void UUTProfileSettings::VersionFixup()
 			{
 				Iter->ActionName = FName(TEXT("PlayTaunt"));
 			}
-			else if (Iter->ActionName == FName(TEXT("PlayEmote2")) || Iter->ActionName == FName(TEXT("PlayEmote3")))
+			else if (Iter->ActionName == FName(TEXT("PlayEmote2")))
+			{
+				Iter->ActionName = FName(TEXT("PlayTaunt2"));
+			}
+			else if (Iter->ActionName == FName(TEXT("PlayEmote3")))
 			{
 				ActionMappings.RemoveAt(Iter.GetIndex());
 			}
 		}
+	}
+	if (SettingsRevisionNum == TAUNTFIXUP_PROFILESETTINGS_VERSION)
+	{
+		FInputActionKeyMapping Taunt2;
+		Taunt2.ActionName = FName(TEXT("PlayTaunt2"));
+		Taunt2.Key = EKeys::K;
+		ActionMappings.AddUnique(Taunt2);
 	}
 }
 

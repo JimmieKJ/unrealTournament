@@ -11,7 +11,8 @@
 
 static const uint32 VALID_PROFILESETTINGS_VERSION = 6;
 static const uint32 EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION = 6;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 7;
+static const uint32 TAUNTFIXUP_PROFILESETTINGS_VERSION = 7;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 8;
 
 class UUTLocalPlayer;
 
@@ -85,6 +86,8 @@ class UUTProfileSettings : public UObject
 	int32 EyewearVariant;
 	UPROPERTY()
 	FString TauntPath;
+	UPROPERTY()
+	FString Taunt2Path;
 
 	UPROPERTY()
 	FString CharacterPath;

@@ -279,7 +279,10 @@ public:
 
 	UFUNCTION()
 	virtual void PlayTaunt();
-	
+
+	UFUNCTION()
+	virtual void PlayTaunt2();
+
 	UFUNCTION(Exec)
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
 

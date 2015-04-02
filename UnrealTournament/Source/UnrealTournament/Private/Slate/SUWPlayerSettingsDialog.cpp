@@ -477,10 +477,43 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								]
 							]
 						]
+						
+						// Taunt 2
+						// ---------------------------------------------------------------------------------
+						+ SGridPanel::Slot(0, 4)
+						.Padding(NameColumnPadding)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("Taunt2SelectionLabel", "Taunt 2"))
+						]
+
+						+ SGridPanel::Slot(1, 4)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(Taunt2ComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.OptionsSource(&TauntList)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnTaunt2Selected)
+							.Content()
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+								[
+									SAssignNew(SelectedTaunt2, STextBlock)
+									.Text(FString(TEXT("No Taunts Available")))
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+								]
+							]
+						]
 
 						// Character
 						// ---------------------------------------------------------------------------------
-						+ SGridPanel::Slot(0, 4)
+						+ SGridPanel::Slot(0, 5)
 						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
@@ -488,7 +521,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Text(LOCTEXT("CharSelectionLabel", "Character"))
 						]
 
-						+ SGridPanel::Slot(1, 4)
+						+ SGridPanel::Slot(1, 5)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(CharacterComboBox, SComboBox< TSharedPtr<FString> >)
@@ -688,6 +721,21 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			TauntComboBox->SetSelectedItem(TauntList[0]);
 		}
 
+		bool bFoundSelectedTaunt2 = false;
+		for (int32 i = 0; i < TauntPathList.Num(); i++)
+		{
+			if (TauntPathList[i] == GetPlayerOwner()->GetTaunt2Path())
+			{
+				Taunt2ComboBox->SetSelectedItem(TauntList[i]);
+				bFoundSelectedTaunt2 = true;
+				break;
+			}
+		}
+		if (!bFoundSelectedTaunt2 && TauntPathList.Num() > 0)
+		{
+			Taunt2ComboBox->SetSelectedItem(TauntList[0]);
+		}
+
 		bool bFoundSelectedCharacter = false;
 		for (int32 i = 0; i < CharacterPathList.Num(); i++)
 		{
@@ -808,6 +856,8 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	GetPlayerOwner()->SetEyewearPath(EyewearPathList.IsValidIndex(Index) ? EyewearPathList[Index] : FString());
 	Index = TauntList.Find(TauntComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetTauntPath(TauntPathList.IsValidIndex(Index) ? TauntPathList[Index] : FString());
+	Index = TauntList.Find(Taunt2ComboBox->GetSelectedItem());
+	GetPlayerOwner()->SetTaunt2Path(TauntPathList.IsValidIndex(Index) ? TauntPathList[Index] : FString());
 	Index = CharacterList.Find(CharacterComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetCharacterPath(CharacterPathList.IsValidIndex(Index) ? CharacterPathList[Index] : FString());
 
@@ -907,6 +957,11 @@ void SUWPlayerSettingsDialog::OnCharacterSelected(TSharedPtr<FString> NewSelecti
 void SUWPlayerSettingsDialog::OnTauntSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedTaunt->SetText(*NewSelection.Get());
+}
+
+void SUWPlayerSettingsDialog::OnTaunt2Selected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedTaunt2->SetText(*NewSelection.Get());
 }
 
 void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)

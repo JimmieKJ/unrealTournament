@@ -442,6 +442,11 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 			{
 				PS->ServerReceiveTauntClass(InOpt);
 			}
+			InOpt = ParseOption(Options, TEXT("Taunt2"));
+			if (InOpt.Len() > 0)
+			{
+				PS->ServerReceiveTaunt2Class(InOpt);
+			}
 			int32 HatVar = GetIntOption(Options, TEXT("HatVar"), 0);
 			PS->ServerReceiveHatVariant(HatVar);
 			int32 EyewearVar = GetIntOption(Options, TEXT("EyewearVar"), 0);
