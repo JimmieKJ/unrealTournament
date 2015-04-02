@@ -261,33 +261,36 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 
 	/** reaction time (in real seconds) for enemy positional tracking (i.e. use enemy's position this far in the past as basis) */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
-		float TrackingReactionTime;
+	float TrackingReactionTime;
 	/** Max Error in bots estimate about how far to lead player based on misjudging tracking reaction */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
-		float MaxTrackingPredictionError;
+	float MaxTrackingPredictionError;
 	/** Current Error in bots estimate about how far to lead player based on misjudging tracking reaction */
-	UPROPERTY(BlueprintReadWrite, Category = Skill)
-		float TrackingPredictionError;
+	UPROPERTY()
+	float TrackingPredictionError;
 	/** Max offset error, scaled by distance to player */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
-		float MaxTrackingOffsetError;
+	float MaxTrackingOffsetError;
+	/** max offset error adjusted for current combat factors (stopped, have a bead on current enemy, etc) */
+	UPROPERTY()
+	float AdjustedMaxTrackingOffsetError;
 	/** Current offset error, scaled by distance to player */
-	UPROPERTY(BlueprintReadWrite, Category = Skill)
-		float TrackingOffsetError;
+	UPROPERTY()
+	float TrackingOffsetError;
 	/** How frequently to update tracking error */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
-		float TrackingErrorUpdateInterval;
+	float TrackingErrorUpdateInterval;
 	/** Next time to update tracking error */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
-		float TrackingErrorUpdateTime;
+	float TrackingErrorUpdateTime;
 	/** How much to reduce aiming offset error over time if either bot or target is stopped. */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
-	float StoppedOffsetErrorReduction = 0.8f;
+	float StoppedOffsetErrorReduction;
 	/** How much to reduce aiming offset error over time if both bot and target are stopped. */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
-	float BothStoppedOffsetErrorReduction = 0.5f;
+	float BothStoppedOffsetErrorReduction;
 
-	virtual void UpdateTrackingError();
+	virtual void UpdateTrackingError(bool bNewEnemy);
 
 	/** maximum vision range in UU */
 	UPROPERTY(BlueprintReadWrite, Category = Skill)
