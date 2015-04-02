@@ -612,7 +612,7 @@ bool AUTGameMode::AllowRemovingBot(AUTBot* B)
 			bool bHighScore = true;
 			for (APlayerState* OtherPS : GameState->PlayerArray)
 			{
-				if (OtherPS->Score > PS->Score)
+				if (OtherPS != PS && OtherPS->Score >= PS->Score)
 				{
 					bHighScore = false;
 					break;
