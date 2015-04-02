@@ -48,7 +48,16 @@ void AUTWeap_ShockRifle::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Heig
 		RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
 		RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
 
-		FString AmmoText = FString::FromInt(Ammo);
+		bool bInfiniteAmmo = true;
+		for (int32 Cost : AmmoCost)
+		{
+			if (Cost > 0)
+			{
+				bInfiniteAmmo = false;
+				break;
+			}
+		}
+		FString AmmoText = bInfiniteAmmo ? TEXT("--") : FString::FromInt(Ammo);
 		float XL, YL;
 		C->TextSize(ScreenFont, AmmoText, XL, YL);
 		if (!WordWrapper.IsValid())
