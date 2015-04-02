@@ -888,6 +888,8 @@ void SUWindowsStyle::SetServerBrowserStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetSelectorFocusedBrush(IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
 		.SetActiveBrush(IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
 		.SetActiveHoveredBrush(IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
+		.SetInactiveBrush(IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
+		.SetInactiveHoveredBrush(IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Selector", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
 		.SetTextColor(FLinearColor::White)
 		.SetSelectedTextColor(FLinearColor::Black)
 		);
