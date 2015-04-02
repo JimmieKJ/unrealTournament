@@ -14,7 +14,6 @@ class SUWCreateGamePanel : public SUWPanel, public FGCObject
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);	
 	virtual TSharedRef<SWidget> BuildGamePanel(TSubclassOf<AUTGameMode> InitialSelectedGameClass);
-	virtual TSharedRef<SWidget> BuildServerPanel();
 
 	virtual ~SUWCreateGamePanel()
 	{
@@ -67,7 +66,6 @@ protected:
 	TSharedPtr< SListView<UClass*> > EnabledMutators;
 	FSlateDynamicImageBrush* LevelScreenshot;
 
-	TSharedPtr<SWidgetSwitcher> TabSwitcher;
 	TSharedPtr<SVerticalBox> GamePanel;
 
 	TSharedPtr<SUTTabButton> GameSettingsTabButton;
@@ -99,9 +97,7 @@ protected:
 	FReply ConfigureMutator();
 	FReply ConfigureBots();
 
-	FReply GameSettingsClick();
-	FReply ServerSettingsClick();
-
+	void OnTextChanged(const FText& NewText);
 	virtual void CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
