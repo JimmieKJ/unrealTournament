@@ -105,7 +105,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 		{
 			for (int32 j=0;j<AvailableMatches[i]->Players.Num();j++)
 			{
-				if (AvailableMatches[i]->Players[j]->UniqueId.ToString() == PlayerID)
+				if (AvailableMatches[i]->Players[j]->UniqueId.IsValid() && AvailableMatches[i]->Players[j]->UniqueId.ToString() == PlayerID)
 				{
 					return AvailableMatches[i];
 				}
@@ -113,7 +113,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 
 			for (int32 j=0;j<AvailableMatches[i]->PlayersInMatchInstance.Num();j++)
 			{
-				if (AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.ToString() == PlayerID)
+				if (AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.IsValid() && AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.ToString() == PlayerID)
 				{
 					return AvailableMatches[i];
 				}
