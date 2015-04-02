@@ -13,6 +13,20 @@
 UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	if (IsTemplate(RF_ClassDefaultObject) && GetClass() == UUTGameEngine::StaticClass())
+	{
+		ConstructorHelpers::FObjectFinder<UClass> WeaponClasses[] = { TEXT("/Game/RestrictedAssets/Weapons/BioRifle/BP_BioRifle.BP_BioRifle_C"), TEXT("/Game/RestrictedAssets/Weapons/Enforcer/Enforcer.Enforcer_C"),
+																		TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_FlakCannon.BP_FlakCannon_C"), TEXT("/Game/RestrictedAssets/Weapons/ImpactHammer/BP_ImpactHammer.BP_ImpactHammer_C"),
+																		TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun.BP_LinkGun_C"), TEXT("/Game/RestrictedAssets/Weapons/Minigun/BP_Minigun.BP_Minigun_C"),
+																		TEXT("/Game/RestrictedAssets/Weapons/RocketLauncher/BP_RocketLauncher.BP_RocketLauncher_C"), TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockRifle.ShockRifle_C"),
+																		TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper.BP_Sniper_C")
+																	};
+		for (int32 i = 0; i < ARRAY_COUNT(WeaponClasses); i++)
+		{
+			AlwaysLoadedWeapons.Add(WeaponClasses[i].Object);
+		}
+	}
+
 	static ConstructorHelpers::FObjectFinder<UTexture2D> DefaultLevelScreenshotObj(TEXT("Texture2D'/Game/RestrictedAssets/Textures/_T_NSA_2_D._T_NSA_2_D'"));
 	DefaultLevelScreenshot = DefaultLevelScreenshotObj.Object;
 
