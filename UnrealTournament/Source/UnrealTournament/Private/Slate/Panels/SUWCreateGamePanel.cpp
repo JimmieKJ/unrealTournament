@@ -938,13 +938,14 @@ void SUWCreateGamePanel::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Di
 
 void SUWCreateGamePanel::StartGameInternal(EServerStartMode Mode)
 {
+	FString SelectedMapName = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->PackageName : TEXT("");
 	// save changes
 	GConfig->SetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), *SelectedGameClass->GetPathName(), GGameIni);
-	SelectedGameClass.GetDefaultObject()->UILastStartingMap = SelectedMap->GetText().ToString();
+	SelectedGameClass.GetDefaultObject()->UILastStartingMap = SelectedMapName;
 	SelectedGameClass.GetDefaultObject()->SaveConfig();
 	AUTGameState::StaticClass()->GetDefaultObject()->SaveConfig();
 
-	FString NewURL = FString::Printf(TEXT("%s?game=%s"), *SelectedMap->GetText().ToString(), *SelectedGameClass->GetPathName());
+	FString NewURL = FString::Printf(TEXT("%s?game=%s"), *SelectedMapName, *SelectedGameClass->GetPathName());
 	TArray<FString> LastMutators;
 	if (MutatorListEnabled.Num() > 0)
 	{
