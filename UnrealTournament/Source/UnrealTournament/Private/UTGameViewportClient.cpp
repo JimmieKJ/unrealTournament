@@ -308,6 +308,10 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 
 	if (!ReconnectDialog.IsValid())
 	{
+		if (FirstPlayer->GetCurrentMenu().IsValid())
+		{
+			FirstPlayer->HideMenu();
+		}
 		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","NetworkErrorDialogTitle","Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
 	}
 #endif
