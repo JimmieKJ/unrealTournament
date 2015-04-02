@@ -149,10 +149,13 @@ public:
 
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
-	virtual void ClientHalftime();
+	void ClientHalftime();
 
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
+
+	UFUNCTION(Client, Reliable)
+	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
 	virtual FVector GetFocalLocation() const override;
 
