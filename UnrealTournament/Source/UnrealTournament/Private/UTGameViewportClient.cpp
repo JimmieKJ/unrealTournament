@@ -13,6 +13,8 @@
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	ReconnectAfterDownloadingMapDelay = 0;
+	VerifyFilesToDownloadAndReconnectDelay = 0;
 }
 
 void UUTGameViewportClient::AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
@@ -60,16 +62,15 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 			{
 				URL = ErrorString.Left(SpaceIndex);
 
-				FString Checksum = ErrorString.RightChop(SpaceIndex);
+				FString Checksum = ErrorString.RightChop(SpaceIndex + 1);
 				FString BaseFilename = FPaths::GetBaseFilename(URL);
 
 				// If it already exists with the correct checksum, just mount it again
 				if (UTEngine && UTEngine->DownloadedContentChecksums.Contains(BaseFilename))
 				{
+					FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *BaseFilename) + TEXT(".pak");
 					if (UTEngine->DownloadedContentChecksums[BaseFilename] == Checksum)
 					{
-						FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *BaseFilename) + TEXT(".pak");
-
 						if (FCoreDelegates::OnMountPak.IsBound())
 						{
 							FCoreDelegates::OnMountPak.Execute(Path, 0);
@@ -77,22 +78,27 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 							bAlreadyDownloaded = true;
 						}
 					}
+					else
+					{
+						// Delete the original file
+						FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
+					}
 				}
 			}
 			else
 			{
 				URL = ErrorString;
 			}
-			
+
+			LastAttemptedURL = GEngine->PendingNetGameFromWorld(World)->URL;
+
 			if (bAlreadyDownloaded)
 			{
-				ReconnectAfterDownloadingMap();
+				ReconnectAfterDownloadingMapDelay = 0.5f;
 				return;
 			}
 			else if (FPaths::GetExtension(URL) == FString(TEXT("pak")))
 			{
-				LastAttemptedURL = GEngine->PendingNetGameFromWorld(World)->URL;
-
 				FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
 					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::RedirectResult))
 					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
@@ -175,7 +181,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 			else if (bMountedPreviousDownload)
 			{
 				// Assume we mounted all the files that we needed
-				VerifyFilesToDownloadAndReconnect();
+				VerifyFilesToDownloadAndReconnectDelay = 0.5f;
 			}
 
 			return;
@@ -481,4 +487,27 @@ void UUTGameViewportClient::CloudRedirectResult(TSharedPtr<SCompoundWidget> Widg
 		}
 	}
 #endif
+}
+
+void UUTGameViewportClient::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (ReconnectAfterDownloadingMapDelay > 0)
+	{
+		ReconnectAfterDownloadingMapDelay -= DeltaSeconds;
+		if (ReconnectAfterDownloadingMapDelay <= 0)
+		{
+			ReconnectAfterDownloadingMap();
+		}
+	}
+
+	if (VerifyFilesToDownloadAndReconnectDelay > 0)
+	{
+		VerifyFilesToDownloadAndReconnectDelay -= DeltaSeconds;
+		if (VerifyFilesToDownloadAndReconnectDelay <= 0)
+		{
+			VerifyFilesToDownloadAndReconnect();
+		}
+	}
 }

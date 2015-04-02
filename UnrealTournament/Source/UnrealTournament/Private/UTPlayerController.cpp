@@ -1468,23 +1468,26 @@ void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionPar
 {
 	if (IsInState(NAME_Spectating))
 	{
-		if (GetViewTarget() != GetSpectatorPawn())
+		SetViewTarget(this, TransitionParams);
+		ClientViewSpectatorPawn(TransitionParams);
+	}
+}
+void AUTPlayerController::ClientViewSpectatorPawn_Implementation(FViewTargetTransitionParams TransitionParams)
+{
+	if (GetViewTarget() != GetSpectatorPawn())
+	{
+		FVector CurrentViewLoc;
+		FRotator CurrentViewRot;
+		GetPlayerViewPoint(CurrentViewLoc, CurrentViewRot);
+		AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
+		if (NewViewTarget == NULL)
 		{
-			FVector CurrentViewLoc;
-			FRotator CurrentViewRot;
-			GetPlayerViewPoint(CurrentViewLoc, CurrentViewRot);
-			AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
-			if (NewViewTarget == NULL)
-			{
-				NewViewTarget = this;
-			}
-			// move spectator pawn to current view location
-			NewViewTarget->SetActorLocationAndRotation(CurrentViewLoc, CurrentViewRot);
-			ResetCameraMode();
-			SetViewTarget(NewViewTarget, TransitionParams);
+			NewViewTarget = this;
 		}
-		// always call client function in case it's out of sync
-		ClientSetViewTarget(GetViewTarget(), TransitionParams);
+		// move spectator pawn to current view location
+		NewViewTarget->SetActorLocationAndRotation(CurrentViewLoc, CurrentViewRot);
+		ResetCameraMode();
+		SetViewTarget(NewViewTarget, TransitionParams);
 	}
 }
 

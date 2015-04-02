@@ -98,6 +98,8 @@ public:
 	FString MD5Sum(const TArray<uint8>& Data);
 	bool IsCloudAndLocalContentInSync();
 
+	virtual void LoadMapRedrawViewports() override;
+
 	virtual void SetupLoadingScreen();
 #define UT_LOADING_SCREEN_HOOK SetupLoadingScreen();
 #if CPP

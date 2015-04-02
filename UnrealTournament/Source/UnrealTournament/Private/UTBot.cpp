@@ -245,21 +245,21 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 
 		TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (AimingSkill + 2.0f);
 
-		// no error for really high skill bots
+		// no prediction error for really high skill bots
+		// we still want some offset error because that will sometimes actually cause "correct" aim when combined with TrackingReactionTime
 		if (AimingSkill >= 7.0f)
 		{
 			MaxTrackingPredictionError = 0.f;
-			MaxTrackingOffsetError = 0.f;
 		}
 		else
 		{
-			MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 7.0f / (AimingSkill + 2.0f);
-			MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 7.0f / (AimingSkill + 2.0f);
+			MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 5.0f / (AimingSkill + 2.0f);
 		}
+		MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 6.0f / (AimingSkill + 2.0f);
 
 		TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 7.0f / (AimingSkill + 2.0f);
 		TrackingPredictionError = MaxTrackingPredictionError;
-		TrackingOffsetError = MaxTrackingOffsetError;
+		AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 	}
 
 	/*if (Skill < 3)
@@ -600,7 +600,7 @@ void AUTBot::Tick(float DeltaTime)
 			{
 				CurrentAction->EnemyNotVisible();
 			}
-			UpdateTrackingError();
+			UpdateTrackingError(false);
 		}
 		SightCounter -= DeltaTime;
 		if (SightCounter < 0.0f)
@@ -745,13 +745,16 @@ void AUTBot::Tick(float DeltaTime)
 }
 
 // @TODO FIXMESTEVE tracking offset error should go down at higher skills over time as long as enemy is still visible and tracked
-void AUTBot::UpdateTrackingError()
+void AUTBot::UpdateTrackingError(bool bNewEnemy)
 {
-	if (GetWorld()->GetTimeSeconds() > TrackingErrorUpdateTime)
+	if (bNewEnemy || GetWorld()->TimeSeconds > TrackingErrorUpdateTime)
 	{
-		TrackingPredictionError = MaxTrackingPredictionError * (2.f*FMath::FRand() - 1.f);
-		float OldTrackingOffsetError = TrackingOffsetError;
-		bool bStoppedEnemy = (Enemy == NULL || TrackedVelocity.IsNearlyZero());
+		TrackingPredictionError = MaxTrackingPredictionError * (2.f * FMath::FRand() - 1.f);
+		if (bNewEnemy)
+		{
+			AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
+		}
+		bool bStoppedEnemy = (Enemy == NULL || (TrackedVelocity.IsNearlyZero() && GetEnemyInfo(Enemy, true)->CanUseExactLocation(GetWorld()->TimeSeconds)));
 		bool bAmStopped = (GetPawn() != NULL && GetPawn()->GetVelocity().IsNearlyZero());
 		// consider crouching as 'stopped' for aiming purposes
 		if (!bAmStopped && GetCharacter() != NULL)
@@ -760,16 +763,17 @@ void AUTBot::UpdateTrackingError()
 		}
 		if (bStoppedEnemy || bAmStopped)
 		{
-			TrackingOffsetError *= ((bStoppedEnemy && bAmStopped) ? BothStoppedOffsetErrorReduction : StoppedOffsetErrorReduction) * FMath::FRandRange(0.9f, 1.1f);
-			if (FMath::FRand() < 0.5f)
-			{
-				TrackingOffsetError *= -1.0f;
-			}
+			AdjustedMaxTrackingOffsetError *= ((bStoppedEnemy && bAmStopped) ? BothStoppedOffsetErrorReduction : StoppedOffsetErrorReduction) * FMath::FRandRange(0.9f, 1.1f);
 		}
-		else
+		if (!bNewEnemy)
 		{
-			TrackingOffsetError = MaxTrackingOffsetError * (2.f * FMath::FRand() - 1.f);
+			float AcquisitionRate = 0.9f / FMath::Max<float>(1.0f, 0.25f * (Skill - Personality.ReactionTime * 2.0f));
+			float LossRate = 1.15f + 0.3f * FMath::Max<float>(0.0f, 1.0f - (Skill / 7.0f)) + Personality.ReactionTime * 0.1f;
+			AdjustedMaxTrackingOffsetError *= IsEnemyVisible(Enemy) ? AcquisitionRate : LossRate;
 		}
+		// don't let tracking offset error get to zero; looks bad and sometimes the error corrects for flaws (intentional or otherwise) in the base aim
+		AdjustedMaxTrackingOffsetError = FMath::Clamp<float>(AdjustedMaxTrackingOffsetError, MaxTrackingOffsetError * 0.075f, MaxTrackingOffsetError);
+		TrackingOffsetError = AdjustedMaxTrackingOffsetError * (2.f * FMath::FRand() - 1.f);
 		TrackingErrorUpdateTime = GetWorld()->GetTimeSeconds() + TrackingErrorUpdateInterval;
 	}
 }
@@ -3472,6 +3476,10 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 			}
 		}
 		LastEnemyChangeTime = GetWorld()->TimeSeconds;
+		if (Enemy != NULL)
+		{
+			UpdateTrackingError(true);
+		}
 		if (bExecutingWhatToDoNext)
 		{
 			// force update of visibility info if this is during decision logic
@@ -3516,7 +3524,7 @@ void AUTBot::SeePawn(APawn* Other)
 
 bool AUTBot::CanSee(APawn* Other, bool bMaySkipChecks)
 {
-	if (Other == NULL || GetPawn() == NULL || (Other->IsA(AUTCharacter::StaticClass()) && ((AUTCharacter*)Other)->IsInvisible()))
+	if (Other == NULL || GetPawn() == NULL || (Other->IsA(AUTCharacter::StaticClass()) && ((AUTCharacter*)Other)->IsInvisible()) || Other->IsA(ASpectatorPawn::StaticClass()))
 	{
 		return false;
 	}
