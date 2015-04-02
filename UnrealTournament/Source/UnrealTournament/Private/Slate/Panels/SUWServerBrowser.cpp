@@ -65,6 +65,7 @@ struct FCompareServerByPingDesc
 	}
 };
 
+
 struct FCompareRulesByRule		{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Rule > B->Rule);	}};
 struct FCompareRulesByRuleDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Rule < B->Rule);	}};
 struct FCompareRulesByValue		{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Value > B->Value);	}};
@@ -88,7 +89,10 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 {
 	Tag = FName(TEXT("ServerBrowser"));
 
-	bShowingLobbies = false;
+
+	bWantsAFullRefilter = false;
+	bHideUnresponsiveServers = true;	
+	bShowingHubs = false;
 	bAutoRefresh = false;
 	TSharedRef<SScrollBar> ExternalScrollbar = SNew(SScrollBar);
 
@@ -171,6 +175,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 								]
 								+SHorizontalBox::Slot()
 								.Padding(16.0f, 0.0f, 0.0f, 0.0f)
+								.FillWidth(1.0)
 								[
 									SNew(SBox)
 									.HeightOverride(36)
@@ -183,6 +188,25 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 										.Text(FText::GetEmpty())
 									]
 								]
+								+SHorizontalBox::Slot()
+								.Padding(16.0f, 0.0f, 0.0f, 0.0f)
+								.AutoWidth()
+								[
+									SAssignNew(HideUnresponsiveServersCheckbox, SCheckBox)
+									.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+									.ForegroundColor(FLinearColor::White)
+									.IsChecked(this, &SUWServerBrowser::ShouldHideUnresponsiveServers)
+									.OnCheckStateChanged(this, &SUWServerBrowser::OnHideUnresponsiveServersChanged)
+								]
+								+SHorizontalBox::Slot()
+								.Padding(16.0f, 0.0f, 30.0f, 0.0f)
+								.AutoWidth()
+								[
+									SNew(STextBlock)
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+									.Text(NSLOCTEXT("SUWSeverBrowser", "HideUnresponsive", "Hide Unresponsive Servers").ToString())
+								]
+
 							]
 						]
 					]
@@ -286,9 +310,12 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 	bDescendingSort = false;
 	CurrentSortColumn = FName(TEXT("ServerPing"));
 
-	// Create some fake servers until I can hook up the server list
-	InternetServers.Empty();
-	LanServers.Empty();
+	AllInternetServers.Empty();
+	AllHubServers.Empty();
+	AllLanServers.Empty();
+
+	FilteredServersSource.Empty();
+	FilteredHubsSource.Empty();
 
 	InternetServerList->RequestListRefresh();
 	HUBServerList->RequestListRefresh();
@@ -438,162 +465,124 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 						.Padding(5,0,5,0)
 						.FillWidth(1)
 						[
-/*
-							SNew(SScrollBox)
-							.Orientation(Orient_Horizontal)
-							+SScrollBox::Slot()
-							[
-*/
+							// The list view being tested
+							SAssignNew(InternetServerList, SListView< TSharedPtr<FServerData> >)
+							// List view items are this tall
+							.ItemHeight(24)
+							// Tell the list view where to get its source data
+							.ListItemsSource(&FilteredServersSource)
+							// When the list view needs to generate a widget for some data item, use this method
+							.OnGenerateRow(this, &SUWServerBrowser::OnGenerateWidgetForList)
+							.OnSelectionChanged(this, &SUWServerBrowser::OnServerListSelectionChanged)
+							.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
+							.SelectionMode(ESelectionMode::Single)
+							.HeaderRow
+							(
+								SAssignNew(HeaderRow, SHeaderRow)
+								.Style(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header")
 
-								// The list view being tested
-								SAssignNew(InternetServerList, SListView< TSharedPtr<FServerData> >)
-								// List view items are this tall
-								.ItemHeight(24)
-								// Tell the list view where to get its source data
-								.ListItemsSource(&FilteredServers)
-								// When the list view needs to generate a widget for some data item, use this method
-								.OnGenerateRow(this, &SUWServerBrowser::OnGenerateWidgetForList)
-								.OnSelectionChanged(this, &SUWServerBrowser::OnServerListSelectionChanged)
-								.SelectionMode(ESelectionMode::Single)
+								+ SHeaderRow::Column("ServerName")
+									.OnSort(this, &SUWServerBrowser::OnSort)
+									.HeaderContent()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerNameColumn", "Server Name"))
+										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNameColumnToolTip", "The name of this server."))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+									]
 
-								.HeaderRow
-								(
-									SAssignNew(HeaderRow, SHeaderRow)
-									.Style(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header")
-
-									+ SHeaderRow::Column("ServerName")
-											.OnSort(this, &SUWServerBrowser::OnSort)
-											.HeaderContent()
-											[
-												SNew(STextBlock)
-												.Text(NSLOCTEXT("SUWServerBrowser", "ServerNameColumn", "Server Name"))
-													.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNameColumnToolTip", "The name of this server."))
-													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-											]
-/*
-								+ SHeaderRow::Column("ServerIP")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerIPColumn", "IP"))
-										.HAlignCell(HAlign_Center)
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerIPColumn", "IP"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerIPColumnToolTip", "This server's IP address."))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
-*/
 								+ SHeaderRow::Column("ServerGame")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
-										.HAlignCell(HAlign_Center)
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerGameColumnToolTip", "The Game type."))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
+									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
+									.HAlignCell(HAlign_Center)
+									.HAlignHeader(HAlign_Center)
+									.OnSort(this, &SUWServerBrowser::OnSort)
+									.HeaderContent()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
+										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerGameColumnToolTip", "The Game type."))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+									]
 
 								+ SHeaderRow::Column("ServerMap")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
-										.HAlignCell(HAlign_Center)
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerMapColumnToolTip", "The current map."))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
+									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
+									.HAlignCell(HAlign_Center)
+									.HAlignHeader(HAlign_Center)
+									.OnSort(this, &SUWServerBrowser::OnSort)
+									.HeaderContent()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
+										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerMapColumnToolTip", "The current map."))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+									]
 
 								+ SHeaderRow::Column("ServerNumPlayers")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
-										.HAlignCell(HAlign_Center)
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumnToolTip", "The # of Players on this server."))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
+									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
+									.HAlignCell(HAlign_Center)
+									.HAlignHeader(HAlign_Center)
+									.OnSort(this, &SUWServerBrowser::OnSort)
+									.HeaderContent()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
+										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumnToolTip", "The # of Players on this server."))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+									]
 
 								+ SHeaderRow::Column("ServerNumSpecs")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
-										.HAlignCell(HAlign_Center)
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumnToolTip", "The # of spectators on this server."))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
+									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
+									.HAlignCell(HAlign_Center)
+									.HAlignHeader(HAlign_Center)
+									.OnSort(this, &SUWServerBrowser::OnSort)
+									.HeaderContent()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
+										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumnToolTip", "The # of spectators on this server."))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+									]
 
 								+ SHeaderRow::Column("ServerNumFriends")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
-										.HAlignCell(HAlign_Center)
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumnToolTip", "The # of friends on this server."))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
-/*
-								+ SHeaderRow::Column("ServerVer")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerVerColumn", "Version"))
-										.HAlignCell(HAlign_Center)
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerVerColumn", "Version"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerVerColumnToolTip", "The version of UT this server is running."))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
-*/
+									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
+									.HAlignCell(HAlign_Center)
+									.HAlignHeader(HAlign_Center)
+									.OnSort(this, &SUWServerBrowser::OnSort)
+									.HeaderContent()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
+										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumnToolTip", "The # of friends on this server."))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+									]
+
 								+ SHeaderRow::Column("ServerFlags")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
-										.HAlignCell(HAlign_Center)
-										.HAlignHeader(HAlign_Center)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumnToolTip", "Server Flags"))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
+									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
+									.HAlignCell(HAlign_Center)
+									.HAlignHeader(HAlign_Center)
+									.OnSort(this, &SUWServerBrowser::OnSort)
+									.HeaderContent()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
+										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumnToolTip", "Server Flags"))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+									]
 
 								+ SHeaderRow::Column("ServerPing")
-										.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
-										.HAlignCell(HAlign_Right)
-										.HAlignHeader(HAlign_Right)
-										.OnSort(this, &SUWServerBrowser::OnSort)
-										.HeaderContent()
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
-												.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerPingColumnToolTip", "Your connection speed to the server."))
-												.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-										]
-								)
-								.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
-
-							]
-/*
+									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
+									.HAlignCell(HAlign_Right)
+									.HAlignHeader(HAlign_Right)
+									.OnSort(this, &SUWServerBrowser::OnSort)
+									.HeaderContent()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
+										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerPingColumnToolTip", "Your connection speed to the server."))
+										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+									]
+							)
 						]
-*/
 					]
 				]
 				+ SSplitter::Slot()
@@ -631,27 +620,27 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 									.Style(SUWindowsStyle::Get(),"UWindows.Standard.ServerBrowser.Header")
 
 									+ SHeaderRow::Column("Rule")
-											.OnSort(this, &SUWServerBrowser::OnRuleSort)
-											.HeaderContent()
-											[
-												SNew(STextBlock)
-													.Text(NSLOCTEXT("SUWServerBrowser","RuleRuleColumn", "Rule"))
-													.ToolTipText( NSLOCTEXT("SUWServerBrowser","RuleRuleColumnToolTip", "The name of the rule.") )
-													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-											]
+										.OnSort(this, &SUWServerBrowser::OnRuleSort)
+										.HeaderContent()
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser","RuleRuleColumn", "Rule"))
+											.ToolTipText( NSLOCTEXT("SUWServerBrowser","RuleRuleColumnToolTip", "The name of the rule.") )
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 
 									+ SHeaderRow::Column("Value") 
-											.DefaultLabel(NSLOCTEXT("SUWServerBrowser","RuleValueColumn", "Value")) 
-											.HAlignCell(HAlign_Center) 
-											.HAlignHeader(HAlign_Center)
-											.OnSort(this, &SUWServerBrowser::OnRuleSort)
-											.HeaderContent()
-											[
-												SNew(STextBlock)
-													.Text(NSLOCTEXT("SUWServerBrowser","RuleValueColumn", "Value"))
-													.ToolTipText( NSLOCTEXT("SUWServerBrowser","RuleValueColumnToolTip", "The Value") )
-													.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-											]
+										.DefaultLabel(NSLOCTEXT("SUWServerBrowser","RuleValueColumn", "Value")) 
+										.HAlignCell(HAlign_Center) 
+										.HAlignHeader(HAlign_Center)
+										.OnSort(this, &SUWServerBrowser::OnRuleSort)
+										.HeaderContent()
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser","RuleValueColumn", "Value"))
+											.ToolTipText( NSLOCTEXT("SUWServerBrowser","RuleValueColumnToolTip", "The Value") )
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 
 								)
 							]
@@ -704,7 +693,7 @@ TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 								// When the list view needs to generate a widget for some data item, use this method
 								.OnGenerateRow(this, &SUWServerBrowser::OnGenerateWidgetForHUBList)
 								.SelectionMode(ESelectionMode::Single)
-								.ListItemsSource(&FilteredHUBs)
+								.ListItemsSource(&FilteredHubsSource)
 								.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
 								.OnSelectionChanged(this, &SUWServerBrowser::OnHUBListSelectionChanged)
 							]
@@ -750,6 +739,23 @@ TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 
 }
 
+ECheckBoxState SUWServerBrowser::ShouldHideUnresponsiveServers() const
+{
+	return bHideUnresponsiveServers ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void SUWServerBrowser::OnHideUnresponsiveServersChanged(const ECheckBoxState NewState)
+{
+	bHideUnresponsiveServers = NewState == ECheckBoxState::Checked;
+	if (bShowingHubs)
+	{
+		FilterAllHUBs();
+	}
+	else
+	{
+		FilterAllServers();
+	}
+}
 
 void SUWServerBrowser::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
 {
@@ -774,12 +780,12 @@ void SUWServerBrowser::AddGameFilters()
 {
 	TArray<FString> GameTypes;
 	GameTypes.Add(TEXT("All"));
-	for (int32 i=0;i<InternetServers.Num();i++)
+	for (int32 i=0;i<AllInternetServers.Num();i++)
 	{
-		int32 idx = GameTypes.Find(InternetServers[i]->GameModeName);
+		int32 idx = GameTypes.Find(AllInternetServers[i]->GameModeName);
 		if (idx < 0)
 		{
-			GameTypes.Add(InternetServers[i]->GameModeName);
+			GameTypes.Add(AllInternetServers[i]->GameModeName);
 		}
 	}
 
@@ -825,7 +831,7 @@ void SUWServerBrowser::AddGameFilters()
 FReply SUWServerBrowser::OnGameFilterSelection(FString Filter)
 {
 	GameFilter->SetIsOpen(false);
-	FilterAllServers(Filter);
+	FilterAllServers();
 	return FReply::Handled();
 }
 
@@ -876,15 +882,15 @@ void SUWServerBrowser::OnPlayerSort(EColumnSortPriority::Type Priority, const FN
 
 void SUWServerBrowser::SortServers(FName ColumnName)
 {
-	if (ColumnName == FName(TEXT("ServerName"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByNameDesc()) : FilteredServers.Sort(FCompareServerByName());
-	else if (ColumnName == FName(TEXT("ServerIP"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByIPDesc()) : FilteredServers.Sort(FCompareServerByIP());
-	else if (ColumnName == FName(TEXT("ServerGame"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByGameModeDesc()) : FilteredServers.Sort(FCompareServerByGameMode());
-	else if (ColumnName == FName(TEXT("ServerMap"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByMapDesc()) : FilteredServers.Sort(FCompareServerByMap());
-	else if (ColumnName == FName(TEXT("ServerVer"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByVersionDesc()) : FilteredServers.Sort(FCompareServerByVersion());
-	else if (ColumnName == FName(TEXT("ServerNumPlayers"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByNumPlayersDesc()) : FilteredServers.Sort(FCompareServerByNumPlayers());
-	else if (ColumnName == FName(TEXT("ServerNumSpecs"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByNumSpectatorsDesc()) : FilteredServers.Sort(FCompareServerByNumSpectators());
-	else if (ColumnName == FName(TEXT("ServerNumFriends"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByNumFriendsDesc()) : FilteredServers.Sort(FCompareServerByNumFriends());
-	else if (ColumnName == FName(TEXT("ServerPing"))) bDescendingSort ? FilteredServers.Sort(FCompareServerByPingDesc()) : FilteredServers.Sort(FCompareServerByPing());
+	if (ColumnName == FName(TEXT("ServerName"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByNameDesc()) : FilteredServersSource.Sort(FCompareServerByName());
+	else if (ColumnName == FName(TEXT("ServerIP"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByIPDesc()) : FilteredServersSource.Sort(FCompareServerByIP());
+	else if (ColumnName == FName(TEXT("ServerGame"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByGameModeDesc()) : FilteredServersSource.Sort(FCompareServerByGameMode());
+	else if (ColumnName == FName(TEXT("ServerMap"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByMapDesc()) : FilteredServersSource.Sort(FCompareServerByMap());
+	else if (ColumnName == FName(TEXT("ServerVer"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByVersionDesc()) : FilteredServersSource.Sort(FCompareServerByVersion());
+	else if (ColumnName == FName(TEXT("ServerNumPlayers"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByNumPlayersDesc()) : FilteredServersSource.Sort(FCompareServerByNumPlayers());
+	else if (ColumnName == FName(TEXT("ServerNumSpecs"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByNumSpectatorsDesc()) : FilteredServersSource.Sort(FCompareServerByNumSpectators());
+	else if (ColumnName == FName(TEXT("ServerNumFriends"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByNumFriendsDesc()) : FilteredServersSource.Sort(FCompareServerByNumFriends());
+	else if (ColumnName == FName(TEXT("ServerPing"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByPingDesc()) : FilteredServersSource.Sort(FCompareServerByPing());
 
 	InternetServerList->RequestListRefresh();
 	CurrentSortColumn = ColumnName;
@@ -892,7 +898,7 @@ void SUWServerBrowser::SortServers(FName ColumnName)
 
 void SUWServerBrowser::SortHUBs()
 {
-	FilteredHUBs.Sort(FCompareServerByPing());
+	FilteredHubsSource.Sort(FCompareServerByPing());
 	HUBServerList->RequestListRefresh();
 }
 
@@ -927,10 +933,10 @@ FText SUWServerBrowser::GetStatusText() const
 
 		FFormatNamedArguments Args;
 		Args.Add( TEXT("PingCount"), FText::AsNumber(PingCount) );
-		Args.Add( TEXT("FilteredHubCount"), FText::AsNumber(FilteredHUBs.Num() > 0 ? FilteredHUBs.Num() : HUBServers.Num()) );
-		Args.Add( TEXT("HubCount"), FText::AsNumber(HUBServers.Num()) );
-		Args.Add( TEXT("FilteredServerCount"), FText::AsNumber(FilteredServers.Num()> 0 ? FilteredServers.Num() : InternetServers.Num()) );
-		Args.Add( TEXT("ServerCount"), FText::AsNumber(InternetServers.Num()) );
+		Args.Add( TEXT("FilteredHubCount"), FText::AsNumber(FilteredHubsSource.Num() > 0 ? FilteredHubsSource.Num() : AllHubServers.Num()) );
+		Args.Add( TEXT("HubCount"), FText::AsNumber(AllHubServers.Num()) );
+		Args.Add( TEXT("FilteredServerCount"), FText::AsNumber(FilteredServersSource.Num()> 0 ? FilteredServersSource.Num() : AllInternetServers.Num()) );
+		Args.Add( TEXT("ServerCount"), FText::AsNumber(AllInternetServers.Num()) );
 
 		if (PingCount > 0)
 		{
@@ -969,20 +975,6 @@ void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 	else if (BrowserState == EBrowserState::RefreshInProgress) 
 	{
 		RefreshButton->SetVisibility(EVisibility::Hidden);
-
-		InternetServers.Empty();
-		FilteredServers.Empty();
-
-		EmptyHUBServers();
-
-		PlayersListSource.Empty();
-		RulesListSource.Empty();
-
-		InternetServerList->RequestListRefresh();
-		HUBServerList->RequestListRefresh();
-		PlayersList->RequestListRefresh();
-		RulesList->RequestListRefresh();
-
 		JoinButton->SetEnabled(false);
 		SpectateButton->SetEnabled(false);
 	}
@@ -1004,16 +996,18 @@ FReply SUWServerBrowser::OnRefreshClick()
 
 void SUWServerBrowser::RefreshServers()
 {
+	bWantsAFullRefilter = true;
 	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == EBrowserState::BrowserIdle)
 	{
+		SetBrowserState(EBrowserState::RefreshInProgress);
+
 		bNeedsRefresh = false;
 		CleanupQoS();
-		SetBrowserState(EBrowserState::RefreshInProgress);
 
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		SearchSettings->MaxSearchResults = 10000;
 		FString GameVer = FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion());
-		SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);											// Must equal the game version
+		//SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);											// Must equal the game version
 		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = SearchSettings.ToSharedRef();
@@ -1036,11 +1030,6 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 	if (bWasSuccessful)
 	{
-		EmptyHUBServers();
-		// See the server list
-		InternetServers.Empty();
-		FilteredServers.Empty();
-
 		if (SearchSettings->SearchResults.Num() > 0)
 		{
 			for (int32 ServerIndex = 0; ServerIndex < SearchSettings->SearchResults.Num(); ServerIndex++)
@@ -1071,7 +1060,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 						ServerGameName = ServerGamePath;
 					}
 				}
-				
+			
 
 				FString ServerMap;
 				Result.Session.SessionSettings.Get(SETTING_MAPNAME,ServerMap);
@@ -1131,6 +1120,9 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 		}
 
+		// If a server exists in either of the lists but not in the PingList, then let's kill it.
+		ExpireDeadServers();
+
 		if (OnlineSubsystem)
 		{
 			IOnlineFriendsPtr FriendsInterface = OnlineSubsystem->GetFriendsInterface();
@@ -1153,6 +1145,64 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 	SetBrowserState(EBrowserState::BrowserIdle);
 
+}
+
+void SUWServerBrowser::ExpireDeadServers()
+{
+	int32 i = 0;
+	while (i < AllInternetServers.Num())
+	{
+		bool bFound = false;
+		for (int32 j=0; j < PingList.Num(); j++)
+		{
+			if (AllInternetServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == PingList[j]->SearchResult.Session.SessionInfo->GetSessionId())	
+			{
+				bFound = true;
+				break;
+			}
+		}
+
+		if (bFound)
+		{
+			i++;
+		}
+		else
+		{
+			AllInternetServers.RemoveAt(i);
+		}
+	
+	} 
+
+	i = 0;
+	while (i < AllHubServers.Num())
+	{
+		if (!AllHubServers[i]->bFakeHUB)
+		{
+			bool bFound = false;
+			for (int j=0; j < PingList.Num(); j++)
+			{
+				if (AllHubServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == PingList[j]->SearchResult.Session.SessionInfo->GetSessionId())	
+				{
+					bFound = true;
+					break;
+				}
+			}
+
+			if (bFound)
+			{
+				i++;
+			}
+			else
+			{
+				AllHubServers.RemoveAt(i);
+			}
+		}
+		else
+		{
+			i++;
+		}
+
+	} 
 }
 
 void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
@@ -1193,22 +1243,22 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 
 						// Itterate over all servers and update their friend counts
 
-						for (int32 ServerIndex = 0; ServerIndex < InternetServers.Num(); ServerIndex++)
+						for (int32 ServerIndex = 0; ServerIndex < AllInternetServers.Num(); ServerIndex++)
 						{
-							if (InternetServers[ServerIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
+							if (AllInternetServers[ServerIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
 							{
-								InternetServers[ServerIndex]->NumFriends++;
+								AllInternetServers[ServerIndex]->NumFriends++;
 								bRequiresUpdate = true;
 								break;
 							}
 						}
 
-						for (int32 HUBIndex = 0; HUBIndex < HUBServers.Num(); HUBIndex++)
+						for (int32 HUBIndex = 0; HUBIndex < AllHubServers.Num(); HUBIndex++)
 						{
 							// NOTE: We have to check the search result here because of the fake HUB.  
-							if (HUBServers[HUBIndex]->SearchResult.IsValid() && HUBServers[HUBIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
+							if (AllHubServers[HUBIndex]->SearchResult.IsValid() && AllHubServers[HUBIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
 							{
-								HUBServers[HUBIndex]->NumFriends++;
+								AllHubServers[HUBIndex]->NumFriends++;
 								bRequiresUpdate = true;
 								break;
 							}
@@ -1245,6 +1295,25 @@ void SUWServerBrowser::CleanupQoS()
 
 void SUWServerBrowser::PingNextServer()
 {
+
+	if (PingList.Num() <= 0 && PingTrackers.Num() <= 0)
+	{
+		if (bWantsAFullRefilter)
+		{
+			// We are done.  Perform all filtering again since we can grab the real best ping
+			if (bShowingHubs)
+			{
+				FilterAllHUBs();
+			}
+			else
+			{
+				FilterAllServers();
+			}
+		}
+
+		bWantsAFullRefilter = false;
+	}
+
 	while (PingList.Num() > 0 && PingTrackers.Num() < PlayerOwner->ServerPingBlockSize)
 	{
 		PingServer(PingList[0]);
@@ -1269,24 +1338,65 @@ void SUWServerBrowser::PingServer(TSharedPtr<FServerData> ServerToPing)
 	}
 }
 
+void SUWServerBrowser::AddServer(TSharedPtr<FServerData> Server)
+{
+	for (int32 i=0; i < AllInternetServers.Num() ; i++)
+	{
+		if (AllInternetServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == Server->SearchResult.Session.SessionInfo->GetSessionId())
+		{
+			// Same session id, so see if they are the same
+
+			if (AllInternetServers[i] != Server)
+			{
+				AllInternetServers[i]->Update(Server);
+			}
+
+			return; 
+		}
+	}
+
+	AllInternetServers.Add(Server);
+	FilterServer(Server);
+}
+
+void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
+{
+	for (int32 i=0; i < AllHubServers.Num() ; i++)
+	{
+		if (!AllHubServers[i]->bFakeHUB)
+		{
+			if (AllHubServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
+			{
+				// Same session id, so see if they are the same
+
+				if (AllHubServers[i] != Hub)
+				{
+					AllHubServers[i]->Update(Hub);
+				}
+
+				return; 
+			}
+		}
+	}
+
+	AllHubServers.Add(Hub);
+	FilterHUB(Hub);
+}
+
 void SUWServerBrowser::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 {
 	for (int32 i=0; i < PingTrackers.Num(); i++)
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
-			InternetServers.Add(PingTrackers[i].Server);
-			FilterServer(PingTrackers[i].Server);
 
+			AddServer(PingTrackers[i].Server);
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i,1);
 
 			PingNextServer();
 		}
 	}
-
-	InternetServerList->RequestListRefresh();
-	HUBServerList->RequestListRefresh();
 }
 
 void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
@@ -1299,6 +1409,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			PingTrackers[i].Server->Ping = Sender->Ping;
 			PingTrackers[i].Server->MOTD = ServerInfo.MOTD;
 
+			PingTrackers[i].Server->Players.Empty();
 			TArray<FString> PlayerData;
 			int Cnt = ServerInfo.ServerPlayers.ParseIntoArray(&PlayerData, TEXT("\t"), true);
 			for (int32 p=0;p+2 < Cnt; p+=3)
@@ -1310,6 +1421,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 				PingTrackers[i].Server->AddPlayer(Name, Score, Id);
 			}
 
+			PingTrackers[i].Server->Rules.Empty();
 			TArray<FString> RulesData;
 			Cnt = ServerInfo.ServerRules.ParseIntoArray(&RulesData, TEXT("\t"), true);
 			for (int32 r=0; r+1 < Cnt; r+=2)
@@ -1319,6 +1431,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 				PingTrackers[i].Server->AddRule(Rule, Value);
 			}
+
 			TArray<FString> BrokenIP;
 			if (PingTrackers[i].Server->IP.ParseIntoArray(&BrokenIP,TEXT(":"),true) == 2)
 			{
@@ -1332,7 +1445,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			PingTrackers[i].Server->AddRule(TEXT("Version"), PingTrackers[i].Server->Version);
 
-
+			PingTrackers[i].Server->HUBInstances.Empty();
 			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceCount; InstIndex++ )
 			{
 				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceDescriptions[InstIndex], PingTrackers[i].Beacon->InstanceHostNames[InstIndex]));	
@@ -1340,13 +1453,11 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
 			{
-				HUBServers.Add(PingTrackers[i].Server);
-				FilterHUB(PingTrackers[i].Server);
+				AddHub(PingTrackers[i].Server);
 			}
 			else
 			{
-				InternetServers.Add(PingTrackers[i].Server);
-				FilterServer(PingTrackers[i].Server);
+				AddServer(PingTrackers[i].Server);
 			}
 
 			PingTrackers[i].Beacon->DestroyBeacon();
@@ -1354,12 +1465,11 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			// Look to see if there are more servers to Ping...
 			PingNextServer();
+
+			RulesList->RequestListRefresh();
+			PlayersList->RequestListRefresh();
 		}
 	}
-
-	InternetServerList->RequestListRefresh();
-	HUBServerList->RequestListRefresh();
-
 }
 
 void SUWServerBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FServerData> SelectedServer)
@@ -1377,7 +1487,7 @@ void SUWServerBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FServerData> Sele
 
 FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 {
-	TArray<TSharedPtr<FServerData>> SelectedItems = (bShowingLobbies ? HUBServerList->GetSelectedItems() : InternetServerList->GetSelectedItems());
+	TArray<TSharedPtr<FServerData>> SelectedItems = (bShowingHubs ? HUBServerList->GetSelectedItems() : InternetServerList->GetSelectedItems());
 	if (SelectedItems.Num() > 0)
 	{
 		ConnectTo(*SelectedItems[0],bSpectate);
@@ -1392,32 +1502,28 @@ void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
 	CleanupQoS();
 	PlayerOwner->HideMenu();
-
-/*
-	FString Command = FString::Printf(TEXT("open %s"), *ServerData.IP);
-	if (bSpectate)
-	{ 
-		Command += FString(TEXT("?spectatoronly=1"));
-	}
-	PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
-*/
 }
 
-void SUWServerBrowser::FilterAllServers(FString InitialGameType)
+void SUWServerBrowser::FilterAllServers()
 {
-	if (InitialGameType != TEXT(""))
+	FilteredServersSource.Empty();
+	if (AllInternetServers.Num() > 0)
 	{
-		GameFilterText->SetText(InitialGameType);
+		int32 BestPing = AllInternetServers[0]->Ping;
+		for (int32 i=0;i<AllInternetServers.Num();i++)
+		{
+			if (AllInternetServers[i]->Ping < BestPing) BestPing = AllInternetServers[i]->Ping;
+		}
+
+		for (int32 i=0;i<AllInternetServers.Num();i++)
+		{
+			FilterServer(AllInternetServers[i], false);
+		}
+		SortServers(CurrentSortColumn);
 	}
-	FilteredServers.Empty();
-	for (int32 i=0;i<InternetServers.Num();i++)
-	{
-		FilterServer(InternetServers[i], false);
-	}
-	SortServers(CurrentSortColumn);
 }
 
-void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate)
+void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate, float BestPing)
 {
 	if (GameFilterText.IsValid())
 	{
@@ -1426,7 +1532,11 @@ void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bS
 		{
 			if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 			{
-				FilteredServers.Add(NewServer);
+
+				if ( !IsUnresponsive(NewServer, BestPing) )
+				{
+					FilteredServersSource.Add(NewServer);
+				}
 			}
 		}
 
@@ -1439,31 +1549,41 @@ void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bS
 
 void SUWServerBrowser::FilterAllHUBs()
 {
-	FilteredHUBs.Empty();
-	for (int32 i=0;i<HUBServers.Num();i++)
+	FilteredHubsSource.Empty();
+	if (AllHubServers.Num() > 0)
 	{
-		FilterHUB(HUBServers[i], false);
+		int32 BestPing = AllHubServers[0]->Ping;
+		for (int32 i=0;i<AllHubServers.Num();i++)
+		{
+			if (AllHubServers[i]->Ping < BestPing) BestPing = AllHubServers[i]->Ping;
+		}
+
+		for (int32 i=0;i<AllHubServers.Num();i++)
+		{
+			FilterHUB(AllHubServers[i], false, BestPing);
+		}
+		SortHUBs();
 	}
-
-	SortHUBs();
-
 }
 
 
-void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate)
+void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate, float BestPing)
 {
 	if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 	{
 		int32 BaseRank = PlayerOwner->GetBaseELORank();
 		if (NewServer->bFakeHUB)
 		{
-			FilteredHUBs.Add(NewServer);
+			FilteredHubsSource.Add(NewServer);
 		}
 		else
 		{
 			if ( (NewServer->MinRank <= 0 || BaseRank >= NewServer->MinRank) && (NewServer->MaxRank <= 0 || BaseRank <= NewServer->MaxRank))
 			{
-				FilteredHUBs.Add(NewServer);
+				if ( !IsUnresponsive(NewServer, BestPing) )
+				{
+					FilteredHubsSource.Add(NewServer);
+				}
 			}
 		}
 	}
@@ -1472,6 +1592,25 @@ void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSort
 	{
 		SortHUBs();
 	}
+}
+
+bool SUWServerBrowser::IsUnresponsive(TSharedPtr<FServerData> Server, float BestPing)
+{
+	// If we aren't hiding unresponsive servers, we don't care so just return false.
+	if (!bHideUnresponsiveServers)
+	{
+		return false;
+	}
+
+	if (Server->Ping >= 0)			
+	{
+		if ( Server->NumPlayers > 0 || Server->Ping <= FMath::Clamp<int32>( (2 * BestPing), 100, (Server->GameModePath == LOBBY_GAME_PATH ? 200 : 300)) )
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
@@ -1532,36 +1671,36 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 	}
 	
 
-	if (!RandomHUB.IsValid() && InternetServers.Num() > 0)
+	if (!RandomHUB.IsValid() && AllInternetServers.Num() > 0)
 	{
 		int32 NumPlayers = 0;
 		int32 NumSpectators = 0;
 		int32 NumFriends = 0;
 		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00);
 		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
 
-		HUBServers.Add( RandomHUB );
+		AllHubServers.Add( RandomHUB );
 		FilterAllHUBs();
 		HUBServerList->RequestListRefresh();
 	}
 
-	if (RandomHUB.IsValid() && RandomHUB->NumMatches != InternetServers.Num())
+	if (RandomHUB.IsValid() && RandomHUB->NumMatches != AllInternetServers.Num())
 	{
 		int32 NumPlayers = 0;
 		int32 NumSpectators = 0;
 		int32 NumFriends = 0;
 		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
-		HUBServers.Remove(RandomHUB);
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,InternetServers.Num(),0,0,TEXT(""),0,0x00);
+		AllHubServers.Remove(RandomHUB);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00);
 		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
-		HUBServers.Add(RandomHUB);
+		AllHubServers.Add(RandomHUB);
 		FilterAllHUBs();
 		HUBServerList->RequestListRefresh();
 	}		
@@ -1574,11 +1713,11 @@ void SUWServerBrowser::TallyInternetServers(int32& Players, int32& Spectators, i
 	Spectators = 0;
 	Friends = 0;
 
-	for (int32 i=0;i<InternetServers.Num();i++)
+	for (int32 i=0;i<AllInternetServers.Num();i++)
 	{
-		Players += InternetServers[i]->NumPlayers;
-		Spectators += InternetServers[i]->NumSpectators;
-		Friends += InternetServers[i]->NumFriends;
+		Players += AllInternetServers[i]->NumPlayers;
+		Spectators += AllInternetServers[i]->NumSpectators;
+		Friends += AllInternetServers[i]->NumFriends;
 	}
 }
 
@@ -1621,6 +1760,8 @@ void SUWServerBrowser::OnServerListSelectionChanged(TSharedPtr<FServerData> Sele
 {
 	if (SelectedItem.IsValid())
 	{
+		PingServer(SelectedItem);
+
 		RulesListSource.Empty();
 		for (int i=0;i<SelectedItem->Rules.Num();i++)
 		{
@@ -1647,13 +1788,13 @@ void SUWServerBrowser::OnQuickFilterTextCommited(const FText& NewText, ETextComm
 {
 	if (CommitType == ETextCommit::OnEnter)
 	{
-		if (bShowingLobbies)
+		if (bShowingHubs)
 		{
 			FilterAllHUBs();
 		}
 		else
 		{
-			FilterAllServers(TEXT(""));
+			FilterAllServers();
 		}
 	}
 }
@@ -1666,19 +1807,19 @@ FReply SUWServerBrowser::BrowserTypeChanged()
 
 void SUWServerBrowser::ShowServers(FString InitialGameType)
 {
-	bShowingLobbies = false;
+	bShowingHubs = false;
 	BuildServerListControlBox();
 	LobbyBrowser->SetVisibility(EVisibility::Hidden);
 	InternetServerBrowser->SetVisibility(EVisibility::All);
 	ServerListControlBox->SetVisibility(EVisibility::All);
-	FilterAllServers(InitialGameType);
+	FilterAllServers();
 	AddGameFilters();
 	InternetServerList->RequestListRefresh();
 }
 
 void SUWServerBrowser::ShowHUBs()
 {
-	bShowingLobbies = true;
+	bShowingHubs = true;
 	BuildServerListControlBox();
 	LobbyBrowser->SetVisibility(EVisibility::All);
 	InternetServerBrowser->SetVisibility(EVisibility::Hidden);
@@ -1790,7 +1931,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 										.HAlign(HAlign_Right)
 										[
 											SNew(STextBlock)
-											.Text(FText::Format(NSLOCTEXT("HUBBrowser","PingFormat","{0}ms"), FText::AsNumber(InItem->Ping)))
+											.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetHubPing)))
 											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.SmallText")
 										]
 									]
@@ -1972,6 +2113,11 @@ void SUWServerBrowser::OnHUBListSelectionChanged(TSharedPtr<FServerData> Selecte
 {
 	if (SelectedItem.IsValid())
 	{
+		if (!SelectedItem->bFakeHUB)
+		{
+			PingServer(SelectedItem);
+		}
+
 		AddHUBInfo(SelectedItem);
 		JoinButton->SetEnabled(true);
 	}
@@ -1982,7 +2128,7 @@ void SUWServerBrowser::BuildServerListControlBox()
 	if (ServerListControlBox.IsValid())
 	{
 		ServerListControlBox->ClearChildren();
-		if (!bShowingLobbies)
+		if (!bShowingHubs)
 		{
 			ServerListControlBox->AddSlot()
 				.VAlign(VAlign_Center)
@@ -2049,45 +2195,6 @@ void SUWServerBrowser::BuildServerListControlBox()
 		}
 	}
 
-}
-
-void SUWServerBrowser::EmptyHUBServers()
-{
-	HUBServers.Empty();
-
-	// Add the default HUB Servers
-/*
-	for( int32 ItemIndex = 0; ItemIndex < 25; ++ItemIndex )
-	{
-		FString ServerName = FString::Printf(TEXT("Server %i - Tag lines are for dummies!!!!"), ItemIndex);
-		FString ServerIP = FString::Printf(TEXT("%i.%i.%i.%i"), FMath::RandRange(0,255),FMath::RandRange(0,255),FMath::RandRange(0,255),FMath::RandRange(0,255));
-		int32 R = FMath::Rand() % 3;
-
-		FString ServerGame = TEXT("HUB");
-
-		FString ServerMap = TEXT("UT-Entry");
-		FString ServerVer = TEXT("1234");
-		FString BeaconIP = TEXT("10.0.0.1");
-		FString ServerGamePath = TEXT("/Script/UnrealTournament.UTLobbyGameMode");
-		FString ServerGameName = TEXT("HUB");
-		uint32 ServerPing = FMath::RandRange(35,1024);
-
-		TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, TEXT("10.0.0.0"), ServerGamePath, ServerGameName, ServerMap, FMath::RandRange(0,16), FMath::RandRange(0,16), FMath::RandRange(0,16), TEXT("1.0.0.0"), FMath::RandRange(10,500), 0x00);
-
-		if (ItemIndex == 0)
-		{
-			NewServer->NumMatches = 2;
-			NewServer->HUBInstances.Add(FServerInstanceData::Make(TEXT("<UWindows.Standard.MatchBadge.Header>CAPTURE THE FLAG</>\n\n<UWindows.Standard.MatchBadge.Red>4</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>3</>\n<UWindows.Standard.MatchBadge.Small>CTF-Outside</>"), TEXT("DrSiN") ));
-			NewServer->HUBInstances.Add(FServerInstanceData::Make(TEXT("<UWindows.Standard.MatchBadge.Header>DUEL</>\n\n<UWindows.Standard.MatchBadge.Red>56</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>43</>\n<UWindows.Standard.MatchBadge.Small>DM-NickTest</>"),TEXT("Mysterial") ));
-			NewServer->HUBInstances.Add(FServerInstanceData::Make(TEXT("<UWindows.Standard.MatchBadge.Header>DEATHMATCH</>\n\n<UWindows.Standard.MatchBadge.Red>56</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>43</>\n<UWindows.Standard.MatchBadge.Small>DM-NickTest</>"),TEXT("PeteNub") ));
-			NewServer->HUBInstances.Add(FServerInstanceData::Make(TEXT("<UWindows.Standard.MatchBadge.Header>TEAM DEATHMATCH</>\n\n<UWindows.Standard.MatchBadge.Red>56</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>43</>\n<UWindows.Standard.MatchBadge.Small>DM-NickTest</>"),TEXT("Nick") ));
-		}
-
-		HUBServers.Add( NewServer );
-	}
-*/
-
-	FilterAllHUBs();
 }
 
 void SUWServerBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
