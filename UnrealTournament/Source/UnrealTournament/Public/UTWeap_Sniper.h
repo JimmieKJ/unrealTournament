@@ -25,9 +25,9 @@ class AUTWeap_Sniper : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	float RunningHeadshotScale;
 
-	/** damage multiplier for headshot (instant hit only) */
+	/** damage for headshot (instant hit only) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)
-	float HeadshotDamageMult;
+	float HeadshotDamage;
 
 	/** damage type for headshot (instant hit only, if NULL use standard damage type) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = InstantHitDamage)

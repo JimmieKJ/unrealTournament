@@ -17,16 +17,13 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	SlowHeadshotScale = 1.4f;
 	AimedHeadshotScale = 1.f;
 	RunningHeadshotScale = 1.0f;
-	HeadshotDamageMult = 2.0f;
+	HeadshotDamage = 125.f;
 	ProjClass.Insert(AUTProj_Sniper::StaticClass(), 0);
 	FOVOffset = FVector(0.1f, 1.f, 1.7f);
-
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 726, 532, 165, 51);
-
 	bPrioritizeAccuracy = true;
 	BaseAISelectRating = 0.7f;
 	BasePickupDesireability = 0.63f;
-
 	FiringViewKickback = -50.f;
 }
 
@@ -136,7 +133,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		AUTCharacter* C = Cast<AUTCharacter>(Hit.Actor.Get());
 		if (C != NULL && C->IsHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, UTOwner, PredictionTime))
 		{
-			Damage *= HeadshotDamageMult;
+			Damage = HeadshotDamage;
 			if (HeadshotDamageType != NULL)
 			{
 				DamageType = HeadshotDamageType;
