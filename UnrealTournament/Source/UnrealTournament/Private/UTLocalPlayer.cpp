@@ -268,7 +268,11 @@ void UUTLocalPlayer::HideMenu()
 {
 #if !UE_SERVER
 
-	if (ContentLoadingMessage.IsValid()) return; // Don't allow someone to close the menu while we are loading....
+	if (ContentLoadingMessage.IsValid())
+	{
+		UE_LOG(UT,Log,TEXT("Can't close menus during loading"));
+		return; // Don't allow someone to close the menu while we are loading....
+	}
 
 	if (DesktopSlateWidget.IsValid())
 	{
@@ -284,6 +288,10 @@ void UUTLocalPlayer::HideMenu()
 
 		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
 
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("Call to HideMenu() when without a menu being opened."));
 	}
 	CloseConnectingDialog();
 #endif
