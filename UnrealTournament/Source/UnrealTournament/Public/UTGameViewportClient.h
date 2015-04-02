@@ -18,6 +18,8 @@ class UUTGameViewportClient : public UGameViewportClient
 
 	virtual void PostRender(UCanvas* Canvas) override;
 
+	virtual void Tick(float DeltaSeconds) override;
+
 protected:
 
 	TWeakPtr<class SUTGameLayerManager> LayerManagerPtr;
@@ -27,6 +29,8 @@ protected:
 
 	// Holds the IP/Port of the last connect so we can try to reconnect
 	FURL LastAttemptedURL;
+	float ReconnectAfterDownloadingMapDelay;
+	float VerifyFilesToDownloadAndReconnectDelay;
 
 	virtual void RankDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void NetworkFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
