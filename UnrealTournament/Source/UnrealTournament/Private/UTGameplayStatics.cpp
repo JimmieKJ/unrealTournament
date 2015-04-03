@@ -302,7 +302,7 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 		for (FConstControllerIterator It = TheWorld->GetControllerIterator(); It; ++It)
 		{
 			APawn* P = It->Get()->GetPawn();
-			if (P != NULL && !P->bTearOff)
+			if (P != NULL && !P->bTearOff && It->Get() != AskingC)
 			{
 				/* TODO:
 				if (!P->IsRootComponentCollisionRegistered())
