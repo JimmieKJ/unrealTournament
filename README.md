@@ -18,7 +18,7 @@ Required Third Party Software
 
 Be sure to have [Visual Studio 2013](http://go.microsoft.com/?linkid=9832280) installed.  You can use any desktop version of Visual Studio 2013, including the free version:  [Visual Studio 2013 Express for Windows Desktop](http://go.microsoft.com/?linkid=9832280).
 
-You need [DirectX End-User Runtimes (June 2010)](http://www.microsoft.com/en-us/download/details.aspx?id=8109) to avoid compilation errors.  Most users will already have this, if you ahve ever installed DirectX runtimes to play a game.
+You need [DirectX End-User Runtimes (June 2010)](http://www.microsoft.com/en-us/download/details.aspx?id=8109) to avoid compilation errors.  Most users will already have this, if you have ever installed DirectX runtimes to play a game.
  
 **Mac OSX:**
 
