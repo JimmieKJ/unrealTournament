@@ -1083,6 +1083,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 	{
 		PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
 		PreviewWeapon->Instigator = PlayerPreviewMesh;
+		PreviewWeapon->AttachToOwner();
 	}
 
 	// Tick the world to make sure the animation is up to date.
