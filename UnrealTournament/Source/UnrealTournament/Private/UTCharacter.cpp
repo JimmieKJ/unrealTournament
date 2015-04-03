@@ -3873,36 +3873,23 @@ void AUTCharacter::OnRepTaunt()
 
 void AUTCharacter::PlayTaunt()
 {
+	PlayTauntByIndex(0);
+}
+
+void AUTCharacter::PlayTauntByIndex(int32 TauntIndex)
+{
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
-	if (UTPS != nullptr && UTPS->TauntClass != nullptr && !bFeigningDeath)
+	if (UTPS != nullptr && !bFeigningDeath)
 	{
-		EmoteReplicationInfo.EmoteIndex = 0;
-		if (Role == ROLE_Authority)
+		if (TauntIndex == 0 && UTPS->TauntClass != nullptr)
 		{
-			EmoteReplicationInfo.EmoteCount++;
+			EmoteReplicationInfo.EmoteIndex = TauntIndex;
+			PlayTauntByClass(UTPS->TauntClass);
 		}
-
-		StopFiring();
-		if (Hat != NULL)
+		else if (TauntIndex == 1 && UTPS->Taunt2Class != nullptr)
 		{
-			Hat->OnWearerEmoteStarted();
-		}
-
-		GetMesh()->bPauseAnims = false;
-		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-		if (AnimInstance != NULL)
-		{
-			if (AnimInstance->Montage_Play(UTPS->TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, EmoteSpeed))
-			{
-				UTCharacterMovement->bIsEmoting = true;
-
-				CurrentEmote = UTPS->TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage;
-				EmoteCount++;
-
-				FOnMontageEnded EndDelegate;
-				EndDelegate.BindUObject(this, &AUTCharacter::OnEmoteEnded);
-				AnimInstance->Montage_SetEndDelegate(EndDelegate);
-			}			
+			EmoteReplicationInfo.EmoteIndex = TauntIndex;
+			PlayTauntByClass(UTPS->Taunt2Class);
 		}
 	}
 }
@@ -3911,7 +3898,6 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
 {
 	if (!bFeigningDeath && TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
 	{
-		EmoteReplicationInfo.EmoteIndex = 0;
 		if (Role == ROLE_Authority)
 		{
 			EmoteReplicationInfo.EmoteCount++;

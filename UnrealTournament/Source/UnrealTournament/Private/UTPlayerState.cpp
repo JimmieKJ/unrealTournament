@@ -51,6 +51,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
+	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
 	DOREPLIFETIME(AUTPlayerState, HatClass);
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
 	DOREPLIFETIME(AUTPlayerState, HatVariant);
@@ -412,6 +413,16 @@ void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTa
 }
 
 bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewEyewearClass)
+{
+	return true;
+}
+
+void AUTPlayerState::ServerReceiveTaunt2Class_Implementation(const FString& NewTauntClass)
+{
+	Taunt2Class = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
+}
+
+bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewEyewearClass)
 {
 	return true;
 }

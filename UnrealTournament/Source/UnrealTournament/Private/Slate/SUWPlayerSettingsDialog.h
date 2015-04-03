@@ -94,6 +94,11 @@ protected:
 	TSharedPtr<STextBlock> SelectedTaunt;
 	void OnTauntSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
+	TArray<TSharedPtr<FString>> Taunt2List;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > Taunt2ComboBox;
+	TSharedPtr<STextBlock> SelectedTaunt2;
+	void OnTaunt2Selected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
 	TArray<TSharedPtr<FString>> CharacterList;
 	TArray<FString> CharacterPathList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CharacterComboBox;

@@ -1360,6 +1360,28 @@ void UUTLocalPlayer::SetTauntPath(const FString& NewTauntPath)
 	}
 }
 
+
+FString UUTLocalPlayer::GetTaunt2Path() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->Taunt2Path : GetDefaultURLOption(TEXT("Taunt2"));
+}
+void UUTLocalPlayer::SetTaunt2Path(const FString& NewTauntPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->Taunt2Path = NewTauntPath;
+	}
+	SetDefaultURLOption(TEXT("Taunt2"), NewTauntPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveTaunt2Class(NewTauntPath);
+		}
+	}
+}
+
 FString UUTLocalPlayer::GetDefaultURLOption(const TCHAR* Key) const
 {
 	FURL DefaultURL;

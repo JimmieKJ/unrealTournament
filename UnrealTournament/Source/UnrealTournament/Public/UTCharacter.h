@@ -346,6 +346,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	void PlayTaunt();
 
 	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayTauntByIndex(int32 TauntIndex);
+
+	UFUNCTION(BlueprintCallable, Category = Taunt)
 	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
 
 	UFUNCTION()

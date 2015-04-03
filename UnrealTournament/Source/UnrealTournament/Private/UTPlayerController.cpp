@@ -268,6 +268,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("FasterEmote", IE_Pressed, this, &AUTPlayerController::FasterEmote);
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
+	InputComponent->BindAction("PlayTaunt2", IE_Pressed, this, &AUTPlayerController::PlayTaunt2);
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -1734,6 +1735,11 @@ void AUTPlayerController::PlayTaunt()
 	Emote(0);
 }
 
+void AUTPlayerController::PlayTaunt2()
+{
+	Emote(1);
+}
+
 bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
 {
 	return true;
@@ -1741,9 +1747,9 @@ bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
 
 void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 {
-	if (UTCharacter != nullptr && UTPlayerState != nullptr && UTPlayerState->TauntClass != nullptr)
+	if (UTCharacter != nullptr && UTPlayerState != nullptr)
 	{
-		UTCharacter->PlayTaunt();
+		UTCharacter->PlayTauntByIndex(EmoteIndex);
 	}
 }
 

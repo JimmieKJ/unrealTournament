@@ -507,12 +507,15 @@ void UUTGameEngine::LoadMapRedrawViewports()
 #endif
 	Super::LoadMapRedrawViewports();
 #if !UE_SERVER
-	// required to force Slate to present the frame
-	FSlateApplication::Get().Tick();
-	// now remove the widget
-	if (GameViewport != NULL && LoadingScreenImage.IsValid())
+	if (GameViewport != NULL)
 	{
-		GameViewport->RemoveViewportWidgetContent(LoadingScreenImage.ToSharedRef());
+		// required to force Slate to present the frame
+		FSlateApplication::Get().Tick();
+		// now remove the widget
+		if (LoadingScreenImage.IsValid())
+		{
+			GameViewport->RemoveViewportWidgetContent(LoadingScreenImage.ToSharedRef());
+		}
 	}
 #endif
 }
