@@ -32,6 +32,9 @@ class UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnHeaderReturnsX;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ReadyX;
+
 	virtual void Draw_Implementation(float DeltaTime) override;
 
 	FTimerHandle OpenScoringPlaysHandle;
