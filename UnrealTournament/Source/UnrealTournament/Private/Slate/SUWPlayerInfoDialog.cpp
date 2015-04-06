@@ -255,6 +255,7 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 		if ( PreviewWeapon )
 		{
 			PreviewWeapon->BeginPlay();
+			PreviewWeapon->AttachToOwner();
 		}
 	}
 }
