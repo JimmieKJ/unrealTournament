@@ -102,8 +102,6 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
 
-	PoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E.Pose_E"));
-
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
 	PlayerPreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
@@ -115,6 +113,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		PreviewEnvironment = PlayerPreviewWorld->SpawnActor<AActor>(EnvironmentClass, FVector(500.f, 50.f, 0.f), FRotator(0, 0, 0));
 	}
 	
+	PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
+
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
 	if (BaseMat != NULL)
 	{
@@ -790,7 +790,6 @@ void SUWPlayerSettingsDialog::AddReferencedObjects(FReferenceCollector& Collecto
 	Collector.AddReferencedObject(PlayerPreviewTexture);
 	Collector.AddReferencedObject(PlayerPreviewMID);
 	Collector.AddReferencedObject(PlayerPreviewWorld);
-	Collector.AddReferencedObject(PoseAnimation);
 }
 
 void SUWPlayerSettingsDialog::OnNameTextChanged(const FText& NewText)
@@ -957,11 +956,32 @@ void SUWPlayerSettingsDialog::OnCharacterSelected(TSharedPtr<FString> NewSelecti
 void SUWPlayerSettingsDialog::OnTauntSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedTaunt->SetText(*NewSelection.Get());
+
+	if (PlayerPreviewMesh != nullptr)
+	{
+		int32 TauntIndex = TauntList.Find(NewSelection);
+		UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
+		if (TauntClass)
+		{
+			PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
+			//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+		}
+	}
 }
 
 void SUWPlayerSettingsDialog::OnTaunt2Selected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedTaunt2->SetText(*NewSelection.Get());
+	if (PlayerPreviewMesh != nullptr)
+	{
+		int32 TauntIndex = TauntList.Find(NewSelection);
+		UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
+		if (TauntClass)
+		{
+			PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
+			//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+		}
+	}
 }
 
 void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
@@ -1020,6 +1040,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 	}
 
 	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(GetDefault<AUTGameMode>()->DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
+	PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
 	
 	// set character mesh
 	// NOTE: important this is first since it may affect the following items (socket locations, etc)
@@ -1071,13 +1092,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->SetEyewearClass(EyewearClass);
 		}
 	}
-
-	if ( PoseAnimation )
-	{
-		PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
-		PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-	}
-
+	
 	UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
 	if (PreviewAttachmentType != NULL)
 	{
