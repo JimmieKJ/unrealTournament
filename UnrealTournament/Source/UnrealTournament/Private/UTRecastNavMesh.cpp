@@ -1263,6 +1263,14 @@ void AUTRecastNavMesh::Tick(float DeltaTime)
 		BuildSpecialLinks(1);
 	}
 	bIsBuilding = bNewIsBuilding;
+
+#if WITH_EDITOR
+	// HACK: cache flag that says if we need to rebuild since ARecastNavMesh implementation doesn't work in game
+	if (GIsEditor)
+	{
+		bNeedsRebuild = NeedsRebuild();
+	}
+#endif
 }
 
 bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData)

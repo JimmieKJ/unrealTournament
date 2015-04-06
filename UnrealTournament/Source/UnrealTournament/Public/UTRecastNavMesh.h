@@ -512,6 +512,9 @@ public:
 private:
 	bool bIsBuilding;
 	bool bUserRequestedBuild;
+	// cached NeedsRebuild() for in game because the ARecastNavMesh implementation is broken and doesn't work in game
+	UPROPERTY()
+	mutable bool bNeedsRebuild;
 protected:
 	/** building special links (jumps, translocator, etc) are done over time when rebuilding while editing; this is the current node or INDEX_NONE if done/not started */
 	int32 SpecialLinkBuildNodeIndex;
@@ -527,7 +530,12 @@ public:
 
 	virtual bool NeedsRebuild() const
 	{
-		return (Super::NeedsRebuild() || PathNodes.Num() == 0);
+		// in game return the cached flag since Super::NeedsRebuild() doesn't work correctly
+		if (NavDataGenerator.Get() != NULL || !GetWorld()->IsGameWorld())
+		{
+			bNeedsRebuild = (Super::NeedsRebuild() || (PathNodes.Num() == 0 && !bIsBuilding));
+		}
+		return bNeedsRebuild;
 	}
 	virtual void RebuildAll() override
 	{
