@@ -41,17 +41,14 @@ uint8 CompressedFlags,
 const FVector& NewAccel
 )
 {
-	if (HasValidData())
-	{
-		CurrentServerMoveTime = ClientTimeStamp;
-		//UE_LOG(UT, Warning, TEXT("+++++++Set server move time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
-	}
 	if (!HasValidData())
 	{
 		return;
 	}
-
+	CurrentServerMoveTime = ClientTimeStamp;
+	//UE_LOG(UT, Warning, TEXT("+++++++Set server move time %f"), CurrentServerMoveTime); //MinTimeBetweenTimeStampResets
 	UpdateFromCompressedFlags(CompressedFlags);
+
 	//UE_LOG(UT, Warning, TEXT("sprinting %d acceleration %f %f"), bIsSprinting, Acceleration.X, Acceleration.Y);
 	bool bOldSprinting = bIsSprinting;
 	FVector OldAccel = NewAccel;
