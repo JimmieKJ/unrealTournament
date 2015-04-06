@@ -64,6 +64,11 @@ void AUTMutator_WeaponArena::BeginPlay()
 	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
 	if (GameMode != NULL && ArenaWeaponType != NULL)
 	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS != NULL)
+		{
+			GS->SpawnProtectionTime = 0.5f;
+		}
 		for (int32 i = GameMode->DefaultInventory.Num() - 1; i >= 0; i--)
 		{
 			if (GameMode->DefaultInventory[i] != ArenaWeaponType && (!bAllowTranslocator || GameMode->DefaultInventory[i] == NULL || !GameMode->DefaultInventory[i]->IsChildOf(AUTWeap_Translocator::StaticClass())))
