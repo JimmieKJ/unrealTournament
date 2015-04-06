@@ -33,6 +33,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	DefaultPPSettings.AntiAliasingMethod = AAM_FXAA;
 	DefaultPPSettings.ScreenSpaceReflectionIntensity = 0.0f;
 
+	/*
 	StylizedPPSettings.AddZeroed();
 	StylizedPPSettings[0].SetBaseValues();
 	StylizedPPSettings[0].bOverride_FilmWhitePoint = true;
@@ -88,6 +89,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	StylizedPPSettings[0].DepthOfFieldFarBlurSize = 30.292036;
 	StylizedPPSettings[0].MotionBlurAmount = 0.000000;
 	StylizedPPSettings[0].MotionBlurMax = 0.000000;
+	*/
 
 	LastThirdPersonCameraLoc = FVector(0);
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
