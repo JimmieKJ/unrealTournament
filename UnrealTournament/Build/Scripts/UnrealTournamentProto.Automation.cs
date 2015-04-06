@@ -563,10 +563,13 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             var Lines = new List<string>();
             foreach (string RequiredFile in RequiredFiles)
             {
-                string TimeStamp = File.GetLastWriteTimeUtc(RequiredFile).ToString(Iso8601DateTimeFormat);
-                string Dest = RequiredFile + "\t" + TimeStamp;
+                if (RequiredFile.EndsWith(".pdb"))
+                {
+                    string TimeStamp = File.GetLastWriteTimeUtc(RequiredFile).ToString(Iso8601DateTimeFormat);
+                    string Dest = RequiredFile + "\t" + TimeStamp;
 
-                Lines.Add(Dest);
+                    Lines.Add(Dest);
+                }
             }
             CommandUtils.WriteAllLines(ManifestPath, Lines.ToArray());
         }
