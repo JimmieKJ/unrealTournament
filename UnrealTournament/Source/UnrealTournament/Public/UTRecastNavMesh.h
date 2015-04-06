@@ -540,7 +540,6 @@ public:
 	virtual void RebuildAll() override
 	{
 		bIsBuilding = true;
-		bUserRequestedBuild = true;
 		Super::RebuildAll();
 	}
 };
