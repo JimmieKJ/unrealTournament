@@ -31,30 +31,6 @@ void AUTCTFFlag::OnConstruction(const FTransform& Transform)
 	// backwards compatibility; force values on existing instances
 	GetMesh()->SetAbsolute(false, false, true);
 	GetMesh()->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
-
-	if (Role == ROLE_Authority)
-	{
-		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFFlag::DefaultTimer, 1.0f, true);
-	}
-}
-
-void AUTCTFFlag::DefaultTimer()
-{
-	if (Holder != NULL)
-	{
-		// Look to see if the holder's flag is out (thus our holder is at minimum preventing the other team from scoring)
-		uint8 HolderTeam = Holder->GetTeamNum();
-		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (CTFGameState != NULL && CTFGameState->FlagBases.IsValidIndex(HolderTeam) && CTFGameState->FlagBases[HolderTeam] != NULL && CTFGameState->FlagBases[HolderTeam]->GetCarriedObjectHolder() != NULL)
-		{
-			AUTCTFGameMode* GM = Cast<AUTCTFGameMode>(GetWorld()->GetAuthGameMode());
-			if (GM != NULL)
-			{
-				GM->ScoreHolder(Holder);
-			}
-		}
-	}
 }
 
 bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
