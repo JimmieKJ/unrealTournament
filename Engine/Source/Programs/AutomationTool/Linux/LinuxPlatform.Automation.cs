@@ -60,7 +60,21 @@ public abstract class BaseLinuxPlatform : Platform
         {
             if (SC.DedicatedServer)
             {
-                SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*");
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
+                {
+                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-Linux-Shipping");
+                }
+
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
+                {
+                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-Linux-Test");
+                }
+
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
+                {
+                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server");
+                }
+
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "libUE4Server-*.so");
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins"), "libUE4Server-*.so", true, null, null, true);
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir), "libUE4Server-*.so");
@@ -68,6 +82,21 @@ public abstract class BaseLinuxPlatform : Platform
             }
             else
             {
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
+                {
+                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4-Linux-Shipping");
+                }
+
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
+                {
+                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4-Linux-Test");
+                }
+
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
+                {
+                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4");
+                }
+
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*");
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "libUE4-*.so");
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins"), "libUE4-*.so", true, null, null, true);

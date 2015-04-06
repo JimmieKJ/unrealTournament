@@ -104,9 +104,9 @@ public abstract class BaseWinPlatform : Platform
 
             if (SC.DedicatedServer)
             {
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
                 {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server.");
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*-Shipping.");
                 }
 
                 if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
@@ -114,9 +114,9 @@ public abstract class BaseWinPlatform : Platform
                     StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*-Test.");
                 }
 
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
+                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
                 {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*-Shipping.");
+                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server.");
                 }
 
                 StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-*.");
