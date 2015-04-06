@@ -233,7 +233,10 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 
 			GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD") );
 
-			TriggerNavigationBuilder(InWorld, Id);
+			if (GetDefault<ULevelEditorMiscSettings>()->bNavigationAutoUpdate)
+			{
+				TriggerNavigationBuilder(InWorld, Id);
+			}
 
 			// No need to dirty the persient level if we're building BSP for a sub-level.
 			bDirtyPersistentLevel = false;
@@ -251,7 +254,10 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 
 				GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD ALLVISIBLE") );
 
-				TriggerNavigationBuilder(InWorld, Id);
+				if (GetDefault<ULevelEditorMiscSettings>()->bNavigationAutoUpdate)
+				{
+					TriggerNavigationBuilder(InWorld, Id);
+				}
 			}
 			break;
 		}
