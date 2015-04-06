@@ -56,7 +56,13 @@ public class UnrealTournamentTarget : TargetRules
 
     public override List<UnrealTargetConfiguration> GUBP_GetConfigs_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
     {
-        // ORDER HERE MATTERS, THE FIRST ENTRY IS PUT IN Manifest_NonUFSFiles.txt AND THE FOLLOWING ARE PUT IN Manifest_DebugFiles.txt
-        return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Test };
+        if (Platform != UnrealTargetPlatform.Linux)
+        {
+            // ORDER HERE MATTERS, THE FIRST ENTRY IS PUT IN Manifest_NonUFSFiles.txt AND THE FOLLOWING ARE PUT IN Manifest_DebugFiles.txt
+            return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Test };
+        }
+
+        // Linux has link errors in Test right now
+        return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Development };
     }
 }
