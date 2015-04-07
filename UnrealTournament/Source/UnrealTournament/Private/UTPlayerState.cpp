@@ -1124,3 +1124,8 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 }
 #endif
 
+void AUTPlayerState::OnRep_PlayerName()
+{
+	Super::OnRep_PlayerName();
+	bHasValidClampedName = false;
+}

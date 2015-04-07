@@ -1236,8 +1236,6 @@ void AUTPlayerController::SetName(const FString& S)
 {
 	if (!S.IsEmpty())
 	{
-		Super::SetName(S);
-
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 		if (LP != NULL)
 		{

@@ -303,6 +303,8 @@ public:
 
 	virtual void SetPlayerName(const FString& S) override;
 
+	virtual void OnRep_PlayerName();
+
 private:
 	bool bWroteStatsToCloud;
 	int32 DuelSkillRatingThisMatch;

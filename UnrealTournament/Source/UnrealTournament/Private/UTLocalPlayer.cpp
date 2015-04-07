@@ -1103,6 +1103,12 @@ void UUTLocalPlayer::SetNickname(FString NewName)
 {
 	PlayerNickname = NewName;
 	SaveConfig();
+
+	
+	if (PlayerController) 
+	{
+		PlayerController->ServerChangeName(NewName);
+	}
 }
 
 void UUTLocalPlayer::SaveChat(FName Type, FString Message, FLinearColor Color)
