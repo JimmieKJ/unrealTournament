@@ -352,12 +352,13 @@ void AUTCharacter::Crouch(bool bClientSimulation)
 
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
+	bool bStartedSlide = false;
 	if (UTCharacterMovement->bPressedSlide)
 	{
-		Roll(GetVelocity().GetSafeNormal());
+		bStartedSlide = Roll(GetVelocity().GetSafeNormal());
 		UTCharacterMovement->bPressedSlide = false;
 	}
-	else
+	if (!bStartedSlide )
 	{
 		Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
 		CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
