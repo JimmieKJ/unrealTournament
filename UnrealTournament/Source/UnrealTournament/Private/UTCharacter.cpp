@@ -42,12 +42,12 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContent(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
 
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(46.f, 92.0f);
+	GetCapsuleComponent()->InitCapsuleSize(42.f, 92.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
 	CharacterCameraComponent->AttachParent = GetCapsuleComponent();
-	DefaultBaseEyeHeight = 71.f;
+	DefaultBaseEyeHeight = 60.f;
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
