@@ -26,7 +26,7 @@ void AUTCTFScoring::FlagHeldTimer()
 		{
 			// Look to see if the holder's flag is out (thus our holder is at minimum preventing the other team from scoring)
 			int32 HolderTeam = Flag->Holder->GetTeamNum();
-			if (CTFGameState->FlagBases.IsValidIndex(HolderTeam) && CTFGameState->FlagBases[HolderTeam] && CTFGameState->FlagBases[FlagTeam]->GetCarriedObjectHolder() != NULL)
+			if (CTFGameState->FlagBases.IsValidIndex(HolderTeam) && CTFGameState->FlagBases[HolderTeam] && CTFGameState->FlagBases[HolderTeam]->GetCarriedObjectHolder() != NULL)
 			{
 				// score holder for keeping flag out, preventing capture.
 				Flag->Holder->Score += FlagHolderPointsPerSecond;
