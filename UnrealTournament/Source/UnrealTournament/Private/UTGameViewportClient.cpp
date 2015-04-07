@@ -53,7 +53,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 	{
 #if !PLATFORM_MAC
 		// Missing map
-		if (!ErrorString.IsEmpty())
+		if (!ErrorString.IsEmpty() && ErrorString != TEXT("DownloadFiles"))
 		{
 			bool bAlreadyDownloaded = false;
 			int32 SpaceIndex;
@@ -90,7 +90,10 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 				URL = ErrorString;
 			}
 
-			LastAttemptedURL = GEngine->PendingNetGameFromWorld(World)->URL;
+			if (GEngine && GEngine->PendingNetGameFromWorld(World))
+			{
+				LastAttemptedURL = GEngine->PendingNetGameFromWorld(World)->URL;
+			}
 
 			if (bAlreadyDownloaded)
 			{

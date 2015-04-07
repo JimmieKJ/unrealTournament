@@ -441,9 +441,9 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 			}
 		}
 
+		// Only add MyContent pak files to LocalContentChecksums
 		FoundPaks.Empty();
-		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);
-		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameContentDir(), TEXT("Paks")), PakVisitor);
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);		
 		for (const auto& PakPath : FoundPaks)
 		{
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
@@ -456,6 +456,33 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 					LocalContentChecksums.Add(PakFilename, MD5);
 				}
 
+				FArrayReader SerializedAssetData;
+				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+				if (DashPosition != -1)
+				{
+					PakFilename = PakFilename.Left(DashPosition);
+					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+					{
+						// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+						AssetRegistryModule.Get().Serialize(SerializedAssetData);
+					}
+					else
+					{
+						UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+					}
+				}
+			}
+		}
+
+		// Load asset registries from pak files that aren't the default one
+		FoundPaks.Empty();
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameContentDir(), TEXT("Paks")), PakVisitor);
+		for (const auto& PakPath : FoundPaks)
+		{
+			FString PakFilename = FPaths::GetBaseFilename(PakPath);
+			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
+			{
 				FArrayReader SerializedAssetData;
 				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 				if (DashPosition != -1)
