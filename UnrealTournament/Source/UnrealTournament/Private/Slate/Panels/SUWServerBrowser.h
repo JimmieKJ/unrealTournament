@@ -656,9 +656,9 @@ protected:
 	void SortServers(FName ColumnName);
 	void SortHUBs();
 	virtual void FilterAllServers();
-	virtual void FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true, float BestPing = 0);
+	virtual void FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true, int32 BestPing = 0);
 	virtual void FilterAllHUBs();
-	virtual void FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true, float BestPing = 0);
+	virtual void FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate = true, int32 BestPing = 0);
 
 	FDelegateHandle PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
@@ -755,7 +755,7 @@ protected:
 	TSharedPtr<SCheckBox> HideUnresponsiveServersCheckbox;
 	bool bHideUnresponsiveServers;
 
-	bool IsUnresponsive(TSharedPtr<FServerData> Server, float BestPing = 0);
+	bool IsUnresponsive(TSharedPtr<FServerData> Server, int32 BestPing = 0);
 
 	bool bWantsAFullRefilter;
 
