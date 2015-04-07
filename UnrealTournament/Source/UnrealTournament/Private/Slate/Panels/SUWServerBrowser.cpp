@@ -1523,7 +1523,7 @@ void SUWServerBrowser::FilterAllServers()
 	}
 }
 
-void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate, float BestPing)
+void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate, int32 BestPing)
 {
 	if (GameFilterText.IsValid())
 	{
@@ -1567,7 +1567,7 @@ void SUWServerBrowser::FilterAllHUBs()
 }
 
 
-void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate, float BestPing)
+void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSortAndUpdate, int32 BestPing)
 {
 	if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 	{
@@ -1594,7 +1594,7 @@ void SUWServerBrowser::FilterHUB(TSharedPtr< FServerData > NewServer, bool bSort
 	}
 }
 
-bool SUWServerBrowser::IsUnresponsive(TSharedPtr<FServerData> Server, float BestPing)
+bool SUWServerBrowser::IsUnresponsive(TSharedPtr<FServerData> Server, int32 BestPing)
 {
 	// If we aren't hiding unresponsive servers, we don't care so just return false.
 	if (!bHideUnresponsiveServers)
@@ -1604,7 +1604,8 @@ bool SUWServerBrowser::IsUnresponsive(TSharedPtr<FServerData> Server, float Best
 
 	if (Server->Ping >= 0)			
 	{
-		if ( Server->NumPlayers > 0 || Server->Ping <= FMath::Clamp<int32>( (2 * BestPing), 100, (Server->GameModePath == LOBBY_GAME_PATH ? 200 : 300)) )
+		int32  WorstPing = FMath::Max<int32>(BestPing * 2, 100);
+		if ( Server->NumPlayers > 0 || Server->Ping <= WorstPing )
 		{
 			return false;
 		}
