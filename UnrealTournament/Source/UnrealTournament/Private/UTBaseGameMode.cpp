@@ -140,8 +140,18 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
 
 	FString CloudID = GetCloudID();
 	FString RedirectURL;
+	FString MapChecksum;
+	FString MapBaseFilename = FPaths::GetBaseFilename(MapName) + TEXT("-WindowsNoEditor");
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	for (auto It = UTEngine->LocalContentChecksums.CreateConstIterator(); It; ++It)
+	{
+		if (It.Key() == MapBaseFilename)
+		{
+			MapChecksum = It.Value();
+		}
+	}
 
-	if (!CloudID.IsEmpty())
+	if (!CloudID.IsEmpty() && !MapChecksum.IsEmpty())
 	{
 		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
 		FString McpConfigOverride;
@@ -151,8 +161,7 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
 			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
 		}
 
-		FString MapBaseFilename = FPaths::GetBaseFilename(MapName);
-		RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapBaseFilename + TEXT("-WindowsNoEditor.pak");
+		RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapBaseFilename + TEXT(".pak") + TEXT(" ") + MapChecksum;
 	}
 
 	return RedirectURL;
