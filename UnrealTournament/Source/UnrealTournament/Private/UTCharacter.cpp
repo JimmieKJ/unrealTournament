@@ -1163,6 +1163,9 @@ void AUTCharacter::StartRagdoll()
 
 void AUTCharacter::StopRagdoll()
 {
+	// check for falling damage
+	CheckRagdollFallingDamage(FHitResult(NULL, NULL, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
+
 	GetCapsuleComponent()->DetachFromParent(true);
 	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;
 	FixedRotation.Pitch = FixedRotation.Roll = 0.0f;
@@ -2706,6 +2709,27 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 	}
 }
 
+void AUTCharacter::CheckRagdollFallingDamage(const FHitResult& Hit)
+{
+	FVector MeshVelocity = GetMesh()->GetComponentVelocity();
+	// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
+	// besides, faceplanting ought to hurt more than landing on your feet, right? :)
+	MeshVelocity.Z *= 2.0f;
+	if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
+	{
+		FVector SavedVelocity = GetCharacterMovement()->Velocity;
+		GetCharacterMovement()->Velocity = MeshVelocity;
+		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
+		GetCharacterMovement()->Velocity = SavedVelocity;
+		// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
+		for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
+		{
+			FVector Vel = GetMesh()->Bodies[i]->GetUnrealWorldVelocity();
+			Vel.Z = 0.0f;
+			GetMesh()->Bodies[i]->SetLinearVelocity(Vel, false);
+		}
+	}
+}
 
 void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
@@ -2721,24 +2745,7 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 	// cause falling damage on Z axis collisions
 	else if (!bInRagdollRecovery && FMath::Abs<float>(Hit.Normal.Z) > 0.5f)
 	{
-		FVector MeshVelocity = GetMesh()->GetComponentVelocity();
-		// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
-		// besides, faceplanting ought to hurt more than landing on your feet, right? :)
-		MeshVelocity.Z *= 2.0f;
-		if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
-		{
-			FVector SavedVelocity = GetCharacterMovement()->Velocity;
-			GetCharacterMovement()->Velocity = MeshVelocity;
-			TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
-			GetCharacterMovement()->Velocity = SavedVelocity;
-			// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
-			for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
-			{
-				FVector Vel = GetMesh()->Bodies[i]->GetUnrealWorldVelocity();
-				Vel.Z = 0.0f;
-				GetMesh()->Bodies[i]->SetLinearVelocity(Vel, false);
-			}
-		}
+		CheckRagdollFallingDamage(Hit);
 	}
 }
 

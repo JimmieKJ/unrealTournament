@@ -381,13 +381,18 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 {
 	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
 
-	if (!HatClass->IsChildOf(AUTHatLeader::StaticClass()))
+	if (HatClass != nullptr && !HatClass->IsChildOf(AUTHatLeader::StaticClass()))
 	{
 		OnRepHat();
 	}
 	else
 	{
 		HatClass = nullptr;
+	}
+
+	if (HatClass != nullptr)
+	{
+		ValidateEntitlements();
 	}
 }
 
@@ -400,6 +405,10 @@ void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& New
 {
 	EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
 	OnRepEyewear();
+	if (EyewearClass != NULL)
+	{
+		ValidateEntitlements();
+	}
 }
 
 bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewearClass)
@@ -410,6 +419,10 @@ bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewea
 void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTauntClass)
 {
 	TauntClass = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
+	if (TauntClass != NULL)
+	{
+		ValidateEntitlements();
+	}
 }
 
 bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewEyewearClass)
@@ -420,6 +433,10 @@ bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewEyewearC
 void AUTPlayerState::ServerReceiveTaunt2Class_Implementation(const FString& NewTauntClass)
 {
 	Taunt2Class = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
+	if (Taunt2Class != NULL)
+	{
+		ValidateEntitlements();
+	}
 }
 
 bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewEyewearClass)
@@ -648,7 +665,17 @@ bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
 void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
 {
 	// TODO: maybe ignore if already have valid character to avoid trolls?
+	AUTCharacter* MyPawn = GetUTCharacter();
+	// suicide if feign death because the mesh reset causes physics issues
+	if (MyPawn != NULL && MyPawn->IsFeigningDeath())
+	{
+		MyPawn->PlayerSuicide();
+	}
 	SetCharacter(CharacterPath);
+	if (CharacterPath.Len() > 0)
+	{
+		ValidateEntitlements();
+	}
 }
 
 bool AUTPlayerState::ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModType)
@@ -947,6 +974,11 @@ void AUTPlayerState::ValidateEntitlements()
 				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
 				{
 					ServerReceiveTauntClass(FString());
+				}
+				Entitlement = GetRequiredEntitlementFromObj(Taunt2Class);
+				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				{
+					ServerReceiveTaunt2Class(FString());
 				}
 				Entitlement = GetRequiredEntitlementFromObj(SelectedCharacter);
 				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())

@@ -753,6 +753,7 @@ public:
 	* returns true if it's a head shot, false if a miss or if some armor effect prevents head shots
 	* if bConsumeArmor is true, the first item that prevents an otherwise valid head shot will be consumed
 	*/
+	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual bool IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator, float PredictionTime = 0.f);
 
 	/** Called when a headshot by this character is blocked. */
@@ -760,21 +761,21 @@ public:
 
 	/** Sound played locally when your headshot is blocked by armor. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* HeadShotBlockedSound;
+	USoundBase* HeadShotBlockedSound;
 
 	/** Replicated to cause client-side head armor block effect. */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn, Replicated, ReplicatedUsing = OnRepHeadArmorFlashCount)
-		int32 HeadArmorFlashCount;
+	int32 HeadArmorFlashCount;
 
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
-		float LastHeadArmorFlashTime;
+	float LastHeadArmorFlashTime;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
-		UParticleSystem* HeadArmorHitEffect;
+	UParticleSystem* HeadArmorHitEffect;
 
 	/** Replicate if this character has a helmet on (headshot blocking) */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
-		bool bIsWearingHelmet;
+	bool bIsWearingHelmet;
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
@@ -1354,6 +1355,8 @@ public:
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor);
 	
+	virtual void CheckRagdollFallingDamage(const FHitResult& Hit);
+
 	UFUNCTION()
 	virtual void OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
