@@ -518,6 +518,11 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			BestChar->SelectCount++;
 			NewBot->Personality = *BestChar;
 			NewBot->PlayerState->SetPlayerName(BestChar->PlayerName);
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+			}
 		}
 
 		NewBot->InitializeSkill(GameDifficulty);
