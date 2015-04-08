@@ -130,41 +130,48 @@ void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 
 FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
 {
-	for (int32 i = 0; i < RedirectReferences.Num(); i++)
-	{
-		if (RedirectReferences[i].MapName == MapName)
-		{
-			return RedirectReferences[i].MapURLProtocol + TEXT("://") + RedirectReferences[i].MapURL + TEXT(" ") + RedirectReferences[i].MapChecksum;
-		}
-	}
-
-	FString CloudID = GetCloudID();
-	FString RedirectURL;
-	FString MapChecksum;
-	FString MapBaseFilename = FPaths::GetBaseFilename(MapName) + TEXT("-WindowsNoEditor");
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	for (auto It = UTEngine->LocalContentChecksums.CreateConstIterator(); It; ++It)
+	if (UTEngine == NULL) // in PIE this will happen
 	{
-		if (It.Key() == MapBaseFilename)
-		{
-			MapChecksum = It.Value();
-		}
+		return FString();
 	}
-
-	if (!CloudID.IsEmpty() && !MapChecksum.IsEmpty())
+	else
 	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
-		FString McpConfigOverride;
-		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-		if (McpConfigOverride == TEXT("gamedev"))
+		for (int32 i = 0; i < RedirectReferences.Num(); i++)
 		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+			if (RedirectReferences[i].MapName == MapName)
+			{
+				return RedirectReferences[i].MapURLProtocol + TEXT("://") + RedirectReferences[i].MapURL + TEXT(" ") + RedirectReferences[i].MapChecksum;
+			}
 		}
 
-		RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapBaseFilename + TEXT(".pak") + TEXT(" ") + MapChecksum;
-	}
+		FString CloudID = GetCloudID();
+		FString RedirectURL;
+		FString MapChecksum;
+		FString MapBaseFilename = FPaths::GetBaseFilename(MapName) + TEXT("-WindowsNoEditor");
+		for (auto It = UTEngine->LocalContentChecksums.CreateConstIterator(); It; ++It)
+		{
+			if (It.Key() == MapBaseFilename)
+			{
+				MapChecksum = It.Value();
+			}
+		}
 
-	return RedirectURL;
+		if (!CloudID.IsEmpty() && !MapChecksum.IsEmpty())
+		{
+			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+			FString McpConfigOverride;
+			FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+			if (McpConfigOverride == TEXT("gamedev"))
+			{
+				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+			}
+
+			RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapBaseFilename + TEXT(".pak") + TEXT(" ") + MapChecksum;
+		}
+
+		return RedirectURL;
+	}
 }
 
 FString AUTBaseGameMode::GetCloudID() const
