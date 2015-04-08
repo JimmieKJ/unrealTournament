@@ -36,6 +36,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 
 	BeamPulseInterval = 0.5f;
 	BeamPulseMomentum = -220000.0f;
+	BeamPulseAmmoCost = 2;
 
 	PerLinkDamageScalingPrimary = 1.f;
 	PerLinkDamageScalingSecondary = 1.25f;
@@ -110,6 +111,7 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		{
 			UTOwner->SetFlashExtra(UTOwner->FlashExtra + 1, CurrentFireMode);
 		}
+		AddAmmo(-BeamPulseAmmoCost);
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
 		bPendingBeamPulse = false;
 	}
