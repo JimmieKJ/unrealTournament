@@ -1808,10 +1808,7 @@ void AUTCharacter::FiringExtraUpdated()
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
 	if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
 	{
-		if (FlashExtra != 0)
-		{
-			WeaponAttachment->FiringExtraUpdated();
-		}
+		WeaponAttachment->FiringExtraUpdated();
 	}
 }
 
