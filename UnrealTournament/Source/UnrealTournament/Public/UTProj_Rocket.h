@@ -10,4 +10,13 @@ class AUTProj_Rocket : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
+	/** If set, rocket seeks this target. */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = RocketSeeking)
+	AActor* TargetActor;
+
+	/**The speed added to velocity in the direction of the target*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketSeeking)
+		float AdjustmentSpeed;
+
+	virtual void Tick(float DeltaTime) override;
 };

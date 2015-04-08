@@ -5,18 +5,10 @@
 #include "UTProj_Rocket.h"
 #include "UTProj_RocketSeeking.generated.h"
 
+// DEPRECATED - functionality is now in base rocket projectile
 UCLASS()
 class AUTProj_RocketSeeking : public AUTProj_Rocket
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = RocketSeeking)
-	AActor* TargetActor;
-
-	/**The speed added to velocity in the direction of the target*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketSeeking)
-	float AdjustmentSpeed;
-
-	virtual void Tick(float DeltaTime) override;
-	
 };

@@ -2,7 +2,6 @@
 #pragma once
 
 #include "UTWeapon.h"
-#include "UTProj_RocketSeeking.h"
 #include "UTWeap_RocketLauncher.generated.h"
 
 USTRUCT()
@@ -88,9 +87,6 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	int32 CurrentRocketFireMode;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
-	TSubclassOf<AUTProj_RocketSeeking> SeekingProjClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	int32 MaxLoadedRockets;
 	UPROPERTY(BlueprintReadOnly, Category = RocketLauncher)
 	int32 NumLoadedRockets;
@@ -123,7 +119,6 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireRocketProjectile();
 
-	virtual TSubclassOf<AUTProjectile> GetRocketProjectile();
 	virtual float GetLoadTime();
 	virtual void BeginLoadRocket();
 	virtual void EndLoadRocket();

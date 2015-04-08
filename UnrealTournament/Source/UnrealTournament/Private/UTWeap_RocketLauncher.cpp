@@ -3,8 +3,8 @@
 #include "UnrealTournament.h"
 #include "UTWeaponStateEquipping.h"
 #include "UTWeap_RocketLauncher.h"
-#include "UTProj_RocketSpiral.h"
 #include "UTWeaponStateFiringChargedRocket.h"
+#include "UTProj_Rocket.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UnrealNetwork.h"
 
@@ -185,24 +185,6 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 	}
 }
 
-TSubclassOf<AUTProjectile> AUTWeap_RocketLauncher::GetRocketProjectile()
-{
-	if (CurrentFireMode == 0 && ProjClass.IsValidIndex(0) && ProjClass[0] != NULL)
-	{
-		return HasLockedTarget() ? TSubclassOf<AUTProjectile>(SeekingProjClass) : ProjClass[0];
-	}
-	else if (CurrentFireMode == 1)
-	{
-		//If we are locked on and this rocket mode can shoot seeking rockets
-		return (HasLockedTarget() && RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCanBeSeekingRocket) ? TSubclassOf<AUTProjectile>(SeekingProjClass) : RocketFireModes[CurrentRocketFireMode].ProjClass;
-	}
-	else
-	{
-		UE_LOG(UT, Warning, TEXT("%s::GetRocketProjectile(): NULL Projectile returned"));
-		return NULL;
-	}
-}
-
 void AUTWeap_RocketLauncher::FireShot()
 {
 	if (UTOwner)
@@ -253,7 +235,6 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 			if (B->GetTarget() == B->GetEnemy())
 			{
 				// when retreating, we want grenades
-				// otherwise, if close, spiral; if not, spread
 				if (B->GetEnemy() == NULL || B->LostContact(1.0f) /*|| B.IsRetreating() || B.IsInState('StakeOut')*/)
 				{
 					CurrentRocketFireMode = 1;
@@ -265,7 +246,6 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 			}
 			else
 			{
-				// spiral to non-pawn targets for maximum direct damage
 				CurrentRocketFireMode = 1;
 			}
 		}
@@ -303,10 +283,10 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 			}
 		}
 
-		AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(GetRocketProjectile(), SpawnLocation, SpawnRotation);
-		if (Cast<AUTProj_RocketSeeking>(SpawnedProjectile) != NULL)
+		AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(ProjClass[0], SpawnLocation, SpawnRotation);
+		if (HasLockedTarget() &&  Cast<AUTProj_Rocket>(SpawnedProjectile))
 		{
-			Cast<AUTProj_RocketSeeking>(SpawnedProjectile)->TargetActor = LockedTarget;
+			Cast<AUTProj_Rocket>(SpawnedProjectile)->TargetActor = LockedTarget;
 		}
 		NumLoadedRockets = 0;
 		return SpawnedProjectile;
@@ -367,7 +347,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	//List of the rockets fired. If they are seeking rockets, set the target at the end
 	TArray< AUTProjectile*, TInlineAllocator<3> > SeekerList;
 
-	TSubclassOf<AUTProjectile> RocketProjClass = GetRocketProjectile();
+	TSubclassOf<AUTProjectile> RocketProjClass = ProjClass[0];
 
 	const FVector SpawnLocation = GetFireStartLoc();
 	FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
@@ -391,9 +371,9 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			ResultProj = SeekerList[0];
 
 			//Setup the seeking target
-			if (HasLockedTarget() && Cast<AUTProj_RocketSeeking>(ResultProj))
+			if (HasLockedTarget() && Cast<AUTProj_Rocket>(ResultProj))
 			{
-				Cast<AUTProj_RocketSeeking>(ResultProj)->TargetActor = LockedTarget;
+				Cast<AUTProj_Rocket>(ResultProj)->TargetActor = LockedTarget;
 			}
 
 			break;
