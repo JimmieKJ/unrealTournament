@@ -537,11 +537,7 @@ public:
 		}
 		return bNeedsRebuild;
 	}
-	virtual void RebuildAll() override
-	{
-		bIsBuilding = true;
-		Super::RebuildAll();
-	}
+	virtual void RebuildAll() override;
 };
 
 inline AUTRecastNavMesh* GetUTNavData(UWorld* World)

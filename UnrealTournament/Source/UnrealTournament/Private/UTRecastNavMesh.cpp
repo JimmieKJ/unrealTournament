@@ -1235,6 +1235,13 @@ void AUTRecastNavMesh::TickActor(float DeltaTime, ELevelTick TickType, FActorTic
 	}
 }
 
+void AUTRecastNavMesh::RebuildAll()
+{
+	bIsBuilding = true;
+	bUserRequestedBuild |= FEditorBuildUtils::IsBuildingNavigationFromUserRequest();
+	Super::RebuildAll();
+}
+
 void AUTRecastNavMesh::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
