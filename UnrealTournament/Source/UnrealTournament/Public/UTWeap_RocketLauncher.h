@@ -82,14 +82,20 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 
 	float CurrentRotation;
 
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	TArray<FRocketFireMode> RocketFireModes;
 	int32 CurrentRocketFireMode;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	int32 MaxLoadedRockets;
+
 	UPROPERTY(BlueprintReadOnly, Category = RocketLauncher)
 	int32 NumLoadedRockets;
+
+	/** Spread in degrees when unloading loaded rockets on player death. */
+	UPROPERTY(BlueprintReadOnly, Category = RocketLauncher)
+		float FullLoadSpread;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float RocketLoadTime;
@@ -104,6 +110,15 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	/** Burst rocket firing interval */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float BurstInterval;
+
+	/** Lead rocket in burst */
+	UPROPERTY(BlueprintReadOnly)
+	class AUTProj_Rocket* LeadRocket;
+
+	UPROPERTY()
+		bool bIsFiringLeadRocket;
+
+	virtual void SetLeadRocket();
 
 	/**Distance from the center of the launcher to where the rockets fire from*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
@@ -217,7 +232,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = Lock)
 	float LastTargetLockCheckTime;
 
-	virtual float SuggestAttackStyle_Implementation() override;
+	/** Returns true if should fire all loaded rockets immediately. */
+	virtual bool ShouldFireLoad();
+
+		virtual float SuggestAttackStyle_Implementation() override;
 	virtual float GetAISelectRating_Implementation() override;
 	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
 

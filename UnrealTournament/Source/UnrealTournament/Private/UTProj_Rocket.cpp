@@ -16,7 +16,8 @@ AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer
 	ProjectileMovement->ProjectileGravityScale = 0.f;
 
 	PrimaryActorTick.bCanEverTick = true;
-	AdjustmentSpeed = 10000.0f;
+	AdjustmentSpeed = 5000.0f;
+	bLeadTarget = true;
 }
 
 void AUTProj_Rocket::Tick(float DeltaTime)
@@ -26,6 +27,10 @@ void AUTProj_Rocket::Tick(float DeltaTime)
 	if (TargetActor != NULL)
 	{
 		FVector WantedDir = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+		if (bLeadTarget)
+		{
+			WantedDir += TargetActor->GetVelocity() * WantedDir.Size() / ProjectileMovement->MaxSpeed;
+		}
 
 		ProjectileMovement->Velocity += WantedDir * AdjustmentSpeed * DeltaTime;
 		ProjectileMovement->Velocity = ProjectileMovement->Velocity.GetSafeNormal() * ProjectileMovement->MaxSpeed;
@@ -41,5 +46,27 @@ void AUTProj_Rocket::Tick(float DeltaTime)
 void AUTProj_Rocket::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME_CONDITION(AUTProj_Rocket, TargetActor, COND_InitialOnly);
+	DOREPLIFETIME(AUTProj_Rocket, TargetActor);
+}
+
+void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
+{
+	bool bFollowersTrack = (!bExploded && (Role == ROLE_Authority) && (FollowerRockets.Num() > 0) && Cast<AUTCharacter>(ImpactedActor));
+	Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
+	if (bFollowersTrack)
+	{
+		AUTCharacter *Char = Cast<AUTCharacter>(ImpactedActor);
+		if (Char && (Char->Health > 0))
+		{
+			for (int32 i = 0; i < FollowerRockets.Num(); i++)
+			{
+				if (FollowerRockets[i] && !FollowerRockets[i]->IsPendingKillPending())
+				{
+					FollowerRockets[i]->TargetActor = Char;
+					AdjustmentSpeed = 24000.f;
+					bLeadTarget = true;
+				}
+			}
+		}
+	}
 }

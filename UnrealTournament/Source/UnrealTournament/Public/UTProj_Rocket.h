@@ -18,5 +18,14 @@ class AUTProj_Rocket : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketSeeking)
 		float AdjustmentSpeed;
 
+	/** If true, lead tracked target. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketSeeking)
+	bool bLeadTarget;
+
+	/** Following rockets in burst. */
+	UPROPERTY()
+		TArray<AUTProj_Rocket*> FollowerRockets;
+
 	virtual void Tick(float DeltaTime) override;
+	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
 };

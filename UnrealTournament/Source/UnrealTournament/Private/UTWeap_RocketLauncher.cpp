@@ -46,6 +46,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 
 	GracePeriod = 0.75f;
 	BurstInterval = 0.1f;
+	FullLoadSpread = 9.f;
 
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
@@ -185,6 +186,11 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 	}
 }
 
+bool AUTWeap_RocketLauncher::ShouldFireLoad()
+{
+	return !UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->Health <= 0);
+}
+
 void AUTWeap_RocketLauncher::FireShot()
 {
 	if (UTOwner)
@@ -199,7 +205,19 @@ void AUTWeap_RocketLauncher::FireShot()
 
 	if (!FireShotOverride())
 	{
-		FireProjectile();
+		AUTProj_Rocket* NewRocket = Cast<AUTProj_Rocket>(FireProjectile());
+		if (NewRocket && !NewRocket->IsPendingKillPending() && (Role == ROLE_Authority))
+		{
+			if (bIsFiringLeadRocket)
+			{
+				LeadRocket = NewRocket;
+			}
+			else if (LeadRocket && !LeadRocket->IsPendingKillPending())
+			{
+				LeadRocket->FollowerRockets.Add(NewRocket);
+			}
+		}
+		bIsFiringLeadRocket = false;
 		PlayFiringEffects();
 		if (NumLoadedRockets <= 0)
 		{
@@ -283,7 +301,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 			}
 		}
 
-		AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(ProjClass[0], SpawnLocation, SpawnRotation);
+		AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketFireModes[CurrentRocketFireMode].ProjClass, SpawnLocation, SpawnRotation);
 		if (HasLockedTarget() &&  Cast<AUTProj_Rocket>(SpawnedProjectile))
 		{
 			Cast<AUTProj_Rocket>(SpawnedProjectile)->TargetActor = LockedTarget;
@@ -340,14 +358,19 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 	}
 }
 
+void AUTWeap_RocketLauncher::SetLeadRocket()
+{
+	bIsFiringLeadRocket = true;
+}
+
 AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 {
-	checkSlow(RocketFireModes.IsValidIndex(CurrentRocketFireMode) && GetRocketProjectile() != NULL);
+	checkSlow(RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].ProjClass != NULL);
 
 	//List of the rockets fired. If they are seeking rockets, set the target at the end
 	TArray< AUTProjectile*, TInlineAllocator<3> > SeekerList;
 
-	TSubclassOf<AUTProjectile> RocketProjClass = ProjClass[0];
+	TSubclassOf<AUTProjectile> RocketProjClass = RocketFireModes[CurrentRocketFireMode].ProjClass;
 
 	const FVector SpawnLocation = GetFireStartLoc();
 	FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
@@ -366,6 +389,10 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			float RotDegree = 360.0f / NumLoadedRockets;
 			FVector SpreadLoc = SpawnLocation;
 			SpawnRotation.Roll = RotDegree * NumLoadedRockets;
+			if (ShouldFireLoad())
+			{
+				SpawnRotation.Yaw += FullLoadSpread*float(NumLoadedRockets-2.f);
+			}
 			NetSynchRandomSeed(); 
 			SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpawnRotation));
 			ResultProj = SeekerList[0];
@@ -386,7 +413,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			FRotator SpreadRot = SpawnRotation;
 			SpreadRot.Yaw += GrenadeSpread*float(MaxLoadedRockets) - GrenadeSpread;
 				
-			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpreadRot);
+			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketFireModes[CurrentRocketFireMode].ProjClass, SpawnLocation, SpreadRot);
 				
 			if (SpawnedProjectile != nullptr)
 			{
