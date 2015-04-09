@@ -25,7 +25,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	AmmoCost[1] = 1;
 	FOVOffset = FVector(0.6f, 1.f, 1.f);
 	Ammo = 70;
-	MaxAmmo = 220;
+	MaxAmmo = 200;
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 467.0, 147.0f, 41.0f);
 
