@@ -3,7 +3,7 @@
 
 #include "UTMutator.generated.h"
 
-UCLASS(Blueprintable, Abstract, Meta = (ChildCanTick))
+UCLASS(Blueprintable, Abstract, Meta = (ChildCanTick), Config = Game)
 class UNREALTOURNAMENT_API AUTMutator : public AInfo
 {
 	GENERATED_UCLASS_BODY()

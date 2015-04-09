@@ -42,12 +42,12 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContent(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
 
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(46.f, 92.0f);
+	GetCapsuleComponent()->InitCapsuleSize(42.f, 92.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
 	CharacterCameraComponent->AttachParent = GetCapsuleComponent();
-	DefaultBaseEyeHeight = 71.f;
+	DefaultBaseEyeHeight = 60.f;
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
@@ -352,12 +352,13 @@ void AUTCharacter::Crouch(bool bClientSimulation)
 
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
+	bool bStartedSlide = false;
 	if (UTCharacterMovement->bPressedSlide)
 	{
-		Roll(GetVelocity().GetSafeNormal());
+		bStartedSlide = Roll(GetVelocity().GetSafeNormal());
 		UTCharacterMovement->bPressedSlide = false;
 	}
-	else
+	if (!bStartedSlide )
 	{
 		Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
 		CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
@@ -1062,7 +1063,8 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		// TODO: GameInfo::PreventDeath()
 
 		bTearOff = true; // important to set this as early as possible so IsDead() returns true
-		
+		Health = FMath::Min<int32>(Health, 0);
+
 		AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(DrivenVehicle);
 		if (Redeemer != nullptr)
 		{
@@ -1083,8 +1085,6 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		}
 
 		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
-
-		Health = FMath::Min<int32>(Health, 0);
 
 		// Drop any carried objects when you die.
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
@@ -1162,6 +1162,9 @@ void AUTCharacter::StartRagdoll()
 
 void AUTCharacter::StopRagdoll()
 {
+	// check for falling damage
+	CheckRagdollFallingDamage(FHitResult(NULL, NULL, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
+
 	GetCapsuleComponent()->DetachFromParent(true);
 	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;
 	FixedRotation.Pitch = FixedRotation.Roll = 0.0f;
@@ -1807,10 +1810,7 @@ void AUTCharacter::FiringExtraUpdated()
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
 	if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
 	{
-		if (FlashExtra != 0)
-		{
-			WeaponAttachment->FiringExtraUpdated();
-		}
+		WeaponAttachment->FiringExtraUpdated();
 	}
 }
 
@@ -2708,6 +2708,27 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 	}
 }
 
+void AUTCharacter::CheckRagdollFallingDamage(const FHitResult& Hit)
+{
+	FVector MeshVelocity = GetMesh()->GetComponentVelocity();
+	// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
+	// besides, faceplanting ought to hurt more than landing on your feet, right? :)
+	MeshVelocity.Z *= 2.0f;
+	if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
+	{
+		FVector SavedVelocity = GetCharacterMovement()->Velocity;
+		GetCharacterMovement()->Velocity = MeshVelocity;
+		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
+		GetCharacterMovement()->Velocity = SavedVelocity;
+		// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
+		for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
+		{
+			FVector Vel = GetMesh()->Bodies[i]->GetUnrealWorldVelocity();
+			Vel.Z = 0.0f;
+			GetMesh()->Bodies[i]->SetLinearVelocity(Vel, false);
+		}
+	}
+}
 
 void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
@@ -2723,24 +2744,7 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 	// cause falling damage on Z axis collisions
 	else if (!bInRagdollRecovery && FMath::Abs<float>(Hit.Normal.Z) > 0.5f)
 	{
-		FVector MeshVelocity = GetMesh()->GetComponentVelocity();
-		// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
-		// besides, faceplanting ought to hurt more than landing on your feet, right? :)
-		MeshVelocity.Z *= 2.0f;
-		if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
-		{
-			FVector SavedVelocity = GetCharacterMovement()->Velocity;
-			GetCharacterMovement()->Velocity = MeshVelocity;
-			TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
-			GetCharacterMovement()->Velocity = SavedVelocity;
-			// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
-			for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
-			{
-				FVector Vel = GetMesh()->Bodies[i]->GetUnrealWorldVelocity();
-				Vel.Z = 0.0f;
-				GetMesh()->Bodies[i]->SetLinearVelocity(Vel, false);
-			}
-		}
+		CheckRagdollFallingDamage(Hit);
 	}
 }
 

@@ -36,7 +36,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SprintSpeed = 1250.f;
 	SprintAccel = 200.f;
 	SprintMaxWallNormal = -0.7f;
-	AutoSprintDelayInterval = 2.f;
+	AutoSprintDelayInterval = 1.5f;
 	LandingStepUp = 40.f;
 	LandingAssistBoost = 380.f;
 	CrouchedSpeedMultiplier_DEPRECATED = 0.31f;
@@ -51,9 +51,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 6000.f; 
 	MaxFallingAcceleration = 4200.f;
-	BrakingDecelerationWalking = 6600.f;
+	BrakingDecelerationWalking = 200.f;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
+	GroundFriction = 5.f;
 	GravityScale = 1.f;
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
@@ -795,7 +796,7 @@ void UUTCharacterMovement::CalcVelocity(float DeltaTime, float Friction, bool bF
 		}
 	}
 	Super::CalcVelocity(DeltaTime, Friction, bFluid, BrakingDeceleration);
-	//UE_LOG(UTNet, Warning, TEXT("At %f DeltaTime %f Velocity is %f %f %f"), GetCurrentSynchTime(), DeltaTime, Velocity.X, Velocity.Y, Velocity.Z);
+	//UE_LOG(UTNet, Warning, TEXT("At %f DeltaTime %f Velocity is %f %f %f from acceleration %f %f"), GetCurrentSynchTime(), DeltaTime, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y);
 }
 
 void UUTCharacterMovement::ResetTimers()

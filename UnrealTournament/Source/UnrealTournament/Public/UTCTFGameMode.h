@@ -2,6 +2,7 @@
 
 #pragma once
 #include "UTCTFGameState.h"
+#include "UTCTFScoring.h"
 #include "UTTeamGameMode.h"
 #include "UTCTFGameMode.generated.h"
 
@@ -27,20 +28,24 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	UPROPERTY(BlueprintReadOnly, Category=CTF)
 	AUTCTFGameState* CTFGameState;
 
+	/** Class of GameState associated with this GameMode. */
+	UPROPERTY(EditAnywhere, noclear, BlueprintReadWrite, Category = Classes)
+		TSubclassOf<class AUTCTFScoring> CTFScoringClass;
+
+	/** Handles individual player scoring */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+	AUTCTFScoring* CTFScoring;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
 	int32 HalftimeDuration;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
 	int32 OvertimeDuration;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
-	int32 SuddenDeathHealthDrain;
-
 	virtual void InitGameState();
-
+	virtual void PreInitializeComponents();
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
-	virtual void ScoreHolder(AUTPlayerState* Holder);
 	virtual bool CheckScore(AUTPlayerState* Scorer);
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
@@ -57,7 +62,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 
 	virtual void PlacePlayersAroundFlagBase(int32 TeamNum);
 
-	virtual void DefaultTimer();
 	virtual bool PlayerCanRestart( APlayerController* Player );
 
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
@@ -65,85 +69,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	void BuildServerResponseRules(FString& OutRules);
 
 protected:
-
-	// CTF Scoring.. made config for now so we can easily tweak it all.  Won't be config in the final.
-
-	// FLAG Capture points
-
-	// Each player who carried the flag get's a % of this pool and is guarenteed at least 1 point
-	UPROPERTY(Config)
-	uint32 FlagTotalScorePool;			
-
-	// The player who initially picked up the flag will give thee points
-	UPROPERTY(Config)
-	uint32 FlagFirstPickupPoints;
-
-	// The player who caps the flag will get these points
-	UPROPERTY(Config)
-	uint32 FlagCapPoints;
-
-	// # of points the player receives for returning the flag
-	UPROPERTY(Config)
-	uint32 FlagReturnPoints;
-	// # of points the player receives if they return the flag in the enemy score zone
-	UPROPERTY(Config)
-	uint32 FlagReturnEnemyZoneBonus;
-
-	// # of points hte player receives if they deny a score
-	UPROPERTY(Config)
-	uint32 FlagReturnDenialBonus;
-
-	// Players who are near the flag get bonuses when they kill
-	UPROPERTY(Config)
-	uint32 BaseKillScore;
-
-	// Flag combat
-
-	// How close to the flag carrier do you have to be to get Flag combat bonus points
-	UPROPERTY(Config)
-	float FlagCombatBonusDistance;
-
-	// How close to the opposing home base does a flag have to be for a denial
-	UPROPERTY(Config)
-	float FlagDenialDistance;
-
-	// Players who are near the flag when it's captured get this bonus
-	UPROPERTY(Config)
-	uint32 ProximityCapBonus;
-
-	// Players near the flag when it's returned get this bonus
-	UPROPERTY(Config)
-	uint32 ProximityReturnBonus;
-
-	// Players who are near the flag get bonuses when they kill
-	UPROPERTY(Config)
-	uint32 CombatBonusKillBonus;
-
-	// Damage points are muiltipled by this when combat is near the flag.
-	UPROPERTY(config)
-	float FlagCarrierCombatMultiplier;
-
-	// How many points for picking up a minor pickup
-	UPROPERTY(config)
-	uint32 MinorPickupScore;
-
-	// How many points for picking up a major pickup
-	UPROPERTY(config)
-	uint32 MajorPickupScore;
-
-	// How many points for picking up a super pickup
-	UPROPERTY(config)
-	uint32 SuperPickupScore;
-
-	// Multiplier to use if the player controls a pickup
-	UPROPERTY(config)
-	float ControlFreakMultiplier;
-
-	UPROPERTY(config)
-	uint32 FlagHolderPointsPerSecond;
-
-	UPROPERTY(config)
-	uint32 TelefragBonus;
 
 	virtual void HandleMatchHasStarted();
 

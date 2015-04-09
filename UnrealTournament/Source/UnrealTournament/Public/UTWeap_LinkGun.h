@@ -45,6 +45,9 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	// every this many seconds the user can use primary while holding down alt to fire a pulse that pulls the current target
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	float BeamPulseInterval;
+	// extra ammo used for pulse
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+	int32 BeamPulseAmmoCost;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	float BeamPulseMomentum;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)

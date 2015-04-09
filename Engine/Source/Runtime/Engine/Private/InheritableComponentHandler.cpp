@@ -192,21 +192,6 @@ bool UInheritableComponentHandler::IsRecordNecessary(const FComponentOverrideRec
 	return !FComponentComparisonHelper::AreIdentical(ChildComponentTemplate, ParentComponentTemplate);
 }
 
-void UInheritableComponentHandler::PreloadAllTempates()
-{
-	for (auto Record : Records)
-	{
-		if (Record.ComponentTemplate && Record.ComponentTemplate->HasAllFlags(RF_NeedLoad))
-		{
-			auto Linker = Record.ComponentTemplate->GetLinker();
-			if (Linker)
-			{
-				Linker->Preload(Record.ComponentTemplate);
-			}
-		}
-	}
-}
-
 UActorComponent* UInheritableComponentHandler::FindBestArchetype(FComponentKey Key) const
 {
 	UActorComponent* ClosestArchetype = nullptr;
@@ -259,6 +244,34 @@ FComponentKey UInheritableComponentHandler::FindKey(UActorComponent* ComponentTe
 }
 
 #endif
+
+void UInheritableComponentHandler::PreloadAllTempates()
+{
+	for (auto Record : Records)
+	{
+		if (Record.ComponentTemplate && Record.ComponentTemplate->HasAllFlags(RF_NeedLoad))
+		{
+			auto Linker = Record.ComponentTemplate->GetLinker();
+			if (Linker)
+			{
+				Linker->Preload(Record.ComponentTemplate);
+			}
+		}
+	}
+}
+
+void UInheritableComponentHandler::PreloadAll()
+{
+	if (HasAllFlags(RF_NeedLoad))
+	{
+		auto Linker = GetLinker();
+		if (Linker)
+		{
+			Linker->Preload(this);
+		}
+	}
+	PreloadAllTempates();
+}
 
 FComponentKey UInheritableComponentHandler::FindKey(const FName VariableName) const
 {

@@ -15,6 +15,10 @@
 #if WITH_EDITOR
 #include "EditorBuildUtils.h"
 #endif
+#if !UE_SERVER && WITH_EDITOR
+#include "SNotificationList.h"
+#include "NotificationManager.h"
+#endif
 
 UUTPathBuilderInterface::UUTPathBuilderInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -482,6 +486,11 @@ FVector AUTRecastNavMesh::GetPOIExtent(AActor* POI) const
 
 void AUTRecastNavMesh::BuildNodeNetwork()
 {
+#if WITH_EDITORONLY_DATA
+	LastNodeBuildDuration = 0.0;
+	FSecondsCounter TimeCounter(LastNodeBuildDuration);
+#endif
+
 	struct FQueryMarker
 	{
 		AUTRecastNavMesh* Mesh;
@@ -833,10 +842,48 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 #endif
 }
 
+bool AUTRecastNavMesh::IsValidJumpPoint(const FVector& TestPolyCenter) const
+{
+	// skip if poly is under the world's KillZ
+	// ideally LD wouldn't have put the nav bounds this low anyway
+	if (TestPolyCenter.Z <= GetWorld()->GetWorldSettings()->KillZ)
+	{
+		return false;
+	}
+	else
+	{
+		// TODO: workaround for Recast generating polys (and therefore nodes) in the internal geometry of some meshes
+		//		poly is not in walkable space
+		TArray<FOverlapResult> Overlaps;
+		if (GetWorld()->OverlapMulti(Overlaps, TestPolyCenter + FVector(0.0f, 0.0f, AgentHeight * 0.5f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(1.0f), FCollisionQueryParams(), WorldResponseParams))
+		{
+			return false;
+		}
+		else
+		{
+			// check that it's not in a kill volume
+			// TODO: ideally we could make KillZVolumes block navigation despite not having blocking collision
+			for (const FOverlapResult& TestHit : Overlaps)
+			{
+				if (Cast<AKillZVolume>(TestHit.Actor.Get()) != NULL)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+	}
+}
+
 void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 {
 	if (SpecialLinkBuildNodeIndex >= 0)
 	{
+#if WITH_EDITORONLY_DATA
+		FSecondsCounter TimeCounter(LastNodeBuildDuration);
+#endif
+
 		if (ScoutClass == NULL || ScoutClass.GetDefaultObject()->GetCharacterMovement() == NULL)
 		{
 			// can't build if no scout to figure out jumps
@@ -878,6 +925,11 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 				{
 					FVector PolyCenter = GetPolyCenter(PolyRef);
 
+					if (!IsValidJumpPoint(PolyCenter))
+					{
+						continue;
+					}
+
 					float SegmentVerts[36];
 					int32 NumSegments = 0;
 					InternalQuery.getPolyWallSegments(PolyRef, GetDefaultDetourFilter(), NULL, 0, SegmentVerts, NULL, &NumSegments, 6);
@@ -897,8 +949,12 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 								// we add a little leeway to ~50 degrees since we're only testing the wall center and not the whole thing
 								// FIXME: replace NumSegments hack and threshold dot test with loop that uses wall with best angle
 								if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && (NumSegments == 1 || ((TestLoc - WallCenter).GetSafeNormal2D() | (WallCenter - PolyCenter).GetSafeNormal2D()) > 0.64f) &&
-									!IsInPain(GetWorld(), TestLoc)) // TODO: probably want to allow pain volumes in some situations... maybe make LDs manually specify those edge cases?
+									!IsInPain(GetWorld(), TestLoc)) // TODO: need to allow pain volumes (flag node)
 								{
+									if (!IsValidJumpPoint(TestLoc))
+									{
+										continue;
+									}
 									// make sure not directly walk reachable
 									bool bWalkReachable = true;
 									{
@@ -1179,12 +1235,21 @@ void AUTRecastNavMesh::TickActor(float DeltaTime, ELevelTick TickType, FActorTic
 	}
 }
 
+void AUTRecastNavMesh::RebuildAll()
+{
+	bIsBuilding = true;
+#if UE_EDITOR
+	bUserRequestedBuild |= FEditorBuildUtils::IsBuildingNavigationFromUserRequest();
+#endif
+	Super::RebuildAll();
+}
+
 void AUTRecastNavMesh::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
 	// it would be nice if we were just given a callback when things were done instead of having to poll...
-	bool bNewIsBuilding = NavDataGenerator.Get() != NULL && NavDataGenerator->IsBuildInProgress(true);
+	bool bNewIsBuilding = NavDataGenerator.Get() != NULL && NavDataGenerator->IsBuildInProgress(false);
 	if (bIsBuilding && !bNewIsBuilding)
 	{
 		// build is done, post process
@@ -1198,7 +1263,7 @@ void AUTRecastNavMesh::Tick(float DeltaTime)
 #endif
 		if (PathNodes.Num() > 0)
 		{
-			// clear data right away since it refers to tile IDs that are being rebuilt
+			// clear data right away since it refers to poly IDs that are being rebuilt
 			DeletePaths();
 		}
 	}
@@ -1207,6 +1272,14 @@ void AUTRecastNavMesh::Tick(float DeltaTime)
 		BuildSpecialLinks(1);
 	}
 	bIsBuilding = bNewIsBuilding;
+
+#if WITH_EDITOR
+	// HACK: cache flag that says if we need to rebuild since ARecastNavMesh implementation doesn't work in game
+	if (GIsEditor)
+	{
+		bNeedsRebuild = NeedsRebuild();
+	}
+#endif
 }
 
 bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData)
@@ -2018,18 +2091,39 @@ void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties
 	}
 }
 
+#if !UE_SERVER && WITH_EDITOR && WITH_EDITORONLY_DATA
+void AUTRecastNavMesh::ClearRebuildWarning()
+{
+	if (NeedsRebuildWarning.IsValid())
+	{
+		NeedsRebuildWarning.Get()->SetCompletionState(SNotificationItem::CS_None);
+		NeedsRebuildWarning.Get()->ExpireAndFadeout();
+		NeedsRebuildWarning.Reset();
+	}
+}
+#endif
+
 void AUTRecastNavMesh::PreSave()
 {
-	// force build on save if out of date
+#if !UE_SERVER && WITH_EDITOR && WITH_EDITORONLY_DATA
 	if (NeedsRebuild() && !IsRunningCommandlet())
 	{
-		RebuildAll();
-		EnsureBuildCompletion();
-		BuildNodeNetwork();
-		bIsBuilding = false;
+		ClearRebuildWarning();
+		
+		FNotificationInfo Info(NSLOCTEXT("UTNavigationBuild", "NeedsRebuild", "Navigation needs to be rebuilt."));
+		Info.bFireAndForget = false;
+		Info.bUseThrobber = false;
+		Info.FadeOutDuration = 0.0f;
+		Info.ExpireDuration = 0.0f;
+		Info.ButtonDetails.Add(FNotificationButtonInfo(NSLOCTEXT("NavigationBuild", "NavigationBuildOk", "Ok"), FText(), FSimpleDelegate::CreateUObject(this, &AUTRecastNavMesh::ClearRebuildWarning)));
+
+		NeedsRebuildWarning = FSlateNotificationManager::Get().AddNotification(Info);
+		if (NeedsRebuildWarning.IsValid())
+		{
+			NeedsRebuildWarning.Get()->SetCompletionState(SNotificationItem::CS_Pending);
+		}
 	}
-	// make sure special links are done
-	BuildSpecialLinks(MAX_int32);
+#endif
 
 	Super::PreSave();
 }

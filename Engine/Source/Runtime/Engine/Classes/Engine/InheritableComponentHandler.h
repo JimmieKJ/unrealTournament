@@ -84,14 +84,15 @@ public:
 		return 0 == Records.Num();
 	}
 
-	void PreloadAllTempates();
-
 	bool RenameTemplate(FComponentKey OldKey, FName NewName);
 
 	FComponentKey FindKey(UActorComponent* ComponentTemplate) const;
 #endif
 
 public:
+	void PreloadAllTempates();
+	void PreloadAll();
+
 	FComponentKey FindKey(const FName VariableName) const;
 
 	UActorComponent* GetOverridenComponentTemplate(FComponentKey Key) const;

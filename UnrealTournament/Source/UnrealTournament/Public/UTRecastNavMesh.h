@@ -399,6 +399,9 @@ protected:
 
 	const class dtQueryFilter* GetDefaultDetourFilter() const;
 
+	/** returns whether the given point is valid for jump testing (as source, destination or both) */
+	virtual bool IsValidJumpPoint(const FVector& TestPolyCenter) const;
+
 	// hide base functionality we don't want being used
 	// if you are UT aware you should use the UT functions that use the node graph with more robust traversal options
 private:
@@ -471,6 +474,36 @@ public:
 		}
 	}
 
+private:
+#if WITH_EDITORONLY_DATA
+	/** how long the last node build took (including special paths)
+	 * value is not valid while a build is in progress
+	 */
+	UPROPERTY()
+	double LastNodeBuildDuration;
+
+	struct FSecondsCounter
+	{
+		double& Counter;
+		double StartTime;
+		FSecondsCounter(double& InCounter)
+			: Counter(InCounter)
+		{
+			StartTime = FPlatformTime::Seconds();
+		}
+		~FSecondsCounter()
+		{
+			Counter += FPlatformTime::Seconds() - StartTime;
+		}
+	};
+#endif
+#if !UE_SERVER && WITH_EDITOR && WITH_EDITORONLY_DATA
+	TSharedPtr<SNotificationItem> NeedsRebuildWarning;
+
+	void ClearRebuildWarning();
+#endif
+
+public:
 #if WITH_EDITOR
 	class FUTNavMeshEditorTick* EditorTick;
 	~AUTRecastNavMesh();
@@ -479,6 +512,9 @@ public:
 private:
 	bool bIsBuilding;
 	bool bUserRequestedBuild;
+	// cached NeedsRebuild() for in game because the ARecastNavMesh implementation is broken and doesn't work in game
+	UPROPERTY()
+	mutable bool bNeedsRebuild;
 protected:
 	/** building special links (jumps, translocator, etc) are done over time when rebuilding while editing; this is the current node or INDEX_NONE if done/not started */
 	int32 SpecialLinkBuildNodeIndex;
@@ -494,14 +530,14 @@ public:
 
 	virtual bool NeedsRebuild() const
 	{
-		return (Super::NeedsRebuild() || PathNodes.Num() == 0);
+		// in game return the cached flag since Super::NeedsRebuild() doesn't work correctly
+		if (NavDataGenerator.Get() != NULL || !GetWorld()->IsGameWorld())
+		{
+			bNeedsRebuild = (Super::NeedsRebuild() || (PathNodes.Num() == 0 && !bIsBuilding));
+		}
+		return bNeedsRebuild;
 	}
-	virtual void RebuildAll() override
-	{
-		bIsBuilding = true;
-		bUserRequestedBuild = true;
-		Super::RebuildAll();
-	}
+	virtual void RebuildAll() override;
 };
 
 inline AUTRecastNavMesh* GetUTNavData(UWorld* World)

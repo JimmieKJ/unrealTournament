@@ -18,6 +18,7 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	ColumnHeaderCapsX = 0.66;
 	ColumnHeaderAssistsX = 0.73;
 	ColumnHeaderReturnsX = 0.79;
+	ReadyX = 0.7f;
 	NumPages = 2;
 }
 
@@ -88,7 +89,7 @@ void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		}
 		else
 		{
-			DrawText(CH_Ready, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Ready, XOffset + (Width * ReadyX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 
 		DrawText(CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
@@ -146,10 +147,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 		PlayerPing = FText::Format(NSLOCTEXT("UTScoreboard", "PingFormatText", "{0}ms"), FText::AsNumber(Ping));
 	}
 
-	// Draw the position
-
 	// Draw the background border.
-
 	FLinearColor BarColor = FLinearColor::Black;
 	float FinalBarOpacity = BarOpacity;
 	if (bIsUnderCursor) 
@@ -192,7 +190,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP");
 		}
-		DrawText(PlayerReady, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(PlayerReady, XOffset + (Width * ReadyX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);

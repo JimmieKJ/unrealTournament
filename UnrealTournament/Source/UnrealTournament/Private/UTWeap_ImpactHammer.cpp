@@ -21,7 +21,7 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectIniti
 	WeaponBobScaling = 0.7f;
 	FiringViewKickback = -50.f;
 	FullChargeTime = 2.5f;
-	FullImpactChargePct = 0.4f;
+	FullImpactChargePct = 0.2f;
 	MinAutoChargePct = 1.f;
 	ImpactJumpTraceDist = 220.f;
 	FOVOffset = FVector(0.1f, 1.f, 2.f);

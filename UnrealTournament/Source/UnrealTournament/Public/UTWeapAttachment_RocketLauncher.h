@@ -19,6 +19,7 @@ class AUTWeapAttachment_RocketLauncher : public AUTWeaponAttachment
 	: Super(ObjectInitializer)
 	{
 		RocketLoadLights = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, FName(TEXT("RocketLoadLights")));
+		RocketLoadLights->AttachParent = Mesh;
 	}
 
 	virtual void FiringExtraUpdated() override

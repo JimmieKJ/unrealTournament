@@ -751,22 +751,9 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 		}
 
 		// explosion effect unless I have a fake projectile doing it for me
-		if (!MyFakeProjectile)
+		if (MyFakeProjectile == NULL && ExplosionEffects != NULL)
 		{
-			if (ExplosionEffects != NULL)
-			{
-				ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
-			}
-			// TODO: remove when no longer used
-			else
-			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), ExplosionSound, this, ESoundReplicationType::SRT_IfSourceNotReplicated);
-				AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-				if (WS != NULL && WS->EffectIsRelevant(this, GetActorLocation(), true, (InstigatorController && InstigatorController->IsLocalPlayerController()), 20000.0f, 500.0f, false))
-				{
-					UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), HitNormal.Rotation(), true);
-				}
-			}
+			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
 		}
 		ShutDown();
 	}

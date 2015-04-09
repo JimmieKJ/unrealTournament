@@ -518,6 +518,11 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			BestChar->SelectCount++;
 			NewBot->Personality = *BestChar;
 			NewBot->PlayerState->SetPlayerName(BestChar->PlayerName);
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+			}
 		}
 
 		NewBot->InitializeSkill(GameDifficulty);
@@ -1382,36 +1387,13 @@ static bool bSetPlayerDefaultsSpawnInventory = false;
 
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
-	if (aPlayer == NULL)
+	if ((aPlayer == NULL) || (aPlayer->PlayerState == NULL) || aPlayer->PlayerState->PlayerName.IsEmpty())
 	{
-		UE_LOG(UT, Warning, TEXT("RestartPlayer with a bad player"));
-		return;
-	}
-	else if (aPlayer->PlayerState == NULL)
-	{
-		UE_LOG(UT, Warning, TEXT("RestartPlayer with bad player state"));
-		return;
-	}
-	else if (aPlayer->PlayerState->PlayerName.IsEmpty())
-	{
-		UE_LOG(UT, Warning, TEXT("RestartPlayer with an empty player name"));
-		return;
-	}
-	
-
-	if (!UTGameState->HasMatchStarted())
-	{
-		// If we are in the pre-game stage then flag the player as ready to play.  The game starting will be handled in the DefaultTimer() event
-		Cast<AUTPlayerState>(aPlayer->PlayerState)->bReadyToPlay = true;
+		UE_LOG(UT, Warning, TEXT("RestartPlayer with a bad player, bad playerstate, or empty player name"));
 		return;
 	}
 
-	if (!IsMatchInProgress())
-	{
-		return;
-	}
-
-	if (aPlayer->PlayerState->bOnlySpectator)
+	if (!IsMatchInProgress() || aPlayer->PlayerState->bOnlySpectator)
 	{
 		return;
 	}

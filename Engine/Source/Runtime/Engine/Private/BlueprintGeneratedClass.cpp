@@ -272,6 +272,11 @@ UInheritableComponentHandler* UBlueprintGeneratedClass::GetInheritableComponentH
 		return nullptr;
 	}
 
+	if (InheritableComponentHandler)
+	{
+		InheritableComponentHandler->PreloadAll();
+	}
+
 	if (!InheritableComponentHandler && bCreateIfNecessary)
 	{
 		InheritableComponentHandler = NewNamedObject<UInheritableComponentHandler>(this, FName(TEXT("InheritableComponentHandler")));

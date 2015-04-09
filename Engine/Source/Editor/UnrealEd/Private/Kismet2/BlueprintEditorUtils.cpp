@@ -1156,16 +1156,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 		// Preload Overriden Components
 		if (Blueprint->InheritableComponentHandler)
 		{
-			if (Blueprint->InheritableComponentHandler->HasAllFlags(RF_NeedLoad))
-			{
-				auto Linker = Blueprint->InheritableComponentHandler->GetLinker();
-				if (Linker)
-				{
-					Linker->Preload(Blueprint->InheritableComponentHandler);
-				}
-			}
-
-			Blueprint->InheritableComponentHandler->PreloadAllTempates();
+			Blueprint->InheritableComponentHandler->PreloadAll();
 		}
 
 		// Purge any NULL graphs

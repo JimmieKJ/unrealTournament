@@ -125,6 +125,7 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 			bCharging = false;
 			if (RocketLauncher->NumLoadedRockets > 0)
 			{
+				RocketLauncher->SetLeadRocket();
 				FireLoadedRocket();
 			}
 		}
@@ -138,8 +139,19 @@ class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 		}
 		if (RocketLauncher->NumLoadedRockets > 0)
 		{
-			FTimerHandle TempHandle;
-			GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(TempHandle, this, &UUTWeaponStateFiringChargedRocket::FireLoadedRocket, RocketLauncher->BurstInterval, false); 
+			if (RocketLauncher->ShouldFireLoad())
+			{
+				// fire all remaining rockets
+				while (RocketLauncher->NumLoadedRockets > 0)
+				{
+					FireShot();
+				}
+			}
+			else
+			{
+				FTimerHandle TempHandle;
+				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(TempHandle, this, &UUTWeaponStateFiringChargedRocket::FireLoadedRocket, RocketLauncher->BurstInterval, false);
+			}
 		}
 		else
 		{

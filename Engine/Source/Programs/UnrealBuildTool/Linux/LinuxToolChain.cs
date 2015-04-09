@@ -339,7 +339,7 @@ namespace UnrealBuildTool
                 // in shipping, strip as much info as possible
                 Result += " -g0";
                 Result += " -fomit-frame-pointer";
-                Result += " -fvisibility=hidden";           // prevents from exporting all symbols (reduces the size of the binary)
+                //Result += " -fvisibility=hidden";           // prevents from exporting all symbols (reduces the size of the binary)
             }
             else if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
             {
@@ -447,6 +447,7 @@ namespace UnrealBuildTool
             {
                 Result += " -s"; // Strip binaries in Shipping
             }
+
             if (LinkEnvironment.Config.bIsBuildingDLL)
             {
                 Result += " -shared";

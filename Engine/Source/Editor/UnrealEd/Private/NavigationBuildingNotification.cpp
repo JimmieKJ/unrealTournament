@@ -73,6 +73,9 @@ void FNavigationBuildingNotificationImpl::BuildFinished()
 
 	if (EEngine != NULL && (FEditorBuildUtils::IsBuildingNavigationFromUserRequest()))
 	{
+		// remove existing item, if any
+		ClearCompleteNotification();
+
 		FNotificationInfo Info( NSLOCTEXT("NavigationBuild", "NavigationBuildDoneMessage", "Navigation building completed.") );
 		Info.bFireAndForget = false;
 		Info.bUseThrobber = false;

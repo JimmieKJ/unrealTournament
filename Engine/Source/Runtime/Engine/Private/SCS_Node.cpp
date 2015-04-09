@@ -39,9 +39,10 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 		auto ActualBPGC = Cast<UBlueprintGeneratedClass>(Actor->GetClass());
 		while (!OverridenComponentTemplate && ActualBPGC)
 		{
-			if (ActualBPGC->InheritableComponentHandler)
+			auto InheritableComponentHandler = ActualBPGC->GetInheritableComponentHandler();
+			if (InheritableComponentHandler)
 			{
-				OverridenComponentTemplate = ActualBPGC->InheritableComponentHandler->GetOverridenComponentTemplate(ComponentKey);
+				OverridenComponentTemplate = InheritableComponentHandler->GetOverridenComponentTemplate(ComponentKey);
 			}
 			ActualBPGC = Cast<UBlueprintGeneratedClass>(ActualBPGC->GetSuperClass());
 		}

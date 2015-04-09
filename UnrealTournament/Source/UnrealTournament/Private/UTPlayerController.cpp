@@ -1236,8 +1236,6 @@ void AUTPlayerController::SetName(const FString& S)
 {
 	if (!S.IsEmpty())
 	{
-		Super::SetName(S);
-
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 		if (LP != NULL)
 		{
@@ -1301,7 +1299,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	{
 		if (UTPlayerState)
 		{
-			UTPlayerState->bReadyToPlay = true;
+			UTPlayerState->bReadyToPlay = !UTPlayerState->bReadyToPlay;
 			UTPlayerState->bPendingTeamSwitch = false;
 			UTPlayerState->ForceNetUpdate();
 		}

@@ -29,7 +29,7 @@ class AUTArmor : public AUTInventory
 	FName ArmorType;
 
 	/** Effect to spawn on armor hit. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Armor)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* ArmorImpactEffect;
 
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override

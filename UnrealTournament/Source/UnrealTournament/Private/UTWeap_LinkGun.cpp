@@ -25,7 +25,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	AmmoCost[1] = 1;
 	FOVOffset = FVector(0.6f, 1.f, 1.f);
 	Ammo = 70;
-	MaxAmmo = 220;
+	MaxAmmo = 200;
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 467.0, 147.0f, 41.0f);
 
@@ -36,6 +36,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 
 	BeamPulseInterval = 0.5f;
 	BeamPulseMomentum = -220000.0f;
+	BeamPulseAmmoCost = 2;
 
 	PerLinkDamageScalingPrimary = 1.f;
 	PerLinkDamageScalingSecondary = 1.25f;
@@ -110,6 +111,7 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		{
 			UTOwner->SetFlashExtra(UTOwner->FlashExtra + 1, CurrentFireMode);
 		}
+		AddAmmo(-BeamPulseAmmoCost);
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
 		bPendingBeamPulse = false;
 	}

@@ -39,6 +39,7 @@ protected:
 	FSceneViewStateReference ViewState;
 	/** preview actors */
 	class AUTCharacter* PlayerPreviewMesh;
+	UClass* PlayerPreviewAnimBlueprint;
 	/** preview weapon */
 	AUTWeaponAttachment* PreviewWeapon;
 	/** render target for player mesh and cosmetic items */
@@ -56,7 +57,6 @@ protected:
 	int32 WeaponConfigDelayFrames;
 
 	AActor* PreviewEnvironment;
-	UAnimationAsset* PoseAnimation;
 
 	TSharedPtr<SEditableTextBox> PlayerName;
 	TSharedPtr<SSlider> WeaponBobScaling, ViewBobScaling;
