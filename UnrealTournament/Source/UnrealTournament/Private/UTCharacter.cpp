@@ -1063,7 +1063,8 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		// TODO: GameInfo::PreventDeath()
 
 		bTearOff = true; // important to set this as early as possible so IsDead() returns true
-		
+		Health = FMath::Min<int32>(Health, 0);
+
 		AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(DrivenVehicle);
 		if (Redeemer != nullptr)
 		{
@@ -1084,8 +1085,6 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		}
 
 		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
-
-		Health = FMath::Min<int32>(Health, 0);
 
 		// Drop any carried objects when you die.
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
