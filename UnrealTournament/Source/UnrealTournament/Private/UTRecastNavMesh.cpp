@@ -1238,7 +1238,9 @@ void AUTRecastNavMesh::TickActor(float DeltaTime, ELevelTick TickType, FActorTic
 void AUTRecastNavMesh::RebuildAll()
 {
 	bIsBuilding = true;
+#if UE_EDITOR
 	bUserRequestedBuild |= FEditorBuildUtils::IsBuildingNavigationFromUserRequest();
+#endif
 	Super::RebuildAll();
 }
 
