@@ -1009,11 +1009,13 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		// (at small bandwidth cost)
 		if (GetWorld()->TimeSeconds - LastPainSoundTime >= MinPainSoundInterval)
 		{
-			if (HitArmor != nullptr && HitArmor->ReceivedDamageSound != nullptr)
+			const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+			const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
+			if (HitArmor != nullptr && HitArmor->ReceivedDamageSound != nullptr && ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bBlockedByArmor))
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->ReceivedDamageSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
-			else
+			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesBlood)
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
