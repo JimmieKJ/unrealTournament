@@ -12,6 +12,7 @@
 #include "UTDroppedPickup.h"
 #include "UTReachSpec_HighJump.h"
 #include "UTTeleporter.h"
+#include "UTNavMeshRenderingComponent.h"
 #if WITH_EDITOR
 #include "EditorBuildUtils.h"
 #endif
@@ -37,6 +38,11 @@ AUTRecastNavMesh::AUTRecastNavMesh(const FObjectInitializer& ObjectInitializer)
 #endif
 #endif
 
+	bDrawPolyEdges = true;
+	bDrawWalkPaths = true;
+	bDrawStandardJumpPaths = true;
+	bDrawSpecialPaths = true;
+
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
 
 	SizeSteps.Add(FCapsuleSize(46, 92));
@@ -54,6 +60,11 @@ AUTRecastNavMesh::~AUTRecastNavMesh()
 	}
 }
 #endif
+
+UPrimitiveComponent* AUTRecastNavMesh::ConstructRenderingComponent()
+{
+	return NewNamedObject<UUTNavMeshRenderingComponent>(this, TEXT("NavMeshRenderer"));
+}
 
 const dtQueryFilter* AUTRecastNavMesh::GetDefaultDetourFilter() const
 {
@@ -428,6 +439,9 @@ FVector AUTRecastNavMesh::GetPolySurfaceCenter(NavNodeRef PolyID) const
 	{
 		float PolyHeight = PolyCenter.Z;
 		{
+			// this gets called early enough that superclass may not have initialized the query object
+			GetRecastNavMeshImpl()->SharedNavQuery.init(GetRecastNavMeshImpl()->DetourNavMesh, RECAST_MAX_SEARCH_NODES);
+
 			dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 			FVector RecastCenter = Unreal2RecastPoint(PolyCenter);
 			if (dtStatusSucceed(InternalQuery.getPolyHeight(PolyID, (float*)&RecastCenter, &PolyHeight)))
@@ -446,6 +460,7 @@ FCapsuleSize AUTRecastNavMesh::GetHumanPathSize() const
 		FCapsuleSize ActualSize(FMath::TruncToInt(ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleRadius()), FMath::TruncToInt(ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()));
 
 		FCapsuleSize SteppedSize(0, 0);
+		FCapsuleSize MinStepSize(0, 0);
 		for (int32 i = 0; i < SizeSteps.Num(); i++)
 		{
 			if (ActualSize.Radius >= SizeSteps[i].Radius)
@@ -456,6 +471,17 @@ FCapsuleSize AUTRecastNavMesh::GetHumanPathSize() const
 			{
 				SteppedSize.Height = FMath::Max<int32>(SteppedSize.Height, SizeSteps[i].Height);
 			}
+			MinStepSize.Radius = (MinStepSize.Radius == 0) ? SizeSteps[i].Radius : FMath::Min<int32>(MinStepSize.Radius, SizeSteps[i].Radius);
+			MinStepSize.Height = (MinStepSize.Height == 0) ? SizeSteps[i].Height : FMath::Min<int32>(MinStepSize.Height, SizeSteps[i].Height);
+		}
+		// make sure we ended with a valid value in SizeSteps
+		if (SteppedSize.Radius == 0)
+		{
+			SteppedSize.Radius = MinStepSize.Radius;
+		}
+		if (SteppedSize.Height == 0)
+		{
+			SteppedSize.Height = MinStepSize.Height;
 		}
 		return SteppedSize;
 	}
@@ -839,6 +865,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 		// we need to update the rendering immediately since a new build could be started and wipe the data before the end of the frame (e.g. if user is dragging things in the editor)
 		NodeRenderer->RecreateRenderState_Concurrent();
 	}
+	RequestDrawingUpdate();
 #endif
 }
 
@@ -1241,6 +1268,7 @@ void AUTRecastNavMesh::RebuildAll()
 #if UE_EDITOR
 	bUserRequestedBuild |= FEditorBuildUtils::IsBuildingNavigationFromUserRequest();
 #endif
+	DeletePaths();
 	Super::RebuildAll();
 }
 
@@ -2304,6 +2332,91 @@ void AUTRecastNavMesh::RemoveFromNavigation(AActor* OldPOI)
 		{
 			Node->POIs.Remove(OldPOI);
 			POIToNode.Remove(OldPOI);
+		}
+	}
+}
+
+void AUTRecastNavMesh::GetNodeTriangleMap(TMap<const UUTPathNode*, FNavMeshTriangleList>& TriangleMap)
+{
+	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
+
+	TMultiMap<const UUTPathNode*, const dtMeshTile*> NodeToTile;
+
+	for (TMap<NavNodeRef, UUTPathNode*>::TConstIterator It(PolyToNode); It; ++It)
+	{
+		const UUTPathNode* Node = It.Value();
+		FNavMeshTriangleList& TriangleData = TriangleMap.FindOrAdd(Node);
+
+		const dtMeshTile* Tile = NULL;
+		const dtPoly* Poly = NULL;
+		if (dtStatusSucceed(InternalMesh->getTileAndPolyByRef(It.Key(), &Tile, &Poly)))
+		{
+			dtMeshHeader const* const Header = Tile->header;
+			if (Header != NULL && Poly->getType() == DT_POLYTYPE_GROUND)
+			{
+				// add vertices if not already added
+				if (NodeToTile.FindPair(Node, Tile) == NULL)
+				{
+					NodeToTile.Add(Node, Tile);
+					// add all the poly verts
+					float* F = Tile->verts;
+					for (int32 VertIdx = 0; VertIdx < Header->vertCount; ++VertIdx)
+					{
+						TriangleData.Verts.Add(Recast2UnrealPoint(F));
+						F += 3;
+					}
+					int32 const DetailVertIndexBase = Header->vertCount;
+					// add the detail verts
+					F = Tile->detailVerts;
+					for (int32 DetailVertIdx = 0; DetailVertIdx < Header->detailVertCount; ++DetailVertIdx)
+					{
+						TriangleData.Verts.Add(Recast2UnrealPoint(F));
+						F += 3;
+					}
+				}
+
+				// add triangle indices
+				uint32 BaseVertIndex = 0;
+				{
+					// figure out base index for this tile's vertices
+					TArray<const dtMeshTile*> ExistingTiles;
+					NodeToTile.MultiFind(Node, ExistingTiles, true);
+					for (const dtMeshTile* TestTile : ExistingTiles)
+					{
+						if (TestTile == Tile)
+						{
+							break;
+						}
+						else
+						{
+							BaseVertIndex += TestTile->header->vertCount + TestTile->header->detailVertCount;
+						}
+					}
+				}
+				
+				const dtPolyDetail* DetailPoly = &Tile->detailMeshes[InternalMesh->decodePolyIdPoly(It.Key())];
+				for (int32 TriIdx = 0; TriIdx < DetailPoly->triCount; ++TriIdx)
+				{
+					int32 DetailTriIdx = (DetailPoly->triBase + TriIdx) * 4;
+					const unsigned char* DetailTri = &Tile->detailTris[DetailTriIdx];
+
+					// calc indices into the vert buffer we just populated
+					int32 TriVertIndices[3];
+					for (int32 TriVertIdx = 0; TriVertIdx < 3; ++TriVertIdx)
+					{
+						if (DetailTri[TriVertIdx] < Poly->vertCount)
+						{
+							TriVertIndices[TriVertIdx] = BaseVertIndex + Poly->verts[DetailTri[TriVertIdx]];
+						}
+						else
+						{
+							TriVertIndices[TriVertIdx] = BaseVertIndex + Header->vertCount + (DetailPoly->vertBase + DetailTri[TriVertIdx] - Poly->vertCount);
+						}
+					}
+
+					new(TriangleData.Triangles) FNavMeshTriangleList::FTriangle(TriVertIndices);
+				}
+			}
 		}
 	}
 }

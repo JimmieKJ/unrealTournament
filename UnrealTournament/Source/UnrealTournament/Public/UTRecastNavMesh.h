@@ -214,6 +214,27 @@ struct UNREALTOURNAMENT_API FMultiPathNodeEval : public FUTNodeEvaluator
 	{}
 };
 
+struct FNavMeshTriangleList
+{
+	/** list of vertices */
+	TArray<FVector> Verts;
+	struct FTriangle
+	{
+		/** indices into Verts array */
+		int32 Indices[3];
+
+		FTriangle()
+		{}
+		FTriangle(int32 InIndices[3])
+		{
+			Indices[0] = InIndices[0];
+			Indices[1] = InIndices[1];
+			Indices[2] = InIndices[2];
+		}
+	};
+	TArray<FTriangle> Triangles;
+};
+
 UCLASS()
 class AUTRecastNavMesh : public ARecastNavMesh
 {
@@ -221,6 +242,16 @@ class AUTRecastNavMesh : public ARecastNavMesh
 
 	friend struct FUTPathNodeRenderProxy;
 	friend struct FUTPathLinkRenderProxy;
+
+	/** whether to draw lines for paths that require only standard walking/floor movement */
+	UPROPERTY(EditAnywhere, Category = Display)
+	bool bDrawWalkPaths;
+	/** whether to draw lines for standard jump/fall paths (not requiring special movement like jump boots or impact jump) */
+	UPROPERTY(EditAnywhere, Category = Display)
+	bool bDrawStandardJumpPaths;
+	/** whether to draw lines for special paths (lifts, teleports, special jumps, etc) */
+	UPROPERTY(EditAnywhere, Category = Display)
+	bool bDrawSpecialPaths;
 
 	/** nodes and their links are clamped to the highest of these sizes their internal poly edges pass
 	 * this is used to merge as many polys into fewer nodes as possible and should be set to all potential agent sizes
@@ -538,6 +569,13 @@ public:
 		return bNeedsRebuild;
 	}
 	virtual void RebuildAll() override;
+
+	virtual UPrimitiveComponent* ConstructRenderingComponent() override;
+
+	/** retrieve a list of triangles (vertices and indices) that are a part of each node
+	 * this is generally used for debug drawing ('show navigation' in editor, etc)
+	 */
+	virtual void GetNodeTriangleMap(TMap<const UUTPathNode*, FNavMeshTriangleList>& TriangleMap);
 };
 
 inline AUTRecastNavMesh* GetUTNavData(UWorld* World)

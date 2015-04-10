@@ -123,7 +123,11 @@ FLinearColor FUTPathLink::GetPathColor() const
 
 UUTPathNode::UUTPathNode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
-{}
+{
+#if WITH_EDITORONLY_DATA
+	DebugDrawColor = FColor::MakeRandomColor();
+#endif
+}
 
 int32 UUTPathNode::GetBestLinkTo(NavNodeRef StartPoly, const struct FRouteCacheItem& Target, APawn* Asker, const FNavAgentProperties& AgentProps, const AUTRecastNavMesh* NavMesh) const
 {

@@ -24,7 +24,7 @@ public class UnrealTournament : ModuleRules
         }
         if (Target.Type == TargetRules.TargetType.Editor)
         {
-            PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "PropertyEditor" });
+            PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "PropertyEditor", "ShaderCore" });
         }
 
         if (UEBuildConfiguration.bCompileMcpOSS == true)

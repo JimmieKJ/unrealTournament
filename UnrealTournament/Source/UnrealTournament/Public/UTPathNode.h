@@ -219,6 +219,11 @@ class UUTPathNode : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
+#if WITH_EDITORONLY_DATA
+	/** color for debug drawing to show this node and its owned polys */
+	FLinearColor DebugDrawColor;
+#endif
+
 	/** appoximate center point of the tiles this node is contained by
 	* this point is guaranteed to be a walkable point on the navmesh
 	*/
