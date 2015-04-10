@@ -4229,11 +4229,14 @@ void AUTCharacter::DisallowWeaponFiring(bool bDisallowed)
 					StopFire(i);
 				}
 			}
-			for (UUTWeaponStateFiring* FiringState : Weapon->FiringState)
+			if (Weapon != NULL) // StopFire() could have killed us
 			{
-				if (FiringState != NULL)
+				for (UUTWeaponStateFiring* FiringState : Weapon->FiringState)
 				{
-					FiringState->WeaponBecameInactive();
+					if (FiringState != NULL)
+					{
+						FiringState->WeaponBecameInactive();
+					}
 				}
 			}
 		}
