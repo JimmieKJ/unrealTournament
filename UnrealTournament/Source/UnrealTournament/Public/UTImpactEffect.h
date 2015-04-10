@@ -4,6 +4,19 @@
 
 #include "UTImpactEffect.generated.h"
 
+USTRUCT(BlueprintType)
+struct FImpactEffectNamedParameters
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FParticleSysParam> ParticleParams;
+
+	FImpactEffectNamedParameters()
+	{}
+	FImpactEffectNamedParameters(float DamageRadius);
+};
+
 /** encapsulates all of the components of an impact or explosion effect (particles, sound, decals, etc)
  * contains functionality to LOD by distance and settings
  * this class is an Actor primarily for the editability features and should not be directly spawned
@@ -30,14 +43,14 @@ class AUTImpactEffect : public AActor
 	bool bAttachToHitComp;
 	/** if set, best LOD for local player */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
-		bool bNoLODForLocalPlayer;
+	bool bNoLODForLocalPlayer;
 	/** if set, apply random roll to any decals */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	bool bRandomizeDecalRoll;
 
 	/** Scales how long the decal for this effect lasts. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
-		float DecalLifeScaling;
+	float DecalLifeScaling;
 
 	/** one shot audio played with the effect */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
@@ -50,7 +63,7 @@ class AUTImpactEffect : public AActor
 	/** Force no LOD for effects for local player, called if bNoLODForLocalPlayer is true. */
 	virtual void SetNoLocalPlayerLOD(UWorld* World, USceneComponent* NewComp, AController* InstigatedBy) const;
 
-	void CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const;
+	void CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, const FImpactEffectNamedParameters& EffectParams, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const;
 
 	/** after deciding to spawn the effect as a whole, this event can be used to filter out individual components
 	 * note that the component passed in is a template and shouldn't be modified
@@ -62,16 +75,18 @@ class AUTImpactEffect : public AActor
 	 * HACK: the return value is unused; it is there to force the function out of the blueprint event graph as the event graph is not safe to use on default objects
 	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category = Effects)
-	bool ComponentCreated(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy) const;
+	bool ComponentCreated(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, FImpactEffectNamedParameters EffectParams) const;
 
 	/** spawns the effect's components as appropriate for the viewing distance, system settings, etc
 	 * some aspects may be replicated (particularly audio), so call even on dedicated server and let the effect sort it out
 	 * @param HitComp - component that was hit to cause the effect (if any)
 	 * @param SpawnedBy - calling Actor, if any (for example, the projectile that exploded), commonly used for LastRenderTime checks to avoid the effect
 	 * @param InstigatedBy - Controller that instigated the effect, if any - commonly used to prioritize effects created by local players
+	 * @param SoundReplication - replication setting for any audio created by the effect
+	 * @param EffectParams - parameters passed to spawned components based on the actual gameplay effects (e.g. explosion radius)
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category = Effects)
-	bool SpawnEffect(UWorld* World, const FTransform& InTransform, UPrimitiveComponent* HitComp = NULL, AActor* SpawnedBy = NULL, AController* InstigatedBy = NULL, ESoundReplicationType SoundReplication = SRT_IfSourceNotReplicated) const;
+	bool SpawnEffect(UWorld* World, const FTransform& InTransform, UPrimitiveComponent* HitComp = NULL, AActor* SpawnedBy = NULL, AController* InstigatedBy = NULL, ESoundReplicationType SoundReplication = SRT_IfSourceNotReplicated, const FImpactEffectNamedParameters& EffectParams = FImpactEffectNamedParameters()) const;
 
 	// Blueprint redirect with more BP-friendly parameters
 #if CPP
@@ -83,9 +98,14 @@ private:
 	 * @param SpawnedBy - calling Actor, if any (for example, the projectile that exploded), commonly used for LastRenderTime checks to avoid the effect
 	 * @param InstigatedBy - Controller that instigated the effect, if any - commonly used to prioritize effects created by local players
 	 */
-	UFUNCTION(BlueprintCallable, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", FriendlyName = "SpawnEffect"), Category = Effects)
-	static void CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp = NULL, AActor* SpawnedBy = NULL, AController* InstigatedBy = NULL, ESoundReplicationType SoundReplication = SRT_IfSourceNotReplicated);
+	UFUNCTION(BlueprintCallable, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", FriendlyName = "SpawnEffect", AutoCreateRefTerm = "EffectParams"), Category = Effects)
+	static void CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp = NULL, AActor* SpawnedBy = NULL, AController* InstigatedBy = NULL, ESoundReplicationType SoundReplication = SRT_IfSourceNotReplicated, const FImpactEffectNamedParameters& EffectParams
+#if CPP
+		= FImpactEffectNamedParameters()
+#endif
+	);
 
+public:
 	virtual void PostInitializeComponents() override
 	{
 		Super::PostInitializeComponents();

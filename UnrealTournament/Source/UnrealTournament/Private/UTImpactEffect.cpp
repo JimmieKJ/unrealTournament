@@ -4,6 +4,21 @@
 #include "UTWorldSettings.h"
 #include "Particles/ParticleSystemComponent.h"
 
+FImpactEffectNamedParameters::FImpactEffectNamedParameters(float DamageRadius)
+{
+	static FName NAME_DamageRadiusScalar(TEXT("DamageRadiusScalar"));
+	FParticleSysParam* Param = new(ParticleParams) FParticleSysParam;
+	Param->Name = NAME_DamageRadiusScalar;
+	Param->ParamType = EParticleSysParamType::PSPT_Scalar;
+	Param->Scalar = DamageRadius;
+
+	static FName NAME_DamageRadiusVector(TEXT("DamageRadiusVector"));
+	Param = new(ParticleParams)FParticleSysParam;
+	Param->Name = NAME_DamageRadiusVector;
+	Param->ParamType = EParticleSysParamType::PSPT_Vector;
+	Param->Vector = FVector(DamageRadius, DamageRadius, DamageRadius);
+}
+
 AUTImpactEffect::AUTImpactEffect(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -16,7 +31,7 @@ AUTImpactEffect::AUTImpactEffect(const FObjectInitializer& ObjectInitializer)
 	bCanBeDamaged = false;
 }
 
-bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication) const
+bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication, const FImpactEffectNamedParameters& EffectParams) const
 {
 	if (World == NULL)
 	{
@@ -56,7 +71,7 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 						}
 					}
 				}
-				CreateEffectComponents(World, InTransform, HitComp, SpawnedBy, InstigatedBy, bAttachToHitComp ? HitComp : NULL, NAME_None, NativeCompList, ConstructionNodes);
+				CreateEffectComponents(World, InTransform, HitComp, SpawnedBy, InstigatedBy, EffectParams, bAttachToHitComp ? HitComp : NULL, NAME_None, NativeCompList, ConstructionNodes);
 				return true;
 			}
 			else
@@ -67,7 +82,7 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 	}
 }
 
-void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication)
+void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication, const FImpactEffectNamedParameters& EffectParams)
 {
 	if (WorldContextObject == NULL)
 	{
@@ -95,7 +110,7 @@ bool AUTImpactEffect::ShouldCreateComponent_Implementation(const USceneComponent
 	}
 }
 
-bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy) const
+bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, FImpactEffectNamedParameters EffectParams) const
 {
 	UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 	if (Prim != NULL)
@@ -115,6 +130,7 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 		{
 			((UParticleSystemComponent*)Prim)->bAutoDestroy = true;
 			((UParticleSystemComponent*)Prim)->SecondsBeforeInactive = 0.0f;
+			((UParticleSystemComponent*)Prim)->InstanceParameters += EffectParams.ParticleParams;
 		}
 		else if (Prim->IsA(UAudioComponent::StaticClass()))
 		{
@@ -161,7 +177,7 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 	return true;
 }
 
-void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const
+void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, const FImpactEffectNamedParameters& EffectParams, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const
 {
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(World->GetWorldSettings());
 	for (int32 i = 0; i < NativeCompList.Num(); i++)
@@ -189,13 +205,13 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			{
 				SetNoLocalPlayerLOD(World, NewComp, InstigatedBy);
 			}
-			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy);
+			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy, EffectParams);
 			if (WS != NULL)
 			{
 				WS->AddImpactEffect(NewComp, DecalLifeScaling);
 			}
 			// recurse
-			CreateEffectComponents(World, BaseTransform, HitComp, SpawnedBy, InstigatedBy, NewComp, NativeCompList[i]->GetFName(), NativeCompList, BPNodes);
+			CreateEffectComponents(World, BaseTransform, HitComp, SpawnedBy, InstigatedBy, EffectParams, NewComp, NativeCompList[i]->GetFName(), NativeCompList, BPNodes);
 		}
 	}
 	for (int32 i = 0; i < BPNodes.Num(); i++)
@@ -223,13 +239,13 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			{
 				SetNoLocalPlayerLOD(World, NewComp, InstigatedBy);
 			}
-			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy);
+			ComponentCreated(NewComp, HitComp, SpawnedBy, InstigatedBy, EffectParams);
 			if (WS != NULL)
 			{
 				WS->AddImpactEffect(NewComp, DecalLifeScaling);
 			}
 			// recurse
-			CreateEffectComponents(World, BaseTransform, HitComp, SpawnedBy, InstigatedBy, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
+			CreateEffectComponents(World, BaseTransform, HitComp, SpawnedBy, InstigatedBy, EffectParams, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
 		}
 	}
 }
