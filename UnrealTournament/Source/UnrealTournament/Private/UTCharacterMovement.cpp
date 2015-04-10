@@ -769,6 +769,11 @@ float UUTCharacterMovement::GetMaxSpeed() const
 	{
 		return MaxWaterSpeed;
 	}
+	else if (MovementMode == MOVE_Swimming)
+	{
+		AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(GetPhysicsVolume());
+		return WaterVolume ? FMath::Min(MaxSwimSpeed, WaterVolume->MaxRelativeSwimSpeed) : MaxSwimSpeed;
+	}
 	else
 	{
 		return bIsSprinting ? SprintSpeed : Super::GetMaxSpeed();

@@ -12,6 +12,7 @@ AUTWaterVolume::AUTWaterVolume(const FObjectInitializer& ObjectInitializer)
 	BrakingDecelerationSwimming = 300.f;
 	TerminalVelocity = 3000.f;
 	WaterCurrentDirection = FVector(0.f);
+	MaxRelativeSwimSpeed = 1000.f;
 	WaterCurrentSpeed = 0.f;
 }
 
