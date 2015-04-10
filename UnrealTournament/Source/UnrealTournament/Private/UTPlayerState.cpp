@@ -24,6 +24,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	PrimaryActorTick.bCanEverTick = true;
 
 	StatManager = nullptr;
+	bReadStatsFromCloud = false;
+	bSuccessfullyReadStatsFromCloud = false;
 	bWroteStatsToCloud = false;
 	DuelSkillRatingThisMatch = 0;
 	TDMSkillRatingThisMatch = 0;
@@ -509,6 +511,8 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 	if (PS != NULL)
 	{
 		PS->Team = Team;
+		PS->bReadStatsFromCloud = bReadStatsFromCloud;
+		PS->bSuccessfullyReadStatsFromCloud = bSuccessfullyReadStatsFromCloud;
 		PS->bWroteStatsToCloud = bWroteStatsToCloud;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
@@ -715,40 +719,48 @@ void AUTPlayerState::ReadStatsFromCloud()
 
 void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
-	// this notification is for us
-	if (bWasSuccessful && InUserId.ToString() == StatsID && FileName == GetStatsFilename() && StatManager)
+	// this notification is for the file that we requested
+	if (InUserId.ToString() == StatsID && FileName == GetStatsFilename() && StatManager)
 	{
-		UE_LOG(LogGameStats, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
+		// need to record that we at least finished our attempt to get stats to avoid quickly overwriting a player's stats with nothing
+		bReadStatsFromCloud = true;
 
-		TArray<uint8> FileContents;
-		if (OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents))
+		if (bWasSuccessful)
 		{
-			if (FileContents.GetData()[FileContents.Num() - 1] != 0)
-			{
-				UE_LOG(LogGameStats, Warning, TEXT("Failed to get proper stats json"));
-				return;
-			}
+			bSuccessfullyReadStatsFromCloud = true;
 
-			FString JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+			UE_LOG(LogGameStats, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
 
-			TSharedPtr<FJsonObject> StatsJson;
-			TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
-			if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.IsValid())
+			TArray<uint8> FileContents;
+			if (OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents))
 			{
-				FString JsonStatsID;
-				if (StatsJson->TryGetStringField(TEXT("StatsID"), JsonStatsID) && JsonStatsID == StatsID)
+				if (FileContents.GetData()[FileContents.Num() - 1] != 0)
 				{
-					UE_LOG(LogGameStats, Log, TEXT("Stats ID matched, adding stats from the cloud to current stats"));
-				}
-				else
-				{
-					UE_LOG(LogGameStats, Warning, TEXT("Failed to find matching StatsID in valid stats read."));
+					UE_LOG(LogGameStats, Warning, TEXT("Failed to get proper stats json"));
+					return;
 				}
 
-				StatManager->InsertDataFromJsonObject(StatsJson);
+				FString JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
 
-				DuelSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))), EStatRecordingPeriod::Persistent);
-				TDMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("TDMSkillRating"))), EStatRecordingPeriod::Persistent);
+				TSharedPtr<FJsonObject> StatsJson;
+				TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
+				if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.IsValid())
+				{
+					FString JsonStatsID;
+					if (StatsJson->TryGetStringField(TEXT("StatsID"), JsonStatsID) && JsonStatsID == StatsID)
+					{
+						UE_LOG(LogGameStats, Log, TEXT("Stats ID matched, adding stats from the cloud to current stats"));
+					}
+					else
+					{
+						UE_LOG(LogGameStats, Warning, TEXT("Failed to find matching StatsID in valid stats read."));
+					}
+
+					StatManager->InsertDataFromJsonObject(StatsJson);
+
+					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))), EStatRecordingPeriod::Persistent);
+					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("TDMSkillRating"))), EStatRecordingPeriod::Persistent);
+				}
 			}
 		}
 	}
@@ -771,7 +783,7 @@ FString AUTPlayerState::GetStatsFilename()
 
 void AUTPlayerState::WriteStatsToCloud()
 {
-	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && StatManager != nullptr && !bOnlySpectator)
+	if (!StatsID.IsEmpty() && bReadStatsFromCloud && OnlineUserCloudInterface.IsValid() && StatManager != nullptr && !bOnlySpectator)
 	{
 		// We ended with this player name, save it in the stats
 		StatManager->PreviousPlayerNames.AddUnique(PlayerName);
@@ -794,7 +806,7 @@ void AUTPlayerState::WriteStatsToCloud()
 			MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
 		}
 
-		//UE_LOG(LogGameStats, Log, TEXT("%s"), *OutputJsonString);
+		UE_LOG(LogGameStats, Log, TEXT("Writing stats for %s, previously read stats: %d"), *PlayerName, bSuccessfullyReadStatsFromCloud ? 1 : 0);
 
 		OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents);
 	}

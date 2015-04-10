@@ -306,6 +306,8 @@ public:
 	virtual void OnRep_PlayerName();
 
 private:
+	bool bReadStatsFromCloud;
+	bool bSuccessfullyReadStatsFromCloud;
 	bool bWroteStatsToCloud;
 	int32 DuelSkillRatingThisMatch;
 	int32 TDMSkillRatingThisMatch;
