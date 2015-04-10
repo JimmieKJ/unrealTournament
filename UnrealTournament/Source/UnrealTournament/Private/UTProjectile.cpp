@@ -127,9 +127,7 @@ void AUTProjectile::PreInitializeComponents()
 	}
 
 	// turn off other player's projectile flight lights at low/medium effects quality
-	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
-	bool bTurnOffLights = (bLowPriorityLight || (QualitySettings.EffectsQuality < 2)) && Instigator && (!Instigator->IsLocallyControlled() || !Cast<APlayerController>(Instigator->GetController()));
+	bool bTurnOffLights = DisableEmitterLights();
 	TArray<ULightComponent*> LightComponents;
 	GetComponents<ULightComponent>(LightComponents);
 	for (int32 i = 0; i < LightComponents.Num(); i++)
