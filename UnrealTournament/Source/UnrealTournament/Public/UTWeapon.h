@@ -258,6 +258,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** return whether to play first person visual effects
 	 * not as trivial as it sounds as we need to appropriately handle bots (never actually 1P), first person spectating (can be 1P even though it's a remote client), hidden weapons setting (should draw even though weapon mesh is hidden), etc
 	 */
+	UFUNCTION(BlueprintCallable, Category = Effects)
 	bool ShouldPlay1PVisuals() const;
 
 	/** Play impact effects client-side for predicted hitscan shot - decides whether to delay because of high client ping. */
