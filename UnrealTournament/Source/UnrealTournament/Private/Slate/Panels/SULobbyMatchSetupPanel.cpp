@@ -283,7 +283,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::GenerateGameModeListWidget(TSharedPt
 void SULobbyMatchSetupPanel::OnGameModeChanged(TSharedPtr<FAllowedGameModeData> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
-	if (LobbyGameState)
+	if (LobbyGameState != NULL && NewSelection.IsValid())
 	{
 		MatchInfo->MatchGameMode = NewSelection->ClassName;
 		MatchInfo->ServerMatchGameModeChanged(MatchInfo->MatchGameMode);
