@@ -552,6 +552,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			
 			PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
 			PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
+			PS->ModifyStat(FName(TEXT("PlayerXP")), PS->Score, EStatMod::Delta);
 
 			if (UTGameState->WinningTeam == PS->Team)
 			{

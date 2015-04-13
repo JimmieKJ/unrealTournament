@@ -1192,6 +1192,8 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
 			PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
 			PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
+			PS->ModifyStat(FName(TEXT("PlayerXP")), PS->Score, EStatMod::Delta);
+			
 			PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 			if (PS != nullptr)
 			{
