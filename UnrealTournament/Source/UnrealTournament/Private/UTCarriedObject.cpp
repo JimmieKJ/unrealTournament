@@ -15,8 +15,8 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	RootComponent = Collision;
 
 	MovementComponent = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("MovementComp"));
-	MovementComponent->MaxSpeed = 420;
-	MovementComponent->InitialSpeed = 360;
+	MovementComponent->MaxSpeed = 5000.0f; // needed for gravity
+	MovementComponent->InitialSpeed = 360.0f;
 	MovementComponent->SetIsReplicated(true);
 
 	SetReplicates(true);
