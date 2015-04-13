@@ -2896,14 +2896,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		
 		if (PackageFileFName != NAME_None)
 		{
-			if (!CookedPackages.Exists(FFilePlatformRequest(PackageFileFName, TargetPlatformNames)))
-			{
-				CookRequests.EnqueueUnique(MoveTemp(FFilePlatformRequest(PackageFileFName, TargetPlatformNames)));
-			}
-			else
-			{
-				UE_LOG(LogCook, Display, TEXT("Skipping %s because it's already been cooked"), *PackageFileFName.ToString());
-			}
+			CookRequests.EnqueueUnique(MoveTemp(FFilePlatformRequest(PackageFileFName, TargetPlatformNames)));
 		}
 		else
 		{
