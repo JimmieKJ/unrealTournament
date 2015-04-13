@@ -101,7 +101,7 @@ FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & Loc
 {
 	FBox Bounds(0);
 
-	if (GExitPurge)
+	if (GExitPurge || HasAnyFlags(RF_BeginDestroyed))
 	{
 		return FBoxSphereBounds(Bounds);
 	}
