@@ -113,7 +113,14 @@ class AUTCarriedObject : public AActor, public IUTTeamInterface
 
 	/** Last time a game announcement message was sent */
 	UPROPERTY()
-		float LastGameMessageTime;
+	float LastGameMessageTime;
+
+	/** sound played when the object is picked up */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* PickupSound;
+	/** sound played when the object is dropped */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* DropSound;
 
 	void Init(AUTGameObjective* NewBase);
 
