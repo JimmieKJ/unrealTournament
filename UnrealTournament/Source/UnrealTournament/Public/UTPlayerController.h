@@ -57,6 +57,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
 	class UUTAnnouncer* StatusAnnouncer;
 	
+	UPROPERTY(BlueprintReadWrite, Category = Sounds)
+	USoundBase* ChatMsgSound;
+
 	virtual void BeginPlay() override;
 	virtual void InitInputSystem() override;
 	virtual void InitPlayerState();
@@ -87,6 +90,12 @@ public:
 	 */
 	UFUNCTION(client, unreliable)
 	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
+
+	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override
+	{
+		ClientPlaySound(ChatMsgSound);
+		Super::ClientSay_Implementation(Speaker, Message, Destination);
+	}
 
 	UFUNCTION(exec)
 	virtual void SwitchToBestWeapon();
