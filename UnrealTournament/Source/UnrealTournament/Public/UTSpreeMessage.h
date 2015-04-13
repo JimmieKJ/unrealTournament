@@ -33,7 +33,14 @@ class UUTSpreeMessage : public UUTLocalMessage
 
 	/** weapon spree announcement heard by the player who's on the spree */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-		TArray<FName> WeaponAnnouncementNames;
+	TArray<FName> WeaponAnnouncementNames;
+
+	/** sound played when someone else is on a spree */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+	USoundBase* OtherSpreeSound;
+	/** sound played when someone else's spree is ended */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+	USoundBase* OtherSpreeEndedSound;
 
 	UUTSpreeMessage(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
@@ -69,6 +76,11 @@ class UUTSpreeMessage : public UUTLocalMessage
 		EndedSuicideMaleAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "EndedSuicideMaleAnnouncementText[0]", "{Player1Name} was looking pretty good until he killed himself!"));
 		EndedSuicideFemaleAnnouncementText.Add(NSLOCTEXT("UTSpreeMessage", "EndedSuicideFemaleAnnouncementText[0]", "{Player1Name} was looking pretty good until she killed herself!"));
 
+		static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpree01.A_UI_EnemySpree01'"));
+		OtherSpreeSound = OtherSpreeSoundFinder.Object;
+		static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeEndedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpreeBroken01.A_UI_EnemySpreeBroken01'"));
+		OtherSpreeEndedSound = OtherSpreeEndedSoundFinder.Object;
+
 		Importance = 0.8f;
 		bIsSpecial = true;
 		bIsUnique = true;
@@ -80,12 +92,20 @@ class UUTSpreeMessage : public UUTLocalMessage
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		Super::ClientReceive(ClientData);
+		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 		if (ClientData.RelatedPlayerState_1 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_1->GetOwner())
 		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 			if (PC != NULL && PC->RewardAnnouncer != NULL)
 			{
 				PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			}
+		}
+		else if (PC != NULL)
+		{
+			USoundBase* SoundToPlay = (ClientData.MessageIndex > 0) ? OtherSpreeSound : OtherSpreeEndedSound;
+			if (SoundToPlay != NULL)
+			{
+				PC->ClientPlaySound(SoundToPlay);
 			}
 		}
 	}
@@ -180,7 +200,11 @@ class UUTSpreeMessage : public UUTLocalMessage
 				TextArray = (Cast<AUTPlayerState>(RelatedPlayerState_1) != NULL && ((AUTPlayerState*)RelatedPlayerState_1)->IsFemale()) ? &EndedSuicideFemaleAnnouncementText : &EndedSuicideMaleAnnouncementText;
 			}
 		}
+		if (TextArray != NULL && TextArray->Num() == 0)
+		{
+			TextArray = NULL;
+		}
 		
-		return (TextArray != NULL && TextArray->IsValidIndex(Switch - 1)) ? (*TextArray)[Switch - 1] : FText();
+		return (TextArray != NULL && TextArray->IsValidIndex(Switch - 1)) ? (*TextArray)[Switch - 1] : TextArray->Last();
 	}
 };

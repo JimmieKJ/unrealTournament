@@ -67,13 +67,16 @@ void AUTCosmetic::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(GetRootComponent());
-
-	for (int32 i = 0; i < PrimComponent->GetNumMaterials(); i++)
+	
+	if (PrimComponent)
 	{
-		// FIXME: NULL check is hack for editor reimport bug breaking number of materials
-		if (PrimComponent->GetMaterial(i) != NULL)
+		for (int32 i = 0; i < PrimComponent->GetNumMaterials(); i++)
 		{
-			CosmeticMIs.Add(PrimComponent->CreateAndSetMaterialInstanceDynamic(i));
+			// FIXME: NULL check is hack for editor reimport bug breaking number of materials
+			if (PrimComponent->GetMaterial(i) != NULL)
+			{
+				CosmeticMIs.Add(PrimComponent->CreateAndSetMaterialInstanceDynamic(i));
+			}
 		}
 	}
 }

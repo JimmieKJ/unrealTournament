@@ -96,6 +96,8 @@ void AUTCTFFlag::SendHome()
 
 void AUTCTFFlag::Drop(AController* Killer)
 {
+	UUTGameplayStatics::UTPlaySound(GetWorld(), DropSound, (HoldingPawn != NULL) ? (AActor*)HoldingPawn : (AActor*)this);
+
 	bool bDelayDroppedMessage = false;
 	AUTPlayerState* KillerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 	if (KillerState && KillerState->Team && (KillerState != Holder))

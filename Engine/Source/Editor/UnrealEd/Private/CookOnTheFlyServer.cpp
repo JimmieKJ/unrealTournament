@@ -2896,12 +2896,12 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		
 		if (PackageFileFName != NAME_None)
 		{
-			CookRequests.EnqueueUnique( MoveTemp( FFilePlatformRequest( PackageFileFName, TargetPlatformNames ) ) );
+			CookRequests.EnqueueUnique(MoveTemp(FFilePlatformRequest(PackageFileFName, TargetPlatformNames)));
 		}
 		else
 		{
 			LogCookerMessage( FString::Printf(TEXT("Unable to find package for cooking %s"), *FileName), EMessageSeverity::Warning );
-			UE_LOG(LogCook, Warning, TEXT("Unable to find package for cooking %s"), *FileName)
+			UE_LOG(LogCook, Warning, TEXT("Unable to find package for cooking %s"), *FileName);
 		}	
 	}
 

@@ -931,7 +931,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 							BlockedAimTarget = NULL;
 
 							// make sure enemy is not hemmed by wall (or landing)
-							FCollisionQueryParams Params(FName(TEXT("AimWallCheck")), false, GetPawn());
+							FCollisionQueryParams Params(FName(TEXT("AimWallCheck")), true, GetPawn());
 							Params.AddIgnoredActor(GetTarget());
 							FHitResult Hit;
 							if (GetWorld()->LineTraceSingle(Hit, (GetTarget() == Enemy) ? GetEnemyLocation(Enemy, false) : GetTarget()->GetActorLocation(), FocalPoint, COLLISION_TRACE_WEAPON, Params))
@@ -1073,7 +1073,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 				}
 				else
 				{
-					FCollisionQueryParams Params(FName(TEXT("ApplyWeaponAimAdjust")), false, GetPawn());
+					FCollisionQueryParams Params(FName(TEXT("ApplyWeaponAimAdjust")), true, GetPawn());
 					Params.AddIgnoredActor(GetFocusActor());
 					FCollisionObjectQueryParams ResultParams(ECC_WorldStatic);
 					ResultParams.AddObjectTypesToQuery(ECC_WorldDynamic);

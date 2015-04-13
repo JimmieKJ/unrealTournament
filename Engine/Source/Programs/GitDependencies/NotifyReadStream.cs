@@ -14,11 +14,13 @@ namespace GitDependencies
 	{
 		Stream Inner;
 		NotifyReadDelegate NotifyRead;
+		long TotalRead;
 
 		public NotifyReadStream(Stream InInner, NotifyReadDelegate InNotifyRead)
 		{
 			Inner = InInner;
 			NotifyRead = InNotifyRead;
+			TotalRead = 0;
 		}
 
 		protected override void Dispose(bool Disposing)
@@ -49,7 +51,7 @@ namespace GitDependencies
 		{
 			get
 			{
-				return Inner.Position;
+				return TotalRead;
 			}
 			set
 			{
@@ -71,6 +73,7 @@ namespace GitDependencies
 		{
 			int SizeRead = Inner.Read(Buffer, Offset, Count);
 			NotifyRead(SizeRead);
+			TotalRead += SizeRead;
 			return SizeRead;
 		}
 

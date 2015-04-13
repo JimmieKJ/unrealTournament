@@ -113,6 +113,12 @@ struct FTakeHitInfo
 	/** shot direction yaw, manually compressed */
 	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
 	uint8 ShotDirYaw;
+	/** number of near-simultaneous shots of same damage type
+	 * NOTE: on the server, on-hit functions (and effects, if applicable) will get called for every hit regardless of this value
+	 *		therefore, this value should generally only be considered on clients
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = TakeHitInfo)
+	uint8 Count;
 	/** if damage was partially or completely absorbed by inventory, the item that did so
 	 * used to play different effects
 	 */
@@ -618,6 +624,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** time of last SetLastTakeHitInfo() - authority only */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	float LastTakeHitTime;
+	/** last time LastTakeHitInfo was checked for replication; used to combine multiple hits into one LastTakeHitInfo */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	float LastTakeHitReplicatedTime;
 	
 protected:
 	/** indicates character is (mostly) invisible so AI only sees at short range, homing effects can't target the character, etc */

@@ -193,7 +193,7 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 									   TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController, AController* FFInstigatedBy, TSubclassOf<UDamageType> FFDamageType, float CollisionFreeRadius )
 {
 	static FName NAME_ApplyRadialDamage = FName(TEXT("ApplyRadialDamage"));
-	FCollisionQueryParams SphereParams(NAME_ApplyRadialDamage, false, DamageCauser);
+	FCollisionQueryParams SphereParams(NAME_ApplyRadialDamage, true, DamageCauser);
 
 	SphereParams.AddIgnoredActors(IgnoreActors);
 	if (DamageCauser != NULL)

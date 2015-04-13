@@ -40,6 +40,10 @@ class AUTWaterVolume : public APhysicsVolume
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
 		float WaterCurrentSpeed;
 
+	/** Max relative downstream swim speed */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
+		float MaxRelativeSwimSpeed;
+
 	/** allows blueprint to provide custom current velocity for an actor. */
 	UFUNCTION(BlueprintNativeEvent, Category=WaterVolume)
 	FVector GetCurrentFor(AActor* Actor) const;

@@ -54,28 +54,31 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 		B->CheckWeaponFiring();
 	}
 
-	GetOuterAUTWeapon()->bNetDelayedShot = (GetUTOwner()->GetNetMode() == NM_DedicatedServer);
-	if ((PendingFireSequence >= 0) && GetUTOwner())
+	if (GetUTOwner())
 	{
-		bool bClearPendingFire = !GetUTOwner()->IsPendingFire(PendingFireSequence);
-		GetUTOwner()->SetPendingFire(PendingFireSequence, true);
-		if (GetOuterAUTWeapon()->HandleContinuedFiring())
+		GetOuterAUTWeapon()->bNetDelayedShot = (GetUTOwner()->GetNetMode() == NM_DedicatedServer);
+		if (PendingFireSequence >= 0)
 		{
-			FireShot();
+			bool bClearPendingFire = !GetUTOwner()->IsPendingFire(PendingFireSequence);
+			GetUTOwner()->SetPendingFire(PendingFireSequence, true);
+			if (GetOuterAUTWeapon()->HandleContinuedFiring())
+			{
+				FireShot();
+			}
+			if (bClearPendingFire && GetUTOwner() != NULL) // FireShot() could result in suicide!
+			{
+				GetUTOwner()->SetPendingFire(PendingFireSequence, false);
+			}
+			PendingFireSequence = -1;
 		}
-		if (bClearPendingFire && GetUTOwner() != NULL) // FireShot() could result in suicide!
+		else if (GetOuterAUTWeapon()->HandleContinuedFiring())
 		{
-			GetUTOwner()->SetPendingFire(PendingFireSequence, false);
-		}
-		PendingFireSequence = -1;
-	}
-	else if (GetOuterAUTWeapon()->HandleContinuedFiring())
-	{
-		bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound();
-		if (!bDelayShot)
-		{
-			LastShotTime = GetWorld()->GetTimeSeconds();
-			FireShot();
+			bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound();
+			if (!bDelayShot)
+			{
+				LastShotTime = GetWorld()->GetTimeSeconds();
+				FireShot();
+			}
 		}
 	}
 	GetOuterAUTWeapon()->bNetDelayedShot = false;

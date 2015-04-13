@@ -15,8 +15,8 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	RootComponent = Collision;
 
 	MovementComponent = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("MovementComp"));
-	MovementComponent->MaxSpeed = 420;
-	MovementComponent->InitialSpeed = 360;
+	MovementComponent->MaxSpeed = 5000.0f; // needed for gravity
+	MovementComponent->InitialSpeed = 360.0f;
 	MovementComponent->SetIsReplicated(true);
 
 	SetReplicates(true);
@@ -197,7 +197,10 @@ void AUTCarriedObject::SendGameMessage(uint32 Switch, APlayerState* PS1, APlayer
 void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 {
 	// Sanity Checks
-	if (NewHolder == NULL || NewHolder->bPendingKillPending || NewHolder->PlayerState == NULL || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL) return; 
+	if (NewHolder == NULL || NewHolder->bPendingKillPending || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL)
+	{
+		return;
+	}
 
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
@@ -239,7 +242,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	}
 
 	Holder->SetCarriedObject(this);
-	HoldingPawn->MakeNoise(2.0);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, HoldingPawn);
 
 	SendGameMessage(4, Holder, NULL);
 
@@ -322,6 +325,8 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 
 void AUTCarriedObject::Drop(AController* Killer)
 {
+	UUTGameplayStatics::UTPlaySound(GetWorld(), DropSound, (HoldingPawn != NULL) ? (AActor*)HoldingPawn : (AActor*)this);
+
 	SendGameMessage(3, Holder, NULL);
 	NoLongerHeld(Killer);
 

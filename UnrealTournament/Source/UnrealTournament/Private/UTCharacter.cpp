@@ -143,6 +143,9 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	LowHealthAmbientThreshold = 40;
 	MinOverlapToTelefrag = 25.f;
+
+	LastTakeHitTime = -10000.0f;
+	LastTakeHitReplicatedTime = -10000.0f;
 }
 
 void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn)
@@ -851,9 +854,15 @@ void AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Mom
 
 void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
 {
+	// if we haven't replicated a previous hit yet (generally, multi hit within same frame), stack with it
+	bool bStackHit = (LastTakeHitTime > LastTakeHitReplicatedTime && DamageEvent.DamageTypeClass == LastTakeHitInfo.DamageType);
+
 	LastTakeHitInfo.Damage = Damage;
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
-	LastTakeHitInfo.HitArmor = (HitArmor != NULL) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
+	if (bStackHit || LastTakeHitInfo.HitArmor == NULL)
+	{
+		LastTakeHitInfo.HitArmor = (HitArmor != NULL) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
+	}
 	LastTakeHitInfo.Momentum = Momentum;
 
 	FVector NewRelHitLocation(FVector::ZeroVector);
@@ -881,6 +890,15 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUT
 	LastTakeHitInfo.ShotDirPitch = FRotator::CompressAxisToByte(ShotRot.Pitch);
 	LastTakeHitInfo.ShotDirYaw = FRotator::CompressAxisToByte(ShotRot.Yaw);
 
+	if (bStackHit)
+	{
+		LastTakeHitInfo.Count++;
+	}
+	else
+	{
+		LastTakeHitInfo.Count = 1;
+	}
+
 	LastTakeHitTime = GetWorld()->TimeSeconds;
 			
 	PlayTakeHitEffects();
@@ -894,7 +912,8 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		bool bPlayedArmorEffect = (LastTakeHitInfo.HitArmor != NULL) ? LastTakeHitInfo.HitArmor.GetDefaultObject()->HandleArmorEffects(this) : false;
+		// never play armor effect if dead, prefer blood
+		bool bPlayedArmorEffect = (LastTakeHitInfo.HitArmor != NULL && !bTearOff) ? LastTakeHitInfo.HitArmor.GetDefaultObject()->HandleArmorEffects(this) : false;
 		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
 		if (UTDmg != NULL)
 		{
@@ -1009,11 +1028,13 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		// (at small bandwidth cost)
 		if (GetWorld()->TimeSeconds - LastPainSoundTime >= MinPainSoundInterval)
 		{
-			if (HitArmor != nullptr && HitArmor->ReceivedDamageSound != nullptr)
+			const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+			const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
+			if (HitArmor != nullptr && HitArmor->ReceivedDamageSound != nullptr && ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bBlockedByArmor))
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), HitArmor->ReceivedDamageSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
-			else
+			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesBlood)
 			{
 				UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
@@ -4098,6 +4119,8 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 
 	// @TODO FIXMESTEVE - just don't want this ever replicated
 	DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RemoteViewPitch, false);
+
+	LastTakeHitReplicatedTime = GetWorld()->TimeSeconds;
 }
 
 bool AUTCharacter::GatherUTMovement()
@@ -4206,11 +4229,14 @@ void AUTCharacter::DisallowWeaponFiring(bool bDisallowed)
 					StopFire(i);
 				}
 			}
-			for (UUTWeaponStateFiring* FiringState : Weapon->FiringState)
+			if (Weapon != NULL) // StopFire() could have killed us
 			{
-				if (FiringState != NULL)
+				for (UUTWeaponStateFiring* FiringState : Weapon->FiringState)
 				{
-					FiringState->WeaponBecameInactive();
+					if (FiringState != NULL)
+					{
+						FiringState->WeaponBecameInactive();
+					}
 				}
 			}
 		}

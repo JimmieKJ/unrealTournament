@@ -71,7 +71,9 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(MakeStat(FName(TEXT("SniperHeadshotDeaths")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("RedeemerDeaths")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("InstagibDeaths")), EStatRecordingPeriod::Persistent));
-	
+
+	Stats.Add(MakeStat(FName(TEXT("PlayerXP")), EStatRecordingPeriod::Persistent));
+
 	NumMatchesToKeep = 5;
 	NumPreviousPlayerNamesToKeep = 5;
 

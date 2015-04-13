@@ -74,6 +74,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> ChatMsgSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_Chat01.A_UI_Chat01'"));
+	ChatMsgSound = ChatMsgSoundFinder.Object;
 }
 
 void AUTPlayerController::BeginPlay()

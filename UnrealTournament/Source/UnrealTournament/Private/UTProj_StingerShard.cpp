@@ -34,7 +34,7 @@ void AUTProj_StingerShard::Destroyed()
 void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	// FIXME: temporary? workaround for synchronization issues on clients where it explodes on client but not on server
-	if (GetNetMode() == NM_Client && (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL))
+	if (GetNetMode() == NM_Client && (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL) && !OtherActor->bTearOff)
 	{
 		return;
 	}

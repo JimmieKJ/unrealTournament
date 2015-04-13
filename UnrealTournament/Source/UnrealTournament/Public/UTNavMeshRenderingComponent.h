@@ -1,0 +1,15 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+#pragma once
+
+#include "AI/Navigation/NavMeshRenderingComponent.h"
+
+#include "UTNavMeshRenderingComponent.generated.h"
+
+UCLASS()
+class UUTNavMeshRenderingComponent : public UNavMeshRenderingComponent
+{
+	GENERATED_BODY()
+
+	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
+	virtual void GatherTriangleData(struct FNavMeshSceneProxyData* CurrentData) const;
+};

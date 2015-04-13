@@ -24,8 +24,9 @@ namespace GitDependencies
 			public int NumFiles;
 			public int NumFilesRead;
 			public long NumBytesRead;
-			public string LastDecompressError;
-			public int NumFailingDownloads;
+			public long NumBytesTotal;
+			public long NumBytesCached;
+			public int NumFailingOrIdleDownloads;
 			public string LastDownloadError;
 		}
 
@@ -36,9 +37,54 @@ namespace GitDependencies
 			Force,
 		}
 
+		class IncomingPack
+		{
+			public string Url;
+			public Uri Proxy;
+			public string Hash;
+			public string CacheFileName;
+			public IncomingFile[] Files;
+			public long CompressedSize;
+		}
+
+		class IncomingFile
+		{
+			public string Name;
+			public string Hash;
+			public long MinPackOffset;
+			public long MaxPackOffset;
+		}
+
+		struct DependencyPackInfo
+		{
+			public DependencyManifest Manifest;
+			public DependencyPack Pack;
+
+			public DependencyPackInfo(DependencyManifest Manifest, DependencyPack Pack) 
+			{
+				this.Manifest = Manifest;
+				this.Pack = Pack;
+			}
+
+			public string GetCacheFileName() 
+			{
+				return Path.Combine(Pack.Hash.Substring(0, 2), Pack.Hash);
+			}
+		}
+
+		class CorruptPackFileException : Exception
+		{
+			public CorruptPackFileException(string Message, Exception InnerException)
+				: base(Message, InnerException)
+			{
+			}
+		}
+
 		const string IncomingFileSuffix = ".incoming";
 		const string TempManifestExtension = ".tmp";
-		
+
+		static readonly string InstanceSuffix = Guid.NewGuid().ToString().Replace("-", "");
+
 		static int Main(string[] Args)
 		{
 			// Build the argument list. Remove any double-hyphens from the start of arguments for conformity with other Epic tools.
@@ -53,7 +99,36 @@ namespace GitDependencies
 			int MaxRetries = int.Parse(ParseParameter(ArgsList, "-max-retries=", "4"));
 			bool bDryRun = ParseSwitch(ArgsList, "-dry-run");
 			bool bHelp = ParseSwitch(ArgsList, "-help");
+			float CacheSizeMultiplier = float.Parse(ParseParameter(ArgsList, "-cache-size-multiplier=", "2"));
+			int CacheDays = int.Parse(ParseParameter(ArgsList, "-cache-days=", "7"));
 			string RootPath = ParseParameter(ArgsList, "-root=", Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "../../..")));
+
+			// Parse the cache path. A specific path can be set using -catch=<PATH> or the UE4_GITDEPS environment variable, otherwise we look for a parent .git directory
+			// and use a sub-folder of that. Users which download the source through a zip file (and won't have a .git directory) are unlikely to benefit from caching, as
+			// they only need to download dependencies once.
+			string CachePath = null;
+			if (!ParseSwitch(ArgsList, "-no-cache"))
+			{
+				string CachePathParam = ParseParameter(ArgsList, "-cache=", System.Environment.GetEnvironmentVariable("UE4_GITDEPS"));
+				if (String.IsNullOrEmpty(CachePathParam))
+				{
+					string CheckPath = Path.GetFullPath(RootPath);
+					while (CheckPath != null)
+					{
+						string GitPath = Path.Combine(CheckPath, ".git");
+						if (Directory.Exists(GitPath))
+						{
+							CachePath = Path.Combine(GitPath, "ue4-gitdeps");
+							break;
+						}
+						CheckPath = Path.GetDirectoryName(CheckPath);
+					}
+				}
+				else
+				{
+					CachePath = Path.GetFullPath(CachePathParam);
+				}
+			}
 
 			// Parse the overwrite mode
 			OverwriteMode Overwrite = OverwriteMode.Unchanged;
@@ -68,11 +143,29 @@ namespace GitDependencies
 
 			// Setup network proxy from argument list or environment variable
 			string ProxyUrl = ParseParameter(ArgsList, "-proxy=", null);
-			string ProxyUsername = ParseParameter(ArgsList, "-proxy-user=", null);
-			string ProxyPassword = ParseParameter(ArgsList, "-proxy-password=", null);
 			if(String.IsNullOrEmpty(ProxyUrl))
 			{
 				ProxyUrl = Environment.GetEnvironmentVariable("HTTP_PROXY");
+				if(String.IsNullOrEmpty(ProxyUrl))
+				{
+					ProxyUrl = Environment.GetEnvironmentVariable("http_proxy");
+				}
+			}
+
+			// Create a URI for the proxy. If there's no included username/password, accept them as separate parameters for legacy reasons.
+			Uri Proxy = null;
+			if(!String.IsNullOrEmpty(ProxyUrl))
+			{
+				UriBuilder ProxyBuilder = new UriBuilder(ProxyUrl);
+				if(String.IsNullOrEmpty(ProxyBuilder.UserName))
+				{
+					ProxyBuilder.UserName = ParseParameter(ArgsList, "-proxy-user=", null);
+				}
+				if(String.IsNullOrEmpty(ProxyBuilder.Password))
+				{
+					ProxyBuilder.Password = ParseParameter(ArgsList, "-proxy-password=", null);
+				}
+				Proxy = ProxyBuilder.Uri;
 			}
 
 			// Parse all the default exclude filters
@@ -95,6 +188,10 @@ namespace GitDependencies
 				if(Environment.GetEnvironmentVariable("NDKROOT") == null)
 				{
 					ExcludeFolders.Add("Android");
+				}
+				if(Environment.OSVersion.Platform == PlatformID.Win32NT && Environment.GetEnvironmentVariable("LINUX_ROOT") == null)
+				{
+					ExcludeFolders.Add("Linux");
 				}
 			}
 
@@ -128,20 +225,22 @@ namespace GitDependencies
 				Log.WriteLine("   --all                         Sync all folders");
 				Log.WriteLine("   --include=<X>                 Include binaries in folders called <X>");
 				Log.WriteLine("   --exclude=<X>                 Exclude binaries in folders called <X>");
-				Log.WriteLine("   --prompt                      Prompts for whether to overwrite modified workspace files");
-				Log.WriteLine("   --force                       Overwrite modified dependency files in the workspace");
-				Log.WriteLine("   --root=<PATH>                 Specifies the path to the directory to sync with");
-				Log.WriteLine("   --threads=X                   Use X threads when downloading new files");
-				Log.WriteLine("   --dry-run                     Print a list of outdated files, but don't do anything");
-				Log.WriteLine("   --max-retries                 Set the maximum number of retries for downloading files");
-				Log.WriteLine("   --proxy=<URI>                 Set http proxy URL or address");
-				Log.WriteLine("   --proxy-user=<username>       Set proxy username");
-				Log.WriteLine("   --proxy-password=<password>   Set proxy password");
-				if (ExcludeFolders.Count > 0)
-				{
-					Log.WriteLine();
-					Log.WriteLine("Current excluded folders: {0}", String.Join(", ", ExcludeFolders));
-				}
+				Log.WriteLine("   --prompt                      Prompt before overwriting modified files");
+				Log.WriteLine("   --force                       Always overwrite modified files");
+				Log.WriteLine("   --root=<PATH>                 Set the repository directory to be sync");
+				Log.WriteLine("   --threads=<N>                 Use N threads when downloading new files");
+				Log.WriteLine("   --dry-run                     Print a list of outdated files and exit");
+				Log.WriteLine("   --max-retries                 Override maximum number of retries per file");
+				Log.WriteLine("   --proxy=<user:password@url>   Sets the HTTP proxy address and credentials");
+				Log.WriteLine("   --cache=<PATH>                Specifies a custom path for the download cache");
+				Log.WriteLine("   --cache-size-multiplier=<N>   Cache size as multiplier of current download");
+				Log.WriteLine("   --cache-days=<N>              Number of days to keep entries in the cache");
+				Log.WriteLine("   --no-cache                    Disable caching of downloaded files");
+				Log.WriteLine();
+				Log.WriteLine("Detected settings:");
+				Log.WriteLine("   Excluded folders: {0}", (ExcludeFolders.Count == 0)? "none" : String.Join(", ", ExcludeFolders));
+				Log.WriteLine("   Proxy server: {0}", (Proxy == null)? "none" : Proxy.ToString());
+				Log.WriteLine("   Download cache: {0}", (CachePath == null)? "disabled" : CachePath);
 				return 0;
 			}
 
@@ -149,7 +248,7 @@ namespace GitDependencies
 			Console.CancelKeyPress += delegate { Log.FlushStatus(); };
 
 			// Update the tree. Make sure we clear out the status line if we quit for any reason (eg. ctrl-c)
-			if(!UpdateWorkingTree(bDryRun, RootPath, ExcludeFolders, NumThreads, MaxRetries, ProxyUrl, ProxyUsername, ProxyPassword, Overwrite))
+			if(!UpdateWorkingTree(bDryRun, RootPath, ExcludeFolders, NumThreads, MaxRetries, Proxy, Overwrite, CachePath, CacheSizeMultiplier, CacheDays))
 			{
 				return 1;
 			}
@@ -197,7 +296,7 @@ namespace GitDependencies
 			}
 		}
 
-		static bool UpdateWorkingTree(bool bDryRun, string RootPath, HashSet<string> ExcludeFolders, int NumThreads, int MaxRetries, string ProxyUrl, string ProxyUsername, string ProxyPassword, OverwriteMode Overwrite)
+		static bool UpdateWorkingTree(bool bDryRun, string RootPath, HashSet<string> ExcludeFolders, int NumThreads, int MaxRetries, Uri Proxy, OverwriteMode Overwrite, string CachePath, float CacheSizeMultiplier, int CacheDays)
 		{
 			// Start scanning on the working directory 
 			if(ExcludeFolders.Count > 0)
@@ -242,7 +341,7 @@ namespace GitDependencies
 			// Find all the manifests and push them into dictionaries
 			Dictionary<string, DependencyFile> TargetFiles = new Dictionary<string,DependencyFile>(StringComparer.InvariantCultureIgnoreCase);
 			Dictionary<string, DependencyBlob> TargetBlobs = new Dictionary<string,DependencyBlob>(StringComparer.InvariantCultureIgnoreCase);
-			Dictionary<string, DependencyPack> TargetPacks = new Dictionary<string,DependencyPack>(StringComparer.InvariantCultureIgnoreCase);
+			Dictionary<string, DependencyPackInfo> TargetPacks = new Dictionary<string, DependencyPackInfo>(StringComparer.InvariantCultureIgnoreCase);
 			foreach(string BaseFolder in Directory.EnumerateDirectories(RootPath))
 			{
 				string BuildFolder = Path.Combine(BaseFolder, "Build");
@@ -253,26 +352,26 @@ namespace GitDependencies
 						// Ignore any dotfiles; Mac creates them on non-unix partitions to store permission info.
 						if(!Path.GetFileName(ManifestFileName).StartsWith("."))
 						{
-							// Read this manifest
-							DependencyManifest NewTargetManifest;
-							if(!ReadXmlObject(ManifestFileName, out NewTargetManifest))
-							{
-								return false;
-							}
-
-							// Add all the files, blobs and packs into the shared dictionaries
-							foreach(DependencyFile NewFile in NewTargetManifest.Files)
-							{
-								TargetFiles[NewFile.Name] = NewFile;
-							}
-							foreach(DependencyBlob NewBlob in NewTargetManifest.Blobs)
-							{
-								TargetBlobs[NewBlob.Hash] = NewBlob;
-							}
-							foreach(DependencyPack NewPack in NewTargetManifest.Packs)
-							{
-								TargetPacks[NewPack.Hash] = NewPack;
-							}
+						    // Read this manifest
+						    DependencyManifest NewTargetManifest;
+						    if(!ReadXmlObject(ManifestFileName, out NewTargetManifest))
+						    {
+							    return false;
+						    }
+    
+						    // Add all the files, blobs and packs into the shared dictionaries
+						    foreach(DependencyFile NewFile in NewTargetManifest.Files)
+						    {
+							    TargetFiles[NewFile.Name] = NewFile;
+						    }
+						    foreach(DependencyBlob NewBlob in NewTargetManifest.Blobs)
+						    {
+							    TargetBlobs[NewBlob.Hash] = NewBlob;
+						    }
+						    foreach(DependencyPack NewPack in NewTargetManifest.Packs)
+						    {
+							    TargetPacks[NewPack.Hash] = new DependencyPackInfo(NewTargetManifest, NewPack);
+						    }
 						}
 					}
 				}
@@ -445,7 +544,7 @@ namespace GitDependencies
 			if(FilesToDownload.Count > 0)
 			{
 				// Download all the new dependencies
-				if(!DownloadDependencies(RootPath, FilesToDownload, TargetBlobs.Values, TargetPacks.Values, NumThreads, MaxRetries, ProxyUrl, ProxyUsername, ProxyPassword))
+				if(!DownloadDependencies(RootPath, FilesToDownload, TargetBlobs.Values, TargetPacks.Values, NumThreads, MaxRetries, Proxy, CachePath))
 				{
 					return false;
 				}
@@ -466,6 +565,12 @@ namespace GitDependencies
 				{
 					return false;
 				}
+
+				// Cleanup cache files
+				if(CachePath != null)
+				{
+					PurgeCacheFiles(CachePath, TargetPacks, CacheSizeMultiplier, CacheDays);
+				}
 			}
 
 			// Update all the executable permissions
@@ -475,6 +580,42 @@ namespace GitDependencies
 			}
 
 			return true;
+		}
+
+		static void PurgeCacheFiles(string CachePath, Dictionary<string, DependencyPackInfo> Packs, float CacheSizeMultiplier, int CacheDays)
+		{
+			// Update the timestamp for all referenced packs
+			DateTime CurrentTime = DateTime.UtcNow;
+			foreach(DependencyPackInfo Pack in Packs.Values)
+			{
+				string FileName = Path.Combine(CachePath, Pack.GetCacheFileName());
+				if(File.Exists(FileName))
+				{
+					try { File.SetLastWriteTimeUtc(FileName, CurrentTime); } catch { }
+				}
+			}
+
+			// Get the size of the cache, and time before which we'll consider deleting entries
+			long DesiredCacheSize = (long)(Packs.Values.Sum(x => x.Pack.CompressedSize) * CacheSizeMultiplier);
+			DateTime StaleTime = CurrentTime - TimeSpan.FromDays(CacheDays) - TimeSpan.FromSeconds(5); // +5s for filesystems that don't store exact timestamps, like FAT.
+
+			// Enumerate all the files in the cache, and sort them by last write time
+			DirectoryInfo CacheDirectory = new DirectoryInfo(CachePath);
+			IEnumerable<FileInfo> CacheFiles = CacheDirectory.EnumerateFiles("*", SearchOption.AllDirectories);
+
+			// Find all the files in the cache directory
+			long CacheSize = 0;
+			foreach(FileInfo StaleFile in CacheFiles.OrderByDescending(x => x.LastWriteTimeUtc))
+			{
+				if(CacheSize > DesiredCacheSize && StaleFile.LastWriteTimeUtc < StaleTime)
+				{
+					StaleFile.Delete();
+				}
+				else
+				{
+					CacheSize += StaleFile.Length;
+				}
+			}
 		}
 
 		static bool SetExecutablePermissions(string RootDir, IEnumerable<DependencyFile> Files)
@@ -497,7 +638,7 @@ namespace GitDependencies
 				Log.WriteError("Couldn't find Syscall type");
 				return false;
 			}
-            MethodInfo StatMethod = SyscallType.GetMethod ("stat");
+			MethodInfo StatMethod = SyscallType.GetMethod ("stat");
 			if(StatMethod == null)
 			{
 				Log.WriteError("Couldn't find Mono.Unix.Native.Syscall.stat method");
@@ -572,7 +713,7 @@ namespace GitDependencies
 			return false;
 		}
 
-		static bool DownloadDependencies(string RootPath, IEnumerable<DependencyFile> RequiredFiles, IEnumerable<DependencyBlob> Blobs, IEnumerable<DependencyPack> Packs, int NumThreads, int MaxRetries, string ProxyUrl, string ProxyUsername, string ProxyPassword)
+		static bool DownloadDependencies(string RootPath, IEnumerable<DependencyFile> RequiredFiles, IEnumerable<DependencyBlob> Blobs, IEnumerable<DependencyPackInfo> Packs, int NumThreads, int MaxRetries, Uri Proxy, string CachePath)
 		{
 			// Make sure we can actually open the right number of connections
 			ServicePointManager.DefaultConnectionLimit = NumThreads;
@@ -607,145 +748,149 @@ namespace GitDependencies
 			}
 
 			// Find all the required packs
-			DependencyPack[] RequiredPacks = Packs.Where(x => PackToBlobs.ContainsKey(x.Hash)).ToArray();
+			DependencyPackInfo[] RequiredPacks = Packs.Where(x => PackToBlobs.ContainsKey(x.Pack.Hash)).ToArray();
 
-			// Get temporary filenames for all the files we're going to download
-			Dictionary<DependencyPack, string> DownloadFileNames = new Dictionary<DependencyPack,string>();
-			foreach(DependencyPack Pack in RequiredPacks)
+			// Create the download queue
+			ConcurrentQueue<IncomingPack> DownloadQueue = new ConcurrentQueue<IncomingPack>();
+			foreach(DependencyPackInfo RequiredPack in RequiredPacks)
 			{
-				DownloadFileNames.Add(Pack, Path.GetTempFileName());
+				IncomingPack Pack = new IncomingPack();
+				Pack.Url = String.Format("{0}/{1}/{2}", RequiredPack.Manifest.BaseUrl, RequiredPack.Pack.RemotePath, RequiredPack.Pack.Hash);
+				Pack.Proxy = RequiredPack.Manifest.IgnoreProxy? null : Proxy;
+				Pack.Hash = RequiredPack.Pack.Hash;
+				Pack.CacheFileName = (CachePath == null)? null : Path.Combine(CachePath, RequiredPack.GetCacheFileName());
+				Pack.Files = GetIncomingFilesForPack(RootPath, RequiredPack.Pack, PackToBlobs, BlobToFiles);
+				Pack.CompressedSize = RequiredPack.Pack.CompressedSize;
+				DownloadQueue.Enqueue(Pack);
 			}
 
 			// Setup the async state
 			AsyncDownloadState State = new AsyncDownloadState();
 			State.NumFiles = RequiredFiles.Count();
-			long NumBytesTotal = RequiredPacks.Sum(x => x.CompressedSize);
-			ConcurrentQueue<DependencyPack> DownloadQueue = new ConcurrentQueue<DependencyPack>(RequiredPacks);
-			ConcurrentQueue<DependencyPack> DecompressQueue = new ConcurrentQueue<DependencyPack>();
+			State.NumBytesTotal = RequiredPacks.Sum(x => x.Pack.CompressedSize);
 
 			// Create all the worker threads
 			Thread[] WorkerThreads = new Thread[NumThreads];
 			for(int Idx = 0; Idx < NumThreads; Idx++)
 			{
-				WorkerThreads[Idx] = new Thread(x => DownloadWorker(RootPath, DownloadQueue, DecompressQueue, DownloadFileNames, PackToBlobs, BlobToFiles, State, MaxRetries, ProxyUrl, ProxyUsername, ProxyPassword));
+				WorkerThreads[Idx] = new Thread(x => DownloadWorker(DownloadQueue, State, MaxRetries));
 				WorkerThreads[Idx].Start();
 			}
 
-			// Create the decompression thread
-			Thread DecompressionThread = new Thread(x => DecompressWorker(RootPath, DecompressQueue, DownloadFileNames, PackToBlobs, BlobToFiles, State));
-			DecompressionThread.Start();
-
 			// Tick the status message until we've finished or ended with an error. Use a circular buffer to average out the speed over time.
 			long[] NumBytesReadBuffer = new long[60];
-			for(int BufferIdx = 0, NumFilesReportedRead = 0; NumFilesReportedRead < State.NumFiles && State.NumFailingDownloads < NumThreads && State.LastDecompressError == null; BufferIdx = (BufferIdx + 1) % NumBytesReadBuffer.Length)
+			for (int BufferIdx = 0, NumFilesReportedRead = 0; NumFilesReportedRead < State.NumFiles && State.NumFailingOrIdleDownloads < NumThreads; BufferIdx = (BufferIdx + 1) % NumBytesReadBuffer.Length)
 			{
 				const int TickInterval = 100;
+				Thread.Sleep(TickInterval);
 
 				long NumBytesRead = Interlocked.Read(ref State.NumBytesRead);
-				float NumBytesPerSecond = (float)Math.Max(NumBytesRead - NumBytesReadBuffer[BufferIdx], 0) * 1000.0f / (NumBytesReadBuffer.Length * TickInterval);
+				long NumBytesTotal = Interlocked.Read(ref State.NumBytesTotal);
+				long NumBytesCached = Interlocked.Read(ref State.NumBytesCached);
+				long NumBytesPerSecond = (long)Math.Ceiling((float)Math.Max(NumBytesRead - NumBytesReadBuffer[BufferIdx], 0) * 1000.0f / (NumBytesReadBuffer.Length * TickInterval));
+
 				NumFilesReportedRead = State.NumFilesRead;
-				Log.WriteStatus("Received {0}/{1} files ({2:0.0}/{3:0.0}mb; {4:0.00}mb/s; {5}%)...", NumFilesReportedRead, State.NumFiles, (NumBytesRead / (1024.0 * 1024.0)) + 0.0999999, (NumBytesTotal / (1024.0 * 1024.0)) + 0.0999999, (NumBytesPerSecond / (1024.0 * 1024.0)) + 0.0099, (NumBytesRead * 100) / NumBytesTotal);
 				NumBytesReadBuffer[BufferIdx] = NumBytesRead;
 
-				Thread.Sleep(TickInterval);
+				StringBuilder Status = new StringBuilder();
+				Status.AppendFormat("Updating dependencies: {0,3}% ({1}/{2})", ((NumBytesRead + NumBytesCached) * 100) / (NumBytesTotal + NumBytesCached), NumFilesReportedRead, State.NumFiles);
+				if(NumBytesRead > 0)
+				{
+					Status.AppendFormat(", {0}/{1} MiB | {2} MiB/s", FormatMegabytes(NumBytesRead, 1), FormatMegabytes(NumBytesTotal, 1), FormatMegabytes(NumBytesPerSecond, 2));
+				}
+				if(NumBytesCached > 0)
+				{
+					Status.AppendFormat(", {0} MiB cached", FormatMegabytes(NumBytesCached, 1));
+				}
+				Status.Append((NumFilesReportedRead == State.NumFiles)? ", done." : "...");
+				Log.WriteStatus(Status.ToString());
 			}
+			Log.FlushStatus();
 
 			// If we finished with an error, try to clean up and return
 			if(State.NumFilesRead < State.NumFiles)
 			{
-				DecompressionThread.Abort();
 				foreach(Thread WorkerThread in WorkerThreads)
 				{
 					WorkerThread.Abort();
 				}
-				Log.WriteError("{0}", (State.LastDecompressError != null)? State.LastDecompressError : State.LastDownloadError);
-				foreach(string FileName in DownloadFileNames.Values)
+				if(State.LastDownloadError != null)
 				{
-					try { File.Delete(FileName); } catch (Exception) { }
+					Log.WriteError("{0}", State.LastDownloadError);
 				}
 				return false;
 			}
-
-			// Join all the threads
-			DecompressionThread.Join();
-			foreach(Thread WorkerThread in WorkerThreads)
+			else
 			{
-				WorkerThread.Join();
+				foreach(Thread WorkerThread in WorkerThreads)
+				{
+					WorkerThread.Join();
+				}
+				return true;
 			}
-			Log.FlushStatus();
-			return true;
 		}
 
-		static void DecompressWorker(string RootPath, ConcurrentQueue<DependencyPack> DecompressQueue, Dictionary<DependencyPack, string> DownloadFileNames, Dictionary<string, List<DependencyBlob>> PackToBlobs, Dictionary<string, List<DependencyFile>> BlobToFiles, AsyncDownloadState State)
+		static string FormatMegabytes(long Value, int NumDecimalPlaces)
 		{
-			while(State.NumFilesRead < State.NumFiles)
-			{
-				// Remove the next file from the queue, or wait before polling again
-				DependencyPack NextPack;
-				if(!DecompressQueue.TryDequeue(out NextPack))
-				{
-					Thread.Sleep(100);
-					continue;
-				}
-
-				// Get the filename for the downloaded pack
-				string PackFileName = DownloadFileNames[NextPack];
-
-				// Extract all the files from this pack file to their final locations
-				foreach(DependencyBlob Blob in PackToBlobs[NextPack.Hash])
-				{
-					foreach(DependencyFile File in BlobToFiles[Blob.Hash])
-					{
-						string OutputFileName = Path.Combine(RootPath, File.Name);
-						try
-						{
-							ExtractBlob(PackFileName, Blob, OutputFileName);
-						}
-						catch(Exception Ex)
-						{
-							Interlocked.CompareExchange(ref State.LastDecompressError, String.Format("Failed to extract '{0}': {1}", OutputFileName, Ex.Message), null);
-							return;
-						}
-						Interlocked.Increment(ref State.NumFilesRead);
-					}
-				}
-
-				// Delete the pack file now that we're finished with it. Doesn't matter much if it fails.
-				try { System.IO.File.Delete(PackFileName); } catch(Exception) { }
-			}
+			int Multiplier = (int)Math.Pow(10.0, NumDecimalPlaces);
+			long FormatValue = ((Value * Multiplier) + (1024 * 1024) - 1) / (1024 * 1024);
+			string Result = String.Format("{0}.{1:D" + NumDecimalPlaces.ToString() + "}", FormatValue / Multiplier, FormatValue % Multiplier);
+			return Result;
 		}
 
-		static void DownloadWorker(string RootPath, ConcurrentQueue<DependencyPack> DownloadQueue, ConcurrentQueue<DependencyPack> DecompressQueue, Dictionary<DependencyPack, string> DownloadFileNames, Dictionary<string, List<DependencyBlob>> PackToBlobs, Dictionary<string, List<DependencyFile>> BlobToFiles, AsyncDownloadState State, int MaxRetries, string ProxyUrl, string ProxyUsername, string ProxyPassword)
+		static IncomingFile[] GetIncomingFilesForPack(string RootPath, DependencyPack RequiredPack, Dictionary<string, List<DependencyBlob>> PackToBlobs, Dictionary<string, List<DependencyFile>> BlobToFiles)
+		{
+			List<IncomingFile> Files = new List<IncomingFile>();
+			foreach(DependencyBlob RequiredBlob in PackToBlobs[RequiredPack.Hash])
+			{
+				foreach(DependencyFile RequiredFile in BlobToFiles[RequiredBlob.Hash])
+				{
+					IncomingFile File = new IncomingFile();
+					File.Name = Path.Combine(RootPath, RequiredFile.Name);
+					File.Hash = RequiredBlob.Hash;
+					File.MinPackOffset = RequiredBlob.PackOffset;
+					File.MaxPackOffset = RequiredBlob.PackOffset + RequiredBlob.Size;
+					Files.Add(File);
+				}
+			}
+			return Files.OrderBy(x => x.MinPackOffset).ToArray();
+		}
+
+		static void DownloadWorker(ConcurrentQueue<IncomingPack> DownloadQueue, AsyncDownloadState State, int MaxRetries)
 		{
 			int Retries = 0;
 			while(State.NumFilesRead < State.NumFiles)
 			{
 				// Remove the next file from the download queue, or wait before polling again
-				DependencyPack NextPack;
-				if(!DownloadQueue.TryDequeue(out NextPack))
+				IncomingPack NextPack;
+				if (!DownloadQueue.TryDequeue(out NextPack))
 				{
 					Thread.Sleep(100);
 					continue;
 				}
 
-				// Get the temporary file to download to
-				string PackFileName = DownloadFileNames[NextPack];
-
-				// Format the URL for it
-				string Url = String.Format("http://cdn.unrealengine.com/dependencies/{0}/{1}", NextPack.RemotePath, NextPack.Hash);
-
 				// Try to download the file
 				long RollbackSize = 0;
 				try
 				{
-					// Download the file and queue it for decompression
-					DownloadFileAndVerifyHash(Url, ProxyUrl, ProxyUsername, ProxyPassword, PackFileName, NextPack.Hash, Size => { RollbackSize += Size; Interlocked.Add(ref State.NumBytesRead, Size); });
-					DecompressQueue.Enqueue(NextPack);
+					// Download the pack file or extract it from the cache
+					if (TryUnpackFromCache(NextPack.CacheFileName, NextPack.CompressedSize, NextPack.Files))
+					{
+						Interlocked.Add(ref State.NumBytesCached, NextPack.CompressedSize);
+					}
+					else
+					{
+						DownloadAndExtractFiles(NextPack.Url, NextPack.Proxy, NextPack.CacheFileName, NextPack.CompressedSize, NextPack.Hash, NextPack.Files, Size => { RollbackSize += Size; Interlocked.Add(ref State.NumBytesRead, Size); });
+					}
+
+					// Update the stats
+					Interlocked.Add(ref State.NumBytesTotal, RollbackSize - NextPack.CompressedSize);
+					Interlocked.Add(ref State.NumFilesRead, NextPack.Files.Length);
 
 					// If we were failing, decrement the number of failing threads
 					if(Retries > MaxRetries)
 					{
-						Interlocked.Decrement(ref State.NumFailingDownloads);
+						Interlocked.Decrement(ref State.NumFailingOrIdleDownloads);
 						Retries = 0;
 					}
 				}
@@ -756,97 +901,240 @@ namespace GitDependencies
 					DownloadQueue.Enqueue(NextPack);
 
 					// If we've retried enough times already, set the error message. 
-					if(Retries++ == MaxRetries)
+					if (Retries++ == MaxRetries)
 					{
-						Interlocked.Increment(ref State.NumFailingDownloads);
-						State.LastDownloadError = String.Format("Failed to download '{0}' to '{1}': {2} ({3})", Url, PackFileName, Ex.Message, Ex.GetType().Name);
+						Interlocked.Increment(ref State.NumFailingOrIdleDownloads);
+						State.LastDownloadError = String.Format("Failed to download '{0}': {1} ({2})", NextPack.Url, Ex.Message, Ex.GetType().Name);
 					}
 				}
 			}
+			if (Retries < MaxRetries)
+			{
+				Interlocked.Increment(ref State.NumFailingOrIdleDownloads);
+			}
 		}
 
-		static void DownloadFileAndVerifyHash(string Url, string ProxyUrl, string ProxyUsername, string ProxyPassword, string PackFileName, string ExpectedHash, NotifyReadDelegate NotifyRead)
+		static bool TryUnpackFromCache(string CacheFileName, long CompressedSize, IncomingFile[] Files)
+		{
+			if (CacheFileName != null && File.Exists(CacheFileName))
+			{
+				// Try to open the cached file for reading. Could fail due to race conditions despite checking above, so swallow any exceptions.
+				FileStream InputStream;
+				try
+				{
+					InputStream = File.Open(CacheFileName, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+				}
+				catch(Exception)
+				{
+					return false;
+				}
+
+				// Try to extract files from the cache. If we get a corrupt pack file exception, delete it.
+				try
+				{
+					ExtractFiles(InputStream, Files);
+					return true;
+				}
+				catch(CorruptPackFileException)
+				{
+					SafeDeleteFileQuiet(CacheFileName);
+				}
+				finally
+				{
+					InputStream.Dispose();
+				}
+			}
+			return false;
+		}
+
+		static void DownloadAndExtractFiles(string Url, Uri Proxy, string CacheFileName, long CompressedSize, string ExpectedHash, IncomingFile[] Files, NotifyReadDelegate NotifyRead)
 		{
 			// Create the web request
 			WebRequest Request = WebRequest.Create(Url);
-			if(String.IsNullOrEmpty(ProxyUrl))
+			if(Proxy == null)
 			{
 				Request.Proxy = null;
 			}
-			else if (String.IsNullOrEmpty(ProxyUsername))
+			else
 			{
-                Request.Proxy = new WebProxy(ProxyUrl);
+				Request.Proxy = new WebProxy(Proxy, true, null, MakeCredentialsFromUri(Proxy));
 			}
-            else
-            {
-                Request.Proxy = new WebProxy(ProxyUrl, true, null, new NetworkCredential(ProxyUsername, ProxyPassword));
-            }
 
-			// Get the response
-			using(WebResponse Response = Request.GetResponse())
+			// Read the response and extract the files
+			using (WebResponse Response = Request.GetResponse())
 			{
-				// Download the file, decompressing and hashing it as we go
-				SHA1Managed Hasher = new SHA1Managed();
-				using(FileStream OutputStream = File.OpenWrite(PackFileName))
+				using (Stream ResponseStream = new NotifyReadStream(Response.GetResponseStream(), NotifyRead))
 				{
-					CryptoStream HashOutputStream = new CryptoStream(OutputStream, Hasher, CryptoStreamMode.Write);
-					using(NotifyReadStream InputStream = new NotifyReadStream(Response.GetResponseStream(), NotifyRead))
+					if(CacheFileName == null)
 					{
-						GZipStream DecompressedStream = new GZipStream(InputStream, CompressionMode.Decompress, true);
-						DecompressedStream.CopyTo(HashOutputStream);
+						ExtractFiles(ResponseStream, Files);
 					}
-					HashOutputStream.FlushFinalBlock();
-				}
-
-				// Check the hash was what we expected
-				string Hash = BitConverter.ToString(Hasher.Hash).ToLower().Replace("-", "");
-				if(Hash != ExpectedHash)
-				{
-					throw new InvalidDataException(String.Format("Incorrect hash for {0} - expected {1}, got {2}", Url, ExpectedHash, Hash));
+					else
+					{
+						ExtractFilesThroughCache(ResponseStream, CacheFileName, CompressedSize, ExpectedHash, Files);
+					}
 				}
 			}
 		}
 
-		static void ExtractBlob(string PackFileName, DependencyBlob Blob, string OutputFileName)
+		static NetworkCredential MakeCredentialsFromUri(Uri Address)
 		{
-			// Create the output folder
-			Directory.CreateDirectory(Path.GetDirectoryName(OutputFileName));
-
-			// Copy the data to the output file
-			SHA1Managed Hasher = new SHA1Managed();
-			using(FileStream OutputStream = File.OpenWrite(OutputFileName + IncomingFileSuffix))
+			// Check if the URI has a login:password prefix, and convert it to a NetworkCredential object if it has. HttpRequest just ignores it.
+			if(!String.IsNullOrEmpty(Address.UserInfo))
 			{
-				CryptoStream HashOutputStream = new CryptoStream(OutputStream, Hasher, CryptoStreamMode.Write);
-				using(FileStream InputStream = File.OpenRead(PackFileName))
+				int Index = Address.UserInfo.IndexOf(':');
+				if(Index != -1)
 				{
-					// Seek to the right position
-					InputStream.Seek(Blob.PackOffset, SeekOrigin.Begin);
-
-					// Extract the data
-					byte[] Buffer = new byte[16384];
-					for(long RemainingSize = Blob.Size; RemainingSize > 0; )
-					{
-						int ReadSize = InputStream.Read(Buffer, 0, (int)Math.Min(RemainingSize, (long)Buffer.Length));
-						if(ReadSize == 0) throw new InvalidDataException("Unexpected end of file");
-						HashOutputStream.Write(Buffer, 0, ReadSize);
-						RemainingSize -= ReadSize;
-					}
+					return new NetworkCredential(Address.UserInfo.Substring(0, Index), Address.UserInfo.Substring(Index + 1));
 				}
-				HashOutputStream.FlushFinalBlock();
 			}
-
-			// Check the hash was what we expected
-			string Hash = BitConverter.ToString(Hasher.Hash).ToLower().Replace("-", "");
-			if(Hash != Blob.Hash)
-			{
-				throw new InvalidDataException("Incorrect hash value");
-			}
-
-			// Move the file to its final position
-			File.Move(OutputFileName + IncomingFileSuffix, OutputFileName);
+			return null;
 		}
 
-		public static bool ReadXmlObject<T>(string FileName, out T NewObject)
+		static void ExtractFiles(Stream InputStream, IncomingFile[] Files)
+		{
+			// Create a decompression stream around the raw input stream
+			GZipStream DecompressedStream = new GZipStream(InputStream, CompressionMode.Decompress, true);
+			ExtractFilesFromRawStream(DecompressedStream, Files, null);
+		}
+
+		static void ExtractFilesThroughCache(Stream InputStream, string FileName, long CompressedSize, string ExpectedHash, IncomingFile[] Files)
+		{
+			// Extract files from a pack file while writing to the cache file at the same time
+			string IncomingFileName = String.Format("{0}-{1}{2}", FileName, InstanceSuffix, IncomingFileSuffix);
+			try
+			{
+				// Make sure the directory exists
+				Directory.CreateDirectory(Path.GetDirectoryName(IncomingFileName));
+
+				// Hash the uncompressed data as we go
+				SHA1 Hasher = SHA1.Create();
+				using(FileStream CacheStream = File.Open(IncomingFileName, FileMode.Create, FileAccess.Write, FileShare.None))
+				{
+					CacheStream.SetLength(CompressedSize);
+
+					ForkReadStream ForkedInputStream = new ForkReadStream(InputStream, CacheStream);
+					using(GZipStream DecompressedStream = new GZipStream(ForkedInputStream, CompressionMode.Decompress, true))
+					{
+						ExtractFilesFromRawStream(DecompressedStream, Files, Hasher);
+					}
+				}
+
+				// Check the hash was what we expected, and move it into the cache if it is.
+				string Hash = BitConverter.ToString(Hasher.Hash).ToLower().Replace("-", "");
+				if (Hash != ExpectedHash)
+				{
+					throw new CorruptPackFileException(String.Format("Incorrect hash for pack - expected {0}, got {1}", ExpectedHash, Hash), null);
+				}
+
+				// Move the new cache file into place
+				SafeMoveFileQuiet(IncomingFileName, FileName);
+			}
+			finally
+			{
+				SafeDeleteFileQuiet(IncomingFileName);
+			}
+		}
+
+		static void ExtractFilesFromRawStream(Stream RawStream, IncomingFile[] Files, SHA1 RawStreamHasher)
+		{
+			int MinFileIdx = 0;
+			int MaxFileIdx = 0;
+			FileStream[] OutputStreams = new FileStream[Files.Length];
+			SHA1[] OutputHashers = new SHA1[Files.Length];
+			try
+			{
+				// Create files from pack.
+				byte[] Buffer = new byte[16384];
+				long PackOffset = 0;
+				while(MinFileIdx < Files.Length || RawStreamHasher != null)
+				{
+					// Read the next chunk of data
+					int ReadSize;
+					try
+					{
+						ReadSize = RawStream.Read(Buffer, 0, Buffer.Length);
+					}
+					catch (Exception Ex)
+					{
+						throw new CorruptPackFileException("Can't read from pack stream", Ex);
+					}
+					if (ReadSize == 0)
+					{
+						break;
+					}
+
+					// Transform the raw stream hash
+					if(RawStreamHasher != null)
+					{
+						RawStreamHasher.TransformBlock(Buffer, 0, ReadSize, Buffer, 0);
+					}
+
+					// Write to all the active files
+					for(int Idx = MinFileIdx; Idx < Files.Length && Files[Idx].MinPackOffset <= PackOffset + ReadSize; Idx++)
+					{
+						IncomingFile CurrentFile = Files[Idx];
+
+						// Open the stream if it's a new file
+						if(Idx == MaxFileIdx)
+						{
+							Directory.CreateDirectory(Path.GetDirectoryName(CurrentFile.Name));
+							OutputStreams[Idx] = File.Open(CurrentFile.Name + IncomingFileSuffix, FileMode.Create, FileAccess.Write, FileShare.None);
+							OutputStreams[Idx].SetLength(CurrentFile.MaxPackOffset - CurrentFile.MinPackOffset);
+							OutputHashers[Idx] = SHA1.Create();
+							MaxFileIdx++;
+						}
+
+						// Write the data to this file
+						int BufferOffset = (int)Math.Max(0, CurrentFile.MinPackOffset - PackOffset);
+						int BufferCount = (int)Math.Min(ReadSize, CurrentFile.MaxPackOffset - PackOffset) - BufferOffset;
+						OutputStreams[Idx].Write(Buffer, BufferOffset, BufferCount);
+						OutputHashers[Idx].TransformBlock(Buffer, BufferOffset, BufferCount, Buffer, BufferOffset);
+
+						// If we're finished, verify the hash and close it
+						if(Idx == MinFileIdx && CurrentFile.MaxPackOffset <= PackOffset + ReadSize)
+						{
+							OutputHashers[Idx].TransformFinalBlock(Buffer, 0, 0);
+
+							string Hash = BitConverter.ToString(OutputHashers[Idx].Hash).ToLower().Replace("-", "");
+							if(Hash != CurrentFile.Hash)
+							{
+								throw new CorruptPackFileException(String.Format("Incorrect hash value of {0}: expected {1}, got {2}", CurrentFile.Name, CurrentFile.Hash, Hash), null);
+							}
+						
+							OutputStreams[Idx].Dispose();
+							File.Delete(CurrentFile.Name);
+							File.Move(CurrentFile.Name + IncomingFileSuffix, CurrentFile.Name);
+							MinFileIdx++;
+						}
+					}
+					PackOffset += ReadSize;
+				}
+
+				// If we didn't extract everything, throw an exception
+				if(MinFileIdx < Files.Length)
+				{
+					throw new CorruptPackFileException("Unexpected end of file", null);
+				}
+
+				// Transform the final block
+				if(RawStreamHasher != null)
+				{
+					RawStreamHasher.TransformFinalBlock(Buffer, 0, 0);
+				}
+			}
+			finally 
+			{
+				// Delete unfinished files.
+				for(int Idx = MinFileIdx; Idx < MaxFileIdx; Idx++)
+				{
+					OutputStreams[Idx].Dispose();
+					SafeDeleteFileQuiet(Files[Idx].Name + IncomingFileSuffix);
+				}
+			}
+		}
+
+		static bool ReadXmlObject<T>(string FileName, out T NewObject)
 		{
 			try
 			{
@@ -865,7 +1153,7 @@ namespace GitDependencies
 			}
 		}
 
-		public static bool WriteXmlObject<T>(string FileName, T XmlObject)
+		static bool WriteXmlObject<T>(string FileName, T XmlObject)
 		{
 			try
 			{
@@ -883,7 +1171,7 @@ namespace GitDependencies
 			}
 		}
 
-		public static bool WriteWorkingManifest(string FileName, string TemporaryFileName, WorkingManifest Manifest)
+		static bool WriteWorkingManifest(string FileName, string TemporaryFileName, WorkingManifest Manifest)
 		{
 			if(!WriteXmlObject(TemporaryFileName, Manifest))
 			{
@@ -904,7 +1192,7 @@ namespace GitDependencies
 			return true;
 		}
 
-		public static bool SafeModifyFileAttributes(string FileName, FileAttributes AddAttributes, FileAttributes RemoveAttributes)
+		static bool SafeModifyFileAttributes(string FileName, FileAttributes AddAttributes, FileAttributes RemoveAttributes)
 		{
 			try
 			{
@@ -918,7 +1206,7 @@ namespace GitDependencies
 			}
 		}
 
-		public static bool SafeCreateDirectory(string DirectoryName)
+		static bool SafeCreateDirectory(string DirectoryName)
 		{
 			try
 			{
@@ -932,7 +1220,7 @@ namespace GitDependencies
 			}
 		}
 
-		public static bool SafeDeleteFile(string FileName)
+		static bool SafeDeleteFile(string FileName)
 		{
 			try
 			{
@@ -946,7 +1234,20 @@ namespace GitDependencies
 			}
 		}
 
-		public static bool SafeMoveFile(string SourceFileName, string TargetFileName)
+		static bool SafeDeleteFileQuiet(string FileName)
+		{
+			try
+			{
+				File.Delete(FileName);
+				return true;
+			}
+			catch(IOException)
+			{
+				return false;
+			}
+		}
+
+		static bool SafeMoveFile(string SourceFileName, string TargetFileName)
 		{
 			try
 			{
@@ -960,7 +1261,20 @@ namespace GitDependencies
 			}
 		}
 
-		public static string ComputeHashForFile(string FileName)
+		static bool SafeMoveFileQuiet(string SourceFileName, string TargetFileName)
+		{
+			try
+			{
+				File.Move(SourceFileName, TargetFileName);
+				return true;
+			}
+			catch(IOException)
+			{
+				return false;
+			}
+		}
+
+		static string ComputeHashForFile(string FileName)
 		{
 			using(FileStream InputStream = File.OpenRead(FileName))
 			{

@@ -219,10 +219,19 @@ class AUTProj_BioShot : public AUTProjectile
 	virtual void RemoveWebLink(AUTProj_BioShot* LinkedBio);
 
 	virtual void Destroyed() override;
+	virtual bool DisableEmitterLights() const override;
+
+	/** True when large glob light has been turned on. */
+	UPROPERTY()
+		bool bLargeGlobLit;
 
 	/** played on landing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<AUTImpactEffect> LandedEffects;
+
+	/** played on landing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+		TSubclassOf<AUTImpactEffect> LargeLandedEffects;
 
 	/**How long the glob will remain on the ground before exploding*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
@@ -344,6 +353,10 @@ class AUTProj_BioShot : public AUTProjectile
 	/**Remaining life time for this blob*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
 		float RemainingLife;
+
+	/**Remaining life time for this blob*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Bio)
+		UStaticMeshComponent* BioMesh;
 
 	/**Sets the strength of the glob*/
 	UFUNCTION(BlueprintCallable, Category = Bio)

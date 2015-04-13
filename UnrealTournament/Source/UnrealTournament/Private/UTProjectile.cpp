@@ -127,9 +127,7 @@ void AUTProjectile::PreInitializeComponents()
 	}
 
 	// turn off other player's projectile flight lights at low/medium effects quality
-	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
-	bool bTurnOffLights = (bLowPriorityLight || (QualitySettings.EffectsQuality < 2)) && Instigator && (!Instigator->IsLocallyControlled() || !Cast<APlayerController>(Instigator->GetController()));
+	bool bTurnOffLights = DisableEmitterLights();
 	TArray<ULightComponent*> LightComponents;
 	GetComponents<ULightComponent>(LightComponents);
 	for (int32 i = 0; i < LightComponents.Num(); i++)
@@ -729,10 +727,10 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 	if (!bExploded)
 	{
 		bExploded = true;
+		float AdjustedMomentum = Momentum;
+		FRadialDamageParams AdjustedDamageParams = ((MasterProjectile != NULL) ? MasterProjectile : this)->GetDamageParams(NULL, HitLocation, AdjustedMomentum);
 		if (!bFakeClientProjectile)
 		{
-			float AdjustedMomentum = Momentum;
-			FRadialDamageParams AdjustedDamageParams = GetDamageParams(NULL, HitLocation, AdjustedMomentum);
 			if (AdjustedDamageParams.OuterRadius > 0.0f)
 			{
 				TArray<AActor*> IgnoreActors;
@@ -753,7 +751,7 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 		// explosion effect unless I have a fake projectile doing it for me
 		if (MyFakeProjectile == NULL && ExplosionEffects != NULL)
 		{
-			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController);
+			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController, SRT_IfSourceNotReplicated, FImpactEffectNamedParameters(AdjustedDamageParams.OuterRadius));
 		}
 		ShutDown();
 	}

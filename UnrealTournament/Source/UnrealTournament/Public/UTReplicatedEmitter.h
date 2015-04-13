@@ -43,6 +43,12 @@ class AUTReplicatedEmitter : public AActor
 
 	virtual void PostActorCreated() override
 	{
+		// workaround for SpawnActor blueprint node not allowing setting Owner on spawn
+		if (GetOwner() == NULL && Instigator != NULL)
+		{
+			SetOwner(Instigator);
+		}
+
 		if (GetOwner() != NULL && bAttachToOwnerMesh)
 		{
 			ACharacter* C = Cast<ACharacter>(GetOwner());

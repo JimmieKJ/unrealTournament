@@ -148,10 +148,24 @@ bool AUTArmor::HandleArmorEffects(AUTCharacter* HitPawn) const
 	if (ArmorImpactEffect && bRecentlyRendered)
 	{
 		bResult = true;
-		FVector WorldHitLocation = HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation;
-		FVector CenterLocation = HitPawn->GetActorLocation();
-		CenterLocation.Z = WorldHitLocation.Z;  
-		UGameplayStatics::SpawnEmitterAtLocation(HitPawn->GetWorld(), ArmorImpactEffect, WorldHitLocation, FRotationMatrix::MakeFromZ(WorldHitLocation - CenterLocation).Rotator(), true);
+		const FVector WorldHitLocation = HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation;
+		FRotationMatrix CenterToHit((WorldHitLocation - HitPawn->GetActorLocation()).GetSafeNormal2D().Rotation());
+		// play multiple hit effects if there were simultaneous hits
+		// we don't have accurate hit info for the secondary hits so just use a random offset
+		int32 NumEffects = (HitPawn->GetWorld()->GetNetMode() != NM_Client) ? 1 : FMath::Max<int32>(HitPawn->LastTakeHitInfo.Count, 1);
+		for (int32 i = 0; i < NumEffects; i++)
+		{
+			FVector AdjustedHitLocation = WorldHitLocation;
+			if (i > 0)
+			{
+				FVector RandomExtra = CenterToHit.GetUnitAxis(EAxis::Y) * FMath::FRandRange(-1.0f, 1.0f) + CenterToHit.GetUnitAxis(EAxis::Z) * FMath::FRandRange(-1.0f, 1.0f);
+				RandomExtra = RandomExtra.GetSafeNormal() * FMath::FRandRange(15.0f, 30.0f);
+				AdjustedHitLocation += RandomExtra;
+			}
+			FVector CenterLocation = HitPawn->GetActorLocation();
+			CenterLocation.Z = AdjustedHitLocation.Z;
+			UGameplayStatics::SpawnEmitterAttached(ArmorImpactEffect, HitPawn->GetRootComponent(), NAME_None, AdjustedHitLocation, FRotationMatrix::MakeFromZ(AdjustedHitLocation - CenterLocation).Rotator(), EAttachLocation::KeepWorldPosition);
+		}
 	}
 	if (PlayArmorEffects(HitPawn))
 	{

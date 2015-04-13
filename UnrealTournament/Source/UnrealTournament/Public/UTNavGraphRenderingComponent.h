@@ -21,11 +21,14 @@ class UUTNavGraphRenderingComponent : public UPrimitiveComponent
 
 struct UNREALTOURNAMENT_API FUTPathLinkRenderProxy
 {
-	/** endpoint */
+	/** poly center of connecting poly in Start PathNode */
+	FVector StartLocation;
+	/** poly center of connecting poly in End PathNode */
 	FVector EndLocation;
 	int32 CollisionRadius;
 	int32 CollisionHeight;
 	FLinearColor PathColor;
+	uint16 ReachFlags;
 	/** optional ReachSpec that can render the path differently
 	 * TODO: is this safe?
 	 */
@@ -86,6 +89,10 @@ protected:
 	TArray<FUTPathNodeRenderProxy> PathNodes;
 	/** whether to draw individual polygon information */
 	bool bDrawPolyEdges;
+	/** path drawing flags copied from AUTRecastNavMesh */
+	bool bDrawWalkPaths;
+	bool bDrawStandardJumpPaths;
+	bool bDrawSpecialPaths;
 };
 
 #endif

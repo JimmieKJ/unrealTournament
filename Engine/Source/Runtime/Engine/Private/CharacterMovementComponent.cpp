@@ -2174,7 +2174,7 @@ void UCharacterMovementComponent::CalcVelocity(float DeltaTime, float Friction, 
 	{
 		const FVector OldVelocity = Velocity;
 		ApplyVelocityBraking(DeltaTime, Friction, BrakingDeceleration);
-	
+
 		// Don't allow braking to lower us below max speed if we started above it.
 		if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
 		{
@@ -3816,17 +3816,16 @@ void UCharacterMovementComponent::OnTeleported()
 		CurrentFloor.Clear();
 	}
 
-	// If we were walking but no longer have a valid base or floor, start falling.
-	if (!CurrentFloor.IsWalkableFloor() || (OldBase && !NewBase))
+	float SavedVelocityZ = Velocity.Z;
+	SetDefaultMovementMode();
+	if ((MovementMode == MOVE_Walking) && (!CurrentFloor.IsWalkableFloor() || (OldBase && !NewBase)))
 	{
-		if (DefaultLandMovementMode == MOVE_Walking)
-		{
-			SetMovementMode(MOVE_Falling);
-		}
-		else
-		{
-			SetDefaultMovementMode();
-		}
+		// If we were walking but no longer have a valid base or floor, start falling.
+		SetMovementMode(MOVE_Falling);
+	}
+	if (MovementMode != MOVE_Walking)
+	{
+		Velocity.Z = SavedVelocityZ;
 	}
 }
 
@@ -3956,7 +3955,7 @@ void UCharacterMovementComponent::PhysicsVolumeChanged( APhysicsVolume* NewVolum
 	if ( NewVolume && NewVolume->bWaterVolume )
 	{
 		// just entered water
-		if ( !CanEverSwim() )
+		if (!CanEverSwim())
 		{
 			// AI needs to stop any current moves
 			if (PathFollowingComp.IsValid())

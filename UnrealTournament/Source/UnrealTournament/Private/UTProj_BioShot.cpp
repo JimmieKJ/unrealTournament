@@ -23,6 +23,16 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 140.f;
 	ProjectileMovement->Buoyancy = 1.1f;
 
+	BioMesh = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("BioGooComp"));
+	if (BioMesh != NULL)
+	{
+		BioMesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
+		BioMesh->CanCharacterStepUpOn = ECB_No;
+		BioMesh->bReceivesDecals = false;
+		BioMesh->CastShadow = false;
+		BioMesh->AttachParent = RootComponent;
+	}
+
 	CollisionComp->bAbsoluteScale = true;
 	DamageParams.BaseDamage = 21.0f;
 
@@ -51,7 +61,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 	MaxLinkDistance = 1000.f;
 
 	LandedOverlapRadius = 16.f;
-	LandedOverlapScaling = 7.f;
+	LandedOverlapScaling = 16.f;
 	MaxSlideSpeed = 1500.f;
 	TrackingRange = 2000.f;
 	MaxTrackingSpeed = 1200.f;
@@ -114,6 +124,11 @@ void AUTProj_BioShot::OnBounce(const struct FHitResult& ImpactResult, const FVec
 
 	// only one bounce sound
 	BounceSound = NULL;
+}
+
+bool AUTProj_BioShot::DisableEmitterLights() const
+{
+	return true;
 }
 
 void AUTProj_BioShot::Destroyed()
@@ -376,7 +391,7 @@ bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
 		FHitResult Hit;
 		static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
 
-		bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation() + 2.f*SurfaceNormal, LinkedBio->GetActorLocation() + 2.f*LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
+		bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation() + 2.f*SurfaceNormal, LinkedBio->GetActorLocation() + 2.f*LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, this));
 		return (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()));
 	}
 	return false;
@@ -571,9 +586,16 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 
 		//Spawn Effects
 		OnLanded();
-		if ((LandedEffects != NULL) && (GetNetMode() != NM_DedicatedServer) && !MyFakeProjectile)
+		if ((GetNetMode() != NM_DedicatedServer) && !MyFakeProjectile)
 		{
-			LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(NormalRotation, HitLocation), HitComp, this, InstigatorController);
+			if (GlobStrength > 2.5f)
+			{
+				LandedEffects = LargeLandedEffects;
+			}
+			if (LandedEffects)
+			{
+				LandedEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(NormalRotation, HitLocation), HitComp, this, InstigatorController);
+			}
 		}
 
 		//Start the explosion timer
@@ -592,6 +614,16 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 				bReplicateUTMovement = true;
 				RemainingLife = RestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength;
 				SetGlobStrength(GlobStrength);
+			}
+			else if (BioMesh)
+			{
+				float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
+				FVector ScalingMesh = FVector(1.5f*GlobScalingSqrt);
+				if (bLanded)
+				{
+					ScalingMesh.X *= 0.85f;
+				}
+				BioMesh->SetRelativeScale3D(ScalingMesh);
 			}
 
 			if (WebMaster && CanWebLinkTo(WebMaster))
@@ -790,17 +822,17 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 		}
 	}
 
-	if ((GlobStrength >= MaxRestingGlobStrength) || ProjectileMovement->bIsHomingProjectile)
+	if (BioMesh && ((GlobStrength >= MaxRestingGlobStrength) || ProjectileMovement->bIsHomingProjectile))
 	{
 		float PulseRate = InitialBlobPulseRate + BlobOverCharge * (MaxBlobPulseRate - InitialBlobPulseRate)/BlobWebThreshold;
 		BlobPulseTime += DeltaTime * PulseRate;
 
 		float GlobScalingSqrt = FMath::Sqrt(GlobStrength);
 		FVector GlobScaling(GlobScalingSqrt);
-		GlobScaling.X *= (1.f + BlobPulseScaling*FMath::Square(FMath::Cos(BlobPulseTime)));
-		GlobScaling.Y = GlobScaling.X;
-		GlobScaling.Z *= (1.f + BlobPulseScaling*FMath::Square(FMath::Sin(BlobPulseTime)));
-		GetRootComponent()->SetRelativeScale3D(GlobScaling);
+		GlobScaling.X *= 0.85f*(1.f + BlobPulseScaling*FMath::Square(FMath::Cos(BlobPulseTime)));
+		GlobScaling.Z *= 1.3f*(1.f + BlobPulseScaling*FMath::Square(FMath::Sin(BlobPulseTime)));
+		GlobScaling.Y = GlobScaling.Z;
+		BioMesh->SetRelativeScale3D(1.5f*GlobScaling);
 	}
 	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 }
@@ -971,6 +1003,16 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 	if (GlobStrength > 3.f)
 	{
 		CollisionComp->SetSphereRadius(GlobRadiusScaling * GlobScalingSqrt);
+		if (!bLargeGlobLit)
+		{
+			bLargeGlobLit = true;
+			TArray<ULightComponent*> LightComponents;
+			GetComponents<ULightComponent>(LightComponents);
+			for (int32 i = 0; i < LightComponents.Num(); i++)
+			{
+				LightComponents[i]->SetVisibility(true);
+			}
+		}
 	}
 
 	if (bLanded && (GlobStrength > MaxRestingGlobStrength))
@@ -1012,7 +1054,15 @@ void AUTProj_BioShot::SetGlobStrength(float NewStrength)
 		//PawnOverlapSphere->bHiddenInGame = false;
 		//PawnOverlapSphere->bVisible = true;
 	}
-	GetRootComponent()->SetRelativeScale3D(FVector(GlobScalingSqrt));
+	if (BioMesh)
+	{
+		FVector ScalingMesh = FVector(1.5f*GlobScalingSqrt);
+		if (bLanded)
+		{
+			ScalingMesh.X *= 0.85f;
+		}
+		BioMesh->SetRelativeScale3D(ScalingMesh);
+	}
 }
 
 void AUTProj_BioShot::OnSetGlobStrength_Implementation()
