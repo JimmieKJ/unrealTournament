@@ -274,106 +274,115 @@ void UUTCharacterMovement::AdjustMovementTimers(float Adjustment)
 void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
-	if (UTOwner == NULL || !UTOwner->IsRagdoll())
-	{
-		UMovementComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-		const FVector InputVector = ConsumeInputVector();
-		if (!HasValidData() || ShouldSkipUpdate(DeltaTime) || UpdatedComponent->IsSimulatingPhysics())
+	UMovementComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	bool bOwnerIsRagdoll = UTOwner && UTOwner->IsRagdoll();
+	if (bOwnerIsRagdoll)
+	{
+		// ignore jump/slide key presses this frame since the character is in ragdoll and they don't apply
+		UTOwner->bPressedJump = false;
+		bPressedSlide = false;
+		if (!UTOwner->GetController())
 		{
 			return;
 		}
+	}
 
-		if (CharacterOwner->Role > ROLE_SimulatedProxy)
+	const FVector InputVector = ConsumeInputVector();
+		if (!HasValidData() || ShouldSkipUpdate(DeltaTime) || UpdatedComponent->IsSimulatingPhysics())
+	{
+		return;
+	}
+
+	if (CharacterOwner->Role > ROLE_SimulatedProxy)
+	{
+		if (CharacterOwner->Role == ROLE_Authority)
 		{
+			// Check we are still in the world, and stop simulating if not.
+			const bool bStillInWorld = (bCheatFlying || CharacterOwner->CheckStillInWorld());
+			if (!bStillInWorld || !HasValidData())
+			{
+				return;
+			}
+		}
+
+		// If we are a client we might have received an update from the server.
+		const bool bIsClient = (GetNetMode() == NM_Client && CharacterOwner->Role == ROLE_AutonomousProxy);
+		if (bIsClient)
+		{
+			ClientUpdatePositionAfterServerUpdate();
+		}
+
+		// Allow root motion to move characters that have no controller.
+		if (CharacterOwner->IsLocallyControlled() || bRunPhysicsWithNoController || (!CharacterOwner->Controller && CharacterOwner->IsPlayingRootMotion()))
+		{
+			FNetworkPredictionData_Client_Character* ClientData = ((CharacterOwner->Role < ROLE_Authority) && (GetNetMode() == NM_Client)) ? GetPredictionData_Client_Character() : NULL;
+			if (ClientData)
+			{
+				// Update our delta time for physics simulation.
+				DeltaTime = UpdateTimeStampAndDeltaTime(DeltaTime, ClientData);
+				CurrentServerMoveTime = ClientData->CurrentTimeStamp;
+			}
+			else
+			{
+				CurrentServerMoveTime = GetWorld()->GetTimeSeconds();
+			}
+			//UE_LOG(UTNet, Warning, TEXT("Correction COMPLETE velocity %f %f %f"), Velocity.X, Velocity.Y, Velocity.Z);
+			// We need to check the jump state before adjusting input acceleration, to minimize latency
+			// and to make sure acceleration respects our potentially new falling state.
+			CharacterOwner->CheckJumpInput(DeltaTime);
+
+			// apply input to acceleration
+			Acceleration = ScaleInputAcceleration(ConstrainInputAcceleration(InputVector));
+			AnalogInputModifier = ComputeAnalogInputModifier();
+
 			if (CharacterOwner->Role == ROLE_Authority)
 			{
-				// Check we are still in the world, and stop simulating if not.
-				const bool bStillInWorld = (bCheatFlying || CharacterOwner->CheckStillInWorld());
-				if (!bStillInWorld || !HasValidData())
-				{
-					return;
-				}
-			}
-
-			// If we are a client we might have received an update from the server.
-			const bool bIsClient = (GetNetMode() == NM_Client && CharacterOwner->Role == ROLE_AutonomousProxy);
-			if (bIsClient)
-			{
-				ClientUpdatePositionAfterServerUpdate();
-			}
-
-			// Allow root motion to move characters that have no controller.
-			if (CharacterOwner->IsLocallyControlled() || bRunPhysicsWithNoController || (!CharacterOwner->Controller && CharacterOwner->IsPlayingRootMotion()))
-			{
-				FNetworkPredictionData_Client_Character* ClientData = ((CharacterOwner->Role < ROLE_Authority) && (GetNetMode() == NM_Client)) ? GetPredictionData_Client_Character() : NULL;
-				if (ClientData)
-				{
-					// Update our delta time for physics simulation.
-					DeltaTime = UpdateTimeStampAndDeltaTime(DeltaTime, ClientData);
-					CurrentServerMoveTime = ClientData->CurrentTimeStamp;
-				}
-				else
-				{
-					CurrentServerMoveTime = GetWorld()->GetTimeSeconds();
-				}
-				//UE_LOG(UTNet, Warning, TEXT("Correction COMPLETE velocity %f %f %f"), Velocity.X, Velocity.Y, Velocity.Z);
-				// We need to check the jump state before adjusting input acceleration, to minimize latency
-				// and to make sure acceleration respects our potentially new falling state.
-				CharacterOwner->CheckJumpInput(DeltaTime);
-
-				// apply input to acceleration
-				Acceleration = ScaleInputAcceleration(ConstrainInputAcceleration(InputVector));
-				AnalogInputModifier = ComputeAnalogInputModifier();
-
-				if (CharacterOwner->Role == ROLE_Authority)
-				{
-					PerformMovement(DeltaTime);
-				}
-				else if (bIsClient)
-				{
-					ReplicateMoveToServer(DeltaTime, Acceleration);
-				}
-			}
-			else if (CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy)
-			{
-				// Server ticking for remote client.
-				// Between net updates from the client we need to update position if based on another object,
-				// otherwise the object will move on intermediate frames and we won't follow it.
-				MaybeUpdateBasedMovement(DeltaTime);
-				SaveBaseLocation();
-			}
-			else if (!CharacterOwner->Controller && (CharacterOwner->Role == ROLE_Authority))
-			{
-				// still update forces
-				ApplyAccumulatedForces(DeltaTime);
 				PerformMovement(DeltaTime);
 			}
-		}
-		else if (CharacterOwner->Role == ROLE_SimulatedProxy)
-		{
-			AdjustProxyCapsuleSize();
-			SimulatedTick(DeltaTime);
-		}
-
-		if (bEnablePhysicsInteraction)
-		{
-			if (CurrentFloor.HitResult.IsValidBlockingHit())
+			else if (bIsClient)
 			{
-				// Apply downwards force when walking on top of physics objects
-				if (UPrimitiveComponent* BaseComp = CurrentFloor.HitResult.GetComponent())
+				ReplicateMoveToServer(DeltaTime, Acceleration);
+			}
+		}
+		else if (CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy)
+		{
+			// Server ticking for remote client.
+			// Between net updates from the client we need to update position if based on another object,
+			// otherwise the object will move on intermediate frames and we won't follow it.
+			MaybeUpdateBasedMovement(DeltaTime);
+			SaveBaseLocation();
+		}
+		else if (!CharacterOwner->Controller && (CharacterOwner->Role == ROLE_Authority))
+		{
+			// still update forces
+			ApplyAccumulatedForces(DeltaTime);
+			PerformMovement(DeltaTime);
+		}
+	}
+		else if (CharacterOwner->Role == ROLE_SimulatedProxy)
+	{
+		AdjustProxyCapsuleSize();
+		SimulatedTick(DeltaTime);
+	}
+
+	if (bEnablePhysicsInteraction && !bOwnerIsRagdoll)
+	{
+		if (CurrentFloor.HitResult.IsValidBlockingHit())
+		{
+			// Apply downwards force when walking on top of physics objects
+			if (UPrimitiveComponent* BaseComp = CurrentFloor.HitResult.GetComponent())
+			{
+				if (StandingDownwardForceScale != 0.f && BaseComp->IsAnySimulatingPhysics())
 				{
-					if (StandingDownwardForceScale != 0.f && BaseComp->IsAnySimulatingPhysics())
-					{
-						const float GravZ = GetGravityZ();
-						const FVector ForceLocation = CurrentFloor.HitResult.ImpactPoint;
-						BaseComp->AddForceAtLocation(FVector(0.f, 0.f, GravZ * Mass * StandingDownwardForceScale), ForceLocation, CurrentFloor.HitResult.BoneName);
-					}
+					const float GravZ = GetGravityZ();
+					const FVector ForceLocation = CurrentFloor.HitResult.ImpactPoint;
+					BaseComp->AddForceAtLocation(FVector(0.f, 0.f, GravZ * Mass * StandingDownwardForceScale), ForceLocation, CurrentFloor.HitResult.BoneName);
 				}
 			}
 		}
 	}
-	else if (UTOwner != NULL)
+	if (bOwnerIsRagdoll)
 	{
 		// ignore jump/slide key presses this frame since the character is in ragdoll and they don't apply
 		UTOwner->bPressedJump = false;
