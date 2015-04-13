@@ -8,24 +8,25 @@ using System.Text;
 
 namespace GitDependencies
 {
-	delegate void NotifyReadDelegate(int SizeRead);
-
-	class NotifyReadStream : Stream
+	class ForkReadStream : Stream
 	{
 		Stream Inner;
-		NotifyReadDelegate NotifyRead;
-		long TotalRead;
+		Stream ForkWrite;
 
-		public NotifyReadStream(Stream InInner, NotifyReadDelegate InNotifyRead)
+		public ForkReadStream(Stream InInner, Stream InForkWrite)
 		{
 			Inner = InInner;
-			NotifyRead = InNotifyRead;
-			TotalRead = 0;
+			ForkWrite = InForkWrite;
 		}
 
 		protected override void Dispose(bool Disposing)
 		{
-			if(Inner != null)
+			if (ForkWrite != null)
+			{
+				ForkWrite.Dispose();
+				ForkWrite = null;
+			}
+			if (Inner != null)
 			{
 				Inner.Dispose();
 				Inner = null;
@@ -51,7 +52,7 @@ namespace GitDependencies
 		{
 			get
 			{
-				return TotalRead;
+				return Inner.Position;
 			}
 			set
 			{
@@ -72,8 +73,10 @@ namespace GitDependencies
 		public override int Read(byte[] Buffer, int Offset, int Count)
 		{
 			int SizeRead = Inner.Read(Buffer, Offset, Count);
-			NotifyRead(SizeRead);
-			TotalRead += SizeRead;
+			if (SizeRead > 0)
+			{
+				ForkWrite.Write(Buffer, Offset, SizeRead);
+			}
 			return SizeRead;
 		}
 
@@ -89,7 +92,7 @@ namespace GitDependencies
 
 		public override void Flush()
 		{
-			Inner.Flush();
+			ForkWrite.Flush();
 		}
 	}
 }

@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using System.ComponentModel;
 
 namespace GitDependencies
 {
@@ -21,6 +22,7 @@ namespace GitDependencies
 		public string Hash;
 
 		[XmlAttribute]
+		[DefaultValue(false)]
 		public bool IsExecutable;
 	}
 
@@ -58,6 +60,13 @@ namespace GitDependencies
 
 	public class DependencyManifest
 	{
+		[XmlAttribute]
+		public string BaseUrl = "http://cdn.unrealengine.com/dependencies";
+
+		[XmlAttribute]
+		[DefaultValue(false)]
+		public bool IgnoreProxy;
+
 		[XmlArrayItem("File")]
 		public DependencyFile[] Files = new DependencyFile[0];
 
