@@ -205,7 +205,7 @@ void AUTWeaponAttachment::PlayBulletWhip()
 				if (ClosestPt != BulletSrc && ClosestPt != UTOwner->FlashLocation && (ClosestPt - ViewLoc).Size() <= MaxBulletWhipDist)
 				{
 					// trace to make sure missed shot isn't on the other side of a wall
-					FCollisionQueryParams Params(FName(TEXT("BulletWhip")), false, UTOwner);
+					FCollisionQueryParams Params(FName(TEXT("BulletWhip")), true, UTOwner);
 					Params.AddIgnoredActor(PC->GetPawn());
 					if (!GetWorld()->LineTraceTest(ClosestPt, ViewLoc, COLLISION_TRACE_WEAPON, Params))
 					{

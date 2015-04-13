@@ -291,7 +291,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		{
 			FVector AdjustedSpawnLoc = SpawnLocation + FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
 			FHitResult Hit;
-			if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, AdjustedSpawnLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, false, UTOwner)))
+			if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, AdjustedSpawnLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, true, UTOwner)))
 			{
 				SpawnLocation = Hit.Location - (AdjustedSpawnLoc - SpawnLocation).GetSafeNormal();
 			}

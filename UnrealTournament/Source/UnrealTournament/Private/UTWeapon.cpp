@@ -635,7 +635,7 @@ FHitResult AUTWeapon::GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc
 	// trace for precise hit location and hit normal
 	FHitResult Hit;
 	FVector TargetToGun = (StartLoc - TargetLoc).GetSafeNormal();
-	if (Shooter->GetWorld()->LineTraceSingle(Hit, TargetLoc + TargetToGun * 10.0f, TargetLoc - TargetToGun * 10.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("ImpactEffect")), false, Shooter)))
+	if (Shooter->GetWorld()->LineTraceSingle(Hit, TargetLoc + TargetToGun * 10.0f, TargetLoc - TargetToGun * 10.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("ImpactEffect")), true, Shooter)))
 	{
 		return Hit;
 	}
@@ -971,7 +971,7 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 {
 	bool bRewindPlayers = ((PredictionTime > 0.f) && (Role == ROLE_Authority));
 	ECollisionChannel TraceChannel = bRewindPlayers ? COLLISION_TRACE_WEAPONNOCHARACTER : COLLISION_TRACE_WEAPON;
-	if (!GetWorld()->LineTraceSingle(Hit, StartLocation, EndTrace, TraceChannel, FCollisionQueryParams(GetClass()->GetFName(), false, UTOwner)))
+	if (!GetWorld()->LineTraceSingle(Hit, StartLocation, EndTrace, TraceChannel, FCollisionQueryParams(GetClass()->GetFName(), true, UTOwner)))
 	{
 		Hit.Location = EndTrace;
 	}
@@ -1471,7 +1471,7 @@ bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState 
 		FRotator CameraRot;
 		Viewer->GetPlayerViewPoint(CameraLoc, CameraRot);
 		FHitResult Hit;
-		GetWorld()->LineTraceSingle(Hit, CameraLoc, CameraLoc + CameraRot.Vector() * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CrosshairFriendIndicator")), false, UTOwner));
+		GetWorld()->LineTraceSingle(Hit, CameraLoc, CameraLoc + CameraRot.Vector() * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CrosshairFriendIndicator")), true, UTOwner));
 		if (Hit.Actor != NULL)
 		{
 			AUTCharacter* Char = Cast<AUTCharacter>(Hit.Actor.Get());

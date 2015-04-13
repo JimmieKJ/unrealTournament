@@ -339,7 +339,7 @@ void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode
 			// verify line of sight
 			FHitResult Hit;
 			static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
-			bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, SpawnLocation, LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, UTOwner));
+			bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, SpawnLocation, LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, UTOwner));
 			if ((bBlockingHit || (Hit.Actor != NULL)) && !Cast<AUTProj_BioShot>(Hit.Actor.Get()))
 			{
 				LinkedBio = NULL;

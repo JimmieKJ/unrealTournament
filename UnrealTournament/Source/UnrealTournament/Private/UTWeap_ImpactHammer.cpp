@@ -50,7 +50,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 		const FVector FireDir = SpawnRotation.Vector();
-		FCollisionQueryParams TraceParams(FName(TEXT("ImpactHammer")), false, UTOwner);
+		FCollisionQueryParams TraceParams(FName(TEXT("ImpactHammer")), true, UTOwner);
 		
 		FHitResult Hit;
 		// if we auto-triggered on something, make sure it counts

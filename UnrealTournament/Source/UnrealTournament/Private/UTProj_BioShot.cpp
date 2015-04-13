@@ -391,7 +391,7 @@ bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
 		FHitResult Hit;
 		static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
 
-		bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation() + 2.f*SurfaceNormal, LinkedBio->GetActorLocation() + 2.f*LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, false, this));
+		bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation() + 2.f*SurfaceNormal, LinkedBio->GetActorLocation() + 2.f*LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, this));
 		return (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()));
 	}
 	return false;
