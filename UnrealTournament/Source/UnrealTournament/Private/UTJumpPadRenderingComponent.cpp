@@ -100,6 +100,12 @@ UUTJumpPadRenderingComponent::UUTJumpPadRenderingComponent(const class FObjectIn
 FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & LocalToWorld) const
 {
 	FBox Bounds(0);
+
+	if (GExitPurge)
+	{
+		return FBoxSphereBounds(Bounds);
+	}
+
 	AUTJumpPad *JumpPad = Cast<AUTJumpPad>(GetOwner());
 
 	if (JumpPad != NULL)
