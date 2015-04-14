@@ -980,6 +980,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             GameProj = InGameProj;
 
+            if (CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
+            {
+                AddDependency(GUBP.VersionFilesNode.StaticGetFullName());
+            }
+
             AddDependency(WaitForUnrealTournamentBuildUserInputNode.StaticGetFullName(GameProj));
         }
 
