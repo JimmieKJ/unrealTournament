@@ -61,7 +61,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 				{
 					if (CurrentAnnouncement.MessageClass == NULL)
 					{
-						float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->AnnouncementDelay;
+						float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementDelay(Switch);
 						if (Delay > 0.f)
 						{
 							GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);

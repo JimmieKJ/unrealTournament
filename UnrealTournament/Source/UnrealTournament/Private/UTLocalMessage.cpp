@@ -46,6 +46,11 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 }
 
+float UUTLocalMessage::GetAnnouncementDelay(int32 Switch)
+{
+	return AnnouncementDelay;
+}
+
 bool UUTLocalMessage::UseLargeFont(int32 MessageIndex) const
 {
 	return true;
@@ -98,24 +103,10 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 	Args.Add(TEXT("Player2Score"), RelatedPlayerState_2 != NULL ? FText::AsNumber(int32(RelatedPlayerState_2->Score)) : FText::GetEmpty());
 
 	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(RelatedPlayerState_1);
-	if (UTPlayerState != NULL && UTPlayerState->Team != NULL)
-	{
-		Args.Add(TEXT("Player1Team"), UTPlayerState->Team->TeamName);
-	}
-	else
-	{
-		Args.Add(TEXT("Player1Team"), FText::GetEmpty());
-	}
+	Args.Add(TEXT("Player1Team"), (UTPlayerState && UTPlayerState->Team) ? UTPlayerState->Team->TeamName : FText::GetEmpty());
 
 	UTPlayerState = Cast<AUTPlayerState>(RelatedPlayerState_2);
-	if (UTPlayerState != NULL && UTPlayerState->Team != NULL)
-	{
-		Args.Add(TEXT("Player2Team"), UTPlayerState->Team->TeamName);
-	}
-	else
-	{
-		Args.Add(TEXT("Player2Team"), FText::GetEmpty());
-	}
+	Args.Add(TEXT("Player2Team"), (UTPlayerState && UTPlayerState->Team) ? UTPlayerState->Team->TeamName : FText::GetEmpty());
 
 	UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
 	if (DamageTypeClass != NULL && DamageTypeClass->IsChildOf(UUTDamageType::StaticClass()))
@@ -128,12 +119,7 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 	}
 
 	AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
-	if (TeamInfo != NULL)
-	{
-		Args.Add(TEXT("OptionalTeam"), TeamInfo->TeamName);
-	}
-
-	return;
+	Args.Add(TEXT("OptionalTeam"), TeamInfo ? TeamInfo->TeamName : FText::GetEmpty());
 }
 
 FText UUTLocalMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
@@ -151,9 +137,6 @@ bool UUTLocalMessage::IsConsoleMessage(int32 Switch) const
     return GetDefault<UUTLocalMessage>(GetClass())->bIsConsoleMessage;
 }
 
-/**
-  * @RETURN true if messages are similar enough to trigger "partially unique" check for HUD display
-  */
 bool UUTLocalMessage::PartiallyDuplicates(int32 Switch1, int32 Switch2, UObject* OptionalObject1, UObject* OptionalObject2 )
 {
 	return (Switch1 == Switch2);
