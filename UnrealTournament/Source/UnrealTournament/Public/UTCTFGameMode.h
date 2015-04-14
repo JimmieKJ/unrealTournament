@@ -78,11 +78,8 @@ protected:
 	UFUNCTION()
 	virtual bool IsMatchInSuddenDeath();
 
-	virtual void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 	virtual void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker) override;
-	virtual void ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
-
-	virtual bool IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum=255);
+	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 
 	// returns the team index of a team with advatage or < 0 if no team has one
 	virtual uint8 TeamWithAdvantage();

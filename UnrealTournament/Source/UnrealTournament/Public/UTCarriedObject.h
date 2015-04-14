@@ -26,10 +26,6 @@ public:
 	// Total amount of time it's been held.
 	UPROPERTY()
 	float TotalHeldTime;
-
-	// The timestamp where this player last picked up the flag.
-	UPROPERTY()
-	float LastHoldStartTime;
 };
 
 
@@ -45,6 +41,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	// Holds the UTPlayerState of the person currently holding this object.  
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnHolderChanged, Category = GameObject)
 	AUTPlayerState* Holder;
+
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		float PickedUpTime;
 
 	// This is an internal array that holds a list of people who have held this object
 	// since it was last on a base.  It's only valid on the server.

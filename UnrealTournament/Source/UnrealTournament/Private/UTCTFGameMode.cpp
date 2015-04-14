@@ -125,6 +125,12 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				(*Iterator)->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+				AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+				if (PS && PS->bNeedsAssistAnnouncement)
+				{
+					(*Iterator)->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
+					PS->bNeedsAssistAnnouncement = false;
+				}
 			}
 
 			if (CTFGameState->IsMatchInOvertime())
@@ -507,39 +513,15 @@ bool AUTCTFGameMode::PlayerCanRestart( APlayerController* Player )
 	return Player->CanRestartPlayer();
 }
 
-
-bool AUTCTFGameMode::IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum)
-{
-	if (CTFGameState != NULL)
-	{
-		// not enough of these to worry about the minor inefficiency in the specific team case; better to keep code simple
-		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
-		{
-			if ( Base != NULL && (TeamNum == 255 || Base->GetTeamNum() == TeamNum) &&
-				Base->MyFlag->ObjectState == CarriedObjectState::Held && (Base->MyFlag->GetActorLocation() - Who->GetActorLocation()).SizeSquared() <= CheckDistanceSquared )
-			{
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
-void AUTCTFGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy)
-{
-	CTFScoring->ScorePickup(Pickup, PickedUpBy, LastPickedUpBy);
-}
-
 void AUTCTFGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
 	Super::ScoreDamage(DamageAmount, Victim, Attacker);
 	CTFScoring->ScoreDamage(DamageAmount, Victim, Attacker);
 }
 
-void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
-	CTFScoring->ScoreKill(Killer, Other, DamageType);
+	CTFScoring->ScoreKill(Killer, Other, KilledPawn, DamageType);
 	if ((Killer != NULL && Killer != Other))
 	{
 		AUTPlayerState* AttackerPS = Cast<AUTPlayerState>(Killer->PlayerState);

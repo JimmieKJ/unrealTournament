@@ -16,7 +16,7 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 	// CTF Scoring.. made config for now so we can easily tweak it all.  Won't be config in the final.
 	// Each player who carried the flag get's a % of this pool and is guarenteed at least 1 point
 	UPROPERTY(Config)
-	uint32 FlagTotalScorePool;
+		uint32 FlagRunScorePool;
 
 	// The player who initially picked up the flag will give thee points
 	UPROPERTY(Config)
@@ -29,67 +29,50 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 	// # of points the player receives for returning the flag
 	UPROPERTY(Config)
 		uint32 FlagReturnPoints;
-	// # of points the player receives if they return the flag in the enemy score zone
-	UPROPERTY(Config)
-		uint32 FlagReturnEnemyZoneBonus;
 
-	// # of points hte player receives if they deny a score
+	// Points multiplied by time your flag was held before being returned
 	UPROPERTY(Config)
-		uint32 FlagReturnDenialBonus;
+		uint32 FlagReturnHeldBonus;
+
+	// Points multiplied by time your flag was held before carrier was killed
+	UPROPERTY(Config)
+		uint32 FlagKillHeldBonus;
+
+	UPROPERTY(Config)
+		uint32 MaxFlagReturnHeldBonus;
 
 	// Players who are near the flag get bonuses when they kill
 	UPROPERTY(Config)
 		uint32 BaseKillScore;
 
-	// How close to the flag carrier do you have to be to get Flag combat bonus points
+	// Bonus for killing players threatening the flag carrier
 	UPROPERTY(Config)
-		float FlagCombatBonusDistance;
+		uint32 FlagCombatKillBonus;
 
-	// How close to the opposing home base does a flag have to be for a denial
-	UPROPERTY(Config)
-		float FlagDenialDistance;
-
-	// Players who are near the flag when it's captured get this bonus
-	UPROPERTY(Config)
-		uint32 ProximityCapBonus;
-
-	// Players near the flag when it's returned get this bonus
-	UPROPERTY(Config)
-		uint32 ProximityReturnBonus;
-
-	// Players who are near the flag get bonuses when they kill
-	UPROPERTY(Config)
-		uint32 CombatBonusKillBonus;
-
-	// Damage points are muiltipled by this when combat is near the flag.
+	// Bonus for killing enemy flag carrier.
 	UPROPERTY(config)
-		float FlagCarrierCombatMultiplier;
+		float FlagCarrierKillBonus;
 
-	// How many points for picking up a minor pickup
+	// Bonus for assist by returning enemy flag allowing team to score.
 	UPROPERTY(config)
-		uint32 MinorPickupScore;
+		float FlagReturnAssist;
 
-	// How many points for picking up a major pickup
+	// Bonus score for everyone on team after flag cap.
 	UPROPERTY(config)
-		uint32 MajorPickupScore;
+		float TeamCapBonus;
 
-	// How many points for picking up a super pickup
-	UPROPERTY(config)
-		uint32 SuperPickupScore;
-
-	// Multiplier to use if the player controls a pickup
-	UPROPERTY(config)
-		float ControlFreakMultiplier;
-
+	// Points per second for holding flag when own flag is out
 	UPROPERTY(config)
 		uint32 FlagHolderPointsPerSecond;
 
+	UPROPERTY(config)
+		float RecentActionTimeThreshold;
+
 	virtual void BeginPlay() override;
 	virtual void FlagHeldTimer();
-	virtual void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 	virtual void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
-	virtual void ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
+	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason, float TimeLimit);
 
-	virtual bool IsCloseToFlagCarrier(AActor* Who, float CheckDistanceSquared, uint8 TeamNum = 255);
+	virtual bool WasThreateningFlagCarrier(AUTPlayerState *VictimPS, APawn* KilledPawn, AUTPlayerState *KillerPS);
 };

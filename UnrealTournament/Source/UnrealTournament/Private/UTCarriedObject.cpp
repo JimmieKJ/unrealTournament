@@ -211,6 +211,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	HoldingPawn = NewHolder;
 	AttachTo(HoldingPawn->GetMesh());
 	Holder = Cast<AUTPlayerState>(HoldingPawn->PlayerState);
+	PickedUpTime = GetWorld()->GetTimeSeconds();
 
 	// If we have authority, immediately notify of the holder change, otherwise replication will handle it
 	if (Role == ROLE_Authority)
@@ -224,12 +225,6 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		FAssistTracker NewAssist;
 		NewAssist.Holder = Holder;
 		NewAssist.TotalHeldTime = 0.0f;
-		AssistIndex = AssistTracking.Add(NewAssist);
-	}
-
-	if (AssistIndex >= 0 && AssistIndex < AssistTracking.Num())
-	{
-		AssistTracking[AssistIndex].LastHoldStartTime = GetWorld()->GetTimeSeconds();
 	}
 
 	// Track the pawns that have held this.  It's to be used for scoring
@@ -273,18 +268,14 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	}
 
 	LastHoldingPawn = HoldingPawn;
-
-	float LastHeldTime = 0.0f;
-
 	int32 AssistIndex = FindAssist(Holder);
+	float LastHeldTime = GetWorld()->GetTimeSeconds() - PickedUpTime;
 	if (AssistIndex >= 0 && AssistIndex < AssistTracking.Num())
 	{
-		LastHeldTime = GetWorld()->GetTimeSeconds() - AssistTracking[AssistIndex].LastHoldStartTime;
 		AssistTracking[AssistIndex].TotalHeldTime += LastHeldTime;
 	}
 
 	TotalHeldTime += LastHeldTime;
-
 	HoldingPawn = NULL;
 	Holder = NULL;
 
@@ -476,15 +467,9 @@ void AUTCarriedObject::GatherCurrentMovement()
 float AUTCarriedObject::GetHeldTime(AUTPlayerState* TestHolder)
 {
 	int32 AssistIndex = FindAssist(TestHolder);
-	float AssistTime = 0.0f;
 	if (AssistIndex >= 0 && AssistIndex < AssistTracking.Num())
 	{
-		if (TestHolder == Holder)
-		{	
-			AssistTime = GetWorld()->GetTimeSeconds() - AssistTracking[AssistIndex].LastHoldStartTime;
-		}
-		AssistTime += AssistTracking[AssistIndex].TotalHeldTime;
+		return AssistTracking[AssistIndex].TotalHeldTime;
 	}
-
-	return AssistTime;
+	return 0.f;
 }

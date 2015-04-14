@@ -17,6 +17,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	HasAdvantageMessage = NSLOCTEXT("CTFGameMessage", "HasAdvantage", "{OptionalTeam} Team has Advantage");
 	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "Half Time!");
+	AssistMessage = NSLOCTEXT("CTFGameMessage", "Assist", "Assist!");
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
@@ -43,6 +44,7 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 8 : return CaptureMessage; break;
 		case 9 : return CaptureMessage; break;
 		case 11: return HalftimeMessage; break;
+		case 12: return AssistMessage; break;
 	}
 
 	return FText::GetEmpty();
@@ -97,6 +99,7 @@ FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 		case 9: return TeamNum == 0 ? TEXT("RedDominating") : TEXT("BlueDominating"); break;
 		case 10: return TeamNum == 0 ? TEXT("RedDominating") : TEXT("BlueDominating"); break;
 		case 11: return TEXT("HalfTime"); break;
+		case 12: return TEXT("Assist"); break;
 	}
 	return NAME_None;
 }

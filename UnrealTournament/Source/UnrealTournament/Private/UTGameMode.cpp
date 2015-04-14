@@ -840,7 +840,7 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 			}
 
-			ScoreKill(Killer, KilledPlayer, DamageType);
+			ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 			
 			if (bHasRespawnChoices)
@@ -915,7 +915,7 @@ void AUTGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AControll
 	}
 }
 
-void AUTGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+void AUTGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	if( (Killer == Other) || (Killer == NULL) )
 	{
