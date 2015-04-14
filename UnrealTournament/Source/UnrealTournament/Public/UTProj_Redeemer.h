@@ -5,7 +5,7 @@
 #include "UTProj_Redeemer.generated.h"
 
 UCLASS(Abstract, meta = (ChildCanTick))
-class AUTProj_Redeemer : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 

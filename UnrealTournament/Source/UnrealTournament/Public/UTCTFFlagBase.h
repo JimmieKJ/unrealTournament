@@ -6,7 +6,7 @@
 #include "UTCTFFlagBase.generated.h"
 
 UCLASS(HideCategories = GameObject)
-class AUTCTFFlagBase : public AUTGameObjective
+class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 {
 	GENERATED_UCLASS_BODY()
 

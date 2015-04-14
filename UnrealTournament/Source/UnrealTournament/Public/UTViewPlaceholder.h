@@ -4,7 +4,7 @@
 #include "UTViewPlaceholder.generated.h"
 
 UCLASS(CustomConstructor)
-class AUTViewPlaceholder : public AActor
+class UNREALTOURNAMENT_API AUTViewPlaceholder : public AActor
 {
 	GENERATED_UCLASS_BODY()
 

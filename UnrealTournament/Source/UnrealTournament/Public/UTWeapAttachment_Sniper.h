@@ -7,7 +7,7 @@
 #include "UTWeapAttachment_Sniper.generated.h"
 
 UCLASS(CustomConstructor)
-class AUTWeapAttachment_Sniper : public AUTWeaponAttachment
+class UNREALTOURNAMENT_API AUTWeapAttachment_Sniper : public AUTWeaponAttachment
 {
 	GENERATED_UCLASS_BODY()
 

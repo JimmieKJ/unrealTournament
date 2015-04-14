@@ -4,7 +4,7 @@
 
 /** projectile that expands and explodes other projectiles, transferring Instigator so the shooter of this projectile gets kill credit */
 UCLASS()
-class AUTProj_WeaponScreen : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_WeaponScreen : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 

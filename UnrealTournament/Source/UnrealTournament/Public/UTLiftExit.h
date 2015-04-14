@@ -8,7 +8,7 @@
 #include "UTLiftExit.generated.h"
 
 UCLASS()
-class AUTLiftExit : public AActor, public IUTPathBuilderInterface
+class UNREALTOURNAMENT_API AUTLiftExit : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 

@@ -236,7 +236,7 @@ struct FNavMeshTriangleList
 };
 
 UCLASS()
-class AUTRecastNavMesh : public ARecastNavMesh
+class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 {
 	GENERATED_UCLASS_BODY()
 

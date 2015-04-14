@@ -5,7 +5,7 @@
 #include "UTWeap_Sniper.generated.h"
 
 UCLASS(Abstract)
-class AUTWeap_Sniper : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_Sniper : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

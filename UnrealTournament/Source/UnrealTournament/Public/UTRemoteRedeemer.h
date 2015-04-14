@@ -5,7 +5,7 @@
 #include "UTRemoteRedeemer.generated.h"
 
 UCLASS(Abstract, config = Game)
-class AUTRemoteRedeemer : public APawn, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 

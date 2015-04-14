@@ -6,7 +6,7 @@
 #include "UTWeap_Redeemer.generated.h"
 
 UCLASS(Abstract)
-class AUTWeap_Redeemer : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_Redeemer : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

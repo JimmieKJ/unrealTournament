@@ -6,7 +6,7 @@
 #include "UTWeapAttachment_ImpactHammer.generated.h"
 
 UCLASS(Blueprintable, NotPlaceable, Abstract, CustomConstructor)
-class AUTWeapAttachment_ImpactHammer : public AUTWeaponAttachment
+class UNREALTOURNAMENT_API AUTWeapAttachment_ImpactHammer : public AUTWeaponAttachment
 {
 	GENERATED_UCLASS_BODY()
 

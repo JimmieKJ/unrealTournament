@@ -5,7 +5,7 @@
 
 
 UCLASS()
-class AUTPainVolume : public APainCausingVolume
+class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume
 {
 	GENERATED_UCLASS_BODY()
 

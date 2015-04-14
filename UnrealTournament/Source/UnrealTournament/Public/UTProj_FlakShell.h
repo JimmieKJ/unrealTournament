@@ -11,7 +11,7 @@
  * - Spawns 5 Shards on impact
  */
 UCLASS(Abstract, meta = (ChildCanTick))
-class AUTProj_FlakShell : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_FlakShell : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 

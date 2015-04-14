@@ -31,7 +31,7 @@ struct FPickupClaim
 };
 
 UCLASS()
-class AUTTeamInfo : public AInfo, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 

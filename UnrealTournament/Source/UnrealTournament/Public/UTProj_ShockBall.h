@@ -7,7 +7,7 @@
 #include "UTProj_ShockBall.generated.h"
 
 UCLASS(Abstract)
-class AUTProj_ShockBall : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_ShockBall : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 

@@ -42,7 +42,7 @@ struct FBioWebLink
 };
 
 UCLASS()
-class AUTProj_BioShot : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_BioShot : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 

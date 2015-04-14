@@ -9,7 +9,7 @@
 */
 
 UCLASS(BlueprintType)
-class AUTWaterVolume : public APhysicsVolume
+class UNREALTOURNAMENT_API AUTWaterVolume : public APhysicsVolume
 {
 	GENERATED_UCLASS_BODY()
 

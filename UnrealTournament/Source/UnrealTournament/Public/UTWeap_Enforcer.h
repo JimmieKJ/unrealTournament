@@ -4,7 +4,7 @@
 #include "UTWeap_Enforcer.generated.h"
 
 UCLASS(abstract)
-class AUTWeap_Enforcer : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

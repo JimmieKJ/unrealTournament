@@ -6,7 +6,7 @@
 #include "UTWeapAttachment_RocketLauncher.generated.h"
 
 UCLASS(CustomConstructor)
-class AUTWeapAttachment_RocketLauncher : public AUTWeaponAttachment
+class UNREALTOURNAMENT_API AUTWeapAttachment_RocketLauncher : public AUTWeaponAttachment
 {
 	GENERATED_UCLASS_BODY()
 

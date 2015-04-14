@@ -16,7 +16,7 @@ enum ETLState
 class AUTWeap_Translocator;
 
 UCLASS()
-class AUTProj_TransDisk : public AUTProjectile, public IUTMovementBaseInterface
+class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTMovementBaseInterface
 {
 	GENERATED_UCLASS_BODY()
 

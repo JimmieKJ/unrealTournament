@@ -5,7 +5,7 @@
 #include "UTNavBlockingVolume.generated.h"
 
 UCLASS(CustomConstructor)
-class AUTNavBlockingVolume : public AVolume // can't sublcass ABlockingVolume either...
+class UNREALTOURNAMENT_API AUTNavBlockingVolume : public AVolume // can't sublcass ABlockingVolume either...
 {
 	GENERATED_UCLASS_BODY()
 

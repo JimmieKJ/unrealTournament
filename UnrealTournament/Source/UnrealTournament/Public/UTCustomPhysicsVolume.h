@@ -4,7 +4,7 @@
 #include "UTCustomPhysicsVolume.generated.h"
 
 UCLASS(BlueprintType)
-class AUTCustomPhysicsVolume : public APhysicsVolume
+class UNREALTOURNAMENT_API AUTCustomPhysicsVolume : public APhysicsVolume
 {
 	GENERATED_UCLASS_BODY()
 

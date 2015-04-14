@@ -4,7 +4,7 @@
 #include "UTProj_Sniper.generated.h"
 
 UCLASS(CustomConstructor, Abstract)
-class AUTProj_Sniper : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_Sniper : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 

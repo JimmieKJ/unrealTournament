@@ -11,7 +11,7 @@
  * - Damage is increased when firing at point blank at middle of character
  */
 UCLASS(Abstract, meta = (ChildCanTick))
-class AUTProj_FlakShardMain : public AUTProj_FlakShard
+class UNREALTOURNAMENT_API AUTProj_FlakShardMain : public AUTProj_FlakShard
 {
 	GENERATED_UCLASS_BODY()
 

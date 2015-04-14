@@ -8,7 +8,7 @@
 
 class AUTProj_TransDisk;
 UCLASS(abstract)
-class AUTWeap_Translocator : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

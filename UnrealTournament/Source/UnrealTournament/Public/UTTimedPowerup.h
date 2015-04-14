@@ -4,7 +4,7 @@
 #include "UTTimedPowerup.generated.h"
 
 UCLASS(Blueprintable, Abstract)
-class AUTTimedPowerup : public AUTInventory
+class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()
 

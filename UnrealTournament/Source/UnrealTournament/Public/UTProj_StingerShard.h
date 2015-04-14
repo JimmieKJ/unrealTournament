@@ -7,7 +7,7 @@
 #include "UTProj_StingerShard.generated.h"
 
 UCLASS()
-class AUTProj_StingerShard : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_StingerShard : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 

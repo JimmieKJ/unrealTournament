@@ -6,7 +6,7 @@
 #include "UTWeapAttachment_BioRifle.generated.h"
 
 UCLASS(Blueprintable, NotPlaceable, Abstract)
-class AUTWeapAttachment_BioRifle : public AUTWeaponAttachment
+class UNREALTOURNAMENT_API AUTWeapAttachment_BioRifle : public AUTWeaponAttachment
 {
 	GENERATED_BODY()
 public:

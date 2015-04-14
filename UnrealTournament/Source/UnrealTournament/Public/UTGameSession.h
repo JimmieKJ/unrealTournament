@@ -9,7 +9,7 @@
 #include "UTGameSession.generated.h"
 
 UCLASS()
-class AUTGameSession : public AGameSession
+class UNREALTOURNAMENT_API AUTGameSession : public AGameSession
 {
 	GENERATED_UCLASS_BODY()
 

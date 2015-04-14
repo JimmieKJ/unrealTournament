@@ -7,7 +7,7 @@
  * not spawned on dedicated servers
  */
 UCLASS(Blueprintable, NotPlaceable, Abstract)
-class AUTWeaponAttachment : public AActor
+class UNREALTOURNAMENT_API AUTWeaponAttachment : public AActor
 {
 	GENERATED_UCLASS_BODY()
 

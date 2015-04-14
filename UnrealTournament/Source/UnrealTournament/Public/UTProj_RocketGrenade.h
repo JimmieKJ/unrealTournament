@@ -6,7 +6,7 @@
 #include "UTProj_RocketGrenade.generated.h"
 
 UCLASS()
-class AUTProj_RocketGrenade : public AUTProj_Rocket
+class UNREALTOURNAMENT_API AUTProj_RocketGrenade : public AUTProj_Rocket
 {
 	GENERATED_UCLASS_BODY()
 

@@ -3,8 +3,8 @@
 #pragma once
 #include "UTArmor.generated.h"
 
-UCLASS(MinimalAPI, Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))
-class AUTArmor : public AUTInventory
+UCLASS(Blueprintable, Abstract, notplaceable, meta = (ChildCanTick))
+class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()
 

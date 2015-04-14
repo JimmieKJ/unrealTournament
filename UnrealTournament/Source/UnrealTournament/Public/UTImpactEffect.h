@@ -22,7 +22,7 @@ struct FImpactEffectNamedParameters
  * this class is an Actor primarily for the editability features and should not be directly spawned
  */
 UCLASS(Blueprintable, Abstract)
-class AUTImpactEffect : public AActor
+class UNREALTOURNAMENT_API AUTImpactEffect : public AActor
 {
 	GENERATED_UCLASS_BODY()
 

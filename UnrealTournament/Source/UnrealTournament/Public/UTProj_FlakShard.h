@@ -11,7 +11,7 @@
  * - Damage is decreased over time
  */
 UCLASS(Abstract, meta = (ChildCanTick))
-class AUTProj_FlakShard : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 

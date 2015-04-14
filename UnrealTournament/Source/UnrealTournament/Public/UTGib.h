@@ -7,7 +7,7 @@
 #include "UTGib.generated.h"
 
 UCLASS(Abstract, BlueprintType)
-class AUTGib : public AActor
+class UNREALTOURNAMENT_API AUTGib : public AActor
 {
 	GENERATED_UCLASS_BODY()
 

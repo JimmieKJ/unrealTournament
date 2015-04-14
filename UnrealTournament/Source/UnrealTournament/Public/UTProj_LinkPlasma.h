@@ -6,7 +6,7 @@
 #include "UTProj_LinkPlasma.generated.h"
 
 UCLASS(Abstract)
-class AUTProj_LinkPlasma : public AUTProjectile
+class UNREALTOURNAMENT_API AUTProj_LinkPlasma : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
