@@ -1307,7 +1307,10 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 			UTPlayerState->ForceNetUpdate();
 		}
 	}
-
+	else if (IsFrozen())
+	{
+		return;
+	}
 	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
 	{
 		// If we can't restart this player, try to view a new player
