@@ -1018,9 +1018,53 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -SkipCook -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
+            
+            if (CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
+            {
+                SubmitVersionFilesToPerforce();
+            }
 
 			string ReleasesDir = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UnrealTournament", "Releases");
 			BuildProducts.AddRange(CommandUtils.FindFiles("*", true, ReleasesDir));
+        }
+
+        public void SubmitVersionFilesToPerforce()
+        {
+            if (CommandUtils.P4Enabled)
+            {
+                int VersionFilesCL = CommandUtils.P4.CreateChange(CommandUtils.P4Env.Client, String.Format("Submitting version files"));
+                if (VersionFilesCL > 0)
+                {
+                    var VersionFiles = new string[4];
+                    VersionFiles[0] = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Build", "build.properties");
+                    VersionFiles[1] = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Source", "Runtime", "Core", "Private", "UObject", "ObjectVersion.cpp");
+                    VersionFiles[2] = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Source", "Runtime", "Launch", "Resources", "Version.h");
+                    VersionFiles[3] = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Source", "Programs", "DotNETCommon", "MetaData.cs");
+                
+                    foreach (string VersionFile in VersionFiles)
+                    {
+                        CommandUtils.P4.Sync("-f -k " + VersionFile + "#head"); // sync the file without overwriting local one
+
+                        if (!CommandUtils.FileExists(VersionFile))
+                        {
+                            throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", VersionFile);
+                        }
+
+                        CommandUtils.P4.ReconcileNoDeletes(VersionFilesCL, VersionFile);                        
+                    }
+                    bool Pending;
+                    if (CommandUtils.P4.ChangeFiles(VersionFilesCL, out Pending).Count == 0)
+                    {
+                        CommandUtils.Log("************************* No files to submit.");
+                        CommandUtils.P4.DeleteChange(VersionFilesCL);
+                    }
+                    else
+                    {
+                        int SubmittedCL;
+                        CommandUtils.P4.Submit(VersionFilesCL, out SubmittedCL, true, true);
+                    }
+                }
+            }
         }
     }
 
