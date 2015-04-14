@@ -4,6 +4,7 @@
 #include "UTHUD_CTF.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFGameMessage.h"
+#include "UTCTFRewardMessage.h"
 #include "UTFirstBloodMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
@@ -128,7 +129,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 				AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
 				if (PS && PS->bNeedsAssistAnnouncement)
 				{
-					(*Iterator)->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
+					(*Iterator)->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, NULL, NULL);
 					PS->bNeedsAssistAnnouncement = false;
 				}
 			}

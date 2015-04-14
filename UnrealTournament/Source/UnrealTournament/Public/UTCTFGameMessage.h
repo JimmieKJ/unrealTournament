@@ -35,12 +35,9 @@ class UUTCTFGameMessage : public UUTCarriedObjectMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText HalftimeMessage;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText AssistMessage;
-
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 
-	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
+	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override;
 
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override;
 	virtual FName GetTeamAnnouncement(int32 Switch, uint8 TeamIndex) const;

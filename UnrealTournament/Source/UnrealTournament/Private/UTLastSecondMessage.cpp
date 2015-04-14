@@ -5,46 +5,11 @@
 #include "UTLastSecondMessage.h"
 #include "GameFramework/LocalMessage.h"
 
-
+// DEPRECATED!!!
 UUTLastSecondMessage::UUTLastSecondMessage(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	bIsUnique = true;
-	Importance = 0.8f;
-	bIsSpecial = true;
-	Lifetime = 3.0f;
-	MessageArea = FName(TEXT("GameMessages"));
-	bIsConsoleMessage = false;
-
-	bIsStatusAnnouncement = false;
 }
 
-FLinearColor UUTLastSecondMessage::GetMessageColor(int32 MessageIndex) const
-{
-	return FLinearColor::Yellow;
-}
-
-float UUTLastSecondMessage::GetScaleInSize(int32 MessageIndex) const
-{
-	return 3.f;
-}
-
-FName UUTLastSecondMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
-{
-	return (Switch == 0) ? FName(TEXT("Denied")) : FName(TEXT("LastSecondSave"));
-}
-
-void UUTLastSecondMessage::ClientReceive(const FClientReceiveData& ClientData) const
-{
-	Super::ClientReceive(ClientData);
-	if (ClientData.RelatedPlayerState_1 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_1->GetOwner())
-	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->RewardAnnouncer != NULL)
-		{
-			PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
-		}
-	}
-}
 
 

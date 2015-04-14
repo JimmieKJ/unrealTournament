@@ -5,7 +5,7 @@
 #include "UTProjectileMovementComponent.h"
 #include "UTImpactEffect.h"
 #include "UTProj_Redeemer.h"
-#include "UTLastSecondMessage.h"
+#include "UTCTFRewardMessage.h"
 
 AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -51,11 +51,11 @@ void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 	APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
 	if (Cast<AUTPlayerController>(InstigatedBy))
 	{
-		Cast<AUTPlayerController>(InstigatedBy)->ClientReceiveLocalizedMessage(UUTLastSecondMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+		Cast<AUTPlayerController>(InstigatedBy)->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
 	}
 	if (Cast<AUTPlayerController>(InstigatorController))
 	{
-		Cast<AUTPlayerController>(InstigatorController)->ClientReceiveLocalizedMessage(UUTLastSecondMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+		Cast<AUTPlayerController>(InstigatorController)->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
 	}
 }
 

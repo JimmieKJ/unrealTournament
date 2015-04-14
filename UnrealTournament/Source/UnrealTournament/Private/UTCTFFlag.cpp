@@ -5,7 +5,7 @@
 #include "UTCTFGameMessage.h"
 #include "UTCTFGameState.h"
 #include "UTCTFGameMode.h"
-#include "UTLastSecondMessage.h"
+#include "UTCTFRewardMessage.h"
 
 AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -119,7 +119,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 				if (GM)
 				{
 					bDelayDroppedMessage = true;
-					GM->BroadcastLocalized(this, UUTLastSecondMessage::StaticClass(), 0, Killer->PlayerState, Holder, NULL);
+					GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 0, Killer->PlayerState, Holder, NULL);
 				}
 			}
 		}
