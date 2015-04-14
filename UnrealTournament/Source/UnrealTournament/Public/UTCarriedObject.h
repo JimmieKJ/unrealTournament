@@ -34,7 +34,7 @@ public:
 
 
 UCLASS()
-class AUTCarriedObject : public AActor, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 

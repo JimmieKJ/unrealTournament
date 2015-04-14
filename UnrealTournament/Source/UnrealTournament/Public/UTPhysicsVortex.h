@@ -5,7 +5,7 @@
 #include "UTPhysicsVortex.generated.h"
 
 UCLASS(Blueprintable, NotPlaceable)
-class AUTPhysicsVortex : public AActor
+class UNREALTOURNAMENT_API AUTPhysicsVortex : public AActor
 {
 	GENERATED_UCLASS_BODY()
 

@@ -11,7 +11,7 @@
  * the emitter defaults to being based on its Owner, so that the Base can effectively be passed as part of the spawn parameters
  */
 UCLASS(Blueprintable, Abstract, Meta=(ChildCanTick))
-class AUTReplicatedEmitter : public AActor
+class UNREALTOURNAMENT_API AUTReplicatedEmitter : public AActor
 {
 	GENERATED_UCLASS_BODY()
 	

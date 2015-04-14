@@ -4,7 +4,7 @@
 #include "UTJumpBoots.generated.h"
 
 UCLASS(abstract)
-class AUTJumpBoots : public AUTInventory
+class UNREALTOURNAMENT_API AUTJumpBoots : public AUTInventory
 {
 	GENERATED_UCLASS_BODY()
 

@@ -5,7 +5,7 @@
 #include "UTSpectatorPawn.generated.h"
 
 UCLASS(CustomConstructor)
-class AUTSpectatorPawn : public ASpectatorPawn
+class UNREALTOURNAMENT_API AUTSpectatorPawn : public ASpectatorPawn
 {
 	GENERATED_UCLASS_BODY()
 

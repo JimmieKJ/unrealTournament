@@ -10,7 +10,7 @@
 * jump pad for launching characters
 */
 UCLASS(Blueprintable, Abstract)
-class AUTTeleporter : public AActor, public IUTPathBuilderInterface
+class UNREALTOURNAMENT_API AUTTeleporter : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_UCLASS_BODY()
 

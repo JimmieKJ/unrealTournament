@@ -65,7 +65,7 @@ struct FRepCollisionShape
 };
 
 UCLASS(Blueprintable, NotPlaceable)
-class AUTWeaponRedirector : public AActor
+class UNREALTOURNAMENT_API AUTWeaponRedirector : public AActor
 {
 	GENERATED_BODY()
 

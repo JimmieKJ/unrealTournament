@@ -4,7 +4,7 @@
 #include "UTTeamPlayerStart.generated.h"
 
 UCLASS(CustomConstructor)
-class AUTTeamPlayerStart : public APlayerStart, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTTeamPlayerStart : public APlayerStart, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 

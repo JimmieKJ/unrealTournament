@@ -4,7 +4,7 @@
 #include "UTPickupToken.generated.h"
 
 UCLASS(Blueprintable, Abstract)
-class AUTPickupToken : public AActor
+class UNREALTOURNAMENT_API AUTPickupToken : public AActor
 {
 	GENERATED_UCLASS_BODY()
 

@@ -41,7 +41,7 @@ extern FName NAME_Attack;
 extern FName NAME_Defend;
 
 UCLASS(NotPlaceable)
-class AUTSquadAI : public AInfo, public IUTTeamInterface
+class UNREALTOURNAMENT_API AUTSquadAI : public AInfo, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
 

@@ -4,7 +4,7 @@
 #include "UTPlayerCameraManager.generated.h"
 
 UCLASS(Config = Game)
-class AUTPlayerCameraManager : public APlayerCameraManager
+class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 {
 	GENERATED_UCLASS_BODY()
 

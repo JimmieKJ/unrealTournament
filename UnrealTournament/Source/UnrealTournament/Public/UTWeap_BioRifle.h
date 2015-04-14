@@ -9,7 +9,7 @@
  * 
  */
 UCLASS(abstract)
-class AUTWeap_BioRifle : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_BioRifle : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

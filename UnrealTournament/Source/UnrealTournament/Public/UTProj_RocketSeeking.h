@@ -7,7 +7,7 @@
 
 // DEPRECATED - functionality is now in base rocket projectile
 UCLASS()
-class AUTProj_RocketSeeking : public AUTProj_Rocket
+class UNREALTOURNAMENT_API AUTProj_RocketSeeking : public AUTProj_Rocket
 {
 	GENERATED_UCLASS_BODY()
 

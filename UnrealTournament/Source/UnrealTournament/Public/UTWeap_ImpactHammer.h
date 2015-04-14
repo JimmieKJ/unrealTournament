@@ -3,7 +3,7 @@
 #include "UTWeap_ImpactHammer.generated.h"
 
 UCLASS(abstract)
-class AUTWeap_ImpactHammer : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

@@ -7,7 +7,7 @@
 #include "UTLift.generated.h"
 
 UCLASS(BlueprintType, Blueprintable, Abstract)
-class AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuilderInterface, public IUTMovementBaseInterface
+class UNREALTOURNAMENT_API AUTLift : public AActor, public INavRelevantInterface, public IUTPathBuilderInterface, public IUTMovementBaseInterface
 {
 	GENERATED_UCLASS_BODY()
 

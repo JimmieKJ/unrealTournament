@@ -6,7 +6,7 @@
 #include "UTWeap_ShockRifle.generated.h"
 
 UCLASS(abstract)
-class AUTWeap_ShockRifle : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

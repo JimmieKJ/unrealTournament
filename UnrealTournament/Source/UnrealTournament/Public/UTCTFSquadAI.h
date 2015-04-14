@@ -6,7 +6,7 @@
 #include "UTCTFSquadAI.generated.h"
 
 UCLASS(NotPlaceable)
-class AUTCTFSquadAI : public AUTSquadAI
+class UNREALTOURNAMENT_API AUTCTFSquadAI : public AUTSquadAI
 {
 	GENERATED_UCLASS_BODY()
 

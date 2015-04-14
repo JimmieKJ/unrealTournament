@@ -5,7 +5,7 @@
 #include "UTWeap_Minigun.generated.h"
 
 UCLASS(Abstract)
-class AUTWeap_Minigun : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_Minigun : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

@@ -16,7 +16,7 @@
  * - Fires a single explosive shell
  */
 UCLASS(abstract)
-class AUTWeap_FlakCannon : public AUTWeapon
+class UNREALTOURNAMENT_API AUTWeap_FlakCannon : public AUTWeapon
 {
 	GENERATED_UCLASS_BODY()
 

@@ -6,7 +6,7 @@
 #include "UTDemoRecSpectator.generated.h"
 
 UCLASS()
-class AUTDemoRecSpectator : public AUTPlayerController
+class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 {
 	GENERATED_UCLASS_BODY()
 
