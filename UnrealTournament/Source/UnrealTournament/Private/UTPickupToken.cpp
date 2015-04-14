@@ -6,6 +6,9 @@
 
 AUTPickupToken::AUTPickupToken(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+	// This was the only way I could make clientside actors that I could destroy
+	bReplicates = true;
+	bNetTemporary = true;
 }
 
 void AUTPickupToken::PostLoad()
@@ -30,7 +33,7 @@ void AUTPickupToken::PostActorCreated()
 }
 #endif
 
-bool AUTPickupToken::HasBeenPickedUpBefore_Implementation()
+bool AUTPickupToken::HasBeenPickedUpBefore()
 {
 	if (TokenUniqueID != NAME_None)
 	{
@@ -40,18 +43,18 @@ bool AUTPickupToken::HasBeenPickedUpBefore_Implementation()
 	return false;
 }
 
-void AUTPickupToken::PickedUp_Implementation()
+void AUTPickupToken::PickedUp()
 {
 	if (TokenUniqueID != NAME_None)
 	{
-		return UUTGameplayStatics::TokenPickedUp(GetWorld(), TokenUniqueID);
+		UUTGameplayStatics::TokenPickedUp(GetWorld(), TokenUniqueID);
 	}
 }
 
-void AUTPickupToken::Revoke_Implementation()
+void AUTPickupToken::Revoke()
 {
 	if (TokenUniqueID != NAME_None)
 	{
-		return UUTGameplayStatics::TokenRevoke(GetWorld(), TokenUniqueID);
+		UUTGameplayStatics::TokenRevoke(GetWorld(), TokenUniqueID);
 	}
 }

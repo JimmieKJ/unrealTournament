@@ -17,12 +17,12 @@ class UNREALTOURNAMENT_API AUTPickupToken : public AActor
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = Pickup)
 	FName TokenUniqueID;
 
-	UFUNCTION(BlueprintNativeEvent, Category = Pickup)
+	UFUNCTION(BlueprintCallable, Category = Pickup)
 	bool HasBeenPickedUpBefore();
 
-	UFUNCTION(BlueprintNativeEvent, Category = Pickup)
+	UFUNCTION(BlueprintCallable, Category = Pickup)
 	void PickedUp();
 
-	UFUNCTION(BlueprintNativeEvent, Category = Pickup)
+	UFUNCTION(BlueprintCallable, Category = Pickup)
 	void Revoke();
 };
