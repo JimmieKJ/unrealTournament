@@ -176,8 +176,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		{
 			DesiredLoc = UTCharacter->GetCapsuleComponent()->GetComponentLocation();
 		}
-
-		if (UTFlagBase != nullptr)
+		else if (UTFlagBase != nullptr)
 		{
 			DesiredLoc += FlagBaseFreeCamOffset;
 		}
@@ -187,14 +186,10 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		LastThirdPersonCameraLoc = Loc;
 		LastThirdPersonTarget = OutVT.Target;
 
-		float CameraDistance = FreeCamDistance;
-		FVector CameraOffset = FreeCamOffset;
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
-		if (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver)
-		{
-			CameraDistance = EndGameFreeCamDistance;
-			CameraOffset = EndGameFreeCamOffset;
-		}
+		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
+		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
+		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
 
 		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
 		FCollisionQueryParams BoxParams(NAME_FreeCam, false, this);

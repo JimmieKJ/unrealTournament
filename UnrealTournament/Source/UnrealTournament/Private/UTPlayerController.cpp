@@ -596,7 +596,29 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 			UTCharacter->SwitchWeapon(Best);
 		}
 	}
+	else if (PlayerState && PlayerState->bIsSpectator && PlayerCameraManager)
+	{
+		float Offset = 10000.f * GetWorld()->GetDeltaSeconds();
+		if (bPrev)
+		{
+			Offset *= -1.f;
+		}
+		ASpectatorPawn* Spectator = Cast<ASpectatorPawn>(GetViewTarget());
+		if (!Spectator)
+		{
+			PlayerCameraManager->FreeCamDistance = FMath::Clamp(PlayerCameraManager->FreeCamDistance + Offset, 16.f, 2048.f);
+		}
+		else
+		{
+			USpectatorPawnMovement* SpectatorMovement = Cast<USpectatorPawnMovement>(Spectator->GetMovementComponent());
+			if (SpectatorMovement)
+			{
+				SpectatorMovement->MaxSpeed = FMath::Clamp(SpectatorMovement->MaxSpeed + 5.f*Offset, 200.f, 6000.f);
+			}
+		}
+	}
 }
+
 void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 {
 	if (UTCharacter != NULL && IsLocalPlayerController())
