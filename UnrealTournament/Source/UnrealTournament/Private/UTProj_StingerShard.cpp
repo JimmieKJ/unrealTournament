@@ -146,6 +146,12 @@ void AUTProj_StingerShard::AttachToRagdoll(AUTCharacter* HitChar, const FVector&
 	}
 	if (ClosestRagdollPart != NULL)
 	{
+		if (HitChar->RagdollConstraint != NULL)
+		{
+			HitChar->RagdollConstraint->BreakConstraint();
+			HitChar->RagdollConstraint->DestroyComponent();
+			HitChar->RagdollConstraint = NULL;
+		}
 		UPhysicsConstraintComponent* NewConstraint = NewObject<UPhysicsConstraintComponent>(this);
 		NewConstraint->OnComponentCreated();
 		NewConstraint->SetWorldLocation(HitLocation); // note: important! won't work right if not in the proper location
@@ -154,6 +160,7 @@ void AUTProj_StingerShard::AttachToRagdoll(AUTCharacter* HitChar, const FVector&
 		NewConstraint->SetConstrainedComponents(HitChar->GetMesh(), ClosestRagdollPart->BodySetup.Get()->BoneName, Cast<UPrimitiveComponent>(ProjectileMovement->UpdatedComponent), NAME_None);
 		NewConstraint->ConstraintInstance.ProjectionLinearTolerance = 0.05f;
 		//NewConstraint->ConstraintInstance.EnableProjection();
+		HitChar->RagdollConstraint = NewConstraint;
 	}
 	AttachedPawns.Add(HitChar);
 }
