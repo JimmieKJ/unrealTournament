@@ -489,9 +489,9 @@ bool UUTGameplayStatics::HasTokenBeenPickedUpBefore(UObject* WorldContextObject,
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP)
+		if (LP && LP->GetProfileSettings())
 		{
-			LP->GetProfileSettings()->HasTokenBeenPickedUpBefore(TokenUniqueID);
+			return LP->GetProfileSettings()->HasTokenBeenPickedUpBefore(TokenUniqueID);
 		}
 	}
 
@@ -504,7 +504,7 @@ void UUTGameplayStatics::TokenPickedUp(UObject* WorldContextObject, FName TokenU
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP)
+		if (LP && LP->GetProfileSettings())
 		{
 			LP->GetProfileSettings()->TokenPickedUp(TokenUniqueID);
 		}
@@ -517,7 +517,7 @@ void UUTGameplayStatics::TokenRevoke(UObject* WorldContextObject, FName TokenUni
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP)
+		if (LP && LP->GetProfileSettings())
 		{
 			LP->GetProfileSettings()->TokenRevoke(TokenUniqueID);
 		}
@@ -530,7 +530,7 @@ void UUTGameplayStatics::TokensCommit(UObject* WorldContextObject)
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP)
+		if (LP && LP->GetProfileSettings())
 		{
 			LP->GetProfileSettings()->TokensCommit();
 		}
@@ -543,7 +543,7 @@ void UUTGameplayStatics::TokensReset(UObject* WorldContextObject)
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP)
+		if (LP && LP->GetProfileSettings())
 		{
 			LP->GetProfileSettings()->TokensReset();
 		}

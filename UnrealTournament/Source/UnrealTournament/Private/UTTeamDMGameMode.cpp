@@ -23,7 +23,7 @@ void AUTTeamDMGameMode::InitGame( const FString& MapName, const FString& Options
 }
 
 
-void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	AUTPlayerState* KillerState = (Killer != NULL) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 	AUTPlayerState* VictimState = (Other != NULL) ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
@@ -77,7 +77,7 @@ void AUTTeamDMGameMode::ScoreKill(AController* Killer, AController* Other, TSubc
 		}
 	}
 
-	Super::ScoreKill(Killer, Other, DamageType);
+	Super::ScoreKill(Killer, Other, KilledPawn, DamageType);
 }
 
 AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner(uint32& bTied)

@@ -179,8 +179,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
 		PC->WeaponBobGlobalScaling = WeaponBob;
 		PC->FFAPlayerColor = FFAPlayerColor;
-		// TODO: this got moved to system settings...
-		//PC->ConfigDefaultFOV = PlayerFOV;
+		PC->ConfigDefaultFOV = PlayerFOV;
 
 		PC->SaveConfig();
 		// Get any settings from UTPlayerInput

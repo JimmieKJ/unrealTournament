@@ -20,7 +20,6 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
-
 }
 
 FLinearColor UUTCTFGameMessage::GetMessageColor(int32 MessageIndex) const
@@ -57,7 +56,7 @@ bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const
 	}
 	if (GetClass() == OtherMessageClass)
 	{
-		if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9))
+		if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 12))
 		{
 			// never interrupt scoring announcements
 			return false;
@@ -73,13 +72,14 @@ bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const
 
 void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
-	for (int32 i = 0; i <= 10; i++)
+	for (int32 i = 0; i < 11; i++)
 	{
 		for (uint8 j = 0; j < 2; j++)
 		{
 			Announcer->PrecacheAnnouncement(GetTeamAnnouncement(i, j));
 		}
 	}
+	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(11, 0));
 }
 
 FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const

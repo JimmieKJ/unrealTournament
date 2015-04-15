@@ -3185,28 +3185,31 @@ void AUTCharacter::Tick(float DeltaTime)
 			GetMesh()->AddForce(0.7f*FluidForce, FName((TEXT("spine_02"))));
 			GetMesh()->AddForce(0.3f*FluidForce);
 		}
-		bool bHeadWasUnderwater = bHeadIsUnderwater;
-		bHeadIsUnderwater = IsRagdoll() || HeadIsUnderWater();
-
-		// handle being in or out of water
-		if (bHeadIsUnderwater)
+		if (Health > 0)
 		{
-			if (GetWorld()->GetTimeSeconds() - LastBreathTime > MaxUnderWaterTime)
+			bool bHeadWasUnderwater = bHeadIsUnderwater;
+			bHeadIsUnderwater = IsRagdoll() || HeadIsUnderWater();
+
+			// handle being in or out of water
+			if (bHeadIsUnderwater)
 			{
-				if (GetWorld()->GetTimeSeconds() - LastDrownTime > 1.f)
+				if (GetWorld()->GetTimeSeconds() - LastBreathTime > MaxUnderWaterTime)
 				{
-					TakeDrowningDamage();  
-					LastDrownTime = GetWorld()->GetTimeSeconds();
+					if (GetWorld()->GetTimeSeconds() - LastDrownTime > 1.f)
+					{
+						TakeDrowningDamage();
+						LastDrownTime = GetWorld()->GetTimeSeconds();
+					}
 				}
 			}
-		}
-		else
-		{
-			if (bHeadWasUnderwater && (GetWorld()->GetTimeSeconds() - LastBreathTime > MaxUnderWaterTime - 5.f))
+			else
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), GaspSound, this, SRT_None);
+				if (bHeadWasUnderwater && (GetWorld()->GetTimeSeconds() - LastBreathTime > MaxUnderWaterTime - 5.f))
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), GaspSound, this, SRT_None);
+				}
+				LastBreathTime = GetWorld()->GetTimeSeconds();
 			}
-			LastBreathTime = GetWorld()->GetTimeSeconds();
 		}
 	}
 	else
@@ -3743,7 +3746,7 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			LeaderHat->Destroy();
 			LeaderHat = nullptr;
 		}
-
+		
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
@@ -3764,6 +3767,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			{
 				HasHighScoreChanged();
 			}
+
+			// Flatten the hair so it won't show through hats
+			GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 1.0f);
 		}
 	}
 }

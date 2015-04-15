@@ -188,7 +188,7 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 
 bool AUTWeap_RocketLauncher::ShouldFireLoad()
 {
-	return !UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->Health <= 0);
+	return !UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->Health <= 0) || UTOwner->IsRagdoll();
 }
 
 void AUTWeap_RocketLauncher::FireShot()

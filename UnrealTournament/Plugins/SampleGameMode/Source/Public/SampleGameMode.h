@@ -40,6 +40,6 @@ class ASampleGameMode : public AUTGameMode
 	int32 MagicNumber;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
-	virtual void ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType) override;
+	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void GiveNewGun(AUTCharacter *UTCharacter);
 };

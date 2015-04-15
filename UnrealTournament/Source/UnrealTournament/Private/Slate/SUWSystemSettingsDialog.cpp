@@ -544,7 +544,6 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 	int32 AAModeSelection = ConvertAAModeToComboSelection(AAModeCVar->GetValueOnGameThread());
 
 	float DecalSliderSetting = (GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime <= 0.0f) ? 1.0f : ((GetDefault<AUTWorldSettings>()->MaxImpactEffectVisibleLifetime - DecalLifetimeRange.X) / (DecalLifetimeRange.Y - DecalLifetimeRange.X));
-	float FOVSliderSetting = (GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN);
 
 	// Calculate our current Screen Percentage
 	auto ScreenPercentageCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.ScreenPercentage"));
@@ -582,9 +581,6 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 	+ AddGeneralSliderWithLabelWidget(DecalLifetime, DecalLifetimeLabel, &SUWSystemSettingsDialog::OnDecalLifetimeChange, GetDecalLifetimeLabelText(DecalSliderSetting), DecalSliderSetting,
 		NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetime_Tooltip", "Controls how long decals last (like the bullet impact marks left on walls)."))
 	
-	+ AddGeneralSliderWithLabelWidget(FOV, FOVLabel, &SUWSystemSettingsDialog::OnFOVChange, GetFOVLabelText(FOVSliderSetting), FOVSliderSetting,
-		NSLOCTEXT("SUWSystemSettingsDialog", "FOV_Tooltip", "Controls the field of view of the gameplay camera."))
-
 	// Autodetect settings button
 	+SVerticalBox::Slot()
 	.HAlign(HAlign_Center)
@@ -639,17 +635,6 @@ FReply SUWSystemSettingsDialog::OnTabClickAudio()
 	GraphicsSettingsTabButton->UnPressed();
 	AudioSettingsTabButton->BePressed();
 	return FReply::Handled();
-}
-
-FString SUWSystemSettingsDialog::GetFOVLabelText(float SliderValue)
-{
-	int32 FOVAngle = FMath::TruncToInt(SliderValue * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
-	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "FOV", "Field of View ({Value})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
-}
-
-void SUWSystemSettingsDialog::OnFOVChange(float NewValue)
-{
-	FOVLabel->SetText(GetFOVLabelText(NewValue));
 }
 
 FString SUWSystemSettingsDialog::GetScreenPercentageLabelText(float SliderValue)
@@ -759,19 +744,6 @@ FReply SUWSystemSettingsDialog::OKClick()
 	GEngine->bSmoothFrameRate = SmoothFrameRate->IsChecked();
 	GEngine->SaveConfig();
 	UTEngine->SaveConfig();
-
-	// FOV
-	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
-	AUTPlayerController* PC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (PC != NULL)
-	{
-		PC->FOV(NewFOV);
-	}
-	else
-	{
-		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->ConfigDefaultFOV = NewFOV;
-		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
-	}
 
 	// impact effect lifetime - note that 1.0 on the slider is infinite lifetime
 	float NewDecalLifetime = (DecalLifetime->GetValue() * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);

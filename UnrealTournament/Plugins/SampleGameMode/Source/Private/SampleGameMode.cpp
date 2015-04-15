@@ -32,12 +32,12 @@ void ASampleGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
-void ASampleGameMode::ScoreKill(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+void ASampleGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	// Just a suicide, pass it through
 	if (Killer == Other || Killer == nullptr)
 	{
-		Super::ScoreKill(Killer, Other, DamageType);
+		Super::ScoreKill(Killer, Other, KilledPawn, DamageType);
 		return;
 	}
 
@@ -49,7 +49,7 @@ void ASampleGameMode::ScoreKill(AController* Killer, AController* Other, TSubcla
 		{
 			if (DamageType == ScoringDamageTypes[DamageIndex].DamageType[i])
 			{
-				Super::ScoreKill(Killer, Other, DamageType);
+				Super::ScoreKill(Killer, Other, KilledPawn, DamageType);
 				
 				KillerPlayerState->PlayerLevel = KillerPlayerState->Score;
 

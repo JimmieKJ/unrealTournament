@@ -240,6 +240,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	FMargin NameColumnPadding = FMargin(10, 4);
 	FMargin ValueColumnPadding = FMargin(0, 4);
 	
+	float FOVSliderSetting = (GetDefault<AUTPlayerController>()->ConfigDefaultFOV - FOV_CONFIG_MIN) / (FOV_CONFIG_MAX - FOV_CONFIG_MIN);
+
 	if (DialogContent.IsValid())
 	{
 		const float MessageTextPaddingX = 10.0f;
@@ -643,6 +645,24 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Orientation(Orient_Horizontal)
 							.Value(GetDefault<AUTPlayerController>()->EyeOffsetGlobalScaling / BOB_SCALING_FACTOR)
 						]
+						// FOV
+						+ SGridPanel::Slot(0, 2)
+						.Padding(NameColumnPadding)
+						[
+							SAssignNew(FOVLabel, STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(GetFOVLabelText(FOVSliderSetting))
+						]
+
+						+ SGridPanel::Slot(1, 2)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(FOV, SSlider)
+							.Style(SUWindowsStyle::Get(), "UT.Common.Slider")
+							.Orientation(Orient_Horizontal)
+							.Value(FOVSliderSetting)
+							.OnValueChanged(this, &SUWPlayerSettingsDialog::OnFOVChange)
+						]
 					]
 
 					//+ SVerticalBox::Slot()
@@ -792,6 +812,17 @@ void SUWPlayerSettingsDialog::AddReferencedObjects(FReferenceCollector& Collecto
 	Collector.AddReferencedObject(PlayerPreviewWorld);
 }
 
+FString SUWPlayerSettingsDialog::GetFOVLabelText(float SliderValue)
+{
+	int32 FOVAngle = FMath::TruncToInt(SliderValue * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
+	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "FOV", "Field of View ({Value})"), FText::FromString(FString::Printf(TEXT("%i"), FOVAngle))).ToString();
+}
+
+void SUWPlayerSettingsDialog::OnFOVChange(float NewValue)
+{
+	FOVLabel->SetText(GetFOVLabelText(NewValue));
+}
+
 void SUWPlayerSettingsDialog::OnNameTextChanged(const FText& NewText)
 {
 	FString AdjustedText = NewText.ToString();
@@ -831,6 +862,9 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	
 	GetPlayerOwner()->SetCountryFlag(NewFlag,false);
 
+	// FOV
+	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
+
 	// If we have a valid PC then tell the PC to set it's name
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (UTPlayerController != NULL)
@@ -845,6 +879,13 @@ FReply SUWPlayerSettingsDialog::OKClick()
 		{
 			UTPlayerController->GetUTCharacter()->NotifyTeamChanged();
 		}
+
+		UTPlayerController->FOV(NewFOV);
+	}
+	else
+	{
+		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->ConfigDefaultFOV = NewFOV;
+		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 	}
 
 	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
@@ -923,22 +964,31 @@ TOptional<int32> SUWPlayerSettingsDialog::GetEmote3Value() const
 
 void SUWPlayerSettingsDialog::OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedHat->SetText(*NewSelection.Get());
-	PopulateHatVariants();
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		SelectedHat->SetText(*NewSelection.Get());
+		PopulateHatVariants();
+		RecreatePlayerPreview();
+	}
 }
 
 void SUWPlayerSettingsDialog::OnHatVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedHatVariant->SetText(*NewSelection.Get());
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		SelectedHatVariant->SetText(*NewSelection.Get());
+		RecreatePlayerPreview();
+	}
 }
 
 void SUWPlayerSettingsDialog::OnEyewearSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedEyewear->SetText(*NewSelection.Get());
-	PopulateEyewearVariants();
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		SelectedEyewear->SetText(*NewSelection.Get());
+		PopulateEyewearVariants();
+		RecreatePlayerPreview();
+	}
 }
 
 void SUWPlayerSettingsDialog::OnEyewearVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
@@ -949,37 +999,46 @@ void SUWPlayerSettingsDialog::OnEyewearVariantSelected(TSharedPtr<FString> NewSe
 
 void SUWPlayerSettingsDialog::OnCharacterSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedCharacter->SetText(*NewSelection.Get());
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		SelectedCharacter->SetText(*NewSelection.Get());
+		RecreatePlayerPreview();
+	}
 }
 
 void SUWPlayerSettingsDialog::OnTauntSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedTaunt->SetText(*NewSelection.Get());
-
-	if (PlayerPreviewMesh != nullptr)
+	if (NewSelection.IsValid())
 	{
-		int32 TauntIndex = TauntList.Find(NewSelection);
-		UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
-		if (TauntClass)
+		SelectedTaunt->SetText(*NewSelection.Get());
+
+		if (PlayerPreviewMesh != nullptr)
 		{
-			PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
-			//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+			int32 TauntIndex = TauntList.Find(NewSelection);
+			UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
+			if (TauntClass)
+			{
+				PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
+				//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+			}
 		}
 	}
 }
 
 void SUWPlayerSettingsDialog::OnTaunt2Selected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedTaunt2->SetText(*NewSelection.Get());
-	if (PlayerPreviewMesh != nullptr)
+	if (NewSelection.IsValid())
 	{
-		int32 TauntIndex = TauntList.Find(NewSelection);
-		UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
-		if (TauntClass)
+		SelectedTaunt2->SetText(*NewSelection.Get());
+		if (PlayerPreviewMesh != nullptr)
 		{
-			PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
-			//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+			int32 TauntIndex = TauntList.Find(NewSelection);
+			UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
+			if (TauntClass)
+			{
+				PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
+				//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+			}
 		}
 	}
 }
@@ -1142,6 +1201,8 @@ void SUWPlayerSettingsDialog::PopulateHatVariants()
 	{
 		HatVariantComboBox->SetVisibility(EVisibility::Visible);
 	}
+
+	HatVariantComboBox->RefreshOptions();
 }
 
 void SUWPlayerSettingsDialog::PopulateEyewearVariants()

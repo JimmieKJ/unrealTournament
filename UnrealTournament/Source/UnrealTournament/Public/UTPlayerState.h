@@ -86,6 +86,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	int32 MultiKillLevel;
 
+	/** Current number of consecutive kills without dying. */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 	int32 Spree;
 
@@ -148,6 +149,30 @@ public:
 	/** The currently held object */
 	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnCarriedObjectChanged, Category = PlayerState)
 	class AUTCarriedObject* CarriedObject;
+
+	/** Last time this player shot the enemy flag carrier. */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		float LastShotFCTime;
+
+	/** Enemy flag carrier who was last shot. */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		AUTPlayerState* LastShotFC;
+
+	/** Last time this player killed the enemy flag carrier. */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		float LastKilledFCTime;
+
+	/** Accumulate partial damage on enemy flag carrier for scoring. */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		float FCDamageAccum;
+
+	/** Last time this player returned the flag. */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		float LastFlagReturnTime;
+
+	/** Transient - used for triggering assist announcements after a kill. */
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+		bool bNeedsAssistAnnouncement;
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	TArray<FWeaponSpree> WeaponSprees;

@@ -58,6 +58,8 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float AnnouncementDelay;
 
+	virtual float GetAnnouncementDelay(int32 Switch);
+
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
 
 	UFUNCTION(BlueprintImplementableEvent)
