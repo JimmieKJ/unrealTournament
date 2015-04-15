@@ -3746,7 +3746,7 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			LeaderHat->Destroy();
 			LeaderHat = nullptr;
 		}
-
+		
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
@@ -3767,6 +3767,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			{
 				HasHighScoreChanged();
 			}
+
+			// Flatten the hair so it won't show through hats
+			GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 1.0f);
 		}
 	}
 }
