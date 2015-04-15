@@ -623,6 +623,10 @@ uint8 AUTCTFGameMode::TeamWithAdvantage()
 
 bool AUTCTFGameMode::CheckAdvantage()
 {
+	if (!CTFGameState || !CTFGameState->FlagBases[0] || !CTFGameState->FlagBases[1])
+	{
+		return false;
+	}
 	AUTCTFFlag* Flags[2];
 	Flags[0] = CTFGameState->FlagBases[0]->MyFlag;
 	Flags[1] = CTFGameState->FlagBases[1]->MyFlag;
@@ -630,7 +634,7 @@ bool AUTCTFGameMode::CheckAdvantage()
 	uint8 OtherTeam = 1 - CTFGameState->AdvantageTeamIndex;
 
 	// The Flag was returned so advantage lost
-	if (Flags[OtherTeam]->ObjectState == CarriedObjectState::Home) 
+	if (!Flags[0] || !Flags[1] || Flags[OtherTeam]->ObjectState == CarriedObjectState::Home)
 	{
 		return false;	
 	}
