@@ -327,7 +327,7 @@ void AUTTeamGameMode::DefaultTimer()
 	}
 }
 
-void AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
+bool AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	if (InstigatedBy != NULL && InstigatedBy != Injured->Controller && Cast<AUTGameState>(GameState)->OnSameTeam(Injured, InstigatedBy))
 	{
@@ -335,6 +335,7 @@ void AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Moment
 		Momentum *= TeamMomentumPct;
 	}
 	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
+	return true;
 }
 
 float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
