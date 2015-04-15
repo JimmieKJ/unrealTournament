@@ -713,6 +713,39 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 			UTCharacter->SwitchWeapon(LowestSlotWeapon);
 		}
 	}
+	else if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		ServerViewPlayer(Group, 0);
+	}
+}
+
+bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 TeamIndex)
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState && (GameState->Teams.Num() > 0))
+		{
+			if ((GameState->Teams.Num() > TeamIndex) && (GameState->Teams[TeamIndex] != NULL))
+			{
+				TArray<AController*> Members = GameState->Teams[TeamIndex]->GetTeamMembers();
+				if ((Members.Num() > Index) && (Members[Index] != NULL) && Members[Index]->PlayerState)
+				{
+					SetViewTarget(Members[Index]->PlayerState);
+				}
+			}
+
+		}
+		else if (GameState && (Index < GameState->PlayerArray.Num()) && (GameState->PlayerArray[Index] != NULL))
+		{
+			SetViewTarget(GameState->PlayerArray[Index]);
+		}
+	}
 }
 
 void AUTPlayerController::PlayMenuSelectSound()
