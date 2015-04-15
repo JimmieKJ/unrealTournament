@@ -303,6 +303,15 @@ void AUTGameState::OnTeamSideSwap()
 				}
 			}
 		}
+		if (Role == ROLE_Authority)
+		{
+			// re-initialize all AI squads, in case objectives have changed sides
+			for (AUTTeamInfo* Team : Teams)
+			{
+				Team->ReinitSquads();
+			}
+		}
+
 		TeamSideSwapDelegate.Broadcast(TotalOffset);
 
 		PrevTeamSwapSidesOffset = TeamSwapSidesOffset;

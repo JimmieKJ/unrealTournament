@@ -195,3 +195,11 @@ void AUTTeamInfo::NotifyObjectiveEvent(AActor* InObjective, AController* Instiga
 		}
 	}
 }
+
+void AUTTeamInfo::ReinitSquads()
+{
+	for (AUTSquadAI* Squad : Squads)
+	{
+		Squad->Initialize(this, Squad->Orders);
+	}
+}

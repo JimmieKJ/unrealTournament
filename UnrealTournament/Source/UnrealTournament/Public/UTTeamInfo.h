@@ -188,6 +188,9 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 		new(PickupClaims) FPickupClaim(ClaimedBy, InPickup, bHardClaim);
 	}
 
+	/** called to reinitialize AI squads, generally after a game intermission (new round, halftime, etc) */
+	virtual void ReinitSquads();
+
 protected:
 	/** list of players on this team currently (server only) */
 	UPROPERTY(BlueprintReadOnly, Category = Team)
