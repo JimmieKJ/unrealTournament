@@ -211,7 +211,7 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 bool AUTCTFSquadAI::RecoverFriendlyFlag(AUTBot* B)
 {
 	bool bEnemyFlagOut = (EnemyBase == NULL || EnemyBase->GetCarriedObjectState() == CarriedObjectState::Home);
-	AUTCharacter* EnemyCarrier = GameObjective->GetCarriedObject()->HoldingPawn;
+	AUTCharacter* EnemyCarrier = FriendlyBase->GetCarriedObject()->HoldingPawn;
 
 	if (EnemyCarrier != NULL)
 	{
@@ -230,7 +230,7 @@ bool AUTCTFSquadAI::RecoverFriendlyFlag(AUTBot* B)
 	else
 	{
 		// TODO: model of where flag might be, search around for it
-		return B->TryPathToward(GameObjective->GetCarriedObject(), bEnemyFlagOut, "Find dropped flag");
+		return B->TryPathToward(FriendlyBase->GetCarriedObject(), bEnemyFlagOut, "Find dropped flag");
 	}
 }
 
