@@ -261,7 +261,7 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	{
 		DetachFrom(HoldingPawn->GetMesh());
 	}
-
+	LastHolder = Holder;
 	if (Holder != NULL)
 	{
 		Holder->ClearCarriedObject(this);

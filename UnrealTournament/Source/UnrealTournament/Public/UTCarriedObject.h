@@ -42,6 +42,10 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnHolderChanged, Category = GameObject)
 	AUTPlayerState* Holder;
 
+	// Holds the UTPlayerState of the last person to hold this object.  
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+	AUTPlayerState* LastHolder;
+
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 		float PickedUpTime;
 
