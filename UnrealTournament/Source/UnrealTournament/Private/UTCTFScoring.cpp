@@ -109,7 +109,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		{
 			AController* C = *Iterator;
 			AUTPlayerState* PS =  C ? Cast<AUTPlayerState>(C->PlayerState) : NULL;
-			if (PS != NULL && CTFGameState->OnSameTeam(PS, ScorerPS))
+			if (PS && (PS != ScorerPS) && CTFGameState->OnSameTeam(PS, ScorerPS))
 			{
 				if (GetWorld()->GetTimeSeconds() - PS->LastFlagReturnTime < RecentActionTimeThreshold)
 				{
