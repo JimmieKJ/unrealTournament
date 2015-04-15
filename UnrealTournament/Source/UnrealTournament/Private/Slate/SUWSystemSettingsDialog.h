@@ -51,8 +51,6 @@ protected:
 	TSharedPtr<STextBlock> SelectedPPQuality;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > EffectQuality;
 	TSharedPtr<STextBlock> SelectedEffectQuality;
-	TSharedPtr<SSlider> FOV;
-	TSharedPtr<STextBlock> FOVLabel;
 	TSharedPtr<SSlider> DecalLifetime;
 	TSharedPtr<STextBlock> DecalLifetimeLabel;
 
@@ -99,9 +97,6 @@ protected:
 	void OnAAModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	int32 ConvertAAModeToComboSelection(int32 AAMode);
 	int32 ConvertComboSelectionToAAMode(const FString& Selection);
-	
-	void OnFOVChange(float NewValue);
-	FString GetFOVLabelText(float SliderValue);
 
 	void OnDecalLifetimeChange(float NewValue);
 	FString GetDecalLifetimeLabelText(float SliderValue);

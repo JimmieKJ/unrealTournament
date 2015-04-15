@@ -133,6 +133,12 @@ protected:
 	void PlayerColorChanged(FLinearColor NewValue);
 	void OnNameTextChanged(const FText& NewText);
 
+	TSharedPtr<SSlider> FOV;
+	TSharedPtr<STextBlock> FOVLabel;
+
+	void OnFOVChange(float NewValue);
+	FString GetFOVLabelText(float SliderValue);
+
 	virtual void DragPlayerPreview(FVector2D MouseDelta);
 	virtual void ZoomPlayerPreview(float WheelDelta);
 	virtual void RecreatePlayerPreview();
