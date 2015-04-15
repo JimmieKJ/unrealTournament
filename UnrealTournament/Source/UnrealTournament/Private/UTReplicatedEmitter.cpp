@@ -8,6 +8,7 @@ AUTReplicatedEmitter::AUTReplicatedEmitter(const FObjectInitializer& ObjectIniti
 : Super(ObjectInitializer)
 {
 	PSC = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("Particles"));
+	PSC->SecondsBeforeInactive = 0.0f;
 	PSC->OnSystemFinished.AddDynamic(this, &AUTReplicatedEmitter::OnParticlesFinished);
 	RootComponent = PSC;
 	InitialLifeSpan = 10.0f;

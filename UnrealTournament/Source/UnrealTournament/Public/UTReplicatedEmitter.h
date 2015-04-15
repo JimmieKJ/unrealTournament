@@ -31,7 +31,7 @@ class UNREALTOURNAMENT_API AUTReplicatedEmitter : public AActor
 	{
 		if (GetNetMode() == NM_DedicatedServer)
 		{
-			InitialLifeSpan = (DedicatedServerLifeSpan <= 0.0f) ? 0.5f : DedicatedServerLifeSpan;
+			InitialLifeSpan = DedicatedServerLifeSpan;
 		}
 		Super::PostInitializeComponents();
 	}
