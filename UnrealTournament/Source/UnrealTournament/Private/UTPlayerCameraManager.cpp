@@ -91,7 +91,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	StylizedPPSettings[0].MotionBlurMax = 0.000000;
 	*/
 
-	LastThirdPersonCameraLoc = FVector(0);
+	LastThirdPersonCameraLoc = FVector::ZeroVector;
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
 }
 
@@ -170,9 +170,8 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 
-		FVector DesiredLoc = OutVT.Target->GetActorLocation();
-
-		// we must use the capsule location here as the ragdoll's root component can be rubbbing a wall
+		FVector DesiredLoc = (Cast<AController>(OutVT.Target) && !LastThirdPersonCameraLoc.IsZero()) ? LastThirdPersonCameraLoc : OutVT.Target->GetActorLocation();;
+		// we must use the capsule location here as the ragdoll's root component can be rubbing a wall
 		if (UTCharacter != nullptr && UTCharacter->IsRagdoll() && UTCharacter->GetCapsuleComponent() != nullptr)
 		{
 			DesiredLoc = UTCharacter->GetCapsuleComponent()->GetComponentLocation();
@@ -184,13 +183,9 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		}
 
 		FRotator Rotator = PCOwner->GetControlRotation();
-
-		FVector Loc = DesiredLoc;
-		if (LastThirdPersonCameraLoc != FVector(0))
-		{
-			Loc = FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
-		}
+		FVector Loc = (LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget) || ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f)) ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
 		LastThirdPersonCameraLoc = Loc;
+		LastThirdPersonTarget = OutVT.Target;
 
 		float CameraDistance = FreeCamDistance;
 		FVector CameraOffset = FreeCamOffset;
@@ -225,8 +220,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	}
 	else
 	{
-		LastThirdPersonCameraLoc = FVector(0);
-
+		LastThirdPersonCameraLoc = FVector::ZeroVector;
 		Super::UpdateViewTarget(OutVT, DeltaTime);
 	}
 
