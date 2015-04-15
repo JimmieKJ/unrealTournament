@@ -964,22 +964,31 @@ TOptional<int32> SUWPlayerSettingsDialog::GetEmote3Value() const
 
 void SUWPlayerSettingsDialog::OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedHat->SetText(*NewSelection.Get());
-	PopulateHatVariants();
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		SelectedHat->SetText(*NewSelection.Get());
+		PopulateHatVariants();
+		RecreatePlayerPreview();
+	}
 }
 
 void SUWPlayerSettingsDialog::OnHatVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedHatVariant->SetText(*NewSelection.Get());
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		SelectedHatVariant->SetText(*NewSelection.Get());
+		RecreatePlayerPreview();
+	}
 }
 
 void SUWPlayerSettingsDialog::OnEyewearSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedEyewear->SetText(*NewSelection.Get());
-	PopulateEyewearVariants();
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		SelectedEyewear->SetText(*NewSelection.Get());
+		PopulateEyewearVariants();
+		RecreatePlayerPreview();
+	}
 }
 
 void SUWPlayerSettingsDialog::OnEyewearVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
@@ -990,37 +999,46 @@ void SUWPlayerSettingsDialog::OnEyewearVariantSelected(TSharedPtr<FString> NewSe
 
 void SUWPlayerSettingsDialog::OnCharacterSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedCharacter->SetText(*NewSelection.Get());
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		SelectedCharacter->SetText(*NewSelection.Get());
+		RecreatePlayerPreview();
+	}
 }
 
 void SUWPlayerSettingsDialog::OnTauntSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedTaunt->SetText(*NewSelection.Get());
-
-	if (PlayerPreviewMesh != nullptr)
+	if (NewSelection.IsValid())
 	{
-		int32 TauntIndex = TauntList.Find(NewSelection);
-		UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
-		if (TauntClass)
+		SelectedTaunt->SetText(*NewSelection.Get());
+
+		if (PlayerPreviewMesh != nullptr)
 		{
-			PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
-			//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+			int32 TauntIndex = TauntList.Find(NewSelection);
+			UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
+			if (TauntClass)
+			{
+				PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
+				//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+			}
 		}
 	}
 }
 
 void SUWPlayerSettingsDialog::OnTaunt2Selected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedTaunt2->SetText(*NewSelection.Get());
-	if (PlayerPreviewMesh != nullptr)
+	if (NewSelection.IsValid())
 	{
-		int32 TauntIndex = TauntList.Find(NewSelection);
-		UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
-		if (TauntClass)
+		SelectedTaunt2->SetText(*NewSelection.Get());
+		if (PlayerPreviewMesh != nullptr)
 		{
-			PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
-			//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+			int32 TauntIndex = TauntList.Find(NewSelection);
+			UClass* TauntClass = LoadObject<UClass>(NULL, *TauntPathList[TauntIndex]);
+			if (TauntClass)
+			{
+				PlayerPreviewMesh->PlayTauntByClass(TSubclassOf<AUTTaunt>(TauntClass));
+				//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTTaunt>()->TauntMontage, true);
+			}
 		}
 	}
 }
@@ -1183,6 +1201,8 @@ void SUWPlayerSettingsDialog::PopulateHatVariants()
 	{
 		HatVariantComboBox->SetVisibility(EVisibility::Visible);
 	}
+
+	HatVariantComboBox->RefreshOptions();
 }
 
 void SUWPlayerSettingsDialog::PopulateEyewearVariants()
