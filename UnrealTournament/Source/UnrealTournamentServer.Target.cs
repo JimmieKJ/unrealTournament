@@ -9,6 +9,9 @@ public class UnrealTournamentServerTarget : TargetRules
 	{
         Type = TargetType.Server;
         bUsesSlate = false;
+
+        // Turn on shipping logging
+        UEBuildConfiguration.bUseLoggingInShipping = true;
 	}
 
 	//
