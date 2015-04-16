@@ -1,3 +1,0 @@
-D:\Code1\CarefullyRedist\HostWin64\Linux_x64\v3_clang-3.3_ld-2.24_glibc-2.12.2\toolchain\bin\x86_64-unknown-linux-gnu-strip.exe UnrealTournament\Saved\StagedBuilds\LinuxNoEditor\unrealtournament\Binaries\Linux\UnrealTournament --strip-unneeded -R .comment
-D:\Code1\CarefullyRedist\HostWin64\Linux_x64\v3_clang-3.3_ld-2.24_glibc-2.12.2\toolchain\bin\x86_64-unknown-linux-gnu-strip.exe UnrealTournament\Saved\StagedBuilds\LinuxServer\unrealtournament\Binaries\Linux\UnrealTournamentServer --strip-unneeded -R .comment
-pause
