@@ -41,7 +41,6 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 	{
 		return;
 	}
-
 	if (Reason == FName("SentHome"))
 	{
 		ScorerPS->FlagReturns++; 
@@ -59,7 +58,6 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.ElapsedTime = CTFGameState->bPlayingAdvantage
 			? TimeLimit + 60 - CTFGameState->RemainingTime
 			: NewScoringPlay.ElapsedTime = TimeLimit - CTFGameState->RemainingTime;
-
 		if (CTFGameState->IsMatchInOvertime())
 		{
 			NewScoringPlay.Period = 2;
@@ -87,14 +85,12 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				{
 					NewScoringPlay.Assists.AddUnique(FSafePlayerName(Who));
 				}
-				else
-				{
-					Points += FlagCapPoints;
-				}
 				Who->AdjustScore(Points);
 				//UE_LOG(UT, Warning, TEXT("Flag assist (held) %s score %d"), *ScorerPS->PlayerName, Points);
 			}
 		}
+
+		ScorerPS->AdjustScore(FlagCapPoints);
 
 		for (AController* Rescuer : GameObject->HolderRescuers)
 		{
