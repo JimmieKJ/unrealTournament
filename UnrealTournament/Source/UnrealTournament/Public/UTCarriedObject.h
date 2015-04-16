@@ -49,11 +49,6 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 		float PickedUpTime;
 
-	// This is an internal array that holds a list of people who have held this object
-	// since it was last on a base.  It's only valid on the server.
-	UPROPERTY(BlueprintReadOnly, Category = GameObject)
-	TArray<AUTPlayerState*> PreviousHolders;
-
 	// Holds a array of information about people who have held this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	TArray<FAssistTracker> AssistTracking;
@@ -193,9 +188,6 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	virtual void GatherCurrentMovement() override;
 
 	virtual float GetHeldTime(AUTPlayerState* TestHolder);
-
-	UPROPERTY(BlueprintReadOnly, Category = GameObject)
-	float TotalHeldTime;
 
 	/**	@Returns the index of a player in the assist array */
 	virtual int32 FindAssist(AUTPlayerState* Holder)

@@ -39,7 +39,7 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 		uint32 FlagKillHeldBonus;
 
 	UPROPERTY(Config)
-		uint32 MaxFlagReturnHeldBonus;
+		uint32 MaxFlagHeldBonus;
 
 	// Players who are near the flag get bonuses when they kill
 	UPROPERTY(Config)
@@ -75,4 +75,7 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason, float TimeLimit);
 
 	virtual bool WasThreateningFlagCarrier(AUTPlayerState *VictimPS, APawn* KilledPawn, AUTPlayerState *KillerPS);
+
+	/** Return how long flag was held before current scoring action. */
+	virtual float GetTotalHeldTime(AUTCarriedObject* GameObject);
 };

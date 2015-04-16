@@ -219,16 +219,15 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 	}
 
+	// Track the pawns that have held this flag - used for scoring
 	int32 AssistIndex = FindAssist(Holder);
 	if (AssistIndex < 0)
 	{
 		FAssistTracker NewAssist;
 		NewAssist.Holder = Holder;
 		NewAssist.TotalHeldTime = 0.0f;
+		AssistIndex = AssistTracking.Add(NewAssist);
 	}
-
-	// Track the pawns that have held this.  It's to be used for scoring
-	PreviousHolders.AddUnique(Holder);
 
 	// Remove any spawn protection the pawn might have
 	if (HoldingPawn->bSpawnProtectionEligible)
@@ -275,7 +274,6 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 		AssistTracking[AssistIndex].TotalHeldTime += LastHeldTime;
 	}
 
-	TotalHeldTime += LastHeldTime;
 	HoldingPawn = NULL;
 	Holder = NULL;
 
@@ -349,17 +347,12 @@ void AUTCarriedObject::SendHome()
 	NoLongerHeld();
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
-	AssistTracking.Empty();
-	PreviousHolders.Empty();
-	TotalHeldTime = 0.0f;
 	MoveToHome();
 }
 
 void AUTCarriedObject::MoveToHome()
 {
-	// important to realize the move to home base might immediately result in a new pickup if someone is camping there
-	PreviousHolders.Empty();
-
+	AssistTracking.Empty();
 	if (HomeBase != NULL)
 	{
 		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + (FVector(0,0,1) * Collision->GetScaledCapsuleHalfHeight());
@@ -466,10 +459,11 @@ void AUTCarriedObject::GatherCurrentMovement()
 
 float AUTCarriedObject::GetHeldTime(AUTPlayerState* TestHolder)
 {
+	float CurrentHeldTime = (Holder && (TestHolder == Holder)) ? GetWorld()->GetTimeSeconds() - PickedUpTime : 0.f;
 	int32 AssistIndex = FindAssist(TestHolder);
 	if (AssistIndex >= 0 && AssistIndex < AssistTracking.Num())
 	{
-		return AssistTracking[AssistIndex].TotalHeldTime;
+		return CurrentHeldTime + AssistTracking[AssistIndex].TotalHeldTime;
 	}
-	return 0.f;
+	return CurrentHeldTime;
 }
