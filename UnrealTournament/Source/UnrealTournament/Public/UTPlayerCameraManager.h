@@ -18,6 +18,9 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 
 	FVector LastThirdPersonCameraLoc;
 
+	UPROPERTY()
+		AActor* LastThirdPersonTarget;
+
 	UPROPERTY(Config)
 	float ThirdPersonCameraSmoothingSpeed;
 

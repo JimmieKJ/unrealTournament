@@ -13,6 +13,13 @@ public:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 	virtual FReply OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton);
 
+	virtual FReply OpenControlSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
+
+
 protected:
 	TSharedPtr<class SHorizontalBox> LeftMenuBar;
 	TSharedPtr<class SHorizontalBox> RightMenuBar;
@@ -22,14 +29,9 @@ protected:
 
 	virtual void CreateDesktop();
 
-	virtual FReply OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenTPSReport(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenCredits(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnMenuHTTPButton(FString URL, TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenControlSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply ShowWidgetReflector(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnOnlineClick();
 

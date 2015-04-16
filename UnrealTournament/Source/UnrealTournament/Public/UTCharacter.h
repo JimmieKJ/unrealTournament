@@ -1609,6 +1609,10 @@ public:
 	/** set by path following to last MoveTarget that was successfully reached; used to avoid pathing getting confused about its current position on the navigation graph when it is on two nodes/polys simultaneously */
 	UPROPERTY()
 	FRouteCacheItem LastReachedMoveTarget;
+
+	/** set by objects that set up ragdoll/death effects that involve a physics constraint on the ragdoll so we don't attach a second without destroying it, as multiple opposing constraints will break the physics */
+	UPROPERTY(Transient, BlueprintReadWrite, Category = DeathEffects)
+	class UPhysicsConstraintComponent* RagdollConstraint;
 };
 
 inline bool AUTCharacter::IsDead()

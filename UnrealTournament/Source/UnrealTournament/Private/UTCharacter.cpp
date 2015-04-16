@@ -1184,7 +1184,10 @@ void AUTCharacter::StartRagdoll()
 void AUTCharacter::StopRagdoll()
 {
 	// check for falling damage
-	CheckRagdollFallingDamage(FHitResult(NULL, NULL, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
+	if (!IsDead())
+	{
+		CheckRagdollFallingDamage(FHitResult(NULL, NULL, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
+	}
 
 	GetCapsuleComponent()->DetachFromParent(true);
 	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;

@@ -15,6 +15,7 @@ class SUWDialog : public SCompoundWidget
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
 	, _IsScrollable(true)
 	, _ButtonMask(UTDIALOG_BUTTON_OK)
+	, _bShadow(true)
 	{}
 
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)
@@ -26,6 +27,7 @@ class SUWDialog : public SCompoundWidget
 	SLATE_ARGUMENT(FVector2D, ContentPadding)
 	SLATE_ARGUMENT(bool, IsScrollable)
 	SLATE_ARGUMENT(uint16, ButtonMask)
+	SLATE_ARGUMENT(bool, bShadow)
 	SLATE_EVENT(FDialogResultDelegate, OnDialogResult)
 
 	SLATE_END_ARGS()

@@ -8,6 +8,7 @@
 #include "Engine/SCS_Node.h"
 #include "Engine/LevelScriptActor.h"
 #include "Engine/InheritableComponentHandler.h"
+#include "CoreNet.h"
 
 #if WITH_EDITOR
 #include "BlueprintEditorUtils.h"
@@ -716,5 +717,26 @@ void UBlueprintGeneratedClass::Serialize(FArchive& Ar)
 	if (Ar.IsLoading() && 0 == (Ar.GetPortFlags() & PPF_Duplicate))
 	{
 		CreatePersistentUberGraphFrame(ClassDefaultObject, true);
+	}
+}
+
+void UBlueprintGeneratedClass::GetLifetimeBlueprintReplicationList(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	uint32 PropertiesLeft = NumReplicatedProperties;
+
+	for (TFieldIterator<UProperty> It(this, EFieldIteratorFlags::ExcludeSuper); It && PropertiesLeft > 0; ++It)
+	{
+		UProperty * Prop = *It;
+		if (Prop != NULL && Prop->GetPropertyFlags() & CPF_Net)
+		{
+			PropertiesLeft--;
+			OutLifetimeProps.Add(FLifetimeProperty(Prop->RepIndex));
+		}
+	}
+
+	UBlueprintGeneratedClass* SuperBPClass = Cast<UBlueprintGeneratedClass>(GetSuperStruct());
+	if (SuperBPClass != NULL)
+	{
+		SuperBPClass->GetLifetimeBlueprintReplicationList(OutLifetimeProps);
 	}
 }

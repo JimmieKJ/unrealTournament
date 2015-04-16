@@ -690,7 +690,13 @@ void AUTGameMode::RecreateLobbyBeacon()
  *  done every frame.
  **/
 void AUTGameMode::DefaultTimer()
-{	
+{
+	// preview world is for blueprint editing, don't try to play
+	if (GetWorld()->WorldType == EWorldType::Preview)
+	{
+		return;
+	}
+
 	if (LobbyBeacon && LobbyBeacon->GetNetConnection()->State == EConnectionState::USOCK_Closed)
 	{
 		// if the server is empty and would be asking the hub to kill it, just kill ourselves rather than waiting for reconnection
@@ -2174,7 +2180,7 @@ bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
 	}
 }
 
-void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
+bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
 	if (InjuredChar != NULL && InjuredChar->bSpawnProtectionEligible && InstigatedBy != NULL && InstigatedBy != Injured->Controller && GetWorld()->TimeSeconds - Injured->CreationTime < UTGameState->SpawnProtectionTime)
@@ -2186,6 +2192,8 @@ void AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, 
 	{
 		BaseMutator->ModifyDamage(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
 	}
+
+	return true;
 }
 
 bool AUTGameMode::CheckRelevance_Implementation(AActor* Other)

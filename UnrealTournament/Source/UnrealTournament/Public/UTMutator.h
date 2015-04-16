@@ -81,9 +81,11 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ModifyPlayer(APawn* Other);
 
-	/** allows mutators to modify/react to damage */
+	/** allows mutators to modify/react to damage
+	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
+	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+	bool ModifyDamage(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 
 	/** score a kill (or suicide) */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)

@@ -35,17 +35,34 @@ void AUTCTFScoring::FlagHeldTimer()
 	}
 }
 
+float AUTCTFScoring::GetTotalHeldTime(AUTCarriedObject* GameObject)
+{
+	if (!GameObject)
+	{
+		return 0.f;
+	}
+	float TotalHeldTime = 0.f;
+	for (int i = 0; i < GameObject->AssistTracking.Num(); i++)
+	{
+		AUTPlayerState* FlagRunner = GameObject->AssistTracking[i].Holder;
+		if (FlagRunner != NULL)
+		{
+			TotalHeldTime += GameObject->GetHeldTime(FlagRunner);;
+		}
+	}
+	return TotalHeldTime;
+}
+
 void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, float TimeLimit)
 {
 	if (!CTFGameState)
 	{
 		return;
 	}
-
 	if (Reason == FName("SentHome"))
 	{
 		ScorerPS->FlagReturns++; 
-		int32 Points = FlagReturnPoints + FMath::Min<int32>(MaxFlagReturnHeldBonus, FlagReturnHeldBonus * GameObject->TotalHeldTime / 2);
+		int32 Points = FlagReturnPoints + FMath::Min<int32>(MaxFlagHeldBonus, FlagReturnHeldBonus * GetTotalHeldTime(GameObject) / 2);
 		ScorerPS->AdjustScore(Points);
 		ScorerPS->LastFlagReturnTime = GetWorld()->GetTimeSeconds();
 		//UE_LOG(UT, Warning, TEXT("Flag Return %s score %d"), *ScorerPS->PlayerName, Points);
@@ -59,7 +76,6 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.ElapsedTime = CTFGameState->bPlayingAdvantage
 			? TimeLimit + 60 - CTFGameState->RemainingTime
 			: NewScoringPlay.ElapsedTime = TimeLimit - CTFGameState->RemainingTime;
-
 		if (CTFGameState->IsMatchInOvertime())
 		{
 			NewScoringPlay.Period = 2;
@@ -71,27 +87,28 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 
 		ScorerPS->FlagCaptures++;
 		int32 FlagPickupPoints = FlagFirstPickupPoints;
+		float TotalHeldTime = GetTotalHeldTime(GameObject);
 		for (int i = 0; i<GameObject->AssistTracking.Num(); i++)
 		{
-			AUTPlayerState* Who = GameObject->AssistTracking[i].Holder;
-			if (Who != NULL)
+			AUTPlayerState* FlagRunner = GameObject->AssistTracking[i].Holder;
+			if (FlagRunner != NULL)
 			{
-				float HeldTime = GameObject->GetHeldTime(Who);
+				float HeldTime = GameObject->GetHeldTime(FlagRunner);
 				int32 Points = FlagPickupPoints;
 				FlagPickupPoints = 0;
-				if (HeldTime > 0.f && GameObject->TotalHeldTime > 0.f)
+				if (HeldTime > 0.f && TotalHeldTime > 0.f)
 				{
-					Points = Points + int(float(FlagRunScorePool * HeldTime / GameObject->TotalHeldTime));
+					Points = Points + int(float(FlagRunScorePool * HeldTime / TotalHeldTime));
 				}
-				if (Who != ScorerPS)
+				if (FlagRunner != ScorerPS)
 				{
-					NewScoringPlay.Assists.AddUnique(FSafePlayerName(Who));
+					NewScoringPlay.Assists.AddUnique(FSafePlayerName(FlagRunner));
 				}
 				else
 				{
 					Points += FlagCapPoints;
 				}
-				Who->AdjustScore(Points);
+				FlagRunner->AdjustScore(Points);
 				//UE_LOG(UT, Warning, TEXT("Flag assist (held) %s score %d"), *ScorerPS->PlayerName, Points);
 			}
 		}
@@ -198,7 +215,7 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 			Points += FlagCarrierKillBonus;
 			KillerPS->LastKilledFCTime = GetWorld()->GetTimeSeconds();
 			// bonus based on flag hold time
-			Points += FMath::Min<int32>(FlagKillHeldBonus*VictimPS->CarriedObject->TotalHeldTime / 2, MaxFlagReturnHeldBonus);
+			Points += FMath::Min<int32>(FlagKillHeldBonus*GetTotalHeldTime(VictimPS->CarriedObject) / 2, MaxFlagHeldBonus);
 		}
 		else if (WasThreateningFlagCarrier(VictimPS, KilledPawn, KillerPS))
 		{

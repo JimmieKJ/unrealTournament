@@ -365,8 +365,9 @@ public:
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual void KillBots();
 
+	/** NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamage(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+	bool ModifyDamage(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 
 	/** used to modify, remove, and replace Actors. Return false to destroy the passed in Actor. Default implementation queries mutators.
 	 * note that certain critical Actors such as PlayerControllers can't be destroyed, but we'll still call this code path to allow mutators

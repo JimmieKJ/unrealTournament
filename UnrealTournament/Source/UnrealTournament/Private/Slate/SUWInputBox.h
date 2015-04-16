@@ -12,7 +12,7 @@ DECLARE_DELEGATE_RetVal_OneParam(bool, FInputBoxFilterDelegate, TCHAR);
 class SUWInputBox : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWInputBox)
-	: _DialogSize(FVector2D(400,200))
+	: _DialogSize(FVector2D(700,300))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))

@@ -166,6 +166,12 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
+	virtual void ViewBluePlayer(int32 Index);
+
+	/** View Player at Index on team specified by TeamIndex. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewPlayer(int32 Index, int32 TeamIndex);
+
 	virtual FVector GetFocalLocation() const override;
 
 	virtual void Possess(APawn*) override;

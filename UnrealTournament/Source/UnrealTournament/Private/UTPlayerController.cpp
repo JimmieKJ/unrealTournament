@@ -596,7 +596,29 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 			UTCharacter->SwitchWeapon(Best);
 		}
 	}
+	else if (PlayerState && PlayerState->bIsSpectator && PlayerCameraManager)
+	{
+		float Offset = 10000.f * GetWorld()->GetDeltaSeconds();
+		if (bPrev)
+		{
+			Offset *= -1.f;
+		}
+		ASpectatorPawn* Spectator = Cast<ASpectatorPawn>(GetViewTarget());
+		if (!Spectator)
+		{
+			PlayerCameraManager->FreeCamDistance = FMath::Clamp(PlayerCameraManager->FreeCamDistance + Offset, 16.f, 2048.f);
+		}
+		else
+		{
+			USpectatorPawnMovement* SpectatorMovement = Cast<USpectatorPawnMovement>(Spectator->GetMovementComponent());
+			if (SpectatorMovement)
+			{
+				SpectatorMovement->MaxSpeed = FMath::Clamp(SpectatorMovement->MaxSpeed + 5.f*Offset, 200.f, 6000.f);
+			}
+		}
+	}
 }
+
 void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 {
 	if (UTCharacter != NULL && IsLocalPlayerController())
@@ -689,6 +711,51 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 		else if (LowestSlotWeapon != NULL)
 		{
 			UTCharacter->SwitchWeapon(LowestSlotWeapon);
+		}
+	}
+	else if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		ServerViewPlayer(Group-1, 0);
+	}
+}
+
+void AUTPlayerController::ViewBluePlayer(int32 Index)
+{
+	ServerViewPlayer(Index-1, 1);
+}
+
+bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 TeamIndex)
+{
+	Index = FMath::Max(Index, 0);
+	if (Index > 4)
+	{
+		// temp hack - FIXMESTEVE support shift key
+		TeamIndex = 1;
+		Index -= 5;
+	}
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState && (GameState->Teams.Num() > 0))
+		{
+			if ((GameState->Teams.Num() > TeamIndex) && (GameState->Teams[TeamIndex] != NULL))
+			{
+				TArray<AController*> Members = GameState->Teams[TeamIndex]->GetTeamMembers();
+				if ((Members.Num() > Index) && (Members[Index] != NULL) && Members[Index]->PlayerState)
+				{
+					SetViewTarget(Members[Index]->PlayerState);
+				}
+			}
+
+		}
+		else if (GameState && (Index < GameState->PlayerArray.Num()) && (GameState->PlayerArray[Index] != NULL))
+		{
+			SetViewTarget(GameState->PlayerArray[Index]);
 		}
 	}
 }
