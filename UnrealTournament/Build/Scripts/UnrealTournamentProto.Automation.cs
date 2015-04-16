@@ -1032,7 +1032,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             if (CommandUtils.P4Enabled)
             {
-                int VersionFilesCL = CommandUtils.P4.CreateChange(CommandUtils.P4Env.Client, String.Format("Submitting version files"));
+                int VersionFilesCL = CommandUtils.P4.CreateChange(CommandUtils.P4Env.Client, String.Format("UnrealTournamentBuild Version Files from changelist {0}", CommandUtils.P4Env.Changelist));
                 if (VersionFilesCL > 0)
                 {
                     var VersionFiles = new string[4];
