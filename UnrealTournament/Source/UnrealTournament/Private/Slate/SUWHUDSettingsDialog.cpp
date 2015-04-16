@@ -8,6 +8,7 @@
 #include "Scalability.h"
 #include "UTWorldSettings.h"
 #include "UTGameEngine.h"
+#include "SUTUtils.h"
 
 #if !UE_SERVER
 
@@ -23,6 +24,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
 							.ContentPadding(InArgs._ContentPadding)
 							.ButtonMask(InArgs._ButtonMask)
+							.bShadow(false)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
 
@@ -54,8 +56,9 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(this, &SUWHUDSettingsDialog::GetHUDOpacityLabel)
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDOpacityTT","Adjusts how transparent the HUD should be.")))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -67,6 +70,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(HUDOpacity, SSlider)
+								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 								.Orientation(Orient_Horizontal)
 								.Value(TargetHUD->HUDWidgetOpacity)
 								.OnValueChanged(this, &SUWHUDSettingsDialog::OnHUDOpacityChanged)
@@ -85,8 +89,9 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(this, &SUWHUDSettingsDialog::GetHUDBorderOpacityLabel)
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDBorderOpacityTT","Adjusts how transparent the hard edge border around each element of the HUD should be.")))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -98,6 +103,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(HUDOpacity, SSlider)
+								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 								.Orientation(Orient_Horizontal)
 								.Value(TargetHUD->HUDWidgetBorderOpacity)
 								.OnValueChanged(this, &SUWHUDSettingsDialog::OnHUDBorderOpacityChanged)
@@ -116,8 +122,9 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(this, &SUWHUDSettingsDialog::GetHUDSlateOpacityLabel)
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDSlateOpacityTT","Adjusts how transparent the background portion of each HUD element should be.")))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -129,6 +136,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(HUDOpacity, SSlider)
+								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 								.Orientation(Orient_Horizontal)
 								.Value(TargetHUD->HUDWidgetSlateOpacity)
 								.OnValueChanged(this, &SUWHUDSettingsDialog::OnHUDSlateOpacityChanged)
@@ -147,8 +155,9 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(this, &SUWHUDSettingsDialog::GetHUDScaleLabel)
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDScaleTT","Makes the HUD elements bigger or smaller.")))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -160,6 +169,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(HUDOpacity, SSlider)
+								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 								.Orientation(Orient_Horizontal)
 								.Value(TargetHUD->HUDWidgetScaleOverride / 2.0f)
 								.OnValueChanged(this, &SUWHUDSettingsDialog::OnHUDScaleChanged)
@@ -178,8 +188,9 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(this, &SUWHUDSettingsDialog::GetWeaponBarOpacityLabel)
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDWeaponBarOpaictyTT","Adjusts how transparent the Weapon Bar should be.  NOTE this is applied in addition to the normal transparency setting.")))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -192,6 +203,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							[
 								SAssignNew(HUDOpacity, SSlider)
 								.Orientation(Orient_Horizontal)
+								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 								.Value(TargetHUD->HUDWidgetWeaponbarInactiveOpacity)
 								.OnValueChanged(this, &SUWHUDSettingsDialog::OnWeaponBarOpacityChanged)
 							]
@@ -209,8 +221,9 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(this, &SUWHUDSettingsDialog::GetWeaponBarIconOpacityLabel)
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDWeaponBarIconOpacityTT","Adjusts how transparent the icons on the Weapon Bar should be.")))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -223,6 +236,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							[
 								SAssignNew(HUDOpacity, SSlider)
 								.Orientation(Orient_Horizontal)
+								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 								.Value(TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity)
 								.OnValueChanged(this, &SUWHUDSettingsDialog::OnWeaponBarIconOpacityChanged)
 							]
@@ -240,8 +254,9 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(this, &SUWHUDSettingsDialog::GetWeaponBarEmptyOpacityLabel)
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDWeaponBarEmptyOpacityTT","Adjusts how transparent an empty Weapon Bar slot should be.")))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -253,6 +268,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(HUDOpacity, SSlider)
+								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 								.Orientation(Orient_Horizontal)
 								.Value(TargetHUD->HUDWidgetWeaponBarEmptyOpacity)
 								.OnValueChanged(this, &SUWHUDSettingsDialog::OnWeaponBarEmptyOpacityChanged)
@@ -272,8 +288,9 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(HUDOpacityLabel, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(this, &SUWHUDSettingsDialog::GetWeaponBarScaleLabel)
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDWeaponBarScaleTT","Adjusts how big or small the Weapon Bar should be.")))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
@@ -285,6 +302,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(HUDOpacity, SSlider)
+								.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 								.Orientation(Orient_Horizontal)
 								.Value(TargetHUD->HUDWidgetWeaponBarScaleOverride / 2.0f)
 								.OnValueChanged(this, &SUWHUDSettingsDialog::OnWeaponBarScaleChanged)
@@ -300,16 +318,15 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						.ForegroundColor(FLinearColor::White)
 						.IsChecked(TargetHUD->bUseWeaponColors ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 						.OnCheckStateChanged(this, &SUWHUDSettingsDialog::OnUseWeaponColorChanged)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 						.Content()
 						[
 							SNew(STextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.Dialog.TextStyle")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(NSLOCTEXT("SUWHUDSettingsDialog", "UseWeaponColors", "Colorize Icons").ToString())
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDWeaponColorsTT","Should the Weapon Bar colorize it's icons.")))
 						]
 					]
-
-
-
 			];
 		}
 		else

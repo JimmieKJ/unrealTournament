@@ -22,7 +22,9 @@ protected:
 	virtual FReply OnTeamChangeClick();
 	virtual FReply OnSpectateClick();
 	virtual void SetInitialPanel();
-
+	
+	virtual FReply OpenHUDSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
 
 };
 #endif
