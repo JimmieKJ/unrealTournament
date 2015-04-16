@@ -728,6 +728,12 @@ void AActor::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTracker
 	}
 
 	DOREPLIFETIME_ACTIVE_OVERRIDE( AActor, ReplicatedMovement, bReplicateMovement );
+
+	UBlueprintGeneratedClass* BPClass = Cast<UBlueprintGeneratedClass>(GetClass());
+	if (BPClass != NULL)
+	{
+		BPClass->InstancePreReplication(ChangedPropertyTracker);
+	}
 }
 
 void AActor::PostActorCreated()

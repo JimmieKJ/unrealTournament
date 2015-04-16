@@ -192,31 +192,13 @@ void AActor::GatherCurrentMovement()
 	}
 }
 
-static void GetLifetimeBlueprintReplicationList( const AActor* ThisActor, const UBlueprintGeneratedClass* MyClass, TArray< FLifetimeProperty > & OutLifetimeProps )
-{
-	if ( MyClass == NULL )
-	{
-		return;
-	}
-
-	uint32 PropertiesLeft = MyClass->NumReplicatedProperties;
-
-	for ( TFieldIterator<UProperty> It( MyClass, EFieldIteratorFlags::ExcludeSuper ); It && PropertiesLeft > 0; ++It )
-	{
-		UProperty * Prop = *It;
-		if ( Prop != NULL && Prop->GetPropertyFlags() & CPF_Net )
-		{
-			PropertiesLeft--;
-			OutLifetimeProps.Add( FLifetimeProperty( Prop->RepIndex ) );
-		}
-	}
-
-	return GetLifetimeBlueprintReplicationList( ThisActor, Cast< UBlueprintGeneratedClass >( MyClass->GetSuperStruct() ), OutLifetimeProps );
-}
-
 void AActor::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
 {
-	GetLifetimeBlueprintReplicationList( this, Cast< UBlueprintGeneratedClass >( GetClass() ), OutLifetimeProps );
+	UBlueprintGeneratedClass* BPClass = Cast<UBlueprintGeneratedClass>(GetClass());
+	if (BPClass != NULL)
+	{
+		BPClass->GetLifetimeBlueprintReplicationList(OutLifetimeProps);
+	}
 
 	DOREPLIFETIME( AActor, Role );
 	DOREPLIFETIME( AActor, RemoteRole );
