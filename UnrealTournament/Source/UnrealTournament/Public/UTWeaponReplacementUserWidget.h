@@ -7,7 +7,7 @@
 #include "UTWeaponReplacementUserWidget.generated.h"
 
 UCLASS()
-class UUTWeaponReplacementUserWidget : public UUserWidget
+class UNREALTOURNAMENT_API UUTWeaponReplacementUserWidget : public UUserWidget
 {
 	GENERATED_UCLASS_BODY()
 

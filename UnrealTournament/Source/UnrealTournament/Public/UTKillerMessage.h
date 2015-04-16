@@ -5,7 +5,7 @@
 #include "UTKillerMessage.generated.h"
 
 UCLASS()
-class UUTKillerMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTKillerMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

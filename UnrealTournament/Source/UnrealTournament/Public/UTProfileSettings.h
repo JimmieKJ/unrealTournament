@@ -39,7 +39,7 @@ struct FStoredWeaponPriority
 };
 
 UCLASS()
-class UUTProfileSettings : public UObject
+class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

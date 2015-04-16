@@ -215,7 +215,7 @@ struct FUTPathLink
 };
 
 UCLASS(NotPlaceable)
-class UUTPathNode : public UObject
+class UNREALTOURNAMENT_API UUTPathNode : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

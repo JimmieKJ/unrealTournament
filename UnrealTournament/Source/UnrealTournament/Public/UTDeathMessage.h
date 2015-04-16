@@ -5,7 +5,7 @@
 #include "UTDeathMessage.generated.h"
 
 UCLASS(config=game)
-class UUTDeathMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTDeathMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

@@ -6,7 +6,7 @@
 #include "UTVictoryMessage.generated.h"
 
 UCLASS()
-class UUTVictoryMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTVictoryMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

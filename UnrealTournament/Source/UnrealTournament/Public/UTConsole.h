@@ -5,7 +5,7 @@
 #include "UTConsole.generated.h"
 
 UCLASS()
-class UUTConsole : public UConsole
+class UNREALTOURNAMENT_API UUTConsole : public UConsole
 {
 	GENERATED_UCLASS_BODY()
 

@@ -6,7 +6,7 @@
 #include "UTMultiKillMessage.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTMultiKillMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

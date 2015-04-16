@@ -5,7 +5,7 @@
 #include "UTWeaponStateFiringSpinUp.generated.h"
 
 UCLASS()
-class UUTWeaponStateFiringSpinUp : public UUTWeaponStateFiring
+class UNREALTOURNAMENT_API UUTWeaponStateFiringSpinUp : public UUTWeaponStateFiring
 {
 	GENERATED_UCLASS_BODY()
 

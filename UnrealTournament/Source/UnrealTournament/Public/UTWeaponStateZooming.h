@@ -19,7 +19,7 @@ struct FZoomTickFunction : public FTickFunction
 };
 
 UCLASS()
-class UUTWeaponStateZooming : public UUTWeaponStateFiring
+class UNREALTOURNAMENT_API UUTWeaponStateZooming : public UUTWeaponStateFiring
 {
 	GENERATED_UCLASS_BODY()
 

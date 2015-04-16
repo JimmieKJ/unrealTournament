@@ -5,7 +5,7 @@
 #include "UTWeaponStateActive.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTWeaponStateActive : public UUTWeaponState
+class UNREALTOURNAMENT_API UUTWeaponStateActive : public UUTWeaponState
 {
 	GENERATED_UCLASS_BODY()
 

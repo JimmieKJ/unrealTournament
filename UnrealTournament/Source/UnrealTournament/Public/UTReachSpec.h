@@ -7,7 +7,7 @@
 #include "UTReachSpec.generated.h"
 
 UCLASS(NotPlaceable, Abstract, CustomConstructor)
-class UUTReachSpec : public UObject
+class UNREALTOURNAMENT_API UUTReachSpec : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

@@ -18,7 +18,7 @@ struct FCustomKeyBinding
 };
 
 UCLASS()
-class UUTPlayerInput : public UPlayerInput
+class UNREALTOURNAMENT_API UUTPlayerInput : public UPlayerInput
 {
 	GENERATED_UCLASS_BODY()
 

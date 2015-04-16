@@ -590,7 +590,7 @@ inline AUTRecastNavMesh* GetUTNavData(UWorld* World)
 
 #if WITH_EDITOR
 /** used to force our tick code in the editor */
-class FUTNavMeshEditorTick : public FTickableEditorObject
+class UNREALTOURNAMENT_API FUTNavMeshEditorTick : public FTickableEditorObject
 {
 public:
 	TWeakObjectPtr<class AUTRecastNavMesh> Owner;

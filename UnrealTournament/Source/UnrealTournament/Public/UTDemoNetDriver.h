@@ -6,7 +6,7 @@
 #include "UTDemoNetDriver.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTDemoNetDriver : public UNetDriver// UDemoNetDriver
+class UNREALTOURNAMENT_API UUTDemoNetDriver : public UNetDriver// UDemoNetDriver
 {
 	GENERATED_UCLASS_BODY()
 

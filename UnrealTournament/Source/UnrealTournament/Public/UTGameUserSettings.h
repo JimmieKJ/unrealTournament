@@ -5,7 +5,7 @@
 #include "UTGameUserSettings.generated.h"
 
 UCLASS()
-class UUTGameUserSettings : public UGameUserSettings
+class UNREALTOURNAMENT_API UUTGameUserSettings : public UGameUserSettings
 {
 	GENERATED_UCLASS_BODY()
 

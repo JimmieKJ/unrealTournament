@@ -4,8 +4,8 @@
 
 #include "UTGameMessage.generated.h"
 
-UCLASS(MinimalAPI)
-class UUTGameMessage : public UUTLocalMessage
+UCLASS()
+class UNREALTOURNAMENT_API UUTGameMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

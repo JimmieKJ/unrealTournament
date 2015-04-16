@@ -6,7 +6,7 @@
 #include "UTBotConfig.generated.h"
 
 UCLASS(NotBlueprintable, Config = Game)
-class UUTBotConfig : public UObject
+class UNREALTOURNAMENT_API UUTBotConfig : public UObject
 {
 	GENERATED_BODY()
 public:

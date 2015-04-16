@@ -4,7 +4,7 @@
 #include "UTGameEngine.generated.h"
 
 UCLASS()
-class UUTGameEngine : public UGameEngine
+class UNREALTOURNAMENT_API UUTGameEngine : public UGameEngine
 {
 	GENERATED_UCLASS_BODY()
 

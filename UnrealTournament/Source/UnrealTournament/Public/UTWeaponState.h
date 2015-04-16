@@ -5,7 +5,7 @@
 #include "UTWeaponState.generated.h"
 
 UCLASS(DefaultToInstanced, EditInlineNew, CustomConstructor, Within=UTWeapon)
-class UUTWeaponState : public UObject
+class UNREALTOURNAMENT_API UUTWeaponState : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

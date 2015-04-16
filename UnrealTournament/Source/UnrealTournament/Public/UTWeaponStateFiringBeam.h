@@ -7,7 +7,7 @@
 #include "UTWeaponStateFiringBeam.generated.h"
 
 UCLASS()
-class UUTWeaponStateFiringBeam : public UUTWeaponStateFiring
+class UNREALTOURNAMENT_API UUTWeaponStateFiringBeam : public UUTWeaponStateFiring
 {
 	GENERATED_UCLASS_BODY()
 

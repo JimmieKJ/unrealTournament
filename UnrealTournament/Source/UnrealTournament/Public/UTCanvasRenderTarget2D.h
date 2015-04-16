@@ -7,7 +7,7 @@
 DECLARE_DELEGATE_ThreeParams(FOnNonUOnjectRenderTargetUpdate, UCanvas*, int32, int32);
 
 UCLASS()
-class UUTCanvasRenderTarget2D : public UCanvasRenderTarget2D
+class UNREALTOURNAMENT_API UUTCanvasRenderTarget2D : public UCanvasRenderTarget2D
 {
 	GENERATED_BODY()
 public:

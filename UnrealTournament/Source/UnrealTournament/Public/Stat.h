@@ -66,7 +66,7 @@ public:
 
 // A single stat
 UCLASS()
-class UStat : public UObject
+class UNREALTOURNAMENT_API UStat : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
