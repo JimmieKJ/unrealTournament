@@ -5,6 +5,7 @@
 #include "UTPlayerState.h"
 #include "UTCarriedObjectMessage.h"
 #include "UTTeamInterface.h"
+#include "UTProjectileMovementComponent.h"
 
 #include "UTCarriedObject.generated.h"
 
@@ -47,7 +48,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	AUTPlayerState* LastHolder;
 
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
-		float PickedUpTime;
+	float PickedUpTime;
 
 	// Holds a array of information about people who have held this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
@@ -175,7 +176,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UCapsuleComponent* Collision;
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = GameObject)
-	class UProjectileMovementComponent* MovementComponent;
+	class UUTProjectileMovementComponent* MovementComponent;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 
@@ -198,6 +199,11 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 		}
 
 		return -1;
+	}
+
+	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override
+	{
+		MovementComponent->Velocity = NewVelocity;
 	}
 
 protected:
