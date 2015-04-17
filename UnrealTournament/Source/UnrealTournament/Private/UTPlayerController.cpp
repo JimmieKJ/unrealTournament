@@ -272,9 +272,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
 	InputComponent->BindAction("PlayTaunt2", IE_Pressed, this, &AUTPlayerController::PlayTaunt2);
-
-	InputComponent->BindAction("ViewRedFlag", IE_Pressed, this, &AUTPlayerController::ViewRedFlag);
-	InputComponent->BindAction("ViewBlueFlag", IE_Pressed, this, &AUTPlayerController::ViewBlueFlag);
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
