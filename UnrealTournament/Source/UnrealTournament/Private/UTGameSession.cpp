@@ -6,6 +6,9 @@
 #include "UTOnlineGameSettingsBase.h"
 #include "UTBaseGameMode.h"
 #include "UTLobbyGameMode.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -40,7 +43,48 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 	{
 		ErrorMessage = TEXT("NOTLOGGEDIN");
 	}
+
+	FString UIDAsString = UniqueId->ToString();
+	for (int32 i = 0; i < BannedUsers.Num(); i++)
+	{
+		if (UIDAsString == BannedUsers[i])
+		{
+			ErrorMessage = TEXT("BANNED");
+			break;
+		}
+	}
 }
+
+bool AUTGameSession::BanPlayer(class APlayerController* BannedPlayer, const FText& BanReason)
+{
+	APlayerState* PS = BannedPlayer->PlayerState;
+	if (PS)
+	{
+		UE_LOG(UT,Log,TEXT("Adding Ban for user '%s' (uid: %s) Reason '%s'"), *PS->PlayerName, *PS->UniqueId.ToString(), *BanReason.ToString());
+		BannedUsers.Add(PS->UniqueId.ToString());
+		SaveConfig();
+
+		// Send off some analytics so we can track # of bans, etc.
+		if (FUTAnalytics::IsAvailable())
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("UserName"), PS->PlayerName));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("UniqueId"), PS->UniqueId.ToString()));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Reason"), BanReason.ToString()));
+
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS)
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("ServerName"), GS->ServerName));
+			}
+
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("AdminBan"), ParamArray);
+		}
+	}
+
+	return Super::BanPlayer(BannedPlayer, BanReason);
+}
+
 
 
 FString AUTGameSession::ApproveLogin(const FString& Options)

@@ -1969,35 +1969,6 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(FString WeaponClassname, 
 	return DefaultPriority;
 }
 
-void AUTPlayerController::RconAuth(FString Password)
-{
-	ServerRconAuth(Password);
-}
-
-bool AUTPlayerController::ServerRconAuth_Validate(const FString& Password)
-{
-	return true;
-}
-
-void AUTPlayerController::ServerRconAuth_Implementation(const FString& Password)
-{
-	if (UTPlayerState != nullptr && !UTPlayerState->bIsRconAdmin && !GetDefault<UUTGameEngine>()->RconPassword.IsEmpty())
-	{
-		if (GetDefault<UUTGameEngine>()->RconPassword == Password)
-		{
-			ClientSay(UTPlayerState, TEXT("Rcon authenticated!"), ChatDestinations::System);
-			UTPlayerState->bIsRconAdmin = true;
-		}
-		else
-		{
-			ClientSay(UTPlayerState, TEXT("Rcon password incorrect"), ChatDestinations::System);
-		}
-	}
-	else
-	{
-		ClientSay(UTPlayerState, TEXT("Rcon password unset"), ChatDestinations::System);
-	}
-}
 
 void AUTPlayerController::RconMap(FString NewMap)
 {
@@ -2032,27 +2003,6 @@ void AUTPlayerController::ServerRconMap_Implementation(const FString& NewMap)
 void AUTPlayerController::RconNextMap(FString NextMap)
 {
 	ServerRconNextMap(NextMap);
-}
-
-void AUTPlayerController::RconExec(FString Command)
-{
-	ServerRconExec(Command);
-}
-
-bool AUTPlayerController::ServerRconExec_Validate(const FString& Command)
-{
-	return true;
-}
-
-void AUTPlayerController::ServerRconExec_Implementation(const FString& Command)
-{
-	if (UTPlayerState == nullptr || !UTPlayerState->bIsRconAdmin)
-	{
-		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
-		return;
-	}
-
-	ConsoleCommand(Command);
 }
 
 bool AUTPlayerController::ServerRconNextMap_Validate(const FString& NextMap)

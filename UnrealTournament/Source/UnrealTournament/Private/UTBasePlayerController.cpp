@@ -371,3 +371,99 @@ void AUTBasePlayerController::ClientRequireContentItemListComplete_Implementatio
 {
 
 }
+
+
+void AUTBasePlayerController::RconAuth(FString Password)
+{
+	ServerRconAuth(Password);
+}
+
+bool AUTBasePlayerController::ServerRconAuth_Validate(const FString& Password)
+{
+	return true;
+}
+
+void AUTBasePlayerController::ServerRconAuth_Implementation(const FString& Password)
+{
+	if (UTPlayerState != nullptr && !UTPlayerState->bIsRconAdmin && !GetDefault<UUTGameEngine>()->RconPassword.IsEmpty())
+	{
+		if (GetDefault<UUTGameEngine>()->RconPassword == Password)
+		{
+			ClientSay(UTPlayerState, TEXT("Rcon authenticated!"), ChatDestinations::System);
+			UTPlayerState->bIsRconAdmin = true;
+		}
+		else
+		{
+			ClientSay(UTPlayerState, TEXT("Rcon password incorrect"), ChatDestinations::System);
+		}
+	}
+	else
+	{
+		ClientSay(UTPlayerState, TEXT("Rcon password unset"), ChatDestinations::System);
+	}
+}
+
+
+void AUTBasePlayerController::RconExec(FString Command)
+{
+	ServerRconExec(Command);
+}
+
+bool AUTBasePlayerController::ServerRconExec_Validate(const FString& Command)
+{
+	return true;
+}
+
+void AUTBasePlayerController::ServerRconExec_Implementation(const FString& Command)
+{
+	if (UTPlayerState == nullptr || !UTPlayerState->bIsRconAdmin)
+	{
+		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
+		return;
+	}
+
+	ConsoleCommand(Command);
+}
+
+void AUTBasePlayerController::RconKick(FString NameOrUIDStr, bool bBan, FString Reason)
+{
+	ServerRconKick(NameOrUIDStr, bBan, Reason);
+}
+
+bool AUTBasePlayerController::ServerRconKick_Validate(const FString& NameOrUIDStr, bool bBan, const FString& Reason) { return true; }
+void AUTBasePlayerController::ServerRconKick_Implementation(const FString& NameOrUIDStr, bool bBan, const FString& Reason)
+{
+	// Quick out if we haven't been authenticated.
+	if (UTPlayerState == nullptr || !UTPlayerState->bIsRconAdmin)
+	{
+		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
+		return;
+	}
+
+	AGameState* GS = GetWorld()->GetGameState<AGameState>();
+	AGameMode* GM = GetWorld()->GetAuthGameMode<AGameMode>();
+	AGameSession* GSession = GM->GameSession;
+	if (GS && GM && GSession)
+	{
+		for (int32 i=0; i < GS->PlayerArray.Num(); i++)
+		{
+			if ( (GS->PlayerArray[i]->PlayerName.ToLower() == NameOrUIDStr.ToLower()) ||
+				 (GS->PlayerArray[i]->UniqueId.ToString() == NameOrUIDStr))
+			{
+				APlayerController* PC = Cast<APlayerController>(GS->PlayerArray[i]->GetOwner());
+				if (PC)
+				{
+					if (bBan)
+					{
+						GSession->BanPlayer(PC,FText::FromString(Reason));
+					}
+					else
+					{
+						GSession->KickPlayer(PC, FText::FromString(Reason));
+					}
+				}
+			}
+		}
+	}
+}
+

@@ -385,18 +385,6 @@ public:
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
 
 	UFUNCTION(Exec)
-	virtual void RconAuth(FString Password);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerRconAuth(const FString& Password);
-
-	UFUNCTION(Exec)
-	virtual void RconExec(FString Command);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerRconExec(const FString& Command);
-
-	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);
 
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -407,7 +395,7 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRconNextMap(const FString& NextMap);
-	
+
 	UFUNCTION(Exec)
 	virtual void UTBugIt(const FString& ScreenShotDescription);
 	virtual void UTBugItStringCreator(FVector ViewLocation, FRotator ViewRotation, FString& GoString, FString& LocString);
