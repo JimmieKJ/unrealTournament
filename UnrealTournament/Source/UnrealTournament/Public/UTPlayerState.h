@@ -336,6 +336,7 @@ private:
 	bool bWroteStatsToCloud;
 	int32 DuelSkillRatingThisMatch;
 	int32 TDMSkillRatingThisMatch;
+	int32 DMSkillRatingThisMatch;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;

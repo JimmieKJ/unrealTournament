@@ -29,6 +29,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bWroteStatsToCloud = false;
 	DuelSkillRatingThisMatch = 0;
 	TDMSkillRatingThisMatch = 0;
+	DMSkillRatingThisMatch = 0;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -760,6 +761,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))), EStatRecordingPeriod::Persistent);
 					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("TDMSkillRating"))), EStatRecordingPeriod::Persistent);
+					DMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("DMSkillRating"))), EStatRecordingPeriod::Persistent);
 				}
 			}
 		}
@@ -832,6 +834,10 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 	else if (SkillStatName == FName(TEXT("TDMSkillRating")))
 	{
 		SkillRating = TDMSkillRatingThisMatch;
+	}
+	else if (SkillStatName == FName(TEXT("DMSkillRating")))
+	{
+		SkillRating = DMSkillRatingThisMatch;
 	}
 	else
 	{
@@ -933,7 +939,7 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName)
 		}
 	}
 
-	UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
+	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
 
 	// KFactor selection can be chosen many different ways, feel free to change it
 	float KFactor = 32.0f / float(OpponentCount);
