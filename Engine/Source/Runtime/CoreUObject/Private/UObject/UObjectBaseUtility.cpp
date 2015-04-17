@@ -70,7 +70,7 @@ void UObjectBaseUtility::GetPathName( const UObject* StopOuter, FString& ResultS
 FString UObjectBaseUtility::GetFullName( const UObject* StopOuter/*=NULL*/ ) const
 {
 	FString Result;  
-	if( this )
+	if( this != nullptr )
 	{
 		Result.Empty(128);
 		GetClass()->AppendName(Result);
