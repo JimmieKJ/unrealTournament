@@ -271,6 +271,10 @@ public:
 		Super::ViewAPlayer(dir);
 	}
 
+	/** Toggle behindview for spectators. */
+	UFUNCTION(exec)
+		virtual void ToggleBehindView();
+
 	/** user configurable FOV setting */
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
 	float ConfigDefaultFOV;

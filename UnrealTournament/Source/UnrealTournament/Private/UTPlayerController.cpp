@@ -724,6 +724,12 @@ void AUTPlayerController::ViewBluePlayer(int32 Index)
 	ServerViewPlayer(Index-1, 1);
 }
 
+void AUTPlayerController::ToggleBehindView()
+{
+	bSpectateBehindView = !bSpectateBehindView;
+	BehindView(bSpectateBehindView);
+}
+
 bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)
 {
 	return true;
@@ -731,6 +737,7 @@ bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex
 
 void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 TeamIndex)
 {
+	BehindView(bSpectateBehindView);
 	Index = FMath::Max(Index, 0);
 	if (Index > 4)
 	{
