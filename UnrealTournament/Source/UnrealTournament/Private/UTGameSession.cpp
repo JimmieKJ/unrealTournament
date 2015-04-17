@@ -44,13 +44,16 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 		ErrorMessage = TEXT("NOTLOGGEDIN");
 	}
 
-	FString UIDAsString = UniqueId->ToString();
-	for (int32 i = 0; i < BannedUsers.Num(); i++)
+	if (UniqueId.IsValid())
 	{
-		if (UIDAsString == BannedUsers[i])
+		FString UIDAsString = UniqueId->ToString();
+		for (int32 i = 0; i < BannedUsers.Num(); i++)
 		{
-			ErrorMessage = TEXT("BANNED");
-			break;
+			if (UIDAsString == BannedUsers[i])
+			{
+				ErrorMessage = TEXT("BANNED");
+				break;
+			}
 		}
 	}
 }
