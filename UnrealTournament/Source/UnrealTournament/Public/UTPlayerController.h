@@ -172,6 +172,9 @@ public:
 	UFUNCTION(unreliable, server, WithValidation)
 		void ServerViewPlayer(int32 Index, int32 TeamIndex);
 
+	/** View Player holding flag specified by TeamIndex. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewFlagHolder(int32 TeamIndex);
 
 	UFUNCTION(exec)
 		virtual void ViewBlueFlag();

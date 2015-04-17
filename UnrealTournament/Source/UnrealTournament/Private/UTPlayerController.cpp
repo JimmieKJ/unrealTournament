@@ -715,19 +715,44 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 	}
 	else if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		ServerViewPlayer(Group-1, 0);
+		BehindView(bSpectateBehindView);
+		ServerViewPlayer(Group - 1, 0);
 	}
 }
 
 void AUTPlayerController::ViewBluePlayer(int32 Index)
 {
-	ServerViewPlayer(Index-1, 1);
+	BehindView(bSpectateBehindView);
+	ServerViewPlayer(Index - 1, 1);
 }
 
 void AUTPlayerController::ToggleBehindView()
 {
 	bSpectateBehindView = !bSpectateBehindView;
 	BehindView(bSpectateBehindView);
+
+	AUTCarriedObject* UTFlag = Cast<AUTCarriedObject>(GetViewTarget());
+	if (!bSpectateBehindView && UTFlag && UTFlag->Holder)
+	{
+		ServerViewFlagHolder(UTFlag->GetTeamNum());
+	}
+}
+
+bool AUTPlayerController::ServerViewFlagHolder_Validate(int32 TeamIndex)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewFlagHolder_Implementation(int32 TeamIndex)
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > TeamIndex) && CTFGameState->FlagBases[TeamIndex] && CTFGameState->FlagBases[TeamIndex]->MyFlag && CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder)
+		{
+			SetViewTarget(CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder);
+		}
+	}
 }
 
 bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)

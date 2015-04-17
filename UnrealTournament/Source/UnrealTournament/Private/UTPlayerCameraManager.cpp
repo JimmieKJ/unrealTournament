@@ -124,8 +124,7 @@ void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
 	if (GetNetMode() == NM_DedicatedServer)
 	{
 		CameraStyle = NAME_Default;
-
-		LastThirdPersonCameraLoc = FVector(0);
+		LastThirdPersonCameraLoc = FVector::ZeroVector;
 		ViewTarget.CheckViewTarget(PCOwner);
 		// our camera is now viewing there
 		FMinimalViewInfo NewPOV;
