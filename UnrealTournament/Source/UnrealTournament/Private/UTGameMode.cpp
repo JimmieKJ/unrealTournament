@@ -1206,6 +1206,26 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 				PS->WriteStatsToCloud();
 			}
 		}
+
+		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+			if (!PS->HasWrittenStatsToCloud())
+			{
+				PS->ModifyStat(FName(TEXT("MatchesQuit")), 1, EStatMod::Delta);
+
+				PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
+				PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
+				PS->ModifyStat(FName(TEXT("PlayerXP")), PS->Score, EStatMod::Delta);
+
+				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				if (PS != nullptr)
+				{
+					PS->WriteStatsToCloud();
+				}
+			}
+		}
+
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Verbose, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
@@ -2640,24 +2660,6 @@ void AUTGameMode::SendEveryoneBackToLobby()
 		if (Controller)
 		{
 			Controller->ClientReturnToLobby();
-		}
-	}
-}
-
-void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC)
-{
-	FString SavedNetworkAddress = PlayerState->SavedNetworkAddress;
-
-	Super::AddInactivePlayer(PlayerState, PC);
-
-	if (InactivePlayerArray.Num() > 0 && !bDisableCloudStats)
-	{
-		// Check that incoming playerstate was actually put into the inactive array
-		AUTPlayerState* UTPS = Cast<AUTPlayerState>(InactivePlayerArray[InactivePlayerArray.Num() - 1]);
-		if (UTPS != NULL && SavedNetworkAddress == UTPS->SavedNetworkAddress && !HasMatchEnded())
-		{
-			// Someone quit, write their partial stats to the cloud
-			UTPS->WriteStatsToCloud();
 		}
 	}
 }

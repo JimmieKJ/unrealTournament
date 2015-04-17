@@ -268,12 +268,21 @@ void AUTDuelGame::UpdateLobbyMatchStats()
 
 void AUTDuelGame::UpdateSkillRating()
 {
-	for (int i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		if (PS != nullptr && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS);
+			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
+
+	for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+		if (PS != nullptr && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 }

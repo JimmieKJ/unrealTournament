@@ -570,6 +570,35 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 				PS->WriteStatsToCloud();
 			}
 		}
+
+		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+			if (!PS->HasWrittenStatsToCloud())
+			{
+				PS->ModifyStat(FName(TEXT("MatchesQuit")), 1, EStatMod::Delta);
+
+				PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
+				PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
+				PS->ModifyStat(FName(TEXT("PlayerXP")), PS->Score, EStatMod::Delta);
+
+				if (UTGameState->WinningTeam == PS->Team)
+				{
+					PS->ModifyStat(FName(TEXT("Wins")), 1, EStatMod::Delta);
+				}
+				else
+				{
+					PS->ModifyStat(FName(TEXT("Losses")), 1, EStatMod::Delta);
+				}
+
+				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				if (PS != nullptr)
+				{
+					PS->WriteStatsToCloud();
+				}
+			}
+		}
+
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}

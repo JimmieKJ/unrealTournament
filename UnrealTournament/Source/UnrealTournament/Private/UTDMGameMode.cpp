@@ -59,7 +59,16 @@ void AUTDMGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateIndividualSkillRating(FName(TEXT("DMSkillRating")));
+			PS->UpdateIndividualSkillRating(FName(TEXT("DMSkillRating")), &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
+
+	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateIndividualSkillRating(FName(TEXT("DMSkillRating")), &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 }

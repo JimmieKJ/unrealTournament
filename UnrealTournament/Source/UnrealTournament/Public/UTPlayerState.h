@@ -312,8 +312,8 @@ public:
 	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	virtual int32 GetSkillRating(FName SkillStatName);
-	virtual void UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch);
-	virtual void UpdateIndividualSkillRating(FName SkillStatName);
+	virtual void UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
+	virtual void UpdateIndividualSkillRating(FName SkillStatName, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	/** Cached clamped player name for display. */
 	UPROPERTY(BlueprintReadWrite)
@@ -329,6 +329,8 @@ public:
 	virtual void SetPlayerName(const FString& S) override;
 
 	virtual void OnRep_PlayerName();
+	
+	bool HasWrittenStatsToCloud() { return bWroteStatsToCloud; }
 
 private:
 	bool bReadStatsFromCloud;
@@ -345,7 +347,7 @@ private:
 	void ReadStatsFromCloud();
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
-
+	
 public:
 	// Average ELO rank for this player.
 	UPROPERTY(Replicated)

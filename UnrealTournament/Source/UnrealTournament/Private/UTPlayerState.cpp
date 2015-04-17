@@ -515,6 +515,9 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->bReadStatsFromCloud = bReadStatsFromCloud;
 		PS->bSuccessfullyReadStatsFromCloud = bSuccessfullyReadStatsFromCloud;
 		PS->bWroteStatsToCloud = bWroteStatsToCloud;
+		PS->DuelSkillRatingThisMatch = DuelSkillRatingThisMatch;
+		PS->DMSkillRatingThisMatch = DMSkillRatingThisMatch;
+		PS->TDMSkillRatingThisMatch = TDMSkillRatingThisMatch;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
 		PS->Deaths = Deaths;
@@ -774,7 +777,6 @@ void AUTPlayerState::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 	if (InUserId.ToString() == StatsID && FileName == GetStatsFilename())
 	{
 		UE_LOG(LogGameStats, Log, TEXT("OnWriteUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
-		bWroteStatsToCloud = true;
 	}
 }
 
@@ -810,7 +812,8 @@ void AUTPlayerState::WriteStatsToCloud()
 
 		UE_LOG(LogGameStats, Log, TEXT("Writing stats for %s, previously read stats: %d"), *PlayerName, bSuccessfullyReadStatsFromCloud ? 1 : 0);
 
-		OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents);
+		OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents); 
+		bWroteStatsToCloud = true;
 	}
 }
 
@@ -844,8 +847,8 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 		UE_LOG(LogGameStats, Warning, TEXT("GetSkillRating could not find skill rating for %s"), *SkillStatName.ToString());
 	}
 
-	// SkillRating was unset previously, return starting value
-	if (SkillRating == 0)
+	// SkillRating was unset previously or a broken value, return the starting value
+	if (SkillRating <= 0)
 	{
 		SkillRating = 1500;
 	}
@@ -853,7 +856,7 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 	return SkillRating;
 }
 
-void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch)
+void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	// Not writing stats for this player
 	if (StatManager == nullptr || StatsID.IsEmpty())
@@ -865,10 +868,19 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch)
 	
 	int32 OpponentCount = 0;
 	float ExpectedWinPercentage = 0.0f;
-	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < UTGameState->PlayerArray.Num(); OuterPlayerIdx++)
+	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < ActivePlayerStates->Num(); OuterPlayerIdx++)
 	{
-		AUTPlayerState* Opponent = Cast<AUTPlayerState>(UTGameState->PlayerArray[OuterPlayerIdx]);
+		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
+		if (Opponent->Team != Team && !Opponent->bOnlySpectator)
+		{
+			OpponentCount++;
+			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
+			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
+		}
+	}
+	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
+	{
+		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
 		if (Opponent->Team != Team && !Opponent->bOnlySpectator)
 		{
 			OpponentCount++;
@@ -878,6 +890,12 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch)
 	}
 
 	UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
+
+	if (OpponentCount == 0)
+	{
+		UE_LOG(LogGameStats, Log, TEXT("UpdateTeamSkillRating %s no opponents found, can't adjust skill rating"), *PlayerName);
+		return;
+	}
 
 	// KFactor selection can be chosen many different ways, feel free to change it
 	float KFactor = 32.0f / float(OpponentCount);
@@ -905,7 +923,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch)
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
 
-void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName)
+void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	// Not writing stats for this player
 	if (StatManager == nullptr || StatsID.IsEmpty())
@@ -918,10 +936,28 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName)
 	int32 OpponentCount = 0;
 	float ExpectedWinPercentage = 0.0f;
 	float ActualWinPercentage = 0.0f;
-	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < UTGameState->PlayerArray.Num(); OuterPlayerIdx++)
+	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < ActivePlayerStates->Num(); OuterPlayerIdx++)
 	{
-		AUTPlayerState* Opponent = Cast<AUTPlayerState>(UTGameState->PlayerArray[OuterPlayerIdx]);
+		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
+		if (Opponent != this && !Opponent->bOnlySpectator)
+		{
+			OpponentCount++;
+			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
+			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
+
+			if (Score > Opponent->Score)
+			{
+				ActualWinPercentage += 1.0f;
+			}
+			else if (Score == Opponent->Score)
+			{
+				ActualWinPercentage += 0.5f;
+			}
+		}
+	}
+	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
+	{
+		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
 		if (Opponent != this && !Opponent->bOnlySpectator)
 		{
 			OpponentCount++;
@@ -940,6 +976,12 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName)
 	}
 
 	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s RA:%d E:%f"), *PlayerName, SkillRating, ExpectedWinPercentage);
+
+	if (OpponentCount == 0)
+	{
+		UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s no opponents found, can't adjust skill rating"), *PlayerName);
+		return;
+	}
 
 	// KFactor selection can be chosen many different ways, feel free to change it
 	float KFactor = 32.0f / float(OpponentCount);
