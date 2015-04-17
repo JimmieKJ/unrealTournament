@@ -24,17 +24,18 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 
 void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage)
 {
+	if (SimpleMessage.IsEmpty())
+	{
+		return;
+	}
 	float BackgroundWidth = 1920.f;
 	float TextPosition = 360.f;
-	if (bShortMessage)
+	if (bShortMessage && UTHUDOwner->LargeFont)
 	{
 		TextPosition = 32.f;
-		if (UTHUDOwner->LargeFont && !SimpleMessage.IsEmpty())
-		{
-			float YL = 0.0f;
-			Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
-			BackgroundWidth += 64.f;
-		}
+		float YL = 0.0f;
+		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
+		BackgroundWidth += 64.f;
 	}
 	// Draw the Background
 	DrawTexture(TextureAtlas, 0, 0, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
