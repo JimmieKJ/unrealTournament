@@ -18,6 +18,12 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerMOTD)
 	FString ServerMOTD;
 
+	UFUNCTION()
+		virtual void OnRep_ServerName();
+
+	UFUNCTION()
+		virtual void OnRep_ServerMOTD();
+
 	// A quick string field for the scoreboard and other browsers that contains description of the server
 	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString ServerDescription;
@@ -154,6 +160,12 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual bool IsMatchInProgress() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
+		virtual bool IsMatchAtHalftime() const;
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
+		virtual bool IsMatchInSuddenDeath() const;
+
+	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInOvertime() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
@@ -235,12 +247,6 @@ protected:
 	{
 		MatchEndTime = GetWorld()->TimeSeconds;
 	}
-
-	UFUNCTION()
-	virtual void OnRep_ServerName();
-
-	UFUNCTION()
-	virtual void OnRep_ServerMOTD();
 
 public:
 	// Will be true if this is an instanced server from a lobby.

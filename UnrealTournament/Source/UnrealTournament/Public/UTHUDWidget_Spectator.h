@@ -15,6 +15,7 @@ class UUTHUDWidget_Spectator : public UUTHUDWidget
 public:
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
+	virtual void DrawSimpleMessage(FText SimpleMessage, float DeltaTime);
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spectator")

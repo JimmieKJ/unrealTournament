@@ -142,12 +142,8 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 
 	virtual bool IsMatchInProgress() const;
 	virtual bool IsMatchInOvertime() const;
-
-	UFUNCTION(BlueprintCallable, Category = GameState)
-	virtual bool IsMatchInSuddenDeath() const;
-	
-	UFUNCTION(BlueprintCallable, Category = GameState)
-	bool IsMatchAtHalftime() const;
+	virtual bool IsMatchInSuddenDeath() const override;
+	virtual bool IsMatchAtHalftime() const override;
 
 	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
 	
