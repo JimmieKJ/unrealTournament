@@ -17,22 +17,36 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 
 bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
-	return (UTGameState != NULL && !UTGameState->HasMatchEnded() && UTHUDOwner->UTPlayerOwner != NULL &&
-				UTHUDOwner->UTPlayerOwner->UTPlayerState != NULL && ((UTCharacterOwner == NULL && UTPlayerOwner->GetPawn() == NULL) || (UTCharacterOwner != NULL && UTCharacterOwner->IsDead())) 
-				&& (!bShowScores || !UTGameState->HasMatchStarted()));
+	return (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState 
+			&& (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || (UTCharacterOwner == NULL && UTPlayerOwner->GetPawn() == NULL) || (UTCharacterOwner != NULL && UTCharacterOwner->IsDead()))
+			&& (!bShowScores || !UTGameState->HasMatchStarted()));
 }
 
-void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime)
+void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage)
 {
+	float BackgroundWidth = 1920.f;
+	float TextPosition = 360.f;
+	if (bShortMessage)
+	{
+		TextPosition = 32.f;
+		if (UTHUDOwner->LargeFont && !SimpleMessage.IsEmpty())
+		{
+			float YL = 0.0f;
+			Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
+			BackgroundWidth += 64.f;
+		}
+	}
 	// Draw the Background
-	DrawTexture(TextureAtlas, 0, 0, 1920.0, 108.0f, 4, 2, 124, 128, 1.0);
+	DrawTexture(TextureAtlas, 0, 0, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
+	if (!bShortMessage)
+	{
+		// Draw the Logo
+		DrawTexture(TextureAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 
-	// Draw the Logo
-	DrawTexture(TextureAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
-
-	// Draw the Spacer Bar
-	DrawTexture(TextureAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
-	DrawText(SimpleMessage, 360, 50, UTHUDOwner->LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		// Draw the Spacer Bar
+		DrawTexture(TextureAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
+	}
+	DrawText(SimpleMessage, TextPosition, 50.f, UTHUDOwner->LargeFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
@@ -41,6 +55,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 
 	if (TextureAtlas)
 	{
+		bool bShortMessage = false;
 		FText SpectatorMessage;
 		if (!UTGameState->HasMatchStarted())	
 		{
@@ -78,11 +93,8 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			if (UTGameState->IsMatchAtHalftime())
 			{
 				FFormatNamedArguments Args;
-				uint32 WaitTime = UTGameState->RemainingTime;
-				Args.Add("Time", FText::AsNumber(WaitTime));
-				FText Msg = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game restarts in {Time}"), Args);
-				DrawSimpleMessage(Msg, DeltaTime);
-
+				Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
+				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args);
 			}
 			else if (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
 			{
@@ -92,6 +104,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				{
 					FFormatNamedArguments Args;
 					Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
+					bShortMessage = true;
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
 				}
 			}
@@ -104,8 +117,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
 				{
 					FFormatNamedArguments Args;
-					uint32 WaitTime = uint32(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime) + 1;
-					Args.Add("RespawnTime", FText::AsNumber(WaitTime));
+					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1));
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RespawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
 				}
 				else
@@ -116,7 +128,19 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				}
 			}
 		}
-		DrawSimpleMessage(SpectatorMessage, DeltaTime);
+		else
+		{
+			AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
+			AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
+			if (ViewCharacter && ViewCharacter->PlayerState)
+			{
+				FFormatNamedArguments Args;
+				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
+				bShortMessage = true;
+				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "PLAYER {PlayerName}"), Args);
+			}
+		}
+		DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);
 	}
 }
 

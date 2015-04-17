@@ -39,11 +39,6 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 
 	FString LocalAddress = NetDriver->LowLevelGetNetworkNumber();
 
-	if (!UniqueId.IsValid() && Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) && Cast<AUTLobbyGameMode>(UTGameMode) == NULL)
-	{
-		ErrorMessage = TEXT("NOTLOGGEDIN");
-	}
-
 	if (UniqueId.IsValid())
 	{
 		FString UIDAsString = UniqueId->ToString();
@@ -55,6 +50,10 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 				break;
 			}
 		}
+	}
+	else if (Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) && Cast<AUTLobbyGameMode>(UTGameMode) == NULL)
+	{
+		ErrorMessage = TEXT("NOTLOGGEDIN");
 	}
 }
 
