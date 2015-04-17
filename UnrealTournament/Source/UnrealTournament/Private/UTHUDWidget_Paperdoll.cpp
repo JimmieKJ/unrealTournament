@@ -41,7 +41,11 @@ void UUTHUDWidget_Paperdoll::ProcessArmor()
 {
 	PlayerArmor = 0;
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
-	if (UTC != NULL && !UTC->IsDead())
+	if (UTHUDOwner->UTPlayerOwner->PlayerState && UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator && (UTHUDOwner->GetNetMode() != NM_Standalone))
+	{
+		PlayerArmor = UTC->ArmorAmount;
+	}
+	else if (UTC != NULL && !UTC->IsDead())
 	{
 		bool bHasShieldBelt = false;
 		bool bHasThighPads = false;

@@ -684,7 +684,10 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			AUTInventory* HitArmor = NULL;
 			ModifyDamageTaken(ResultDamage, ResultMomentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
-
+			if (HitArmor)
+			{
+				ArmorAmount = GetArmorAmount();
+			}
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
 				if (EventInstigator != NULL && EventInstigator != Controller)
@@ -2379,6 +2382,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None); // @TODO FIXMESTEVE only for spectators
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -3498,19 +3502,26 @@ AUTCarriedObject* AUTCharacter::GetCarriedObject()
 	return NULL;
 }
 
-void AUTCharacter::CheckArmorStacking()
+int32 AUTCharacter::GetArmorAmount()
 {
 	int32 TotalArmor = 0;
 	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
 	{
 		TotalArmor += It->ArmorAmount;
 	}
+	return TotalArmor;
+}
+
+void AUTCharacter::CheckArmorStacking()
+{
+	int32 TotalArmor = GetArmorAmount();
 
 	// find the lowest absorption armors, and reduce them
 	while (TotalArmor > MaxStackedArmor)
 	{
 		TotalArmor -= ReduceArmorStack(TotalArmor-MaxStackedArmor);
 	}
+	ArmorAmount = TotalArmor;
 }
 
 int32 AUTCharacter::ReduceArmorStack(int32 Amount)
@@ -3703,17 +3714,17 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
-		if (GS->OnSameTeam(PC->GetPawn(), this) && Dist <= TeamPlayerIndicatorMaxDistance)
+		if ((GS->OnSameTeam(PC->GetPawn(), this) || (PC->PlayerState && PC->PlayerState->bOnlySpectator)) && Dist <= TeamPlayerIndicatorMaxDistance)
 		{
 			float XL, YL;
 
-			float Scale = Canvas->ClipX / 1920;
+			float Scale = Canvas->ClipX / 1920.f;
 
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL,Scale,Scale);
 
-			FVector ScreenPosition = Canvas->Project(GetActorLocation() + (GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f) * FVector(0, 0, 1));
-			float XPos = ScreenPosition.X - (XL * 0.5);
+			FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f));
+			float XPos = ScreenPosition.X - (XL * 0.5f);
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{
 				// Make the team backgrounds darker
