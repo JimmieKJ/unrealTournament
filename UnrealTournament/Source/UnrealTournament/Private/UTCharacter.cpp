@@ -3710,16 +3710,15 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if ( UTPS != NULL && PC != NULL && PC->GetPawn() != NULL && PC->GetViewTarget() != this && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
+	bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
+	if (UTPS != NULL && PC != NULL && (bSpectating || PC->GetPawn()) && PC->GetViewTarget() != this && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
-		if ((GS->OnSameTeam(PC->GetPawn(), this) || (PC->PlayerState && PC->PlayerState->bOnlySpectator)) && Dist <= TeamPlayerIndicatorMaxDistance)
+		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating) && Dist <= TeamPlayerIndicatorMaxDistance)
 		{
 			float XL, YL;
-
 			float Scale = Canvas->ClipX / 1920.f;
-
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL,Scale,Scale);
 
