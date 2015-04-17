@@ -3719,7 +3719,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		{
 			float XL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
-			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
+			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL,Scale,Scale);
 
 			FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f));
@@ -3728,14 +3728,16 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			{
 				// Make the team backgrounds darker
 				FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
-				TeamColor.R *= 0.24;
-				TeamColor.G *= 0.24;
-				TeamColor.B *= 0.24;
-
+				TeamColor.R *= 0.24f;
+				TeamColor.G *= 0.24f;
+				TeamColor.B *= 0.24f;
+				TeamColor.A *= 0.6f;
 				Canvas->SetLinearDrawColor(TeamColor);
-				Canvas->DrawTile(Canvas->DefaultTexture, XPos - 1, ScreenPosition.Y - YL - 2, XL + 2, YL - (6 * Scale), 0, 0, 1, 1);
-
-				FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + ScreenPosition.Y - YL)), FText::FromString(PlayerState->PlayerName), TinyFont, FLinearColor::White);
+				float Border = 2.f*Scale;
+				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, ScreenPosition.Y - YL - Border, XL + 2.f*Border, YL + 2.f*Border, 0, 0, 1, 1);
+				FLinearColor BeaconTextColor = FLinearColor::White;
+				BeaconTextColor.A = 0.6f;
+				FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + ScreenPosition.Y - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor);
 				TextItem.Scale = FVector2D(Scale, Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
 				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
