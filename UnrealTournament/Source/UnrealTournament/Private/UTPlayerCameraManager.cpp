@@ -107,8 +107,8 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 		return NAME_FreeCam;
 	}
 
-	// force third person if target is dead, ragdoll or emoting
-	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0))
+	// force third person if not character, or target is dead, ragdoll or emoting
+	if (UTCharacter == NULL || (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0))
 	{
 		return NAME_FreeCam;
 	}

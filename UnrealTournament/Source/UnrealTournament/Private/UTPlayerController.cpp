@@ -272,6 +272,9 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
 	InputComponent->BindAction("PlayTaunt2", IE_Pressed, this, &AUTPlayerController::PlayTaunt2);
+
+	InputComponent->BindAction("ViewRedFlag", IE_Pressed, this, &AUTPlayerController::ViewRedFlag);
+	InputComponent->BindAction("ViewBlueFlag", IE_Pressed, this, &AUTPlayerController::ViewBlueFlag);
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -751,11 +754,37 @@ void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 Tea
 					SetViewTarget(Members[Index]->PlayerState);
 				}
 			}
-
 		}
 		else if (GameState && (Index < GameState->PlayerArray.Num()) && (GameState->PlayerArray[Index] != NULL))
 		{
 			SetViewTarget(GameState->PlayerArray[Index]);
+		}
+	}
+}
+
+void AUTPlayerController::ViewBlueFlag()
+{
+	ServerViewFlag(1);
+}
+
+void AUTPlayerController::ViewRedFlag()
+{
+	ServerViewFlag(0);
+}
+
+bool AUTPlayerController::ServerViewFlag_Validate(int32 Index)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewFlag_Implementation(int32 Index)
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag )
+		{
+			SetViewTarget(CTFGameState->FlagBases[Index]->MyFlag);
 		}
 	}
 }
@@ -767,6 +796,7 @@ void AUTPlayerController::PlayMenuSelectSound()
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SelectSound, GetViewTarget()->GetActorLocation(), 1.f, 1.0f, 0.0f);
 	}
 }
+
 void AUTPlayerController::OnFire()
 {
 	if (GetPawn() != NULL)
@@ -791,8 +821,8 @@ void AUTPlayerController::OnFire()
 		PlayMenuSelectSound();
 		ServerRestartPlayer();
 	}
-
 }
+
 void AUTPlayerController::OnStopFire()
 {
 	if (GetPawn() != NULL)
@@ -800,6 +830,7 @@ void AUTPlayerController::OnStopFire()
 		new(DeferredFireInputs) FDeferredFireInput(0, false);
 	}
 }
+
 void AUTPlayerController::OnAltFire()
 {
 	if (GetPawn() != NULL)
@@ -824,6 +855,7 @@ void AUTPlayerController::OnAltFire()
 		ServerRestartPlayerAltFire();
 	}
 }
+
 void AUTPlayerController::OnStopAltFire()
 {
 	if (GetPawn() != NULL)
@@ -1579,7 +1611,6 @@ void AUTPlayerController::TestResult(uint16 ButtonID)
 {
 }
 
-
 void AUTPlayerController::Possess(APawn* PawnToPossess)
 {
 	Super::Possess(PawnToPossess);
@@ -1911,6 +1942,11 @@ void AUTPlayerController::ClientSetViewTarget_Implementation(AActor* A, FViewTar
 		{
 			LastSpectatedCharacter = Char;
 			LastSpectatedPlayerState = Char->PlayerState;
+		}
+		else
+		{
+			LastSpectatedCharacter = NULL;
+			LastSpectatedPlayerState = NULL;
 		}
 	}
 	if (PlayerCameraManager != NULL)

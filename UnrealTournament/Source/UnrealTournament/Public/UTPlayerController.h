@@ -172,6 +172,17 @@ public:
 	UFUNCTION(unreliable, server, WithValidation)
 		void ServerViewPlayer(int32 Index, int32 TeamIndex);
 
+
+	UFUNCTION(exec)
+		virtual void ViewBlueFlag();
+
+	UFUNCTION(exec)
+		virtual void ViewRedFlag();
+
+	/** View Flag of team specified by Index. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewFlag(int32 Index);
+
 	virtual FVector GetFocalLocation() const override;
 
 	virtual void Possess(APawn*) override;
