@@ -54,7 +54,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
 
-	if (TextureAtlas)
+	if (TextureAtlas && UTGameState)
 	{
 		bool bShortMessage = false;
 		FText SpectatorMessage;
