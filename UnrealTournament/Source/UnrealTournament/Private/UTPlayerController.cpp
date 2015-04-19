@@ -818,6 +818,41 @@ void AUTPlayerController::ServerViewFlag_Implementation(int32 Index)
 	}
 }
 
+void AUTPlayerController::ViewProjectile()
+{
+	ServerViewProjectile();
+}
+
+bool AUTPlayerController::ServerViewProjectile_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewProjectile_Implementation()
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTCharacter* ViewedCharacter = Cast<AUTCharacter>(GetViewTarget());
+		// @TODO FIXMESTEVE save last fired projectile as optimization
+		AUTProjectile* BestProj = NULL;
+		if (ViewedCharacter)
+		{
+			for (FActorIterator It(GetWorld()); It; ++It)
+			{
+				AUTProjectile* Proj = Cast<AUTProjectile>(*It);
+				if (Proj && !Proj->bExploded && !Proj->GetVelocity().IsNearlyZero() && (Proj->Instigator == ViewedCharacter) && (!BestProj || (BestProj->CreationTime < Proj->CreationTime)))
+				{
+					BestProj = Proj;
+				}
+			}
+		}
+		if (BestProj)
+		{
+			SetViewTarget(BestProj);
+		}
+	}
+}
+
 void AUTPlayerController::PlayMenuSelectSound()
 {
 	if (GetViewTarget())
@@ -1535,6 +1570,11 @@ void AUTPlayerController::SetCameraMode( FName NewCamMode )
 	{
 		ClientSetCameraMode( NewCamMode );
 	}
+}
+
+void AUTPlayerController::ToggleTacCom()
+{
+	bTacComView = !bTacComView;
 }
 
 void AUTPlayerController::SetStylizedPP(int32 NewPP)

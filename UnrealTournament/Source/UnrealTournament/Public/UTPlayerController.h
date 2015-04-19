@@ -176,11 +176,25 @@ public:
 	UFUNCTION(unreliable, server, WithValidation)
 		void ServerViewFlagHolder(int32 TeamIndex);
 
+	/** View last projectile fired by currently viewed player. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewProjectile();
+
+	UFUNCTION(exec)
+		virtual void ViewProjectile();
+
 	UFUNCTION(exec)
 		virtual void ViewBlueFlag();
 
 	UFUNCTION(exec)
 		virtual void ViewRedFlag();
+
+	UFUNCTION(exec)
+		virtual void ToggleTacCom();
+
+	/** Enables TacCom for spectators. */
+	UPROPERTY(BluePrintReadWrite)
+		bool bTacComView;
 
 	/** View Flag of team specified by Index. */
 	UFUNCTION(unreliable, server, WithValidation)

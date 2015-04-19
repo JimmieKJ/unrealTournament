@@ -95,6 +95,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
 }
 
+// @TODO FIXMESTEVE SPLIT OUT true spectator controls
 FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
@@ -108,7 +109,7 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	}
 
 	// force third person if target is dead, ragdoll or emoting
-	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0))
+	if ((UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0)) || Cast<AUTProjectile>(GetViewTarget()))
 	{
 		return NAME_FreeCam;
 	}
@@ -156,20 +157,20 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 
 	FName SavedCameraStyle = CameraStyle;
 	CameraStyle = GetCameraStyleWithOverrides();
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
-	AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
-	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(OutVT.Target);
 
 	// smooth third person camera all the time
 	if (CameraStyle == NAME_FreeCam)
 	{
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
+		AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
+		AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(OutVT.Target);
 		OutVT.POV.FOV = DefaultFOV;
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
 		OutVT.POV.bConstrainAspectRatio = false;
 		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 
-		FVector DesiredLoc = (Cast<AController>(OutVT.Target) && !LastThirdPersonCameraLoc.IsZero()) ? LastThirdPersonCameraLoc : OutVT.Target->GetActorLocation();;
+		FVector DesiredLoc = (Cast<AController>(OutVT.Target) && !LastThirdPersonCameraLoc.IsZero()) ? LastThirdPersonCameraLoc : OutVT.Target->GetActorLocation();
 		// we must use the capsule location here as the ragdoll's root component can be rubbing a wall
 		if (UTCharacter != nullptr && UTCharacter->IsRagdoll() && UTCharacter->GetCapsuleComponent() != nullptr)
 		{
@@ -180,7 +181,6 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			DesiredLoc += FlagBaseFreeCamOffset;
 		}
 
-		FRotator Rotator = PCOwner->GetControlRotation();
 		FVector Loc = (LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget) || ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f)) ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
 		LastThirdPersonCameraLoc = Loc;
 		LastThirdPersonTarget = OutVT.Target;
@@ -189,6 +189,13 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
+		FRotator Rotator = PCOwner->GetControlRotation();
+		if (Cast<AUTProjectile>(OutVT.Target) && !OutVT.Target->IsPendingKillPending())
+		{
+			Rotator = OutVT.Target->GetVelocity().Rotation();
+			CameraDistance = 60.f;
+			Loc = DesiredLoc;
+		}
 
 		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
 		FCollisionQueryParams BoxParams(NAME_FreeCam, false, this);
