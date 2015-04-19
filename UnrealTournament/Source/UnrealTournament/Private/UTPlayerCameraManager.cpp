@@ -99,25 +99,27 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
+	static const FName NAME_FirstPerson = FName(TEXT("FirstPerson"));
 
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(GetViewTarget());
-	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
-
-	if (UTPlaceholder != nullptr)
+	if (UTCharacter == NULL)
 	{
+		if (GetViewTarget() == PCOwner->GetSpectatorPawn())
+		{
+			return NAME_FirstPerson;
+		}
+		if (Cast<AUTProjectile>(GetViewTarget()) || Cast<AUTViewPlaceholder>(GetViewTarget()))
+		{
+			return NAME_FreeCam;
+		}
+	}
+	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0)
+	{
+		// force third person if target is dead, ragdoll or emoting
 		return NAME_FreeCam;
 	}
-
-	// force third person if target is dead, ragdoll or emoting
-	if ((UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0)) || Cast<AUTProjectile>(GetViewTarget()))
-	{
-		return NAME_FreeCam;
-	}
-	else
-	{
-		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		return (GameState != NULL) ? GameState->OverrideCameraStyle(PCOwner, CameraStyle) : CameraStyle;
-	}
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	return (GameState != NULL) ? GameState->OverrideCameraStyle(PCOwner, CameraStyle) : CameraStyle;
 }
 
 void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
