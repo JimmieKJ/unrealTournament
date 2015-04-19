@@ -1631,9 +1631,23 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 
 	// See if we're no longer viewing a placeholder and destroy it
-	if (UTPlaceholder != nullptr && GetViewTarget() != UTPlaceholder)
+	AActor* UpdatedViewTarget = GetViewTarget();
+	if (UTPlaceholder != nullptr && UpdatedViewTarget != UTPlaceholder)
 	{
 		UTPlaceholder->Destroy();
+	}
+
+	if (StateName == NAME_Spectating)
+	{
+		AUTCharacter* Char = Cast<AUTCharacter>(UpdatedViewTarget);
+		if (Char)
+		{
+			LastSpectatedPlayerState = Char->PlayerState;
+		}
+		else if (!Cast<AUTProjectile>(UpdatedViewTarget))
+		{
+			LastSpectatedPlayerState = NULL;
+		}
 	}
 }
 
@@ -1779,24 +1793,25 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 
 	// Follow the last spectated player again when they respawn
-	if (StateName == NAME_Spectating)
+	if ((StateName == NAME_Spectating) && LastSpectatedPlayerState && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
 	{
 		APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 		AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-		if (ViewTargetPawn == nullptr || (ViewTargetCharacter != nullptr && ViewTargetCharacter->IsDead()))
+		if (!ViewTargetPawn || (ViewTargetCharacter && ViewTargetCharacter->IsDead()))
 		{
-			if (LastSpectatedPlayerState != nullptr)
+			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
-				for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+				APawn* Pawn = *Iterator;
+				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
 				{
-					APawn* Pawn = *Iterator;
-					if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
-					{
-						ServerViewPawn(*Iterator);
-					}
+					ServerViewPawn(*Iterator);
 				}
 			}
 		}
+	}
+	else if (PlayerState->bOnlySpectator && (GetViewTarget() == this))
+	{
+		ClientViewSpectatorPawn(FViewTargetTransitionParams());
 	}
 }
 
@@ -2000,30 +2015,6 @@ void AUTPlayerController::SlowerEmote()
 	{
 		UTCharacter->ServerSlowerEmote();
 	}
-}
-
-void AUTPlayerController::ClientSetViewTarget_Implementation(AActor* A, FViewTargetTransitionParams TransitionParams)
-{
-	if (StateName == NAME_Spectating)
-	{
-		AUTCharacter* Char = Cast<AUTCharacter>(A);
-		if (Char)
-		{
-			LastSpectatedCharacter = Char;
-			LastSpectatedPlayerState = Char->PlayerState;
-		}
-		else
-		{
-			LastSpectatedCharacter = NULL;
-			LastSpectatedPlayerState = NULL;
-		}
-	}
-	if (PlayerCameraManager != NULL)
-	{
-		PlayerCameraManager->UnlockFOV();
-	}
-
-	Super::ClientSetViewTarget_Implementation(A, TransitionParams);
 }
 
 bool AUTPlayerController::ServerViewPawn_Validate(APawn* PawnToView)
