@@ -69,7 +69,7 @@ void AUTWeapAttachment_LinkGun::Tick(float DeltaTime)
 	if (MuzzleFlash.IsValidIndex(1) && MuzzleFlash[1] != NULL)
 	{
 		static FName NAME_PulseScale(TEXT("PulseScale"));
-		float NewScale = 1.0f + FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - LastBeamPulseTime) / 0.25f);
+		float NewScale = 1.0f + FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - LastBeamPulseTime) / 0.35f);
 		MuzzleFlash[1]->SetVectorParameter(NAME_PulseScale, FVector(NewScale, NewScale, NewScale));
 	}
 }
