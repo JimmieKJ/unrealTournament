@@ -104,14 +104,7 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(GetViewTarget());
 	if (UTCharacter == NULL)
 	{
-		if (GetViewTarget() == PCOwner->GetSpectatorPawn())
-		{
-			return NAME_FirstPerson;
-		}
-		if (Cast<AUTProjectile>(GetViewTarget()) || Cast<AUTViewPlaceholder>(GetViewTarget()))
-		{
-			return NAME_FreeCam;
-		}
+		return (GetViewTarget() == PCOwner->GetSpectatorPawn()) ? NAME_FirstPerson : NAME_FreeCam;
 	}
 	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0)
 	{
