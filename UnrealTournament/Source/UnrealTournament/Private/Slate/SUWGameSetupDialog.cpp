@@ -7,6 +7,7 @@
 #include "SUTUtils.h"
 #include "UTGameEngine.h"
 #include "UTLobbyMatchInfo.h"
+#include "UTEpicDefaultRulesets.h"
 
 
 #if !UE_SERVER
@@ -14,12 +15,17 @@
 
 void SUWGameSetupDialog::Construct(const FArguments& InArgs)
 {
-
-	Categories.Add(FGameRuleCategories::Casual);		CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Casual","Casual"));
-	Categories.Add(FGameRuleCategories::TeamPlay);		CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_TeamPlay","Team Play"));
-	Categories.Add(FGameRuleCategories::Big);			CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Big","Big"));
-	Categories.Add(FGameRuleCategories::Competitive);	CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Competitive","Competitve"));
-	Categories.Add(FGameRuleCategories::Custom);		CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Custom","Custom"));
+	UUTEpicDefaultRulesets* DefaultRuleset = UUTEpicDefaultRulesets::StaticClass()->GetDefaultObject<UUTEpicDefaultRulesets>();
+	UE_LOG(UT,Log,TEXT("Pulling Categories %i"), DefaultRuleset ? DefaultRuleset->RuleCategories.Num() : -1);
+	if (DefaultRuleset)
+	{
+		for (int32 i = 0; i < DefaultRuleset->RuleCategories.Num(); i++)
+		{
+			UE_LOG(UT,Log,TEXT("Adding Categories %s / %s"), *DefaultRuleset->RuleCategories[i].CategoryName.ToString(), *DefaultRuleset->RuleCategories[i].CategoryButtonText);
+			Categories.Add(DefaultRuleset->RuleCategories[i].CategoryName);
+			CategoryTexts.Add(FText::FromString(DefaultRuleset->RuleCategories[i].CategoryButtonText));
+		}
+	}
 
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)

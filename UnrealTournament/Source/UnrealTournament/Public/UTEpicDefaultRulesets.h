@@ -8,12 +8,33 @@
 // Eventually, this class needs to be a file pulled from the MCP so we can update
 // our rulesets on the fly.
 
-UCLASS()
+USTRUCT()
+struct FRuleCategoryData
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName CategoryName;
+
+	UPROPERTY()
+	FString CategoryButtonText;
+
+	FRuleCategoryData()
+		: CategoryName(NAME_None)
+		, CategoryButtonText(TEXT(""))
+	{
+	}
+};
+
+UCLASS(Config=Rules)
 class UUTEpicDefaultRulesets : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
 public:
+
+	UPROPERTY(Config)
+	TArray<FRuleCategoryData> RuleCategories;
 
 	static void GetDefaultRules(AActor* Owner, TArray<TWeakObjectPtr<AUTReplicatedGameRuleset>>& Storage)
 	{
@@ -113,7 +134,7 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("iDM"), 
-			TEXT("Custom"), 
+			TEXT("Instagib"), 
 			TEXT("Instgib DM"), 
 			TEXT("One hit one kill deathmatch."), 
 			TEXT("One hit one kill Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>FragLimit : 30</>\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 6 players allowed!"),
@@ -128,7 +149,7 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("iTDM"), 
-			TEXT("Custom"), 
+			TEXT("Instagib"), 
 			TEXT("Instgib TDM"), 
 			TEXT("One hit one kill team deathmatch."), 
 			TEXT("One hit one kill Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>FragLimit : 30</>\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 6 players allowed!"),
@@ -143,7 +164,7 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("iDuel"), 
-			TEXT("Competitive,Custom"), 
+			TEXT("Competitive,Instagib"), 
 			TEXT("Instgib Duel"), 
 			TEXT("Two players enter, one player leaves -- Instagib style."), 
 			TEXT("You against one other opponent!\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>FragLimit : 20</>\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n\nMaximum of 2 players allowed!"),
@@ -159,7 +180,7 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("iCTF"), 
-			TEXT("Custom"), 
+			TEXT("Instagib"), 
 			TEXT("Instgib CTF"), 
 			TEXT("One hit one kill CTF."), 
 			TEXT("Try to steal the enemy flag and return it home while avoiding even a single hit!\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 7 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 12 players allowed!"),
