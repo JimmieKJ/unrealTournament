@@ -373,6 +373,7 @@ void UStaticMeshComponent::CheckForErrors()
 	}
 
 	// Make sure any non uniform scaled meshes have appropriate collision
+	/* this is going to be disabled in main by 4.9, just head starting it so our LDs pay attention to the map check box
 	if ( IsCollisionEnabled() && StaticMesh != NULL && StaticMesh->BodySetup != NULL && Owner != NULL )
 	{
 		// Overall scale factor for this mesh.
@@ -390,7 +391,7 @@ void UStaticMeshComponent::CheckForErrors()
 				->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_SimpleCollisionButNonUniformScale", "'{MeshName}' has simple collision but is being scaled non-uniformly - collision creation will fail" ), Arguments)))
 				->AddToken(FMapErrorToken::Create(FMapErrors::SimpleCollisionButNonUniformScale));
 		}
-	}
+	}*/
 
 	if ( BodyInstance.bSimulatePhysics && StaticMesh != NULL && StaticMesh->BodySetup != NULL && StaticMesh->BodySetup->AggGeom.GetElementCount() == 0) 
 	{
