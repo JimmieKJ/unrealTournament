@@ -127,7 +127,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->SetNotifyRigidBodyCollision(true);
 
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
-	SpectatorIndicatorMaxDistance = 5000.f;
+	SpectatorIndicatorMaxDistance = 8000.f;
 	PlayerIndicatorMaxDistance = 1200.f;
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 	MaxShotSynchDelay = 0.1f;
@@ -3722,11 +3722,12 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		{
 			float TextXL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
+			bool bFarAway = bTacCom && (Dist > (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance));
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
 			float X, Y;
 			Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
-			float XL = FMath::Max(X, TextXL);
+			float XL = bFarAway ? TextXL : FMath::Max(X, TextXL);
 
 			FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f));
 			float XPos = ScreenPosition.X - 0.5f*XL;
@@ -3737,51 +3738,45 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				TeamColor.R *= 0.24f;
 				TeamColor.G *= 0.24f;
 				TeamColor.B *= 0.24f;
-				TeamColor.A *= 0.6f;
+				TeamColor.A = 0.6f;
 				Canvas->SetLinearDrawColor(TeamColor);
 				float Border = 2.f*Scale;
-				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, YL + 0.5*YL + 2.f*Border, 0, 0, 1, 1);
+				float Height = bFarAway ? 0.75*YL : YL + 0.5*YL;
+				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
 				BeaconTextColor.A = 0.6f;
 				FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor);
-				TextItem.Scale = FVector2D(Scale, Scale);
+				TextItem.Scale = FVector2D(0.1f*Scale, 0.1f*Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
 				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
 				Canvas->DrawItem(TextItem);
 
-				BeaconTextColor = FLinearColor::Green;
-				BeaconTextColor.R *= 0.2f;
-				BeaconTextColor.G *= 0.2f;
-				BeaconTextColor.B *= 0.2f;
-				BeaconTextColor.A = 0.6f;
-				TextItem.SetColor(BeaconTextColor);
-				FFormatNamedArguments Args;
-				Args.Add("Health", FText::AsNumber(Health));
-				TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args);
-
-				float XOffset = XPos;
-				if (ArmorAmount == 0)
+				if (!bFarAway)
 				{
-					Canvas->TextSize(TinyFont, TextItem.Text.ToString(), X, Y, Scale, Scale);
-					XOffset += 0.5 * (XL - X);
-				}
-				TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
-				Canvas->DrawItem(TextItem);
-
-				if (ArmorAmount > 0)
-				{
-					BeaconTextColor = FLinearColor::Yellow;
-					BeaconTextColor.R *= 0.2f;
-					BeaconTextColor.G *= 0.2f;
-					BeaconTextColor.B *= 0.2f;
-					BeaconTextColor.A = 0.6f;
-					TextItem.SetColor(BeaconTextColor);
+					TextItem.SetColor(FLinearColor(0.2f, 0.5f, 0.2f, 0.6f));
 					FFormatNamedArguments Args;
-					Args.Add("Armor", FText::AsNumber(ArmorAmount));
-					TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), Args);
-					Canvas->TextSize(TinyFont, "A" + TextItem.Text.ToString(), X, Y, Scale, Scale);
-					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + XL - Border - X), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
+					Args.Add("Health", FText::AsNumber(Health));
+					TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args);
+
+					float XOffset = XPos;
+					if (ArmorAmount == 0)
+					{
+						Canvas->TextSize(TinyFont, TextItem.Text.ToString(), X, Y, Scale, Scale);
+						XOffset += 0.5 * (XL - X);
+					}
+					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
 					Canvas->DrawItem(TextItem);
+
+					if (ArmorAmount > 0)
+					{
+						TextItem.SetColor(FLinearColor(0.5f, 0.5f, 0.2f, 0.6f));
+						FFormatNamedArguments Args;
+						Args.Add("Armor", FText::AsNumber(ArmorAmount));
+						TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), Args);
+						Canvas->TextSize(TinyFont, "A" + TextItem.Text.ToString(), X, Y, Scale, Scale);
+						TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + XL - Border - X), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
+						Canvas->DrawItem(TextItem);
+					}
 				}
 			}
 		}
