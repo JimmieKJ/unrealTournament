@@ -820,7 +820,22 @@ void AUTPlayerController::ServerViewFlag_Implementation(int32 Index)
 
 void AUTPlayerController::ViewProjectile()
 {
-	ServerViewProjectile();
+	if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerState)
+	{
+		// toggle away from projectile cam
+		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		{
+			APawn* Pawn = *Iterator;
+			if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+			{
+				ServerViewPawn(*Iterator);
+			}
+		}
+	}
+	else
+	{
+		ServerViewProjectile();
+	}
 }
 
 bool AUTPlayerController::ServerViewProjectile_Validate()
@@ -1644,7 +1659,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		{
 			LastSpectatedPlayerState = Char->PlayerState;
 		}
-		else if (!Cast<AUTProjectile>(UpdatedViewTarget))
+		else if (!Cast<AUTProjectile>(UpdatedViewTarget) && (UpdatedViewTarget != this))
 		{
 			LastSpectatedPlayerState = NULL;
 		}
