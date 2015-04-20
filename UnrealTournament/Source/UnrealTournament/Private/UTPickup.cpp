@@ -49,6 +49,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	PickupType = PC_Minor;
 	PickupMessageString = NSLOCTEXT("PickupMessage", "ItemPickedUp", "Item snagged.");
+	bHasTacComView = false;
 }
 
 void AUTPickup::SetupTimerSprite()
@@ -66,6 +67,16 @@ void AUTPickup::SetupTimerSprite()
 			TimerSprite->LDMaxDrawDistance = 1024.0f;
 			TimerSprite->SetHiddenInGame(true);
 		}
+	}
+}
+
+void AUTPickup::SetTacCom(bool bTacComEnabled)
+{
+	if (bHasTacComView && TimerSprite)
+	{
+		TimerSprite->LDMaxDrawDistance = bTacComEnabled ? 50000.f : 1024.f;
+		TimerSprite->CachedMaxDrawDistance = TimerSprite->LDMaxDrawDistance; 
+		TimerSprite->MarkRenderStateDirty();
 	}
 }
 
