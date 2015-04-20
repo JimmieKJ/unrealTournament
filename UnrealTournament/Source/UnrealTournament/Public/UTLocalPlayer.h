@@ -425,6 +425,9 @@ public:
 	// Request someone be my friend...
 	virtual void RequestFriendship(TSharedPtr<FUniqueNetId> FriendID);
 
+	// Holds a list of maps to play in Single player
+	TArray<FString> SinglePlayerMapList;
+
 };
 
 
