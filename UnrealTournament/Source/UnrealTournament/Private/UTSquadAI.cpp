@@ -265,6 +265,9 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 		if (SquadRouteGoalIndex == AlternatePath.RouteCache.Num() - 1)
 		{
 			// done following alternate path
+			B->UsingSquadRouteIndex = INDEX_NONE;
+			B->SquadRouteGoal.Clear();
+			B->bDisableSquadRoutes = true;
 			return false;
 		}
 		else
@@ -369,8 +372,7 @@ void AUTSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* Instigat
 				}
 				else
 				{
-					// set timer to retask bot, partially just to stagger updates and partially to account for their reaction time
-					SetTimerUFunc(B, TEXT("WhatToDoNext"), 0.1f + 0.15f * FMath::FRand() + (0.5f - 0.5f * B->Personality.ReactionTime) * FMath::FRand(), false);
+					SetRetaskTimer(B);
 				}
 			}
 		}

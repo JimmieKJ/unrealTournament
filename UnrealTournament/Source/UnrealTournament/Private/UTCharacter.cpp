@@ -325,7 +325,7 @@ FVector AUTCharacter::GetRewindLocation(float PredictionTime)
 	return TargetLocation;
 }
 
-void AUTCharacter::GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions) const
+void AUTCharacter::GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions, bool bStopAtTeleport) const
 {
 	OutPositions.Empty(SavedPositions.Num());
 	if (SavedPositions.Num() > 0)
@@ -336,6 +336,18 @@ void AUTCharacter::GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositi
 			if (OutPositions.Last().Time < SavedPositions[i].Time)
 			{
 				OutPositions.Add(SavedPositions[i]);
+			}
+		}
+		if (bStopAtTeleport)
+		{
+			// cut off list to only those after the most recent teleport
+			for (int32 i = OutPositions.Num() - 1; i >= 0; i--)
+			{
+				if (OutPositions[i].bTeleported)
+				{
+					OutPositions.RemoveAt(0, i + 1);
+					break;
+				}
 			}
 		}
 	}
@@ -3660,9 +3672,21 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, TeleportStart, GetActorRotation(), Params);
 		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, GetActorLocation(), GetActorRotation(), Params);
 	}
-	if (bResult && !bIsATest && UTCharacterMovement)
+	if (bResult && !bIsATest)
 	{
-		UTCharacterMovement->NeedsClientAdjustment();
+		if (UTCharacterMovement != NULL)
+		{
+			UTCharacterMovement->NeedsClientAdjustment();
+		}
+		// trigger update for bots that are moving directly to us, as that move is no longer valid
+		for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+		{
+			AUTBot* B = Cast<AUTBot>(It->Get());
+			if (B != NULL && B->GetMoveTarget().Actor == this)
+			{
+				B->MoveTimer = -1.0f;
+			}
+		}
 	}
 	return bResult;
 }

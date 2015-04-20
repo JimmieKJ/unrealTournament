@@ -379,7 +379,8 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 
 void AUTCTFSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName)
 {
-	if (InstigatedBy != NULL && InObjective == Objective && GameObjective != NULL && GameObjective->GetCarriedObject() != NULL && GameObjective->GetCarriedObject()->Holder == InstigatedBy->PlayerState)
+	AUTGameObjective* InGameObjective = Cast<AUTGameObjective>(InObjective);
+	if (InstigatedBy != NULL && InGameObjective != NULL && InGameObjective->GetCarriedObject() != NULL && InGameObjective->GetCarriedObject()->Holder == InstigatedBy->PlayerState && Members.Contains(InstigatedBy))
 	{
 		// re-enable alternate paths for flag carrier so it can consider them for planning its escape
 		AUTBot* B = Cast<AUTBot>(InstigatedBy);
@@ -390,6 +391,22 @@ void AUTCTFSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* Insti
 			B->UsingSquadRouteIndex = INDEX_NONE;
 		}
 		SetLeader(InstigatedBy);
+	}
+	for (AController* C : Members)
+	{
+		AUTBot* B = Cast<AUTBot>(C);
+		if (B != NULL)
+		{
+			if (B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL)
+			{
+				// retask flag carrier immediately
+				B->WhatToDoNext();
+			}
+			else if (B->GetMoveTarget().Actor != NULL && (B->GetMoveTarget().Actor == InGameObjective || B->GetMoveTarget().Actor == InGameObjective->GetCarriedObject()))
+			{
+				SetRetaskTimer(B);
+			}
+		}
 	}
 
 	Super::NotifyObjectiveEvent(InObjective, InstigatedBy, EventName);

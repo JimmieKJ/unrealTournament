@@ -396,8 +396,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Return true if there's a recent delayed shot */
 	virtual bool DelayedShotFound();
 
-	/** returns a simplified set of SavedPositions containing only the latest position for a given frame (i.e. each element has a unique Time) */
-	void GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions) const;
+	/** returns a simplified set of SavedPositions containing only the latest position for a given frame (i.e. each element has a unique Time)
+	 * @param bStopAtTeleport - removes any positions prior to and including the most recent teleportation
+	 */
+	void GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions, bool bStopAtTeleport) const;
 
 	/** Limit to armor stacking */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Pawn")

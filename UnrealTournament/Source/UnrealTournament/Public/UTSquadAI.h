@@ -206,6 +206,12 @@ public:
 	 */
 	virtual bool PickRetreatDestination(AUTBot* B);
 
+	/** set timer to retask bot, partially just to stagger updates and partially to account for their reaction time */
+	virtual void SetRetaskTimer(AUTBot* B)
+	{
+		SetTimerUFunc(B, FName(TEXT("WhatToDoNext")), 0.1f + 0.15f * FMath::FRand() + FMath::Max<float>(0.0f, (0.5f - 0.5f * B->Personality.ReactionTime)) * FMath::FRand(), false);
+	}
+
 	/** notifies AI of some game objective related event (e.g. flag taken)
 	 * generally bots will get retasked if they were performing some action relating to the object that is no longer relevant
 	 */
