@@ -213,7 +213,6 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 						{
 							// time we have to air control
 							float AirControlTime = JumpTime * (Dist / JumpTargetDist) - RestrictedJumpTime;
-							//AirControlTime *= 0.9f; // fudge to avoid building paths to borderline jumps
 							// extra distance acquirable via air control
 							float AirControlDist2D = FMath::Min<float>(XYSpeed * AirControlTime, 0.5f * AirAccelRate * FMath::Square<float>(AirControlTime));
 							// apply air control dist towards target, but remove any in jump direction as the jump pad generally exceeds the character's normal max speed (so air control in that dir would have no effect)
