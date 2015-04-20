@@ -16,7 +16,7 @@ FCustomVersionRegistration GRegisterShaderCacheVersion(FShaderCacheCustomVersion
 static TCHAR const* GShaderCacheFileName = TEXT("ShaderCache.ushadercache");
 
 // Only the cooked Mac build defaults to using the shader cache for now, Editor is too likely to invalidate shader keys leading to ever growing cache
-int32 FShaderCache::bUseShaderCaching = ((PLATFORM_MAC || PLATFORM_LINUX) && !WITH_EDITOR) ? 1 : 0;
+int32 FShaderCache::bUseShaderCaching = ((PLATFORM_MAC | PLATFORM_LINUX) && !WITH_EDITOR) ? 1 : 0;
 FAutoConsoleVariableRef FShaderCache::CVarUseShaderCaching(
 	TEXT("r.UseShaderCaching"),
 	bUseShaderCaching,
@@ -26,7 +26,7 @@ FAutoConsoleVariableRef FShaderCache::CVarUseShaderCaching(
 
 // Predrawing takes an existing shader cache with draw log & renders each shader + draw-state combination before use to avoid in-driver recompilation
 // This requires plenty of setup & is done in batches at frame-end.
-int32 FShaderCache::bUseShaderPredraw = ((PLATFORM_MAC || PLATFORM_LINUX) && !WITH_EDITOR) ? 1 : 0;
+int32 FShaderCache::bUseShaderPredraw = ((PLATFORM_MAC | PLATFORM_LINUX) && !WITH_EDITOR) ? 1 : 0;
 FAutoConsoleVariableRef FShaderCache::CVarUseShaderPredraw(
 	TEXT("r.UseShaderPredraw"),
 	bUseShaderPredraw,
