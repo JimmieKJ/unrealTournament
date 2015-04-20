@@ -17,7 +17,7 @@ void SUWGameSetupDialog::Construct(const FArguments& InArgs)
 
 	Categories.Add(FGameRuleCategories::Casual);		CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Casual","Casual"));
 	Categories.Add(FGameRuleCategories::TeamPlay);		CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_TeamPlay","Team Play"));
-	Categories.Add(FGameRuleCategories::Big);	CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Big","Big"));
+	Categories.Add(FGameRuleCategories::Big);			CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Big","Big"));
 	Categories.Add(FGameRuleCategories::Competitive);	CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Competitive","Competitve"));
 	Categories.Add(FGameRuleCategories::Custom);		CategoryTexts.Add(NSLOCTEXT("SUWGameSetupDialog","CategoryText_Custom","Custom"));
 

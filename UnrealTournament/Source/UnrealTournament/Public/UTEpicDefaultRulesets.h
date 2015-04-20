@@ -171,21 +171,6 @@ public:
 			TEXT("?TimeLimit=14?Mutator=Instagib"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
-
-		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
-			TEXT("LGiCTF"), 
-			TEXT("Custom"), 
-			TEXT("Low-Grav-Insta CTF"), 
-			TEXT("One hit one kill CTF with low gravity."), 
-			TEXT("Try to steal the enemy flag and return it home while avoiding even a single hit! In low Gravity!\n\n<UT.Hub.RulesText_Small>Mutators : Instagib, Low Gravity</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 7 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 12 players allowed!"),
-			6, 
-			TEXT("CTF-Blank,CTF-Outside,CTF-FaceTest,CTF-BigRock,CTF-Dam,CTF-Crashsite"), 
-			12, 
-			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'"), 
-			TEXT("CTF"),
-			TEXT("?TimeLimit=14?Mutator=Instagib,LowGrav"));
-
-		if (NewRuleset) Storage.Add(NewRuleset);
 	}
 
 
