@@ -123,7 +123,7 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 AUTPlayerState* AUTHUD::GetViewedPlayerState()
 {
 	AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
-	if (PS->bOnlySpectator && UTPlayerOwner->bSpectateBehindView)
+	if (PS && PS->bOnlySpectator && UTPlayerOwner->bSpectateBehindView)
 	{
 		// no full HUD when spectating someone in third person
 		return PS;
