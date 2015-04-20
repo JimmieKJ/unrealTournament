@@ -123,6 +123,11 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 AUTPlayerState* AUTHUD::GetViewedPlayerState()
 {
 	AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
+	if (PS->bOnlySpectator && UTPlayerOwner->bSpectateBehindView)
+	{
+		// no full HUD when spectating someone in third person
+		return PS;
+	}
 	APawn* PawnOwner = (UTPlayerOwner->GetPawn() != NULL) ? UTPlayerOwner->GetPawn() : Cast<APawn>(UTPlayerOwner->GetViewTarget());
 	if (PawnOwner != NULL && Cast<AUTPlayerState>(PawnOwner->PlayerState) != NULL)
 	{
@@ -317,6 +322,7 @@ void AUTHUD::CacheFonts()
 void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
+
 
 	if (!IsPendingKillPending() || !IsPendingKill())
 	{

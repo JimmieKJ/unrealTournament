@@ -3712,7 +3712,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
-	if (UTPS != NULL && PC != NULL && (bSpectating || PC->GetPawn()) && PC->GetViewTarget() != this && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
+	if (UTPS != NULL && PC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
