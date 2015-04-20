@@ -34,6 +34,9 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 	UPROPERTY()
 	float EndGameFreeCamDistance;
 
+	/** Sweep to find valid third person camera offset. */
+	virtual void CheckCameraSweep(FHitResult& OutHit, AActor* TargetActor, const FVector& Start, const FVector& End);
+
 	/** get CameraStyle after state based and gametype based override logic
 	 * generally UT code should always query the current camera style through this method to account for ragdoll, etc
 	 */

@@ -163,6 +163,10 @@ public:
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
 
+	/** Update rotation to be good view of current viewtarget. */
+	UFUNCTION()
+		virtual void FindGoodView();
+
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 

@@ -10,14 +10,12 @@ AUTGameObjective::AUTGameObjective(const FObjectInitializer& ObjectInitializer)
 	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false);
 	CarriedObjectClass = NULL;
 	InitialSpawnDelay = 0.0f;
-
 	SetReplicates(true);
 	bReplicateMovement = true;
 	bAlwaysRelevant = true;
 	NetPriority=1.0;
-
+	BestViewYaw = 0.f;
 	LastSecondSaveDistance = 2000.f;
-
 	TeamNum = 255;
 }
 

@@ -165,7 +165,6 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	{
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
 		AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
-		AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(OutVT.Target);
 		OutVT.POV.FOV = DefaultFOV;
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
 		OutVT.POV.bConstrainAspectRatio = false;
@@ -200,21 +199,9 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		}
 
 		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
-		FCollisionQueryParams BoxParams(NAME_FreeCam, false, this);
-		BoxParams.AddIgnoredActor(OutVT.Target);
-		
-		// When viewing a placeholder actor, just don't collide with any pawns
-		if (UTPlaceholder != nullptr)
-		{
-			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-			{
-				BoxParams.AddIgnoredActor(*It);
-			}
-		}
 
 		FHitResult Result;
-
-		GetWorld()->SweepSingle(Result, Loc, Pos, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
+		CheckCameraSweep(Result, OutVT.Target, Loc, Pos);
 		OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
 		OutVT.POV.Rotation = Rotator;
 
@@ -228,6 +215,42 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	}
 
 	CameraStyle = SavedCameraStyle;
+}
+
+void AUTPlayerCameraManager::CheckCameraSweep(FHitResult& OutHit, AActor* TargetActor, const FVector& Start, const FVector& End)
+{
+	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
+	FCollisionQueryParams BoxParams(NAME_FreeCam, false, TargetActor);
+
+	// When viewing a placeholder actor, just don't collide with any pawns
+	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(TargetActor);
+	if (UTPlaceholder != nullptr)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			BoxParams.AddIgnoredActor(*It);
+		}
+	}
+	else
+	{
+		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TargetActor);
+		if (Flag)
+		{
+			if (Flag->Holder)
+			{
+				BoxParams.AddIgnoredActor(Flag->Holder);
+			}
+			if (Flag->HomeBase)
+			{
+				BoxParams.AddIgnoredActor(Flag->HomeBase);
+			}
+			if (Flag->AttachmentReplication.AttachParent)
+			{
+				BoxParams.AddIgnoredActor(Flag->AttachmentReplication.AttachParent);
+			}
+		}
+	}
+	GetWorld()->SweepSingle(OutHit, Start, End, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
 }
 
 void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV)

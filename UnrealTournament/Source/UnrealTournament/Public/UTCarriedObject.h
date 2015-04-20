@@ -39,6 +39,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnObjectStateChanged, Category = GameObject)
 	FName ObjectState;
 
+	UFUNCTION(BlueprintCallable, Category = GameObject)
+		virtual bool IsHome();
+
 	// Holds the UTPlayerState of the person currently holding this object.  
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnHolderChanged, Category = GameObject)
 	AUTPlayerState* Holder;

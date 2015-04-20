@@ -1648,7 +1648,78 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		{
 			LastSpectatedPlayerState = NULL;
 		}
+
+		if (IsLocalController() && bSpectateBehindView)
+		{
+			// pick good starting rotation
+			FindGoodView();
+		}
 	}
+}
+
+void AUTPlayerController::FindGoodView()
+{
+	AActor* TestViewTarget = GetViewTarget();
+	if (!TestViewTarget || !PlayerCameraManager || (TestViewTarget == this) || (TestViewTarget == GetSpectatorPawn()) || Cast<AUTProjectile>(TestViewTarget) || Cast<AUTViewPlaceholder>(TestViewTarget))
+	{
+		// no rotation change;
+		return;
+	}
+
+	FRotator BestRot = GetControlRotation();
+	// Always start looking down slightly
+	BestRot.Pitch = -10.f;
+	BestRot.Roll = 0.f;
+	BestRot.Yaw = TestViewTarget->GetActorRotation().Yaw + 15.f;
+
+	AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TestViewTarget);
+	if (Flag)
+	{
+		if (Flag->IsHome() && Flag->HomeBase)
+		{
+			BestRot.Yaw = Flag->HomeBase->BestViewYaw;
+		}
+		else if (Flag->Holder && Flag->AttachmentReplication.AttachParent)
+		{
+			BestRot.Yaw = Flag->AttachmentReplication.AttachParent->GetActorRotation().Yaw + 15.f;
+		}
+	}
+
+	if ((TestViewTarget == FinalViewTarget) && Cast<AUTCharacter>(TestViewTarget))
+	{
+		BestRot.Yaw += 180.f;
+	}
+
+	// look for acceptable view
+	float YawIncrement = 30.f;
+	float YawOffset = 0.f;
+	bool bFoundGoodView = false;
+	float BestView = BestRot.Yaw;
+	float BestDist = 0.f;
+	float StartYaw = BestRot.Yaw;
+	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	while (!bFoundGoodView && (YawOffset < 360.f) && CamMgr)
+	{
+		BestRot.Yaw = StartYaw + YawOffset;
+		FVector TargetLoc = TestViewTarget->GetActorLocation();
+		FVector Pos = TargetLoc + FRotationMatrix(BestRot).TransformVector(PlayerCameraManager->FreeCamOffset) - BestRot.Vector() * PlayerCameraManager->FreeCamDistance;
+		FHitResult Result(1.f);
+		CamMgr->CheckCameraSweep(Result, TestViewTarget, TargetLoc, Pos);
+		float NewDist = (Result.Location - TargetLoc).SizeSquared();
+		bFoundGoodView = !Result.bBlockingHit;
+		if (NewDist > BestDist)
+		{
+			BestDist = NewDist;
+			BestView = BestRot.Yaw;
+		}
+		YawOffset += YawIncrement;
+		YawIncrement = 45.f;
+	}
+	if (!bFoundGoodView)
+	{
+		BestRot.Yaw = BestView;
+	}
+	SetControlRotation(BestRot);
 }
 
 void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams)

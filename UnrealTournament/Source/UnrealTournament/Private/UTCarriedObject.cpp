@@ -56,6 +56,11 @@ void AUTCarriedObject::Init(AUTGameObjective* NewBase)
 	OnHolderChanged();
 }
 
+bool AUTCarriedObject::IsHome()
+{
+	return ObjectState == CarriedObjectState::Home;
+}
+
 void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
