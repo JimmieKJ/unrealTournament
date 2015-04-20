@@ -114,6 +114,9 @@ private:
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
+public:
+	virtual void EnableButton(uint16 ButtonID);
+	virtual void DisableButton(uint16 ButtonID);
 };
 
 #endif

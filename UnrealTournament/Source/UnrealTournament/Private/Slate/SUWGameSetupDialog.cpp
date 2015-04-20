@@ -129,6 +129,10 @@ void SUWGameSetupDialog::Construct(const FArguments& InArgs)
 		];
 	}
 	BuildCategories();
+	DisableButton(UTDIALOG_BUTTON_OK);
+	DisableButton(UTDIALOG_BUTTON_PLAY);
+	DisableButton(UTDIALOG_BUTTON_LAN);
+
 }
 
 TSharedRef<class SWidget> SUWGameSetupDialog::BuildCustomButtonBar()
@@ -231,6 +235,10 @@ FReply SUWGameSetupDialog::OnTabButtonClick(int32 ButtonIndex)
 		}
 	}
 
+	DisableButton(UTDIALOG_BUTTON_OK);
+	DisableButton(UTDIALOG_BUTTON_PLAY);
+	DisableButton(UTDIALOG_BUTTON_LAN);
+
 	BuildRuleList(Categories[ButtonIndex]);
 	SelectedRuleset.Reset();
 	MapBox->ClearChildren();
@@ -319,6 +327,11 @@ FReply SUWGameSetupDialog::OnRuleClick(int32 RuleIndex)
 
 
 		SelectedRuleset = RuleSubset[RuleIndex].Ruleset;
+
+		EnableButton(UTDIALOG_BUTTON_OK);
+		EnableButton(UTDIALOG_BUTTON_PLAY);
+		EnableButton(UTDIALOG_BUTTON_LAN);
+
 		BuildMapList();
 	}
 

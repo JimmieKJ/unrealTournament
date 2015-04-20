@@ -343,5 +343,26 @@ FReply SUWDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyE
 
 }
 
+void SUWDialog::EnableButton(uint16 ButtonID)
+{
+	const TSharedPtr<SButton>* Button;
+	Button = ButtonMap.Find(ButtonID);
+	if (Button != nullptr && Button->IsValid())
+	{
+		Button->Get()->SetEnabled(true);
+	}
+}
+
+void SUWDialog::DisableButton(uint16 ButtonID)
+{
+	const TSharedPtr<SButton>* Button;
+	Button = ButtonMap.Find(ButtonID);
+	if (Button != nullptr && Button->IsValid())
+	{
+		Button->Get()->SetEnabled(false);
+	}
+
+}
+
 
 #endif
