@@ -106,12 +106,12 @@ class SUWGameSetupDialog : public SUWDialog
 {
 public:
 	SLATE_BEGIN_ARGS(SUWGameSetupDialog)
-	: _DialogSize(FVector2D(1380,1040))
+	: _DialogTitle(NSLOCTEXT("SUWGameSetupDialog", "Title", "GAME SETTINGS"))
+	, _DialogSize(FVector2D(1380, 1040))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
-	, _DialogTitle(NSLOCTEXT("SUWGameSetupDialog","Title","GAME SETTINGS"))
 	, _ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
