@@ -527,8 +527,8 @@ protected:
 	// When players leave/join or during the end of game state
 	virtual void UpdatePlayersPresence();
 
-#if !UE_SERVER
 public:
+#if !UE_SERVER
 	TSharedRef<SWidget> NewPlayerInfoLine(FString LeftStr, FString RightStr);
 	virtual void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState);
 #endif

@@ -422,7 +422,6 @@ void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOpti
 		LaunchGameInstance(NewMatchInfo, MatchOptions, 10, -1);
 	}
 */
-	// TODO JOE - Fix me to support the new rules
 }
 
 void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, const FString& GameMode, const FString& Map, const FString& GameOptions, int32 MaxPlayers, int32 BotSkillLevel)
