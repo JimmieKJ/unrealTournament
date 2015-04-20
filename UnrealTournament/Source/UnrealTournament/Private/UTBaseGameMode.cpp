@@ -17,7 +17,7 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	// Detach from parent process if we're a game instance from a hub
 	if (LobbyInstanceID > 0)
 	{
-		FPlatformProcess::Daemonize();
+		//FPlatformProcess::Daemonize();
 	}
 
 	// Create a server instance id for this server
