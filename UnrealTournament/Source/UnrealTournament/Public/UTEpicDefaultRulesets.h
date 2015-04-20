@@ -93,7 +93,7 @@ public:
 			TEXT("Two players enter, one player leaves!"), 
 			TEXT("You against one other opponent!\n\n<UT.Hub.RulesText_Small>FragLimit : 20</>\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n\nMaximum of 2 players allowed!"),
 			3, 
-			TEXT("DM-asdOutpost23,DM-Tuba,DM-NickTest1,DM-Chill,DM-ASDF,DM-Focus,DM-Temple,DM-Lea"), 
+			TEXT("DM-Outpost23,DM-Tuba,DM-NickTest1,DM-Chill,DM-ASDF,DM-Focus,DM-Temple,DM-Lea"), 
 			2, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'"), 
 			TEXT("Duel"),
