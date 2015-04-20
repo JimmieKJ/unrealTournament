@@ -2200,9 +2200,9 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		checkSlow(IsInInventory(PendingWeapon));
 		Weapon = PendingWeapon;
 		PendingWeapon = NULL;
-		Weapon->BringUp(OverflowTime);
 		WeaponClass = Weapon->GetClass();
 		WeaponAttachmentClass = Weapon->AttachmentType;
+		Weapon->BringUp(OverflowTime);
 		UpdateWeaponAttachment();
 	}
 	else if (Weapon != NULL && Weapon->GetUTOwner() == this)
