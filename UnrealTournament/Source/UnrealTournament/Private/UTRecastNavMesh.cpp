@@ -21,6 +21,14 @@
 #include "NotificationManager.h"
 #endif
 
+void DrawDebugRoute(UWorld* World, APawn* QueryPawn, const TArray<FRouteCacheItem>& Route)
+{
+	for (const FRouteCacheItem& RoutePoint : Route)
+	{
+		DrawDebugSphere(World, RoutePoint.GetLocation(QueryPawn), 16.0f, 8, FColor(0, 255, 0));
+	}
+}
+
 UUTPathBuilderInterface::UUTPathBuilderInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
@@ -559,6 +567,10 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 					if (Node == NULL)
 					{
 						Node = NewObject<UUTPathNode>(this);
+						if (Builder->IsDestinationOnly())
+						{
+							Node->bDestinationOnly = true;
+						}
 						PathNodes.Add(Node);
 						PolyToNode.Add(Poly, Node);
 						Node->Polys.Add(Poly);
@@ -584,6 +596,10 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 			bAnyNodeExpanded = false;
 			for (UUTPathNode* Node : PathNodes)
 			{
+				if (Node->bDestinationOnly)
+				{
+					continue;
+				}
 				checkSlow(Node->Polys.Num() > 0);
 				// mirrored array because we will expand the array as we're operating but only want to do one level of expansion per loop
 				TArray<NavNodeRef> Polys = Node->Polys;
@@ -626,7 +642,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 												if (UTPath.EndPoly != Link.ref)
 												{
 													// if there are multiple polys connecting these two nodes, split the destination node so there is only one connection point between any two nodes
-													// this is important for pathfinding as otherwise the correct path to use depends on later points which would make pathing very complex)
+													// this is important for pathfinding as otherwise the correct path to use depends on later points which would make pathing very complex
 													UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
 													NewNode->MinPolyEdgeSize = DestNode->MinPolyEdgeSize;
 													DestNode->Polys.Remove(Link.ref);
@@ -948,6 +964,10 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 			for (; SpecialLinkBuildNodeIndex < PathNodes.Num() && NumToProcess > 0; SpecialLinkBuildNodeIndex++, NumToProcess--)
 			{
 				UUTPathNode* Node = PathNodes[SpecialLinkBuildNodeIndex];
+				if (Node->bDestinationOnly)
+				{
+					continue;
+				}
 				for (NavNodeRef PolyRef : Node->Polys)
 				{
 					FVector PolyCenter = GetPolyCenter(PolyRef);

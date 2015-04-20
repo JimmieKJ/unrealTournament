@@ -218,4 +218,13 @@ public:
 	{
 		return false;
 	}
+
+	/** debug drawing of squad route for B, if applicable */
+	virtual void DrawDebugSquadRoute(AUTBot* B) const
+	{
+		if (SquadRoutes.IsValidIndex(B->UsingSquadRouteIndex))
+		{
+			DrawDebugRoute(GetWorld(), B->GetPawn(), SquadRoutes[B->UsingSquadRouteIndex].RouteCache);
+		}
+	}
 };

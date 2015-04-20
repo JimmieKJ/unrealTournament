@@ -29,4 +29,14 @@ class UNREALTOURNAMENT_API IUTPathBuilderInterface
 	 */
 	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData)
 	{}
+
+	/** if true, the following happens in path building:
+	 * 1) the navmesh poly the POI is on gets its own UTPathNode that contains just that one poly
+	 * 2) standard movement paths aren't generated that go FROM that node to other nodes (paths from others to this are still generated and the POI can create any special paths it wants)
+	 * this is used primarily for objects that cause movement on touch, so the AI can't expect to go wherever it wants when it is touching this point
+	 */
+	virtual bool IsDestinationOnly() const
+	{
+		return false;
+	}
 };

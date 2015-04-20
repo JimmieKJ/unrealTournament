@@ -55,4 +55,6 @@ class UNREALTOURNAMENT_API AUTCTFSquadAI : public AUTSquadAI
 	virtual bool HasHighPriorityObjective(AUTBot* B);
 
 	virtual bool TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString) override;
+
+	virtual void DrawDebugSquadRoute(AUTBot* B) const override;
 };

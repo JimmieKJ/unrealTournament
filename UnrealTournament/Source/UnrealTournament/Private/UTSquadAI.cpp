@@ -256,7 +256,8 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 		const FAlternateRoute& AlternatePath = Routes[B->UsingSquadRouteIndex];
 		UUTPathNode* Anchor = NavData->GetNodeFromPoly(NavData->FindAnchorPoly(B->GetPawn()->GetNavAgentLocation(), B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef()));
 		int32 AnchorIndex = (Anchor != NULL) ? AlternatePath.RouteCache.IndexOfByPredicate([Anchor](const FRouteCacheItem& TestItem){ return TestItem.Node == Anchor; }) : INDEX_NONE;
-		int32 SquadRouteGoalIndex = B->SquadRouteGoal.IsValid() ? AlternatePath.RouteCache.IndexOfByPredicate([B](const FRouteCacheItem& TestItem){ return TestItem.Node == B->SquadRouteGoal.Node && TestItem.Actor == B->SquadRouteGoal.Actor; }) : INDEX_NONE;
+		// TODO: SquadRouteGoal.Actor depends on ReachSpec chosen, which sometimes changes from when the squad route was generated, so we're ignoring that discrepancy... need more testing to determine if this is correct
+		int32 SquadRouteGoalIndex = B->SquadRouteGoal.IsValid() ? AlternatePath.RouteCache.IndexOfByPredicate([B](const FRouteCacheItem& TestItem){ return TestItem.Node == B->SquadRouteGoal.Node;/* && TestItem.Actor == B->SquadRouteGoal.Actor;*/ }) : INDEX_NONE;
 		if (SquadRouteGoalIndex == INDEX_NONE || SquadRouteGoalIndex <= AnchorIndex)
 		{
 			SquadRouteGoalIndex = (AnchorIndex != INDEX_NONE) ? FMath::Min<int32>(AlternatePath.RouteCache.Num() - 1, AnchorIndex + 3) : 0;

@@ -67,6 +67,21 @@ float AUTCTFSquadAI::ModifyEnemyRating(float CurrentRating, const FBotEnemyInfo&
 	}
 }
 
+void AUTCTFSquadAI::DrawDebugSquadRoute(AUTBot* B) const
+{
+	if (B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL)
+	{
+		if (CapRoutes.IsValidIndex(B->UsingSquadRouteIndex))
+		{
+			DrawDebugRoute(GetWorld(), B->GetPawn(), CapRoutes[B->UsingSquadRouteIndex].RouteCache);
+		}
+	}
+	else
+	{
+		Super::DrawDebugSquadRoute(B);
+	}
+}
+
 bool AUTCTFSquadAI::TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString)
 {
 	// maintain a separate list of alternate routes for capturing the taken enemy flag (i.e. from enemy base to home base)

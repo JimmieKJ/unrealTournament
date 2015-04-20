@@ -82,4 +82,9 @@ protected:
 	virtual void ReceiveActorBeginOverlap(class AActor* OtherActor);
 
 	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData);
+
+	virtual bool IsDestinationOnly() const override
+	{
+		return true;
+	}
 };
