@@ -3950,7 +3950,7 @@ void AUTCharacter::OnRepEmoteSpeed()
 
 void AUTCharacter::OnRepTaunt()
 {
-	PlayTaunt();
+	PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
 }
 
 void AUTCharacter::PlayTaunt()
