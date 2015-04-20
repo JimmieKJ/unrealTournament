@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once 
 // DEPRECATED
-#include "UTHudWidget_Spectator.h"
+#include "UTHUDWidget_Spectator.h"
 #include "UTHUDWidget_CTFSpectator.generated.h"
 
 UCLASS()
