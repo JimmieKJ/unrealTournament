@@ -23,7 +23,6 @@ class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 	uint32 bPlayedOneKillRemains:1;
 
 protected:
-	virtual void UpdateLobbyBadge();
 	virtual void UpdateSkillRating();
 };
 

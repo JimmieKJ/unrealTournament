@@ -8,6 +8,7 @@
 #include "UTGameMessage.h"
 #include "UTHat.h"
 #include "UTCharacterContent.h"
+#include "../Private/Slate/SUWindowsStyle.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

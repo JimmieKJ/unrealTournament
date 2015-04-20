@@ -94,6 +94,9 @@ protected:
 	// Stores a list of widgets that are tab'able
 	TArray<TSharedPtr<SWidget>> TabTable;
 
+	// Used to access buttons.
+	TMap<uint16, TSharedPtr<SButton>> ButtonMap;
+
 protected:
 	TSharedPtr<STextBlock> DialogTitle;
 

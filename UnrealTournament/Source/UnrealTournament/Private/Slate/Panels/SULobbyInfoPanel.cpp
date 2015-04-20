@@ -218,8 +218,6 @@ void SULobbyInfoPanel::BuildMatchPanel()
 						]
 					]			
 				];
-
-			LastGameMode = PlayerState->CurrentMatch->MatchGameMode;
 		}
 	}
 }
@@ -468,16 +466,6 @@ void SULobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InC
 					}
 				}
 			}
-		}
-	}
-	else
-	{
-		// Look to see if the game mode has changed.  If it has and we are not the host, rebuild the match menu.
-	
-		if (PlayerState->CurrentMatch && PlayerState->CurrentMatch->MatchGameMode != LastGameMode && PlayerState->CurrentMatch->OwnerId != PlayerState->UniqueId)
-		{
-			// Rebuild the match panel.
-			BuildMatchPanel();
 		}
 	}
 
@@ -868,30 +856,6 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 			return;
 		}
 
-		if (Cmd.ToLower() == TEXT("@debugcontent"))
-		{
-			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
-			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
-			if (GS)
-			{
-				for (int32 i = 0; i < GS->ClientAvailableGameModes.Num(); i++)
-				{
-					FText Text3 = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugC", " Available Game Mode {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailableGameModes[i]->DisplayName));
-					PlayerOwner->SaveChat(FName(TEXT("Debug")), Text3.ToString(), FLinearColor::White);
-				}
-
-				for (int32 i = 0; i < GS->ClientAvailableMaps.Num(); i++)
-				{
-					FText Text4 = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugD", " Available Maps {0} = {1}"), FText::AsNumber(i), FText::FromString(*GS->ClientAvailableMaps[i]->MapName));
-					PlayerOwner->SaveChat(FName(TEXT("Debug")), Text4.ToString(), FLinearColor::White);
-				}
-		
-			}
-			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
-			ChatText->SetText(FText::GetEmpty());
-			return;
-		}
-
 		if (Cmd.ToLower() == TEXT("@debugplayers"))
 		{
 			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
@@ -914,6 +878,47 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 		}
 
 
+		if (Cmd.ToLower() == TEXT("@debugrules"))
+		{
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+			if (GS)
+			{
+				for (int32 i=0;i < GS->AvailableGameRulesets.Num();i++)
+				{
+					TWeakObjectPtr<AUTReplicatedGameRuleset> RS = GS->AvailableGameRulesets[i];
+					if (RS.IsValid())
+					{
+						FString Categories = TEXT("");
+						for (int32 j=0;j < RS->Categories.Num(); j++)
+						{
+							if (j==0) Categories = RS->Categories[j].ToString();
+							else Categories = Categories + TEXT(", ") + RS->Categories[j].ToString();
+						}
+						if (Categories == TEXT("")) Categories = TEXT("None");
+
+						FString UniqueTag = RS->UniqueTag.IsEmpty() ? TEXT("none") : RS->UniqueTag;
+						FString Title = RS->Title.IsEmpty() ? TEXT("None") : RS->Title;
+						FString Desc = RS->Description.IsEmpty() ? TEXT("None") : RS->Description;
+
+						FString MapList = TEXT("");
+						for (int32 j=0;j < RS->MapPlaylist.Num(); j++)
+						{
+							if (j==0) MapList = RS->MapPlaylist[j];
+							else MapList += TEXT(", ") + RS->MapPlaylist[j];
+						}
+						if (MapList == TEXT("")) MapList = TEXT("None");
+
+
+						FString Rule = FString::Printf(TEXT("Tag [%s]  Category [%s]  Title [%s]  Description [%s]  MapList [%s]"), *UniqueTag, *Categories, *Title, *Desc, *MapList);
+						PlayerOwner->SaveChat(FName(TEXT("Debug")), Rule, FLinearColor::White);
+					}
+				}
+			}
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			ChatText->SetText(FText::GetEmpty());
+			return;
+		}
 
 	}
 
@@ -987,7 +992,8 @@ FText SULobbyInfoPanel::GetMatchPlayerListText() const
 			{
 				if (WatchedMatch->PlayersInMatchInstance[i].PlayerName != TEXT(""))
 				{
-					PlayerList += PlayerList == TEXT("") ? WatchedMatch->PlayersInMatchInstance[i].PlayerName : TEXT(", ") + WatchedMatch->PlayersInMatchInstance[i].PlayerName;
+					FString PlayerEntry = FString::Printf( TEXT("%s (%i)"), *WatchedMatch->PlayersInMatchInstance[i].PlayerName, int32(WatchedMatch->PlayersInMatchInstance[i].PlayerScore));
+					PlayerList += PlayerList == TEXT("") ? PlayerEntry : TEXT(", ") + PlayerEntry;
 				}
 			}
 		}

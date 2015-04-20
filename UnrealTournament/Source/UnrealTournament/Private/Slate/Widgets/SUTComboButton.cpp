@@ -45,6 +45,7 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 			.UTOnButtonClicked( this, &SUTComboButton::UTOnButtonClicked )
 			.ContentPadding( InArgs._ContentPadding )
 			.IsFocusable( InArgs._IsFocusable )
+			.IsToggleButton(InArgs._IsToggleButton)
 			[
 				// Button and down arrow on the right
 				// +-------------------+---+
@@ -211,6 +212,16 @@ void SUTComboButton::SetButtonStyle(const FButtonStyle* NewButtonStyle)
 	{
 		MyButton->SetButtonStyle(NewButtonStyle);
 	}
+}
+
+void SUTComboButton::UnPressed()
+{
+	if (MyButton.IsValid()) MyButton->UnPressed();
+}
+
+void SUTComboButton::BePressed()
+{
+	if (MyButton.IsValid()) MyButton->BePressed();
 }
 
 

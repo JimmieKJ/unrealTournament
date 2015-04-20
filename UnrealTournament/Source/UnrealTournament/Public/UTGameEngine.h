@@ -118,5 +118,43 @@ protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;
 	void OnLoadingMoviePlaybackFinished();
 	void PromptForEULAAcceptance();
+
+public:
+	static FText ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true)
+	{
+		int Hours = Seconds / 3600;
+		Seconds -= Hours * 3600;
+		int Mins = Seconds / 60;
+		Seconds -= Mins * 60;
+		bool bDisplayHours = bForceHours || Hours > 0;
+		bool bDisplayMinutes = bDisplayHours || bForceMinutes || Mins > 0;
+
+		FFormatNamedArguments Args;
+		FNumberFormattingOptions Options;
+
+		Options.MinimumIntegralDigits = 2;
+		Options.MaximumIntegralDigits = 2;
+
+		Args.Add(TEXT("Hours"), FText::AsNumber(Hours, bForceTwoDigits ? &Options : NULL));
+		Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, (bDisplayHours || bForceTwoDigits) ? &Options : NULL));
+		Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, (bDisplayMinutes || bForceTwoDigits) ? &Options : NULL));
+		Args.Add(TEXT("Prefix"), Prefix);
+		Args.Add(TEXT("Suffix"), Suffix);
+
+		if (bDisplayHours)
+		{
+			return FText::Format(NSLOCTEXT("UTGameEngine", "ConvertTimeHours", "{Prefix}{Hours}:{Minutes}:{Seconds}{Suffix}"), Args);
+		}
+		else if (bDisplayMinutes)
+		{
+			return FText::Format(NSLOCTEXT("UTGameEngine", "ConvertTimeMinutes", "{Prefix}{Minutes}:{Seconds}{Suffix}"), Args);
+		}
+		else
+		{
+			return FText::Format(NSLOCTEXT("UTGameEngine", "ConvertTime", "{Prefix}{Seconds}{Suffix}"), Args);
+		}
+	
+	}
+
 };
 

@@ -13,45 +13,6 @@ AUTDMGameMode::AUTDMGameMode(const class FObjectInitializer& ObjectInitializer)
 }
 
 
-void AUTDMGameMode::UpdateLobbyBadge()
-{
-	TArray<AUTPlayerState*> LeaderBoard;
-	AUTPlayerState* Leader = NULL;
-	AUTPlayerState* P = NULL;
-
-	for (int i=0;i<UTGameState->PlayerArray.Num();i++)
-	{
-		P = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (P)
-		{
-			if (Leader == NULL || P->Score >= Leader->Score)
-			{
-				// Insert me and set as new leader.
-				LeaderBoard.Insert(P,0);
-				Leader = P;
-			}
-			else if (LeaderBoard.Num()<3)
-			{
-				LeaderBoard.Add(P);
-			}
-		}
-	}
-
-	FString LB;
-	for (int32 i = 0; i < LeaderBoard.Num() && i < 3; i++)
-	{
-		LB += FString::Printf(TEXT("<UWindows.Standard.MatchBadge>%s (%i)</>\n"), *LeaderBoard[i]->PlayerName, int(LeaderBoard[i]->Score));
-	}
-
-	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n<UWindows.Standard.MatchBadge.Small>%s</>\n<UWindows.Standard.MatchBadge.Small>(%i Players)</>\n%s"), *DisplayName.ToString(), *GetWorld()->GetMapName(), NumPlayers, *LB);
-
-	if (ensure(LobbyBeacon))
-	{
-		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
-	}
-
-}
-
 void AUTDMGameMode::UpdateSkillRating()
 {
 	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)

@@ -8,24 +8,31 @@
 #include "UTLobbyMatchInfo.h"
 #include "UTLocalPlayer.h"
 #include "TAttributeProperty.h"
+#include "../Widgets/SUTComboButton.h"
 
 #if !UE_SERVER
 
-class FGameModeListData
+class SUWGameSetupDialog;
+
+
+class FMatchPlayerData
 {
-public: 
-	FString DisplayText;
-	TWeakObjectPtr<UClass> GameClass;
+public:
+	TWeakObjectPtr<AUTLobbyPlayerState> PlayerState;
+	TSharedPtr<SWidget> Button;
+	TSharedPtr<SUTComboButton> ComboButton;
+	TSharedPtr<SImage> ReadyImage;
 
-	FGameModeListData(FString inDisplayText, UClass* inGameClass)
-		: DisplayText(inDisplayText)
-		, GameClass(inGameClass)
-	{
-	};
+	FMatchPlayerData(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState, TSharedPtr<SWidget> inButton, TSharedPtr<SUTComboButton> inComboButton, TSharedPtr<SImage> inReadyImage )
+		: PlayerState(inPlayerState)
+		, Button(inButton)
+		, ComboButton(inComboButton)
+		, ReadyImage(inReadyImage)
+	{}
 
-	static TSharedRef<FGameModeListData> Make( FString inDisplayText, UClass* inGameClass)
+	static TSharedRef<FMatchPlayerData> Make(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState, TSharedPtr<SWidget> inButton, TSharedPtr<SUTComboButton> inComboButton, TSharedPtr<SImage> inReadyImage)
 	{
-		return MakeShareable( new FGameModeListData( inDisplayText, inGameClass) );
+		return MakeShareable( new FMatchPlayerData(inPlayerState, inButton, inComboButton, inReadyImage));
 	}
 };
 
@@ -44,6 +51,9 @@ class SULobbyMatchSetupPanel : public SCompoundWidget
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
 
+	/** We need to build the player list each frame.  */
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+
 protected:
 
 	// Will be true if this is the host's setup window
@@ -57,48 +67,60 @@ protected:
 	TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo;
 
 	// Holds the current Settings data.
-	TSharedPtr<SVerticalBox> GamePanel;
-	
-	// Holds the display name for a list of game types
-	TArray<TSharedPtr<FAllowedGameModeData>> AvailableGameModes;
+	TSharedPtr<SVerticalBox> GameRulesPanel;
 
-	// Holds the name of the current Game Mode if not the host
-	TSharedPtr<STextBlock> CurrentGameMode;
-
-	TSharedPtr<SCheckBox> JIPCheckBox;
-	TSharedPtr<SHorizontalBox> MaxPlayersBox;
-
-	// Used by the list code for the Game list
-	TSharedRef<SWidget> GenerateGameModeListWidget(TSharedPtr<FAllowedGameModeData> InItem);
-
-	void OnGameModeChanged(TSharedPtr<FAllowedGameModeData> NewSelection, ESelectInfo::Type SelectInfo);
-
-	void ChangeGameModePanel();
-
-	TSharedRef<SWidget> BuildGameModeWidget();
-
-	FString GetGameModeText() const;
-	FString GameModeDisplayName;
-
-	// Builds the current GameOptions panel for the current game type.  
-	void BuildGameOptionsPanel();
-
-	FOnMatchInfoGameModeChanged OnMatchInfoGameModeChangedDelegate;
-	
-	// When the host changes the game mode and the data is replicated, non-hosts use this function to rebuild their settings/map panel.
-	void OnMatchGameModeChanged();
-
-	TSharedPtr<SWidget> Settings;
-	
+	// Builds the options that are only available to the host
 	TSharedRef<SWidget> BuildHostOptionWidgets();
+
+	// Builds the game rules panel
+	void BuildGameRulesPanel();
+
 	void JoinAnyTimeChanged(ECheckBoxState NewState);
 	void AllowSpectatorChanged(ECheckBoxState NewState);
 	void RankCeilingChanged(ECheckBoxState NewState);
 
-	FText GetHostMaxPlayerLabel() const;
-	FText GetMaxPlayerLabel() const;
+	// Holds a cached list of player data and the slot they belong too.  
+	TArray<TSharedPtr<FMatchPlayerData>> PlayerData;
 
-	void OnMaxPlayersChanged(float NewValue);
+	TSharedPtr<SHorizontalBox> PlayerListBox;
+	virtual void BuildPlayerList(float DeltaTime);
+	TSharedRef<SWidget> BuildELOBadgeForPlayer(TWeakObjectPtr<AUTPlayerState> PlayerState);
+
+	void OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
+
+	float BlinkyTimer;
+	int Dots;
+
+	TSharedPtr<STextBlock> StatusText;
+	FText GetStatusText() const;
+
+	FOnMatchInfoUpdated OnMatchInfoUpdatedDelegate;
+	virtual void OnMatchInfoUpdated();
+
+	// Screenshots..	
+	/** bushes used for the map list */
+	TArray<FSlateDynamicImageBrush*> MaplistScreenshots;
+
+	FText GetMatchRulesTitle() const;
+	FText GetMatchRulesDescription() const;
+
+	TSharedRef<SWidget> AddChangeButton();
+	FReply ChooseGameClicked();
+
+	TSharedPtr<SVerticalBox> MapListPanel;
+	virtual void BuildMapList();
+
+	ECheckBoxState GetLimitRankState() const;
+	ECheckBoxState GetAllowSpectatingState() const;
+	ECheckBoxState GetAllowJIPState() const;
+
+	TSharedPtr<SUWGameSetupDialog> SetupDialog;
+
+	void OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed);
+	const FSlateBrush* GetGameModeBadge() const;
 };
+
+
+
 
 #endif

@@ -15,10 +15,6 @@ AUTLobbyPlayerState::AUTLobbyPlayerState(const class FObjectInitializer& ObjectI
 void AUTLobbyPlayerState::PreInitializeComponents()
 {
 	DesiredQuickStartGameMode = TEXT("");
-	if (GetWorld()->GetNetMode() == ENetMode::NM_Client)
-	{
-		bHostInitializationComplete = false;
-	}
 }
 
 
@@ -32,6 +28,8 @@ void AUTLobbyPlayerState::MatchButtonPressed()
 {
 	if (CurrentMatch == NULL)
 	{
+		// TODO Check to make sure the rulesets are replicated
+
 		ServerCreateMatch();
 	}
 	else
@@ -48,7 +46,14 @@ void AUTLobbyPlayerState::ServerCreateMatch_Implementation()
 		AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 		if (GameState)
 		{
-			GameState->AddNewMatch(this);
+			if (GameState->AvailableGameRulesets.Num() >0)
+			{
+				GameState->AddNewMatch(this);
+			}
+			else
+			{
+				ClientMatchError(NSLOCTEXT("LobbyMessage","MatchRuleError","The server does not have any rulesets defined.  Please notify the server admin."));
+			}
 		}
 	}
 }
@@ -137,135 +142,4 @@ void AUTLobbyPlayerState::OnRep_CurrentMatch()
 	}
 
 #endif
-}
-
-void AUTLobbyPlayerState::StartServerToClientDataPush_Implementation()
-{
-	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (GS)
-	{
-		ServerBeginDataPush();
-	}
-	else
-	{
-		// Check again in a little bit....
-		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyPlayerState::StartServerToClientDataPush_Implementation, 0.05, false);	
-	}
-}
-
-bool AUTLobbyPlayerState::ServerBeginDataPush_Validate() { return true; }
-void AUTLobbyPlayerState::ServerBeginDataPush_Implementation()
-{
-	//UE_LOG(UT,Log,TEXT("Beginning Datapush to %s"), *PlayerName);
-
-	CurrentBulkID = 0;
-	DataIndex = 0;
-	SendNextBulkBlock();
-}
-
-void AUTLobbyPlayerState::SendNextBulkBlock()
-{
-	uint8 SendCount = FMath::Clamp<int>(HostMatchData.Num() - DataIndex, 0, 10);
-	//UE_LOG(UT,Log,TEXT("Sending next Block to %s (%i)"), *PlayerName, SendCount);
-
-	CurrentBulkID++;
-	if (SendCount > 0)
-	{
-		for (int i = 0; i < SendCount; i++)	// Send 10 maps at time.. make this configurable.
-		{
-			ClientReceiveMatchData(SendCount, CurrentBulkID, HostMatchData[DataIndex++]);
-		}
-	}
-	else
-	{
-		ClientReceivedAllData();
-	}
-
-}
-
-void AUTLobbyPlayerState::ClientReceiveMatchData_Implementation(uint8 BulkSendCount, uint16 BulkSendID, const FString& MatchData)
-{
-	//UE_LOG(UT,Log,TEXT("Client %s has recieved data %i %i"), *PlayerName, BulkSendCount, BulkSendID);
-
-	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (GS)
-	{
-		// Look to see if this is a new block.
-		if (BulkSendID != CurrentBulkID)
-		{
-			if (CurrentBlockCount != ExpectedBlockCount)
-			{
-				UE_LOG(UT, Verbose, TEXT("ERROR: Didn't receive everything in the block %i %i %i"), BulkSendID, CurrentBlockCount, ExpectedBlockCount);
-			}
-
-			CurrentBulkID = BulkSendID;
-			CurrentBlockCount = 0;
-			ExpectedBlockCount = BulkSendCount;
-		}
-
-		// Parse the Match data.
-
-		FString DataType;
-		FString Data;
-		if (MatchData.Split(TEXT("="), &DataType, &Data))
-		{
-			if (DataType.ToLower() == TEXT("game"))
-			{
-				AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(Data);
-				if (DefaultGame != NULL)
-				{
-					GS->LoadedGametypes.AddUnique(DefaultGame->GetClass()); // make sure it stays loaded, the below is a weak pointer
-					GS->ClientAvailableGameModes.Add(FAllowedGameModeData::Make(Data, DefaultGame->DisplayName.ToString(), DefaultGame));
-				}
-			}
-			else if (DataType.ToLower() == TEXT("map"))
-			{
-				FString Name, GuidAndTitle, Guid, Title;
-				Data.Split(TEXT(":"), &Name, &GuidAndTitle);
-				GuidAndTitle.Split(TEXT(":"), &Guid, &Title);
-
-				GS->ClientAvailableMaps.Add(FAllowedMapData::MakeShared(Name, Guid, Title));
-			}
-		}
-
-
-		CurrentBlockCount++;
-		//UE_LOG(UT,Log,TEXT("----- Client %s %i %i"), *PlayerName, CurrentBlockCount, ExpectedBlockCount);
-		if (CurrentBlockCount == ExpectedBlockCount)
-		{
-			ServerACKBulkCompletion(CurrentBulkID);
-		}
-	}
-	else
-	{
-		UE_LOG(UT,Verbose,TEXT("ERROR: Received Bulk data before GameState!!!"));
-	}
-}
-
-bool AUTLobbyPlayerState::ServerACKBulkCompletion_Validate(uint16 BuildSendID) { return true; }
-void AUTLobbyPlayerState::ServerACKBulkCompletion_Implementation(uint16 BuildSendID)
-{
-	//UE_LOG(UT,Log,TEXT("Server recieved Bulk ACK from %s"), *PlayerName);
-	SendNextBulkBlock();
-}
-
-void AUTLobbyPlayerState::ClientReceivedAllData_Implementation()
-{
-	//UE_LOG(UT,Log,TEXT("Client %s has Received All Data"), *PlayerName);
-	bHostInitializationComplete = true;
-	ServerACKReceivedAllData();
-}
-
-bool AUTLobbyPlayerState::ServerACKReceivedAllData_Validate() { return true; }
-void AUTLobbyPlayerState::ServerACKReceivedAllData_Implementation()
-{
-	//UE_LOG(UT,Log,TEXT("######### [Initial Player Replication is Completed for %s"), *PlayerName);
-
-	// This client is now ready with all of the information it needs to start a match.  Look to see if they were previously in a match
-	AUTLobbyGameState* GS = GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (GS)
-	{
-		GS->CheckForExistingMatch(this, bReturnedFromMatch);
-	}
 }

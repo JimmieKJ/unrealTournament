@@ -212,6 +212,7 @@ void SUWDialog::BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText,
 		if (Button.IsValid())
 		{
 			TabTable.AddUnique(Button);
+			ButtonMap.Add(ButtonID, Button);
 		}
 	};
 }
@@ -220,12 +221,16 @@ TSharedRef<class SWidget> SUWDialog::BuildButtonBar(uint16 ButtonMask)
 {
 	uint32 ButtonCount = 0;
 
+	ButtonMap.Empty();
+
 	SAssignNew(ButtonBar,SUniformGridPanel)
 		.SlotPadding(FMargin(0.0f,0.0f, 10.0f, 10.0f));
 
 	if ( ButtonBar.IsValid() )
 	{
 		if (ButtonMask & UTDIALOG_BUTTON_OK)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","OKButton","OK"),					UTDIALOG_BUTTON_OK,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_PLAY)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","PlayButton","PLAY"),				UTDIALOG_BUTTON_PLAY,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_LAN)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","LanButton","START LAN GAME"),		UTDIALOG_BUTTON_LAN,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_CANCEL)	BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","CancelButton","CANCEL"),			UTDIALOG_BUTTON_CANCEL,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_YES)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","YesButton", "YES"),				UTDIALOG_BUTTON_YES, ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_NO)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","NoButton","NO"),					UTDIALOG_BUTTON_NO,ButtonCount);
@@ -234,8 +239,7 @@ TSharedRef<class SWidget> SUWDialog::BuildButtonBar(uint16 ButtonMask)
 		if (ButtonMask & UTDIALOG_BUTTON_RECONNECT) BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ReconnectButton","RECONNECT"),	UTDIALOG_BUTTON_RECONNECT,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_EXIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ExitButton","EXIT"),				UTDIALOG_BUTTON_EXIT,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_QUIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","QuitButton","QUIT"),				UTDIALOG_BUTTON_QUIT,ButtonCount);
-		if (ButtonMask & UTDIALOG_BUTTON_VIEW)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ViewButton","VIEW"),				UTDIALOG_BUTTON_QUIT,ButtonCount);
-		
+		if (ButtonMask & UTDIALOG_BUTTON_VIEW)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ViewButton","VIEW"),				UTDIALOG_BUTTON_VIEW,ButtonCount);
 	}
 
 	return ButtonBar.ToSharedRef();

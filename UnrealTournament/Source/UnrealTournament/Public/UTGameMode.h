@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "../Private/Slate/Panels/SULobbyGameSettingsPanel.h"
 #include "TAttributeProperty.h"
 #include "UTServerBeaconLobbyClient.h"
 #include "UTBotConfig.h"
@@ -515,10 +514,13 @@ protected:
 	uint32 HostLobbyListenPort;
 
 	// Update the Lobby with the current stats of the game
-	virtual void UpdateLobbyMatchStats();
+	virtual void UpdateLobbyMatchStats(FString Update);
+
+	// Updates the lobby with the current player list
+	virtual void UpdateLobbyPlayerList();
 
 	// Updates the badge for the Lobby.  This is called from UpdateLobbyMatchStats() and should be gametype specific
-	virtual void UpdateLobbyBadge();
+	virtual void UpdateLobbyBadge(FString BadgeText);
 
 	virtual void SendEveryoneBackToLobby();
 	
@@ -530,6 +532,8 @@ public:
 	TSharedRef<SWidget> NewPlayerInfoLine(FString LeftStr, FString RightStr);
 	virtual void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState);
 #endif
+
+	virtual void InstanceNextMap(const FString& NextMap);
 
 };
 

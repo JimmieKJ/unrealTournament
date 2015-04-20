@@ -2,6 +2,7 @@
 #include "../Public/UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
 #include "../Public/UTBotConfig.h"
+#include "SUWindowsStyle.h"
 #include "SUWBotConfigDialog.h"
 #include "SUWInputBox.h"
 #include "SUWMessageBox.h"

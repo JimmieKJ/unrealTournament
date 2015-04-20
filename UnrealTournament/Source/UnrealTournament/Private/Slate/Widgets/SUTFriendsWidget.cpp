@@ -2,6 +2,7 @@
 
 #include "../Public/UnrealTournament.h"
 #include "SUTFriendsWidget.h"
+#include "../SUWindowsStyle.h"
 #include "FriendsAndChat.h"
 
 #if !UE_SERVER

@@ -13,11 +13,18 @@
 #include "SUWControlSettingsDialog.h"
 #include "SUWInputBox.h"
 #include "SUWMessageBox.h"
+#include "SUWGameSetupDialog.h"
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 #include "Panels/SUWServerBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
+#include "UTEpicDefaultRulesets.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
 
 #if !UE_SERVER
 
@@ -287,20 +294,49 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 	SUTMenuBase::OpenDelayedMenu();
 	if (bNeedToShowGamePanel)
 	{
-		if (!GamePanel.IsValid())
+
+		if (AvailableGameRulesets.Num() == 0)
 		{
-			SAssignNew(GamePanel, SUWCreateGamePanel)
-				.PlayerOwner(PlayerOwner);
+			UUTEpicDefaultRulesets::GetDefaultRules(PlayerOwner->GetWorld()->GetAuthGameMode(), AvailableGameRulesets);
+			for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
+			{
+				AvailableGameRulesets[i]->BuildSlateBadge();
+			}
 		}
 
-		if (GamePanel.IsValid())
+		if (AvailableGameRulesets.Num() > 0)
 		{
-			ActivatePanel(GamePanel);
-		}
+			
+			SAssignNew(CreateGameDialog, SUWGameSetupDialog)
+			.PlayerOwner(PlayerOwner)
+			.GameRuleSets(AvailableGameRulesets)
+			.ButtonMask(UTDIALOG_BUTTON_PLAY | UTDIALOG_BUTTON_CANCEL | UTDIALOG_BUTTON_LAN)
+			.OnDialogResult(this, &SUWindowsMainMenu::OnGameChangeDialogResult);
+		
 
-		PlayerOwner->HideContentLoadingMessage();
-	}
+			if ( CreateGameDialog.IsValid() )
+			{
+				PlayerOwner->OpenDialog(CreateGameDialog.ToSharedRef(), 100);
+			}
 	
+		}
+	}
+	PlayerOwner->HideContentLoadingMessage();
+}
+
+void SUWindowsMainMenu::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed)
+{
+	if (ButtonPressed != UTDIALOG_BUTTON_CANCEL && CreateGameDialog.IsValid() && CreateGameDialog->SelectedRuleset.IsValid() && CreateGameDialog->MapPlayList.Num() > 0)
+	{
+		if (ButtonPressed == UTDIALOG_BUTTON_PLAY)
+		{
+			StartGame(false);
+		}
+		else
+		{
+			CheckLocalContentForLanPlay();
+		}
+	}
 }
 
 FReply SUWindowsMainMenu::OnTutorialClick()
@@ -400,6 +436,178 @@ void SUWindowsMainMenu::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget
 bool SUWindowsMainMenu::ShouldShowBrowserIcon()
 {
 	return (PlayerOwner.IsValid() && PlayerOwner->bShowBrowserIconOnMainMenu);
+}
+
+void SUWindowsMainMenu::CheckLocalContentForLanPlay()
+{
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (!UTEngine->IsCloudAndLocalContentInSync())
+	{
+		PlayerOwner->ShowMessage(NSLOCTEXT("SUWCreateGamePanel", "CloudSyncErrorCaption", "Cloud Not Synced"), NSLOCTEXT("SUWCreateGamePanel", "CloudSyncErrorMsg", "Some files are not up to date on your cloud storage. Would you like to start anyway?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUWindowsMainMenu::CloudOutOfSyncResult));
+	}
+	else
+	{
+		UUTGameUserSettings* GameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+
+		bool bShowingLanWarning = false;
+		if( !GameSettings->bShouldSuppressLanWarning )
+		{
+			TWeakObjectPtr<UUTLocalPlayer> LP = PlayerOwner;
+			auto OnDialogConfirmation = [LP] (TSharedPtr<SCompoundWidget> Widget, uint16 Button)
+			{
+				if (LP.IsValid() && LP->PlayerController)
+				{
+					LP->PlayerController->bShowMouseCursor = false;
+					LP->PlayerController->SetInputMode(FInputModeGameOnly());
+				}
+
+				UUTGameUserSettings* GameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+				GameSettings->SaveConfig();
+			};
+
+			bool bCanBindAll = false;
+			TSharedRef<FInternetAddr> Address = ISocketSubsystem::Get()->GetLocalHostAddr(*GWarn, bCanBindAll);
+			if (Address->IsValid())
+			{
+				FString StringAddress = Address->ToString(false);
+
+				// Note: This is an extremely basic way to test for local network and it only covers the common case
+				if (StringAddress.StartsWith(TEXT("192.168.")))
+				{
+					if( PlayerOwner->PlayerController )
+					{
+						PlayerOwner->PlayerController->SetInputMode( FInputModeUIOnly() );
+					}
+					bShowingLanWarning = true;
+					PlayerOwner->ShowSupressableConfirmation(
+						NSLOCTEXT("SUWCreateGamePanel", "LocalNetworkWarningTitle", "Local Network Detected"),
+						NSLOCTEXT("SUWCreateGamePanel", "LocalNetworkWarningDesc", "Make sure ports 7777 and 15000 are forwarded in your router to be visible to players outside your local network"),
+						FVector2D(0, 0),
+						GameSettings->bShouldSuppressLanWarning,
+						FDialogResultDelegate::CreateLambda( OnDialogConfirmation ) );
+				}
+
+			}
+		}
+		
+		UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+		if (Engine != NULL && !Engine->IsCloudAndLocalContentInSync())
+		{
+			FText DialogText = NSLOCTEXT("UT", "ContentOutOfSyncWarning", "You have locally created custom content that is not in your cloud storage. Players may be unable to join your server. Are you sure?");
+			FDialogResultDelegate Callback;
+			Callback.BindSP(this, &SUWindowsMainMenu::StartGameWarningComplete);
+			PlayerOwner->ShowMessage(NSLOCTEXT("U1T", "ContentNotInSync", "Custom Content Out of Sync"), DialogText, UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, Callback);
+		}
+		else
+		{
+			StartGame(true);
+		}
+
+		if (PlayerOwner->PlayerController && bShowingLanWarning)
+		{ 
+			// ensure the user can click the warning.  The game will have tried to hide the cursor otherwise
+			PlayerOwner->PlayerController->bShowMouseCursor = true;
+			PlayerOwner->PlayerController->SetInputMode(FInputModeUIOnly());
+		}
+	}
+	
+}
+
+void SUWindowsMainMenu::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES || ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		StartGame(true);
+	}
+}
+
+
+void SUWindowsMainMenu::StartGame(bool bLanGame)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		if (bLanGame)		
+		{
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Listen")));
+		}
+		else
+		{
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Standalone")));
+		}
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("MenuStartGame"), ParamArray );
+	}
+
+	// Build the URL
+
+	// First copy the map play list. TODO: Find a good solution for the map list without using the ini if possible
+	PlayerOwner->SinglePlayerMapList.Empty();
+	for (int32 i=0; i< CreateGameDialog->MapPlayList.Num(); i++ )
+	{
+		if (CreateGameDialog->MapPlayList[i].bSelected)
+		{
+			PlayerOwner->SinglePlayerMapList.Add(CreateGameDialog->MapPlayList[i].MapName);
+		}
+	}
+
+	// First, grab the starting map.
+	FString URL = PlayerOwner->SinglePlayerMapList[0] + FString::Printf(TEXT("?Game=%s"), *CreateGameDialog->SelectedRuleset->GameMode);
+	URL += CreateGameDialog->SelectedRuleset->GameOptions;
+
+	// Set the Max players
+	URL += FString::Printf(TEXT("?MaxPlayers=%i"), CreateGameDialog->SelectedRuleset->MaxPlayers);
+
+	// Set the Bot Skill level and if they are needed.
+	if (CreateGameDialog->BotSkillLevel >= 0)
+	{
+		URL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), CreateGameDialog->SelectedRuleset->MaxPlayers, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));
+	}
+
+	if (bLanGame)
+	{
+		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
+		FString Options = FString::Printf(TEXT("unrealtournament %s -log -server"), *URL);
+
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		if (OnlineSubsystem)
+		{
+			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+			if (OnlineIdentityInterface.IsValid())
+			{
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
+				if (UserId.IsValid())
+				{
+					Options += FString::Printf(TEXT(" -cloudID=%s"), *UserId->ToString());
+				}
+			}
+		}
+
+		FString McpConfigOverride;
+		if (FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride))
+		{
+			Options += FString::Printf(TEXT(" -MCPCONFIG=%s"), *McpConfigOverride);
+		}
+
+		PlayerOwner->DedicatedServerProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *(Options + FString::Printf(TEXT(" -ClientProcID=%u"), FPlatformProcess::GetCurrentProcessId())), true, false, false, NULL, 0, NULL, NULL);
+		if (PlayerOwner->DedicatedServerProcessHandle.IsValid())
+		{
+			GEngine->SetClientTravel(PlayerOwner->PlayerController->GetWorld(), TEXT("127.0.0.1"), TRAVEL_Absolute);
+			PlayerOwner->HideMenu();
+		}
+	}
+	else
+	{
+		ConsoleCommand(TEXT("Open ") + URL);
+	}
+}
+
+
+void SUWindowsMainMenu::CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		StartGame(true);
+	}
 }
 
 

@@ -22,10 +22,14 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 	// may end up deleting the new PlayerStates they had just spaned.
 	bNetLoadOnClient = false;
 
-	MaxPlayers = 20;
 	bSpectatable = true;
 	bJoinAnytime = true;
+	bMapListChanged = false;
+
+	BotSkillLevel = -1;
+
 }
+
 
 void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
@@ -35,16 +39,15 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, CurrentState);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bPrivateMatch);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchStats);
-	DOREPLIFETIME(AUTLobbyMatchInfo, MatchGameMode);
-	DOREPLIFETIME(AUTLobbyMatchInfo, MatchMap);
-	DOREPLIFETIME(AUTLobbyMatchInfo, MatchOptions);
+	DOREPLIFETIME(AUTLobbyMatchInfo, CurrentRuleset);
 	DOREPLIFETIME(AUTLobbyMatchInfo, Players);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchBadge);
+	DOREPLIFETIME(AUTLobbyMatchInfo, MapList);
 	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
-	DOREPLIFETIME(AUTLobbyMatchInfo, MaxPlayers);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bJoinAnytime);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable);
 	DOREPLIFETIME(AUTLobbyMatchInfo, RankCeiling);
+	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
 }
 
@@ -52,10 +55,8 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
-	MinPlayers = 2;
 
 	MatchBadge = TEXT("Loading...");
-	UpdateBadgeForNewGameMode();
 }
 
 bool AUTLobbyMatchInfo::CheckLobbyGameState()
@@ -64,79 +65,13 @@ bool AUTLobbyMatchInfo::CheckLobbyGameState()
 	return LobbyGameState != NULL;
 }
 
-void AUTLobbyMatchInfo::OnRep_MatchBadge()
-{
-}
-
-void AUTLobbyMatchInfo::OnRep_MatchOptions()
-{
-	OnMatchOptionsChanged.ExecuteIfBound();	
-}
-
-void AUTLobbyMatchInfo::UpdateGameMode()
-{
- 	if (MatchGameMode == TEXT(""))
-	{
-		CurrentGameModeData.Reset();
-	}
-	else
-	{
-		UpdateBadgeForNewGameMode();
-	}
-}
-
-void AUTLobbyMatchInfo::OnRep_Players()
-{
-}
-
-void AUTLobbyMatchInfo::OnRep_PlayersInMatch()
-{
-}
-
-
-void AUTLobbyMatchInfo::OnRep_MatchStats()
-{
-	int32 Seconds;
-	if (FParse::Value(*MatchStats, TEXT("ElpasedTime="), Seconds))
-	{
-		int32 Hours = Seconds / 3600;
-		Seconds -= Hours * 3600;
-		int32 Mins = Seconds / 60;
-		Seconds -= Mins * 60;
-
-		FFormatNamedArguments Args;
-		FNumberFormattingOptions Options;
-
-		Options.MinimumIntegralDigits = 2;
-		Options.MaximumIntegralDigits = 2;
-
-		Args.Add(TEXT("Hours"), FText::AsNumber(Hours, &Options));
-		Args.Add(TEXT("Minutes"), FText::AsNumber(Mins, &Options));
-		Args.Add(TEXT("Seconds"), FText::AsNumber(Seconds, &Options));
-
-		MatchElapsedTime = FText::Format(NSLOCTEXT("Generic", "ClockFormat", "{Hours}:{Minutes}:{Seconds}"), Args);
-	}
-}
-
-
-void AUTLobbyMatchInfo::OnRep_MatchGameMode()
-{
-	UpdateGameMode();
-	OnMatchGameModeChanged.ExecuteIfBound();	
-}
-
-void AUTLobbyMatchInfo::OnRep_MatchMap()
-{
-	OnMatchMapChanged.ExecuteIfBound();	
-}
 
 void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 {
-	
 	if ((CurrentState != ELobbyMatchState::Recycling || NewMatchState == ELobbyMatchState::Dead) && CurrentState != ELobbyMatchState::Dead)
 	{
 		// When the client receives it's startup info, it will attempt to switch the match's state from Setup to waiting for players
-		// but if we are launching due to quickstart we don't want that.
+		// but if we are Gamenching due to quickstart we don't want that.
 		if (NewMatchState != ELobbyMatchState::WaitingForPlayers || CurrentState != ELobbyMatchState::Launching)
 		{
 			CurrentState = NewMatchState;
@@ -147,7 +82,6 @@ void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 			}
 		}
 	}
-	
 }
 
 void AUTLobbyMatchInfo::RecycleMatchInfo()
@@ -227,12 +161,12 @@ bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
 {
 	if (Joiner && CheckLobbyGameState())
 	{
-		if (CurrentState == ELobbyMatchState::WaitingForPlayers || 
-				(CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId) ||
-				(CurrentState == ELobbyMatchState::Launching && (bJoinAnytime || OwnerId == Joiner->UniqueId) )
-			)
+		if (	CurrentState == ELobbyMatchState::WaitingForPlayers || 
+		   (    CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId) ||
+		   (	CurrentState == ELobbyMatchState::Launching && (bJoinAnytime || OwnerId == Joiner->UniqueId) )
+		   )
 		{
-			return (MatchGameMode != TEXT("") && MatchMap != TEXT("") && MatchOptions != TEXT("") && OwnerId.IsValid() && LobbyGameState->GetGameModeDefaultObject(MatchGameMode) );
+			return ( OwnerId.IsValid() );
 		}
 	}
 
@@ -252,7 +186,7 @@ FText AUTLobbyMatchInfo::GetActionText()
 	}
 	else if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{
-		if (Players.Num() < MaxPlayers)
+		if (MatchHasRoom())
 		{
 			return NSLOCTEXT("SUMatchPanel","ClickToJoin","Click to Join");
 		}
@@ -275,13 +209,9 @@ FText AUTLobbyMatchInfo::GetActionText()
 		{
 			return NSLOCTEXT("SUMatchPanel","Spectate","Click to Spectate");
 		}
-		else if (MatchElapsedTime.IsEmpty())
+		else 
 		{
 			return NSLOCTEXT("SUMatchPanel","InProgress","In Progress...");
-		}
-		else
-		{
-			return MatchElapsedTime;
 		}
 	}
 	else if (CurrentState == ELobbyMatchState::Returning)
@@ -294,64 +224,13 @@ FText AUTLobbyMatchInfo::GetActionText()
 
 void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy)
 {
-	CurrentState = ELobbyMatchState::Setup;
-
-	// If we have a match to copy then copy it's values here
 	if (MatchToCopy)
 	{
-		MatchGameMode = MatchToCopy->MatchGameMode;
-		MatchOptions = MatchToCopy->MatchOptions;
-		MatchMap = MatchToCopy->MatchMap;
-		bJoinAnytime = MatchToCopy->bJoinAnytime;
-		bSpectatable = MatchToCopy->bSpectatable;
-		MaxPlayers = MatchToCopy->MaxPlayers;
-		MinPlayers = MatchToCopy->MinPlayers;
+		SetRules(MatchToCopy->CurrentRuleset, MatchToCopy->MapList);
+		BotSkillLevel = MatchToCopy->BotSkillLevel;
 	}
-	else
-	{
-		// Set the defaults for this match...
-		ServerMatchGameModeChanged_Implementation(GameState->AllowedGameModeClasses[0]);
-	}
-}
 
-bool AUTLobbyMatchInfo::ServerMatchGameModeChanged_Validate(const FString& NewMatchGameMode) { return true; }
-void AUTLobbyMatchInfo::ServerMatchGameModeChanged_Implementation(const FString& NewMatchGameMode)
-{
-	MatchGameMode = NewMatchGameMode;
-	AUTGameMode* StartingGameMode = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
-	if (StartingGameMode != NULL)
-	{
-		MatchMap = StartingGameMode->DefaultLobbyMap;
-		MatchOptions = StartingGameMode->DefaultLobbyOptions;
-	}
-	if (StartingGameMode != NULL && StartingGameMode->HubMinPlayers > 0)
-	{
-		MinPlayers = StartingGameMode->HubMinPlayers;
-	}
-	else
-	{
-		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
-		MinPlayers = (GM != NULL) ? GM->MinPlayersToStart : GetClass()->GetDefaultObject<AUTLobbyMatchInfo>()->MinPlayers;
-	}
-}
-
-
-bool AUTLobbyMatchInfo::ServerMatchMapChanged_Validate(const FString& NewMatchMap) { return true; }
-void AUTLobbyMatchInfo::ServerMatchMapChanged_Implementation(const FString& NewMatchMap)
-{
-	MatchMap = NewMatchMap;
-}
-
-bool AUTLobbyMatchInfo::ServerMatchOptionsChanged_Validate(const FString& NewMatchOptions) { return true; }
-void AUTLobbyMatchInfo::ServerMatchOptionsChanged_Implementation(const FString& NewMatchOptions)
-{
-	// recreate the match options string using the URL code with the old options as a base
-	// this a) prevents options the server admin set that are not available in the UI from getting clobbered, and
-	// b) prevents the client from removing the admin required server options with bad options strings
-	FURL OldURL(NULL, *FString::Printf(TEXT("?%s"), *MatchOptions), TRAVEL_Absolute);
-	FURL NewURL(&OldURL, *FString::Printf(TEXT("?%s"), *NewMatchOptions), TRAVEL_Relative);
-
-	NewURL.ToString().Split(TEXT("?"), NULL, &MatchOptions);
+	SetLobbyMatchState(ELobbyMatchState::Setup);
 }
 
 bool AUTLobbyMatchInfo::ServerMatchIsReadyForPlayers_Validate() { return true; }
@@ -382,13 +261,13 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 bool AUTLobbyMatchInfo::ServerStartMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
-	if (Players.Num() < MinPlayers)
+	if (Players.Num() < 2)
 	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start. ({0} required)"), MinPlayers);
+		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
 		return;
 	}
 
-	if (Players.Num() > MaxPlayers)
+	if (Players.Num() > CurrentRuleset->MaxPlayers)
 	{
 		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyPlayers","There are too many players in this match to start."));
 		return;
@@ -415,39 +294,10 @@ void AUTLobbyMatchInfo::LaunchMatch()
 		Players[i]->bReadyToPlay = true;
 	}
 
-	// Remove out the [Min/Max] info...
-
-	FString FinalOptions = MatchOptions;
-
-	int32 LeftBracket = FinalOptions.Find(TEXT("["));
-	while (LeftBracket >=0)
+	if (CheckLobbyGameState() && CurrentRuleset.IsValid())
 	{
-		FString Left = LeftBracket > 0 ? FinalOptions.Left(LeftBracket) : TEXT("");
-		int32 RightBracket = FinalOptions.Find(TEXT("]"));
-		FString Right = RightBracket >= 0 ? FinalOptions.Right(FinalOptions.Len() - RightBracket -1) : FinalOptions.Right(FinalOptions.Len() - LeftBracket);
-		FinalOptions = Left + Right;
-		LeftBracket = FinalOptions.Find(TEXT("["));
+		LobbyGameState->LaunchGameInstance(this, CurrentRuleset->GameMode, MapList[0], CurrentRuleset->GameOptions, CurrentRuleset->MaxPlayers, BotSkillLevel);
 	}
-
-	FinalOptions += FString::Printf(TEXT("?MaxPlayers=%i"), MaxPlayers);
-
-	AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
-	if (DefaultGame)
-	{
-		if (!DefaultGame->ForcedInstanceGameOptions.IsEmpty())
-		{
-			FinalOptions += DefaultGame->ForcedInstanceGameOptions;
-		}
-	}
-
-
-	if (CheckLobbyGameState())
-	{
-		LobbyGameState->LaunchGameInstance(this, FinalOptions);
-	}
-
-	
-
 }
 
 bool AUTLobbyMatchInfo::ServerAbortMatch_Validate() { return true; }
@@ -520,7 +370,9 @@ bool AUTLobbyMatchInfo::ShouldShowInDock()
 	}
 	else
 	{
-		return OwnerId.IsValid() && (Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && (CurrentState == ELobbyMatchState::InProgress || CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers);
+		return OwnerId.IsValid() && (Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && 
+				CurrentRuleset.IsValid() && 
+				(CurrentState == ELobbyMatchState::InProgress || CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers);
 	}
 }
 
@@ -529,42 +381,6 @@ void AUTLobbyMatchInfo::ServerSetLobbyMatchState_Implementation(FName NewMatchSt
 {
 	SetLobbyMatchState(NewMatchState);
 }
-
-
-void AUTLobbyMatchInfo::ClientGetDefaultGameOptions()
-{
-	if (CurrentGameModeData.IsValid())
-	{
-		MatchOptions = CurrentGameModeData->DefaultObject->GetDefaultLobbyOptions();
-		ServerMatchOptionsChanged(MatchOptions);
-	}
-}
-
-void AUTLobbyMatchInfo::BuildAllowedMapsList()
-{
-	if (CheckLobbyGameState())
-	{
-		AvailableMaps.Empty();
-		for (int32 i=0; i<LobbyGameState->ClientAvailableMaps.Num();i++)
-		{
-			if (CurrentGameModeData->DefaultObject->SupportsMap(LobbyGameState->ClientAvailableMaps[i]->MapName))
-			{
-				// TODO: we should modify the server to not send unentitled things in the first place
-				if (LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*LobbyGameState->ClientAvailableMaps[i]->MapName))))
-				{
-					AvailableMaps.Add(LobbyGameState->ClientAvailableMaps[i]);
-				}
-			}
-		}
-	}
-}
-
-bool AUTLobbyMatchInfo::ServerSetMaxPlayers_Validate(int32 NewMaxPlayers) { return true; }
-void AUTLobbyMatchInfo::ServerSetMaxPlayers_Implementation(int32 NewMaxPlayers)
-{
-	MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2, 20);
-}
-
 
 bool AUTLobbyMatchInfo::ServerSetAllowJoinInProgress_Validate(bool bAllow) { return true; }
 void AUTLobbyMatchInfo::ServerSetAllowJoinInProgress_Implementation(bool bAllow)
@@ -585,7 +401,6 @@ void AUTLobbyMatchInfo::ServerSetRankCeiling_Implementation(int32 NewRankCeiling
 }
 
 
-
 FText AUTLobbyMatchInfo::GetDebugInfo()
 {
 
@@ -600,25 +415,82 @@ FText AUTLobbyMatchInfo::GetDebugInfo()
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("OwnerName"), Owner);
 	Args.Add(TEXT("CurrentState"), FText::FromName(CurrentState));
+	Args.Add(TEXT("CurrentRuleSet"), FText::FromString(CurrentRuleset.IsValid() ? CurrentRuleset->Title : TEXT("None")));
 	Args.Add(TEXT("ShouldShowInDock"), FText::AsNumber(ShouldShowInDock()));
 	Args.Add(TEXT("InProgress"), FText::AsNumber(IsInProgress()));
 	Args.Add(TEXT("MatchStats"), FText::FromString(MatchStats));
 
 
-	return FText::Format(NSLOCTEXT("UTLobbyMatchInfo","DebugFormat","Owner [{OwnerName}] State [{CurrentState}] Flags [{ShouldShowInDock}, {InProgress}]  Stats: {MatchStats}"), Args);
+	return FText::Format(NSLOCTEXT("UTLobbyMatchInfo","DebugFormat","Owner [{OwnerName}] State [{CurrentState}] RuleSet [{CurrentRuleSet}] Flags [{ShouldShowInDock}, {InProgress}]  Stats: {MatchStats}"), Args);
 }
 
 
-void AUTLobbyMatchInfo::UpdateBadgeForNewGameMode()
+void AUTLobbyMatchInfo::OnRep_Update()
 {
-#if !UE_SERVER
-	if (GetNetMode() != NM_DedicatedServer)
+	// Let the UI know
+	OnMatchInfoUpdatedDelegate.ExecuteIfBound();
+}
+
+void AUTLobbyMatchInfo::OnRep_MapList()
+{
+	bMapListChanged = true;
+}
+
+FString AUTLobbyMatchInfo::GetMapList()
+{
+	FString Maps = TEXT("");
+	if (CurrentRuleset.IsValid() && CurrentRuleset->MapPlaylist.Num() >0)
 	{
-		AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(MatchGameMode);
-		if (DefaultGame && (CurrentState == ELobbyMatchState::Initializing || CurrentState == ELobbyMatchState::Setup || CurrentState == ELobbyMatchState::WaitingForPlayers))
+		for (int32 i=0; i<CurrentRuleset->MapPlaylist.Num(); i++)
 		{
-			MatchBadge = DefaultGame->GetHUBPregameFormatString();
+			Maps += i > 0 ? TEXT(", ") + CurrentRuleset->MapPlaylist[i] : CurrentRuleset->MapPlaylist[i];
 		}
 	}
-#endif
+
+	return Maps;
+}
+
+void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const TArray<FString>& NewMapList)
+{
+	CurrentRuleset = NewRuleset;
+	MapList.Empty();
+	for (int32 i=0; i < NewMapList.Num(); i++)
+	{
+		MapList.Add(NewMapList[i]);
+		if (MapList.Num() == 6) break;
+	}
+
+	bMapListChanged = true;
+}
+
+bool AUTLobbyMatchInfo::ServerSetRules_Validate(const FString& RulesetTag, const TArray<FString>& NewMapList,int32 NewBotSkillLevel) { return true; }
+void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, const TArray<FString>& NewMapList,int32 NewBotSkillLevel)
+{
+	if ( CheckLobbyGameState() )
+	{
+		TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleSet = LobbyGameState->FindRuleset(RulesetTag);
+
+		if (NewRuleSet.IsValid())
+		{
+			SetRules(NewRuleSet, NewMapList);
+		}
+
+		BotSkillLevel = NewBotSkillLevel;
+
+	}
+}
+
+void AUTLobbyMatchInfo::SetMatchStats(FString Update)
+{
+	MatchStats = Update;
+	OnRep_MatchStats();
+}
+
+void AUTLobbyMatchInfo::OnRep_MatchStats()
+{
+	int32 GameTime;
+	if ( FParse::Value(*MatchStats, TEXT("GameTime="), GameTime) )
+	{
+		MatchGameTime = GameTime;
+	}
 }

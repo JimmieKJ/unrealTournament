@@ -69,6 +69,10 @@ protected:
 
 	const FSlateBrush* GetELOBadgeImage() const;
 	const FSlateBrush* GetELOBadgeNumberImage() const;
+	const FSlateBrush* GetMatchSlateBadge() const;
+
+	FText GetTimeRemaining() const;
+	FText GetRuleName() const;
 };
 
 #endif
