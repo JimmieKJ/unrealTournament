@@ -4,7 +4,7 @@
 #include "UTCheatManager.generated.h"
 
 UCLASS(Within=UTPlayerController)
-class UUTCheatManager : public UCheatManager
+class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 {
 	GENERATED_UCLASS_BODY()
 

@@ -5,7 +5,7 @@
 #include "UTTimerMessage.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTTimerMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

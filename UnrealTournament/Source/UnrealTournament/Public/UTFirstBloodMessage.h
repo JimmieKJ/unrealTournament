@@ -6,7 +6,7 @@
 #include "UTFirstBloodMessage.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTFirstBloodMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

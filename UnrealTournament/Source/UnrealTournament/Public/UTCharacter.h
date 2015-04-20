@@ -410,6 +410,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Remove excess armor from the lowest absorption armor type.  Returns amount of armor removed. */
 	virtual int32 ReduceArmorStack(int32 Amount);
 
+	/** Returns current total armor amount. */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+		virtual int32 GetArmorAmount();
+
 	/** return total effective health of this Pawn as a percentage/multiplier of its starting value
 	 * this is used by AI as part of evaluating enemy strength
 	 * if bOnlyVisible, only return results of values that can be obviously detected by seeing this Pawn (e.g. shield belt)
@@ -592,6 +596,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	int32 HealthMax;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	int32 SuperHealthMax;
+
+	/** Replicated to spectators, not authoritative. */
+	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)
+		int32 ArmorAmount;
 
 	/** head bone/socket for headshots */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
@@ -1331,6 +1339,10 @@ public:
 	/** Max distance for same team player indicator */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float TeamPlayerIndicatorMaxDistance;
+
+	/** Max distance for same team player indicator */
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+		float SpectatorIndicatorMaxDistance;
 
 	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
 	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)

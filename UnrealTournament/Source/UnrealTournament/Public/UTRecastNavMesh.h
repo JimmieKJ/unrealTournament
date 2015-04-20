@@ -112,6 +112,9 @@ public:
 	}
 };
 
+/** utility to draw route using debug lines */
+extern void DrawDebugRoute(UWorld* World, APawn* QueryPawn, const TArray<FRouteCacheItem>& Route);
+
 /** node evaluation structure for pathfinding routines */
 struct UNREALTOURNAMENT_API FUTNodeEvaluator
 {
@@ -590,7 +593,7 @@ inline AUTRecastNavMesh* GetUTNavData(UWorld* World)
 
 #if WITH_EDITOR
 /** used to force our tick code in the editor */
-class FUTNavMeshEditorTick : public FTickableEditorObject
+class UNREALTOURNAMENT_API FUTNavMeshEditorTick : public FTickableEditorObject
 {
 public:
 	TWeakObjectPtr<class AUTRecastNavMesh> Owner;

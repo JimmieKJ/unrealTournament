@@ -6,7 +6,7 @@
 #include "UTLastSecondMessage.generated.h"
 
 UCLASS()
-class UUTLastSecondMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTLastSecondMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 	// DEPRECATED

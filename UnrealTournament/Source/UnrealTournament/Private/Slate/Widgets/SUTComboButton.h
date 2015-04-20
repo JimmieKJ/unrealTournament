@@ -27,6 +27,7 @@ class SUTComboButton : public SMenuAnchor
 		, _ContentPadding(FMargin(5))
 		, _HAlign(HAlign_Fill)
 		, _VAlign(VAlign_Center)
+		, _IsToggleButton(false)
 		{}
 
 		// Styles
@@ -81,6 +82,9 @@ class SUTComboButton : public SMenuAnchor
 		/** Comma separated list of menu items */
 		SLATE_ARGUMENT( FString, DefaultMenuItems)
 		
+		/** Determines if this is a toggle button or not. */
+		SLATE_ARGUMENT( bool, IsToggleButton )
+
 	SLATE_END_ARGS()
 
 public:
@@ -91,6 +95,9 @@ public:
 	void ClearSubMenuItems();
 
 	void SetButtonStyle(const FButtonStyle* NewButtonStyle);
+
+	virtual void UnPressed();
+	virtual void BePressed();
 
 protected:
 
@@ -136,6 +143,7 @@ protected:
 	FReply SubMenuButtonClicked(int32 ButtonIndex);
 
 	virtual void SetMenus( const TSharedRef< SWidget >& InContent );
+
 };
 
 #endif

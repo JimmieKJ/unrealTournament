@@ -424,6 +424,16 @@ bool AUTGameState::IsMatchInProgress() const
 	return false;
 }
 
+bool AUTGameState::IsMatchAtHalftime() const
+{	
+	return false;	
+}
+
+bool AUTGameState::IsMatchInSuddenDeath() const
+{
+	return false;
+}
+
 bool AUTGameState::IsMatchInOvertime() const
 {
 	FName MatchState = GetMatchState();

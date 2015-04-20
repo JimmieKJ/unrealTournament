@@ -5,7 +5,7 @@
 #include "UTTranslocatorMessage.generated.h"
 
 UCLASS(CustomConstructor, Abstract)
-class UUTTranslocatorMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTTranslocatorMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

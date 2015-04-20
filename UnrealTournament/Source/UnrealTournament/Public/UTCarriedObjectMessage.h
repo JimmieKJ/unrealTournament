@@ -7,7 +7,7 @@
 #include "UTCarriedObjectMessage.generated.h"
 
 UCLASS()
-class UUTCarriedObjectMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTCarriedObjectMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 };

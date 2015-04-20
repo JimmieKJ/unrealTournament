@@ -130,7 +130,16 @@ void AUTTeamDMGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("TDMSkillRating")), PS->Team == UTGameState->WinningTeam);
+			PS->UpdateTeamSkillRating(FName(TEXT("TDMSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
+
+	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(FName(TEXT("TDMSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 }

@@ -492,7 +492,7 @@ void UObject::FinishDestroy()
 FString UObject::GetDetailedInfo() const
 {
 	FString Result;  
-	if( this )
+	if( this != nullptr )
 	{
 		Result = GetDetailedInfoInternal();
 	}
@@ -1012,7 +1012,7 @@ bool UObject::CanCheckDefaultSubObjects(bool bForceCheck, bool& bResult)
 {
 	bool bCanCheck = true;
 	bResult = true;
-	if (!this)
+	if (this == nullptr)
 	{
 		bResult = false; // these aren't in a suitable spot in their lifetime for testing
 		bCanCheck = false;

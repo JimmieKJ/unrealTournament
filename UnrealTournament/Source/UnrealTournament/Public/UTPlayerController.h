@@ -163,6 +163,10 @@ public:
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
 
+	/** Update rotation to be good view of current viewtarget. */
+	UFUNCTION()
+		virtual void FindGoodView();
+
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
@@ -171,6 +175,34 @@ public:
 	/** View Player at Index on team specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)
 		void ServerViewPlayer(int32 Index, int32 TeamIndex);
+
+	/** View Player holding flag specified by TeamIndex. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewFlagHolder(int32 TeamIndex);
+
+	/** View last projectile fired by currently viewed player. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewProjectile();
+
+	UFUNCTION(exec)
+		virtual void ViewProjectile();
+
+	UFUNCTION(exec)
+		virtual void ViewBlueFlag();
+
+	UFUNCTION(exec)
+		virtual void ViewRedFlag();
+
+	UFUNCTION(exec)
+		virtual void ToggleTacCom();
+
+	/** Enables TacCom for spectators. */
+	UPROPERTY(BluePrintReadWrite)
+		bool bTacComView;
+
+	/** View Flag of team specified by Index. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewFlag(int32 Index);
 
 	virtual FVector GetFocalLocation() const override;
 
@@ -260,6 +292,10 @@ public:
 		Super::ViewAPlayer(dir);
 	}
 
+	/** Toggle behindview for spectators. */
+	UFUNCTION(exec)
+		virtual void ToggleBehindView();
+
 	/** user configurable FOV setting */
 	UPROPERTY(BlueprintReadOnly, GlobalConfig, Category = Camera)
 	float ConfigDefaultFOV;
@@ -300,11 +336,6 @@ public:
 
 	UFUNCTION(Exec)
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
-
-	virtual void ClientSetViewTarget_Implementation(AActor* A, FViewTargetTransitionParams TransitionParams) override;
-
-	UPROPERTY()
-	class AUTCharacter* LastSpectatedCharacter;
 
 	UPROPERTY()
 	class APlayerState* LastSpectatedPlayerState;
@@ -385,18 +416,6 @@ public:
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
 
 	UFUNCTION(Exec)
-	virtual void RconAuth(FString Password);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerRconAuth(const FString& Password);
-
-	UFUNCTION(Exec)
-	virtual void RconExec(FString Command);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerRconExec(const FString& Command);
-
-	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);
 
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -407,7 +426,7 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRconNextMap(const FString& NextMap);
-	
+
 	UFUNCTION(Exec)
 	virtual void UTBugIt(const FString& ScreenShotDescription);
 	virtual void UTBugItStringCreator(FVector ViewLocation, FRotator ViewRotation, FString& GoString, FString& LocString);

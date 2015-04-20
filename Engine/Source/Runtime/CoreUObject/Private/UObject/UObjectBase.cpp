@@ -274,7 +274,7 @@ void UObjectBase::SetClass(UClass* NewClass)
  */
 bool UObjectBase::IsValidLowLevel() const
 {
-	if( !this )
+	if( this == nullptr )
 	{
 		UE_LOG(LogUObjectBase, Warning, TEXT("NULL object") );
 		return false;
@@ -293,7 +293,7 @@ bool UObjectBase::IsValidLowLevelFast(bool bRecursive /*= true*/) const
 	const int32 AlignmentCheck = MIN_ALIGNMENT - 1;
 
 	// Check 'this' pointer before trying to access any of the Object's members
-	if (!this || (UPTRINT)this < 0x100)
+	if ((this == nullptr) || (UPTRINT)this < 0x100)
 	{
 		UE_LOG(LogUObjectBase, Error, TEXT("\'this\' pointer is invalid."));
 		return false;

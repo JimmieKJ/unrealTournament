@@ -108,4 +108,23 @@ protected:
 	void AttemptGUIDJoin();
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnCancelGUIDFindSessionComplete(bool bWasSuccessful);
+
+public:
+	UFUNCTION(Exec)
+	virtual void RconAuth(FString Password);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconAuth(const FString& Password);
+
+	UFUNCTION(Exec)
+	virtual void RconExec(FString Command);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconExec(const FString& Command);
+
+	UFUNCTION(Exec)
+	virtual void RconKick(FString NameOrUIDStr, bool bBan = false, FString Reason = TEXT(""));
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason);
 };

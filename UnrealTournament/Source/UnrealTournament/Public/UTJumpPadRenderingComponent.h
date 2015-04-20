@@ -5,7 +5,7 @@
 #include "UTJumpPadRenderingComponent.generated.h"
 
 UCLASS()
-class UUTJumpPadRenderingComponent : public UPrimitiveComponent
+class UNREALTOURNAMENT_API UUTJumpPadRenderingComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
 

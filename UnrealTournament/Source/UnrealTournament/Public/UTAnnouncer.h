@@ -45,7 +45,7 @@ enum EAnnouncerType
 };
 
 UCLASS(Blueprintable, Abstract, Within=UTPlayerController)
-class UUTAnnouncer : public UObject
+class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

@@ -715,13 +715,44 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 	}
 	else if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		ServerViewPlayer(Group-1, 0);
+		BehindView(bSpectateBehindView);
+		ServerViewPlayer(Group - 1, 0);
 	}
 }
 
 void AUTPlayerController::ViewBluePlayer(int32 Index)
 {
-	ServerViewPlayer(Index-1, 1);
+	BehindView(bSpectateBehindView);
+	ServerViewPlayer(Index - 1, 1);
+}
+
+void AUTPlayerController::ToggleBehindView()
+{
+	bSpectateBehindView = !bSpectateBehindView;
+	BehindView(bSpectateBehindView);
+
+	AUTCarriedObject* UTFlag = Cast<AUTCarriedObject>(GetViewTarget());
+	if (!bSpectateBehindView && UTFlag && UTFlag->Holder)
+	{
+		ServerViewFlagHolder(UTFlag->GetTeamNum());
+	}
+}
+
+bool AUTPlayerController::ServerViewFlagHolder_Validate(int32 TeamIndex)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewFlagHolder_Implementation(int32 TeamIndex)
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > TeamIndex) && CTFGameState->FlagBases[TeamIndex] && CTFGameState->FlagBases[TeamIndex]->MyFlag && CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder)
+		{
+			SetViewTarget(CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder);
+		}
+	}
 }
 
 bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)
@@ -731,6 +762,7 @@ bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex
 
 void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 TeamIndex)
 {
+	BehindView(bSpectateBehindView);
 	Index = FMath::Max(Index, 0);
 	if (Index > 4)
 	{
@@ -751,11 +783,87 @@ void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 Tea
 					SetViewTarget(Members[Index]->PlayerState);
 				}
 			}
-
 		}
 		else if (GameState && (Index < GameState->PlayerArray.Num()) && (GameState->PlayerArray[Index] != NULL))
 		{
 			SetViewTarget(GameState->PlayerArray[Index]);
+		}
+	}
+}
+
+void AUTPlayerController::ViewBlueFlag()
+{
+	ServerViewFlag(1);
+}
+
+void AUTPlayerController::ViewRedFlag()
+{
+	ServerViewFlag(0);
+}
+
+bool AUTPlayerController::ServerViewFlag_Validate(int32 Index)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewFlag_Implementation(int32 Index)
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag )
+		{
+			SetViewTarget(CTFGameState->FlagBases[Index]->MyFlag);
+		}
+	}
+}
+
+void AUTPlayerController::ViewProjectile()
+{
+	if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerState)
+	{
+		// toggle away from projectile cam
+		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		{
+			APawn* Pawn = *Iterator;
+			if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+			{
+				ServerViewPawn(*Iterator);
+			}
+		}
+	}
+	else
+	{
+		ServerViewProjectile();
+	}
+}
+
+bool AUTPlayerController::ServerViewProjectile_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewProjectile_Implementation()
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTCharacter* ViewedCharacter = Cast<AUTCharacter>(GetViewTarget());
+		// @TODO FIXMESTEVE save last fired projectile as optimization
+		AUTProjectile* BestProj = NULL;
+		if (ViewedCharacter)
+		{
+			for (FActorIterator It(GetWorld()); It; ++It)
+			{
+				AUTProjectile* Proj = Cast<AUTProjectile>(*It);
+				if (Proj && !Proj->bExploded && !Proj->GetVelocity().IsNearlyZero() && (Proj->Instigator == ViewedCharacter) && (!BestProj || (BestProj->CreationTime < Proj->CreationTime)))
+				{
+					BestProj = Proj;
+				}
+			}
+		}
+		if (BestProj)
+		{
+			SetViewTarget(BestProj);
 		}
 	}
 }
@@ -767,6 +875,7 @@ void AUTPlayerController::PlayMenuSelectSound()
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SelectSound, GetViewTarget()->GetActorLocation(), 1.f, 1.0f, 0.0f);
 	}
 }
+
 void AUTPlayerController::OnFire()
 {
 	if (GetPawn() != NULL)
@@ -791,8 +900,8 @@ void AUTPlayerController::OnFire()
 		PlayMenuSelectSound();
 		ServerRestartPlayer();
 	}
-
 }
+
 void AUTPlayerController::OnStopFire()
 {
 	if (GetPawn() != NULL)
@@ -800,6 +909,7 @@ void AUTPlayerController::OnStopFire()
 		new(DeferredFireInputs) FDeferredFireInput(0, false);
 	}
 }
+
 void AUTPlayerController::OnAltFire()
 {
 	if (GetPawn() != NULL)
@@ -824,6 +934,7 @@ void AUTPlayerController::OnAltFire()
 		ServerRestartPlayerAltFire();
 	}
 }
+
 void AUTPlayerController::OnStopAltFire()
 {
 	if (GetPawn() != NULL)
@@ -1476,6 +1587,11 @@ void AUTPlayerController::SetCameraMode( FName NewCamMode )
 	}
 }
 
+void AUTPlayerController::ToggleTacCom()
+{
+	bTacComView = !bTacComView;
+}
+
 void AUTPlayerController::SetStylizedPP(int32 NewPP)
 {
 	AUTPlayerCameraManager* UTPCM = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
@@ -1530,10 +1646,95 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 
 	// See if we're no longer viewing a placeholder and destroy it
-	if (UTPlaceholder != nullptr && GetViewTarget() != UTPlaceholder)
+	AActor* UpdatedViewTarget = GetViewTarget();
+	if (UTPlaceholder != nullptr && UpdatedViewTarget != UTPlaceholder)
 	{
 		UTPlaceholder->Destroy();
 	}
+
+	if (StateName == NAME_Spectating)
+	{
+		AUTCharacter* Char = Cast<AUTCharacter>(UpdatedViewTarget);
+		if (Char)
+		{
+			LastSpectatedPlayerState = Char->PlayerState;
+		}
+		else if (!Cast<AUTProjectile>(UpdatedViewTarget) && (UpdatedViewTarget != this))
+		{
+			LastSpectatedPlayerState = NULL;
+		}
+
+		if (IsLocalController() && bSpectateBehindView)
+		{
+			// pick good starting rotation
+			FindGoodView();
+		}
+	}
+}
+
+void AUTPlayerController::FindGoodView()
+{
+	AActor* TestViewTarget = GetViewTarget();
+	if (!TestViewTarget || !PlayerCameraManager || (TestViewTarget == this) || (TestViewTarget == GetSpectatorPawn()) || Cast<AUTProjectile>(TestViewTarget) || Cast<AUTViewPlaceholder>(TestViewTarget))
+	{
+		// no rotation change;
+		return;
+	}
+
+	FRotator BestRot = GetControlRotation();
+	// Always start looking down slightly
+	BestRot.Pitch = -10.f;
+	BestRot.Roll = 0.f;
+	BestRot.Yaw = TestViewTarget->GetActorRotation().Yaw + 15.f;
+
+	AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TestViewTarget);
+	if (Flag)
+	{
+		if (Flag->IsHome() && Flag->HomeBase)
+		{
+			BestRot.Yaw = Flag->HomeBase->BestViewYaw;
+		}
+		else if (Flag->Holder && Flag->AttachmentReplication.AttachParent)
+		{
+			BestRot.Yaw = Flag->AttachmentReplication.AttachParent->GetActorRotation().Yaw + 15.f;
+		}
+	}
+
+	if ((TestViewTarget == FinalViewTarget) && Cast<AUTCharacter>(TestViewTarget))
+	{
+		BestRot.Yaw += 180.f;
+	}
+
+	// look for acceptable view
+	float YawIncrement = 30.f;
+	float YawOffset = 0.f;
+	bool bFoundGoodView = false;
+	float BestView = BestRot.Yaw;
+	float BestDist = 0.f;
+	float StartYaw = BestRot.Yaw;
+	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	while (!bFoundGoodView && (YawOffset < 360.f) && CamMgr)
+	{
+		BestRot.Yaw = StartYaw + YawOffset;
+		FVector TargetLoc = TestViewTarget->GetActorLocation();
+		FVector Pos = TargetLoc + FRotationMatrix(BestRot).TransformVector(PlayerCameraManager->FreeCamOffset) - BestRot.Vector() * PlayerCameraManager->FreeCamDistance;
+		FHitResult Result(1.f);
+		CamMgr->CheckCameraSweep(Result, TestViewTarget, TargetLoc, Pos);
+		float NewDist = (Result.Location - TargetLoc).SizeSquared();
+		bFoundGoodView = !Result.bBlockingHit;
+		if (NewDist > BestDist)
+		{
+			BestDist = NewDist;
+			BestView = BestRot.Yaw;
+		}
+		YawOffset += YawIncrement;
+		YawIncrement = 45.f;
+	}
+	if (!bFoundGoodView)
+	{
+		BestRot.Yaw = BestView;
+	}
+	SetControlRotation(BestRot);
 }
 
 void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams)
@@ -1578,7 +1779,6 @@ void AUTPlayerController::ClientHalftime_Implementation()
 void AUTPlayerController::TestResult(uint16 ButtonID)
 {
 }
-
 
 void AUTPlayerController::Possess(APawn* PawnToPossess)
 {
@@ -1679,24 +1879,25 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 
 	// Follow the last spectated player again when they respawn
-	if (StateName == NAME_Spectating)
+	if ((StateName == NAME_Spectating) && LastSpectatedPlayerState && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
 	{
 		APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 		AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-		if (ViewTargetPawn == nullptr || (ViewTargetCharacter != nullptr && ViewTargetCharacter->IsDead()))
+		if (!ViewTargetPawn || (ViewTargetCharacter && ViewTargetCharacter->IsDead()))
 		{
-			if (LastSpectatedPlayerState != nullptr)
+			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
-				for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+				APawn* Pawn = *Iterator;
+				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
 				{
-					APawn* Pawn = *Iterator;
-					if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
-					{
-						ServerViewPawn(*Iterator);
-					}
+					ServerViewPawn(*Iterator);
 				}
 			}
 		}
+	}
+	else if (PlayerState && PlayerState->bOnlySpectator && (GetViewTarget() == this))
+	{
+		ClientViewSpectatorPawn(FViewTargetTransitionParams());
 	}
 }
 
@@ -1902,25 +2103,6 @@ void AUTPlayerController::SlowerEmote()
 	}
 }
 
-void AUTPlayerController::ClientSetViewTarget_Implementation(AActor* A, FViewTargetTransitionParams TransitionParams)
-{
-	if (StateName == NAME_Spectating)
-	{
-		AUTCharacter* Char = Cast<AUTCharacter>(A);
-		if (Char)
-		{
-			LastSpectatedCharacter = Char;
-			LastSpectatedPlayerState = Char->PlayerState;
-		}
-	}
-	if (PlayerCameraManager != NULL)
-	{
-		PlayerCameraManager->UnlockFOV();
-	}
-
-	Super::ClientSetViewTarget_Implementation(A, TransitionParams);
-}
-
 bool AUTPlayerController::ServerViewPawn_Validate(APawn* PawnToView)
 {
 	return true;
@@ -1969,35 +2151,6 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(FString WeaponClassname, 
 	return DefaultPriority;
 }
 
-void AUTPlayerController::RconAuth(FString Password)
-{
-	ServerRconAuth(Password);
-}
-
-bool AUTPlayerController::ServerRconAuth_Validate(const FString& Password)
-{
-	return true;
-}
-
-void AUTPlayerController::ServerRconAuth_Implementation(const FString& Password)
-{
-	if (UTPlayerState != nullptr && !UTPlayerState->bIsRconAdmin && !GetDefault<UUTGameEngine>()->RconPassword.IsEmpty())
-	{
-		if (GetDefault<UUTGameEngine>()->RconPassword == Password)
-		{
-			ClientSay(UTPlayerState, TEXT("Rcon authenticated!"), ChatDestinations::System);
-			UTPlayerState->bIsRconAdmin = true;
-		}
-		else
-		{
-			ClientSay(UTPlayerState, TEXT("Rcon password incorrect"), ChatDestinations::System);
-		}
-	}
-	else
-	{
-		ClientSay(UTPlayerState, TEXT("Rcon password unset"), ChatDestinations::System);
-	}
-}
 
 void AUTPlayerController::RconMap(FString NewMap)
 {
@@ -2032,27 +2185,6 @@ void AUTPlayerController::ServerRconMap_Implementation(const FString& NewMap)
 void AUTPlayerController::RconNextMap(FString NextMap)
 {
 	ServerRconNextMap(NextMap);
-}
-
-void AUTPlayerController::RconExec(FString Command)
-{
-	ServerRconExec(Command);
-}
-
-bool AUTPlayerController::ServerRconExec_Validate(const FString& Command)
-{
-	return true;
-}
-
-void AUTPlayerController::ServerRconExec_Implementation(const FString& Command)
-{
-	if (UTPlayerState == nullptr || !UTPlayerState->bIsRconAdmin)
-	{
-		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
-		return;
-	}
-
-	ConsoleCommand(Command);
 }
 
 bool AUTPlayerController::ServerRconNextMap_Validate(const FString& NextMap)

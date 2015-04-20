@@ -5,7 +5,7 @@
 #include "UTCTFGameMessage.generated.h"
 
 UCLASS()
-class UUTCTFGameMessage : public UUTCarriedObjectMessage
+class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 {
 	GENERATED_UCLASS_BODY()
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

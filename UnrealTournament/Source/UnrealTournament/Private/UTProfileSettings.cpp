@@ -43,6 +43,14 @@ void UUTProfileSettings::VersionFixup()
 		Taunt2.Key = EKeys::K;
 		ActionMappings.AddUnique(Taunt2);
 	}
+	if (SettingsRevisionNum <= SPECTATING_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("Divide")), IE_Pressed, FString("ViewRedFlag")));
+		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("Multiply")), IE_Pressed, FString("ViewBlueFlag")));
+		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("Subtract")), IE_Pressed, FString("ToggleBehindView")));
+		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("PageDown")), IE_Pressed, FString("ViewProjectile")));
+		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("PageUp")), IE_Pressed, FString("ToggleTacCom")));
+	}
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)

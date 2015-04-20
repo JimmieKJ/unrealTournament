@@ -9,6 +9,10 @@ struct FCustomKeyBinding
 {
 	GENERATED_USTRUCT_BODY()
 
+	FCustomKeyBinding() : KeyName(FName(TEXT(""))), EventType(IE_Pressed), Command(FString("")) {};
+
+	FCustomKeyBinding(FName InKeyName, TEnumAsByte<EInputEvent> InEventType, FString InCommand) : KeyName(InKeyName), EventType(InEventType), Command(InCommand) {};
+
 	UPROPERTY()
 	FName KeyName;
 	UPROPERTY()
@@ -18,7 +22,7 @@ struct FCustomKeyBinding
 };
 
 UCLASS()
-class UUTPlayerInput : public UPlayerInput
+class UNREALTOURNAMENT_API UUTPlayerInput : public UPlayerInput
 {
 	GENERATED_UCLASS_BODY()
 

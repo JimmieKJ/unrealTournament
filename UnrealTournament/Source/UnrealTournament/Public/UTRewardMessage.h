@@ -5,7 +5,7 @@
 #include "UTRewardMessage.generated.h"
 
 UCLASS(CustomConstructor, Abstract)
-class UUTRewardMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

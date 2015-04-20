@@ -29,6 +29,16 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 	FLinearColor RedColor = (GS->Teams.Num() > 1 && GS->Teams[0]) ? GS->Teams[0]->TeamColor : FLinearColor::Red;
 	FLinearColor BlueColor = (GS->Teams.Num() > 1 && GS->Teams[1]) ? GS->Teams[1]->TeamColor : FLinearColor::Blue;
+	if (bStatusDir)
+	{
+		StatusScale += DeltaTime;
+		bStatusDir = (StatusScale < 1.f);
+	}
+	else
+	{
+		StatusScale -= DeltaTime;
+		bStatusDir = (StatusScale < 0.7f);
+	}
 
 	for (int32 Team=0;Team<2;Team++)
 	{
@@ -43,16 +53,6 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		FName FlagState = GS->GetFlagState(Team);
 		if (FlagState == CarriedObjectState::Held)
 		{
-			if (bStatusDir)
-			{
-				StatusScale += DeltaTime;
-				bStatusDir = (StatusScale < 1.f);
-			}
-			else
-			{
-				StatusScale -= DeltaTime;
-				bStatusDir = (StatusScale < 0.7f);
-			}
 			TakenIconTemplate.RenderColor = Team == 0 ? BlueColor : RedColor;
 			TakenIconTemplate.RenderColor.R *= FMath::Square(StatusScale) - 0.25f;
 			TakenIconTemplate.RenderColor.B *= FMath::Square(StatusScale) - 0.25f;

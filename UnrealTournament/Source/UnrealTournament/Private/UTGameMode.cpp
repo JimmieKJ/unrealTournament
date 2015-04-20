@@ -16,10 +16,11 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTBot.h"
 #include "UTSquadAI.h"
-#include "Slate/Panels/SUDuelSettings.h"
 #include "Slate/Panels/SULobbyMatchSetupPanel.h"
 #include "UTCharacterContent.h"
 #include "UTGameEngine.h"
+#include "UTWorldSettings.h"
+#include "UTLevelSummary.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -740,7 +741,7 @@ void AUTGameMode::DefaultTimer()
 	{
 		if (GetWorld()->GetTimeSeconds() - LastLobbyUpdateTime >= 10.0f) // MAKE ME CONIFG!!!!
 		{
-			UpdateLobbyMatchStats();
+			UpdateLobbyMatchStats(TEXT(""));
 		}
 
 		if (!bDedicatedInstance)
@@ -1206,6 +1207,26 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 				PS->WriteStatsToCloud();
 			}
 		}
+
+		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+			if (!PS->HasWrittenStatsToCloud())
+			{
+				PS->ModifyStat(FName(TEXT("MatchesQuit")), 1, EStatMod::Delta);
+
+				PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
+				PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
+				PS->ModifyStat(FName(TEXT("PlayerXP")), PS->Score, EStatMod::Delta);
+
+				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				if (PS != nullptr)
+				{
+					PS->WriteStatsToCloud();
+				}
+			}
+		}
+
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Verbose, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
@@ -1261,18 +1282,49 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	EndMatch();
 }
 
+void AUTGameMode::InstanceNextMap(const FString& NextMap)
+{
+	if (NextMap != TEXT(""))
+	{
+		FString TravelMapName = NextMap;
+		if ( FPackageName::IsShortPackageName(NextMap) )
+		{
+			FPackageName::SearchForPackageOnDisk(NextMap, &TravelMapName); 
+		}
+		
+		GetWorld()->ServerTravel(TravelMapName, false);
+	}
+	else
+	{
+		SendEveryoneBackToLobby();
+	}
+}
+
 /**
  *	NOTE: This is a really simple map list.  It doesn't support multiple maps in the list, etc and is really dumb.  But it
  *  will work for now.
  **/
 void AUTGameMode::TravelToNextMap()
 {
-
+	FString CurrentMapName = GetWorld()->GetMapName();
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
 	if (!bDedicatedInstance && IsGameInstanceServer())
 	{
-		SendEveryoneBackToLobby();
+		if (LobbyBeacon)
+		{
+			FString MatchStats = FString::Printf(TEXT("%i"), GetWorld()->GetGameState()->ElapsedTime);
+			LobbyBeacon->Lobby_RequestNextMap(LobbyInstanceID, CurrentMapName);
+
+			// Set a 60 second timeout on sending everyone to the next map.
+			FTimerHandle TempHandle4;
+			GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::SendEveryoneBackToLobby, 60.0);
+		}
+		else
+		{
+			SendEveryoneBackToLobby();
+		}
+		
 	}
 	else
 	{
@@ -1281,8 +1333,6 @@ void AUTGameMode::TravelToNextMap()
 			GetWorld()->ServerTravel(RconNextMapName, false);
 			return;
 		}
-
-		FString CurrentMapName = GetWorld()->GetMapName();
 
 		int32 MapIndex = -1;
 		for (int i=0;i<MapRotation.Num();i++)
@@ -2256,6 +2306,7 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 #if !UE_SERVER
 void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
+/*
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit")));
 	ConfigProps.Add(TimeLimitAttr);
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
@@ -2499,6 +2550,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			]
 		]
 	];
+*/
 }
 
 
@@ -2602,12 +2654,26 @@ void AUTGameMode::NotifyLobbyGameIsReady()
 	}
 }
 
-void AUTGameMode::UpdateLobbyMatchStats()
+void AUTGameMode::UpdateLobbyMatchStats(FString Update)
 {
 	// Update the players
 
-	UE_LOG(UT,Verbose,TEXT("Sending update to the Lobby"));
+	UpdateLobbyPlayerList();
+	UpdateLobbyBadge(TEXT(""));
 
+	if (ensure(LobbyBeacon) && UTGameState)
+	{
+		// Add the time remaining command
+		if (Update != TEXT("")) Update += TEXT("?");
+		Update += FString::Printf(TEXT("GameTime=%i"), TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime);
+		LobbyBeacon->UpdateMatch(Update);
+	}
+
+	LastLobbyUpdateTime = GetWorld()->GetTimeSeconds();
+}
+
+void AUTGameMode::UpdateLobbyPlayerList()
+{
 	if (ensure(LobbyBeacon))
 	{
 		for (int i=0;i<UTGameState->PlayerArray.Num();i++)
@@ -2620,15 +2686,31 @@ void AUTGameMode::UpdateLobbyMatchStats()
 			}
 		}
 	}
-
-	UpdateLobbyBadge();
-	LastLobbyUpdateTime = GetWorld()->GetTimeSeconds();
 }
 
-void AUTGameMode::UpdateLobbyBadge()
+void AUTGameMode::UpdateLobbyBadge(FString BadgeText)
 {
-}
+	if (BadgeText != "") BadgeText += TEXT("\n");
 
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	FString MapName = GetWorld()->GetMapName();
+	if (WS)
+	{
+		const UUTLevelSummary* Summary = WS->GetLevelSummary();
+		if ( Summary && Summary->Title != TEXT("") )
+		{
+			MapName = Summary->Title;
+		}
+	}
+
+	BadgeText += FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Small>%s</>\n<UWindows.Standard.MatchBadge.Small>%i Players</>"), *MapName, NumPlayers);
+
+	if (BadgeText != TEXT("") && ensure(LobbyBeacon))
+	{
+		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, BadgeText);
+	}
+
+}
 
 
 void AUTGameMode::SendEveryoneBackToLobby()
@@ -2640,24 +2722,6 @@ void AUTGameMode::SendEveryoneBackToLobby()
 		if (Controller)
 		{
 			Controller->ClientReturnToLobby();
-		}
-	}
-}
-
-void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC)
-{
-	FString SavedNetworkAddress = PlayerState->SavedNetworkAddress;
-
-	Super::AddInactivePlayer(PlayerState, PC);
-
-	if (InactivePlayerArray.Num() > 0 && !bDisableCloudStats)
-	{
-		// Check that incoming playerstate was actually put into the inactive array
-		AUTPlayerState* UTPS = Cast<AUTPlayerState>(InactivePlayerArray[InactivePlayerArray.Num() - 1]);
-		if (UTPS != NULL && SavedNetworkAddress == UTPS->SavedNetworkAddress && !HasMatchEnded())
-		{
-			// Someone quit, write their partial stats to the cloud
-			UTPS->WriteStatsToCloud();
 		}
 	}
 }

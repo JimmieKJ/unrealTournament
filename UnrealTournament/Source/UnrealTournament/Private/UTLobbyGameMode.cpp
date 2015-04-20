@@ -170,7 +170,7 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 
 		if ( QuickStartOption != TEXT("") )
 		{
-			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? TEXT("/Script/UnrealTournament.UTCTFGameMode") : TEXT("/Script/UnrealTournament.UTDMGameMode");
+			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? FQuickMatchTypeRulesetTag::CTF : FQuickMatchTypeRulesetTag::DM;
 		}
 
 		FString FriendID = ParseOption(Options, TEXT("Friend"));
@@ -198,17 +198,17 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 	{
 		UTLobbyGameState->InitializeNewPlayer(LPS);
 
-		if (LPS->DesiredQuickStartGameMode != TEXT(""))
+		if (!LPS->DesiredQuickStartGameMode.IsEmpty())
 		{
 			for (int32 i=0;i<UTLobbyGameState->GameInstances.Num();i++)
 			{
 				AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
-				if (MatchInfo)
+				if (MatchInfo && (MatchInfo->CurrentState == ELobbyMatchState::Setup || (MatchInfo->CurrentState == ELobbyMatchState::InProgress && MatchInfo->bJoinAnytime)))
 				{
-					if ( LPS->DesiredQuickStartGameMode == TEXT("") || LPS->DesiredQuickStartGameMode == MatchInfo->MatchGameMode)		
+					if ( LPS->DesiredQuickStartGameMode.Equals(MatchInfo->CurrentRuleset->UniqueTag, ESearchCase::IgnoreCase))
 					{
 						// Potential match.. see if there is room.
-						if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers && MatchInfo->bJoinAnytime)
+						//if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers && MatchInfo->bJoinAnytime)
 						{
 							LPS->DesiredQuickStartGameMode = TEXT("");
 							UTLobbyGameState->JoinMatch(MatchInfo, LPS);
@@ -220,7 +220,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 
 			// There wasn't a match to play on here
 
-			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode == TEXT("/Script/UnrealTournament.UTCTFGameMode"));
+			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode.Equals(TEXT("/Script/UnrealTournament.UTCTFGameMode"), ESearchCase::IgnoreCase));
 		}
 	}
 	// Set my Initial Presence

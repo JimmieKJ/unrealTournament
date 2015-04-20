@@ -21,7 +21,7 @@ namespace EUTSoundClass
 }
 
 UCLASS()
-class UUTAudioSettings : public UObject
+class UNREALTOURNAMENT_API UUTAudioSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

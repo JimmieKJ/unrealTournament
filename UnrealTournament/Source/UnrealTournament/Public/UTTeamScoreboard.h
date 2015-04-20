@@ -6,7 +6,7 @@
 #include "UTTeamScoreboard.generated.h"
 
 UCLASS()
-class UUTTeamScoreboard : public UUTScoreboard
+class UNREALTOURNAMENT_API UUTTeamScoreboard : public UUTScoreboard
 {
 	GENERATED_UCLASS_BODY()
 

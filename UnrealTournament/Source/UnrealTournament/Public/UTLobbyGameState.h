@@ -4,6 +4,7 @@
 #include "UTLobbyPlayerState.h"
 #include "UTServerBeaconLobbyHostListener.h"
 #include "UTServerBeaconLobbyHostObject.h"
+#include "UTReplicatedGameRuleset.h"
 #include "UTLobbyGameState.generated.h"
 
 USTRUCT()
@@ -37,53 +38,7 @@ struct FGameInstanceData
 
 };
 
-// Holds information about what maps are allowed in the game.
-class FAllowedMapData
-{
-public:
-	FString MapName;
-	FGuid MapGuid;
-	FString MapTitle;
-
-	FAllowedMapData(const FString& InName, const FGuid& InGuid, const FString& InTitle)
-		: MapName(InName), MapGuid(InGuid), MapTitle(InTitle)
-	{}
-
-	static inline TSharedRef<FAllowedMapData> MakeShared(const FString& InMapName, const FString& InGuid, const FString& InTitle)
-	{
-		FGuid RealGuid;
-		FGuid::Parse(InGuid, RealGuid);
-		return MakeShareable(new FAllowedMapData(InMapName, RealGuid, InTitle));
-	}
-
-	inline FString GetDisplayName() const
-	{
-		return !MapTitle.IsEmpty() ? MapTitle : MapName;
-	}
-};
-
 class AUTGameMode;
-
-// Holds information about what Gametypes are allowed in the game
-class FAllowedGameModeData
-{
-public:
-	FString ClassName;
-	FString DisplayName;
-	TWeakObjectPtr<AUTGameMode> DefaultObject;
-
-	FAllowedGameModeData(FString inClassName, FString inDisplayName, TWeakObjectPtr<AUTGameMode> inDefaultObject)
-		: ClassName(inClassName)
-		, DisplayName(inDisplayName)
-		, DefaultObject(inDefaultObject)
-	{
-	};
-
-	static TSharedRef<FAllowedGameModeData> Make(FString inClassName, FString inDisplayName, TWeakObjectPtr<AUTGameMode> inDefaultObject)
-	{
-		return MakeShareable(new FAllowedGameModeData(inClassName, inDisplayName, inDefaultObject));
-	}
-};
 
 UCLASS(notplaceable, Config = Game)
 class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
@@ -92,27 +47,11 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 
 	virtual void PostInitializeComponents() override;
 
-	// Convert a Classname string in to a default object
-	static AUTGameMode* GetGameModeDefaultObject(const FString& ClassName);
-
 	// Holds a list of running Game Instances.
 	TArray<FGameInstanceData> GameInstances;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	TArray<AUTLobbyMatchInfo*> AvailableMatches;
-
-	/** Holds a list of GameMode classes that can be configured for this lobby.  In BeginPlay() these classes will be loaded and  */
-	UPROPERTY(Config)
-	TArray<FString> AllowedGameModeClasses;
-
-	/** A list of all maps that are allow the be chosen from. The Client will then filter the list by what maps they have installed.
-	 * We can at some point add a button or some mechanism  to allow players to pull missing maps from the marketplace.
-	 */
-	UPROPERTY(Config)
-	TArray<FString> AllowedMapNames;
-
-	/** name/GUID pairs for allowed maps (this is what is actually sent; build from AllowedMapNames if specified and otherwise from the list of all maps installed on the server) */
-	TArray<FAllowedMapData> AllowedMaps;
 
 	// These Game Options will be forced on ALL games instanced regardless of their GameMdoe
 	UPROPERTY(Config)
@@ -122,23 +61,11 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	UPROPERTY(Config)
 	FString AdditionalInstanceCommandLine;
 
-	// Holds a list of all Game modes available to both the server and this client.  The HOST will replicate it's AllowedGameModeClasses 
-	// data and it will be resolved client-side to fill out this array.  IT is only available client-side.
-	TArray<TSharedPtr<FAllowedGameModeData>> ClientAvailableGameModes;
-
 	/** maintains a reference to gametypes that have been requested as the UI refs are weak pointers and won't prevent GC on their own */
 	UPROPERTY(Transient)
 	TArray<UClass*> LoadedGametypes;
 
-	// CLIENT-ONLY - finds a GameModeClass in the ClientAvailableGameModes array anda returns it.
-	TSharedPtr<FAllowedGameModeData> ResolveGameMode(FString GameModeClass);
-
-	// Holds a list of all maps available to both the server and this client.  The HOST will replicate it's AllowedMaps
-	// data and it will be resolved client-side to fill out this array.  IT is only available client-side.
-	TArray<TSharedPtr<FAllowedMapData>> ClientAvailableMaps;
-
 	virtual void BroadcastChat(AUTLobbyPlayerState* SenderPS, FName Destination, const FString& Message);
-
 
 	/**
 	 *	Creates a new match and sets it's host.
@@ -181,7 +108,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 *	Launches an instance of a game that was created via the lobby interface.  MatchOwner is the MI of the match that is being created and ServerURLOptions is a string
 	 *  that contains the game options.  
 	 **/
-	void LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString ServerURLOptions);
+	void LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, const FString& GameMode, const FString& Map, const FString& GameOptions, int32 MaxPlayers, int32 BotSkillLevel);
 
 	/**
 	 *	Create the default "MATCH" for the server.
@@ -251,6 +178,23 @@ protected:
 	void CheckInstanceHealth();
 
 	AUTLobbyMatchInfo* FindMatchPlayerIsIn(FString PlayerID);
+
+	// A list of GameRulesets to create.  These are just names that will be applied to the objects.  Per-Object-Config does the rest.
+	UPROPERTY(Config)
+	TArray<FString> AllowedGameRulesets;
+
+	// We replicate the count seperately so that the client can check and test their array to see if replication has been completed.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
+	int32 AvailabelGameRulesetCount;
+
+public:
+	// The actual cached copy of all of the game rulesets
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
+	TArray<TWeakObjectPtr<AUTReplicatedGameRuleset>> AvailableGameRulesets;
+
+	virtual TWeakObjectPtr<AUTReplicatedGameRuleset> FindRuleset(FString TagToFind);
+
+	void GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* ClientBeacon, uint32 GameInstanceID, const FString& CurrentMap);
 
 };
 

@@ -95,28 +95,24 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
 }
 
+// @TODO FIXMESTEVE SPLIT OUT true spectator controls
 FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
+	static const FName NAME_FirstPerson = FName(TEXT("FirstPerson"));
 
 	AUTCharacter* UTCharacter = Cast<AUTCharacter>(GetViewTarget());
-	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
-
-	if (UTPlaceholder != nullptr)
+	if (UTCharacter == NULL)
 	{
+		return (GetViewTarget() == PCOwner->GetSpectatorPawn()) ? NAME_FirstPerson : NAME_FreeCam;
+	}
+	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0)
+	{
+		// force third person if target is dead, ragdoll or emoting
 		return NAME_FreeCam;
 	}
-
-	// force third person if target is dead, ragdoll or emoting
-	if (UTCharacter != NULL && (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0))
-	{
-		return NAME_FreeCam;
-	}
-	else
-	{
-		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		return (GameState != NULL) ? GameState->OverrideCameraStyle(PCOwner, CameraStyle) : CameraStyle;
-	}
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	return (GameState != NULL) ? GameState->OverrideCameraStyle(PCOwner, CameraStyle) : CameraStyle;
 }
 
 void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
@@ -124,8 +120,7 @@ void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
 	if (GetNetMode() == NM_DedicatedServer)
 	{
 		CameraStyle = NAME_Default;
-
-		LastThirdPersonCameraLoc = FVector(0);
+		LastThirdPersonCameraLoc = FVector::ZeroVector;
 		ViewTarget.CheckViewTarget(PCOwner);
 		// our camera is now viewing there
 		FMinimalViewInfo NewPOV;
@@ -157,20 +152,19 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 
 	FName SavedCameraStyle = CameraStyle;
 	CameraStyle = GetCameraStyleWithOverrides();
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
-	AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
-	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(OutVT.Target);
 
 	// smooth third person camera all the time
 	if (CameraStyle == NAME_FreeCam)
 	{
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
+		AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
 		OutVT.POV.FOV = DefaultFOV;
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
 		OutVT.POV.bConstrainAspectRatio = false;
 		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 
-		FVector DesiredLoc = (Cast<AController>(OutVT.Target) && !LastThirdPersonCameraLoc.IsZero()) ? LastThirdPersonCameraLoc : OutVT.Target->GetActorLocation();;
+		FVector DesiredLoc = (Cast<AController>(OutVT.Target) && !LastThirdPersonCameraLoc.IsZero()) ? LastThirdPersonCameraLoc : OutVT.Target->GetActorLocation();
 		// we must use the capsule location here as the ragdoll's root component can be rubbing a wall
 		if (UTCharacter != nullptr && UTCharacter->IsRagdoll() && UTCharacter->GetCapsuleComponent() != nullptr)
 		{
@@ -181,7 +175,6 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			DesiredLoc += FlagBaseFreeCamOffset;
 		}
 
-		FRotator Rotator = PCOwner->GetControlRotation();
 		FVector Loc = (LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget) || ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f)) ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
 		LastThirdPersonCameraLoc = Loc;
 		LastThirdPersonTarget = OutVT.Target;
@@ -190,23 +183,18 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-
-		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
-		FCollisionQueryParams BoxParams(NAME_FreeCam, false, this);
-		BoxParams.AddIgnoredActor(OutVT.Target);
-		
-		// When viewing a placeholder actor, just don't collide with any pawns
-		if (UTPlaceholder != nullptr)
+		FRotator Rotator = PCOwner->GetControlRotation();
+		if (Cast<AUTProjectile>(OutVT.Target) && !OutVT.Target->IsPendingKillPending())
 		{
-			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-			{
-				BoxParams.AddIgnoredActor(*It);
-			}
+			Rotator = OutVT.Target->GetVelocity().Rotation();
+			CameraDistance = 60.f;
+			Loc = DesiredLoc;
 		}
 
-		FHitResult Result;
+		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
 
-		GetWorld()->SweepSingle(Result, Loc, Pos, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
+		FHitResult Result;
+		CheckCameraSweep(Result, OutVT.Target, Loc, Pos);
 		OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
 		OutVT.POV.Rotation = Rotator;
 
@@ -220,6 +208,42 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	}
 
 	CameraStyle = SavedCameraStyle;
+}
+
+void AUTPlayerCameraManager::CheckCameraSweep(FHitResult& OutHit, AActor* TargetActor, const FVector& Start, const FVector& End)
+{
+	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
+	FCollisionQueryParams BoxParams(NAME_FreeCam, false, TargetActor);
+
+	// When viewing a placeholder actor, just don't collide with any pawns
+	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(TargetActor);
+	if (UTPlaceholder != nullptr)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			BoxParams.AddIgnoredActor(*It);
+		}
+	}
+	else
+	{
+		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TargetActor);
+		if (Flag)
+		{
+			if (Flag->Holder)
+			{
+				BoxParams.AddIgnoredActor(Flag->Holder);
+			}
+			if (Flag->HomeBase)
+			{
+				BoxParams.AddIgnoredActor(Flag->HomeBase);
+			}
+			if (Flag->AttachmentReplication.AttachParent)
+			{
+				BoxParams.AddIgnoredActor(Flag->AttachmentReplication.AttachParent);
+			}
+		}
+	}
+	GetWorld()->SweepSingle(OutHit, Start, End, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
 }
 
 void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV)

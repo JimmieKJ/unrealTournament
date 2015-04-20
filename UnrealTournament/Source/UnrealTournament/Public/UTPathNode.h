@@ -215,7 +215,7 @@ struct FUTPathLink
 };
 
 UCLASS(NotPlaceable)
-class UUTPathNode : public UObject
+class UNREALTOURNAMENT_API UUTPathNode : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -241,6 +241,9 @@ class UUTPathNode : public UObject
 	/** game objects and other Actor points of interest that are within the Tiles */
 	UPROPERTY(BlueprintReadOnly, Category = PathNode)
 	TArray< TWeakObjectPtr<AActor> > POIs;
+	/** used by path building - means no automatically generated paths are sourced from this node */
+	UPROPERTY(BlueprintReadOnly, Category = PathNode)
+	bool bDestinationOnly;
 
 	/** number of kills that have occurred while the killer is standing in this node's area */
 	UPROPERTY(BlueprintReadWrite, SaveGame, Category = AIMapData)

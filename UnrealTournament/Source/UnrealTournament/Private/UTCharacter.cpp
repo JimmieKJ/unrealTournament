@@ -127,6 +127,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->SetNotifyRigidBodyCollision(true);
 
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
+	SpectatorIndicatorMaxDistance = 5000.f;
 	PlayerIndicatorMaxDistance = 1200.f;
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 	MaxShotSynchDelay = 0.1f;
@@ -684,7 +685,10 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			AUTInventory* HitArmor = NULL;
 			ModifyDamageTaken(ResultDamage, ResultMomentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
-
+			if (HitArmor)
+			{
+				ArmorAmount = GetArmorAmount();
+			}
 			if (ResultDamage > 0 || !ResultMomentum.IsZero())
 			{
 				if (EventInstigator != NULL && EventInstigator != Controller)
@@ -2379,6 +2383,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None); // @TODO FIXMESTEVE only for spectators
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -3498,19 +3503,26 @@ AUTCarriedObject* AUTCharacter::GetCarriedObject()
 	return NULL;
 }
 
-void AUTCharacter::CheckArmorStacking()
+int32 AUTCharacter::GetArmorAmount()
 {
 	int32 TotalArmor = 0;
 	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
 	{
 		TotalArmor += It->ArmorAmount;
 	}
+	return TotalArmor;
+}
+
+void AUTCharacter::CheckArmorStacking()
+{
+	int32 TotalArmor = GetArmorAmount();
 
 	// find the lowest absorption armors, and reduce them
 	while (TotalArmor > MaxStackedArmor)
 	{
 		TotalArmor -= ReduceArmorStack(TotalArmor-MaxStackedArmor);
 	}
+	ArmorAmount = TotalArmor;
 }
 
 int32 AUTCharacter::ReduceArmorStack(int32 Amount)
@@ -3699,37 +3711,78 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if ( UTPS != NULL && PC != NULL && PC->GetPawn() != NULL && PC->GetViewTarget() != this && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
+	bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
+	bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
+	if (UTPS != NULL && PC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && ((GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f) || bTacCom) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
-		if (GS->OnSameTeam(PC->GetPawn(), this) && Dist <= TeamPlayerIndicatorMaxDistance)
+		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
 		{
-			float XL, YL;
+			float TextXL, YL;
+			float Scale = Canvas->ClipX / 1920.f;
+			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
+			float X, Y;
+			Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
+			float XL = FMath::Max(X, TextXL);
 
-			float Scale = Canvas->ClipX / 1920;
-
-			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
-			Canvas->TextSize(TinyFont, PlayerState->PlayerName, XL, YL,Scale,Scale);
-
-			FVector ScreenPosition = Canvas->Project(GetActorLocation() + (GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f) * FVector(0, 0, 1));
-			float XPos = ScreenPosition.X - (XL * 0.5);
+			FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f));
+			float XPos = ScreenPosition.X - 0.5f*XL;
+			float YPos = ScreenPosition.Y - YL;
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{
-				// Make the team backgrounds darker
 				FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
-				TeamColor.R *= 0.24;
-				TeamColor.G *= 0.24;
-				TeamColor.B *= 0.24;
-
+				TeamColor.R *= 0.24f;
+				TeamColor.G *= 0.24f;
+				TeamColor.B *= 0.24f;
+				TeamColor.A *= 0.6f;
 				Canvas->SetLinearDrawColor(TeamColor);
-				Canvas->DrawTile(Canvas->DefaultTexture, XPos - 1, ScreenPosition.Y - YL - 2, XL + 2, YL - (6 * Scale), 0, 0, 1, 1);
-
-				FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + ScreenPosition.Y - YL)), FText::FromString(PlayerState->PlayerName), TinyFont, FLinearColor::White);
+				float Border = 2.f*Scale;
+				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, YL + 0.5*YL + 2.f*Border, 0, 0, 1, 1);
+				FLinearColor BeaconTextColor = FLinearColor::White;
+				BeaconTextColor.A = 0.6f;
+				FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor);
 				TextItem.Scale = FVector2D(Scale, Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
 				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
 				Canvas->DrawItem(TextItem);
+
+				BeaconTextColor = FLinearColor::Green;
+				BeaconTextColor.R *= 0.2f;
+				BeaconTextColor.G *= 0.2f;
+				BeaconTextColor.B *= 0.2f;
+				BeaconTextColor.A = 0.6f;
+				TextItem.SetColor(BeaconTextColor);
+				FFormatNamedArguments Args;
+				Args.Add("Health", FText::AsNumber(Health));
+				TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args);
+
+				float XOffset = XPos;
+				if (ArmorAmount == 0)
+				{
+					Canvas->TextSize(TinyFont, TextItem.Text.ToString(), X, Y, Scale, Scale);
+					XOffset += 0.5 * (XL - X);
+				}
+				TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
+				Canvas->DrawItem(TextItem);
+
+				if (ArmorAmount > 0)
+				{
+					BeaconTextColor = FLinearColor::Yellow;
+					BeaconTextColor.R *= 0.2f;
+					BeaconTextColor.G *= 0.2f;
+					BeaconTextColor.B *= 0.2f;
+					BeaconTextColor.A = 0.6f;
+					TextItem.SetColor(BeaconTextColor);
+					FFormatNamedArguments Args;
+					Args.Add("Armor", FText::AsNumber(ArmorAmount));
+					TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), Args);
+					Canvas->TextSize(TinyFont, "A" + TextItem.Text.ToString(), X, Y, Scale, Scale);
+					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + XL - Border - X), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
+					Canvas->DrawItem(TextItem);
+				}
 			}
 		}
 	}

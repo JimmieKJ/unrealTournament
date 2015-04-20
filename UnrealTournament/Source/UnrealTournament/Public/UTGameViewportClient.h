@@ -6,7 +6,7 @@
 #include "UTGameViewportClient.generated.h"
 
 UCLASS()
-class UUTGameViewportClient : public UGameViewportClient
+class UNREALTOURNAMENT_API UUTGameViewportClient : public UGameViewportClient
 {
 	GENERATED_UCLASS_BODY()
 

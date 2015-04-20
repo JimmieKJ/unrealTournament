@@ -563,13 +563,15 @@ bool UUTHUDWidget::ShouldDraw_Implementation(bool bShowScores)
 void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
 {
 	UTHUDOwner = InUTHUDOwner;
-
-	if (UTHUDOwner != NULL && UTHUDOwner->UTPlayerOwner != NULL)
+	if (UTHUDOwner != NULL)
 	{
 		UTPlayerOwner = UTHUDOwner->UTPlayerOwner;
 		if (UTPlayerOwner != NULL)
 		{
-			UTCharacterOwner = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
+			AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
+			UTCharacterOwner =  (PS && PS->bOnlySpectator && UTPlayerOwner->bSpectateBehindView)
+									? NULL
+									: Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
 		}
 
 		UTGameState = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();

@@ -5,7 +5,7 @@
 #include "UTProjectileMovementComponent.generated.h"
 
 UCLASS(ClassGroup = Movement, meta = (BlueprintSpawnableComponent))
-class UUTProjectileMovementComponent : public UProjectileMovementComponent
+class UNREALTOURNAMENT_API UUTProjectileMovementComponent : public UProjectileMovementComponent
 {
 	GENERATED_UCLASS_BODY()
 

@@ -8,7 +8,7 @@
 #include "UTServerBeaconHost.h"
 #include "UTGameSession.generated.h"
 
-UCLASS()
+UCLASS(Config=Game)
 class UNREALTOURNAMENT_API AUTGameSession : public AGameSession
 {
 	GENERATED_UCLASS_BODY()
@@ -63,4 +63,12 @@ protected:
 	virtual void OnEndSessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnUpdateSessionComplete(FName SessionName, bool bWasSuccessful);
+
+public:
+	virtual bool BanPlayer(APlayerController* BannedPlayer, const FText& BanReason);
+
+protected:
+	UPROPERTY(Config)
+	TArray<FString> BannedUsers;
+
 };

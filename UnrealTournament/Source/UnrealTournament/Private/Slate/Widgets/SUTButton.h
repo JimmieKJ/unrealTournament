@@ -24,6 +24,7 @@ class SUTButton : public SButton
 		, _ButtonColorAndOpacity(FLinearColor::White)
 		, _ForegroundColor( FCoreStyle::Get().GetSlateColor( "InvertedForeground" ) )
 		, _IsFocusable( true )
+		, _IsToggleButton( false )
 		{}
 
 		/** Slot for this button's content (optional) */
@@ -72,9 +73,17 @@ class SUTButton : public SButton
 
 		/** The sound to play when the button is hovered */
 		SLATE_ARGUMENT( TOptional<FSlateSound>, HoveredSoundOverride )
+
+		/** Determines if this is a toggle button or not. */
+		SLATE_ARGUMENT( bool, IsToggleButton )
+
+
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+
+	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
+	virtual void OnFocusLost( const FFocusEvent& InFocusEvent ) override;
 
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent ) override;
 	virtual FReply OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent ) override;
@@ -82,8 +91,12 @@ class SUTButton : public SButton
 	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 
+	virtual void UnPressed();
+	virtual void BePressed();
+
 protected:
 	FUTButtonClick OnButtonClick;
+	bool bIsToggleButton;
 
 	virtual FReply Pressed(int32 MouseButtonIndex);
 	virtual FReply Released(int32 MouseButtonIndex, bool bIsUnderCusor);

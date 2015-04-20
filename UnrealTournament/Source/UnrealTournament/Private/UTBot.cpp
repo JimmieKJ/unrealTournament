@@ -869,9 +869,10 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 				DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation(), AdjustLoc, FColor(255, 0, 0));
 			}
 		}
-		for (const FRouteCacheItem& RoutePoint : RouteCache)
+		DrawDebugRoute(GetWorld(), GetPawn(), RouteCache);
+		if (Squad != NULL)
 		{
-			DrawDebugSphere(GetWorld(), RoutePoint.GetLocation(GetPawn()), 16.0f, 8, FColor(0, 255, 0));
+			Squad->DrawDebugSquadRoute(this);
 		}
 		if (!TranslocTarget.IsZero())
 		{

@@ -16,6 +16,9 @@ public:
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 
+	/** Draw the bar and the spectator message.  If bShortMessage, don't use entire bottom of screen. */
+	virtual void DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage);
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spectator")
 	UTexture2D* TextureAtlas;

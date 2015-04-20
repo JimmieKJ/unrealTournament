@@ -7,8 +7,12 @@
 #include "Panels/SUWCreateGamePanel.h"
 #include "Panels/SUHomePanel.h"
 #include "Panels/SUTWebBrowserPanel.h"
+#include "UTReplicatedGameRuleset.h"
 
 const FString CommunityVideoURL = "http://epic.gm/utlaunchertutorial";
+
+class SUWGameSetupDialog;
+
 
 #if !UE_SERVER
 class SUWindowsMainMenu : public SUTMenuBase
@@ -42,5 +46,14 @@ protected:
 
 	virtual void OpenDelayedMenu();
 	virtual bool ShouldShowBrowserIcon();
+
+	TArray<TWeakObjectPtr<AUTReplicatedGameRuleset>> AvailableGameRulesets;
+	TSharedPtr<SUWGameSetupDialog> CreateGameDialog;
+	void OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed);
+
+	virtual void CheckLocalContentForLanPlay();
+	virtual void CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	virtual void StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
+	virtual void StartGame(bool bLanGame);
 };
 #endif

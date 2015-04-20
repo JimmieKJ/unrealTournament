@@ -106,6 +106,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("UWindows.Match.HostImage", new IMAGE_BRUSH( "Match/UWindows.Match.HostImage", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("Testing.TestPortrait", new IMAGE_BRUSH( "Testing/Testing.TestPortrait", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("Testing.TestMapShot", new IMAGE_BRUSH( "Testing/Testing.TestMapShot", FVector2D(400.0f, 213.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.Checkmark", new IMAGE_BRUSH( "CheckMark", FVector2D(64.0f,64.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+	Style.Set("UWindows.Lobby.MatchBadge", new IMAGE_BRUSH( "UWindows.Lobby.MatchBadge", FVector2D(256.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 	Style.Set("UT.Backgrounds.BK01", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.BK01", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	//Style.Set("UT.Backgrounds.BK02", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.BK02", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
@@ -140,6 +143,33 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	Style.Set("UT.Dialog.BodyTextTiny", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Bold", 10))
 		.SetColorAndOpacity(FLinearColor::Gray)
+		);
+
+	Style.Set("UT.Hub.DescriptionText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 24))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UT.Hub.RulesTitle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 24))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+
+	Style.Set("UT.Hub.RulesText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 18))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UT.Hub.RulesText_Small", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 14))
+		.SetColorAndOpacity(FLinearColor::Gray)
+		);
+
+
+	Style.Set("UT.Hub.MapsText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 16))
+		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 	SetCommonStyle(StyleRef);
@@ -256,6 +286,21 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 			);
 
 			Style.Set("UT.Vertical.Playerlist.Background", new BOX_BRUSH("/ChatBar/UT.Vertical.Playerlist.Background", FMargin(8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f, 8.0f / 32.0f)));
+	}
+
+	{	// Rules and mapsets
+	
+		Style.Set("UT.ComplexButton", FButtonStyle()
+			.SetNormal( FSlateColorBrush(FLinearColor::Gray) )
+			.SetHovered( FSlateColorBrush(FLinearColor::White) )
+			.SetPressed( FSlateColorBrush(FLinearColor(0.94,1.0,0.74,1.0) ) )
+			.SetDisabled( FSlateColorBrush(FLinearColor::Black) )
+			.SetHoveredSound(ButtonHoverSound)
+			.SetPressedSound(ButtonPressSound)
+			);
+
+	Style.Set("UT.Background.Dark", new FSlateColorBrush(FLinearColor(0, 0, 0, .5f)));
+
 	}
 
 
@@ -1493,32 +1538,42 @@ void SUWindowsStyle::SetMatchBadgeStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	FSlateStyleSet& Style = StyleRef.Get();
 
 	Style.Set("UWindows.Standard.MatchBadge", FTextBlockStyle()
-		.SetFont(TTF_FONT("Play-Regular", 14))
+		.SetFont(TTF_FONT("Play-Regular", 18))
 		.SetColorAndOpacity(FLinearColor::Yellow)
 		);
 
 	Style.Set("UWindows.Standard.MatchBadge.Bold", FTextBlockStyle()
-		.SetFont(TTF_FONT("Play-Regular", 14))
+		.SetFont(TTF_FONT("Play-Bold", 18))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 	Style.Set("UWindows.Standard.MatchBadge.Red", FTextBlockStyle()
-		.SetFont(TTF_FONT("Play-Regular", 14))
+		.SetFont(TTF_FONT("Play-Regular", 16))
 		.SetColorAndOpacity(FLinearColor::Red)
 		);
 
 	Style.Set("UWindows.Standard.MatchBadge.Blue", FTextBlockStyle()
-		.SetFont(TTF_FONT("Play-Regular", 14))
+		.SetFont(TTF_FONT("Play-Regular", 16))
+		.SetColorAndOpacity(FLinearColor(0.7, 0.7, 1.0, 1.0))
+		);
+
+	Style.Set("UWindows.Standard.MatchBadge.Red.Bold", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 16))
+		.SetColorAndOpacity(FLinearColor::Red)
+		);
+
+	Style.Set("UWindows.Standard.MatchBadge.Blue.Bold", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 16))
 		.SetColorAndOpacity(FLinearColor(0.7, 0.7, 1.0, 1.0))
 		);
 
 	Style.Set("UWindows.Standard.MatchBadge.Header", FTextBlockStyle()
-		.SetFont(TTF_FONT("Play-Regular", 18))
+		.SetFont(TTF_FONT("Play-Bold", 22))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
 	Style.Set("UWindows.Standard.MatchBadge.Small", FTextBlockStyle()
-		.SetFont(TTF_FONT("Play-Regular", 10))
+		.SetFont(TTF_FONT("Play-Bold", 14))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 }

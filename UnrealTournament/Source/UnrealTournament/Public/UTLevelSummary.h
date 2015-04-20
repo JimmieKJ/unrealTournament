@@ -6,7 +6,7 @@
 #include "UTLevelSummary.generated.h"
 
 UCLASS(NotPlaceable, CustomConstructor)
-class UUTLevelSummary : public UObject
+class UNREALTOURNAMENT_API UUTLevelSummary : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

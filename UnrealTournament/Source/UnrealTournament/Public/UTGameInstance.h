@@ -5,8 +5,8 @@
 #include "Engine/GameInstance.h"
 #include "UTGameInstance.generated.h"
 
-UCLASS(MinimalAPI)
-class UUTGameInstance : public UGameInstance
+UCLASS()
+class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 {
 	GENERATED_UCLASS_BODY()
 

@@ -4,7 +4,7 @@
 #include "UTVictimMessage.generated.h"
 
 UCLASS()
-class UUTVictimMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTVictimMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

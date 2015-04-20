@@ -64,6 +64,16 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	UFUNCTION(server, reliable, WithValidation)
 	virtual void Lobby_InstanceEmpty(uint32 InstanceID);
 
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void Lobby_RequestNextMap(uint32 InstanceID, const FString& CurrentMap);
+
+	/**
+	 *	Tells the instance what map to travel to.  If NextMap is empty, then it's the end of the map list and
+	 *  players will return to the Hub.
+	 **/
+	UFUNCTION(client, reliable)
+	virtual void InstanceNextMap(const FString& NextMap);
+
 protected:
 
 	// Will be set to true when the game instance is empty and has asked the lobby to kill it

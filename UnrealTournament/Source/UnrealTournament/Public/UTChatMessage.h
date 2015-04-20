@@ -5,7 +5,7 @@
 #include "UTChatMessage.generated.h"
 
 UCLASS(config = game)
-class UUTChatMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTChatMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 	

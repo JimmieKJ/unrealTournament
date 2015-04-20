@@ -32,7 +32,7 @@ struct FSelectionObject
 };
 
 UCLASS()
-class UUTScoreboard : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTScoreboard : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

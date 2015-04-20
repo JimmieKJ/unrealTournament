@@ -310,30 +310,37 @@ void AUTCTFGameMode::HandleHalftime()
 void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 {
 	TArray<AController*> Members = Teams[TeamNum]->GetTeamMembers();
+	const int MaxPlayers = FMath::Min(8, Members.Num());
+
 	FVector FlagLoc = CTFGameState->FlagBases[TeamNum]->GetActorLocation();
-	float AngleSlices = 360.0f / FMath::Min(8, Members.Num());
+	float AngleSlices = 360.0f / MaxPlayers;
 	int32 PlacementCounter = 0;
 	for (AController* C : Members)
 	{
-		APawn* P = C->GetPawn();
-		if (P)
+		AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
+		if (UTChar && !UTChar->IsDead())
 		{
-			FRotator AdjustmentAngle(0, AngleSlices * PlacementCounter, 0);
-			FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(FVector(200, 0, 0));			
-			PlacementLoc.Z += P->GetSimpleCollisionHalfHeight();
-
-			FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(P->GetSimpleCollisionRadius(), P->GetSimpleCollisionHalfHeight());
-			static const FName NAME_FlagPlacement = FName(TEXT("FlagPlacement"));
-			FCollisionQueryParams CapsuleParams(NAME_FlagPlacement, false, this);
-			FCollisionResponseParams ResponseParam;
-			TArray<FOverlapResult> Overlaps;
-			bool bEncroached = GetWorld()->OverlapMulti(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
-			if (!bEncroached)
+			while (PlacementCounter < MaxPlayers)
 			{
-				P->SetActorLocation(PlacementLoc);
-			}
+				FRotator AdjustmentAngle(0, AngleSlices * PlacementCounter, 0);
 
-			PlacementCounter++;
+				PlacementCounter++;
+
+				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(FVector(200, 0, 0));
+				PlacementLoc.Z += UTChar->GetSimpleCollisionHalfHeight() * 1.1f;
+
+				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(UTChar->GetSimpleCollisionRadius(), UTChar->GetSimpleCollisionHalfHeight());
+				static const FName NAME_FlagPlacement = FName(TEXT("FlagPlacement"));
+				FCollisionQueryParams CapsuleParams(NAME_FlagPlacement, false, this);
+				FCollisionResponseParams ResponseParam;
+				TArray<FOverlapResult> Overlaps;
+				bool bEncroached = GetWorld()->OverlapMulti(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
+				if (!bEncroached)
+				{
+					UTChar->SetActorLocation(PlacementLoc);
+					break;
+				}
+			}
 		}
 
 		if (PlacementCounter == 8)

@@ -5,7 +5,6 @@
 #include "UTTimedPowerup.h"
 #include "UTPickupWeapon.h"
 #include "UTDuelGame.h"
-#include "Slate/Panels/SUDuelSettings.h"
 
 
 AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
@@ -105,6 +104,7 @@ void AUTDuelGame::PlayEndOfMatchMessage()
 #if !UE_SERVER
 void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
+/*
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit")));
 	ConfigProps.Add(TimeLimitAttr);
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
@@ -252,73 +252,30 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			]
 		]
 	];
+*/
 }
 
 #endif
 
-void AUTDuelGame::UpdateLobbyMatchStats()
-{
-	Super::UpdateLobbyMatchStats();
-	if (LobbyBeacon)
-	{
-		FString MatchStats = FString::Printf(TEXT("ElpasedTime=%i"), GetWorld()->GetGameState()->ElapsedTime);
-		LobbyBeacon->UpdateMatch(MatchStats);
-	}
-}
-
 void AUTDuelGame::UpdateSkillRating()
 {
-	for (int i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		if (PS != nullptr && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS);
+			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
-}
 
-void AUTDuelGame::UpdateLobbyBadge()
-{
-	AUTPlayerState* RedPlayer = NULL;
-	AUTPlayerState* BluePlayer = NULL;
-	AUTPlayerState* P;
-
-	for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+	for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
 	{
-		P = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (P && !P->bIsSpectator && !P->bOnlySpectator)
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+		if (PS != nullptr && !PS->bOnlySpectator)
 		{
-			if (P->GetTeamNum() == 0) RedPlayer = P;
-			else if (P->GetTeamNum() == 1) BluePlayer = P;
+			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
-
-	if (RedPlayer && BluePlayer)
-	{
-		FString Update = TEXT("");
-		if (RedPlayer->Score >= BluePlayer->Score)
-		{
-			Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%s</>\n<UWindows.Standard.MatchBadge.Red>(%i)</>\n<UWindows.Standard.MatchBadge.Small>-vs-</>\n<UWindows.Standard.MatchBadge.Blue>%s></>\n<UWindows.Standard.MatchBadge.Blue>(%i)</>\n"), *DisplayName.ToString(), 
-				*RedPlayer->PlayerName, 	int(RedPlayer->Score),
-				*BluePlayer->PlayerName,	int(BluePlayer->Score));
-		}
-		else
-		{
-			Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Blue>%s</>\n<<UWindows.Standard.MatchBadge.Blue>(%i)</>\n<UWindows.Standard.MatchBadge.Small>-vs-</>\n<UWindows.Standard.MatchBadge.Red>%s</>\n<UWindows.Standard.MatchBadge.Red>(%i)</>\n"), *DisplayName.ToString(), 
-				*BluePlayer->PlayerName, 	int(RedPlayer->Score),
-				*RedPlayer->PlayerName,	int(BluePlayer->Score));
-		}
-
-		if (ensure(LobbyBeacon))
-		{
-			LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
-		}
-
-
-	}
-
-
 }
 
 

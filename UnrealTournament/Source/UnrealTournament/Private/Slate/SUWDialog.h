@@ -94,6 +94,9 @@ protected:
 	// Stores a list of widgets that are tab'able
 	TArray<TSharedPtr<SWidget>> TabTable;
 
+	// Used to access buttons.
+	TMap<uint16, TSharedPtr<SButton>> ButtonMap;
+
 protected:
 	TSharedPtr<STextBlock> DialogTitle;
 
@@ -111,6 +114,9 @@ private:
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
+public:
+	virtual void EnableButton(uint16 ButtonID);
+	virtual void DisableButton(uint16 ButtonID);
 };
 
 #endif

@@ -6,6 +6,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "UTLobbyGameMode.h"
 #include "Net/UnrealNetwork.h"
+#include "UTEpicDefaultRulesets.h"
 
 AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -22,6 +23,8 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTLobbyGameState, AvailableMatches);
+	DOREPLIFETIME(AUTLobbyGameState, AvailableGameRulesets);
+	DOREPLIFETIME(AUTLobbyGameState, AvailabelGameRulesetCount);
 }
 
 void AUTLobbyGameState::PostInitializeComponents()
@@ -33,8 +36,50 @@ void AUTLobbyGameState::PostInitializeComponents()
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyGameState::CheckInstanceHealth, 60.0f, true);	
 	}
-}
 
+	// Set the Epic official rules.  For now it's hard coded.  In time this will come from the MCP.
+
+	UUTEpicDefaultRulesets::GetDefaultRules(this, AvailableGameRulesets);
+
+	// Load custom server rule sets.  NOTE: Custom, rules can not have the same unique tag or title as a default rule
+
+	for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
+	{
+		if (!AllowedGameRulesets[i].IsEmpty())
+		{
+			UUTGameRuleset* NewRuleset = ConstructObject<UUTGameRuleset>(UUTGameRuleset::StaticClass(), GetTransientPackage(), *AllowedGameRulesets[i]);
+			if (NewRuleset)
+			{
+				bool bExistsAlready = false;
+				for (int32 j=0; j < AvailableGameRulesets.Num(); j++)
+				{
+					if ( AvailableGameRulesets[j]->UniqueTag.Equals(NewRuleset->UniqueTag, ESearchCase::IgnoreCase) || AvailableGameRulesets[j]->Title.ToLower() == NewRuleset->Title.ToLower() )
+					{
+						bExistsAlready = true;
+						break;
+					}
+				}
+
+				if (!bExistsAlready)
+				{
+					FActorSpawnParameters Params;
+					Params.Name = FName(*AllowedGameRulesets[i]);
+					Params.Owner = this;
+					AUTReplicatedGameRuleset* NewReplicatedRuleset = GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
+					if (NewReplicatedRuleset)
+					{
+						NewReplicatedRuleset->SetRules(NewRuleset);
+						AvailableGameRulesets.Add(NewReplicatedRuleset);
+					}
+				}
+			}
+		}
+	}
+	
+
+	AvailabelGameRulesetCount = AvailableGameRulesets.Num();
+
+}
 	
 void AUTLobbyGameState::CheckInstanceHealth()
 {
@@ -147,6 +192,7 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bo
 
 					// Create a new match for this player to host using the old one as a template for current settings.
 					AUTLobbyMatchInfo* NewMatch = AddNewMatch(NewPlayer, AvailableMatches[i]);
+					NewMatch->ServerSetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
 
 					// Look for any players who beat the host back.  If they are here, then see them
 
@@ -193,6 +239,19 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bo
 	}
 }
 
+TWeakObjectPtr<AUTReplicatedGameRuleset> AUTLobbyGameState::FindRuleset(FString TagToFind)
+{
+	for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
+	{
+		if ( AvailableGameRulesets[i].IsValid() && AvailableGameRulesets[i]->UniqueTag.Equals(TagToFind, ESearchCase::IgnoreCase) )
+		{
+			return AvailableGameRulesets[i];
+		}
+	}
+
+	return NULL;
+}
+
 AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host, bool bIsCTFMatch)
 {
 	// Create a match and replicate all of the relevant information
@@ -208,25 +267,15 @@ AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host,
 
 		UE_LOG(UT,Log,TEXT("   Added player to Quickmatch.. "))
 
-		if (bIsCTFMatch)
+		TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset = FindRuleset( bIsCTFMatch ? FQuickMatchTypeRulesetTag::CTF : FQuickMatchTypeRulesetTag::DM);
+
+		if (NewRuleset.IsValid())
 		{
-			NewMatchInfo->MatchGameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
-			NewMatchInfo->MatchMap = TEXT("CTF-Outside");
-			NewMatchInfo->MatchOptions = "?MinPlayers=6";
-		}
-		else
-		{
-			NewMatchInfo->MatchGameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
-			NewMatchInfo->MatchMap = TEXT("DM-Tuba");		// MOVE THIS TO CIRCUIT 
-			NewMatchInfo->MatchOptions = "?MinPlayers=4";
+			NewMatchInfo->SetRules(NewRuleset, NewRuleset->MapPlaylist);
 		}
 
 		NewMatchInfo->bJoinAnytime = true;
 		NewMatchInfo->bSpectatable = true;
-		NewMatchInfo->MaxPlayers = 10;
-
-		UE_LOG(UT, Log, TEXT("   Launching.. "))
-
 		NewMatchInfo->LaunchMatch();		
 	}
 
@@ -269,7 +318,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		{
 			if (MatchInfo->bJoinAnytime)
 			{
-				 if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers)
+				 if ( MatchInfo->MatchHasRoom() )
 				 {
 					MatchInfo->AddPlayer(NewPlayer);
 					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), false);
@@ -354,6 +403,7 @@ void AUTLobbyGameState::SetupLobbyBeacons()
 
 void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOptions, FString MatchMap)
 {
+/*
 	// Create the MatchInfo for this match
 	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
 	if (NewMatchInfo)
@@ -369,11 +419,13 @@ void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOpti
 
 		MatchOptions = MatchOptions + TEXT("?DedI=TRUE");
 
-		LaunchGameInstance(NewMatchInfo, MatchOptions);
+		LaunchGameInstance(NewMatchInfo, MatchOptions, 10, -1);
 	}
+*/
+	// TODO JOE - Fix me to support the new rules
 }
 
-void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString ServerURLOptions)
+void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, const FString& GameMode, const FString& Map, const FString& GameOptions, int32 MaxPlayers, int32 BotSkillLevel)
 {
 	AUTLobbyGameMode* LobbyGame = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	if (LobbyGame)
@@ -384,15 +436,26 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		// Append the InstanceID so that we know who to talk about to.  TODO: We have to add the server's accessible address (or the iC's address) here once we support
 		// instances on a machines.  NOTE: All communication that comes from the instance server to the lobby will need this id.
 
-		// Apply additional options.
-		if (!ForcedInstanceGameOptions.IsEmpty()) ServerURLOptions += ForcedInstanceGameOptions;
+		FString FinalOptions = GameOptions;
+		
+		// Set the Max players
+		FinalOptions += FString::Printf(TEXT("?MaxPlayers=%i"), MaxPlayers);
 
-		FString GameOptions = FString::Printf(TEXT("%s?Game=%s?%s?InstanceID=%i?HostPort=%i"), *MatchOwner->MatchMap, *MatchOwner->MatchGameMode, *ServerURLOptions, GameInstanceID, GameInstanceListenPort);
+		// Set the Bot Skill level and if they are needed.
+		if (BotSkillLevel >= 0)
+		{
+			FinalOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), MaxPlayers, FMath::Clamp<int32>(BotSkillLevel,0,7));
+		}
+
+		// Apply additional options.
+		if (!ForcedInstanceGameOptions.IsEmpty()) FinalOptions += ForcedInstanceGameOptions;
+
+		FinalOptions = FString::Printf(TEXT("%s?Game=%s?%s?InstanceID=%i?HostPort=%i"), *Map, *GameMode, *FinalOptions, GameInstanceID, GameInstanceListenPort);
 
 		int32 InstancePort = LobbyGame->StartingInstancePort + (LobbyGame->InstancePortStep * GameInstances.Num());
 
 		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
-		FString Options = FString::Printf(TEXT("UnrealTournament %s -server -port=%i -log"), *GameOptions, InstancePort);
+		FString Options = FString::Printf(TEXT("UnrealTournament %s -server -port=%i -log"), *FinalOptions, InstancePort);
 		
 		// Add in additional command line params
 		if (!AdditionalInstanceCommandLine.IsEmpty()) Options += TEXT(" ") + AdditionalInstanceCommandLine;
@@ -483,7 +546,7 @@ void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 GameInstanceID, const FS
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
 		{
-			GameInstances[i].MatchInfo->MatchStats = Update;
+			GameInstances[i].MatchInfo->SetMatchStats(Update);
 			break;
 		}
 	}
@@ -530,20 +593,19 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 GameInstanceID, FUnique
 
 void AUTLobbyGameState::GameInstance_EndGame(uint32 GameInstanceID, const FString& FinalUpdate)
 {
-	for (int32 i = 0; i < GameInstances.Num(); i++)
-	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
-		{
-			GameInstances[i].MatchInfo->MatchStats= FinalUpdate;
-			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Completed);
-			break;
-		}
-	}
-
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	if (GM)
 	{
 		GM->UpdateLobbySession();
+
+		for (int32 i = 0; i < GameInstances.Num(); i++)
+		{
+			if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+			{
+				GameInstances[i].MatchInfo->MatchStats= FinalUpdate;
+				break;
+			}
+		}
 	}
 }
 
@@ -576,119 +638,40 @@ bool AUTLobbyGameState::IsMatchStillValid(AUTLobbyMatchInfo* TestMatch)
 // A New Client has joined.. Send them all of the server side settings
 void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 {
-	for (int32 i = 0; i < AllowedGameModeClasses.Num(); i++)
-	{
-		FString Option = FString::Printf(TEXT("game=%s"), *AllowedGameModeClasses[i]);
-		NewPlayer->AddHostData(Option);
-	}
-
-	// determine GUID for installed maps if we haven't already
-	if (AllowedMaps.Num() == 0)
-	{
-		// if server .ini didn't define allowed maps, assume all maps are acceptable
-		const bool bWantAllGameMaps = AllowedMaps.Num() == 0;
-
-		TArray<FAssetData> MapAssets;
-		GetAllAssetData(UWorld::StaticClass(), MapAssets, false); // don't check entitlements here, check for individual instance owners
-		for (int32 i = 0; i < MapAssets.Num(); i++)
-		{
-			FString MapPackageName = MapAssets[i].PackageName.ToString();
-			bool bAllowedMap;
-			if (bWantAllGameMaps)
-			{
-				// ignore /Engine/ as those aren't real gameplay maps
-				// make sure expected file is really there
-				bAllowedMap = (!MapPackageName.StartsWith(TEXT("/Engine/")) && IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0);
-			}
-			else
-			{
-				bAllowedMap = (AllowedMapNames.Contains(MapAssets[i].AssetName.ToString()) || AllowedMapNames.Contains(MapPackageName));
-			}
-			if (bAllowedMap)
-			{
-				static FName NAME_Title(TEXT("Title"));
-				const FString* Title = MapAssets[i].TagsAndValues.Find(NAME_Title);
-				new(AllowedMaps) FAllowedMapData(MapAssets[i].AssetName.ToString(), GEngine->GetPackageGuid(FName(*MapPackageName)), (Title != NULL) ? *Title : FString());
-			}
-		}
-		AllowedMaps.Sort([](const FAllowedMapData& A, const FAllowedMapData& B)
-						{
-							bool bHasTitleA = !A.MapTitle.IsEmpty();
-							bool bHasTitleB = !B.MapTitle.IsEmpty();
-							if (bHasTitleA && !bHasTitleB)
-							{
-								return true;
-							}
-							else if (!bHasTitleA && bHasTitleB)
-							{
-								return false;
-							}
-							else
-							{
-								return A.GetDisplayName() < B.GetDisplayName();
-							}
-						});
-	}
-	for (int32 i = 0; i < AllowedMaps.Num(); i++)
-	{
-		// note: title intentionally in server's language here - client will override with local language if it has the asset and loc data downloaded
-		FString Option = FString::Printf(TEXT("map=%s:%s:%s"), *AllowedMaps[i].MapName, *AllowedMaps[i].MapGuid.ToString(), *AllowedMaps[i].MapTitle);
-		NewPlayer->AddHostData(Option);
-	}
-
-
-	NewPlayer->StartServerToClientDataPush();
+	CheckForExistingMatch(NewPlayer, NewPlayer->bReturnedFromMatch);
 }
 
-AUTGameMode* AUTLobbyGameState::GetGameModeDefaultObject(const FString& ClassName)
-{
-	// Try to load the native class
-	UClass* GameModeClass = NULL;
-	if (!ClassName.IsEmpty()) // not replicated yet?
-	{
-		GameModeClass = LoadClass<AUTGameMode>(NULL, *ClassName, NULL, LOAD_None, NULL);
-		if (GameModeClass == NULL)
-		{
-			FString BlueprintName = FString::Printf(TEXT("%s_C"), *ClassName);
-			GameModeClass = LoadClass<UUTHUDWidget>(NULL, *BlueprintName, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
-		}
-	}
-
-	return (GameModeClass != NULL) ? GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-}
-
-TSharedPtr<FAllowedGameModeData> AUTLobbyGameState::ResolveGameMode(FString GameModeClass)
-{
-	for (int32 i = 0; i<ClientAvailableGameModes.Num(); i++)
-	{
-		if (ClientAvailableGameModes[i]->ClassName == GameModeClass)
-		{
-			return ClientAvailableGameModes[i];
-		}
-	}
-
-	// try to fall back to DM
-	for (int32 i = 0; i<ClientAvailableGameModes.Num(); i++)
-	{
-		if (ClientAvailableGameModes[i]->ClassName == TEXT("/Script/UnrealTournament.UTDMGameMode"))
-		{
-			return ClientAvailableGameModes[i];
-		}
-	}
-
-	FString GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
-	AUTGameMode* DefaultGame = AUTLobbyGameState::GetGameModeDefaultObject(GameMode);
-	if (DefaultGame)
-	{
-		return FAllowedGameModeData::Make(GameMode, DefaultGame->DisplayName.ToString(), DefaultGame);	
-	}
-
-	return NULL;
-}
 
 bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
 {
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	return (GM && GM->GetNumMatches() < GM->MaxInstances);
+}
+
+void AUTLobbyGameState::GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* ClientBeacon, uint32 GameInstanceID, const FString& CurrentMap)
+{
+
+	for (int32 i = 0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		{
+			for (int32 j=0; j < GameInstances[i].MatchInfo->MapList.Num(); j++)
+			{
+				if (GameInstances[i].MatchInfo->MapList[j].ToLower() == CurrentMap.ToLower())
+				{
+					if (j < GameInstances[i].MatchInfo->MapList.Num()-1)
+					{
+						ClientBeacon->InstanceNextMap(GameInstances[i].MatchInfo->MapList[j+1]);
+						return;
+					}
+
+					break;
+				}
+			}
+
+			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Completed);
+			ClientBeacon->InstanceNextMap(TEXT(""));
+		}
+	}
 }
 

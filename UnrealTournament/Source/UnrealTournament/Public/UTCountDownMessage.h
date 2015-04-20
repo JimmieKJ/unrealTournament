@@ -6,7 +6,7 @@
 #include "UTCountDownMessage.generated.h"
 
 UCLASS()
-class UUTCountDownMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

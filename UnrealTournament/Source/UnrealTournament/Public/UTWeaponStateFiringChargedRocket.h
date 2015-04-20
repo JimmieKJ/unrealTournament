@@ -9,7 +9,7 @@
  * 
  */
 UCLASS(CustomConstructor)
-class UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
+class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponStateFiringCharged
 {
 	GENERATED_UCLASS_BODY()
 

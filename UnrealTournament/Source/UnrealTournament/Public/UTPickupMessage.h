@@ -5,7 +5,7 @@
 #include "UTPickupMessage.generated.h"
 
 UCLASS()
-class UUTPickupMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTPickupMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

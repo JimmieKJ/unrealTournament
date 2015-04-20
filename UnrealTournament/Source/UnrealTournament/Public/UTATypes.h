@@ -14,6 +14,8 @@ const uint16 UTDIALOG_BUTTON_EXIT = 0x0040;
 const uint16 UTDIALOG_BUTTON_QUIT = 0x0080;
 const uint16 UTDIALOG_BUTTON_VIEW = 0x0100;
 const uint16 UTDIALOG_BUTTON_YESCLEAR = 0x0200;
+const uint16 UTDIALOG_BUTTON_PLAY = 0x0400;
+const uint16 UTDIALOG_BUTTON_LAN = 0x0800;
 
 UENUM()
 namespace EGameStage
@@ -358,3 +360,17 @@ namespace FFriendsStatus
 	const FName Friend = FName(TEXT("Friend"));
 }
 
+namespace FGameRuleCategories
+{
+	const FName TeamPlay = FName(TEXT("TeamPlay"));
+	const FName Casual = FName(TEXT("Casual"));
+	const FName Big = FName(TEXT("Big"));
+	const FName Competitive = FName(TEXT("Competitive"));
+	const FName Custom = FName(TEXT("Custom"));
+}
+
+namespace FQuickMatchTypeRulesetTag
+{
+	const FString CTF = TEXT("CaptureTheFlag");
+	const FString DM = TEXT("Deathmatch");
+}

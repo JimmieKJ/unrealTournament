@@ -86,36 +86,43 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 		AUTBot* B = Cast<AUTBot>(Char->Controller);
 		if (B != NULL)
 		{
-			if (B->GetMoveTarget().Actor == this)
+			bool bRepathOnLand = false;
+			bool bExpectedJumpPad = B->GetMoveTarget().Actor == this;
+			if (!bExpectedJumpPad)
 			{
-				bool bFoundNextPath = false;
+				UUTReachSpec_JumpPad* JumpPadPath = Cast<UUTReachSpec_JumpPad>(B->GetCurrentPath().Spec.Get());
+				bExpectedJumpPad = ((JumpPadPath != NULL && JumpPadPath->JumpPad == this) || B->GetMoveTarget().TargetPoly == GetUTNavData(GetWorld())->FindNearestPoly(GetActorLocation(), GetSimpleCollisionCylinderExtent()));
+			}
+			if (bExpectedJumpPad)
+			{
+				bRepathOnLand = true;
 				for (int32 i = 0; i < B->RouteCache.Num() - 1; i++)
 				{
 					if (B->RouteCache[i].Actor == this)
 					{
 						TArray<FComponentBasedPosition> MovePoints;
-						new(MovePoints)FComponentBasedPosition(ActorToWorld().TransformPosition(JumpTarget));
+						new(MovePoints) FComponentBasedPosition(ActorToWorld().TransformPosition(JumpTarget));
 						B->SetMoveTarget(B->RouteCache[i + 1], MovePoints);
 						B->MoveTimer = FMath::Max<float>(B->MoveTimer, JumpTime);
-						bFoundNextPath = true;
+						bRepathOnLand = false;
 						break;
-					}
-				}
-				if (!bFoundNextPath)
-				{
-					// make sure bot aborts move when it lands
-					B->MoveTimer = FMath::Min<float>(B->MoveTimer, JumpTime - 0.1f);
-					// if the jump pad just goes straight up (such that it will never land without air control), we need to force a decision now
-					if (JumpTarget.Size2D() < 1.0f)
-					{
-						B->WhatToDoNext();
 					}
 				}
 			}
 			else if (!B->GetMoveTarget().IsValid())
 			{
 				// bot got knocked onto jump pad or otherwise is surprised to be here
-				B->WhatToDoNext();
+				bRepathOnLand = true;
+			}
+			if (bRepathOnLand)
+			{
+				// make sure bot aborts move when it lands
+				B->MoveTimer = FMath::Min<float>(B->MoveTimer, JumpTime - 0.1f);
+				// if the jump pad just goes straight up (such that it will never land without air control), we need to force a decision now
+				if (JumpTarget.Size2D() < 1.0f)
+				{
+					B->WhatToDoNext();
+				}
 			}
 		}
 	}
@@ -156,10 +163,11 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 	NavNodeRef MyPoly = NavData->FindNearestPoly(MyLoc, GetSimpleCollisionCylinderExtent());
 	if (MyPoly != INVALID_NAVNODEREF)
 	{
+		const FVector JumpTargetWorld = ActorToWorld().TransformPosition(JumpTarget);
 		const FCapsuleSize HumanSize = NavData->GetHumanPathSize();
 		FVector HumanExtent = FVector(HumanSize.Radius, HumanSize.Radius, HumanSize.Height);
 		{
-			NavNodeRef TargetPoly = NavData->FindNearestPoly(ActorToWorld().TransformPosition(JumpTarget), HumanExtent);
+			NavNodeRef TargetPoly = NavData->FindNearestPoly(JumpTargetWorld, HumanExtent);
 			UUTPathNode* TargetNode = NavData->GetNodeFromPoly(TargetPoly);
 			if (TargetPoly != INVALID_NAVNODEREF && TargetNode != NULL)
 			{
@@ -180,6 +188,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 			MyLoc.Z += NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 3.0f;
 
 			const float AirControlPct = NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->AirControl;
+			const float AirAccelRate = AirControlPct * NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxAcceleration;
 			const FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 			const FVector JumpVel = CalculateJumpVelocity(this);
 			const float XYSpeed = FMath::Max<float>(JumpVel.Size2D(), NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxWalkSpeed); // TODO: clamp contribution of MaxWalkSpeed based on size of jump / time available to apply air control?
@@ -187,6 +196,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 			// if the jump pad primarily executes a "super-jump" (velocity almost entirely on Z axis, allows full air control) then a normal character jump test will give us good results
 			const bool bIsZOnlyJump = JumpTarget.Size2D() < 0.1f * JumpTarget.Size();
 			const float JumpTargetDist = JumpTarget.Size();
+			const FVector JumpDir2D = (JumpTargetWorld - MyLoc).GetSafeNormal2D();
 			const float GravityZ = GetWorld()->GetDefaultGravityZ(); // TODO: gravity at jump pad location
 			const FVector HeightAdjust(0.0f, 0.0f, NavData->AgentHeight * 0.5f);
 			const TArray<const UUTPathNode*>& NodeList = NavData->GetAllNodes();
@@ -198,7 +208,19 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 					{
 						FVector TargetLoc = NavData->GetPolyCenter(TargetPoly) + HeightAdjust;
 						const float Dist = (TargetLoc - MyLoc).Size();
-						if ((bIsZOnlyJump || (Dist < JumpTargetDist && Dist > JumpTargetDist * (1.0f - AirControlPct))) && NavData->JumpTraceTest(MyLoc, TargetLoc, MyPoly, TargetPoly, ScoutShape, XYSpeed, GravityZ, JumpZ, JumpZ, NULL, NULL))
+						bool bPossible = bIsZOnlyJump;
+						if (!bPossible)
+						{
+							// time we have to air control
+							float AirControlTime = JumpTime * (Dist / JumpTargetDist) - RestrictedJumpTime;
+							// extra distance acquirable via air control
+							float AirControlDist2D = FMath::Min<float>(XYSpeed * AirControlTime, 0.5f * AirAccelRate * FMath::Square<float>(AirControlTime));
+							// apply air control dist towards target, but remove any in jump direction as the jump pad generally exceeds the character's normal max speed (so air control in that dir would have no effect)
+							FVector AirControlAdjustment = (TargetLoc - JumpTargetWorld).GetSafeNormal2D() * AirControlDist2D;
+							AirControlAdjustment -= JumpDir2D * (JumpDir2D | AirControlAdjustment);
+							bPossible = (TargetLoc - JumpTargetWorld).Size() < AirControlAdjustment.Size();
+						}
+						if (bPossible && NavData->JumpTraceTest(MyLoc, TargetLoc, MyPoly, TargetPoly, ScoutShape, XYSpeed, GravityZ, JumpZ, JumpZ, NULL, NULL))
 						{
 							// TODO: account for MaxFallSpeed
 							bool bFound = false;

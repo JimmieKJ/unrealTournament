@@ -916,7 +916,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 
 		// prevent autosave from happening until we are finished cooking
 		// causes really bad hitches
-		if ( GUnrealEd && (&GUnrealEd->GetPackageAutoSaver()) )
+		if ( GUnrealEd )
 		{
 			const static float SecondsWarningTillAutosave = 10.0f;
 			GUnrealEd->GetPackageAutoSaver().ForceMinimumTimeTillAutoSave(SecondsWarningTillAutosave);

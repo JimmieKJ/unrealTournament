@@ -7,7 +7,7 @@
 #include "UTSpreeMessage.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTSpreeMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

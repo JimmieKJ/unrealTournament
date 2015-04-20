@@ -9,9 +9,7 @@
 #include "UTGameMode.h"
 #include "UTLobbyMatchInfo.generated.h"
 
-DECLARE_DELEGATE(FOnMatchInfoGameModeChanged);
-DECLARE_DELEGATE(FOnMatchInfoMapChanged);
-DECLARE_DELEGATE(FOnMatchInfoOptionsChanged);
+DECLARE_DELEGATE(FOnMatchInfoUpdated);
 
 USTRUCT()
 struct FPlayerListInfo
@@ -34,8 +32,6 @@ struct FPlayerListInfo
 	UPROPERTY()
 	float PlayerScore;
 	
-	TArray<TSharedPtr<FAllowedMapData>> AvailableMaps;
-
 	FPlayerListInfo() {};
 
 	FPlayerListInfo(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState)
@@ -57,7 +53,7 @@ class UNREALTOURNAMENT_API AUTLobbyMatchInfo : public AInfo
 	GENERATED_UCLASS_BODY()
 public:
 	// We use  the FUniqueNetID of the owner to be the Anchor point for this object.  This way we can reassociated the MatchInfo with the player when they reenter a server from travel.
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_Update)
 	FUniqueNetIdRepl OwnerId;
 
 	// The current state of this match.  
@@ -80,39 +76,35 @@ public:
 	UPROPERTY(Replicated)
 	int32 RankCeiling;
 
+	// -1 means no bots.
+	UPROPERTY(Replicated)
+	int32 BotSkillLevel;
+
 	// Holds data about the match.  In matches that are not started yet, it holds the description of the match.  In matches in progress, it's 
 	// replicated data from the instance about the state of the match.  NOTE: Player information is not replicated from the instance to the server here
 	// it's replicated in the PlayersInMatchInstance array.
 
-	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchStats)
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MatchStats)
 	FString MatchStats;
 
-	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchBadge)
+	UPROPERTY(Replicated)
 	FString MatchBadge;
 
-	// The options for this match
-	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchGameMode)
-	FString MatchGameMode;
-
-	// The options for this match
-	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchOptions)
-	FString MatchOptions;
-
- 	// The options for this match
-	UPROPERTY(Replicated, replicatedUsing = OnRep_MatchMap)
-	FString MatchMap;
-
-	// The minimum number of players needed to start the match
 	UPROPERTY(Replicated)
-	int32 MinPlayers;
+	FString InitialMap;
 
-	// Number of players in this Match Lobby.  This valie us set on the Host and replicated to the server
-	// via a function call.  It is NOT replicated to clients.
-	UPROPERTY(Replicated)
-	int32 MaxPlayers;
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MapList)
+	TArray<FString> MapList;
+
+	// Set by OnRep_MapList
+	bool bMapListChanged;
+
+	// The current ruleset the governs this match
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_Update)
+	TWeakObjectPtr<AUTReplicatedGameRuleset> CurrentRuleset;
 
 	// A list of players in this lobby
-	UPROPERTY(Replicated, replicatedUsing = OnRep_Players)
+	UPROPERTY(Replicated)
 	TArray<TWeakObjectPtr<AUTLobbyPlayerState>> Players;
 
 	// This is the process handle of the game instance that is running.
@@ -127,7 +119,7 @@ public:
 	FString GameInstanceGUID;
 
 	// Holds a list of Unique IDs of players who are currently in the match.  When a player returns to lobby if their ID is in this list, they will be re-added to the match.
-	UPROPERTY(Replicated, replicatedUsing = OnRep_PlayersInMatch)
+	UPROPERTY(Replicated)
 	TArray<FPlayerListInfo> PlayersInMatchInstance;
 	
 	// Cache some data
@@ -139,29 +131,6 @@ public:
 
 	// The GameState needs to tell this MatchInfo what settings should be made available
 	virtual void SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchInfo* MatchToCopy = NULL);
-
-	// Called when the Host needs to tell the server that a GameMode has changed.
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerMatchGameModeChanged(const FString& NewMatchGameMode);
-
-	// Called when the Host needs to tell the server that the selected map has changed
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerMatchMapChanged(const FString& NewMatchMap);
-
-	// Called when the Host changes an option.  
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerMatchOptionsChanged(const FString& NewMatchOptions);
-
-	virtual void SetMaxPlayers(int32 NewMaxPlayers)
-	{
-		MaxPlayers = FMath::Clamp<int32>(NewMaxPlayers, 2 , 20);
-		ServerSetMaxPlayers(MaxPlayers);
-	}
-
-	// Called when the Host wants to set the MAX # of players in this match
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetMaxPlayers(int32 NewMaxPlayers);
-
 
 	virtual void SetAllowJoinInProgress(bool bAllow)
 	{
@@ -185,17 +154,11 @@ public:
 	{
 		ServerSetRankCeiling(NewRankCeiling);
 	}
-
 	
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetRankCeiling(int32 NewRankCeiling);
 
-
-	// Allows the current panel to trigger when something has changed
-	FOnMatchInfoGameModeChanged OnMatchGameModeChanged;
-	FOnMatchInfoMapChanged OnMatchMapChanged;
-	FOnMatchInfoOptionsChanged OnMatchOptionsChanged;
-
+	FOnMatchInfoUpdated OnMatchInfoUpdatedDelegate;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerManageUser(int32 CommandID, AUTLobbyPlayerState* Target);
@@ -235,20 +198,8 @@ public:
 	virtual bool IsInProgress();
 	virtual bool ShouldShowInDock();
 
-	// This will hold a referece to the CurrentGameModeData in the GameState or be invalid if not yet set
-	TSharedPtr<FAllowedGameModeData> CurrentGameModeData;
-
-	virtual void UpdateGameMode();
-
-	virtual void ClientGetDefaultGameOptions();
-
 	// Called from clients.  This will check to make sure all of the needed replicated information has arrived and that the player is ready to join.
 	virtual bool MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner);
-
-	// Builds a list of maps based on the current game
-	virtual void BuildAllowedMapsList();
-	
-	TArray<TSharedPtr<FAllowedMapData>> AvailableMaps;
 
 	// This will be true if this match is a dedicated match and shouldn't ever go down
 	UPROPERTY(Replicated)
@@ -283,39 +234,39 @@ protected:
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyGameState> LobbyGameState;
 
-	FText MatchElapsedTime;
-
-	// Called when Match Options change.  This should funnel the new options string to the UI and update everyone.
 	UFUNCTION()
-	virtual void OnRep_MatchOptions();
-	
-	UFUNCTION()
-	virtual void OnRep_MatchGameMode();
+	virtual void OnRep_Update();
 
 	UFUNCTION()
-	virtual void OnRep_MatchMap();
-
-	UFUNCTION()
-	virtual void OnRep_MatchStats();
-
-	UFUNCTION()
-	virtual void OnRep_Players();
-
-	UFUNCTION()
-	virtual void OnRep_PlayersInMatch();
-
-	UFUNCTION()
-	virtual void OnRep_MatchBadge();
-
-	// The client has received the OwnerID so we are good to go
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerMatchIsReadyForPlayers();
+	virtual void OnRep_MapList();
 
 	// This match info is done.  Kill it.
 	void RecycleMatchInfo();
 
 	bool CheckLobbyGameState();
-	void UpdateBadgeForNewGameMode();
+
+	UFUNCTION()
+	virtual void OnRep_MatchStats();
+
+public:
+	int32 MatchGameTime;
+
+	// This is called by the host when he has received his owner id and the default ruleset
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerMatchIsReadyForPlayers();
+
+	FString GetMapList();
+
+	// Returns true if the match has room for a new player to join it
+	bool MatchHasRoom() { return true; }
+
+	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const TArray<FString>& NewMapList);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetRules(const FString& RulesetTag, const TArray<FString>& NewMapList, int32 NewBotSkillLevel);
+
+	virtual void SetMatchStats(FString Update);
+
 };
 
 

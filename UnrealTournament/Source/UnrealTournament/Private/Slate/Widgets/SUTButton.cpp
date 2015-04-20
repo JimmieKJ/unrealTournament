@@ -11,6 +11,7 @@
 void SUTButton::Construct(const FArguments& InArgs)
 {
 	OnButtonClick = InArgs._UTOnButtonClicked;
+	bIsToggleButton = InArgs._IsToggleButton;
 	SButton::Construct( SButton::FArguments()
 		.Content()
 		[
@@ -67,7 +68,10 @@ FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 	
 	if ( IsEnabled() )
 	{
-		bIsPressed = false;
+		if (!bIsToggleButton)
+		{
+			bIsPressed = false;
+		}
 
 		if( ClickMethod != EButtonClickMethod::MouseDown )
 		{
@@ -130,6 +134,36 @@ FReply SUTButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEv
 	const bool bIsUnderMouse = MyGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
 	return Released(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1, bIsUnderMouse);
 }
+
+void SUTButton::UnPressed()
+{
+	bIsPressed = false;
+}
+
+void SUTButton::BePressed()
+{
+	bIsPressed = true;
+}
+
+
+void SUTButton::OnFocusLost( const FFocusEvent& InFocusEvent )
+{
+	if (!bIsToggleButton) SButton::OnFocusLost(InFocusEvent);
+}
+
+void SUTButton::OnMouseLeave( const FPointerEvent& MouseEvent ) 
+{
+	if (bIsToggleButton)
+	{
+		// Call parent implementation
+		SWidget::OnMouseLeave( MouseEvent );
+	}
+	else
+	{
+		SButton::OnMouseLeave( MouseEvent );
+	}
+}
+
 
 
 #endif

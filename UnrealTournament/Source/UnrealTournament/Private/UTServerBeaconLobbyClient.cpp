@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTServerBeaconLobbyClient.h"
+#include "UTLobbyGameState.h"
 
 AUTServerBeaconLobbyClient::AUTServerBeaconLobbyClient(const class FObjectInitializer& PCIP) :
 Super(PCIP)
@@ -116,5 +117,25 @@ void AUTServerBeaconLobbyClient::Lobby_UpdateBadge_Implementation(uint32 Instanc
 	if (LobbyGameState)
 	{
 		LobbyGameState->GameInstance_MatchBadgeUpdate(InstanceID, Update);
+	}
+}
+
+bool AUTServerBeaconLobbyClient::Lobby_RequestNextMap_Validate(uint32 InstanceID, const FString& CurrentMap) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_RequestNextMap_Implementation(uint32 InstanceID, const FString& CurrentMap)
+{
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		LobbyGameState->GameInstance_RequestNextMap(this, InstanceID, CurrentMap);
+	}
+}
+
+
+void AUTServerBeaconLobbyClient::InstanceNextMap_Implementation(const FString& NextMap)
+{
+	AUTGameMode* CurrentGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (CurrentGameMode)
+	{
+		CurrentGameMode->InstanceNextMap(NextMap);	
 	}
 }

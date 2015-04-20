@@ -2,6 +2,7 @@
 
 #include "../Public/UnrealTournament.h"
 #include "SUTChatWidget.h"
+#include "../SUWindowsStyle.h"
 #include "FriendsAndChat.h"
 
 #define CHAT_BOX_WIDTH 576.0f

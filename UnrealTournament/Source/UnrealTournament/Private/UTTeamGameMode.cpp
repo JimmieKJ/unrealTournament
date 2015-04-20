@@ -405,6 +405,7 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 #if !UE_SERVER
 void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
+/*
 	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
 
 	TSharedPtr< TAttributePropertyBool > BalanceTeamsAttr = MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams")));
@@ -451,6 +452,7 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 			]
 		]
 	];
+*/
 }
 #endif
 
@@ -570,6 +572,35 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 				PS->WriteStatsToCloud();
 			}
 		}
+
+		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+			if (!PS->HasWrittenStatsToCloud())
+			{
+				PS->ModifyStat(FName(TEXT("MatchesQuit")), 1, EStatMod::Delta);
+
+				PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
+				PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
+				PS->ModifyStat(FName(TEXT("PlayerXP")), PS->Score, EStatMod::Delta);
+
+				if (UTGameState->WinningTeam == PS->Team)
+				{
+					PS->ModifyStat(FName(TEXT("Wins")), 1, EStatMod::Delta);
+				}
+				else
+				{
+					PS->ModifyStat(FName(TEXT("Losses")), 1, EStatMod::Delta);
+				}
+
+				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				if (PS != nullptr)
+				{
+					PS->WriteStatsToCloud();
+				}
+			}
+		}
+
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
@@ -622,17 +653,13 @@ void AUTTeamGameMode::FindAndMarkHighScorer()
 	}
 }
 
-void AUTTeamGameMode::UpdateLobbyBadge()
+void AUTTeamGameMode::UpdateLobbyBadge(FString BadgeText)
 {
 	TArray<int32> Scores;
 	Scores.Add( UTGameState->Teams.Num() > 0 ? UTGameState->Teams[0]->Score : 0);
 	Scores.Add( UTGameState->Teams.Num() > 1 ? UTGameState->Teams[1]->Score : 0);
 
-	FString Update = FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Header>%s</>\n\n<UWindows.Standard.MatchBadge.Red>%i</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>%i</>\n<UWindows.Standard.MatchBadge.Small>%s</>\n<UWindows.Standard.MatchBadge.Small>(%i Players)</>"), *DisplayName.ToString(), Scores[0], Scores[1], *GetWorld()->GetMapName(), NumPlayers);
-
-	if (ensure(LobbyBeacon))
-	{
-		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, Update);
-	}
-
+	if (BadgeText != TEXT("")) BadgeText += TEXT("\n");
+	BadgeText += FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Red>%i</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>%i</>"), Scores[0], Scores[1]);
+	Super::UpdateLobbyBadge(BadgeText);
 }
