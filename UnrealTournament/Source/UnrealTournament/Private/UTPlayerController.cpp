@@ -1880,7 +1880,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 			}
 		}
 	}
-	else if (PlayerState->bOnlySpectator && (GetViewTarget() == this))
+	else if (PlayerState && PlayerState->bOnlySpectator && (GetViewTarget() == this))
 	{
 		ClientViewSpectatorPawn(FViewTargetTransitionParams());
 	}

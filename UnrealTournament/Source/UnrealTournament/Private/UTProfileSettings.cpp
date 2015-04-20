@@ -49,6 +49,7 @@ void UUTProfileSettings::VersionFixup()
 		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("Multiply")), IE_Pressed, FString("ViewBlueFlag")));
 		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("Subtract")), IE_Pressed, FString("ToggleBehindView")));
 		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("PageDown")), IE_Pressed, FString("ViewProjectile")));
+		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("PageUp")), IE_Pressed, FString("ToggleTacCom")));
 	}
 }
 

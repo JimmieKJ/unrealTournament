@@ -3711,12 +3711,14 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
 	bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
-	if (UTPS != NULL && PC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f &&
+	bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
+	if (UTPS != NULL && PC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && ((GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f) || bTacCom) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
-		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating) && Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance))
+		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
 		{
 			float TextXL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
