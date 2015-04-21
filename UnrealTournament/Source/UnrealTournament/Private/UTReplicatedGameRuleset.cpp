@@ -28,6 +28,7 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, Tooltip);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, Description);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MapPlaylist);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, MinPlayersToStart);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MaxPlayers);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, DisplayTexture);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MapPlaylistSize);
@@ -42,6 +43,7 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
 	Description = Fixup(NewRules->Description);
 	MapPlaylistSize = FMath::Clamp<int32>(NewRules->MapPlaylistSize, 1, 6);
 	MapPlaylist = NewRules->MapPlaylist;
+	MinPlayersToStart = NewRules->MinPlayersToStart;
 	MaxPlayers = NewRules->MaxPlayers;
 
 	DisplayTexture = NewRules->DisplayTexture;
