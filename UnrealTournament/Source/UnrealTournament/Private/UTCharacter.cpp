@@ -3750,7 +3750,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
 	bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
 	bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
-	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && ((GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f) || bTacCom) &&
+	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
@@ -3758,7 +3758,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		{
 			float TextXL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
-			bool bFarAway = bTacCom && ((Dist > TeamPlayerIndicatorMaxDistance) || (GetWorld()->TimeSeconds - GetLastRenderTime() > 0.5f));
+			bool bFarAway = (Dist > TeamPlayerIndicatorMaxDistance);
 			if (bTacCom && !bFarAway && PC->PlayerCameraManager)
 			{
 				// need to do trace, since taccom guys always rendered
