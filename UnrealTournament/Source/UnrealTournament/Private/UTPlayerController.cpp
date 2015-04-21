@@ -767,6 +767,7 @@ void AUTPlayerController::ServerViewFlagHolder_Implementation(int32 TeamIndex)
 	}
 }
 
+
 bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)
 {
 	return true;
@@ -794,6 +795,43 @@ void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 Tea
 		{
 			SetViewTarget(GameState->PlayerArray[Index]);
 		}
+	}
+}
+
+void AUTPlayerController::ViewClosestVisiblePlayer()
+{
+	AUTPlayerState* BestChar = NULL;
+	float BestDist = 200000.f;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
+		if (UTChar && (UTChar->Health > 0) && Cast<AUTPlayerState>(UTChar->PlayerState) && (GetWorld()->GetTimeSeconds() - UTChar->GetLastRenderTime() < 0.1f))
+		{
+			float NewDist = (UTChar->GetActorLocation() - GetViewTarget()->GetActorLocation()).Size();
+			if (!BestChar || (NewDist < BestDist))
+			{
+				BestChar = Cast<AUTPlayerState>(UTChar->PlayerState);
+				BestDist = NewDist;
+			}
+		}
+	}
+	if (BestChar)
+	{
+		ServerViewPlayerState(BestChar);
+	}
+}
+
+bool AUTPlayerController::ServerViewPlayerState_Validate(AUTPlayerState* PS)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewPlayerState_Implementation(AUTPlayerState* PS)
+{
+	if (PlayerState && PlayerState->bOnlySpectator && PS)
+	{
+		BehindView(bSpectateBehindView);
+		SetViewTarget(PS);
 	}
 }
 

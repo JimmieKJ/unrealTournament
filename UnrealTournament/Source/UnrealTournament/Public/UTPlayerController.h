@@ -188,6 +188,13 @@ public:
 	UFUNCTION(unreliable, server, WithValidation)
 		void ServerViewProjectile();
 
+	/** View character associated with playerstate. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewPlayerState(AUTPlayerState* PS);
+
+	UFUNCTION(exec)
+		virtual void ViewClosestVisiblePlayer();
+
 	UFUNCTION(exec)
 		virtual void ViewProjectile();
 
