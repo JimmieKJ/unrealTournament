@@ -124,6 +124,19 @@ void AUTLobbyGameState::CheckInstanceHealth()
 		}
 	}
 
+	for (int32 i = ProcessesToGetReturnCode.Num() - 1; i >= 0; i--)
+	{
+		int32 ReturnCode = 0;
+		if (FPlatformProcess::GetProcReturnCode(ProcessesToGetReturnCode[i], &ReturnCode))
+		{
+			UE_LOG(UT, Warning, TEXT("Waited on process successfully"));
+			ProcessesToGetReturnCode.RemoveAt(i);
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Failed to get process return code, will try again"));
+		}
+	}
 }
 
 
@@ -514,7 +527,8 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 		}
 		else
 		{
-			UE_LOG(UT, Warning, TEXT("Failed to get return code for Instance"));
+			UE_LOG(UT, Warning, TEXT("Failed to get return code for instance, will try again later"));
+			ProcessesToGetReturnCode.Add(MatchOwner->GameInstanceProcessHandle);
 		}
 
 		MatchOwner->GameInstanceProcessHandle.Reset();
