@@ -8,6 +8,7 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 : Super(ObjectInitializer)
 {
 	PlayerName = TEXT("Malcolm");
+	bSuppressToastsInGame = false;
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()
@@ -86,6 +87,7 @@ float UUTProfileSettings::GetWeaponPriority(FString WeaponClassName, float Defau
 
 void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
+	bSuppressToastsInGame = ProfilePlayer->bSuppressToastsInGame;
 	PlayerName = ProfilePlayer->GetNickname();
 
 	// Get all settings from the Player Controller
@@ -166,6 +168,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 }
 void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
+	ProfilePlayer->bSuppressToastsInGame = bSuppressToastsInGame;
 	ProfilePlayer->SetNickname(PlayerName);
 	ProfilePlayer->SaveConfig();
 

@@ -360,7 +360,7 @@ void SUWGameSetupDialog::BuildMapList()
 			}
 			else
 			{
-				break;
+				*Screenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
 			}	
 			MapPlayList.Add(FMapPlayListInfo(SelectedRuleset->MapPlaylist[i], Screenshot, Summary,(i<SelectedRuleset->MapPlaylistSize)));
 		}

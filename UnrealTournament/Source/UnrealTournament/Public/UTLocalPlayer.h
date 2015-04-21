@@ -405,6 +405,8 @@ public:
 	UPROPERTY(Config)
 	uint32 bShowBrowserIconOnMainMenu:1;
 
+	bool bSuppressToastsInGame;
+
 protected:
 #if !UE_SERVER
 	TWeakPtr<SUWDialog> ConnectingDialog;

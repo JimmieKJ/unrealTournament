@@ -966,7 +966,6 @@ void AUTPlayerController::MoveLeft(float Value)
 	MoveRight(Value * -1);
 }
 
-
 void AUTPlayerController::MoveRight(float Value)
 {
 	if (Value != 0.0f && UTCharacter != NULL)
@@ -1590,6 +1589,15 @@ void AUTPlayerController::SetCameraMode( FName NewCamMode )
 void AUTPlayerController::ToggleTacCom()
 {
 	bTacComView = !bTacComView;
+
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AUTPickup* Pickup = Cast<AUTPickup>(*It);
+		if (Pickup)
+		{
+			Pickup->SetTacCom(bTacComView);
+		}
+	}
 }
 
 void AUTPlayerController::SetStylizedPP(int32 NewPP)

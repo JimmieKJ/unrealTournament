@@ -185,4 +185,9 @@ protected:
 	TArray<FName> FoundTokenUniqueIDs;
 
 	TArray<FName> TempFoundTokenUniqueIDs;
+
+	// If true, then the player will not show toasts in game.
+	UPROPERTY()
+	uint32 bSuppressToastsInGame : 1;
+
 };

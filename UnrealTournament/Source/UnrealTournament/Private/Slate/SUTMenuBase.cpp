@@ -10,6 +10,7 @@
 #include "SUWDialog.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
+#include "SUWSocialSettingsDialog.h"
 #include "SUWWeaponConfigDialog.h"
 #include "SUWControlSettingsDialog.h"
 #include "SUWInputBox.h"
@@ -386,6 +387,16 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings").ToString())
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUTMenuBase::OpenSocialSettings, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings").ToString())
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenWeaponSettings, DropDownButton)
@@ -564,6 +575,14 @@ FReply SUTMenuBase::OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton)
 
 	return FReply::Handled();
 }
+
+FReply SUTMenuBase::OpenSocialSettings(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	PlayerOwner->OpenDialog(SNew(SUWSocialSettingsDialog).PlayerOwner(PlayerOwner));
+	return FReply::Handled();
+}
+
 
 FReply SUTMenuBase::OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton)
 {

@@ -53,6 +53,8 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	TArray<AUTLobbyMatchInfo*> AvailableMatches;
 
+	TArray<FProcHandle> ProcessesToGetReturnCode;
+
 	// These Game Options will be forced on ALL games instanced regardless of their GameMdoe
 	UPROPERTY(Config)
 	FString ForcedInstanceGameOptions;

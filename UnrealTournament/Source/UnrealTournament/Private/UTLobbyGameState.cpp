@@ -95,8 +95,14 @@ void AUTLobbyGameState::CheckInstanceHealth()
 					UE_LOG(UT,Warning,TEXT("Terminating an instance that seems to be a zombie."));
 					FPlatformProcess::TerminateProc(MatchInfo->GameInstanceProcessHandle);
 					int32 ReturnCode = 0;
-					FPlatformProcess::GetProcReturnCode(MatchInfo->GameInstanceProcessHandle, &ReturnCode);
-					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
+					if (FPlatformProcess::GetProcReturnCode(MatchInfo->GameInstanceProcessHandle, &ReturnCode))
+					{
+						MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
+					}
+					else
+					{
+						UE_LOG(UT, Warning, TEXT("Failed to get proc return code on zombie process."));
+					}
 				}
 			}
 			else
@@ -118,6 +124,19 @@ void AUTLobbyGameState::CheckInstanceHealth()
 		}
 	}
 
+	for (int32 i = ProcessesToGetReturnCode.Num() - 1; i >= 0; i--)
+	{
+		int32 ReturnCode = 0;
+		if (FPlatformProcess::GetProcReturnCode(ProcessesToGetReturnCode[i], &ReturnCode))
+		{
+			UE_LOG(UT, Warning, TEXT("Waited on process successfully"));
+			ProcessesToGetReturnCode.RemoveAt(i);
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Failed to get process return code, will try again"));
+		}
+	}
 }
 
 
@@ -422,7 +441,6 @@ void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOpti
 		LaunchGameInstance(NewMatchInfo, MatchOptions, 10, -1);
 	}
 */
-	// TODO JOE - Fix me to support the new rules
 }
 
 void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, const FString& GameMode, const FString& Map, const FString& GameOptions, int32 MaxPlayers, int32 BotSkillLevel)
@@ -503,8 +521,15 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 			FPlatformProcess::TerminateProc(MatchOwner->GameInstanceProcessHandle);
 		}
 		int32 ReturnCode = 0;
-		FPlatformProcess::GetProcReturnCode(MatchOwner->GameInstanceProcessHandle, &ReturnCode);
-		UE_LOG(UT, Verbose, TEXT("Terminating an Instance with return code %i"), ReturnCode);
+		if (FPlatformProcess::GetProcReturnCode(MatchOwner->GameInstanceProcessHandle, &ReturnCode))
+		{
+			UE_LOG(UT, Warning, TEXT("Terminated an Instance with return code %i"), ReturnCode);
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("Failed to get return code for instance, will try again later"));
+			ProcessesToGetReturnCode.Add(MatchOwner->GameInstanceProcessHandle);
+		}
 
 		MatchOwner->GameInstanceProcessHandle.Reset();
 		MatchOwner->GameInstanceID = 0;

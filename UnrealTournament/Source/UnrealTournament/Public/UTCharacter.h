@@ -396,8 +396,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Return true if there's a recent delayed shot */
 	virtual bool DelayedShotFound();
 
-	/** returns a simplified set of SavedPositions containing only the latest position for a given frame (i.e. each element has a unique Time) */
-	void GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions) const;
+	/** returns a simplified set of SavedPositions containing only the latest position for a given frame (i.e. each element has a unique Time)
+	 * @param bStopAtTeleport - removes any positions prior to and including the most recent teleportation
+	 */
+	void GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositions, bool bStopAtTeleport) const;
 
 	/** Limit to armor stacking */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Pawn")
@@ -467,7 +469,11 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return Result;
 	}
 
-	/** Return true if this character can block telefrags. */
+	/** True during a translocator teleport, which has different telefragging rules. */
+	UPROPERTY()
+		bool bIsTranslocating;
+
+	/** Return true if this character can block translocator telefrags. */
 	virtual bool CanBlockTelefrags();
 
 	/** toss an inventory item in the direction the player is facing
@@ -1386,7 +1392,7 @@ public:
 	UFUNCTION()
 	virtual AUTCarriedObject* GetCarriedObject();
 
-	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir);
+	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir) override;
 
 	/** returns true if any local PlayerController is viewing this Pawn */
 	bool IsLocallyViewed()

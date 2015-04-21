@@ -10,6 +10,7 @@ AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializ
 {
 	FloatHeight = 50.0f;
 	bAllowRotatingPickup = true;
+	bHasTacComView = true;
 }
 
 void AUTPickupInventory::BeginPlay()

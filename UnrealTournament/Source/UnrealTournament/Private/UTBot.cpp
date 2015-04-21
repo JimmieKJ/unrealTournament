@@ -592,15 +592,23 @@ void AUTBot::Tick(float DeltaTime)
 		// check current enemy every frame, others on a slightly random timer to avoid hitches
 		if (Enemy != NULL)
 		{
-			if (CanSee(Enemy, false))
+			if (Enemy->bPendingKillPending)
 			{
-				SeePawn(Enemy);
+				// enemy was destroyed directly instead of killed so we didn't get notify
+				SetEnemy(NULL);
 			}
-			else if (CurrentAction != NULL)
+			else
 			{
-				CurrentAction->EnemyNotVisible();
+				if (CanSee(Enemy, false))
+				{
+					SeePawn(Enemy);
+				}
+				else if (CurrentAction != NULL)
+				{
+					CurrentAction->EnemyNotVisible();
+				}
+				UpdateTrackingError(false);
 			}
-			UpdateTrackingError(false);
 		}
 		SightCounter -= DeltaTime;
 		if (SightCounter < 0.0f)
@@ -1177,7 +1185,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 					AUTCharacter* TargetP = Cast<AUTCharacter>(Enemy);
 					if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
 					{
-						TargetP->GetSimplifiedSavedPositions(SavedPositions);
+						TargetP->GetSimplifiedSavedPositions(SavedPositions, true);
 					}
 				}
 				if (SavedPositions.Num() > 1)

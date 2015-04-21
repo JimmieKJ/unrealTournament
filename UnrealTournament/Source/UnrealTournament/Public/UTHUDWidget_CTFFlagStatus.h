@@ -48,8 +48,11 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	TArray<FHUDRenderObject_Text> FlagHolderNames;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Message")
+		float InWorldAlpha;
+
 	/** Transient value used to pulse color of status indicators. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WorldOverlay")
 		float StatusScale;
 
 	/** Transient value used to pulse color of status indicators. */

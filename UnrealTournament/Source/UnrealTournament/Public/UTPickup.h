@@ -88,6 +88,11 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+		bool bHasTacComView;
+
+	virtual void SetTacCom(bool bTacComEnabled);
+
 	virtual void PreNetReceive();
 	virtual void PostNetReceive();
 	virtual void PostEditImport() override;
