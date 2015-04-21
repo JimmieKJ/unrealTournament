@@ -460,7 +460,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, const 
 		int32 InstancePort = LobbyGame->StartingInstancePort + (LobbyGame->InstancePortStep * GameInstances.Num());
 
 		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
-		FString Options = FString::Printf(TEXT("UnrealTournament %s -server -port=%i -log"), *FinalOptions, InstancePort);
+		FString Options = FString::Printf(TEXT("UnrealTournament %s -server -port=%i -log -daemon"), *FinalOptions, InstancePort);
 		
 		// Add in additional command line params
 		if (!AdditionalInstanceCommandLine.IsEmpty()) Options += TEXT(" ") + AdditionalInstanceCommandLine;
