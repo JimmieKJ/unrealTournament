@@ -170,7 +170,11 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
+	UFUNCTION(exec)
 	virtual void ViewBluePlayer(int32 Index);
+
+	UFUNCTION(exec)
+		virtual void ViewRedPlayer(int32 Index);
 
 	/** View Player at Index on team specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)

@@ -715,9 +715,21 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 	}
 	else if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		BehindView(bSpectateBehindView);
-		ServerViewPlayer(Group - 1, 0);
+		if (Group > 5)
+		{
+			ViewBluePlayer(Group - 5);
+		}
+		else
+		{
+			ViewRedPlayer(Group);
+		}
 	}
+}
+
+void AUTPlayerController::ViewRedPlayer(int32 Index)
+{
+	BehindView(bSpectateBehindView);
+	ServerViewPlayer(Index - 1, 0);
 }
 
 void AUTPlayerController::ViewBluePlayer(int32 Index)
@@ -764,12 +776,6 @@ void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 Tea
 {
 	BehindView(bSpectateBehindView);
 	Index = FMath::Max(Index, 0);
-	if (Index > 4)
-	{
-		// temp hack - FIXMESTEVE support shift key
-		TeamIndex = 1;
-		Index -= 5;
-	}
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
 		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
