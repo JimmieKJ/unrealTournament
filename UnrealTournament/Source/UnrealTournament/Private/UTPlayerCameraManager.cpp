@@ -165,17 +165,29 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 
 		FVector DesiredLoc = (Cast<AController>(OutVT.Target) && !LastThirdPersonCameraLoc.IsZero()) ? LastThirdPersonCameraLoc : OutVT.Target->GetActorLocation();
-		// we must use the capsule location here as the ragdoll's root component can be rubbing a wall
 		if (UTCharacter != nullptr && UTCharacter->IsRagdoll() && UTCharacter->GetCapsuleComponent() != nullptr)
 		{
+			// we must use the capsule location here as the ragdoll's root component can be rubbing a wall
 			DesiredLoc = UTCharacter->GetCapsuleComponent()->GetComponentLocation();
 		}
 		else if (UTFlagBase != nullptr)
 		{
 			DesiredLoc += FlagBaseFreeCamOffset;
 		}
-
 		FVector Loc = (LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget) || ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f)) ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
+
+		AUTCharacter* BaseChar = UTCharacter;
+		if (!BaseChar)
+		{
+			AUTCarriedObject* UTFlag = Cast<AUTCarriedObject>(OutVT.Target);
+			BaseChar = UTFlag && UTFlag->Holder ? Cast<AUTCharacter>(UTFlag->AttachmentReplication.AttachParent) : NULL;
+		}
+		if (BaseChar && BaseChar->GetMovementBase() && MovementBaseUtility::UseRelativeLocation(BaseChar->GetMovementBase()))
+		{
+			// don't smooth vertically if on lift
+			Loc.Z = DesiredLoc.Z;
+		}
+
 		LastThirdPersonCameraLoc = Loc;
 		LastThirdPersonTarget = OutVT.Target;
 

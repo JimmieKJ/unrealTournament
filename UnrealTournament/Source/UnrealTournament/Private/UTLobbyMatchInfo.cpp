@@ -137,7 +137,7 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 		Players.Empty();
 
 		// We are are not launching, kill this lobby otherwise keep it around
-		if (!IsInProgress())
+		if ( CurrentState == ELobbyMatchState::Launching || !IsInProgress() )
 		{
 			SetLobbyMatchState(ELobbyMatchState::Dead);
 			return true;
@@ -261,7 +261,7 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 bool AUTLobbyMatchInfo::ServerStartMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
-	if (Players.Num() < 2)
+	if (Players.Num() < CurrentRuleset->MinPlayersToStart)
 	{
 		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
 		return;

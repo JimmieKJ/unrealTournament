@@ -820,8 +820,7 @@ void AUTGameMode::RestartGame()
 
 bool AUTGameMode::IsEnemy(AController * First, AController* Second)
 {
-	// In DM - Everyone is an enemy
-	return First != Second;
+	return First && Second && !UTGameState->OnSameTeam(First, Second);
 }
 
 void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
@@ -835,14 +834,16 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 		//UE_LOG(UT, Log, TEXT("Player Killed: %s killed %s"), (KillerPlayerState != NULL ? *KillerPlayerState->PlayerName : TEXT("NULL")), (KilledPlayerState != NULL ? *KilledPlayerState->PlayerName : TEXT("NULL")));
 
 		bool const bEnemyKill = IsEnemy(Killer, KilledPlayer);
-
+		if (!bEnemyKill)
+		{
+			Killer = NULL;
+		}
 		if (KilledPlayerState != NULL)
 		{
 			KilledPlayerState->LastKillerPlayerState = KillerPlayerState;
-
 			KilledPlayerState->IncrementDeaths(DamageType, KillerPlayerState);
 			TSubclassOf<UUTDamageType> UTDamage(*DamageType);
-			if (UTDamage != NULL)
+			if (UTDamage)
 			{
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 			}
@@ -1823,6 +1824,7 @@ bool AUTGameMode::ReadyToStartMatch()
 			return true;
 		}
 	}
+	return true;
 
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
@@ -2007,8 +2009,6 @@ void AUTGameMode::HandleEnteringOvertime()
 						PC->ChangeState(NAME_Spectating);
 					}
 				}
-
-
 				KillPlayer = NULL;
 			}
 		}

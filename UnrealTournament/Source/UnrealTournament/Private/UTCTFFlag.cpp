@@ -107,13 +107,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 		if (GameState)
 		{
 			AUTCTFFlagBase* OtherBase = GameState->FlagBases[1-GetTeamNum()];
-			AActor* Considered = LastHoldingPawn;
-			if (!Considered)
-			{
-				Considered = this;
-			}
-
-			if (OtherBase && (OtherBase->GetFlagState() == CarriedObjectState::Home) && OtherBase->ActorIsNearMe(Considered))
+			if (OtherBase && (OtherBase->GetFlagState() == CarriedObjectState::Home) && OtherBase->ActorIsNearMe(this))
 			{
 				AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 				if (GM)

@@ -39,6 +39,10 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	TArray<FString> MapPlaylist;
 
+	// The number of players needed to start.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
+	int32 MinPlayersToStart;
+
 	// The number of players allowed in this match.  NOTE: it must be duplicated in the GameOptions string.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	int32 MaxPlayers;

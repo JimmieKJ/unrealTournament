@@ -288,6 +288,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	AUTHatLeader* LeaderHat;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pawn)
+	TSubclassOf<AUTHatLeader> DefaultLeaderHatClass;
+
 	UFUNCTION()
 	virtual void SetHatClass(TSubclassOf<AUTHat> HatClass);
 		

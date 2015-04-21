@@ -17,9 +17,15 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 
 bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
-	return (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState 
-			&& (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || (UTCharacterOwner == NULL && UTPlayerOwner->GetPawn() == NULL) || (UTCharacterOwner != NULL && UTCharacterOwner->IsDead()))
-			&& (!bShowScores || !UTGameState->HasMatchStarted()));
+	if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
+	{
+		if (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
+		{
+			return !bShowScores;
+		}
+		return (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTPlayerOwner->GetPawn() == NULL)));
+	}
+	return false;
 }
 
 void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage)
@@ -30,15 +36,18 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	}
 	float BackgroundWidth = 1920.f;
 	float TextPosition = 360.f;
+	float MessageOffset = 0.f;
 	if (bShortMessage && UTHUDOwner->LargeFont)
 	{
-		TextPosition = 32.f;
 		float YL = 0.0f;
 		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
 		BackgroundWidth += 64.f;
+		MessageOffset = UTGameState->HasMatchEnded() ? 960.f - 0.5f*BackgroundWidth : 0.f;
+		TextPosition = 32.f + MessageOffset;
 	}
+
 	// Draw the Background
-	DrawTexture(TextureAtlas, 0, 0, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
+	DrawTexture(TextureAtlas, MessageOffset, 0, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
 	if (!bShortMessage)
 	{
 		// Draw the Logo
@@ -138,7 +147,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				FFormatNamedArguments Args;
 				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
 				bShortMessage = true;
-				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "PLAYER {PlayerName}"), Args);
+				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
 			}
 		}
 		DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);

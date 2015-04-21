@@ -170,7 +170,11 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
+	UFUNCTION(exec)
 	virtual void ViewBluePlayer(int32 Index);
+
+	UFUNCTION(exec)
+		virtual void ViewRedPlayer(int32 Index);
 
 	/** View Player at Index on team specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)
@@ -183,6 +187,13 @@ public:
 	/** View last projectile fired by currently viewed player. */
 	UFUNCTION(unreliable, server, WithValidation)
 		void ServerViewProjectile();
+
+	/** View character associated with playerstate. */
+	UFUNCTION(unreliable, server, WithValidation)
+		void ServerViewPlayerState(AUTPlayerState* PS);
+
+	UFUNCTION(exec)
+		virtual void ViewClosestVisiblePlayer();
 
 	UFUNCTION(exec)
 		virtual void ViewProjectile();

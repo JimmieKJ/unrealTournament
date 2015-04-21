@@ -715,9 +715,21 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 	}
 	else if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		BehindView(bSpectateBehindView);
-		ServerViewPlayer(Group - 1, 0);
+		if (Group > 5)
+		{
+			ViewBluePlayer(Group - 5);
+		}
+		else
+		{
+			ViewRedPlayer(Group);
+		}
 	}
+}
+
+void AUTPlayerController::ViewRedPlayer(int32 Index)
+{
+	BehindView(bSpectateBehindView);
+	ServerViewPlayer(Index - 1, 0);
 }
 
 void AUTPlayerController::ViewBluePlayer(int32 Index)
@@ -755,6 +767,7 @@ void AUTPlayerController::ServerViewFlagHolder_Implementation(int32 TeamIndex)
 	}
 }
 
+
 bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)
 {
 	return true;
@@ -764,12 +777,6 @@ void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 Tea
 {
 	BehindView(bSpectateBehindView);
 	Index = FMath::Max(Index, 0);
-	if (Index > 4)
-	{
-		// temp hack - FIXMESTEVE support shift key
-		TeamIndex = 1;
-		Index -= 5;
-	}
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
 		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
@@ -788,6 +795,43 @@ void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 Tea
 		{
 			SetViewTarget(GameState->PlayerArray[Index]);
 		}
+	}
+}
+
+void AUTPlayerController::ViewClosestVisiblePlayer()
+{
+	AUTPlayerState* BestChar = NULL;
+	float BestDist = 200000.f;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
+		if (UTChar && (UTChar->Health > 0) && Cast<AUTPlayerState>(UTChar->PlayerState) && (GetWorld()->GetTimeSeconds() - UTChar->GetLastRenderTime() < 0.1f))
+		{
+			float NewDist = (UTChar->GetActorLocation() - GetViewTarget()->GetActorLocation()).Size();
+			if (!BestChar || (NewDist < BestDist))
+			{
+				BestChar = Cast<AUTPlayerState>(UTChar->PlayerState);
+				BestDist = NewDist;
+			}
+		}
+	}
+	if (BestChar)
+	{
+		ServerViewPlayerState(BestChar);
+	}
+}
+
+bool AUTPlayerController::ServerViewPlayerState_Validate(AUTPlayerState* PS)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerViewPlayerState_Implementation(AUTPlayerState* PS)
+{
+	if (PlayerState && PlayerState->bOnlySpectator && PS)
+	{
+		BehindView(bSpectateBehindView);
+		SetViewTarget(PS);
 	}
 }
 

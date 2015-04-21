@@ -286,7 +286,7 @@ public:
 
 			int32 Width = 0;
 			int32 Height = 0;
-			Font->GetStringHeightAndWidth(TextToRender.ToString(), Width, Height);
+			Font->GetStringHeightAndWidth(TextToRender.ToString(), Height, Width);
 			return FVector2D(Width * TextScale , Height * TextScale);
 		}
 	
