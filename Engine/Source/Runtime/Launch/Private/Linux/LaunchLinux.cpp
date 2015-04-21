@@ -167,6 +167,11 @@ int main(int argc, char *argv[])
 		GAlwaysReportCrash = false;
 	}
 #endif
+	
+	if (FParse::Param(*GSavedCommandLine, TEXT("daemon"))
+	{
+		FPlatformProcess::Daemonize();
+	}
 
 	if (!IncreasePerProcessLimits())
 	{
