@@ -128,6 +128,19 @@ void AUTGameState::BeginPlay()
 			}
 		}
 	}
+
+	{
+		TArray<UObject*> AllCharacters;
+		GetObjectsOfClass(AUTCharacter::StaticClass(), AllCharacters, true, RF_NoFlags);
+		for (int32 i = 0; i < AllCharacters.Num(); i++)
+		{
+			if (AllCharacters[i]->HasAnyFlags(RF_ClassDefaultObject))
+			{
+				checkSlow(AllCharacters[i]->IsA(AUTCharacter::StaticClass()));
+				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->TacComOverlayMaterial);
+			}
+		}
+	}
 }
 
 void AUTGameState::OnRep_RemainingTime()
