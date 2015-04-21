@@ -40,16 +40,21 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		StatusScale -= DeltaTime;
 		bStatusDir = (StatusScale < 0.7f);
 	}
+	FVector ViewPoint;
+	FRotator ViewRotation;
+	UTPlayerOwner->GetPlayerViewPoint(ViewPoint, ViewRotation);
 
 	for (int32 Team=0;Team<2;Team++)
 	{
 		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
 		bool bDrawInWorld = false;
+		bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
+		bool bIsEnemyFlag = !GS->OnSameTeam(Base, UTPlayerOwner);
 		FVector ScreenPosition(0.f);
-		if (Base && Base->GetCarriedObject() && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
+		if (Base && Base->GetCarriedObject() && ((ViewRotation.Vector() | (Base->GetCarriedObject()->GetActorLocation() - ViewPoint)) > 0.f))
 		{
 			AUTCarriedObject* Flag = Base->GetCarriedObject();
-			ScreenPosition = GetCanvas()->Project(Flag->GetActorLocation() + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 1.25f));
+			ScreenPosition = GetCanvas()->Project(Flag->GetActorLocation() + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 2.f));
 			bDrawInWorld = (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
 			ScreenPosition.X -= RenderPosition.X;
 			ScreenPosition.Y -= RenderPosition.Y;
@@ -69,7 +74,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			TakenIconTemplate.RenderColor.R *= FMath::Square(StatusScale) - 0.25f;
 			TakenIconTemplate.RenderColor.B *= FMath::Square(StatusScale) - 0.25f;
 			RenderObj_TextureAt(TakenIconTemplate, X + 0.1f * FlagIconTemplate.GetWidth(), Y + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
-			if (bDrawInWorld)
+			if (bDrawInWorld && (bSpectating || bIsEnemyFlag))
 			{
 				TakenIconTemplate.RenderOpacity = InWorldAlpha;
 				RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth(), 1.1f * TakenIconTemplate.GetHeight());
@@ -83,7 +88,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			float CarriedX = X - 0.25f * FlagIconTemplate.GetWidth();
 			float CarriedY = Y - 0.25f * FlagIconTemplate.GetHeight();
 			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, StatusScale * FlagIconTemplate.GetWidth(), StatusScale * FlagIconTemplate.GetHeight());
-			if (bDrawInWorld)
+			if (bDrawInWorld && (bSpectating || bIsEnemyFlag))
 			{
 				float OldAlpha = FlagIconTemplate.RenderOpacity;
 				FlagIconTemplate.RenderOpacity = InWorldAlpha;
@@ -94,7 +99,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		else
 		{
 			RenderObj_TextureAt(FlagIconTemplate, X, Y, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
-			if (bDrawInWorld)
+			if (bDrawInWorld && (bSpectating || bIsEnemyFlag || (FlagState == CarriedObjectState::Home)))
 			{
 				float OldAlpha = FlagIconTemplate.RenderOpacity;
 				FlagIconTemplate.RenderOpacity = InWorldAlpha;
@@ -104,7 +109,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			if (FlagState == CarriedObjectState::Dropped)
 			{
 				RenderObj_TextureAt(DroppedIconTemplate, X, Y, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
-				if (bDrawInWorld)
+				if (bDrawInWorld && (bSpectating || bIsEnemyFlag))
 				{
 					float OldAlpha = DroppedIconTemplate.RenderOpacity;
 					DroppedIconTemplate.RenderOpacity = InWorldAlpha;
@@ -112,16 +117,6 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 					DroppedIconTemplate.RenderOpacity = OldAlpha;
 				}
 			}
-		}
-
-		if (Base && UTPlayerOwner->GetPawn())
-		{
-			APawn* P = UTPlayerOwner->GetPawn();
-			FRotator Dir = (Base->GetActorLocation() - P->GetActorLocation()).Rotation();
-			float Yaw = (Dir.Yaw - P->GetViewRotation().Yaw);
-			FlagArrowTemplate.RotPivot = FVector2D(0.5,0.5);
-			FlagArrowTemplate.Rotation = Yaw;
-			RenderObj_TextureAt(FlagArrowTemplate, X, Y, FlagArrowTemplate.GetWidth(), FlagArrowTemplate.GetHeight());
 		}
 	}
 
