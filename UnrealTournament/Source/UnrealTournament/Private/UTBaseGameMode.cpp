@@ -13,13 +13,7 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 {
 	// Grab the InstanceID if it's there.
 	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
-
-	// Detach from parent process if we're a game instance from a hub
-	if (LobbyInstanceID > 0)
-	{
-		//FPlatformProcess::Daemonize();
-	}
-
+	
 	// Create a server instance id for this server
 	ServerInstanceGUID = FGuid::NewGuid();
 
