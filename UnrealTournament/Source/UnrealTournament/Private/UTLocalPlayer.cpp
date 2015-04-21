@@ -39,6 +39,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	ProfileCloudWriteCooldownTime = 10;
 	bShowSocialNotification = false;
 	ServerPingBlockSize = 30;
+	bSuppressToastsInGame = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -850,6 +851,8 @@ void UUTLocalPlayer::RemovePlayerOnlineStatusChangedDelegate(FDelegateHandle Del
 void UUTLocalPlayer::ShowToast(FText ToastText)
 {
 #if !UE_SERVER
+
+	if (GetWorld()->GetNetMode() == ENetMode::NM_Client && bSuppressToastsInGame) return;
 
 	// Build the Toast to Show...
 
