@@ -469,7 +469,11 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return Result;
 	}
 
-	/** Return true if this character can block telefrags. */
+	/** True during a translocator teleport, which has different telefragging rules. */
+	UPROPERTY()
+		bool bIsTranslocating;
+
+	/** Return true if this character can block translocator telefrags. */
 	virtual bool CanBlockTelefrags();
 
 	/** toss an inventory item in the direction the player is facing

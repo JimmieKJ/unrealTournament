@@ -144,7 +144,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	LowHealthAmbientThreshold = 40;
 	MinOverlapToTelefrag = 25.f;
-
+	bIsTranslocating = false;
 	LastTakeHitTime = -10000.0f;
 	LastTakeHitReplicatedTime = -10000.0f;
 }
@@ -3712,11 +3712,12 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 		if (OtherC != NULL)
 		{
 			AUTTeamGameMode* TeamGame = GetWorld()->GetAuthGameMode<AUTTeamGameMode>();
+			float MinTelefragOverlap = bIsTranslocating ? MinOverlapToTelefrag : 1.f;
 			if ((TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this)) 
-				&& ((OtherC->GetActorLocation() - GetActorLocation()).Size2D() < OtherC->GetCapsuleComponent()->GetUnscaledCapsuleRadius() + GetCapsuleComponent()->GetUnscaledCapsuleRadius() - MinOverlapToTelefrag))
+				&& ((OtherC->GetActorLocation() - GetActorLocation()).Size2D() < OtherC->GetCapsuleComponent()->GetUnscaledCapsuleRadius() + GetCapsuleComponent()->GetUnscaledCapsuleRadius() - MinTelefragOverlap))
 			{
 				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, GetCapsuleComponent(), GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
-				if (OtherC->CanBlockTelefrags())
+				if (bIsTranslocating && OtherC->CanBlockTelefrags())
 				{
 					DamageEvent.DamageTypeClass = UUTDmgType_BlockedTelefrag::StaticClass();
 					TakeDamage(100000.0f, DamageEvent, Controller, this);

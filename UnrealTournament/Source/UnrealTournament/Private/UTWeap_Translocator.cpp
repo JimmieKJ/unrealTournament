@@ -169,6 +169,7 @@ void AUTWeap_Translocator::FireShot()
 					{
 						UTOwner->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 						UTOwner->DropFlag();
+						UTOwner->bIsTranslocating = true;  // different telefrag rules than for teleporters
 
 						// You can die during teleportation, UTOwner is not guaranteed valid
 						if (UTOwner->TeleportTo(WarpLocation, WarpRotation) && UTOwner != nullptr)
@@ -187,6 +188,7 @@ void AUTWeap_Translocator::FireShot()
 								}
 							}
 						}
+						UTOwner->bIsTranslocating = false;
 					}
 					else
 					{
