@@ -4419,14 +4419,24 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 {
 	if (bHasHighScore)
 	{
-		if (LeaderHat == nullptr && Hat && Hat->LeaderHatClass && Hat->LeaderHatClass->IsChildOf(AUTHatLeader::StaticClass()))
+		if (LeaderHat == nullptr)
 		{
+			TSubclassOf<class AUTHatLeader> LeaderHatClass;
+			if (Hat && Hat->LeaderHatClass && Hat->LeaderHatClass->IsChildOf(AUTHatLeader::StaticClass()))
+			{
+				LeaderHatClass = Hat->LeaderHatClass;
+			}
+			else
+			{
+				LeaderHatClass = DefaultLeaderHatClass;
+			}
+
 			FActorSpawnParameters Params;
 			Params.Owner = this;
 			Params.Instigator = this;
 			Params.bNoCollisionFail = true;
 			Params.bNoFail = true;
-			LeaderHat = GetWorld()->SpawnActor<AUTHatLeader>(Hat->LeaderHatClass, GetActorLocation(), GetActorRotation(), Params);
+			LeaderHat = GetWorld()->SpawnActor<AUTHatLeader>(LeaderHatClass, GetActorLocation(), GetActorRotation(), Params);
 			if (LeaderHat != nullptr)
 			{
 				FVector HatRelativeLocation = LeaderHat->GetRootComponent()->RelativeLocation;
@@ -4436,7 +4446,10 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
 				LeaderHat->OnVariantSelected(HatVariant);
 
-				Hat->SetActorHiddenInGame(true);
+				if (Hat)
+				{
+					Hat->SetActorHiddenInGame(true);
+				}
 			}
 		}
 	}
