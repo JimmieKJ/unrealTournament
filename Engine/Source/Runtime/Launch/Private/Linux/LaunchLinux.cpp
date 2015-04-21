@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 	}
 #endif
 	
-	if (FParse::Param(*GSavedCommandLine, TEXT("daemon"))
+	if (FParse::Param(*GSavedCommandLine, TEXT("daemon")))
 	{
 		FPlatformProcess::Daemonize();
 	}
