@@ -1771,13 +1771,25 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 	if (B != NULL)
 	{
-		if (Cast<APawn>(Target) != NULL && TargetLoc == Target->GetActorLocation() && B->IsEnemyVisible((APawn*)Target))
+		APawn* TargetPawn = Cast<APawn>(Target);
+		if (TargetPawn != NULL && TargetLoc == Target->GetActorLocation() && B->IsEnemyVisible(TargetPawn))
 		{
 			bVisible = true;
 		}
 		else
 		{
-			bVisible = B->UTLineOfSightTo(Target, FVector::ZeroVector, false, TargetLoc);
+			// by default bots do not try shooting enemies when the enemy info is stale
+			// since even if the target location is visible the enemy is probably not near there anymore
+			// subclasses can override if their fire mode(s) are suitable for speculative or predictive firing
+			const FBotEnemyInfo* EnemyInfo = (TargetPawn != NULL) ? B->GetEnemyInfo(TargetPawn, true) : NULL;
+			if (EnemyInfo != NULL && EnemyInfo->LastFullUpdateTime > 1.0f)
+			{
+				bVisible = false;
+			}
+			else
+			{
+				bVisible = B->UTLineOfSightTo(Target, FVector::ZeroVector, false, TargetLoc);
+			}
 		}
 	}
 	else

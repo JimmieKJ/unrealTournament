@@ -110,7 +110,7 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	PeripheralVision = 0.7f;
 	TrackingReactionTime = 0.25f;
 	MaxTrackingPredictionError = 0.2f;
-	MaxTrackingOffsetError = 0.2f;
+	MaxTrackingOffsetError = 0.15f;
 	TrackingErrorUpdateInterval = 0.4f;
 	TrackingErrorUpdateTime = 0.f;
 	LastIterativeLeadCheck = 1.0f;
@@ -776,7 +776,7 @@ void AUTBot::UpdateTrackingError(bool bNewEnemy)
 		if (!bNewEnemy)
 		{
 			float AcquisitionRate = 0.9f / FMath::Max<float>(1.0f, 0.25f * (Skill - Personality.ReactionTime * 2.0f));
-			float LossRate = 1.15f + 0.3f * FMath::Max<float>(0.0f, 1.0f - (Skill / 7.0f)) + Personality.ReactionTime * 0.1f;
+			float LossRate = 1.15f + 0.3f * FMath::Max<float>(0.0f, 1.0f - (Skill / 7.0f)) - Personality.ReactionTime * 0.1f;
 			AdjustedMaxTrackingOffsetError *= IsEnemyVisible(Enemy) ? AcquisitionRate : LossRate;
 		}
 		// don't let tracking offset error get to zero; looks bad and sometimes the error corrects for flaws (intentional or otherwise) in the base aim
@@ -1188,6 +1188,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 						TargetP->GetSimplifiedSavedPositions(SavedPositions, true);
 					}
 				}
+				bool bGotPredictedPosition = false;
 				if (SavedPositions.Num() > 1)
 				{
 					// determine his position and velocity at the appropriate point in the past
@@ -1200,7 +1201,7 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 							FVector SideDir = ((TargetLoc - P->GetActorLocation()) ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FLinearColor::White, false);
 							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*(TrackingReactionTime + TrackingPredictionError), 40.f, 8, FLinearColor::Yellow, false);
-							TargetLoc = TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError) + SideDir * FMath::Min<float>(500.f, TrackingOffsetError * (TargetLoc - P->GetActorLocation()).Size());
+							TargetLoc = TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError) + SideDir * (TrackingOffsetError * FMath::Min<float>(500.f, (TargetLoc - P->GetActorLocation()).Size()));
 							//DrawDebugSphere(GetWorld(), TargetLoc, 40.f, 8, FLinearColor::Red, false);
 
 							if (CanAttack(Enemy, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
@@ -1214,19 +1215,23 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 								FocalPoint = TargetLoc;
 							}
 
+							bGotPredictedPosition = true;
 							break;
 						}
 					}
 				}
-				else if (CanAttack(Enemy, GetEnemyLocation(Enemy, true), false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+				if (!bGotPredictedPosition)
 				{
-					bLastCanAttackSuccess = true;
-					bPickNewFireMode = false;
-					ApplyWeaponAimAdjust(GetEnemyLocation(Enemy, true), FocalPoint);
-				}
-				else
-				{
-					FocalPoint = GetEnemyLocation(Enemy, false);
+					if (CanAttack(Enemy, GetEnemyLocation(Enemy, true), false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+					{
+						bLastCanAttackSuccess = true;
+						bPickNewFireMode = false;
+						ApplyWeaponAimAdjust(GetEnemyLocation(Enemy, true), FocalPoint);
+					}
+					else
+					{
+						FocalPoint = GetEnemyLocation(Enemy, false);
+					}
 				}
 			}
 			else if (Target != NULL && GetFocusActor() == Target)
@@ -3414,12 +3419,16 @@ void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 				else if (LocalEnemyList[i].GetPawn() == NewEnemy)
 				{
 					LocalEnemyList[i].Update(UpdateType);
+					bFound = true;
 					break;
 				}
 			}
-			if (bImportant)
+			if (!bFound)
 			{
 				new(LocalEnemyList) FBotEnemyInfo(NewEnemy, UpdateType);
+			}
+			if (bImportant)
+			{
 				PickNewEnemy();
 			}
 		}
