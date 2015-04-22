@@ -25,6 +25,8 @@
 #include "UnrealNetwork.h"
 #include "UTProfileSettings.h"
 #include "UTViewPlaceholder.h"
+#include "DataChannel.h"
+#include "Engine/GameInstance.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -72,6 +74,8 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bIsDebuggingProjectiles = false;
 	bUseClassicGroups = true;
 
+	CastingGuideViewIndex = INDEX_NONE;
+
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
 
@@ -95,6 +99,8 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, MaxPredictionPing, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, PredictionFudgeFactor, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 }
 
 void AUTPlayerController::ServerNegotiatePredictionPing_Implementation(float NewPredictionPing)
@@ -340,6 +346,10 @@ void AUTPlayerController::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 	UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+	if (UTPlayerState != NULL && bCastingGuide)
+	{
+		OnRep_CastingGuide();
+	}
 }
 
 void AUTPlayerController::SetPawn(APawn* InPawn)
@@ -2415,6 +2425,40 @@ void AUTPlayerController::ClientSetLocation_Implementation(FVector NewLocation, 
 	if (!GetPawn())
 	{
 		SetSpawnLocation(NewLocation);
+	}
+}
+
+void AUTPlayerController::OnRep_CastingGuide()
+{
+	if (GetWorld()->GetNetMode() == NM_Client && bCastingGuide && UTPlayerState != NULL)
+	{
+		ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+		if (LP != NULL && LP->ViewportClient != NULL && LP->GetGameInstance() != NULL)
+		{
+			while (LP->GetGameInstance()->GetNumLocalPlayers() < LP->ViewportClient->MaxSplitscreenPlayers)
+			{
+				// partial copy from UGameInstance::CreateLocalPlayer() and ULocalPlayer::SendSplitJoin() as we want to do special join handling
+				ULocalPlayer* NewPlayer = CastChecked<ULocalPlayer>(StaticConstructObject(GEngine->LocalPlayerClass, GEngine));
+				int32 InsertIndex = LP->GetGameInstance()->AddLocalPlayer(NewPlayer, 255);
+				if (InsertIndex == INDEX_NONE)
+				{
+					// something went wrong
+					break;
+				}
+				else
+				{
+					FURL URL;
+					URL.LoadURLConfig(TEXT("DefaultPlayer"), GGameIni);
+					URL.AddOption(*FString::Printf(TEXT("Name=%s"), *FString::Printf(TEXT("%s_Spec%i"), *UTPlayerState->PlayerName, InsertIndex)));
+					URL.AddOption(TEXT("CastingView=1"));
+					URL.AddOption(TEXT("SpectatorOnly=1"));
+					FString URLString = URL.ToString();
+					FUniqueNetIdRepl UniqueId = LP->GetPreferredUniqueNetId();
+					FNetControlMessage<NMT_JoinSplit>::Send(GetWorld()->GetNetDriver()->ServerConnection, URLString, UniqueId);
+					NewPlayer->bSentSplitJoin = true;
+				}
+			}
+		}
 	}
 }
 

@@ -405,19 +405,19 @@ public:
 
 	/** Last time this client's ping was updated. */
 	UPROPERTY()
-		float LastPingCalcTime;
+	float LastPingCalcTime;
 
 	/** Client sends ping request to server - used when servermoves aren't happening. */
 	UFUNCTION(unreliable, server, WithValidation)
-		virtual void ServerBouncePing(float TimeStamp);
+	virtual void ServerBouncePing(float TimeStamp);
 
 	/** Server bounces ping request back to client - used when servermoves aren't happening. */
 	UFUNCTION(unreliable, client)
-		virtual void ClientReturnPing(float TimeStamp);
+	virtual void ClientReturnPing(float TimeStamp);
 
 	/** Client informs server of new ping update. */
 	UFUNCTION(unreliable, server, WithValidation)
-		virtual void ServerUpdatePing(float ExactPing);
+	virtual void ServerUpdatePing(float ExactPing);
 
 	//-----------------------------------------------
 	/** guess of this player's target on last shot, used by AI */
@@ -427,6 +427,16 @@ public:
 	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
 
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
+
+	/** sent from server when it accepts the URL parameter "?castingguide=1", which enables a special multi-camera view that shows many potential spectating views at once */
+	UPROPERTY(ReplicatedUsing = OnRep_CastingGuide)
+	bool bCastingGuide;
+	/** casting guide view number, 0 == primary PC, 1+ == child PCs */
+	UPROPERTY(Replicated)
+	int32 CastingGuideViewIndex;
+
+	UFUNCTION()
+	void OnRep_CastingGuide();
 
 	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);

@@ -418,8 +418,25 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 		BaseMutator->ModifyLogin(ModdedPortal, ModdedOptions);
 	}
 	APlayerController* Result = Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
-	if (Result)
+	if (Result != NULL)
 	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Result);
+		if (UTPC != NULL)
+		{
+			UTPC->bCastingGuide = EvalBoolOptions(ParseOption(Options, TEXT("CastingGuide")), false);
+			// TODO: check if allowed?
+			if (UTPC->bCastingGuide)
+			{
+				UTPC->PlayerState->bOnlySpectator = true;
+				UTPC->CastingGuideViewIndex = 0;
+			}
+
+			if (EvalBoolOptions(ParseOption(Options, TEXT("CastingView")), false))
+			{
+				UChildConnection* ChildConn = Cast<UChildConnection>(NewPlayer);
+				UTPC->CastingGuideViewIndex = (ChildConn != NULL) ? (ChildConn->Parent->Children.Find(ChildConn) + 1) : 0;
+			}
+		}
 		AUTPlayerState* PS = Cast<AUTPlayerState>(Result->PlayerState);
 		if (PS != NULL)
 		{
@@ -2166,6 +2183,13 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 		{
 			UTGameSession->UpdateGameState();
 		}
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(NewPlayer);
+	if (UTPC != NULL && UTPC->CastingGuideViewIndex >= 0 && GameState->PlayerArray.IsValidIndex(UTPC->CastingGuideViewIndex))
+	{
+		// TODO: better choice of casting views
+		UTPC->ServerViewPlayerState(Cast<AUTPlayerState>(GameState->PlayerArray[UTPC->CastingGuideViewIndex]));
 	}
 
 	CheckBotCount();
