@@ -2916,7 +2916,24 @@ void AUTCharacter::UpdateCharOverlays()
 
 void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
 {
-	SetCharacterOverlay(TacComOverlayMaterial, bTacComEnabled);
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL)
+	{
+		int32 Index = GS->FindOverlayMaterial(TacComOverlayMaterial);
+		if (Index != INDEX_NONE)
+		{
+			if (bTacComEnabled)
+			{
+				CharOverlayFlags |= (1 << Index);
+			}
+			else
+			{
+				CharOverlayFlags &= ~(1 << Index);
+			}
+			UpdateCharOverlays();
+		}
+	}
+
 	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
 }

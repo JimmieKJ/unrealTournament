@@ -115,7 +115,7 @@ void AUTGameState::BeginPlay()
 			}
 		}
 	}
-
+	else
 	{
 		TArray<UObject*> AllInventory;
 		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
@@ -127,9 +127,7 @@ void AUTGameState::BeginPlay()
 				((AUTInventory*)AllInventory[i])->AddOverlayMaterials(this);
 			}
 		}
-	}
 
-	{
 		TArray<UObject*> AllCharacters;
 		GetObjectsOfClass(AUTCharacter::StaticClass(), AllCharacters, true, RF_NoFlags);
 		for (int32 i = 0; i < AllCharacters.Num(); i++)
@@ -229,7 +227,6 @@ void AUTGameState::DefaultTimer()
 			}
 		}
 	}
-
 }
 
 bool AUTGameState::OnSameTeam(const AActor* Actor1, const AActor* Actor2)
