@@ -335,6 +335,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::AddChangeButton()
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("HUB","ChangeRulesButton","Choose Game"))
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.IsEnabled(this, &SULobbyMatchSetupPanel::CanChooseGame)
 			.OnClicked(this, &SULobbyMatchSetupPanel::ChooseGameClicked);
 	}
 	else
@@ -342,6 +343,12 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::AddChangeButton()
 		return SNew(SCanvas);
 	}
 }
+
+bool SULobbyMatchSetupPanel::CanChooseGame() const
+{
+	return (MatchInfo.IsValid() && MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers);
+}
+
 
 FReply SULobbyMatchSetupPanel::ChooseGameClicked()
 {
@@ -352,7 +359,6 @@ FReply SULobbyMatchSetupPanel::ChooseGameClicked()
 			.PlayerOwner(PlayerOwner)
 			.GameRuleSets(LobbyGameState->AvailableGameRulesets)
 			.OnDialogResult(this, &SULobbyMatchSetupPanel::OnGameChangeDialogResult);
-		
 
 		if ( SetupDialog.IsValid() )
 		{

@@ -72,15 +72,15 @@ void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 	{
 		// When the client receives it's startup info, it will attempt to switch the match's state from Setup to waiting for players
 		// but if we are Gamenching due to quickstart we don't want that.
-		if (NewMatchState != ELobbyMatchState::WaitingForPlayers || CurrentState != ELobbyMatchState::Launching)
-		{
+		//if (NewMatchState != ELobbyMatchState::WaitingForPlayers || CurrentState != ELobbyMatchState::Launching)
+		//{
 			CurrentState = NewMatchState;
 			if (CurrentState == ELobbyMatchState::Recycling)
 			{
 				FTimerHandle TempHandle; 
 				GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyMatchInfo::RecycleMatchInfo, 120.0, false);
 			}
-		}
+		//}
 	}
 }
 

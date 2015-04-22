@@ -313,7 +313,7 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			B->StartWaitForMove();
 			return true;
 		}
-		else if (FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home && B->LineOfSightTo(FriendlyBase->GetCarriedObject()))
+		else if (FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home && B->LineOfSightTo(FriendlyBase->GetCarriedObject()))
 		{
 			return RecoverFriendlyFlag(B);
 		}

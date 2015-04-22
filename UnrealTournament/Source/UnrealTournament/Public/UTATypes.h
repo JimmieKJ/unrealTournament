@@ -371,6 +371,6 @@ namespace FGameRuleCategories
 
 namespace FQuickMatchTypeRulesetTag
 {
-	const FString CTF = TEXT("CaptureTheFlag");
+	const FString CTF = TEXT("CTF");
 	const FString DM = TEXT("Deathmatch");
 }

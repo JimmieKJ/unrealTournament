@@ -105,6 +105,7 @@ protected:
 	FText GetMatchRulesDescription() const;
 
 	TSharedRef<SWidget> AddChangeButton();
+	bool CanChooseGame() const;
 	FReply ChooseGameClicked();
 
 	TSharedPtr<SVerticalBox> MapListPanel;

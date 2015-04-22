@@ -46,20 +46,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 	for (int32 Team=0;Team<2;Team++)
 	{
-		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
-		bool bDrawInWorld = false;
-		bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
-		bool bIsEnemyFlag = !GS->OnSameTeam(Base, UTPlayerOwner);
-		FVector ScreenPosition(0.f);
-		if (Base && Base->GetCarriedObject() && ((ViewRotation.Vector() | (Base->GetCarriedObject()->GetActorLocation() - ViewPoint)) > 0.f))
-		{
-			AUTCarriedObject* Flag = Base->GetCarriedObject();
-			ScreenPosition = GetCanvas()->Project(Flag->GetActorLocation() + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 2.f));
-			bDrawInWorld = (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
-			ScreenPosition.X -= RenderPosition.X;
-			ScreenPosition.Y -= RenderPosition.Y;
-		}
-
+		// draw flag state in HUD
 		RenderObj_Texture(CircleSlate[Team]);
 		RenderObj_Texture(CircleBorder[Team]);
 
@@ -92,33 +79,59 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				RenderObj_TextureAt(DroppedIconTemplate, X, Y, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
 			}
 		}
-		if (bDrawInWorld && (bSpectating || bIsEnemyFlag || (FlagState == CarriedObjectState::Home)))
-		{
-			float OldAlpha = FlagIconTemplate.RenderOpacity;
-			FlagIconTemplate.RenderOpacity = InWorldAlpha;
-			CircleBorder[Team].RenderOpacity = InWorldAlpha;
-			RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth(), CircleSlate[Team].GetHeight());
-			RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth(), CircleBorder[Team].GetHeight());
-			if (FlagState == CarriedObjectState::Held)
-			{
-				TakenIconTemplate.RenderOpacity = InWorldAlpha;
-				RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth(), 1.1f * TakenIconTemplate.GetHeight());
-				RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X - 0.25f * FlagIconTemplate.GetWidth(), ScreenPosition.Y - 0.25f * FlagIconTemplate.GetHeight(), FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
-			}
-			else
-			{
-				RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
 
-				if (FlagState == CarriedObjectState::Dropped)
-				{
-					float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
-					DroppedIconTemplate.RenderOpacity = InWorldAlpha;
-					RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
-					DroppedIconTemplate.RenderOpacity = DroppedAlpha;
-				}
+		// Draw flag state in world
+		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
+		bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
+		bool bIsEnemyFlag = !GS->OnSameTeam(Base, UTPlayerOwner);
+		if (bSpectating || bIsEnemyFlag || (FlagState == CarriedObjectState::Home))
+		{
+			bool bDrawInWorld = false;
+			FVector ScreenPosition(0.f);
+			if (Base && Base->GetCarriedObject() && ((ViewRotation.Vector() | (Base->GetCarriedObject()->GetActorLocation() - ViewPoint)) > 0.f))
+			{
+				AUTCarriedObject* Flag = Base->GetCarriedObject();
+				ScreenPosition = GetCanvas()->Project(Flag->GetActorLocation() + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f));
+				bDrawInWorld = (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
+				ScreenPosition.X -= RenderPosition.X;
+				ScreenPosition.Y -= RenderPosition.Y;
+
+				// don't overlap player beacon
+				UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+				float X, Y;
+				float Scale = Canvas->ClipX / 1920.f;
+				Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
+				ScreenPosition.Y -= 3.f*Y;
 			}
-			FlagIconTemplate.RenderOpacity = OldAlpha;
-			CircleBorder[Team].RenderOpacity = 1.f;
+
+			if (bDrawInWorld)
+			{
+				float OldAlpha = FlagIconTemplate.RenderOpacity;
+				FlagIconTemplate.RenderOpacity = InWorldAlpha;
+				CircleBorder[Team].RenderOpacity = InWorldAlpha;
+				RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth(), CircleSlate[Team].GetHeight());
+				RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth(), CircleBorder[Team].GetHeight());
+				if (FlagState == CarriedObjectState::Held)
+				{
+					TakenIconTemplate.RenderOpacity = InWorldAlpha;
+					RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth(), 1.1f * TakenIconTemplate.GetHeight());
+					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X - 0.25f * FlagIconTemplate.GetWidth(), ScreenPosition.Y - 0.25f * FlagIconTemplate.GetHeight(), FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
+				}
+				else
+				{
+					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
+
+					if (FlagState == CarriedObjectState::Dropped)
+					{
+						float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
+						DroppedIconTemplate.RenderOpacity = InWorldAlpha;
+						RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
+						DroppedIconTemplate.RenderOpacity = DroppedAlpha;
+					}
+				}
+				FlagIconTemplate.RenderOpacity = OldAlpha;
+				CircleBorder[Team].RenderOpacity = 1.f;
+			}
 		}
 	}
 
