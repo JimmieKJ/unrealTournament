@@ -220,7 +220,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 
 			// There wasn't a match to play on here
 
-			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode.Equals(TEXT("/Script/UnrealTournament.UTCTFGameMode"), ESearchCase::IgnoreCase));
+			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode.Equals(FQuickMatchTypeRulesetTag::CTF, ESearchCase::IgnoreCase));
 		}
 	}
 	// Set my Initial Presence
