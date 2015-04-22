@@ -1495,7 +1495,7 @@ TSharedPtr<SUWFriendsPopup> UUTLocalPlayer::GetFriendsPopup()
 void UUTLocalPlayer::ReturnToMainMenu()
 {
 	HideMenu();
-	Exec(GetWorld(), TEXT("open UT-Entry?Game=/Script/UnrealTournament.UTMenuGameMode"), *GLog);
+	Exec(GetWorld(), TEXT("disconnect"), *GLog);
 }
 
 bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch)
