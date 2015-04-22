@@ -889,7 +889,7 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent->Team != Team && !Opponent->bOnlySpectator)
+		if (Opponent && Opponent->Team != Team && !Opponent->bOnlySpectator)
 		{
 			OpponentCount++;
 			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
@@ -966,7 +966,7 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	for (int32 OuterPlayerIdx = 0; OuterPlayerIdx < InactivePlayerStates->Num(); OuterPlayerIdx++)
 	{
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
-		if (Opponent != this && !Opponent->bOnlySpectator)
+		if (Opponent && Opponent != this && !Opponent->bOnlySpectator)
 		{
 			OpponentCount++;
 			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
