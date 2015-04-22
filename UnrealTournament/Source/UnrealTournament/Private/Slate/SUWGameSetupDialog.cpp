@@ -599,7 +599,8 @@ FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 			if (Cnt == SelectedRuleset->MapPlaylistSize)
 			{
 				MapPlayList[MapIndex].Button->UnPressed();
-				GetPlayerOwner()->MessageBox(NSLOCTEXT("SUWGameSetupDialog","TooManyMapsTitle","Too many maps"), NSLOCTEXT("SUWGameSetupDialog","TooManyMaps","You can only have 6 maps in a play list at any given time.  Plesae unselect a map before adding another."));
+				FText Msg = FText::Format(NSLOCTEXT("SUWGameSetupDialog","TooManyMaps","You can only have {0} maps in a play list at any given time.  Plesae unselect a map before adding another."), FText::AsNumber(SelectedRuleset->MapPlaylistSize));
+				GetPlayerOwner()->MessageBox(NSLOCTEXT("SUWGameSetupDialog","TooManyMapsTitle","Too many maps"), Msg);
 			}
 			else
 			{
