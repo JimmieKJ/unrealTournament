@@ -1576,6 +1576,12 @@ public:
 	UFUNCTION()
 	void StatusAmbientSoundUpdated();
 
+	/** TacCom overlay material */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+		UMaterialInterface* TacComOverlayMaterial;
+
+	virtual void UpdateTacComMesh(bool bTacComEnabled);
+
 	//================================
 protected:
 	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */

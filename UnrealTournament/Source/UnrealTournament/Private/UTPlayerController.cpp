@@ -1642,6 +1642,22 @@ void AUTPlayerController::ToggleTacCom()
 			Pickup->SetTacCom(bTacComView);
 		}
 	}
+	UpdateTacComOverlays();
+}
+
+void AUTPlayerController::UpdateTacComOverlays()
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
+			if (UTChar)
+			{
+				UTChar->UpdateTacComMesh(bTacComView);
+			}
+		}
+	}
 }
 
 void AUTPlayerController::SetStylizedPP(int32 NewPP)
@@ -1950,6 +1966,10 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	else if (PlayerState && PlayerState->bOnlySpectator && (GetViewTarget() == this))
 	{
 		ClientViewSpectatorPawn(FViewTargetTransitionParams());
+	}
+	if (bTacComView && PlayerState && PlayerState->bOnlySpectator)
+	{
+		UpdateTacComOverlays();
 	}
 }
 

@@ -115,7 +115,7 @@ void AUTGameState::BeginPlay()
 			}
 		}
 	}
-
+	else
 	{
 		TArray<UObject*> AllInventory;
 		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
@@ -125,6 +125,17 @@ void AUTGameState::BeginPlay()
 			{
 				checkSlow(AllInventory[i]->IsA(AUTInventory::StaticClass()));
 				((AUTInventory*)AllInventory[i])->AddOverlayMaterials(this);
+			}
+		}
+
+		TArray<UObject*> AllCharacters;
+		GetObjectsOfClass(AUTCharacter::StaticClass(), AllCharacters, true, RF_NoFlags);
+		for (int32 i = 0; i < AllCharacters.Num(); i++)
+		{
+			if (AllCharacters[i]->HasAnyFlags(RF_ClassDefaultObject))
+			{
+				checkSlow(AllCharacters[i]->IsA(AUTCharacter::StaticClass()));
+				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->TacComOverlayMaterial);
 			}
 		}
 	}
@@ -216,7 +227,6 @@ void AUTGameState::DefaultTimer()
 			}
 		}
 	}
-
 }
 
 bool AUTGameState::OnSameTeam(const AActor* Actor1, const AActor* Actor2)

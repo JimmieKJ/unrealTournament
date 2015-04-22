@@ -24,6 +24,7 @@
 #include "UTWeaponStateFiring.h"
 #include "UTMovementBaseInterface.h"
 #include "UTCharacterContent.h"
+#include "UTPlayerCameraManager.h"
 #include "ComponentReregisterContext.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
@@ -2901,6 +2902,9 @@ void AUTCharacter::UpdateCharOverlays()
 			{
 				static FName NAME_TeamColor(TEXT("TeamColor"));
 				MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+
+				static FName NAME_Damage(TEXT("Damage"));
+				MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
 			}
 			for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
 			{
@@ -2908,6 +2912,30 @@ void AUTCharacter::UpdateCharOverlays()
 			}
 		}
 	}
+}
+
+void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL)
+	{
+		int32 Index = GS->FindOverlayMaterial(TacComOverlayMaterial);
+		if (Index != INDEX_NONE)
+		{
+			if (bTacComEnabled)
+			{
+				CharOverlayFlags |= (1 << Index);
+			}
+			else
+			{
+				CharOverlayFlags &= ~(1 << Index);
+			}
+			UpdateCharOverlays();
+		}
+	}
+
+	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+	GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
 }
 
 UMaterialInstanceDynamic* AUTCharacter::GetCharOverlayMI()
@@ -3739,7 +3767,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
 	bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
 	bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
-	if (UTPS != NULL && PC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && ((GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f) || bTacCom) &&
+	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
@@ -3747,7 +3775,21 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		{
 			float TextXL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
-			bool bFarAway = bTacCom && (Dist > (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance));
+			bool bFarAway = (Dist > TeamPlayerIndicatorMaxDistance);
+			if (bTacCom && !bFarAway && PC->PlayerCameraManager)
+			{
+				// need to do trace, since taccom guys always rendered
+				AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PC->PlayerCameraManager);
+				if (CamMgr)
+				{
+					FHitResult Result(1.f);
+					CamMgr->CheckCameraSweep(Result, this, CameraPosition, GetActorLocation() + FVector(0.f,0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()));
+					if (Result.bBlockingHit)
+					{
+						bFarAway = true;
+					}
+				}
+			}
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
 			float X, Y;

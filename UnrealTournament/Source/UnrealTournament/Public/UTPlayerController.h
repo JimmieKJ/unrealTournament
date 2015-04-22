@@ -211,6 +211,8 @@ public:
 	UPROPERTY(BluePrintReadWrite)
 		bool bTacComView;
 
+	virtual void UpdateTacComOverlays();
+
 	/** View Flag of team specified by Index. */
 	UFUNCTION(unreliable, server, WithValidation)
 		void ServerViewFlag(int32 Index);

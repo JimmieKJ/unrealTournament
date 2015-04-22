@@ -17,7 +17,7 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 
 bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
-	if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState)
+	if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
 		if (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
 		{
