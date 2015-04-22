@@ -74,15 +74,6 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			TakenIconTemplate.RenderColor.R *= FMath::Square(StatusScale) - 0.25f;
 			TakenIconTemplate.RenderColor.B *= FMath::Square(StatusScale) - 0.25f;
 			RenderObj_TextureAt(TakenIconTemplate, X + 0.1f * FlagIconTemplate.GetWidth(), Y + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
-			if (bDrawInWorld && (bSpectating || bIsEnemyFlag))
-			{
-				TakenIconTemplate.RenderOpacity = InWorldAlpha;
-				CircleBorder[Team].RenderOpacity = InWorldAlpha;
-				RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth(), CircleSlate[Team].GetHeight());
-				RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth(), CircleBorder[Team].GetHeight());
-				RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth(), 1.1f * TakenIconTemplate.GetHeight());
-				CircleBorder[Team].RenderOpacity = 1.f;
-			}
 			AUTPlayerState* Holder = GS->GetFlagHolder(Team);
 			if (Holder)
 			{
@@ -92,39 +83,42 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			float CarriedX = X - 0.25f * FlagIconTemplate.GetWidth();
 			float CarriedY = Y - 0.25f * FlagIconTemplate.GetHeight();
 			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, StatusScale * FlagIconTemplate.GetWidth(), StatusScale * FlagIconTemplate.GetHeight());
-			if (bDrawInWorld && (bSpectating || bIsEnemyFlag))
-			{
-				float OldAlpha = FlagIconTemplate.RenderOpacity;
-				FlagIconTemplate.RenderOpacity = InWorldAlpha;
-				RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X - 0.25f * FlagIconTemplate.GetWidth(), ScreenPosition.Y - 0.25f * FlagIconTemplate.GetHeight(), FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
-				FlagIconTemplate.RenderOpacity = OldAlpha;
-			}
 		}
 		else
 		{
 			RenderObj_TextureAt(FlagIconTemplate, X, Y, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
-			if (bDrawInWorld && (bSpectating || bIsEnemyFlag || (FlagState == CarriedObjectState::Home)))
-			{
-				float OldAlpha = FlagIconTemplate.RenderOpacity;
-				FlagIconTemplate.RenderOpacity = InWorldAlpha;
-				CircleBorder[Team].RenderOpacity = InWorldAlpha;
-				RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth(), CircleSlate[Team].GetHeight());
-				RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth(), CircleBorder[Team].GetHeight());
-				RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
-				FlagIconTemplate.RenderOpacity = OldAlpha;
-				CircleBorder[Team].RenderOpacity = OldAlpha;
-			}
 			if (FlagState == CarriedObjectState::Dropped)
 			{
 				RenderObj_TextureAt(DroppedIconTemplate, X, Y, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
-				if (bDrawInWorld && (bSpectating || bIsEnemyFlag))
+			}
+		}
+		if (bDrawInWorld && (bSpectating || bIsEnemyFlag || (FlagState == CarriedObjectState::Home)))
+		{
+			float OldAlpha = FlagIconTemplate.RenderOpacity;
+			FlagIconTemplate.RenderOpacity = InWorldAlpha;
+			CircleBorder[Team].RenderOpacity = InWorldAlpha;
+			RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth(), CircleSlate[Team].GetHeight());
+			RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth(), CircleBorder[Team].GetHeight());
+			if (FlagState == CarriedObjectState::Held)
+			{
+				TakenIconTemplate.RenderOpacity = InWorldAlpha;
+				RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth(), 1.1f * TakenIconTemplate.GetHeight());
+				RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X - 0.25f * FlagIconTemplate.GetWidth(), ScreenPosition.Y - 0.25f * FlagIconTemplate.GetHeight(), FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
+			}
+			else
+			{
+				RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
+
+				if (FlagState == CarriedObjectState::Dropped)
 				{
-					float OldAlpha = DroppedIconTemplate.RenderOpacity;
+					float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
 					DroppedIconTemplate.RenderOpacity = InWorldAlpha;
 					RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
-					DroppedIconTemplate.RenderOpacity = OldAlpha;
+					DroppedIconTemplate.RenderOpacity = DroppedAlpha;
 				}
 			}
+			FlagIconTemplate.RenderOpacity = OldAlpha;
+			CircleBorder[Team].RenderOpacity = 1.f;
 		}
 	}
 
