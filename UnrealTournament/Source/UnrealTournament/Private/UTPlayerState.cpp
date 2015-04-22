@@ -31,6 +31,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	DuelSkillRatingThisMatch = 0;
 	TDMSkillRatingThisMatch = 0;
 	DMSkillRatingThisMatch = 0;
+	CTFSkillRatingThisMatch = 0;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -519,6 +520,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->DuelSkillRatingThisMatch = DuelSkillRatingThisMatch;
 		PS->DMSkillRatingThisMatch = DMSkillRatingThisMatch;
 		PS->TDMSkillRatingThisMatch = TDMSkillRatingThisMatch;
+		PS->CTFSkillRatingThisMatch = CTFSkillRatingThisMatch;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
 		PS->Deaths = Deaths;
@@ -766,6 +768,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))), EStatRecordingPeriod::Persistent);
 					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("TDMSkillRating"))), EStatRecordingPeriod::Persistent);
 					DMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("DMSkillRating"))), EStatRecordingPeriod::Persistent);
+					CTFSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("CTFSkillRating"))), EStatRecordingPeriod::Persistent);
 				}
 			}
 		}
@@ -842,6 +845,10 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 	else if (SkillStatName == FName(TEXT("DMSkillRating")))
 	{
 		SkillRating = DMSkillRatingThisMatch;
+	}
+	else if (SkillStatName == FName(TEXT("CTFSkillRating")))
+	{
+		SkillRating = CTFSkillRatingThisMatch;
 	}
 	else
 	{

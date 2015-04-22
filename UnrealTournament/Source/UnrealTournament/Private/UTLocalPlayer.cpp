@@ -1172,10 +1172,12 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 				StatsJson->TryGetNumberField(TEXT("SkillRating"), DUEL_ELO);
 				StatsJson->TryGetNumberField(TEXT("TDMSkillRating"), TDM_ELO);
 				StatsJson->TryGetNumberField(TEXT("DMSkillRating"), FFA_ELO);
+				StatsJson->TryGetNumberField(TEXT("CTFSkillRating"), CTF_ELO);
 				StatsJson->TryGetNumberField(TEXT("MatchesPlayed"), MatchesPlayed);
 				StatsJson->TryGetNumberField(TEXT("SkillRatingSamples"), DuelMatchesPlayed);
 				StatsJson->TryGetNumberField(TEXT("TDMSkillRatingSamples"), TDMMatchesPlayed);
 				StatsJson->TryGetNumberField(TEXT("DMSkillRatingSamples"), FFAMatchesPlayed);
+				StatsJson->TryGetNumberField(TEXT("CTFSkillRatingSamples"), CTFMatchesPlayed);
 			}
 		}
 	}

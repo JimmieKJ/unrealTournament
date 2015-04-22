@@ -751,7 +751,23 @@ void AUTCTFGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 
 void AUTCTFGameMode::UpdateSkillRating()
 {
-	// No more ctf ranking
+	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(FName(TEXT("CTFSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
+
+	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(FName(TEXT("CTFSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
 }
 
 #if !UE_SERVER

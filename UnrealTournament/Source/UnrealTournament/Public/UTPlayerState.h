@@ -337,6 +337,7 @@ private:
 	bool bSuccessfullyReadStatsFromCloud;
 	bool bWroteStatsToCloud;
 	int32 DuelSkillRatingThisMatch;
+	int32 CTFSkillRatingThisMatch;
 	int32 TDMSkillRatingThisMatch;
 	int32 DMSkillRatingThisMatch;
 	IOnlineIdentityPtr OnlineIdentityInterface;
