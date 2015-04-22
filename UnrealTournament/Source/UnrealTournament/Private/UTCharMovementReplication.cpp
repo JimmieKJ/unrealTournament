@@ -330,9 +330,12 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 
 			if (!CurrentFloor.IsWalkableFloor())
 			{
-				// No floor, must fall.
-				Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
-				SetMovementMode(MOVE_Falling);
+				if ((Velocity.Z != 0.f) || (MovementMode == MOVE_Falling))
+				{
+					// No floor, must fall.
+					Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
+					SetMovementMode(MOVE_Falling);
+				}
 			}
 			else
 			{
