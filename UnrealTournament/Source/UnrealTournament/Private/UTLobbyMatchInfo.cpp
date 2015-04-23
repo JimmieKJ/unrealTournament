@@ -296,7 +296,14 @@ void AUTLobbyMatchInfo::LaunchMatch()
 
 	if (CheckLobbyGameState() && CurrentRuleset.IsValid())
 	{
-		LobbyGameState->LaunchGameInstance(this, CurrentRuleset->GameMode, MapList[0], CurrentRuleset->GameOptions, CurrentRuleset->MaxPlayers, BotSkillLevel);
+		if (MapList.Num() > 0)
+		{
+			LobbyGameState->LaunchGameInstance(this, CurrentRuleset->GameMode, MapList[0], CurrentRuleset->GameOptions, CurrentRuleset->MaxPlayers, BotSkillLevel);
+		}
+		else
+		{
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NoMaps","Please Select a map to play."));		
+		}
 	}
 }
 
