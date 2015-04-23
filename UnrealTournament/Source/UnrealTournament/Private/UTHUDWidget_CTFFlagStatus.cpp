@@ -92,7 +92,11 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			{
 				AUTCarriedObject* Flag = Base->GetCarriedObject();
 				ScreenPosition = GetCanvas()->Project(Flag->GetActorLocation() + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f));
-				bDrawInWorld = (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
+				bDrawInWorld = (Flag->Holder != UTPlayerOwner->PlayerState) && (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
+			}
+
+			if (bDrawInWorld)
+			{
 				ScreenPosition.X -= RenderPosition.X;
 				ScreenPosition.Y -= RenderPosition.Y;
 
@@ -102,10 +106,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 				float Scale = Canvas->ClipX / 1920.f;
 				Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
 				ScreenPosition.Y -= 3.f*Y;
-			}
 
-			if (bDrawInWorld)
-			{
 				float OldAlpha = FlagIconTemplate.RenderOpacity;
 				FlagIconTemplate.RenderOpacity = InWorldAlpha;
 				CircleBorder[Team].RenderOpacity = InWorldAlpha;
