@@ -52,6 +52,7 @@ void UUTProfileSettings::VersionFixup()
 		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("PageDown")), IE_Pressed, FString("ViewProjectile")));
 		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("PageUp")), IE_Pressed, FString("ToggleTacCom")));
 		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("BackSpace")), IE_Pressed, FString("ViewClosestVisiblePlayer")));
+		CustomBinds.Add(FCustomKeyBinding(FName(TEXT("Add")), IE_Pressed, FString("ToggleSlideOut")));
 	}
 }
 

@@ -747,27 +747,38 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 	}
 	else if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		if (Group > 5)
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if ((Group > 5) && GS && GS->bTeamGame)
 		{
-			ViewBluePlayer(Group - 5);
+			ViewBluePlayer(Group - 6);
 		}
-		else
+		else if (Group > 0)
 		{
-			ViewRedPlayer(Group);
+			ViewRedPlayer(Group - 1);
 		}
 	}
 }
 
 void AUTPlayerController::ViewRedPlayer(int32 Index)
 {
-	BehindView(bSpectateBehindView);
-	ServerViewPlayer(Index - 1, 0);
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTPlayerState* PlayerToView = GS ? GS->GetRedPlayer(Index) : NULL;
+	if (PlayerToView)
+	{
+		BehindView(bSpectateBehindView);
+		ServerViewPlayerState(PlayerToView);
+	}
 }
 
 void AUTPlayerController::ViewBluePlayer(int32 Index)
 {
-	BehindView(bSpectateBehindView);
-	ServerViewPlayer(Index - 1, 1);
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTPlayerState* PlayerToView = GS ? GS->GetBluePlayer(Index) : NULL;
+	if (PlayerToView)
+	{
+		BehindView(bSpectateBehindView);
+		ServerViewPlayerState(PlayerToView);
+	}
 }
 
 void AUTPlayerController::ToggleBehindView()
@@ -780,6 +791,11 @@ void AUTPlayerController::ToggleBehindView()
 	{
 		ServerViewFlagHolder(UTFlag->GetTeamNum());
 	}
+}
+
+void AUTPlayerController::ToggleSlideOut()
+{
+	bRequestingSlideOut = !bRequestingSlideOut;
 }
 
 bool AUTPlayerController::ServerViewFlagHolder_Validate(int32 TeamIndex)
@@ -795,37 +811,6 @@ void AUTPlayerController::ServerViewFlagHolder_Implementation(int32 TeamIndex)
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > TeamIndex) && CTFGameState->FlagBases[TeamIndex] && CTFGameState->FlagBases[TeamIndex]->MyFlag && CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder)
 		{
 			SetViewTarget(CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder);
-		}
-	}
-}
-
-
-bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)
-{
-	return true;
-}
-
-void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 TeamIndex)
-{
-	BehindView(bSpectateBehindView);
-	Index = FMath::Max(Index, 0);
-	if (PlayerState && PlayerState->bOnlySpectator)
-	{
-		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		if (GameState && (GameState->Teams.Num() > 0))
-		{
-			if ((GameState->Teams.Num() > TeamIndex) && (GameState->Teams[TeamIndex] != NULL))
-			{
-				TArray<AController*> Members = GameState->Teams[TeamIndex]->GetTeamMembers();
-				if ((Members.Num() > Index) && (Members[Index] != NULL) && Members[Index]->PlayerState)
-				{
-					SetViewTarget(Members[Index]->PlayerState);
-				}
-			}
-		}
-		else if (GameState && (Index < GameState->PlayerArray.Num()) && (GameState->PlayerArray[Index] != NULL))
-		{
-			SetViewTarget(GameState->PlayerArray[Index]);
 		}
 	}
 }
@@ -1517,15 +1502,12 @@ void AUTPlayerController::ClientToggleScoreboard_Implementation(bool bShow)
 void AUTPlayerController::ClientSetHUDAndScoreboard_Implementation(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass)
 {
 	// First, create the HUD
-
 	ClientSetHUD_Implementation(NewHUDClass);
-
 	MyUTHUD = Cast<AUTHUD>(MyHUD);
 	if (MyUTHUD != NULL && NewScoreboardClass != NULL)
 	{
 		MyUTHUD->CreateScoreboard(NewScoreboardClass);
 	}
-	
 }
 
 void AUTPlayerController::OnShowScores()

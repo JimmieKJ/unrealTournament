@@ -175,11 +175,7 @@ public:
 	virtual void ViewBluePlayer(int32 Index);
 
 	UFUNCTION(exec)
-		virtual void ViewRedPlayer(int32 Index);
-
-	/** View Player at Index on team specified by TeamIndex. */
-	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewPlayer(int32 Index, int32 TeamIndex);
+	virtual void ViewRedPlayer(int32 Index);
 
 	/** View Player holding flag specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)
@@ -296,8 +292,14 @@ public:
 	virtual void SetStylizedPP(int32 NewPP);
 
 	/** whether player wants behindview when spectating */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Camera)
+	UPROPERTY(BlueprintReadWrite)
 	bool bSpectateBehindView;
+
+	UPROPERTY(BlueprintReadOnly)
+		bool bRequestingSlideOut;
+
+	UFUNCTION(exec)
+		virtual void ToggleSlideOut();
 
 	virtual void ViewAPlayer(int32 dir)
 	{

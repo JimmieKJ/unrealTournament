@@ -236,6 +236,29 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	virtual void OnRep_MatchState() override;
 
+	virtual void AddPlayerState(class APlayerState* PlayerState) override;
+	virtual void RemovePlayerState(class APlayerState* PlayerState) override;
+
+	/** Persistently ordered lists of Red or DM players. */
+	UPROPERTY()
+		TArray<AUTPlayerState*> RedPlayerList;
+
+	/** Persistently ordered lists of Blue players. */
+	UPROPERTY()
+		TArray<AUTPlayerState*> BluePlayerList;
+
+	/** Return players from RedPlayerList */
+	virtual AUTPlayerState* GetRedPlayer(int32 Index);
+
+	/** Return players from BluePlayerList */
+	virtual AUTPlayerState* GetBluePlayer(int32 Index);
+
+	virtual void FillPlayerLists();
+
+	/** If true, BluePlayerList and RedPlayerList are up to date. */
+	UPROPERTY()
+		bool bPlayerListsAreValid;
+
 protected:
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()

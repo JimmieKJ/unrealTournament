@@ -17,6 +17,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
+	bPlayerListsAreValid = false;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -557,3 +558,133 @@ void AUTGameState::OnRep_ServerName()
 void AUTGameState::OnRep_ServerMOTD()
 {
 }
+
+void AUTGameState::AddPlayerState(APlayerState* PlayerState)
+{
+	Super::AddPlayerState(PlayerState);
+	bPlayerListsAreValid = false;
+}
+
+void AUTGameState::RemovePlayerState(APlayerState* PlayerState)
+{
+	Super::RemovePlayerState(PlayerState);
+	bPlayerListsAreValid = false;
+}
+
+// FIXME - move to UTGameState, and cache when PlayerArray changes to know when to refill.
+void AUTGameState::FillPlayerLists()
+{
+	if (bPlayerListsAreValid)
+	{
+		return;
+	}
+	bPlayerListsAreValid = true;
+
+	// fill blueplayerlist
+	if (bTeamGame)
+	{
+		for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (PS && (PS->Team->TeamIndex == 1))
+			{
+				bool bFoundPlayer = false;
+				int32 FirstEmptySlot = -1;
+				for (int32 j = 0; j < BluePlayerList.Num(); j++)
+				{
+					if (BluePlayerList[j] == PS)
+					{
+						bFoundPlayer = true;
+					}
+				}
+				if (!bFoundPlayer)
+				{
+					// add player
+					bool bFoundSlot = false;
+					for (int32 j = 0; j < BluePlayerList.Num(); j++)
+					{
+						if (BluePlayerList[j] == NULL)
+						{
+							bFoundSlot = true;
+							BluePlayerList[j] = PS;
+						}
+					}
+					if (!bFoundSlot)
+					{
+						BluePlayerList.Add(PS);
+					}
+				}
+			}
+		}
+	}
+
+	// fill redplayerlist
+	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		if (PS && !PS->bOnlySpectator && (!bTeamGame || (PS->Team->TeamIndex == 0)))
+		{
+			bool bFoundPlayer = false;
+			int32 FirstEmptySlot = -1;
+			for (int32 j = 0; j < RedPlayerList.Num(); j++)
+			{
+				if (RedPlayerList[j] == PS)
+				{
+					bFoundPlayer = true;
+				}
+			}
+			if (!bFoundPlayer)
+			{
+				// add player
+				bool bFoundSlot = false;
+				for (int32 j = 0; j < RedPlayerList.Num(); j++)
+				{
+					if (RedPlayerList[j] == NULL)
+					{
+						bFoundSlot = true;
+						RedPlayerList[j] = PS;
+					}
+				}
+				if (!bFoundSlot)
+				{
+					RedPlayerList.Add(PS);
+				}
+			}
+		}
+	}
+}
+
+AUTPlayerState* AUTGameState::GetRedPlayer(int32 Index)
+{
+	if ((RedPlayerList.Num() > Index) && (RedPlayerList[Index] != NULL) && !RedPlayerList[Index]->IsPendingKillPending())
+	{
+		return RedPlayerList[Index];
+	}
+	else
+	{
+		FillPlayerLists();
+		if ((RedPlayerList.Num() > Index) && (RedPlayerList[Index] != NULL) && !RedPlayerList[Index]->IsPendingKillPending())
+		{
+			return RedPlayerList[Index];
+		}
+	}
+	return NULL;
+}
+
+AUTPlayerState* AUTGameState::GetBluePlayer(int32 Index)
+{
+	if ((BluePlayerList.Num() > Index) && (BluePlayerList[Index] != NULL) && !BluePlayerList[Index]->IsPendingKillPending())
+	{
+		return BluePlayerList[Index];
+	}
+	else
+	{
+		FillPlayerLists();
+		if ((BluePlayerList.Num() > Index) && (BluePlayerList[Index] != NULL) && !BluePlayerList[Index]->IsPendingKillPending())
+		{
+			return BluePlayerList[Index];
+		}
+	}
+	return NULL;
+}
+
