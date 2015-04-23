@@ -3890,6 +3890,14 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 1.0f);
 		}
 	}
+	else
+	{
+		if (Hat != nullptr)
+		{
+			Hat->Destroy();
+			Hat = nullptr;
+		}
+	}
 }
 
 void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
@@ -3910,6 +3918,14 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 		{
 			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget);
 			Eyewear->OnVariantSelected(EyewearVariant);
+		}
+	}
+	else
+	{
+		if (Eyewear != nullptr)
+		{
+			Eyewear->Destroy();
+			Eyewear = nullptr;
 		}
 	}
 }
