@@ -1782,7 +1782,7 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 			// since even if the target location is visible the enemy is probably not near there anymore
 			// subclasses can override if their fire mode(s) are suitable for speculative or predictive firing
 			const FBotEnemyInfo* EnemyInfo = (TargetPawn != NULL) ? B->GetEnemyInfo(TargetPawn, true) : NULL;
-			if (EnemyInfo != NULL && EnemyInfo->LastFullUpdateTime > 1.0f)
+			if (EnemyInfo != NULL && GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime > 1.0f)
 			{
 				bVisible = false;
 			}
