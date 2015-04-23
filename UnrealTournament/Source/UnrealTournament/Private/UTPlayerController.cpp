@@ -92,6 +92,28 @@ void AUTPlayerController::BeginPlay()
 	}
 }
 
+void AUTPlayerController::Destroyed()
+{
+	Super::Destroyed();
+
+	// if this is the master for the casting guide, destroy the extra viewports now
+	if (bCastingGuide)
+	{
+		ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+		if (LP != NULL && LP->ViewportClient != NULL && LP->GetGameInstance() != NULL)
+		{
+			TArray<ULocalPlayer*> GamePlayers = LP->GetGameInstance()->GetLocalPlayers();
+			for (ULocalPlayer* OtherLP : GamePlayers)
+			{
+				if (OtherLP != LP)
+				{
+					LP->GetGameInstance()->RemoveLocalPlayer(OtherLP);
+				}
+			}
+		}
+	}
+}
+
 void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

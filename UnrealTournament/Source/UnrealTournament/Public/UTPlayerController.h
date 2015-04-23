@@ -61,6 +61,7 @@ public:
 	USoundBase* ChatMsgSound;
 
 	virtual void BeginPlay() override;
+	virtual void Destroyed() override;
 	virtual void InitInputSystem() override;
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();

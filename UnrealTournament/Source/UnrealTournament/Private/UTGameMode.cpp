@@ -21,6 +21,7 @@
 #include "UTGameEngine.h"
 #include "UTWorldSettings.h"
 #include "UTLevelSummary.h"
+#include "UTHUD_CastingGuide.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -46,6 +47,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	// use our custom HUD class
 	HUDClass = AUTHUD::StaticClass();
+	CastingGuideHUDClass = AUTHUD_CastingGuide::StaticClass();
 
 	GameStateClass = AUTGameState::StaticClass();
 	PlayerStateClass = AUTPlayerState::StaticClass();
@@ -2173,6 +2175,15 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 
 void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 {
+	TSubclassOf<AHUD> SavedHUDClass = HUDClass;
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(NewPlayer);
+	bool bIsCastingGuidePC = UTPC != NULL && UTPC->CastingGuideViewIndex >= 0 && GameState->PlayerArray.IsValidIndex(UTPC->CastingGuideViewIndex);
+	if (bIsCastingGuidePC)
+	{
+		HUDClass = CastingGuideHUDClass;
+	}
+
 	Super::PostLogin(NewPlayer);
 
 	NewPlayer->ClientSetLocation(NewPlayer->GetFocalLocation(), NewPlayer->GetControlRotation());
@@ -2185,14 +2196,16 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 		}
 	}
 
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(NewPlayer);
-	if (UTPC != NULL && UTPC->CastingGuideViewIndex >= 0 && GameState->PlayerArray.IsValidIndex(UTPC->CastingGuideViewIndex))
+	
+	if (bIsCastingGuidePC)
 	{
 		// TODO: better choice of casting views
 		UTPC->ServerViewPlayerState(Cast<AUTPlayerState>(GameState->PlayerArray[UTPC->CastingGuideViewIndex]));
 	}
 
 	CheckBotCount();
+
+	HUDClass = SavedHUDClass;
 }
 
 void AUTGameMode::Logout(AController* Exiting)

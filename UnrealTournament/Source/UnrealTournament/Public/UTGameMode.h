@@ -168,22 +168,22 @@ public:
 
 	/** Remove all items from character inventory list, before giving him game mode's default inventory. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
-		bool bClearPlayerInventory;
+	bool bClearPlayerInventory;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	TArray<TSubclassOf<AUTInventory> > DefaultInventory;
 
 	/** If true, characters taking damage lose health. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
-		bool bDamageHurtsHealth;
+	bool bDamageHurtsHealth;
 
 	/** If true, firing weapons costs ammo. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
-		bool bAmmoIsLimited;
+	bool bAmmoIsLimited;
 
 	/** Toggle invulnerability */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
-		virtual void Demigod();
+	virtual void Demigod();
 
 	/** mutators required for the game, added at startup just before command line mutators */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
@@ -209,6 +209,10 @@ public:
 
 	/** How long has the server been empty */
 	int32 EmptyServerTime;
+
+	/** HUD class used for the caster's multiview */
+	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
+	TSubclassOf<class AHUD> CastingGuideHUDClass;
 
 	/** first mutator; mutators are a linked list */
 	UPROPERTY(BlueprintReadOnly, Category = Mutator)

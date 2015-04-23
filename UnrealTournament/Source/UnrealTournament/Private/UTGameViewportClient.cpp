@@ -333,6 +333,31 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 #endif
 }
 
+void UUTGameViewportClient::Draw(FViewport* Viewport, FCanvas* SceneCanvas)
+{
+	// set special show flags when using the casting guide
+	// even though there's a virtual accessor for this, most of the engine doesn't use it so there's no point
+	FEngineShowFlags SavedShowFlags = EngineShowFlags;
+	if (GameInstance != NULL)
+	{
+		const TArray<ULocalPlayer*> GamePlayers = GameInstance->GetLocalPlayers();
+		if (GamePlayers.Num() > 0 && GamePlayers[0] != NULL)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(GamePlayers[0]->PlayerController);
+			if (PC != NULL && PC->bCastingGuide)
+			{
+				EngineShowFlags.PostProcessing = 0;
+				EngineShowFlags.Lighting = 0;
+				EngineShowFlags.Atmosphere = 0;
+				EngineShowFlags.DynamicShadows = 0;
+				EngineShowFlags.LightFunctions = 0;
+			}
+		}
+	}
+	Super::Draw(Viewport, SceneCanvas);
+	EngineShowFlags = SavedShowFlags;
+}
+
 void UUTGameViewportClient::PostRender(UCanvas* Canvas)
 {
 #if WITH_EDITORONLY_DATA
