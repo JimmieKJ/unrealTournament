@@ -3812,8 +3812,8 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
 				BeaconTextColor.A = 0.6f;
-				FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor);
-				TextItem.Scale = FVector2D(0.1f*Scale, 0.1f*Scale);
+				FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor, NULL);
+				TextItem.Scale = FVector2D(Scale, Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
 				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
 				Canvas->DrawItem(TextItem);
