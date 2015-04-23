@@ -7,16 +7,16 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
-	Size = FVector2D(400.0f, 108.0f);
+	Size = FVector2D(500.0f, 108.0f);
 	ScreenPosition = FVector2D(0.0f, 0.1f);
 	Origin = FVector2D(0.0f, 0.0f);
 
-	ColumnHeaderPlayerX = 0.135;
-	ColumnHeaderScoreX = 0.7;
+	ColumnHeaderPlayerX = 0.14;
+	ColumnHeaderScoreX = 0.6;
 	ColumnY = 12;
 
 	CellHeight = 40;
-	FlagX = 0.075;
+	FlagX = 0.08;
 	SlideIn = 0.f;
 	CenterBuffer = 10.f;
 	SlideSpeed = 6.f;
@@ -123,11 +123,25 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 32, 24, FlagU, FlagV, 32, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	// Add a function to support additional flags
 
 	// Draw the Text
-	DrawText(Position, XOffset + (Width * FlagX - 5), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(Position, XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
-		DrawText(PlayerScore, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		// @TODO FIXMESTEVE GetUTCharacter is slow
+		AUTCharacter* Character = PlayerState->GetUTCharacter();
+		if (Character)
+		{
+			FFormatNamedArguments Args;
+			Args.Add("Health", FText::AsNumber(Character->Health));
+			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+
+			if (Character->ArmorAmount > 0)
+			{
+				FFormatNamedArguments Args;
+				Args.Add("Armor", FText::AsNumber(Character->ArmorAmount));
+				//TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), Args);
+			}
+		}
 	}
 }
