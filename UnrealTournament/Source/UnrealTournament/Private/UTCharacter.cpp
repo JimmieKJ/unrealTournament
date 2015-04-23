@@ -1261,6 +1261,11 @@ void AUTCharacter::StopRagdoll()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
 
+FVector AUTCharacter::GetLocationCenterOffset() const
+{
+	return (!IsRagdoll() || RootComponent != Mesh) ? FVector::ZeroVector : (Mesh->Bounds.Origin - Mesh->GetComponentLocation());
+}
+
 void AUTCharacter::PlayDying()
 {
 	TimeOfDeath = GetWorld()->TimeSeconds;
