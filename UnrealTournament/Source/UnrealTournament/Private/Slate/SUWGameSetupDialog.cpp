@@ -580,6 +580,7 @@ void SUWGameSetupDialog::OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboBut
 
 FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 {
+	int32 Cnt = 0;
 	if (MapIndex >= 0 && MapIndex <= MapPlayList.Num())
 	{
 		if (MapPlayList[MapIndex].bSelected)
@@ -587,10 +588,14 @@ FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 			MapPlayList[MapIndex].bSelected = false;
 			MapPlayList[MapIndex].Button->UnPressed();
 			MapPlayList[MapIndex].CheckMark->SetVisibility(EVisibility::Hidden);
+
+			for (int32 i = 0; i < MapPlayList.Num(); i++)
+			{
+				if (MapPlayList[i].bSelected) Cnt++;
+			}
 		}
 		else
 		{
-			int32 Cnt = 0;
 			for (int32 i = 0; i < MapPlayList.Num(); i++)
 			{
 				if (MapPlayList[i].bSelected) Cnt++;
@@ -610,6 +615,25 @@ FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 			}
 		}
 	}
+
+	for (int32 i = 0; i < MapPlayList.Num(); i++)
+	{
+		if (MapPlayList[i].bSelected) Cnt++;
+	}
+
+	if (Cnt > 0)
+	{
+		EnableButton(UTDIALOG_BUTTON_OK);
+		EnableButton(UTDIALOG_BUTTON_PLAY);
+		EnableButton(UTDIALOG_BUTTON_LAN);
+	}
+	else
+	{
+		DisableButton(UTDIALOG_BUTTON_OK);
+		DisableButton(UTDIALOG_BUTTON_PLAY);
+		DisableButton(UTDIALOG_BUTTON_LAN);
+	}
+
 	return FReply::Handled();
 }
 
