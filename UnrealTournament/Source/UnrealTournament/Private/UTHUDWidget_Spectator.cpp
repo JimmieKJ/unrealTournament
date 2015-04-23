@@ -147,7 +147,17 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				FFormatNamedArguments Args;
 				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
 				bShortMessage = true;
-				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
+				AUTPlayerState* PS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
+				if (UTGameState->bTeamGame && PS && PS->Team)
+				{
+					SpectatorMessage = (PS->Team->TeamIndex == 0)
+						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Red Team Led by {PlayerName}"), Args)
+						: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Blue Team Led by {PlayerName}"), Args);
+				}
+				else
+				{
+					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
+				}
 			}
 		}
 		DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);
