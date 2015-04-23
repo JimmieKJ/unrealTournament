@@ -538,11 +538,11 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			BestChar->SelectCount++;
 			NewBot->Personality = *BestChar;
 			NewBot->PlayerState->SetPlayerName(BestChar->PlayerName);
-			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-			if (PS != NULL)
-			{
-				PS->bReadyToPlay = true;
-			}
+		}
+		AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+		if (PS != NULL)
+		{
+			PS->bReadyToPlay = true;
 		}
 
 		NewBot->InitializeSkill(GameDifficulty);
@@ -581,6 +581,12 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 			TheChar->SelectCount++;
 			NewBot->Personality = *TheChar;
 			NewBot->PlayerState->SetPlayerName(TheChar->PlayerName);
+
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+			}
 
 			NewBot->InitializeSkill(GameDifficulty);
 			NumBots++;
