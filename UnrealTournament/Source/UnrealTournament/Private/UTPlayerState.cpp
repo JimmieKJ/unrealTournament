@@ -453,6 +453,11 @@ bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewEyewear
     have a proper ID available.  */
 void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
 {
+	if (GetWorld()->IsPlayInEditor() || GetWorld()->GetNetMode() == NM_Standalone)
+	{
+		return;
+	}
+
 	StatsID = NewStatsID;
 
 	ReadStatsFromCloud();	
