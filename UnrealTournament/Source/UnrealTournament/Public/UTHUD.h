@@ -111,6 +111,16 @@ public:
 	UPROPERTY(Config = Game)
 	TArray<FString> RequiredHudWidgetClasses;
 
+	// This is a list of hud widgets that are defined in DefaultGame.ini to be loaded for spectators.  NOTE: you can use 
+	// embedded JSON to set their position.  See BuildHudWidget().
+	UPROPERTY(Config = Game)
+		TArray<FString> SpectatorHudWidgetClasses;
+
+	UPROPERTY()
+		bool bHaveAddedSpectatorWidgets;
+
+	virtual void AddSpectatorWidgets();
+
 	// Add any of the blueprint based hud widgets
 	virtual void BeginPlay();
 
