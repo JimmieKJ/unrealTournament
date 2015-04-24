@@ -57,6 +57,43 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	FlagIcon.UL = 43.f;
 	FlagIcon.VL = 41.f;
 
+	RedFlagBind = NAME_None;
+	BlueFlagBind = NAME_None;
+	ProjCamBind = NAME_None;
+}
+
+void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
+{
+	Super::InitializeWidget(Hud);
+
+	// cache spectating keybinds
+	UTPlayerOwner = Hud ? Hud->UTPlayerOwner : NULL;
+	if (UTPlayerOwner != NULL)
+	{
+		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTPlayerOwner->PlayerInput);
+		if (Input)
+		{
+			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
+			{
+				if (Input->SpectatorBinds[i].Command == "ViewRedFlag")
+				{
+					RedFlagBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "ViewBlueFlag")
+				{
+					BlueFlagBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "ViewProjectile")
+				{
+					ProjCamBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "ToggleTacCom")
+				{
+					TacComBind = Input->SpectatorBinds[i].KeyName;
+				}
+			}
+		}
+	}
 }
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
@@ -121,35 +158,34 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		DrawOffset += CellHeight;
 		DrawOffset += CellHeight;
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
-		if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
+		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
+		if (Input)
 		{
-			// show flag binds
-			UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
-			if (Input)
+			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 			{
-				for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
+				// show flag binds
+				if ((RedFlagBind != NAME_None) && CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
 				{
-					if (Input->SpectatorBinds[i].Command == "ViewRedFlag")
-					{
-						if (CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
-						{
-							DrawFlag(Input->SpectatorBinds[i].KeyName, "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset, DrawOffset);
-							DrawOffset += CellHeight;
-						}
-					}
-					else if (Input->SpectatorBinds[i].Command == "ViewBlueFlag")
-					{
-						if (CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
-						{
-							DrawFlag(Input->SpectatorBinds[i].KeyName, "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset, DrawOffset);
-							DrawOffset += CellHeight;
-						}
-					}
+					DrawFlag(RedFlagBind, "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset, DrawOffset);
+					DrawOffset += CellHeight;
+				}
+				if ((BlueFlagBind != NAME_None) && CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
+				{
+					DrawFlag(BlueFlagBind, "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset, DrawOffset);
+					DrawOffset += CellHeight;
 				}
 			}
+			if (ProjCamBind != NAME_None)
+			{
+				DrawCamBind(ProjCamBind, "Projectile Cam", DeltaTime, XOffset, DrawOffset, (Cast<AUTProjectile>(UTHUDOwner->UTPlayerOwner->GetViewTarget()) != NULL));
+				DrawOffset += CellHeight;
+			}
+			if (TacComBind != NAME_None)
+			{
+				DrawCamBind(TacComBind, "Toggle TacCom", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+			}
 		}
-		DrawOffset += CellHeight;
-		DrawOffset += CellHeight;
 	}
 }
 
@@ -157,7 +193,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = 0.8f * Size.X;
+	float Width = Size.X;
 
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
@@ -176,6 +212,27 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.5f), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
 
 	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.6f), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected)
+{
+	FLinearColor DrawColor = FLinearColor::White;
+	float BarOpacity = 0.3f;
+	float Width = Size.X;
+
+	// Draw the background border.
+	FLinearColor BarColor = FLinearColor::White;
+	float FinalBarOpacity = BarOpacity;
+	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+
+	if (bCamSelected)
+	{
+		DrawTexture(TextureAtlas, XOffset + Width, YOffset, 35, 36, 36, 188, -36, 65, FinalBarOpacity, BarColor);
+	}
+
+	// Draw the Text
+	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)

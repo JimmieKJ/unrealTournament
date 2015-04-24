@@ -13,6 +13,8 @@ public:
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawFlag(FName KeyName, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
+	virtual void DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected);
+	virtual void InitializeWidget(AUTHUD* Hud);
 
 	// The total Height of a given cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
@@ -61,6 +63,19 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "RenderObject")
 		FCanvasIcon FlagIcon;
+
+	/** Cached spectator bindings. */
+	UPROPERTY()
+	FName RedFlagBind;
+
+	UPROPERTY()
+	FName BlueFlagBind;
+
+	UPROPERTY()
+	FName ProjCamBind;
+
+	UPROPERTY()
+	FName TacComBind;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
