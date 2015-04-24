@@ -92,17 +92,10 @@ void AUTLobbyGameState::CheckInstanceHealth()
 			{
 				if ( MatchInfo->CurrentState == ELobbyMatchState::InProgress && !FPlatformProcess::IsProcRunning(MatchInfo->GameInstanceProcessHandle) )
 				{
-					UE_LOG(UT,Warning,TEXT("Terminating an instance that seems to be a zombie."));
-					FPlatformProcess::TerminateProc(MatchInfo->GameInstanceProcessHandle);
-					int32 ReturnCode = 0;
-					if (FPlatformProcess::GetProcReturnCode(MatchInfo->GameInstanceProcessHandle, &ReturnCode))
-					{
-						MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
-					}
-					else
-					{
-						UE_LOG(UT, Warning, TEXT("Failed to get proc return code on zombie process."));
-					}
+					UE_LOG(UT, Log, TEXT("Recycling game instance that no longer has a process"));
+					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
+					ProcessesToGetReturnCode.Add(MatchInfo->GameInstanceProcessHandle);
+					MatchInfo->GameInstanceProcessHandle.Reset();
 				}
 			}
 			else
@@ -520,16 +513,9 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 		{
 			FPlatformProcess::TerminateProc(MatchOwner->GameInstanceProcessHandle);
 		}
-		int32 ReturnCode = 0;
-		if (FPlatformProcess::GetProcReturnCode(MatchOwner->GameInstanceProcessHandle, &ReturnCode))
-		{
-			UE_LOG(UT, Log, TEXT("Terminated an Instance with return code %i"), ReturnCode);
-		}
-		else
-		{
-			UE_LOG(UT, Log, TEXT("TerminateGameInstance Failed to get return code for instance, will try again later"));
-			ProcessesToGetReturnCode.Add(MatchOwner->GameInstanceProcessHandle);
-		}
+			
+		ProcessesToGetReturnCode.Add(MatchOwner->GameInstanceProcessHandle);
+		MatchOwner->SetLobbyMatchState(ELobbyMatchState::Recycling);
 
 		MatchOwner->GameInstanceProcessHandle.Reset();
 		MatchOwner->GameInstanceID = 0;
