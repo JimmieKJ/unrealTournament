@@ -9,4 +9,6 @@ class UNREALTOURNAMENT_API AUTSpectatorCamera : public ACameraActor
 {
 	GENERATED_UCLASS_BODY()
 
+	UPROPERTY(EditAnyWhere, BlueprintReadOnly, Category = "SpectatorCamera")
+	FString CamLocationName;
 };
