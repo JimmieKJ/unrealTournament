@@ -47,6 +47,14 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	ArmorIcon.V = 0.f;
 	ArmorIcon.UL = 28.f;
 	ArmorIcon.VL = 36.f;
+
+	static ConstructorHelpers::FObjectFinder<UTexture> CTFTex(TEXT("Texture'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
+	FlagIcon.Texture = CTFTex.Object;
+	FlagIcon.U = 843.f;
+	FlagIcon.V = 87.f;
+	FlagIcon.UL = 43.f;
+	FlagIcon.VL = 41.f;
+
 }
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
@@ -126,7 +134,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	FLinearColor BarColor = FLinearColor::Black;
 	if (PlayerState->Team)
 	{
-		BarColor = (PlayerState->Team->TeamIndex == 0) ? FLinearColor::Red : FLinearColor::Blue;
+		BarColor = PlayerState->Team->TeamColor;
 	}
 	float FinalBarOpacity = BarOpacity;
 
@@ -163,6 +171,11 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 
 	if (UTGameState && UTGameState->HasMatchStarted() && Character)
 	{
+		if (PlayerState->CarriedObject)
+		{
+			FLinearColor FlagColor = PlayerState->CarriedObject->Team ? PlayerState->CarriedObject->Team->TeamColor : FLinearColor::White;
+			DrawTexture(FlagIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.1f)), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
+		}
 		if (Character->GetWeaponOverlayFlags() != 0)
 		{
 			// @TODO FIXMESTEVE - support actual overlays for different powerups - save related class when setting up overlays in GameState, so have easy mapping. 

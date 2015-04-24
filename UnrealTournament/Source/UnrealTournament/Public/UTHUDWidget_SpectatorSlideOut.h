@@ -58,6 +58,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "RenderObject")
 		FCanvasIcon ArmorIcon;
 
+	UPROPERTY(EditDefaultsOnly, Category = "RenderObject")
+		FCanvasIcon FlagIcon;
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		UTexture2D* TextureAtlas;
