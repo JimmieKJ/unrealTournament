@@ -21,9 +21,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		float CenterBuffer;
 
-	UPROPERTY()
-		float SlideIn;
+	/** Current slide offset. */
+	float SlideIn;
 
+	/** How fast to slide menu in/out */
 	UPROPERTY()
 		float SlideSpeed;
 
@@ -43,6 +44,19 @@ public:
 	// The offset of text data within the cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float ColumnY;
+
+	/** How long after last action to highlight active players. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ActionHighlightTime;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RenderObject")
+		FCanvasIcon UDamageHUDIcon;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RenderObject")
+		FCanvasIcon HealthIcon;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RenderObject")
+		FCanvasIcon ArmorIcon;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")

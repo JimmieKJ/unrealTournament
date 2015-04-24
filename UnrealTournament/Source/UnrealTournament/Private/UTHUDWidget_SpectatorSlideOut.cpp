@@ -14,19 +14,39 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	FlagX = 0.09;
 	ColumnHeaderPlayerX = 0.16;
 	ColumnHeaderScoreX = 0.7;
-	ColumnHeaderArmor = 0.98f;
+	ColumnHeaderArmor = 0.87f;
 	ColumnY = 12;
 
 	CellHeight = 40;
 	SlideIn = 0.f;
 	CenterBuffer = 10.f;
 	SlideSpeed = 6.f;
+	ActionHighlightTime = 1.1f;
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
 	TextureAtlas = Tex.Object;
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
 	FlagAtlas = FlagTex.Object;
+
+	static ConstructorHelpers::FObjectFinder<UTexture> UDamTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
+	UDamageHUDIcon.Texture = UDamTex.Object;
+	UDamageHUDIcon.U = 589.f;
+	UDamageHUDIcon.V = 0.f;
+	UDamageHUDIcon.UL = 45.f;
+	UDamageHUDIcon.VL = 39.f;
+
+	HealthIcon.Texture = UDamTex.Object;
+	HealthIcon.U = 522.f;
+	HealthIcon.V = 0.f;
+	HealthIcon.UL = 37.f;
+	HealthIcon.VL = 35.f;
+
+	ArmorIcon.Texture = UDamTex.Object;
+	ArmorIcon.U = 560.f;
+	ArmorIcon.V = 0.f;
+	ArmorIcon.UL = 28.f;
+	ArmorIcon.VL = 36.f;
 }
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
@@ -99,7 +119,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	float Width = Size.X;
 
 	FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
-	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.5f*Width));
+	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.475f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
 
 	// Draw the background border.
@@ -116,9 +136,9 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	{
 		float LastActionTime = GetWorld()->GetTimeSeconds() - FMath::Max(Character->LastTakeHitTime, Character->LastWeaponFireTime);
 
-		if (LastActionTime < 2.f)
+		if (LastActionTime < ActionHighlightTime)
 		{
-			float Blend = 1.f - 0.5f * LastActionTime;
+			float Blend = 1.f - LastActionTime / ActionHighlightTime;
 			BarColor.R = BarColor.R + (1.f - BarColor.R)*Blend;
 			BarColor.G = BarColor.G + (1.f - BarColor.G)*Blend;
 			BarColor.B = BarColor.B + (1.f - BarColor.B)*Blend;
@@ -138,17 +158,32 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 
 	if (UTGameState && UTGameState->HasMatchStarted() && Character)
 	{
+		if (Character->GetWeaponOverlayFlags() != 0)
+		{
+			// @TODO FIXMESTEVE - support actual overlays for different powerups - save related class when setting up overlays in GameState, so have easy mapping. 
+			// For now just assume UDamage
+			DrawTexture(UDamageHUDIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.1f)), YOffset + ColumnY - 0.05f*Width, 0.1f*Width, 0.1f*Width, UDamageHUDIcon.U, UDamageHUDIcon.V, UDamageHUDIcon.UL, UDamageHUDIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
+		}
+
+		DrawTexture(HealthIcon.Texture, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY - 0.015f*Width, 0.05f*Width, 0.05f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 		FFormatNamedArguments Args;
 		Args.Add("Health", FText::AsNumber(Character->Health));
 		DrawColor = FLinearColor::Green;
-		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawColor.R *= 0.5f;
+		DrawColor.G *= 0.5f;
+		DrawColor.B *= 0.5f;
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "{Health}"), Args), XOffset + (Width * (ColumnHeaderScoreX + 0.05f)), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
 		if (Character->ArmorAmount > 0)
 		{
+			DrawTexture(ArmorIcon.Texture, XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY - 0.015f*Width, 0.05f*Width, 0.05f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 			FFormatNamedArguments Args;
 			Args.Add("Armor", FText::AsNumber(Character->ArmorAmount));
 			DrawColor = FLinearColor::Yellow;
-			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), Args), XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawColor.R *= 0.5f;
+			DrawColor.G *= 0.5f;
+			DrawColor.B *= 0.5f;
+			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + (Width * (ColumnHeaderArmor + 0.065f)), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}
 }
