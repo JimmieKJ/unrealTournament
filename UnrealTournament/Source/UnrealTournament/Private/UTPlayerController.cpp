@@ -27,6 +27,7 @@
 #include "UTViewPlaceholder.h"
 #include "DataChannel.h"
 #include "Engine/GameInstance.h"
+#include "UTSpectatorCamera.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -868,6 +869,30 @@ void AUTPlayerController::ServerViewFlag_Implementation(int32 Index)
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag )
 		{
 			SetViewTarget(CTFGameState->FlagBases[Index]->MyFlag);
+		}
+	}
+}
+
+void AUTPlayerController::ViewCamera(int32 Index)
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		int32 CamCount = 0;
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTSpectatorCamera* Cam = Cast<AUTSpectatorCamera>(*It);
+			if (Cam)
+			{
+				CamCount++;
+				if (CamCount == Index)
+				{
+					AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
+					NewViewTarget->SetActorLocationAndRotation(Cam->GetActorLocation(), Cam->GetActorRotation());
+					ResetCameraMode();
+					SetViewTarget(NewViewTarget);
+					ServerViewSelf();
+				}
+			}
 		}
 	}
 }

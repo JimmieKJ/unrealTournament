@@ -202,6 +202,9 @@ public:
 		virtual void ViewRedFlag();
 
 	UFUNCTION(exec)
+		virtual void ViewCamera(int32 Index);
+
+	UFUNCTION(exec)
 		virtual void ToggleTacCom();
 
 	/** Enables TacCom for spectators. */
