@@ -147,6 +147,11 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	}
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);	
 
+	if (PlayerState == UTHUDOwner->UTPlayerOwner->LastSpectatedPlayerState)
+	{
+		DrawTexture(TextureAtlas, XOffset + Width, YOffset, 35, 36, 36, 188, -36, 65, FinalBarOpacity, BarColor);
+	}
+
 	int32 FlagU = (PlayerState->CountryFlag % 8) * 32;
 	int32 FlagV = (PlayerState->CountryFlag / 8) * 24;
 
