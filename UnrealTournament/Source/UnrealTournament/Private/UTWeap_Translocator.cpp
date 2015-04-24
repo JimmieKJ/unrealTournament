@@ -188,7 +188,10 @@ void AUTWeap_Translocator::FireShot()
 								}
 							}
 						}
-						UTOwner->bIsTranslocating = false;
+						if (UTOwner)
+						{
+							UTOwner->bIsTranslocating = false;
+						}
 					}
 					else
 					{
