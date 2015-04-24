@@ -2,6 +2,8 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_SpectatorSlideOut.h"
+#include "UTPlayerInput.h"
+#include "UTCTFGameState.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -115,7 +117,65 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				}
 			}
 		}
+
+		DrawOffset += CellHeight;
+		DrawOffset += CellHeight;
+		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
+		{
+			// show flag binds
+			UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
+			if (Input)
+			{
+				for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
+				{
+					if (Input->SpectatorBinds[i].Command == "ViewRedFlag")
+					{
+						if (CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
+						{
+							DrawFlag(Input->SpectatorBinds[i].KeyName, "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset, DrawOffset);
+							DrawOffset += CellHeight;
+						}
+					}
+					else if (Input->SpectatorBinds[i].Command == "ViewBlueFlag")
+					{
+						if (CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
+						{
+							DrawFlag(Input->SpectatorBinds[i].KeyName, "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset, DrawOffset);
+							DrawOffset += CellHeight;
+						}
+					}
+				}
+			}
+		}
+		DrawOffset += CellHeight;
+		DrawOffset += CellHeight;
 	}
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset)
+{
+	FLinearColor DrawColor = FLinearColor::White;
+	float BarOpacity = 0.3f;
+	float Width = 0.8f * Size.X;
+
+	// Draw the background border.
+	FLinearColor BarColor = FLinearColor::White;
+	float FinalBarOpacity = BarOpacity;
+	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+
+	if (Flag == UTHUDOwner->UTPlayerOwner->GetViewTarget())
+	{
+		DrawTexture(TextureAtlas, XOffset + Width, YOffset, 35, 36, 36, 188, -36, 65, FinalBarOpacity, BarColor);
+	}
+
+	// Draw the Text
+	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+
+	FLinearColor FlagColor = Flag->Team ? Flag->Team->TeamColor : FLinearColor::White;
+	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.5f), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
+
+	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.6f), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
@@ -138,7 +198,6 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	}
 	float FinalBarOpacity = BarOpacity;
 
-	// FIXME Add Flag, U damage
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
 	if (Character && (Character->Health > 0))
 	{

@@ -12,6 +12,7 @@ public:
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
+	virtual void DrawFlag(FName KeyName, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
 
 	// The total Height of a given cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
