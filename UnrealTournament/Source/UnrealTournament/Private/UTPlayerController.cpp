@@ -745,24 +745,12 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 			UTCharacter->SwitchWeapon(LowestSlotWeapon);
 		}
 	}
-	else if (PlayerState && PlayerState->bOnlySpectator)
-	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if ((Group > 5) && GS && GS->bTeamGame)
-		{
-			ViewBluePlayer(Group - 6);
-		}
-		else if (Group > 0)
-		{
-			ViewRedPlayer(Group - 1);
-		}
-	}
 }
 
 void AUTPlayerController::ViewRedPlayer(int32 Index)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	AUTPlayerState* PlayerToView = GS ? GS->GetRedPlayer(Index) : NULL;
+	AUTPlayerState* PlayerToView = GS ? GS->GetRedPlayer(FMath::Max(Index-1, 0)) : NULL;
 	if (PlayerToView)
 	{
 		BehindView(bSpectateBehindView);
@@ -773,7 +761,12 @@ void AUTPlayerController::ViewRedPlayer(int32 Index)
 void AUTPlayerController::ViewBluePlayer(int32 Index)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	AUTPlayerState* PlayerToView = GS ? GS->GetBluePlayer(Index) : NULL;
+	if (!GS->bTeamGame)
+	{
+		ViewRedPlayer(Index + 5);
+		return;
+	}
+	AUTPlayerState* PlayerToView = GS ? GS->GetBluePlayer(FMath::Max(Index - 1, 0)) : NULL;
 	if (PlayerToView)
 	{
 		BehindView(bSpectateBehindView);

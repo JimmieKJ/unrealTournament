@@ -9,17 +9,6 @@ UUTPlayerInput::UUTPlayerInput(const FObjectInitializer& ObjectInitializer)
 
 bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 {
-	for (int32 i = 0; i < CustomBinds.Num(); i++)
-	{
-		if (FKey(CustomBinds[i].KeyName) == Key && CustomBinds[i].EventType == EventType)
-		{
-			FStringOutputDevice DummyOut;
-			if (GetOuterAPlayerController()->Player->Exec(GetOuterAPlayerController()->GetWorld(), *CustomBinds[i].Command, DummyOut))
-			{
-				return true;
-			}
-		}
-	}
 	APlayerController* PC = GetOuterAPlayerController();
 	if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator)
 	{
@@ -34,6 +23,17 @@ bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 				{
 					return true;
 				}
+			}
+		}
+	}
+	for (int32 i = 0; i < CustomBinds.Num(); i++)
+	{
+		if (FKey(CustomBinds[i].KeyName) == Key && CustomBinds[i].EventType == EventType)
+		{
+			FStringOutputDevice DummyOut;
+			if (GetOuterAPlayerController()->Player->Exec(GetOuterAPlayerController()->GetWorld(), *CustomBinds[i].Command, DummyOut))
+			{
+				return true;
 			}
 		}
 	}
