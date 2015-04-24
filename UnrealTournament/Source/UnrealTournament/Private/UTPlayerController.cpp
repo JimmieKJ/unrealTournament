@@ -1639,17 +1639,20 @@ void AUTPlayerController::SetCameraMode( FName NewCamMode )
 
 void AUTPlayerController::ToggleTacCom()
 {
-	bTacComView = !bTacComView;
-
-	for (FActorIterator It(GetWorld()); It; ++It)
+	if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		AUTPickup* Pickup = Cast<AUTPickup>(*It);
-		if (Pickup)
+		bTacComView = !bTacComView;
+
+		for (FActorIterator It(GetWorld()); It; ++It)
 		{
-			Pickup->SetTacCom(bTacComView);
+			AUTPickup* Pickup = Cast<AUTPickup>(*It);
+			if (Pickup)
+			{
+				Pickup->SetTacCom(bTacComView);
+			}
 		}
+		UpdateTacComOverlays();
 	}
-	UpdateTacComOverlays();
 }
 
 void AUTPlayerController::UpdateTacComOverlays()
