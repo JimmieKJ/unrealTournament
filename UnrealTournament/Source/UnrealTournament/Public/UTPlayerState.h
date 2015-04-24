@@ -43,6 +43,11 @@ protected:
 	/** selected character (if NULL left at default) */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
 	TSubclassOf<class AUTCharacterContent> SelectedCharacter;
+
+	/** Used to optimize GetUTCharacter(). */
+	UPROPERTY()
+	AUTCharacter* CachedCharacter;
+
 public:
 	UFUNCTION(BlueprintCallable, Category = Character)
 	virtual void SetCharacter(const FString& CharacterPath);

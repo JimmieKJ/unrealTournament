@@ -310,6 +310,10 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 			return UTChar;
 		}
 	}
+	if (CachedCharacter && CachedCharacter->PlayerState == this)
+	{
+		return CachedCharacter;
+	}
 
 	// iterate through all pawns and find matching playerstate ref
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
@@ -317,6 +321,7 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
 		if (UTChar && UTChar->PlayerState == this)
 		{
+			CachedCharacter = UTChar;
 			return UTChar;
 		}
 	}
