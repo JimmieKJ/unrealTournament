@@ -11,12 +11,13 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	ScreenPosition = FVector2D(0.0f, 0.1f);
 	Origin = FVector2D(0.0f, 0.0f);
 
-	ColumnHeaderPlayerX = 0.14;
-	ColumnHeaderScoreX = 0.6;
+	FlagX = 0.09;
+	ColumnHeaderPlayerX = 0.16;
+	ColumnHeaderScoreX = 0.7;
+	ColumnHeaderArmor = 0.98f;
 	ColumnY = 12;
 
 	CellHeight = 40;
-	FlagX = 0.08;
 	SlideIn = 0.f;
 	CenterBuffer = 10.f;
 	SlideSpeed = 6.f;
@@ -91,14 +92,14 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 
 void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
 {
-	if (PlayerState == NULL) return;	// Safeguard
+	if (PlayerState == NULL) return;
 
 	FLinearColor DrawColor = FLinearColor::White;
-	float BarOpacity = 0.3;
+	float BarOpacity = 0.3f;
 	float Width = Size.X;
 
 	FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
-	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.475f*Width));
+	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.5f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
 
 	// Draw the background border.
@@ -108,40 +109,46 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 		BarColor = (PlayerState->Team->TeamIndex == 0) ? FLinearColor::Red : FLinearColor::Blue;
 	}
 	float FinalBarOpacity = BarOpacity;
-	/*
-	if (PlayerState == SelectedPlayer)
-	{
-		BarColor = FLinearColor(0.0, 0.3, 0.3, 1.0);
-		FinalBarOpacity = 0.75f;
-	}*/
 
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
+	// FIXME Add Flag, U damage
+	AUTCharacter* Character = PlayerState->GetUTCharacter();
+	if (Character && (Character->Health > 0))
+	{
+		float LastActionTime = GetWorld()->GetTimeSeconds() - FMath::Max(Character->LastTakeHitTime, Character->LastWeaponFireTime);
+
+		if (LastActionTime < 2.f)
+		{
+			float Blend = 1.f - 0.5f * LastActionTime;
+			BarColor.R = BarColor.R + (1.f - BarColor.R)*Blend;
+			BarColor.G = BarColor.G + (1.f - BarColor.G)*Blend;
+			BarColor.B = BarColor.B + (1.f - BarColor.B)*Blend;
+			FinalBarOpacity = 0.75f;
+		}
+	}
+	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);	
 
 	int32 FlagU = (PlayerState->CountryFlag % 8) * 32;
 	int32 FlagV = (PlayerState->CountryFlag / 8) * 24;
 
-	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 32, 24, FlagU, FlagV, 32, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	// Add a function to support additional flags
+	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 32, 24, FlagU, FlagV, 32, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	
 
 	// Draw the Text
-	DrawText(Position, XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(Position, XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
-	if (UTGameState && UTGameState->HasMatchStarted())
+	if (UTGameState && UTGameState->HasMatchStarted() && Character)
 	{
-		// @TODO FIXMESTEVE GetUTCharacter is slow
-		AUTCharacter* Character = PlayerState->GetUTCharacter();
-		if (Character)
+		FFormatNamedArguments Args;
+		Args.Add("Health", FText::AsNumber(Character->Health));
+		DrawColor = FLinearColor::Green;
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+
+		if (Character->ArmorAmount > 0)
 		{
 			FFormatNamedArguments Args;
-			Args.Add("Health", FText::AsNumber(Character->Health));
-			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-
-			if (Character->ArmorAmount > 0)
-			{
-				FFormatNamedArguments Args;
-				Args.Add("Armor", FText::AsNumber(Character->ArmorAmount));
-				//TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), Args);
-			}
+			Args.Add("Armor", FText::AsNumber(Character->ArmorAmount));
+			DrawColor = FLinearColor::Yellow;
+			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), Args), XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 	}
 }
