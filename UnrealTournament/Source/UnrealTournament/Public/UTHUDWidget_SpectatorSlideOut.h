@@ -77,6 +77,18 @@ public:
 	UPROPERTY()
 	FName TacComBind;
 
+	UPROPERTY()
+	FName CameraBind[9];
+
+	UPROPERTY()
+		FString CameraString[9];
+
+	UPROPERTY()
+		int32 NumCameras;
+
+	UPROPERTY()
+		bool bCamerasInitialized;
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		UTexture2D* TextureAtlas;

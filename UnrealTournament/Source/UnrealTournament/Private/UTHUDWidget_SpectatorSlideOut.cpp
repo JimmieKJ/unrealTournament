@@ -4,13 +4,14 @@
 #include "UTHUDWidget_SpectatorSlideOut.h"
 #include "UTPlayerInput.h"
 #include "UTCTFGameState.h"
+#include "UTSpectatorCamera.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
 	Size = FVector2D(500.0f, 108.0f);
-	ScreenPosition = FVector2D(0.0f, 0.1f);
+	ScreenPosition = FVector2D(0.0f, 0.05f);
 	Origin = FVector2D(0.0f, 0.0f);
 
 	FlagX = 0.09;
@@ -91,6 +92,18 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 				{
 					TacComBind = Input->SpectatorBinds[i].KeyName;
 				}
+				else if (Input->SpectatorBinds[i].Command == "ViewCamera 1")
+				{
+					CameraBind[0] = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "ViewCamera 2")
+				{
+					CameraBind[1] = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "ViewCamera 3")
+				{
+					CameraBind[2] = Input->SpectatorBinds[i].KeyName;
+				}
 			}
 		}
 	}
@@ -161,6 +174,25 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
 		if (Input)
 		{
+			if (!bCamerasInitialized)
+			{
+				bCamerasInitialized = true;
+				NumCameras = 0;
+				for (FActorIterator It(GetWorld()); It; ++It)
+				{
+					AUTSpectatorCamera* Cam = Cast<AUTSpectatorCamera>(*It);
+					if (Cam)
+					{
+						CameraString[NumCameras] = Cam->CamLocationName;
+						NumCameras++;
+						if (NumCameras == 9)
+						{
+							break;
+						}
+					}
+				}
+				UE_LOG(UT, Warning, TEXT("Found Cameras %d"), NumCameras);
+			}
 			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 			{
 				// show flag binds
@@ -185,6 +217,14 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				DrawCamBind(TacComBind, "Toggle TacCom", DeltaTime, XOffset, DrawOffset, false);
 				DrawOffset += CellHeight;
 			}
+			for (int32 i = 0; i < NumCameras; i++)
+			{
+				if (CameraBind[i] != NAME_None)
+				{
+					DrawCamBind(CameraBind[i], CameraString[i], DeltaTime, XOffset, DrawOffset, false);
+					DrawOffset += CellHeight;
+				}
+			}
 		}
 	}
 }
@@ -206,7 +246,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 	}
 
 	// Draw the Text
-	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 0.5f, 0.5f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	FLinearColor FlagColor = Flag->Team ? Flag->Team->TeamColor : FLinearColor::White;
 	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.5f), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
@@ -231,7 +271,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 	}
 
 	// Draw the Text
-	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 0.5f, 0.5f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 }
 
