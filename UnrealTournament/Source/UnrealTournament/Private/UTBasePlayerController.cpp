@@ -88,7 +88,7 @@ void AUTBasePlayerController::InitPlayerState()
 {
 	Super::InitPlayerState();
 	UTPlayerState = Cast<AUTPlayerState>(PlayerState);
-	if (PlayerState)
+	if (UTPlayerState)
 	{
 		UTPlayerState->ChatDestination = ChatDestinations::Local;
 	}
