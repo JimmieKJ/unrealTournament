@@ -935,6 +935,10 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 		if (UTDmg != NULL)
 		{
 			UTDmg.GetDefaultObject()->PlayHitEffects(this, bPlayedArmorEffect);
+			if (!UTDmg.GetDefaultObject()->bCausedByWorld)
+			{
+				LastTakeHitTime = GetWorld()->TimeSeconds; // is set client-side if enemy caused FIXMESTEVE - need caused by weapon flag
+			}
 		}
 		// check blood effects
 		if (!bPlayedArmorEffect && LastTakeHitInfo.Damage > 0 && (UTDmg == NULL || UTDmg.GetDefaultObject()->bCausesBlood)) 
@@ -1263,7 +1267,7 @@ void AUTCharacter::StopRagdoll()
 
 FVector AUTCharacter::GetLocationCenterOffset() const
 {
-	return (!IsRagdoll() || RootComponent != Mesh) ? FVector::ZeroVector : (Mesh->Bounds.Origin - Mesh->GetComponentLocation());
+	return (!IsRagdoll() || RootComponent != GetMesh()) ? FVector::ZeroVector : (GetMesh()->Bounds.Origin - GetMesh()->GetComponentLocation());
 }
 
 void AUTCharacter::PlayDying()

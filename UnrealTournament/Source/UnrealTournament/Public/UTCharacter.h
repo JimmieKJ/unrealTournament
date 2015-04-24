@@ -564,6 +564,11 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	uint8 FlashExtra;
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoReplicated, Category = "Weapon")
 	FVector_NetQuantize FlashLocation;
+
+	/** Updated on client when FlashCount is replicated. */
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
+		float LastWeaponFireTime;
+
 	/** set when client is locally simulating FlashLocation so ignore any replicated value */
 	bool bLocalFlashLoc;
 
