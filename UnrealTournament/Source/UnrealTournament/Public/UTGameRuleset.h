@@ -2,7 +2,26 @@
 #pragma once
 
 #include "UTATypes.h"
+#include "UnrealTournament.h"
 #include "UTGameRuleset.generated.h"
+
+USTRUCT()
+struct FPackageRedirectReference
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString PackageName;
+
+	UPROPERTY()
+	FString PackageURLProtocol;
+
+	UPROPERTY()
+	FString PackageURL;
+
+	UPROPERTY()
+	FString PackageChecksum;
+};
 
 UCLASS(Config=Rules, perObjectConfig)
 class UUTGameRuleset : public UObject
@@ -59,6 +78,8 @@ public:
 	UPROPERTY(Config)
 	FString GameOptions;
 	
+	UPROPERTY(Config)
+	TArray<FPackageRedirectReference> RedirectReferences;
 };
 
 
