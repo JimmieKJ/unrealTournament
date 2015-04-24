@@ -1769,7 +1769,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 
 		// FIXME: HACK: PlayerState->bOnlySpectator check is workaround for bug possessing new Pawn where we are actually in the spectating state for a short time after getting the new pawn as viewtarget
 		//				happens because Pawn is replicated via property replication and ViewTarget is RPC'ed so comes first
-		if (IsLocalController() && bSpectateBehindView && PlayerState != NULL && PlayerState->bOnlySpectator)
+		if (IsLocalController() && bSpectateBehindView && PlayerState != NULL && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
 		{
 			// pick good starting rotation
 			FindGoodView();
@@ -1846,7 +1846,10 @@ void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionPar
 {
 	if (IsInState(NAME_Spectating))
 	{
-		SetViewTarget(this, TransitionParams);
+		if (GetSpectatorPawn() && (GetViewTarget() != GetSpectatorPawn()))
+		{
+			SetViewTarget(this, TransitionParams);
+		}
 		ClientViewSpectatorPawn(TransitionParams);
 	}
 }
