@@ -11,7 +11,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
 	Size = FVector2D(500.0f, 108.0f);
-	ScreenPosition = FVector2D(0.0f, 0.05f);
+	ScreenPosition = FVector2D(0.0f, 0.02f);
 	Origin = FVector2D(0.0f, 0.0f);
 
 	FlagX = 0.09;
@@ -73,6 +73,7 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTPlayerOwner->PlayerInput);
 		if (Input)
 		{
+			int32 CameraIndex = 0;
 			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
 			{
 				if (Input->SpectatorBinds[i].Command == "ViewRedFlag")
@@ -83,17 +84,11 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 				{
 					BlueFlagBind = Input->SpectatorBinds[i].KeyName;
 				}
-				else if (Input->SpectatorBinds[i].Command == "ViewCamera 1")
+				else if (Input->SpectatorBinds[i].Command.Left(10) == "ViewCamera")
 				{
-					CameraBind[0] = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "ViewCamera 2")
-				{
-					CameraBind[1] = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "ViewCamera 3")
-				{
-					CameraBind[2] = Input->SpectatorBinds[i].KeyName;
+					// @TODO FIXMESTEVE - parse and get value
+					CameraBind[CameraIndex] = Input->SpectatorBinds[i].KeyName;
+					CameraIndex++;
 				}
 			}
 		}
@@ -127,6 +122,12 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		int32 MaxRedPlaces = UTGameState->bTeamGame ? 5 : 10;
 		int32 XOffset = SlideIn - Size.X;
 		float DrawOffset = 0.f;
+
+		if (UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
+		{
+			DrawCamBind(NAME_None, "Press number to view player", DeltaTime, XOffset, DrawOffset, false);
+			DrawOffset += CellHeight;
+		}
 		UTGameState->FillPlayerLists();
 		for (int32 i = 0; i<UTGameState->RedPlayerList.Num(); i++)
 		{
@@ -161,7 +162,6 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			}
 		}
 
-		DrawOffset += CellHeight;
 		DrawOffset += CellHeight;
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
@@ -215,6 +215,11 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					DrawOffset += CellHeight;
 				}
 			}
+			static FName NAME_PressFire = FName(TEXT("Fire"));
+			DrawCamBind(NAME_PressFire, "View Next Player", DeltaTime, XOffset, DrawOffset, false);
+			DrawOffset += CellHeight;
+			static FName NAME_PressAltFire = FName(TEXT("AltFire"));
+			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
 		}
 	}
 }
@@ -261,7 +266,10 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 	}
 
 	// Draw the Text
-	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 0.5f, 0.5f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	if (KeyName != NAME_None)
+	{
+		DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 0.5f, 0.5f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	}
 	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 }
 
