@@ -301,8 +301,18 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 		bool bRequestingSlideOut;
 
+	/** True when spectator has used a spectating camera bind. */
+	UPROPERTY()
+		bool bHasUsedSpectatingBind;
+
+	UPROPERTY()
+		bool bShowCameraBinds;
+
 	UFUNCTION(exec)
 		virtual void ToggleSlideOut();
+
+	UFUNCTION(exec)
+		virtual void ToggleShowBinds();
 
 	virtual void ViewAPlayer(int32 dir)
 	{

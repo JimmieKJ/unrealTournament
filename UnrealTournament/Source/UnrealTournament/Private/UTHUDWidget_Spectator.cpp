@@ -117,6 +117,10 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 					bShortMessage = true;
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
 				}
+				else if (!UTHUDOwner->UTPlayerOwner->bHasUsedSpectatingBind)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [ENTER] to view camera binds.");
+				}
 			}
 			else if (UTGameState->IsMatchInOvertime() && (UTGameState->bOnlyTheStrongSurvive || UTGameState->IsMatchInSuddenDeath()))
 			{

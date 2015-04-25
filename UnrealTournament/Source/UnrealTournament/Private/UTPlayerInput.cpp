@@ -9,7 +9,7 @@ UUTPlayerInput::UUTPlayerInput(const FObjectInitializer& ObjectInitializer)
 
 bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 {
-	APlayerController* PC = GetOuterAPlayerController();
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOuterAPlayerController());
 	if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator)
 	{
 		//	UE_LOG(UT, Warning, TEXT("Key %s"), *Key.GetDisplayName().ToString());
@@ -21,6 +21,7 @@ bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 				FStringOutputDevice DummyOut;
 				if (GetOuterAPlayerController()->Player->Exec(GetOuterAPlayerController()->GetWorld(), *SpectatorBinds[i].Command, DummyOut))
 				{
+					PC->bHasUsedSpectatingBind = true;
 					return true;
 				}
 			}

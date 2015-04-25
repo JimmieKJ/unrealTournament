@@ -84,6 +84,15 @@ public:
 		FString CameraString[9];
 
 	UPROPERTY()
+		FName ClosestBind;
+
+	UPROPERTY()
+		FName ToggleBehindBind;
+
+	UPROPERTY()
+		FName SlideOutBind;
+
+	UPROPERTY()
 		int32 NumCameras;
 
 	UPROPERTY()

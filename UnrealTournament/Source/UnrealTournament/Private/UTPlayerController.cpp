@@ -50,6 +50,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bSingleTapAfterJump = true;
 	bTapCrouchToSlide = true;
 	CrouchSlideTapInterval = 0.25f;
+	bHasUsedSpectatingBind = false;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
@@ -792,6 +793,11 @@ void AUTPlayerController::ToggleSlideOut()
 	bRequestingSlideOut = !bRequestingSlideOut;
 }
 
+void AUTPlayerController::ToggleShowBinds()
+{
+	bShowCameraBinds = !bShowCameraBinds;
+}
+
 bool AUTPlayerController::ServerViewFlagHolder_Validate(int32 TeamIndex)
 {
 	return true;
@@ -890,6 +896,7 @@ void AUTPlayerController::ViewCamera(int32 Index)
 					NewViewTarget->SetActorLocationAndRotation(Cam->GetActorLocation(), Cam->GetActorRotation());
 					ResetCameraMode();
 					SetViewTarget(NewViewTarget);
+					SetControlRotation(Cam->GetActorRotation());
 					ServerViewSelf();
 				}
 			}

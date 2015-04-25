@@ -92,6 +92,18 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 				{
 					TacComBind = Input->SpectatorBinds[i].KeyName;
 				}
+				else if (Input->SpectatorBinds[i].Command == "ViewClosestVisiblePlayer")
+				{
+					ClosestBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "ToggleBehindView")
+				{
+					ToggleBehindBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "ToggleSlideOut")
+				{
+					SlideOutBind = Input->SpectatorBinds[i].KeyName;
+				}
 				else if (Input->SpectatorBinds[i].Command == "ViewCamera 1")
 				{
 					CameraBind[0] = Input->SpectatorBinds[i].KeyName;
@@ -117,7 +129,7 @@ bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 		{
 			return false;
 		}
-		return (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || (SlideIn > 0.f));
+		return (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds || (SlideIn > 0.f));
 	}
 	return false;
 }
@@ -128,7 +140,9 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 
 	if (TextureAtlas && UTGameState)
 	{
-		SlideIn = UTHUDOwner->UTPlayerOwner->bRequestingSlideOut ? FMath::Min(Size.X, SlideIn + DeltaTime*Size.X*SlideSpeed) : FMath::Max(0.f, SlideIn - DeltaTime*Size.X*SlideSpeed);
+		SlideIn = (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds) 
+					? FMath::Min(Size.X, SlideIn + DeltaTime*Size.X*SlideSpeed) 
+					: FMath::Max(0.f, SlideIn - DeltaTime*Size.X*SlideSpeed);
 
 		int32 Place = 1;
 		int32 MaxRedPlaces = UTGameState->bTeamGame ? 5 : 10;
@@ -172,7 +186,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		DrawOffset += CellHeight;
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
-		if (Input)
+		if (Input && UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 		{
 			if (!bCamerasInitialized)
 			{
@@ -215,6 +229,21 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			if (TacComBind != NAME_None)
 			{
 				DrawCamBind(TacComBind, "Toggle TacCom", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+			}
+			if (ClosestBind != NAME_None)
+			{
+				DrawCamBind(ClosestBind, "Follow Closest Player", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+			}
+			if (ToggleBehindBind != NAME_None)
+			{
+				DrawCamBind(ToggleBehindBind, "Toggle 3rd Person", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+			}
+			if (SlideOutBind != NAME_None)
+			{
+				DrawCamBind(SlideOutBind, "Slide Player List", DeltaTime, XOffset, DrawOffset, false);
 				DrawOffset += CellHeight;
 			}
 			for (int32 i = 0; i < NumCameras; i++)
