@@ -118,17 +118,6 @@ void AUTGameState::BeginPlay()
 	}
 	else
 	{
-		TArray<UObject*> AllInventory;
-		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
-		for (int32 i = 0; i < AllInventory.Num(); i++)
-		{
-			if (AllInventory[i]->HasAnyFlags(RF_ClassDefaultObject))
-			{
-				checkSlow(AllInventory[i]->IsA(AUTInventory::StaticClass()));
-				((AUTInventory*)AllInventory[i])->AddOverlayMaterials(this);
-			}
-		}
-
 		TArray<UObject*> AllCharacters;
 		GetObjectsOfClass(AUTCharacter::StaticClass(), AllCharacters, true, RF_NoFlags);
 		for (int32 i = 0; i < AllCharacters.Num(); i++)
@@ -137,6 +126,17 @@ void AUTGameState::BeginPlay()
 			{
 				checkSlow(AllCharacters[i]->IsA(AUTCharacter::StaticClass()));
 				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->TacComOverlayMaterial);
+			}
+		}
+
+		TArray<UObject*> AllInventory;
+		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
+		for (int32 i = 0; i < AllInventory.Num(); i++)
+		{
+			if (AllInventory[i]->HasAnyFlags(RF_ClassDefaultObject))
+			{
+				checkSlow(AllInventory[i]->IsA(AUTInventory::StaticClass()));
+				((AUTInventory*)AllInventory[i])->AddOverlayMaterials(this);
 			}
 		}
 	}
