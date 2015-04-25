@@ -906,21 +906,39 @@ void AUTPlayerController::ViewCamera(int32 Index)
 
 void AUTPlayerController::ViewProjectile()
 {
-	if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerState)
+	if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		// toggle away from projectile cam
-		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerState)
 		{
-			APawn* Pawn = *Iterator;
-			if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+			// toggle away from projectile cam
+			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
-				ServerViewPawn(*Iterator);
+				APawn* Pawn = *Iterator;
+				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+				{
+					ServerViewPawn(*Iterator);
+				}
 			}
 		}
-	}
-	else
-	{
-		ServerViewProjectile();
+		else
+		{
+			if (LastSpectatedPlayerState == NULL)
+			{
+				// make sure we have something to go to when projectile explodes
+				AUTCharacter* ViewedCharacter = Cast<AUTCharacter>(GetViewTarget());
+				if (!ViewedCharacter)
+				{
+					// maybe viewing character carrying flag
+					AUTCarriedObject* Flag = Cast<AUTCarriedObject>(GetViewTarget());
+					ViewedCharacter = Flag ? Flag->HoldingPawn : NULL;
+				}
+				if (ViewedCharacter)
+				{
+					LastSpectatedPlayerState = ViewedCharacter->PlayerState;
+				}
+			}
+			ServerViewProjectile();
+		}
 	}
 }
 
@@ -934,6 +952,12 @@ void AUTPlayerController::ServerViewProjectile_Implementation()
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
 		AUTCharacter* ViewedCharacter = Cast<AUTCharacter>(GetViewTarget());
+		if (!ViewedCharacter)
+		{
+			// maybe viewing character carrying flag
+			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(GetViewTarget());
+			ViewedCharacter = Flag ? Flag->HoldingPawn : NULL;
+		}
 		// @TODO FIXMESTEVE save last fired projectile as optimization
 		AUTProjectile* BestProj = NULL;
 		if (ViewedCharacter)
@@ -1752,7 +1776,6 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	}
 
 	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
-	
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 
 	// See if we're no longer viewing a placeholder and destroy it
