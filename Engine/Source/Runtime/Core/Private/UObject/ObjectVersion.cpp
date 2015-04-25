@@ -8,7 +8,7 @@
 
 // Defined separately so the build script can get to it easily (DO NOT CHANGE THIS MANUALLY)
 // caution when merging, we want the UE3 version in ENGINE_VERSION_UE3
-#define	ENGINE_VERSION	2524305
+#define	ENGINE_VERSION	2525472
 
 /** Version numbers for networking */
 int32   GEngineNetVersion			= ENGINE_VERSION;
