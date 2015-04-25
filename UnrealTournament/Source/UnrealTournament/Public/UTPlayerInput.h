@@ -19,6 +19,8 @@ struct FCustomKeyBinding
 	TEnumAsByte<EInputEvent> EventType;
 	UPROPERTY()
 	FString Command;
+	UPROPERTY()
+		FString FriendlyName;
 };
 
 UCLASS()

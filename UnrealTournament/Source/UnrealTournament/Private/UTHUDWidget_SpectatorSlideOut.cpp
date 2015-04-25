@@ -60,7 +60,6 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 
 	RedFlagBind = NAME_None;
 	BlueFlagBind = NAME_None;
-	ProjCamBind = NAME_None;
 }
 
 void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
@@ -83,26 +82,6 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 				else if (Input->SpectatorBinds[i].Command == "ViewBlueFlag")
 				{
 					BlueFlagBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "ViewProjectile")
-				{
-					ProjCamBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "ToggleTacCom")
-				{
-					TacComBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "ViewClosestVisiblePlayer")
-				{
-					ClosestBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "ToggleBehindView")
-				{
-					ToggleBehindBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "ToggleSlideOut")
-				{
-					SlideOutBind = Input->SpectatorBinds[i].KeyName;
 				}
 				else if (Input->SpectatorBinds[i].Command == "ViewCamera 1")
 				{
@@ -205,7 +184,6 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 						}
 					}
 				}
-				UE_LOG(UT, Warning, TEXT("Found Cameras %d"), NumCameras);
 			}
 			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 			{
@@ -221,30 +199,13 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					DrawOffset += CellHeight;
 				}
 			}
-			if (ProjCamBind != NAME_None)
+			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
 			{
-				DrawCamBind(ProjCamBind, "Projectile Cam", DeltaTime, XOffset, DrawOffset, (Cast<AUTProjectile>(UTHUDOwner->UTPlayerOwner->GetViewTarget()) != NULL));
-				DrawOffset += CellHeight;
-			}
-			if (TacComBind != NAME_None)
-			{
-				DrawCamBind(TacComBind, "Toggle TacCom", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
-			}
-			if (ClosestBind != NAME_None)
-			{
-				DrawCamBind(ClosestBind, "Follow Closest Player", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
-			}
-			if (ToggleBehindBind != NAME_None)
-			{
-				DrawCamBind(ToggleBehindBind, "Toggle 3rd Person", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
-			}
-			if (SlideOutBind != NAME_None)
-			{
-				DrawCamBind(SlideOutBind, "Slide Player List", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
+				if ((Input->SpectatorBinds[i].FriendlyName != "") && (Input->SpectatorBinds[i].KeyName != NAME_None))
+				{
+					DrawCamBind(Input->SpectatorBinds[i].KeyName, Input->SpectatorBinds[i].FriendlyName, DeltaTime, XOffset, DrawOffset, (Cast<AUTProjectile>(UTHUDOwner->UTPlayerOwner->GetViewTarget()) != NULL));
+					DrawOffset += CellHeight;
+				}
 			}
 			for (int32 i = 0; i < NumCameras; i++)
 			{
