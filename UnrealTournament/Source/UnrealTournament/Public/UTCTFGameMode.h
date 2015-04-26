@@ -8,11 +8,11 @@
 
 namespace MatchState
 {
-	extern const FName MatchEnteringHalftime;		// Entering Halftime
-	extern const FName MatchIsAtHalftime;			// The match has entered halftime
-	extern const FName MatchExitingHalftime;		// Exiting Halftime
-	extern const FName MatchEnteringSuddenDeath;	// The match is entering sudden death
-	extern const FName MatchIsInSuddenDeath;		// The match is in sudden death
+	extern UNREALTOURNAMENT_API const FName MatchEnteringHalftime;		// Entering Halftime
+	extern UNREALTOURNAMENT_API const FName MatchIsAtHalftime;			// The match has entered halftime
+	extern UNREALTOURNAMENT_API const FName MatchExitingHalftime;		// Exiting Halftime
+	extern UNREALTOURNAMENT_API const FName MatchEnteringSuddenDeath;	// The match is entering sudden death
+	extern UNREALTOURNAMENT_API const FName MatchIsInSuddenDeath;		// The match is in sudden death
 } 
 
 UCLASS()

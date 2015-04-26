@@ -10,9 +10,9 @@
 
 namespace MatchState
 {
-	extern const FName CountdownToBegin;				// We are entering this map, actors are not yet ticking
-	extern const FName MatchEnteringOvertime;			// The game is entering overtime
-	extern const FName MatchIsInOvertime;				// The game is in overtime
+	extern UNREALTOURNAMENT_API const FName CountdownToBegin;				// We are entering this map, actors are not yet ticking
+	extern UNREALTOURNAMENT_API const FName MatchEnteringOvertime;			// The game is entering overtime
+	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
 }
 
 /** list of bots user asked to put into the game */
