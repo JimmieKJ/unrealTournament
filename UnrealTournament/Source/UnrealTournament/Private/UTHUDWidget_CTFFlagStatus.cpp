@@ -84,14 +84,33 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
 		bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
 		bool bIsEnemyFlag = !GS->OnSameTeam(Base, UTPlayerOwner);
+		AUTCharacter* Holder = NULL;
 		if (bSpectating || bIsEnemyFlag || (FlagState == CarriedObjectState::Home))
 		{
 			bool bDrawInWorld = false;
 			FVector ScreenPosition(0.f);
+			FVector WorldPosition = FVector::ZeroVector;  
 			if (Base && Base->GetCarriedObject() && ((ViewRotation.Vector() | (Base->GetCarriedObject()->GetActorLocation() - ViewPoint)) > 0.f))
 			{
 				AUTCarriedObject* Flag = Base->GetCarriedObject();
-				ScreenPosition = GetCanvas()->Project(Flag->GetActorLocation() + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f));
+				WorldPosition = Flag->GetActorLocation();
+				if (FlagState == CarriedObjectState::Home)
+				{
+					WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 1.25f);
+				}
+				else if (FlagState == CarriedObjectState::Held)
+				{
+					Holder = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
+					if (Holder)
+					{
+						WorldPosition = Holder->GetMesh()->GetComponentLocation() + FVector(0.f, 0.f, Holder->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f);
+					}
+				}
+				else
+				{
+					WorldPosition += FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 0.75f);
+				}
+				ScreenPosition = GetCanvas()->Project(WorldPosition);
 				bDrawInWorld = (Flag->Holder != UTPlayerOwner->PlayerState) && (ScreenPosition.X < GetCanvas()->ClipX) && (ScreenPosition.X > 0.f) && (ScreenPosition.Y < GetCanvas()->ClipY) && (ScreenPosition.Y > 0.f);
 			}
 
@@ -99,14 +118,21 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			{
 				ScreenPosition.X -= RenderPosition.X;
 				ScreenPosition.Y -= RenderPosition.Y;
+				float Dist = (ViewPoint - WorldPosition).Size();
 
 				// don't overlap player beacon
 				UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 				float X, Y;
 				float Scale = Canvas->ClipX / 1920.f;
 				Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
-				ScreenPosition.Y -= 3.f*Y;
-
+				if (!Holder || (Dist < Holder->TeamPlayerIndicatorMaxDistance))
+				{
+					ScreenPosition.Y -= 3.5f*Y;
+				}
+				else
+				{
+					ScreenPosition.Y -= (Dist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
+				}
 				float OldAlpha = FlagIconTemplate.RenderOpacity;
 				FlagIconTemplate.RenderOpacity = InWorldAlpha;
 				CircleBorder[Team].RenderOpacity = InWorldAlpha;

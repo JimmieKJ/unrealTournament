@@ -3804,10 +3804,10 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float X, Y;
 			Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
 			float XL = bFarAway ? TextXL : FMath::Max(X, TextXL);
-
-			FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f));
+			FVector WorldPosition = GetMesh()->GetComponentLocation();
+			FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
 			float XPos = ScreenPosition.X - 0.5f*XL;
-			float YPos = ScreenPosition.Y - YL;
+			float YPos = bFarAway ? ScreenPosition.Y : ScreenPosition.Y - YL;
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{
 				FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
