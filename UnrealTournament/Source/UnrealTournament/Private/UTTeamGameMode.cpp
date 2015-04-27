@@ -576,7 +576,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
-			if (!PS->HasWrittenStatsToCloud())
+			if (PS && !PS->HasWrittenStatsToCloud())
 			{
 				PS->ModifyStat(FName(TEXT("MatchesQuit")), 1, EStatMod::Delta);
 
