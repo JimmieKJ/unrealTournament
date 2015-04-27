@@ -38,7 +38,10 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture TakenIconTemplate;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FHUDRenderObject_Texture FlagGoneIconTemplate;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text FlagStatusText;
 

@@ -361,8 +361,7 @@ void AUTCarriedObject::MoveToHome()
 	AssistTracking.Empty();
 	if (HomeBase != NULL)
 	{
-		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + (FVector(0,0,1) * Collision->GetScaledCapsuleHalfHeight());
-
+		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
 		ForceNetUpdate();
