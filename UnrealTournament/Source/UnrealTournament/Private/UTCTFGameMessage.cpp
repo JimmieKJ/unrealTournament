@@ -16,7 +16,8 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	KilledMessage = NSLOCTEXT("CTFGameMessage","KilledMessage","{Player1Name} killed the {OptionalTeam} flag carrier!");
 	HasAdvantageMessage = NSLOCTEXT("CTFGameMessage", "HasAdvantage", "{OptionalTeam} Team has Advantage");
 	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
-	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "Half Time!");
+	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "HALF TIME!");
+	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
@@ -42,11 +43,20 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 8 : return CaptureMessage; break;
 		case 9 : return CaptureMessage; break;
 		case 11: return HalftimeMessage; break;
+		case 12: return OvertimeMessage; break;
 	}
-
 	return FText::GetEmpty();
 }
 
+bool UUTCTFGameMessage::UseMegaFont(int32 MessageIndex) const
+{
+	return (MessageIndex == 11) || (MessageIndex == 12);
+}
+
+float UUTCTFGameMessage::GetScaleInSize(int32 MessageIndex) const
+{
+	return ((MessageIndex == 11) || (MessageIndex == 12)) ? 3.f : 1.f;
+}
 
 bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
@@ -56,7 +66,7 @@ bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const
 	}
 	if (GetClass() == OtherMessageClass)
 	{
-		if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 12))
+		if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10) || (OtherSwitch == 12))
 		{
 			// never interrupt scoring announcements
 			return false;
@@ -80,6 +90,7 @@ void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Annou
 		}
 	}
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(11, 0));
+	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(12, 0));
 }
 
 FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
@@ -97,6 +108,7 @@ FName UUTCTFGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 		case 9: return TeamNum == 0 ? TEXT("RedDominating") : TEXT("BlueDominating"); break;
 		case 10: return TeamNum == 0 ? TEXT("RedDominating") : TEXT("BlueDominating"); break;
 		case 11: return TEXT("HalfTime"); break;
+		case 12: return TEXT("OverTime"); break;
 	}
 	return NAME_None;
 }
@@ -105,6 +117,5 @@ FName UUTCTFGameMessage::GetAnnouncementName_Implementation(int32 Switch, const 
 {
 	const AUTTeamInfo* TeamInfo = Cast<AUTTeamInfo>(OptionalObject);
 	uint8 TeamNum = (TeamInfo != NULL) ? TeamInfo->GetTeamNum() : 0;
-
 	return GetTeamAnnouncement(Switch, TeamNum);
 }

@@ -9,6 +9,7 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 {
 	bSecondHalf = false;
 	bHalftime = false;
+	HalftimeScoreDelay = 2.f;
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -177,6 +178,20 @@ FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName Cur
 }
 
 void AUTCTFGameState::OnHalftimeChanged()
+{
+	if (bHalftime)
+	{
+		// delay toggling scoreboard
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFGameState::ToggleScoreboards, HalftimeScoreDelay);
+	}
+	else
+	{
+		ToggleScoreboards();
+	}
+}
+
+void AUTCTFGameState::ToggleScoreboards()
 {
 	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 	{

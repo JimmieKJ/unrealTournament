@@ -27,7 +27,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 {
 	// By default, we do 2 team CTF
 	NumTeams = 2;
-	HalftimeDuration = 20;	// 20 second half-time by default...
+	HalftimeDuration = 30.f;
 	HUDClass = AUTHUD_CTF::StaticClass();
 	GameStateClass = AUTCTFGameState::StaticClass();
 	bAllowOvertime = true;
@@ -590,7 +590,7 @@ void AUTCTFGameMode::HandleEnteringOvertime()
 
 void AUTCTFGameMode::HandleEnteringSuddenDeath()
 {
-	BroadcastLocalized(this, UUTGameMessage::StaticClass(), 7, NULL, NULL, NULL);
+	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
 	CTFGameState->bPlayingAdvantage = false;
 }
 
@@ -601,7 +601,7 @@ void AUTCTFGameMode::HandleSuddenDeath()
 
 void AUTCTFGameMode::HandleMatchInOvertime()
 {
-	Super::HandleMatchInOvertime();
+	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
 	CTFGameState->bPlayingAdvantage = false;
 }
 
