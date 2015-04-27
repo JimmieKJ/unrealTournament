@@ -213,7 +213,11 @@ void AUTCTFGameState::AddScoringPlay(const FCTFScoringPlay& NewScoringPlay)
 
 FText AUTCTFGameState::GetGameStatusText()
 {
-	if (bPlayingAdvantage)
+	if (HasMatchEnded())
+	{
+		return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
+	}
+	else if (bPlayingAdvantage)
 	{
 		if (AdvantageTeamIndex == 0)
 		{
