@@ -399,8 +399,11 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		if (PC != NULL)
 		{
 			PC->ClientHalftime();
-			int32 TeamToWatch = (PC->GetTeamNum() < Teams.Num()) ? PC->GetTeamNum() : BestTeam;
-			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			if (!PC->PlayerState->bOnlySpectator)
+			{
+				int32 TeamToWatch = (PC->GetTeamNum() < Teams.Num()) ? PC->GetTeamNum() : BestTeam;
+				PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			}
 		}
 	}
 	
