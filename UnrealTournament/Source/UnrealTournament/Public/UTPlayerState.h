@@ -65,6 +65,17 @@ public:
 	/** Called on client using the roundtrip time for servermove/ack. */
 	virtual void CalculatePing(float NewPing);
 
+	/** ID that can be used to consistently identify this player for spectating commands
+	 * IDs are reused when players leave and new ones join, but a given player's ID remains stable and unique
+	 * as long as that player is in the game
+	 * NOTE: 1-based, zero is unassigned (bOnlySpectator spectators don't get a value)
+	 */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerState)
+	uint8 SpectatingID;
+	/** version of SpectatingID that is unique only amongst this player's team instead of all players in the game */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerState)
+	uint8 SpectatingIDTeam;
+
 	/** player's team if we're playing a team game */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = NotifyTeamChanged, Category = PlayerState)
 	class AUTTeamInfo* Team;
@@ -157,27 +168,27 @@ public:
 
 	/** Last time this player shot the enemy flag carrier. */
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
-		float LastShotFCTime;
+	float LastShotFCTime;
 
 	/** Enemy flag carrier who was last shot. */
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
-		AUTPlayerState* LastShotFC;
+	AUTPlayerState* LastShotFC;
 
 	/** Last time this player killed the enemy flag carrier. */
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
-		float LastKilledFCTime;
+	float LastKilledFCTime;
 
 	/** Accumulate partial damage on enemy flag carrier for scoring. */
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
-		float FCDamageAccum;
+	float FCDamageAccum;
 
 	/** Last time this player returned the flag. */
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
-		float LastFlagReturnTime;
+	float LastFlagReturnTime;
 
 	/** Transient - used for triggering assist announcements after a kill. */
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
-		bool bNeedsAssistAnnouncement;
+	bool bNeedsAssistAnnouncement;
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	TArray<FWeaponSpree> WeaponSprees;
@@ -322,14 +333,14 @@ public:
 
 	/** Cached clamped player name for display. */
 	UPROPERTY(BlueprintReadWrite)
-		FString ClampedName;
+	FString ClampedName;
 
 	/** True if clamped name is currently valid. */
 	bool bHasValidClampedName;
 
 	/** object which set clamping for my name. */
 	UPROPERTY(BlueprintReadWrite)
-		UObject* NameClamper;
+	UObject* NameClamper;
 
 	virtual void SetPlayerName(const FString& S) override;
 

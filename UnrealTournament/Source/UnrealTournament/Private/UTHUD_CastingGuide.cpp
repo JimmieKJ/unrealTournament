@@ -1,10 +1,37 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTHUD_CastingGuide.h"
+#include "UTHUDWidget.h"
 
 void AUTHUD_CastingGuide::DrawHUD()
 {
 	Super::DrawHUD();
 
-	// TODO: draw keys that main view wants to press to switch to my camera
+	// figure out bind for this camera and draw it
+	FString Binding;
+	AActor* ViewTarget = PlayerOwner->GetViewTarget();
+	APawn* PTarget = Cast<APawn>(ViewTarget);
+	if (PTarget != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PTarget->PlayerState);
+		if (PS != NULL)
+		{
+			if (PS->Team != NULL)
+			{
+				Binding = FString::Printf(TEXT("ViewPlayerNum %i %i"), int32(PS->SpectatingIDTeam), int32(PS->Team->TeamIndex));
+			}
+			else
+			{
+				Binding = FString::Printf(TEXT("ViewPlayerNum %i"), int32(PS->SpectatingID));
+			}
+		}
+	}
+	if (!Binding.IsEmpty())
+	{
+		TArray<FKey> Keys;
+		UTPlayerOwner->ResolveKeybindToFKey(Binding, Keys, true, false);
+		FUTCanvasTextItem Item(FVector2D(10.0f, Canvas->ClipY * 0.9f), FText::Format(NSLOCTEXT("CastingGuide", "Bind", "Camera Bind: {0}"), FText::FromString((Keys.Num() > 0) ? Keys[0].ToString() : FString::Printf(TEXT("{%s}"), *Binding))), SmallFont, FLinearColor::White);
+		Item.FontRenderInfo = Canvas->CreateFontRenderInfo(true, true);
+		Canvas->DrawItem(Item);
+	}
 }

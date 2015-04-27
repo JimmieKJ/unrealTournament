@@ -749,30 +749,39 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 	}
 }
 
-void AUTPlayerController::ViewRedPlayer(int32 Index)
+void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	AUTPlayerState* PlayerToView = GS ? GS->GetRedPlayer(FMath::Max(Index-1, 0)) : NULL;
-	if (PlayerToView)
+	if (GS != NULL)
 	{
-		BehindView(bSpectateBehindView);
-		ServerViewPlayerState(PlayerToView);
-	}
-}
+		APlayerState** PlayerToView = NULL;
+		if (TeamNum == 255 || GS->Teams.Num() == 0)
+		{
+			// hack for default binds
+			if (TeamNum == 1)
+			{
+				Index += TeamNum * 5;
+			}
 
-void AUTPlayerController::ViewBluePlayer(int32 Index)
-{
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (!GS->bTeamGame)
-	{
-		ViewRedPlayer(Index + 5);
-		return;
-	}
-	AUTPlayerState* PlayerToView = GS ? GS->GetBluePlayer(FMath::Max(Index - 1, 0)) : NULL;
-	if (PlayerToView)
-	{
-		BehindView(bSpectateBehindView);
-		ServerViewPlayerState(PlayerToView);
+			PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+			{
+				const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
+				return (PS != NULL && PS->SpectatingID == Index);
+			});
+		}
+		else if (GS->Teams.IsValidIndex(TeamNum))
+		{
+			PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+			{
+				const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
+				return (PS != NULL && PS->SpectatingIDTeam == Index && PS->GetTeamNum() == TeamNum);
+			});
+		}
+		if (PlayerToView != NULL)
+		{
+			BehindView(bSpectateBehindView);
+			ServerViewPlayerState(*PlayerToView);
+		}
 	}
 }
 
@@ -788,6 +797,7 @@ void AUTPlayerController::ToggleBehindView()
 	}
 }
 
+
 void AUTPlayerController::ToggleSlideOut()
 {
 	bRequestingSlideOut = !bRequestingSlideOut;
@@ -798,12 +808,11 @@ void AUTPlayerController::ToggleShowBinds()
 	bShowCameraBinds = !bShowCameraBinds;
 }
 
-bool AUTPlayerController::ServerViewFlagHolder_Validate(int32 TeamIndex)
+bool AUTPlayerController::ServerViewFlagHolder_Validate(uint8 TeamIndex)
 {
 	return true;
 }
-
-void AUTPlayerController::ServerViewFlagHolder_Implementation(int32 TeamIndex)
+void AUTPlayerController::ServerViewFlagHolder_Implementation(uint8 TeamIndex)
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
@@ -838,12 +847,12 @@ void AUTPlayerController::ViewClosestVisiblePlayer()
 	}
 }
 
-bool AUTPlayerController::ServerViewPlayerState_Validate(AUTPlayerState* PS)
+bool AUTPlayerController::ServerViewPlayerState_Validate(APlayerState* PS)
 {
 	return true;
 }
 
-void AUTPlayerController::ServerViewPlayerState_Implementation(AUTPlayerState* PS)
+void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 {
 	if (PlayerState && PlayerState->bOnlySpectator && PS)
 	{
@@ -2572,6 +2581,14 @@ void AUTPlayerController::ResolveKeybindToFKey(FString Command, TArray<FKey>& Ke
 			{
 				if (!FKey(UTPlayerInput->CustomBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
 				Keys.Add(FKey(UTPlayerInput->CustomBinds[i].KeyName));
+			}
+		}
+		for (int32 i = 0; i < UTPlayerInput->SpectatorBinds.Num(); i++)
+		{
+			if (UTPlayerInput->SpectatorBinds[i].Command == Command)
+			{
+				if (!FKey(UTPlayerInput->SpectatorBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
+					Keys.Add(FKey(UTPlayerInput->SpectatorBinds[i].KeyName));
 			}
 		}
 	}

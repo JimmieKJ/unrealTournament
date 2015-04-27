@@ -333,11 +333,11 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 #endif
 }
 
-void UUTGameViewportClient::Draw(FViewport* Viewport, FCanvas* SceneCanvas)
+void UUTGameViewportClient::FinalizeViews(FSceneViewFamily* ViewFamily, const TMap<ULocalPlayer*, FSceneView*>& PlayerViewMap)
 {
+	Super::FinalizeViews(ViewFamily, PlayerViewMap);
+	
 	// set special show flags when using the casting guide
-	// even though there's a virtual accessor for this, most of the engine doesn't use it so there's no point
-	FEngineShowFlags SavedShowFlags = EngineShowFlags;
 	if (GameInstance != NULL)
 	{
 		const TArray<ULocalPlayer*> GamePlayers = GameInstance->GetLocalPlayers();
@@ -346,16 +346,19 @@ void UUTGameViewportClient::Draw(FViewport* Viewport, FCanvas* SceneCanvas)
 			AUTPlayerController* PC = Cast<AUTPlayerController>(GamePlayers[0]->PlayerController);
 			if (PC != NULL && PC->bCastingGuide)
 			{
-				EngineShowFlags.PostProcessing = 0;
-				EngineShowFlags.Lighting = 0;
-				EngineShowFlags.Atmosphere = 0;
-				EngineShowFlags.DynamicShadows = 0;
-				EngineShowFlags.LightFunctions = 0;
+				ViewFamily->EngineShowFlags.PostProcessing = 0;
+				ViewFamily->EngineShowFlags.Atmosphere = 0;
+				ViewFamily->EngineShowFlags.DynamicShadows = 0;
+				ViewFamily->EngineShowFlags.LightFunctions = 0;
+				ViewFamily->EngineShowFlags.ReflectionEnvironment = 0;
+				ViewFamily->EngineShowFlags.Specular = 0;
+				for (TMap<ULocalPlayer*, FSceneView*>::TConstIterator It(PlayerViewMap); It; ++It)
+				{
+					It.Value()->SpecularOverrideParameter = FVector4(0.5f, 0.5f, 0.5f, 0.0f);
+				}
 			}
 		}
 	}
-	Super::Draw(Viewport, SceneCanvas);
-	EngineShowFlags = SavedShowFlags;
 }
 
 void UUTGameViewportClient::PostRender(UCanvas* Canvas)

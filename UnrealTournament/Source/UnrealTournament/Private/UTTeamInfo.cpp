@@ -29,6 +29,41 @@ void AUTTeamInfo::AddToTeam(AController* C)
 			{
 				RemoveFromTeam(C);
 			}
+			// allocate team specific spectating ID
+			TArray<AController*> MembersCopy = TeamMembers;
+			MembersCopy.Sort([](const AController& A, const AController& B) -> bool
+			{
+				if (Cast<AUTPlayerState>(A.PlayerState) == NULL)
+				{
+					return false;
+				}
+				else if (Cast<AUTPlayerState>(B.PlayerState) == NULL)
+				{
+					return true;
+				}
+				else
+				{
+					return ((AUTPlayerState*)A.PlayerState)->SpectatingIDTeam < ((AUTPlayerState*)B.PlayerState)->SpectatingIDTeam;
+				}
+			});
+			// find first gap in assignments from player leaving, give it to this player
+			// if none found, assign PlayerArray.Num() + 1
+			bool bFound = false;
+			for (int32 i = 0; i < MembersCopy.Num(); i++)
+			{
+				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(MembersCopy[i]->PlayerState);
+				if (OtherPS == NULL || OtherPS->SpectatingIDTeam != uint8(i + 1))
+				{
+					PS->SpectatingIDTeam = uint8(i + 1);
+					bFound = true;
+					break;
+				}
+			}
+			if (!bFound)
+			{
+				PS->SpectatingIDTeam = uint8(MembersCopy.Num() + 1);
+			}
+
 			PS->Team = this;
 			PS->NotifyTeamChanged();
 			TeamMembers.Add(C);
@@ -52,6 +87,7 @@ void AUTTeamInfo::RemoveFromTeam(AController* C)
 		if (PS != NULL)
 		{
 			PS->Team = NULL;
+			PS->SpectatingIDTeam = 0;
 			PS->NotifyTeamChanged();
 		}
 	}

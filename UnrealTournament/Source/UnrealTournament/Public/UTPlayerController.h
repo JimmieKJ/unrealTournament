@@ -166,50 +166,47 @@ public:
 
 	/** Update rotation to be good view of current viewtarget. */
 	UFUNCTION()
-		virtual void FindGoodView();
+	virtual void FindGoodView();
 
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
 	UFUNCTION(exec)
-	virtual void ViewBluePlayer(int32 Index);
-
-	UFUNCTION(exec)
-	virtual void ViewRedPlayer(int32 Index);
+	virtual void ViewPlayerNum(int32 Index, uint8 TeamNum = 255);
 
 	/** View Player holding flag specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewFlagHolder(int32 TeamIndex);
+	void ServerViewFlagHolder(uint8 TeamIndex);
 
 	/** View last projectile fired by currently viewed player. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewProjectile();
+	void ServerViewProjectile();
 
 	/** View character associated with playerstate. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewPlayerState(AUTPlayerState* PS);
+	void ServerViewPlayerState(APlayerState* PS);
 
 	UFUNCTION(exec)
-		virtual void ViewClosestVisiblePlayer();
+	virtual void ViewClosestVisiblePlayer();
 
 	UFUNCTION(exec)
-		virtual void ViewProjectile();
+	virtual void ViewProjectile();
 
 	UFUNCTION(exec)
-		virtual void ViewBlueFlag();
+	virtual void ViewBlueFlag();
 
 	UFUNCTION(exec)
-		virtual void ViewRedFlag();
+	virtual void ViewRedFlag();
 
 	UFUNCTION(exec)
-		virtual void ViewCamera(int32 Index);
+	virtual void ViewCamera(int32 Index);
 
 	UFUNCTION(exec)
-		virtual void ToggleTacCom();
+	virtual void ToggleTacCom();
 
 	/** Enables TacCom for spectators. */
 	UPROPERTY(BluePrintReadWrite)
-		bool bTacComView;
+	bool bTacComView;
 
 	virtual void UpdateTacComOverlays();
 

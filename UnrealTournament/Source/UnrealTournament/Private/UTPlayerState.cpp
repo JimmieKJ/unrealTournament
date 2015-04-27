@@ -66,6 +66,9 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bChosePrimaryRespawnChoice, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSpreeDamage, COND_OwnerOnly);
+
+	DOREPLIFETIME_CONDITION(AUTPlayerState, SpectatingID, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, SpectatingIDTeam, COND_InitialOnly);
 }
 
 void AUTPlayerState::SetPlayerName(const FString& S)
@@ -555,6 +558,9 @@ void AUTPlayerState::OverrideWith(APlayerState* PlayerState)
 	{
 		// note that we don't need to call Add/RemoveFromTeam() here as that happened when Team was assigned to the passed in PlayerState
 		Team = PS->Team;
+
+		SpectatingID = PS->SpectatingID;
+		SpectatingIDTeam = PS->SpectatingIDTeam;
 	}
 }
 
