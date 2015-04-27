@@ -2,6 +2,8 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Spectator.h"
+#include "UTCarriedObject.h"
+
 
 UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -110,6 +112,14 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			{
 				AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
 				AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
+				if (!ViewCharacter)
+				{
+					AUTCarriedObject* Flag = Cast<AUTCarriedObject>(ViewActor);
+					if (Flag && Flag->Holder)
+					{
+						ViewCharacter = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
+					}
+				}
 				if (ViewCharacter && ViewCharacter->PlayerState)
 				{
 					FFormatNamedArguments Args;
