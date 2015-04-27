@@ -39,7 +39,6 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text1Min","One minute remains!"));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text3Min","Three minutes remain!"));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text5Min","Five minutes remain!"));
-		CountDownText.Add( NSLOCTEXT("UTTimerMessage","TextOverTime","!! OVERTIME !!"));
 
 		CountDownAnnouncements.Add(TEXT("CD1"));
 		CountDownAnnouncements.Add(TEXT("CD2"));
@@ -55,7 +54,6 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 		CountDownAnnouncements.Add(TEXT("1MinRemains"));
 		CountDownAnnouncements.Add(TEXT("3MinRemains"));
 		CountDownAnnouncements.Add(TEXT("FiveMinuteWarning"));
-		CountDownAnnouncements.Add(TEXT("Overdose"));
 	}
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
