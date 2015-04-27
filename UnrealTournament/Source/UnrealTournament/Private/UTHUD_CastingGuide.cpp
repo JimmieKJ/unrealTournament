@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTHUD_CastingGuide.h"
 #include "UTHUDWidget.h"
+#include "UTCarriedObject.h"
 
 void AUTHUD_CastingGuide::DrawHUD()
 {
@@ -24,6 +25,14 @@ void AUTHUD_CastingGuide::DrawHUD()
 			{
 				Binding = FString::Printf(TEXT("ViewPlayerNum %i"), int32(PS->SpectatingID));
 			}
+		}
+	}
+	else
+	{
+		AUTCarriedObject* Flag = Cast<AUTCarriedObject>(ViewTarget);
+		if (Flag != NULL)
+		{
+			Binding = FString::Printf(TEXT("ViewFlag %i"), int32(Flag->GetTeamNum()));
 		}
 	}
 	if (!Binding.IsEmpty())

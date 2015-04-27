@@ -193,10 +193,7 @@ public:
 	virtual void ViewProjectile();
 
 	UFUNCTION(exec)
-	virtual void ViewBlueFlag();
-
-	UFUNCTION(exec)
-	virtual void ViewRedFlag();
+	virtual void ViewFlag(uint8 Index);
 
 	UFUNCTION(exec)
 	virtual void ViewCamera(int32 Index);
@@ -212,7 +209,7 @@ public:
 
 	/** View Flag of team specified by Index. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewFlag(int32 Index);
+	void ServerViewFlag(uint8 Index);
 
 	virtual FVector GetFocalLocation() const override;
 
@@ -445,11 +442,17 @@ public:
 	UPROPERTY(ReplicatedUsing = OnRep_CastingGuide)
 	bool bCastingGuide;
 	/** casting guide view number, 0 == primary PC, 1+ == child PCs */
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_CastingViewIndex)
 	int32 CastingGuideViewIndex;
+
+	/** default view commands for each CastingGuideViewIndex */
+	UPROPERTY(Config)
+	TArray<FString> CastingGuideStartupCommands;
 
 	UFUNCTION()
 	void OnRep_CastingGuide();
+	UFUNCTION()
+	void OnRep_CastingViewIndex();
 
 	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);

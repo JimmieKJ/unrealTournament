@@ -413,6 +413,19 @@ void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 
 APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
+	bool bCastingView = EvalBoolOptions(ParseOption(Options, TEXT("CastingView")), false);
+	if (bCastingView)
+	{
+		// we allow the casting split views to ignore certain restrictions, so make sure they aren't lying
+		UChildConnection* ChildConn = Cast<UChildConnection>(NewPlayer);
+		if ( ChildConn == NULL || ChildConn->Parent == NULL || Cast<AUTPlayerController>(ChildConn->Parent->PlayerController) == NULL ||
+			!((AUTPlayerController*)ChildConn->Parent->PlayerController)->bCastingGuide )
+		{
+			ErrorMessage = TEXT("Illegal URL options");
+			return NULL;
+		}
+	}
+
 	FString ModdedPortal = Portal;
 	FString ModdedOptions = Options;
 	if (BaseMutator != NULL)
@@ -433,7 +446,7 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 				UTPC->CastingGuideViewIndex = 0;
 			}
 
-			if (EvalBoolOptions(ParseOption(Options, TEXT("CastingView")), false))
+			if (bCastingView)
 			{
 				UChildConnection* ChildConn = Cast<UChildConnection>(NewPlayer);
 				UTPC->CastingGuideViewIndex = (ChildConn != NULL) ? (ChildConn->Parent->Children.Find(ChildConn) + 1) : 0;

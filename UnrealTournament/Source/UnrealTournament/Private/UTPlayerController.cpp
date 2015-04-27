@@ -861,22 +861,17 @@ void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 	}
 }
 
-void AUTPlayerController::ViewBlueFlag()
+void AUTPlayerController::ViewFlag(uint8 Index)
 {
-	ServerViewFlag(1);
+	ServerViewFlag(Index);
 }
 
-void AUTPlayerController::ViewRedFlag()
-{
-	ServerViewFlag(0);
-}
-
-bool AUTPlayerController::ServerViewFlag_Validate(int32 Index)
+bool AUTPlayerController::ServerViewFlag_Validate(uint8 Index)
 {
 	return true;
 }
 
-void AUTPlayerController::ServerViewFlag_Implementation(int32 Index)
+void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
@@ -2499,7 +2494,13 @@ void AUTPlayerController::ClientSetLocation_Implementation(FVector NewLocation, 
 
 void AUTPlayerController::OnRep_CastingGuide()
 {
-	if (GetWorld()->GetNetMode() == NM_Client && bCastingGuide && UTPlayerState != NULL)
+	// we need the game state to work
+	if (GetWorld()->GetGameState() == NULL)
+	{
+		FTimerHandle Useless;
+		GetWorldTimerManager().SetTimer(Useless, this, &AUTPlayerController::OnRep_CastingGuide, 0.1f, false);
+	}
+	else if (GetWorld()->GetNetMode() == NM_Client && bCastingGuide && UTPlayerState != NULL)
 	{
 		ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
 		if (LP != NULL && LP->ViewportClient != NULL && LP->GetGameInstance() != NULL)
@@ -2528,6 +2529,14 @@ void AUTPlayerController::OnRep_CastingGuide()
 				}
 			}
 		}
+	}
+}
+
+void AUTPlayerController::OnRep_CastingViewIndex()
+{
+	if (CastingGuideStartupCommands.IsValidIndex(CastingGuideViewIndex) && !CastingGuideStartupCommands[CastingGuideViewIndex].IsEmpty())
+	{
+		ConsoleCommand(CastingGuideStartupCommands[CastingGuideViewIndex]);
 	}
 }
 

@@ -98,6 +98,12 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 			UE_LOG(UT, Warning, TEXT("********************************YOU MUST UPDATE TO A NEW VERSION %s"), *Options);
 			return TEXT("You must update to a the latest version.  For more information, go to forums.unrealtournament.com");
 		}
+		// force allow split casting views
+		// warning: relies on check in Login() that this is really a split view
+		if (UTGameMode->HasOption(Options, TEXT("CastingView")))
+		{
+			return TEXT("");
+		}
 		if (UTGameMode->bRequirePassword && !UTGameMode->ServerPassword.IsEmpty())
 		{
 			FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));

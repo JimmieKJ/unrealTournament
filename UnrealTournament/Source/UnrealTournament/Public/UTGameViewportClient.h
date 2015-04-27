@@ -17,6 +17,7 @@ class UNREALTOURNAMENT_API UUTGameViewportClient : public UGameViewportClient
 	virtual void PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, enum ENetworkFailure::Type FailureType, const FString& ErrorString) override;
 
 	virtual void FinalizeViews(FSceneViewFamily* ViewFamily, const TMap<ULocalPlayer*, FSceneView*>& PlayerViewMap) override;
+	virtual void UpdateActiveSplitscreenType() override;
 	virtual void PostRender(UCanvas* Canvas) override;
 
 	virtual void Tick(float DeltaSeconds) override;

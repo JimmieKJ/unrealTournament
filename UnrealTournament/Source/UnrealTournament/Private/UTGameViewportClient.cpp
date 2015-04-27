@@ -15,6 +15,24 @@ UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& Obj
 {
 	ReconnectAfterDownloadingMapDelay = 0;
 	VerifyFilesToDownloadAndReconnectDelay = 0;
+	MaxSplitscreenPlayers = 6;
+	
+	SplitscreenInfo.SetNum(10); // we are hijacking entries 8 and 9 for 5 and 6 players
+	
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.0f, 0.0f));
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.33f, 0.0f));
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.0f, 0.5f));
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.33f, 0.5f));
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 1.0f, 0.66f, 0.0f));
+
+	const float OneThird = 1.0f / 3.0f;
+	const float TwoThirds = 2.0f / 3.0f;
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, 0.0f, 0.0f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, OneThird, 0.0f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, 0.0f, 0.5f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, OneThird, 0.5f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.0f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.5f));
 }
 
 void UUTGameViewportClient::AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
@@ -350,14 +368,22 @@ void UUTGameViewportClient::FinalizeViews(FSceneViewFamily* ViewFamily, const TM
 				ViewFamily->EngineShowFlags.Atmosphere = 0;
 				ViewFamily->EngineShowFlags.DynamicShadows = 0;
 				ViewFamily->EngineShowFlags.LightFunctions = 0;
-				ViewFamily->EngineShowFlags.ReflectionEnvironment = 0;
-				ViewFamily->EngineShowFlags.Specular = 0;
-				for (TMap<ULocalPlayer*, FSceneView*>::TConstIterator It(PlayerViewMap); It; ++It)
-				{
-					It.Value()->SpecularOverrideParameter = FVector4(0.5f, 0.5f, 0.5f, 0.0f);
-				}
+				ViewFamily->EngineShowFlags.ScreenSpaceReflections = 0;
 			}
 		}
+	}
+}
+
+void UUTGameViewportClient::UpdateActiveSplitscreenType()
+{
+	int32 NumPlayers = GEngine->GetNumGamePlayers(GetWorld());
+	if (NumPlayers <= 4)
+	{
+		Super::UpdateActiveSplitscreenType();
+	}
+	else
+	{
+		ActiveSplitscreenType = ESplitScreenType::Type(7 + (NumPlayers - 4));
 	}
 }
 
