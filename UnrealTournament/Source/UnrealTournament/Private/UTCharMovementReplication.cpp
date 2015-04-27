@@ -119,10 +119,12 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
 	if (ClientData && ClientData->bSmoothNetUpdates)
 	{
+		// faster interpolation if stopped
+		float SmoothTime = Velocity.IsZero() ? 0.5f*ClientData->SmoothNetUpdateTime : ClientData->SmoothNetUpdateTime;
+
 		// smooth interpolation of mesh translation to avoid popping of other client pawns, unless driving or ragdoll or low tick rate
-		if ((DeltaSeconds < ClientData->SmoothNetUpdateTime) && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
+		if ((DeltaSeconds < SmoothTime) && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
 		{
-			float SmoothTime = Velocity.IsZero() ? 0.05f : ClientData->SmoothNetUpdateTime;
 			ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / SmoothTime));
 		}
 		else
@@ -133,7 +135,7 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 		if (IsMovingOnGround())
 		{
 			// don't smooth Z position if walking on ground
-			ClientData->MeshTranslationOffset.Z = 0;
+			ClientData->MeshTranslationOffset.Z = 0.f;
 		}
 
 		if (CharacterOwner->GetMesh())
