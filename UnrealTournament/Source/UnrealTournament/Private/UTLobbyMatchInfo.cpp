@@ -106,7 +106,10 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 
 		for (int32 PlayerIdx = 0; PlayerIdx < Players.Num(); PlayerIdx++)
 		{
-			if (Players[PlayerIdx] == PlayerToAdd) return;	// Quick out if already in the match
+			if (Players[PlayerIdx].IsValid() && Players[PlayerIdx] == PlayerToAdd)
+			{
+				return;
+			}
 		}
 
 		for (int32 i=0;i<BannedIDs.Num();i++)
@@ -133,7 +136,10 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 		// The host is removing this match, notify everyone.
 		for (int32 i=0;i<Players.Num();i++)
 		{
-			Players[i]->RemovedFromMatch(this);
+			if (Players[i].IsValid())
+			{
+				Players[i]->RemovedFromMatch(this);
+			}
 		}
 		Players.Empty();
 
