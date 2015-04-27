@@ -1479,7 +1479,7 @@ void AUTCharacter::PlayFeignDeath()
 	{
 		DropFlag();
 
-		if (Weapon != nullptr && Weapon->DroppedPickupClass != nullptr)
+		if (Weapon != nullptr && Weapon->DroppedPickupClass != nullptr && Weapon->bCanThrowWeapon)
 		{
 			TossInventory(Weapon, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
 		}
