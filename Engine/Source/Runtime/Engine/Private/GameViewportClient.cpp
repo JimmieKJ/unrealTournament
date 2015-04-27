@@ -920,6 +920,8 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		}
 	}
 
+	FinalizeViews(&ViewFamily, PlayerViewMap);
+
 	if (bReverbSettingsFound)
 	{
 		AudioDevice->SetReverbSettings( AudioVolume, ReverbSettings );

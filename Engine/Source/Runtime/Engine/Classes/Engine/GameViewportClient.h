@@ -158,6 +158,10 @@ public:
 	virtual void SetIsSimulateInEditorViewport(bool bInIsSimulateInEditorViewport) override;
 	// End of FViewportClient interface.
 
+	/** make any adjustments to the views after they've been completely set up */
+	virtual void FinalizeViews(class FSceneViewFamily* ViewFamily, const TMap<ULocalPlayer*, FSceneView*>& PlayerViewMap)
+	{}
+
 	// Begin FExec interface.
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar) override;
 	// End of FExec interface.
