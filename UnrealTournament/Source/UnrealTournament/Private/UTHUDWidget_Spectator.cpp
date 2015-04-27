@@ -131,7 +131,10 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
 				{
 					FFormatNamedArguments Args;
-					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1));
+					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
+						.SetMinimumFractionalDigits(2)
+						.SetMaximumFractionalDigits(2);
+					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RespawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
 				}
 				else
