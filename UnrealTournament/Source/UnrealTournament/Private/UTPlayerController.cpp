@@ -25,6 +25,9 @@
 #include "UnrealNetwork.h"
 #include "UTProfileSettings.h"
 #include "UTViewPlaceholder.h"
+#include "DataChannel.h"
+#include "Engine/GameInstance.h"
+#include "UTSpectatorCamera.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -47,6 +50,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bSingleTapAfterJump = true;
 	bTapCrouchToSlide = true;
 	CrouchSlideTapInterval = 0.25f;
+	bHasUsedSpectatingBind = false;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
@@ -72,6 +76,8 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bIsDebuggingProjectiles = false;
 	bUseClassicGroups = true;
 
+	CastingGuideViewIndex = INDEX_NONE;
+
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
 
@@ -88,6 +94,28 @@ void AUTPlayerController::BeginPlay()
 	}
 }
 
+void AUTPlayerController::Destroyed()
+{
+	Super::Destroyed();
+
+	// if this is the master for the casting guide, destroy the extra viewports now
+	if (bCastingGuide)
+	{
+		ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+		if (LP != NULL && LP->ViewportClient != NULL && LP->GetGameInstance() != NULL)
+		{
+			TArray<ULocalPlayer*> GamePlayers = LP->GetGameInstance()->GetLocalPlayers();
+			for (ULocalPlayer* OtherLP : GamePlayers)
+			{
+				if (OtherLP != LP)
+				{
+					LP->GetGameInstance()->RemoveLocalPlayer(OtherLP);
+				}
+			}
+		}
+	}
+}
+
 void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -95,6 +123,8 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, MaxPredictionPing, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, PredictionFudgeFactor, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 }
 
 void AUTPlayerController::ServerNegotiatePredictionPing_Implementation(float NewPredictionPing)
@@ -340,6 +370,10 @@ void AUTPlayerController::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 	UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+	if (UTPlayerState != NULL && bCastingGuide)
+	{
+		OnRep_CastingGuide();
+	}
 }
 
 void AUTPlayerController::SetPawn(APawn* InPawn)
@@ -713,29 +747,42 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 			UTCharacter->SwitchWeapon(LowestSlotWeapon);
 		}
 	}
-	else if (PlayerState && PlayerState->bOnlySpectator)
+}
+
+void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL)
 	{
-		if (Group > 5)
+		APlayerState** PlayerToView = NULL;
+		if (TeamNum == 255 || GS->Teams.Num() == 0)
 		{
-			ViewBluePlayer(Group - 5);
+			// hack for default binds
+			if (TeamNum == 1)
+			{
+				Index += TeamNum * 5;
+			}
+
+			PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+			{
+				const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
+				return (PS != NULL && PS->SpectatingID == Index);
+			});
 		}
-		else
+		else if (GS->Teams.IsValidIndex(TeamNum))
 		{
-			ViewRedPlayer(Group);
+			PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+			{
+				const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
+				return (PS != NULL && PS->SpectatingIDTeam == Index && PS->GetTeamNum() == TeamNum);
+			});
+		}
+		if (PlayerToView != NULL)
+		{
+			BehindView(bSpectateBehindView);
+			ServerViewPlayerState(*PlayerToView);
 		}
 	}
-}
-
-void AUTPlayerController::ViewRedPlayer(int32 Index)
-{
-	BehindView(bSpectateBehindView);
-	ServerViewPlayer(Index - 1, 0);
-}
-
-void AUTPlayerController::ViewBluePlayer(int32 Index)
-{
-	BehindView(bSpectateBehindView);
-	ServerViewPlayer(Index - 1, 1);
 }
 
 void AUTPlayerController::ToggleBehindView()
@@ -750,12 +797,22 @@ void AUTPlayerController::ToggleBehindView()
 	}
 }
 
-bool AUTPlayerController::ServerViewFlagHolder_Validate(int32 TeamIndex)
+
+void AUTPlayerController::ToggleSlideOut()
+{
+	bRequestingSlideOut = !bRequestingSlideOut;
+}
+
+void AUTPlayerController::ToggleShowBinds()
+{
+	bShowCameraBinds = !bShowCameraBinds;
+}
+
+bool AUTPlayerController::ServerViewFlagHolder_Validate(uint8 TeamIndex)
 {
 	return true;
 }
-
-void AUTPlayerController::ServerViewFlagHolder_Implementation(int32 TeamIndex)
+void AUTPlayerController::ServerViewFlagHolder_Implementation(uint8 TeamIndex)
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
@@ -763,37 +820,6 @@ void AUTPlayerController::ServerViewFlagHolder_Implementation(int32 TeamIndex)
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > TeamIndex) && CTFGameState->FlagBases[TeamIndex] && CTFGameState->FlagBases[TeamIndex]->MyFlag && CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder)
 		{
 			SetViewTarget(CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder);
-		}
-	}
-}
-
-
-bool AUTPlayerController::ServerViewPlayer_Validate(int32 Index, int32 TeamIndex)
-{
-	return true;
-}
-
-void AUTPlayerController::ServerViewPlayer_Implementation(int32 Index, int32 TeamIndex)
-{
-	BehindView(bSpectateBehindView);
-	Index = FMath::Max(Index, 0);
-	if (PlayerState && PlayerState->bOnlySpectator)
-	{
-		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		if (GameState && (GameState->Teams.Num() > 0))
-		{
-			if ((GameState->Teams.Num() > TeamIndex) && (GameState->Teams[TeamIndex] != NULL))
-			{
-				TArray<AController*> Members = GameState->Teams[TeamIndex]->GetTeamMembers();
-				if ((Members.Num() > Index) && (Members[Index] != NULL) && Members[Index]->PlayerState)
-				{
-					SetViewTarget(Members[Index]->PlayerState);
-				}
-			}
-		}
-		else if (GameState && (Index < GameState->PlayerArray.Num()) && (GameState->PlayerArray[Index] != NULL))
-		{
-			SetViewTarget(GameState->PlayerArray[Index]);
 		}
 	}
 }
@@ -821,12 +847,12 @@ void AUTPlayerController::ViewClosestVisiblePlayer()
 	}
 }
 
-bool AUTPlayerController::ServerViewPlayerState_Validate(AUTPlayerState* PS)
+bool AUTPlayerController::ServerViewPlayerState_Validate(APlayerState* PS)
 {
 	return true;
 }
 
-void AUTPlayerController::ServerViewPlayerState_Implementation(AUTPlayerState* PS)
+void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 {
 	if (PlayerState && PlayerState->bOnlySpectator && PS)
 	{
@@ -835,22 +861,17 @@ void AUTPlayerController::ServerViewPlayerState_Implementation(AUTPlayerState* P
 	}
 }
 
-void AUTPlayerController::ViewBlueFlag()
+void AUTPlayerController::ViewFlag(uint8 Index)
 {
-	ServerViewFlag(1);
+	ServerViewFlag(Index);
 }
 
-void AUTPlayerController::ViewRedFlag()
-{
-	ServerViewFlag(0);
-}
-
-bool AUTPlayerController::ServerViewFlag_Validate(int32 Index)
+bool AUTPlayerController::ServerViewFlag_Validate(uint8 Index)
 {
 	return true;
 }
 
-void AUTPlayerController::ServerViewFlag_Implementation(int32 Index)
+void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
@@ -862,23 +883,66 @@ void AUTPlayerController::ServerViewFlag_Implementation(int32 Index)
 	}
 }
 
-void AUTPlayerController::ViewProjectile()
+void AUTPlayerController::ViewCamera(int32 Index)
 {
-	if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerState)
+	if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		// toggle away from projectile cam
-		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		int32 CamCount = 0;
+		for (FActorIterator It(GetWorld()); It; ++It)
 		{
-			APawn* Pawn = *Iterator;
-			if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+			AUTSpectatorCamera* Cam = Cast<AUTSpectatorCamera>(*It);
+			if (Cam)
 			{
-				ServerViewPawn(*Iterator);
+				CamCount++;
+				if (CamCount == Index)
+				{
+					AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
+					NewViewTarget->SetActorLocationAndRotation(Cam->GetActorLocation(), Cam->GetActorRotation());
+					ResetCameraMode();
+					SetViewTarget(NewViewTarget);
+					SetControlRotation(Cam->GetActorRotation());
+					ServerViewSelf();
+				}
 			}
 		}
 	}
-	else
+}
+
+void AUTPlayerController::ViewProjectile()
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		ServerViewProjectile();
+		if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerState)
+		{
+			// toggle away from projectile cam
+			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+			{
+				APawn* Pawn = *Iterator;
+				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+				{
+					ServerViewPawn(*Iterator);
+				}
+			}
+		}
+		else
+		{
+			if (LastSpectatedPlayerState == NULL)
+			{
+				// make sure we have something to go to when projectile explodes
+				AUTCharacter* ViewedCharacter = Cast<AUTCharacter>(GetViewTarget());
+				if (!ViewedCharacter)
+				{
+					// maybe viewing character carrying flag
+					AUTCarriedObject* Flag = Cast<AUTCarriedObject>(GetViewTarget());
+					ViewedCharacter = Flag ? Flag->HoldingPawn : NULL;
+				}
+				if (ViewedCharacter)
+				{
+					LastSpectatedPlayerState = ViewedCharacter->PlayerState;
+				}
+			}
+			ServerViewProjectile();
+		}
 	}
 }
 
@@ -892,6 +956,12 @@ void AUTPlayerController::ServerViewProjectile_Implementation()
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
 		AUTCharacter* ViewedCharacter = Cast<AUTCharacter>(GetViewTarget());
+		if (!ViewedCharacter)
+		{
+			// maybe viewing character carrying flag
+			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(GetViewTarget());
+			ViewedCharacter = Flag ? Flag->HoldingPawn : NULL;
+		}
 		// @TODO FIXMESTEVE save last fired projectile as optimization
 		AUTProjectile* BestProj = NULL;
 		if (ViewedCharacter)
@@ -1485,15 +1555,12 @@ void AUTPlayerController::ClientToggleScoreboard_Implementation(bool bShow)
 void AUTPlayerController::ClientSetHUDAndScoreboard_Implementation(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass)
 {
 	// First, create the HUD
-
 	ClientSetHUD_Implementation(NewHUDClass);
-
 	MyUTHUD = Cast<AUTHUD>(MyHUD);
 	if (MyUTHUD != NULL && NewScoreboardClass != NULL)
 	{
 		MyUTHUD->CreateScoreboard(NewScoreboardClass);
 	}
-	
 }
 
 void AUTPlayerController::OnShowScores()
@@ -1713,7 +1780,6 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	}
 
 	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
-	
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
 
 	// See if we're no longer viewing a placeholder and destroy it
@@ -1737,7 +1803,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 
 		// FIXME: HACK: PlayerState->bOnlySpectator check is workaround for bug possessing new Pawn where we are actually in the spectating state for a short time after getting the new pawn as viewtarget
 		//				happens because Pawn is replicated via property replication and ViewTarget is RPC'ed so comes first
-		if (IsLocalController() && bSpectateBehindView && PlayerState != NULL && PlayerState->bOnlySpectator)
+		if (IsLocalController() && bSpectateBehindView && PlayerState != NULL && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
 		{
 			// pick good starting rotation
 			FindGoodView();
@@ -1814,7 +1880,10 @@ void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionPar
 {
 	if (IsInState(NAME_Spectating))
 	{
-		SetViewTarget(this, TransitionParams);
+		if (GetSpectatorPawn() && (GetViewTarget() != GetSpectatorPawn()))
+		{
+			SetViewTarget(this, TransitionParams);
+		}
 		ClientViewSpectatorPawn(TransitionParams);
 	}
 }
@@ -2423,6 +2492,54 @@ void AUTPlayerController::ClientSetLocation_Implementation(FVector NewLocation, 
 	}
 }
 
+void AUTPlayerController::OnRep_CastingGuide()
+{
+	// we need the game state to work
+	if (GetWorld()->GetGameState() == NULL)
+	{
+		FTimerHandle Useless;
+		GetWorldTimerManager().SetTimer(Useless, this, &AUTPlayerController::OnRep_CastingGuide, 0.1f, false);
+	}
+	else if (GetWorld()->GetNetMode() == NM_Client && bCastingGuide && UTPlayerState != NULL)
+	{
+		ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+		if (LP != NULL && LP->ViewportClient != NULL && LP->GetGameInstance() != NULL)
+		{
+			while (LP->GetGameInstance()->GetNumLocalPlayers() < LP->ViewportClient->MaxSplitscreenPlayers)
+			{
+				// partial copy from UGameInstance::CreateLocalPlayer() and ULocalPlayer::SendSplitJoin() as we want to do special join handling
+				ULocalPlayer* NewPlayer = CastChecked<ULocalPlayer>(StaticConstructObject(GEngine->LocalPlayerClass, GEngine));
+				int32 InsertIndex = LP->GetGameInstance()->AddLocalPlayer(NewPlayer, 255);
+				if (InsertIndex == INDEX_NONE)
+				{
+					// something went wrong
+					break;
+				}
+				else
+				{
+					FURL URL;
+					URL.LoadURLConfig(TEXT("DefaultPlayer"), GGameIni);
+					URL.AddOption(*FString::Printf(TEXT("Name=%s"), *FString::Printf(TEXT("%s_Spec%i"), *UTPlayerState->PlayerName, InsertIndex)));
+					URL.AddOption(TEXT("CastingView=1"));
+					URL.AddOption(TEXT("SpectatorOnly=1"));
+					FString URLString = URL.ToString();
+					FUniqueNetIdRepl UniqueId = LP->GetPreferredUniqueNetId();
+					FNetControlMessage<NMT_JoinSplit>::Send(GetWorld()->GetNetDriver()->ServerConnection, URLString, UniqueId);
+					NewPlayer->bSentSplitJoin = true;
+				}
+			}
+		}
+	}
+}
+
+void AUTPlayerController::OnRep_CastingViewIndex()
+{
+	if (CastingGuideStartupCommands.IsValidIndex(CastingGuideViewIndex) && !CastingGuideStartupCommands[CastingGuideViewIndex].IsEmpty())
+	{
+		ConsoleCommand(CastingGuideStartupCommands[CastingGuideViewIndex]);
+	}
+}
+
 void AUTPlayerController::HUDSettings()
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
@@ -2473,6 +2590,14 @@ void AUTPlayerController::ResolveKeybindToFKey(FString Command, TArray<FKey>& Ke
 			{
 				if (!FKey(UTPlayerInput->CustomBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
 				Keys.Add(FKey(UTPlayerInput->CustomBinds[i].KeyName));
+			}
+		}
+		for (int32 i = 0; i < UTPlayerInput->SpectatorBinds.Num(); i++)
+		{
+			if (UTPlayerInput->SpectatorBinds[i].Command == Command)
+			{
+				if (!FKey(UTPlayerInput->SpectatorBinds[i].KeyName).IsGamepadKey() || bIncludeGamepad)
+					Keys.Add(FKey(UTPlayerInput->SpectatorBinds[i].KeyName));
 			}
 		}
 	}

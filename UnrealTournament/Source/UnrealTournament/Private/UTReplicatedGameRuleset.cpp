@@ -32,6 +32,9 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MaxPlayers);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, DisplayTexture);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MapPlaylistSize);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackages);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackagesChecksums);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackagesRedirectURLs);
 }
 
 void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
@@ -45,6 +48,13 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
 	MapPlaylist = NewRules->MapPlaylist;
 	MinPlayersToStart = NewRules->MinPlayersToStart;
 	MaxPlayers = NewRules->MaxPlayers;
+	
+	for (int32 i = 0; i < NewRules->RedirectReferences.Num(); i++)
+	{
+		CustomPackages.Add(NewRules->RedirectReferences[i].PackageName);
+		CustomPackagesChecksums.Add(NewRules->RedirectReferences[i].PackageChecksum);
+		CustomPackagesRedirectURLs.Add(NewRules->RedirectReferences[i].PackageURLProtocol + TEXT("://") + NewRules->RedirectReferences[i].PackageURL);
+	}
 
 	DisplayTexture = NewRules->DisplayTexture;
 	GameMode = NewRules->GameMode;

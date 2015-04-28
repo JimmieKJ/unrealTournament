@@ -57,6 +57,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	LastPickupTime = -100.f;
 	bFontsCached = false;
 	bShowOverlays = true;
+	bHaveAddedSpectatorWidgets = false;
 }
 
 void AUTHUD::BeginPlay()
@@ -81,6 +82,21 @@ void AUTHUD::BeginPlay()
 		DamageIndicators[i].RotationAngle = 0.0f;
 		DamageIndicators[i].DamageAmount = 0.0f;
 		DamageIndicators[i].FadeTime = 0.0f;
+	}
+}
+
+void AUTHUD::AddSpectatorWidgets()
+{
+	if (bHaveAddedSpectatorWidgets)
+	{
+		return;
+	}
+	bHaveAddedSpectatorWidgets = true;
+
+	// Parse the widgets found in the ini
+	for (int i = 0; i < SpectatorHudWidgetClasses.Num(); i++)
+	{
+		BuildHudWidget(*SpectatorHudWidgetClasses[i]);
 	}
 }
 
@@ -335,6 +351,10 @@ void AUTHUD::DrawHUD()
 		if (!bFontsCached)
 		{
 			CacheFonts();
+		}
+		if (PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
+		{
+			AddSpectatorWidgets();
 		}
 
 		for (int WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)

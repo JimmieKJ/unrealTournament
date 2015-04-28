@@ -12,19 +12,28 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	Importance = 0.8f;
 	bIsSpecial = true;
 	Lifetime = 3.0f;
-	MessageArea = FName(TEXT("GameMessages"));
+	MessageArea = FName(TEXT("DeathMessage"));
 	bIsConsoleMessage = false;
 	AssistMessage = NSLOCTEXT("CTFRewardMessage", "Assist", "Assist!");
 	DeniedMessage = NSLOCTEXT("CTFRewardMessage", "Denied", "Denied!");
+	BlueScoreMessage = NSLOCTEXT("CTFRewardMessage", "Blue Score", "BLUE Team Scores!");
+	RedScoreMessage = NSLOCTEXT("CTFRewardMessage", "Red Score", "RED Team Scores!");
 
 	bIsStatusAnnouncement = false;
 }
 
 FLinearColor UUTCTFRewardMessage::GetMessageColor(int32 MessageIndex) const
 {
+	if (MessageIndex == 3)
+	{
+		return FLinearColor::Red;
+	}
+	if (MessageIndex == 4)
+	{
+		return FLinearColor::Blue;
+	}
 	return FLinearColor::Yellow;
 }
-
 
 void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
@@ -75,6 +84,8 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 	{
 	case 0: return DeniedMessage; break;
 	case 2: return AssistMessage; break;
+	case 3: return RedScoreMessage; break;
+	case 4: return BlueScoreMessage; break;
 	}
 
 	return FText::GetEmpty();

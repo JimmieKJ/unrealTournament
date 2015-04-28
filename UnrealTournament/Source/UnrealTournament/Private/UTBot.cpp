@@ -1179,13 +1179,13 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 			// warning: assumption that if bot wants to shoot an enemy Pawn it always sets it as Enemy
 			if (Enemy != NULL && GetFocusActor() == Enemy)
 			{
+				AUTCharacter* EnemyUTC = Cast<AUTCharacter>(Enemy);
 				TArray<FSavedPosition> SavedPositions;
 				if (bLeadTarget ? GetEnemyInfo(Enemy, true)->CanUseExactLocation(WorldTime) : IsEnemyVisible(Enemy))
 				{
-					AUTCharacter* TargetP = Cast<AUTCharacter>(Enemy);
-					if (TargetP != NULL && TargetP->SavedPositions.Num() > 0 && TargetP->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
+					if (EnemyUTC != NULL && EnemyUTC->SavedPositions.Num() > 0 && EnemyUTC->SavedPositions[0].Time <= WorldTime - TrackingReactionTime)
 					{
-						TargetP->GetSimplifiedSavedPositions(SavedPositions, true);
+						EnemyUTC->GetSimplifiedSavedPositions(SavedPositions, true);
 					}
 				}
 				bool bGotPredictedPosition = false;
@@ -1203,6 +1203,10 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*(TrackingReactionTime + TrackingPredictionError), 40.f, 8, FLinearColor::Yellow, false);
 							TargetLoc = TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError) + SideDir * (TrackingOffsetError * FMath::Min<float>(500.f, (TargetLoc - P->GetActorLocation()).Size()));
 							//DrawDebugSphere(GetWorld(), TargetLoc, 40.f, 8, FLinearColor::Red, false);
+							if (EnemyUTC != NULL)
+							{
+								TargetLoc += EnemyUTC->GetLocationCenterOffset();
+							}
 
 							if (CanAttack(Enemy, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
 							{

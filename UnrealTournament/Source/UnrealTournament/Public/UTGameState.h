@@ -19,10 +19,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	FString ServerMOTD;
 
 	UFUNCTION()
-		virtual void OnRep_ServerName();
+	virtual void OnRep_ServerName();
 
 	UFUNCTION()
-		virtual void OnRep_ServerMOTD();
+	virtual void OnRep_ServerMOTD();
 
 	// A quick string field for the scoreboard and other browsers that contains description of the server
 	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
@@ -160,10 +160,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual bool IsMatchInProgress() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
-		virtual bool IsMatchAtHalftime() const;
+	virtual bool IsMatchAtHalftime() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
-		virtual bool IsMatchInSuddenDeath() const;
+	virtual bool IsMatchInSuddenDeath() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInOvertime() const;
@@ -235,6 +235,13 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual FText GetGameStatusText();
 
 	virtual void OnRep_MatchState() override;
+
+	virtual void AddPlayerState(class APlayerState* PlayerState) override;
+	virtual void RemovePlayerState(class APlayerState* PlayerState) override;
+
+	/** If true, BluePlayerList and RedPlayerList are up to date. */
+	UPROPERTY()
+		bool bPlayerListsAreValid;
 
 protected:
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays

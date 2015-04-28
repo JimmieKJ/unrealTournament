@@ -19,6 +19,8 @@ struct FCustomKeyBinding
 	TEnumAsByte<EInputEvent> EventType;
 	UPROPERTY()
 	FString Command;
+	UPROPERTY()
+		FString FriendlyName;
 };
 
 UCLASS()
@@ -28,6 +30,10 @@ class UNREALTOURNAMENT_API UUTPlayerInput : public UPlayerInput
 
 	UPROPERTY(Config)
 	TArray<FCustomKeyBinding> CustomBinds;
+
+	/** Binds only valid for spectators */
+	UPROPERTY(Config)
+		TArray<FCustomKeyBinding> SpectatorBinds;
 
 	virtual bool ExecuteCustomBind(FKey Key, EInputEvent EventType);
 	virtual void UTForceRebuildingKeyMaps(const bool bRestoreDefaults = false); 

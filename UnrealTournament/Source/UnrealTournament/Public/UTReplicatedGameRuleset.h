@@ -51,6 +51,15 @@ public:
 	UPROPERTY(Replicated, ReplicatedUsing = BuildSlateBadge, BlueprintReadOnly, Category = Ruleset)
 	FString DisplayTexture;
 
+	UPROPERTY(Replicated)
+	TArray<FString> CustomPackages;
+
+	UPROPERTY(Replicated)
+	TArray<FString> CustomPackagesChecksums;
+
+	UPROPERTY(Replicated)
+	TArray<FString> CustomPackagesRedirectURLs;
+
 	// -------------- These are server side only.
 
 	// Not displayed, this wholes the game type that will be passed to the server via the URL.  

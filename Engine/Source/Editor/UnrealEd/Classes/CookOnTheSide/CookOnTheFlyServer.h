@@ -606,6 +606,8 @@ private:
 		TMap<FName, FChunkManifestGenerator*> ManifestGenerators;
 		/** If a cook is cancelled next cook will need to resume cooking */ 
 		TArray<FFilePlatformRequest> PreviousCookRequests; 
+		/** If we are based on a release version of the game this is the set of packages which were cooked in that release */
+		TMap<FName,TArray<FName> > BasedOnReleaseCookedPackages;
 		double CookTime;
 		double CookStartTime;
 	};
@@ -972,6 +974,13 @@ private:
 		return false;
 	}
 
+	/**
+	 * GetDLCContentPath
+	 * 
+	 * @return return the path to the source dlc content
+	 */
+	FString GetDLCContentPath();
+	
 	inline bool IsCreatingReleaseVersion()
 	{
 		if ( CookByTheBookOptions )

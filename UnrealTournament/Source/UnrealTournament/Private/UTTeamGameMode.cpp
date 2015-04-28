@@ -9,6 +9,7 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTGameMessage.h"
 #include "UTCTFGameMessage.h"
+#include "UTCTFRewardMessage.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -481,6 +482,8 @@ void AUTTeamGameMode::BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamI
 			BestScore = Teams[i]->Score;
 		}
 	}
+	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 3+ScoringTeam->TeamIndex, ScoringPlayer, NULL, ScoringTeam);
+
 	if (ScoringTeam->Score == BestScore + 2)
 	{
 		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 8, ScoringPlayer, NULL, ScoringTeam);

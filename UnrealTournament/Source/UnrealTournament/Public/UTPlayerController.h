@@ -61,6 +61,7 @@ public:
 	USoundBase* ChatMsgSound;
 
 	virtual void BeginPlay() override;
+	virtual void Destroyed() override;
 	virtual void InitInputSystem() override;
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
@@ -165,57 +166,50 @@ public:
 
 	/** Update rotation to be good view of current viewtarget. */
 	UFUNCTION()
-		virtual void FindGoodView();
+	virtual void FindGoodView();
 
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
 	UFUNCTION(exec)
-	virtual void ViewBluePlayer(int32 Index);
-
-	UFUNCTION(exec)
-		virtual void ViewRedPlayer(int32 Index);
-
-	/** View Player at Index on team specified by TeamIndex. */
-	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewPlayer(int32 Index, int32 TeamIndex);
+	virtual void ViewPlayerNum(int32 Index, uint8 TeamNum = 255);
 
 	/** View Player holding flag specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewFlagHolder(int32 TeamIndex);
+	void ServerViewFlagHolder(uint8 TeamIndex);
 
 	/** View last projectile fired by currently viewed player. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewProjectile();
+	void ServerViewProjectile();
 
 	/** View character associated with playerstate. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewPlayerState(AUTPlayerState* PS);
+	void ServerViewPlayerState(APlayerState* PS);
 
 	UFUNCTION(exec)
-		virtual void ViewClosestVisiblePlayer();
+	virtual void ViewClosestVisiblePlayer();
 
 	UFUNCTION(exec)
-		virtual void ViewProjectile();
+	virtual void ViewProjectile();
 
 	UFUNCTION(exec)
-		virtual void ViewBlueFlag();
+	virtual void ViewFlag(uint8 Index);
 
 	UFUNCTION(exec)
-		virtual void ViewRedFlag();
+	virtual void ViewCamera(int32 Index);
 
 	UFUNCTION(exec)
-		virtual void ToggleTacCom();
+	virtual void ToggleTacCom();
 
 	/** Enables TacCom for spectators. */
 	UPROPERTY(BluePrintReadWrite)
-		bool bTacComView;
+	bool bTacComView;
 
 	virtual void UpdateTacComOverlays();
 
 	/** View Flag of team specified by Index. */
 	UFUNCTION(unreliable, server, WithValidation)
-		void ServerViewFlag(int32 Index);
+	void ServerViewFlag(uint8 Index);
 
 	virtual FVector GetFocalLocation() const override;
 
@@ -295,8 +289,24 @@ public:
 	virtual void SetStylizedPP(int32 NewPP);
 
 	/** whether player wants behindview when spectating */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Camera)
+	UPROPERTY(BlueprintReadWrite)
 	bool bSpectateBehindView;
+
+	UPROPERTY(BlueprintReadOnly)
+		bool bRequestingSlideOut;
+
+	/** True when spectator has used a spectating camera bind. */
+	UPROPERTY()
+		bool bHasUsedSpectatingBind;
+
+	UPROPERTY()
+		bool bShowCameraBinds;
+
+	UFUNCTION(exec)
+		virtual void ToggleSlideOut();
+
+	UFUNCTION(exec)
+		virtual void ToggleShowBinds();
 
 	virtual void ViewAPlayer(int32 dir)
 	{
@@ -405,19 +415,19 @@ public:
 
 	/** Last time this client's ping was updated. */
 	UPROPERTY()
-		float LastPingCalcTime;
+	float LastPingCalcTime;
 
 	/** Client sends ping request to server - used when servermoves aren't happening. */
 	UFUNCTION(unreliable, server, WithValidation)
-		virtual void ServerBouncePing(float TimeStamp);
+	virtual void ServerBouncePing(float TimeStamp);
 
 	/** Server bounces ping request back to client - used when servermoves aren't happening. */
 	UFUNCTION(unreliable, client)
-		virtual void ClientReturnPing(float TimeStamp);
+	virtual void ClientReturnPing(float TimeStamp);
 
 	/** Client informs server of new ping update. */
 	UFUNCTION(unreliable, server, WithValidation)
-		virtual void ServerUpdatePing(float ExactPing);
+	virtual void ServerUpdatePing(float ExactPing);
 
 	//-----------------------------------------------
 	/** guess of this player's target on last shot, used by AI */
@@ -427,6 +437,22 @@ public:
 	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
 
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
+
+	/** sent from server when it accepts the URL parameter "?castingguide=1", which enables a special multi-camera view that shows many potential spectating views at once */
+	UPROPERTY(ReplicatedUsing = OnRep_CastingGuide)
+	bool bCastingGuide;
+	/** casting guide view number, 0 == primary PC, 1+ == child PCs */
+	UPROPERTY(ReplicatedUsing = OnRep_CastingViewIndex)
+	int32 CastingGuideViewIndex;
+
+	/** default view commands for each CastingGuideViewIndex */
+	UPROPERTY(Config)
+	TArray<FString> CastingGuideStartupCommands;
+
+	UFUNCTION()
+	void OnRep_CastingGuide();
+	UFUNCTION()
+	void OnRep_CastingViewIndex();
 
 	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);

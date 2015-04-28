@@ -75,6 +75,12 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	/** Return true if message should be displayed with large font. */
 	virtual bool UseLargeFont(int32 MessageIndex) const;
 
+	/** @TODO FIXMESTEVE - hack.  Instead just let message classes return font size index. */
+	virtual bool UseMegaFont(int32 MessageIndex) const 
+	{
+		return false;
+	};
+
 	/** Return color of displayed message. */
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const;
 

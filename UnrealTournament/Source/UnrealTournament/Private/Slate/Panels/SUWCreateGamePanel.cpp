@@ -1072,17 +1072,20 @@ FReply SUWCreateGamePanel::RemoveMutator()
 }
 FReply SUWCreateGamePanel::ConfigureMutator()
 {
-	TArray<UClass*> Selection = EnabledMutators->GetSelectedItems();
-	if (Selection.Num() > 0 && Selection[0] != NULL)
+	if (!MutatorConfigMenu.IsValid() || MutatorConfigMenu->GetParent() == NULL)
 	{
-		checkSlow(Selection[0]->IsChildOf(AUTMutator::StaticClass()));
-		AUTMutator* Mut = Selection[0]->GetDefaultObject<AUTMutator>();
-		if (Mut->ConfigMenu != NULL)
+		TArray<UClass*> Selection = EnabledMutators->GetSelectedItems();
+		if (Selection.Num() > 0 && Selection[0] != NULL)
 		{
-			UUserWidget* Widget = CreateWidget<UUserWidget>(GetPlayerOwner()->GetWorld(), Mut->ConfigMenu);
-			if (Widget != NULL)
+			checkSlow(Selection[0]->IsChildOf(AUTMutator::StaticClass()));
+			AUTMutator* Mut = Selection[0]->GetDefaultObject<AUTMutator>();
+			if (Mut->ConfigMenu != NULL)
 			{
-				Widget->AddToViewport();
+				MutatorConfigMenu = CreateWidget<UUserWidget>(GetPlayerOwner()->GetWorld(), Mut->ConfigMenu);
+				if (MutatorConfigMenu != NULL)
+				{
+					MutatorConfigMenu->AddToViewport();
+				}
 			}
 		}
 	}

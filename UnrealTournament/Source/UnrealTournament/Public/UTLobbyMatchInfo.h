@@ -267,6 +267,7 @@ public:
 
 	virtual void SetMatchStats(FString Update);
 
+	bool GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs);
 };
 
 

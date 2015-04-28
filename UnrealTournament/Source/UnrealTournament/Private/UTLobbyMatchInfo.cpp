@@ -5,6 +5,7 @@
 #include "UTLobbyGameMode.h"
 #include "UTLobbyMatchInfo.h"
 #include "Net/UnrealNetwork.h"
+#include "UTGameEngine.h"
 
 
 AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectInitializer)
@@ -105,7 +106,10 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 
 		for (int32 PlayerIdx = 0; PlayerIdx < Players.Num(); PlayerIdx++)
 		{
-			if (Players[PlayerIdx] == PlayerToAdd) return;	// Quick out if already in the match
+			if (Players[PlayerIdx].IsValid() && Players[PlayerIdx] == PlayerToAdd)
+			{
+				return;
+			}
 		}
 
 		for (int32 i=0;i<BannedIDs.Num();i++)
@@ -132,7 +136,10 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 		// The host is removing this match, notify everyone.
 		for (int32 i=0;i<Players.Num();i++)
 		{
-			Players[i]->RemovedFromMatch(this);
+			if (Players[i].IsValid())
+			{
+				Players[i]->RemovedFromMatch(this);
+			}
 		}
 		Players.Empty();
 
@@ -500,4 +507,80 @@ void AUTLobbyMatchInfo::OnRep_MatchStats()
 	{
 		MatchGameTime = GameTime;
 	}
+}
+
+// Unmounts and/or deletes stale packages per the current ruleset
+bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs)
+{
+	NeededPackageURLs.Empty();
+	for (int32 i = 0; i < CurrentRuleset->CustomPackages.Num(); i++)
+	{
+		FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *CurrentRuleset->CustomPackages[i]) + TEXT(".pak");
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTEngine)
+		{
+			if (UTEngine->LocalContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			{
+				if (UTEngine->LocalContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				{
+					continue;
+				}
+				else
+				{
+					// Local content has a non-matching md5, not sure if we should try to unmount/delete it
+					return false;
+				}
+			}
+
+			if (UTEngine->MountedDownloadedContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			{
+				if (UTEngine->MountedDownloadedContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				{
+					// We've already mounted the content needed and the checksum matches
+					continue;
+				}
+				else
+				{
+					// Unmount the pak
+					if (FCoreDelegates::OnUnmountPak.IsBound())
+					{
+						FCoreDelegates::OnUnmountPak.Execute(Path);
+					}
+
+					// Remove the CRC entry
+					UTEngine->MountedDownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
+					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
+
+					// Delete the original file
+					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
+				}
+			}
+
+			if (UTEngine->DownloadedContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			{
+				if (UTEngine->DownloadedContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				{
+					// Mount the pak
+					if (FCoreDelegates::OnMountPak.IsBound())
+					{
+						FCoreDelegates::OnMountPak.Execute(Path, 0);
+						UTEngine->MountedDownloadedContentChecksums.Add(CurrentRuleset->CustomPackages[i], CurrentRuleset->CustomPackagesChecksums[i]);
+					}
+
+					continue;
+				}
+				else
+				{
+					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
+
+					// Delete the original file
+					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
+				}
+			}
+
+			NeededPackageURLs.Add(CurrentRuleset->CustomPackagesRedirectURLs[i]);
+		}
+	}
+
+	return true;
 }

@@ -23,7 +23,7 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 		return;
 	}
 
-	if (!FontRenderInfo.bClipText)
+	if (!FontRenderInfo.bClipText && WordWrapper.IsValid())
 	{
 		// word wrap
 		FTextSizingParameters Parms(Font, Scale.X, Scale.Y);

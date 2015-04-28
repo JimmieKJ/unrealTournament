@@ -2,6 +2,8 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Spectator.h"
+#include "UTCarriedObject.h"
+
 
 UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -17,13 +19,13 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 
 bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
-	if (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
 		if (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
 		{
 			return !bShowScores;
 		}
-		return (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTPlayerOwner->GetPawn() == NULL)));
+		return (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL)));
 	}
 	return false;
 }
@@ -110,12 +112,24 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			{
 				AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
 				AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
+				if (!ViewCharacter)
+				{
+					AUTCarriedObject* Flag = Cast<AUTCarriedObject>(ViewActor);
+					if (Flag && Flag->Holder)
+					{
+						ViewCharacter = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
+					}
+				}
 				if (ViewCharacter && ViewCharacter->PlayerState)
 				{
 					FFormatNamedArguments Args;
 					Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
 					bShortMessage = true;
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
+				}
+				else if (!UTHUDOwner->UTPlayerOwner->bHasUsedSpectatingBind)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [ENTER] to view camera binds.");
 				}
 			}
 			else if (UTGameState->IsMatchInOvertime() && (UTGameState->bOnlyTheStrongSurvive || UTGameState->IsMatchInSuddenDeath()))
@@ -127,7 +141,10 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
 				{
 					FFormatNamedArguments Args;
-					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1));
+					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
+						.SetMinimumFractionalDigits(1)
+						.SetMaximumFractionalDigits(1);
+					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RespawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
 				}
 				else
@@ -147,7 +164,17 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				FFormatNamedArguments Args;
 				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
 				bShortMessage = true;
-				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
+				AUTPlayerState* PS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
+				if (UTGameState->bTeamGame && PS && PS->Team)
+				{
+					SpectatorMessage = (PS->Team->TeamIndex == 0)
+						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Red Team Led by {PlayerName}"), Args)
+						: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Blue Team Led by {PlayerName}"), Args);
+				}
+				else
+				{
+					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
+				}
 			}
 		}
 		DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);

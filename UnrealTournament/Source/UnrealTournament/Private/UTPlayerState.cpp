@@ -31,6 +31,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	DuelSkillRatingThisMatch = 0;
 	TDMSkillRatingThisMatch = 0;
 	DMSkillRatingThisMatch = 0;
+	CTFSkillRatingThisMatch = 0;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -65,6 +66,9 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bChosePrimaryRespawnChoice, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSpreeDamage, COND_OwnerOnly);
+
+	DOREPLIFETIME_CONDITION(AUTPlayerState, SpectatingID, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, SpectatingIDTeam, COND_InitialOnly);
 }
 
 void AUTPlayerState::SetPlayerName(const FString& S)
@@ -309,6 +313,10 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 			return UTChar;
 		}
 	}
+	if (CachedCharacter && CachedCharacter->PlayerState == this)
+	{
+		return CachedCharacter;
+	}
 
 	// iterate through all pawns and find matching playerstate ref
 	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
@@ -316,6 +324,7 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
 		if (UTChar && UTChar->PlayerState == this)
 		{
+			CachedCharacter = UTChar;
 			return UTChar;
 		}
 	}
@@ -452,6 +461,11 @@ bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewEyewear
     have a proper ID available.  */
 void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
 {
+	if (GetWorld()->IsPlayInEditor() || GetWorld()->GetNetMode() == NM_Standalone)
+	{
+		return;
+	}
+
 	StatsID = NewStatsID;
 
 	ReadStatsFromCloud();	
@@ -519,6 +533,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->DuelSkillRatingThisMatch = DuelSkillRatingThisMatch;
 		PS->DMSkillRatingThisMatch = DMSkillRatingThisMatch;
 		PS->TDMSkillRatingThisMatch = TDMSkillRatingThisMatch;
+		PS->CTFSkillRatingThisMatch = CTFSkillRatingThisMatch;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
 		PS->Deaths = Deaths;
@@ -543,6 +558,9 @@ void AUTPlayerState::OverrideWith(APlayerState* PlayerState)
 	{
 		// note that we don't need to call Add/RemoveFromTeam() here as that happened when Team was assigned to the passed in PlayerState
 		Team = PS->Team;
+
+		SpectatingID = PS->SpectatingID;
+		SpectatingIDTeam = PS->SpectatingIDTeam;
 	}
 }
 
@@ -766,6 +784,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))), EStatRecordingPeriod::Persistent);
 					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("TDMSkillRating"))), EStatRecordingPeriod::Persistent);
 					DMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("DMSkillRating"))), EStatRecordingPeriod::Persistent);
+					CTFSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("CTFSkillRating"))), EStatRecordingPeriod::Persistent);
 				}
 			}
 		}
@@ -842,6 +861,10 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 	else if (SkillStatName == FName(TEXT("DMSkillRating")))
 	{
 		SkillRating = DMSkillRatingThisMatch;
+	}
+	else if (SkillStatName == FName(TEXT("CTFSkillRating")))
+	{
+		SkillRating = CTFSkillRatingThisMatch;
 	}
 	else
 	{

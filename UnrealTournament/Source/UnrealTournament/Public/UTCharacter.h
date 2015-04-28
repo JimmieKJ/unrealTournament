@@ -564,6 +564,11 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	uint8 FlashExtra;
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoReplicated, Category = "Weapon")
 	FVector_NetQuantize FlashLocation;
+
+	/** Updated on client when FlashCount is replicated. */
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
+		float LastWeaponFireTime;
+
 	/** set when client is locally simulating FlashLocation so ignore any replicated value */
 	bool bLocalFlashLoc;
 
@@ -745,17 +750,22 @@ protected:
 
 	/** Magnitude of impulse to push ragdoll around if fail to get up from feign. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
-		float FeignNudgeMag;
+	float FeignNudgeMag;
 
 	/** Count failed attempts to unfeign, kill player if too many. */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
-		int32 UnfeignCount;
+	int32 UnfeignCount;
 
 public:
 	inline bool IsRagdoll() const
 	{
 		return bFeigningDeath || bInRagdollRecovery || (RootComponent == GetMesh() && GetMesh()->IsSimulatingPhysics());
 	}
+
+	/** returns offset from this Pawn's Location (i.e. GetActorLocation()) to the center of its collision
+	 * generally zero, but in ragdoll GetActorLocation() may not return the center depending on the physics setup
+	 */
+	virtual FVector GetLocationCenterOffset() const;
 
 	virtual void BeginPlay() override;
 	virtual void PostInitializeComponents() override;

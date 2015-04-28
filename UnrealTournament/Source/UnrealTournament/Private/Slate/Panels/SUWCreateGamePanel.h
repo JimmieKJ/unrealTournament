@@ -66,6 +66,11 @@ protected:
 	TSharedPtr< SListView<UClass*> > EnabledMutators;
 	FSlateDynamicImageBrush* LevelScreenshot;
 
+	/** currently opened mutator config menu - if valid, can't open another
+	 * workaround for Slate not supporting modal dialogs...
+	 */
+	TWeakObjectPtr<class UUserWidget> MutatorConfigMenu;
+
 	TSharedPtr<SVerticalBox> GamePanel;
 
 	TSharedPtr<SUTTabButton> GameSettingsTabButton;

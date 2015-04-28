@@ -13,7 +13,8 @@ public:
 
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override
 	{
-		return true;
+		return (!UTHUDOwner->UTPlayerOwner || !UTHUDOwner->UTPlayerOwner->UTPlayerState 
+			|| !UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || !UTHUDOwner->UTPlayerOwner->bShowCameraBinds);
 	}
 
 protected:

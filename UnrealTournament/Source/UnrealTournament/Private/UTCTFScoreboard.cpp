@@ -7,11 +7,9 @@
 UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	ScoringPlaysHeader = NSLOCTEXT("CTF", "ScoringPlaysHeader", "SCORING SUMMARY");
+	ScoringPlaysHeader = NSLOCTEXT("CTF", "ScoringPlaysHeader", "SCORING TIMELINE");
 	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assists:");
 	UnassistedText = NSLOCTEXT("CTF", "Unassisted", "Unassisted");
-	CaptureText = NSLOCTEXT("CTF", "Capture", "Capture");
-	ScoreText = NSLOCTEXT("CTF", "Score", "Score");
 	NoScoringText = NSLOCTEXT("CTF", "NoScoring", "No Scoring");
 
 	ColumnHeaderScoreX = 0.54;
@@ -237,7 +235,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	{
 		if (Play.Team != NULL) // should always be true...
 		{
-			ScoresSoFar.SetNumZeroed(FMath::Max<int32>(ScoresSoFar.Num(), int32(Play.Team->TeamIndex) + 1));
 			ScoresSoFar[Play.Team->TeamIndex]++;
 			int32* PlayerCaps = CapCount.Find(Play.ScoredBy);
 			if (PlayerCaps != NULL)
@@ -251,14 +248,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 			if (Play.Period >= CurrentPeriod)
 			{
 				float XL, YL;
-				if (!bDrewSomething)
-				{
-					// draw headers
-					Canvas->DrawText(UTHUDOwner->MediumFont, CaptureText, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-					Canvas->TextSize(UTHUDOwner->MediumFont, ScoreText.ToString(), XL, YL, RenderScale, RenderScale);
-					Canvas->DrawText(UTHUDOwner->MediumFont, ScoreText, Canvas->ClipX * 1.0f - XOffset - XL, YPos, RenderScale, RenderScale, TextRenderInfo);
-					YPos += YL * 1.1f;
-				}
 				bDrewSomething = true;
 				// draw this cap
 				Canvas->SetLinearDrawColor(Play.Team->TeamColor);
@@ -277,9 +266,9 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				if (Play.Assists.Num() > 0)
 				{
 					AssistLine = AssistedByText.ToString() + TEXT(" ");
-					for (const FSafePlayerName& Assist : Play.Assists)
+					for (const FCTFAssist& Assist : Play.Assists)
 					{
-						AssistLine += Assist.GetPlayerName() + TEXT(", ");
+						AssistLine += Assist.AssistName.GetPlayerName() + TEXT(", ");
 					}
 					AssistLine = AssistLine.LeftChop(2);
 				}
@@ -333,3 +322,4 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 		Canvas->DrawText(UTHUDOwner->MediumFont, NoScoringText, Canvas->ClipX * 0.5f - XL * 0.5f, YPos, RenderScale, RenderScale, TextRenderInfo);
 	}
 }
+

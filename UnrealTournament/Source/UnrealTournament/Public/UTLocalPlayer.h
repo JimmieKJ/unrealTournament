@@ -312,10 +312,12 @@ private:
 	int32 TDM_ELO;	// The Player's current TDM ELO rank
 	int32 DUEL_ELO;	// The Player's current Duel ELO rank
 	int32 FFA_ELO;	// The Player's current FFA ELO rank
+	int32 CTF_ELO;	// The Player's current CTF ELO rank
 	int32 MatchesPlayed;	// The # of matches this player has played.
 	int32 DuelMatchesPlayed;	// The # of matches this player has played.
 	int32 TDMMatchesPlayed;	// The # of matches this player has played.
 	int32 FFAMatchesPlayed;	// The # of matches this player has played.
+	int32 CTFMatchesPlayed;	// The # of matches this player has played.
 
 	void ReadELOFromCloud();
 	void UpdateBaseELOFromCloudData();

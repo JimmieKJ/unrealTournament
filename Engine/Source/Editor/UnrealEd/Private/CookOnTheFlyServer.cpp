@@ -390,7 +390,7 @@ const UCookOnTheFlyServer::FCachedPackageFilename& UCookOnTheFlyServer::Cache(co
 	FString StandardFilename;
 	FName StandardFileFName = NAME_None;
 	if (FPackageName::DoesPackageExist(PackageName.ToString(), NULL, &Filename))
-{
+	{
 		StandardFilename = PackageFilename = FPaths::ConvertRelativePathToFull(Filename);
 		
 		UE_LOG(LogCook, Verbose, TEXT("Cached package %s"), *StandardFilename);
@@ -846,6 +846,13 @@ bool UCookOnTheFlyServer::IsCookOnTheFlyMode() const
 {
 	return CurrentCookMode == ECookMode::CookOnTheFly || CurrentCookMode == ECookMode::CookOnTheFlyFromTheEditor; 
 }
+
+FString UCookOnTheFlyServer::GetDLCContentPath()
+{
+	return FPaths::GamePluginsDir() / CookByTheBookOptions->DlcName / FString(TEXT("Content"));
+}
+
+COREUOBJECT_API extern bool GOutputCookingWarnings;
 
 uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &CookedPackageCount )
 {
@@ -2290,30 +2297,35 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FString>& FilesInPath, const
 	TArray<FString> CookDirectories = InCookDirectories;
 	
 	
-	TArray<FString> MapList;
-	// Add the default map section
-	GEditor->LoadMapListFromIni(TEXT("AlwaysCookMaps"), MapList);
-
-	for ( const auto &IniMapSection : IniMapSections )
+	if (!IsCookingDLC())
 	{
-		GEditor->LoadMapListFromIni(*IniMapSection, MapList);
-	}
+		TArray<FString> MapList;
+		// Add the default map section
+		GEditor->LoadMapListFromIni(TEXT("AlwaysCookMaps"), MapList);
 
-	for (int32 MapIdx = 0; MapIdx < MapList.Num(); MapIdx++)
-	{
-		AddFileToCook( FilesInPath, MapList[MapIdx]);
-	}
-
-
-	// Also append any cookdirs from the project ini files; these dirs are relative to the game content directory
-	{
-		const FString AbsoluteGameContentDir = FPaths::ConvertRelativePathToFull(FPaths::GameContentDir());
-		const UProjectPackagingSettings* const PackagingSettings = GetDefault<UProjectPackagingSettings>();
-		for(const auto& DirToCook : PackagingSettings->DirectoriesToAlwaysCook)
+		for (const auto &IniMapSection : IniMapSections)
 		{
-			CookDirectories.Add(AbsoluteGameContentDir / DirToCook.Path);
+			GEditor->LoadMapListFromIni(*IniMapSection, MapList);
+		}
+
+		for (int32 MapIdx = 0; MapIdx < MapList.Num(); MapIdx++)
+		{
+			AddFileToCook(FilesInPath, MapList[MapIdx]);
+		}
+
+
+		// Also append any cookdirs from the project ini files; these dirs are relative to the game content directory
+		{
+			const FString AbsoluteGameContentDir = FPaths::ConvertRelativePathToFull(FPaths::GameContentDir());
+			const UProjectPackagingSettings* const PackagingSettings = GetDefault<UProjectPackagingSettings>();
+			for (const auto& DirToCook : PackagingSettings->DirectoriesToAlwaysCook)
+			{
+				CookDirectories.Add(AbsoluteGameContentDir / DirToCook.Path);
+			}
 		}
 	}
+
+	
 
 	for ( const auto &CurrEntry : CookMaps )
 	{
@@ -2621,6 +2633,7 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 
 	GetDerivedDataCacheRef().WaitForQuiescence(true);
 
+	
 	{
 		// Save modified asset registry with all streaming chunk info generated during cook
 		const FString RegistryFilename = FPaths::GameDir() / TEXT("AssetRegistry.bin");
@@ -2634,7 +2647,19 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 		{
 			// Always try to save the manifests, this is required to make the asset registry work, but doesn't necessarily write a file
 			Manifest.Value->SaveManifests(SandboxFile.GetOwnedPointer());
-			Manifest.Value->SaveAssetRegistry(SandboxRegistryFilename);
+
+			const FName& PlatformName = Manifest.Key;
+			const TArray<FName>& PackageFilenames = CookByTheBookOptions->BasedOnReleaseCookedPackages.FindRef(PlatformName);
+			TArray<FName> LongPackageNames;
+			LongPackageNames.Empty(PackageFilenames.Num());
+			for (const auto& PackageFilename : PackageFilenames)
+			{
+				FString LongPackageName;
+				verify(FPackageName::TryConvertFilenameToLongPackageName(PackageFilename.ToString(), LongPackageName));
+				LongPackageNames.Add(FName(*LongPackageName));
+			}
+
+			Manifest.Value->SaveAssetRegistry(SandboxRegistryFilename, &LongPackageNames);
 
 			Manifest.Value->SaveCookedPackageAssetRegistry(SandboxCookedAssetRegistryFilename, true);
 
@@ -2657,6 +2682,8 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 	CookByTheBookOptions->LastGCItems.Empty();
 	const float TotalCookTime = (float)(FPlatformTime::Seconds() - CookByTheBookOptions->CookStartTime);
 	UE_LOG(LogCook, Display, TEXT("Cook by the book total time in tick %fs total time %f"), CookByTheBookOptions->CookTime, TotalCookTime);
+
+	CookByTheBookOptions->BasedOnReleaseCookedPackages.Empty();
 
 	CookByTheBookOptions->bRunning = false;
 }
@@ -2801,7 +2828,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 	CookByTheBookOptions->CookTime = 0.0f;
 	CookByTheBookOptions->CookStartTime = FPlatformTime::Seconds();
 	
-	CookByTheBookOptions->CreateReleaseVersion = CreateReleaseVersion;
+	CookByTheBookOptions->CreateReleaseVersion = CreateReleaseVersion;	
 
 	bool bCookAll = (CookOptions & ECookByTheBookOptions::CookAll) != ECookByTheBookOptions::None;
 	bool bMapsOnly = (CookOptions & ECookByTheBookOptions::MapsOnly) != ECookByTheBookOptions::None;
@@ -2850,18 +2877,21 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		{
 			const FString OriginalSandboxRegistryFilename = GetReleaseVersionAssetRegistryPath(BasedOnReleaseVersion, PlatformName ) / GetAssetRegistryFilename();
 
-			TArray<FName> PackageFiles;
+			TArray<FName> PackageList;
 			// if this check fails probably because the asset registry can't be found or read
-			bool bSucceeded = GetAllPackagesFromAssetRegistry(OriginalSandboxRegistryFilename, PackageFiles);
+			bool bSucceeded = GetAllPackagesFromAssetRegistry(OriginalSandboxRegistryFilename, PackageList);
 			check( bSucceeded );
 
 			if ( bSucceeded )
 			{
-				for ( const auto& PackageFilename : PackageFiles )
+				TArray<FName> PlatformNames;
+				PlatformNames.Add(PlatformName);
+				for (const auto& PackageFilename : PackageList)
 				{
-					CookedPackages.Add( MoveTemp( FFilePlatformRequest( PackageFilename, TargetPlatformNames ) ) );
+					CookedPackages.Add( MoveTemp( FFilePlatformRequest( PackageFilename, PlatformNames ) ) );
 				}
 			}
+			CookByTheBookOptions->BasedOnReleaseCookedPackages.Add(PlatformName, MoveTemp(PackageList));
 		}
 	}
 	

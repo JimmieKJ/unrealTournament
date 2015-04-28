@@ -27,7 +27,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 {
 	// By default, we do 2 team CTF
 	NumTeams = 2;
-	HalftimeDuration = 20;	// 20 second half-time by default...
+	HalftimeDuration = 30.f;
 	HUDClass = AUTHUD_CTF::StaticClass();
 	GameStateClass = AUTCTFGameState::StaticClass();
 	bAllowOvertime = true;
@@ -83,6 +83,29 @@ void AUTCTFGameMode::InitGameState()
 	// Store a cached reference to the GameState
 	CTFGameState = Cast<AUTCTFGameState>(GameState);
 	CTFGameState->SetMaxNumberOfTeams(NumTeams);
+}
+
+void AUTCTFGameMode::CheatScore()
+{
+	int32 ScoringTeam = (FMath::FRand() < 0.5f) ? 0 : 1;
+	TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();
+	AUTPlayerState* Scorer = Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState);
+	if (FMath::FRand() < 0.5f)
+	{
+		FAssistTracker NewAssist;
+		NewAssist.Holder = Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState);
+		NewAssist.TotalHeldTime = 0.5f;
+		CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject()->AssistTracking.Add(NewAssist);
+	}
+	if (FMath::FRand() < 0.5f)
+	{
+		CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject()->HolderRescuers.Add(Members[FMath::RandHelper(Members.Num())]);
+	}
+	if (FMath::FRand() < 0.5f)
+	{
+		Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState)->LastFlagReturnTime = GetWorld()->GetTimeSeconds() - 0.1f;
+	}
+	ScoreObject(CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject(), Cast<AUTCharacter>(Cast<AController>(Scorer->GetOwner())->GetPawn()), Scorer, FName("FlagCapture"));
 }
 
 void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
@@ -399,8 +422,11 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		if (PC != NULL)
 		{
 			PC->ClientHalftime();
-			int32 TeamToWatch = (PC->GetTeamNum() < Teams.Num()) ? PC->GetTeamNum() : BestTeam;
-			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			if (!PC->PlayerState->bOnlySpectator)
+			{
+				int32 TeamToWatch = (PC->GetTeamNum() < Teams.Num()) ? PC->GetTeamNum() : BestTeam;
+				PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			}
 		}
 	}
 	
@@ -590,7 +616,7 @@ void AUTCTFGameMode::HandleEnteringOvertime()
 
 void AUTCTFGameMode::HandleEnteringSuddenDeath()
 {
-	BroadcastLocalized(this, UUTGameMessage::StaticClass(), 7, NULL, NULL, NULL);
+	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
 	CTFGameState->bPlayingAdvantage = false;
 }
 
@@ -601,7 +627,7 @@ void AUTCTFGameMode::HandleSuddenDeath()
 
 void AUTCTFGameMode::HandleMatchInOvertime()
 {
-	Super::HandleMatchInOvertime();
+	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
 	CTFGameState->bPlayingAdvantage = false;
 }
 
@@ -751,7 +777,23 @@ void AUTCTFGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 
 void AUTCTFGameMode::UpdateSkillRating()
 {
-	// No more ctf ranking
+	for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(FName(TEXT("CTFSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
+
+	for (int32 PlayerIdx = 0; PlayerIdx < InactivePlayerArray.Num(); PlayerIdx++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			PS->UpdateTeamSkillRating(FName(TEXT("CTFSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+		}
+	}
 }
 
 #if !UE_SERVER

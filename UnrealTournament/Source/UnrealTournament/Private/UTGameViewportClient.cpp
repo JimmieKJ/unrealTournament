@@ -15,6 +15,24 @@ UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& Obj
 {
 	ReconnectAfterDownloadingMapDelay = 0;
 	VerifyFilesToDownloadAndReconnectDelay = 0;
+	MaxSplitscreenPlayers = 6;
+	
+	SplitscreenInfo.SetNum(10); // we are hijacking entries 8 and 9 for 5 and 6 players
+	
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.0f, 0.0f));
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.33f, 0.0f));
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.0f, 0.5f));
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.33f, 0.5f));
+	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 1.0f, 0.66f, 0.0f));
+
+	const float OneThird = 1.0f / 3.0f;
+	const float TwoThirds = 2.0f / 3.0f;
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, 0.0f, 0.0f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, OneThird, 0.0f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, 0.0f, 0.5f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, OneThird, 0.5f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.0f));
+	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.5f));
 }
 
 void UUTGameViewportClient::AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
@@ -331,6 +349,42 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","NetworkErrorDialogTitle","Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
 	}
 #endif
+}
+
+void UUTGameViewportClient::FinalizeViews(FSceneViewFamily* ViewFamily, const TMap<ULocalPlayer*, FSceneView*>& PlayerViewMap)
+{
+	Super::FinalizeViews(ViewFamily, PlayerViewMap);
+	
+	// set special show flags when using the casting guide
+	if (GameInstance != NULL)
+	{
+		const TArray<ULocalPlayer*> GamePlayers = GameInstance->GetLocalPlayers();
+		if (GamePlayers.Num() > 0 && GamePlayers[0] != NULL)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(GamePlayers[0]->PlayerController);
+			if (PC != NULL && PC->bCastingGuide)
+			{
+				ViewFamily->EngineShowFlags.PostProcessing = 0;
+				ViewFamily->EngineShowFlags.Atmosphere = 0;
+				ViewFamily->EngineShowFlags.DynamicShadows = 0;
+				ViewFamily->EngineShowFlags.LightFunctions = 0;
+				ViewFamily->EngineShowFlags.ScreenSpaceReflections = 0;
+			}
+		}
+	}
+}
+
+void UUTGameViewportClient::UpdateActiveSplitscreenType()
+{
+	int32 NumPlayers = GEngine->GetNumGamePlayers(GetWorld());
+	if (NumPlayers <= 4)
+	{
+		Super::UpdateActiveSplitscreenType();
+	}
+	else
+	{
+		ActiveSplitscreenType = ESplitScreenType::Type(7 + (NumPlayers - 4));
+	}
 }
 
 void UUTGameViewportClient::PostRender(UCanvas* Canvas)

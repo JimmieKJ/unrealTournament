@@ -34,6 +34,7 @@ void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 
 	MessageFont = Hud->GetFontFromSizeIndex(MessageFontIndex);
 	SmallMessageFont = Hud->GetFontFromSizeIndex(SmallMessageFontIndex);
+	MegaFont = Hud->GetFontFromSizeIndex(3);
 }
 
 void UUTHUDWidgetMessage::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
@@ -249,7 +250,14 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 void UUTHUDWidgetMessage::LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
 	MessageQueue[QueueIndex].DrawColor = GetDefault<UUTLocalMessage>(MessageClass)->GetMessageColor(MessageIndex);
-	MessageQueue[QueueIndex].DisplayFont = GetDefault<UUTLocalMessage>(MessageClass)->UseLargeFont(MessageIndex) ? MessageFont : SmallMessageFont;
+	if (GetDefault<UUTLocalMessage>(MessageClass)->UseMegaFont(MessageIndex))
+	{
+		MessageQueue[QueueIndex].DisplayFont = MegaFont;
+	}
+	else
+	{
+		MessageQueue[QueueIndex].DisplayFont = GetDefault<UUTLocalMessage>(MessageClass)->UseLargeFont(MessageIndex) ? MessageFont : SmallMessageFont;
+	}
 	MessageQueue[QueueIndex].OptionalObject = OptionalObject;
 }
 

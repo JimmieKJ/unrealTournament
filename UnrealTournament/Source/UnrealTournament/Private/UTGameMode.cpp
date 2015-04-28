@@ -21,6 +21,7 @@
 #include "UTGameEngine.h"
 #include "UTWorldSettings.h"
 #include "UTLevelSummary.h"
+#include "UTHUD_CastingGuide.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -46,6 +47,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	// use our custom HUD class
 	HUDClass = AUTHUD::StaticClass();
+	CastingGuideHUDClass = AUTHUD_CastingGuide::StaticClass();
 
 	GameStateClass = AUTGameState::StaticClass();
 	PlayerStateClass = AUTPlayerState::StaticClass();
@@ -411,6 +413,19 @@ void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 
 APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
+	bool bCastingView = EvalBoolOptions(ParseOption(Options, TEXT("CastingView")), false);
+	if (bCastingView)
+	{
+		// we allow the casting split views to ignore certain restrictions, so make sure they aren't lying
+		UChildConnection* ChildConn = Cast<UChildConnection>(NewPlayer);
+		if ( ChildConn == NULL || ChildConn->Parent == NULL || Cast<AUTPlayerController>(ChildConn->Parent->PlayerController) == NULL ||
+			!((AUTPlayerController*)ChildConn->Parent->PlayerController)->bCastingGuide )
+		{
+			ErrorMessage = TEXT("Illegal URL options");
+			return NULL;
+		}
+	}
+
 	FString ModdedPortal = Portal;
 	FString ModdedOptions = Options;
 	if (BaseMutator != NULL)
@@ -418,8 +433,25 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 		BaseMutator->ModifyLogin(ModdedPortal, ModdedOptions);
 	}
 	APlayerController* Result = Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
-	if (Result)
+	if (Result != NULL)
 	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Result);
+		if (UTPC != NULL)
+		{
+			UTPC->bCastingGuide = EvalBoolOptions(ParseOption(Options, TEXT("CastingGuide")), false);
+			// TODO: check if allowed?
+			if (UTPC->bCastingGuide)
+			{
+				UTPC->PlayerState->bOnlySpectator = true;
+				UTPC->CastingGuideViewIndex = 0;
+			}
+
+			if (bCastingView)
+			{
+				UChildConnection* ChildConn = Cast<UChildConnection>(NewPlayer);
+				UTPC->CastingGuideViewIndex = (ChildConn != NULL) ? (ChildConn->Parent->Children.Find(ChildConn) + 1) : 0;
+			}
+		}
 		AUTPlayerState* PS = Cast<AUTPlayerState>(Result->PlayerState);
 		if (PS != NULL)
 		{
@@ -519,11 +551,11 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			BestChar->SelectCount++;
 			NewBot->Personality = *BestChar;
 			NewBot->PlayerState->SetPlayerName(BestChar->PlayerName);
-			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-			if (PS != NULL)
-			{
-				PS->bReadyToPlay = true;
-			}
+		}
+		AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+		if (PS != NULL)
+		{
+			PS->bReadyToPlay = true;
 		}
 
 		NewBot->InitializeSkill(GameDifficulty);
@@ -562,6 +594,12 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 			TheChar->SelectCount++;
 			NewBot->Personality = *TheChar;
 			NewBot->PlayerState->SetPlayerName(TheChar->PlayerName);
+
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+			}
 
 			NewBot->InitializeSkill(GameDifficulty);
 			NumBots++;
@@ -2156,6 +2194,15 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 
 void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 {
+	TSubclassOf<AHUD> SavedHUDClass = HUDClass;
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(NewPlayer);
+	bool bIsCastingGuidePC = UTPC != NULL && UTPC->CastingGuideViewIndex >= 0 && GameState->PlayerArray.IsValidIndex(UTPC->CastingGuideViewIndex);
+	if (bIsCastingGuidePC)
+	{
+		HUDClass = CastingGuideHUDClass;
+	}
+
 	Super::PostLogin(NewPlayer);
 
 	NewPlayer->ClientSetLocation(NewPlayer->GetFocalLocation(), NewPlayer->GetControlRotation());
@@ -2168,7 +2215,16 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 		}
 	}
 
+	
+	if (bIsCastingGuidePC)
+	{
+		// TODO: better choice of casting views
+		UTPC->ServerViewPlayerState(Cast<AUTPlayerState>(GameState->PlayerArray[UTPC->CastingGuideViewIndex]));
+	}
+
 	CheckBotCount();
+
+	HUDClass = SavedHUDClass;
 }
 
 void AUTGameMode::Logout(AController* Exiting)

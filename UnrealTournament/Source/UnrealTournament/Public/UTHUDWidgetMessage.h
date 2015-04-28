@@ -121,6 +121,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	UFont* SmallMessageFont;
 
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+	UFont* MegaFont;
+
 	// If true, this text will be drawn with an outline
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = HUD)
 	uint32 bOutlinedText:1;

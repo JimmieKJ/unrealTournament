@@ -1858,14 +1858,14 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 
 bool FNetGUIDCache::ShouldIgnoreWhenMissing( const FNetworkGUID& NetGUID ) const
 {
+	if (NetGUID.IsDynamic())
+	{
+		return true;		// Ignore missing dynamic guids (even on server because client may send RPC on/with object it doesn't know server destroyed)
+	}
+
 	if ( IsNetGUIDAuthority() )
 	{
 		return false;		// Server never ignores when missing, always warns
-	}
-
-	if ( NetGUID.IsDynamic() )
-	{
-		return true;		// Ignore missing dynamic guids
 	}
 
 	const FNetGuidCacheObject* CacheObject = ObjectLookup.Find( NetGUID );

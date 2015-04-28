@@ -935,6 +935,10 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 		if (UTDmg != NULL)
 		{
 			UTDmg.GetDefaultObject()->PlayHitEffects(this, bPlayedArmorEffect);
+			if (!UTDmg.GetDefaultObject()->bCausedByWorld)
+			{
+				LastTakeHitTime = GetWorld()->TimeSeconds; // is set client-side if enemy caused FIXMESTEVE - need caused by weapon flag
+			}
 		}
 		// check blood effects
 		if (!bPlayedArmorEffect && LastTakeHitInfo.Damage > 0 && (UTDmg == NULL || UTDmg.GetDefaultObject()->bCausesBlood)) 
@@ -1261,6 +1265,11 @@ void AUTCharacter::StopRagdoll()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
 
+FVector AUTCharacter::GetLocationCenterOffset() const
+{
+	return (!IsRagdoll() || RootComponent != GetMesh()) ? FVector::ZeroVector : (GetMesh()->Bounds.Origin - GetMesh()->GetComponentLocation());
+}
+
 void AUTCharacter::PlayDying()
 {
 	TimeOfDeath = GetWorld()->TimeSeconds;
@@ -1470,7 +1479,7 @@ void AUTCharacter::PlayFeignDeath()
 	{
 		DropFlag();
 
-		if (Weapon != nullptr && Weapon->DroppedPickupClass != nullptr)
+		if (Weapon != nullptr && Weapon->DroppedPickupClass != nullptr && Weapon->bCanThrowWeapon)
 		{
 			TossInventory(Weapon, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
 		}
@@ -3795,10 +3804,10 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float X, Y;
 			Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
 			float XL = bFarAway ? TextXL : FMath::Max(X, TextXL);
-
-			FVector ScreenPosition = Canvas->Project(GetActorLocation() + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.25f));
+			FVector WorldPosition = GetMesh()->GetComponentLocation();
+			FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
 			float XPos = ScreenPosition.X - 0.5f*XL;
-			float YPos = ScreenPosition.Y - YL;
+			float YPos = bFarAway ? ScreenPosition.Y : ScreenPosition.Y - YL;
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{
 				FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
@@ -3812,8 +3821,8 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
 				BeaconTextColor.A = 0.6f;
-				FCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor);
-				TextItem.Scale = FVector2D(0.1f*Scale, 0.1f*Scale);
+				FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor, NULL);
+				TextItem.Scale = FVector2D(Scale, Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
 				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
 				Canvas->DrawItem(TextItem);
@@ -3890,6 +3899,14 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 1.0f);
 		}
 	}
+	else
+	{
+		if (Hat != nullptr)
+		{
+			Hat->Destroy();
+			Hat = nullptr;
+		}
+	}
 }
 
 void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
@@ -3910,6 +3927,14 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 		{
 			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget);
 			Eyewear->OnVariantSelected(EyewearVariant);
+		}
+	}
+	else
+	{
+		if (Eyewear != nullptr)
+		{
+			Eyewear->Destroy();
+			Eyewear = nullptr;
 		}
 	}
 }

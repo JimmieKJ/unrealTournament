@@ -20,7 +20,7 @@ const float WIDGET_DEFAULT_Y_RESOLUTION = 1080;	// We design everything against 
 /** UT version of FCanvasTextItem that properly handles distance field font features */
 struct FUTCanvasTextItem : public FCanvasTextItem
 {
-	FUTCanvasTextItem(const FVector2D& InPosition, const FText& InText, class UFont* InFont, const FLinearColor& InColor, const TSharedPtr<FCanvasWordWrapper> InWordWrapper)
+	FUTCanvasTextItem(const FVector2D& InPosition, const FText& InText, class UFont* InFont, const FLinearColor& InColor, const TSharedPtr<FCanvasWordWrapper> InWordWrapper = NULL)
 	: FCanvasTextItem(InPosition, InText, InFont, InColor), CharIncrement(0.0f), WrapXL(0.0f), WordWrapper(InWordWrapper)
 	{}
 

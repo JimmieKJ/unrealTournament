@@ -17,6 +17,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
+	bPlayerListsAreValid = false;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -117,17 +118,6 @@ void AUTGameState::BeginPlay()
 	}
 	else
 	{
-		TArray<UObject*> AllInventory;
-		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
-		for (int32 i = 0; i < AllInventory.Num(); i++)
-		{
-			if (AllInventory[i]->HasAnyFlags(RF_ClassDefaultObject))
-			{
-				checkSlow(AllInventory[i]->IsA(AUTInventory::StaticClass()));
-				((AUTInventory*)AllInventory[i])->AddOverlayMaterials(this);
-			}
-		}
-
 		TArray<UObject*> AllCharacters;
 		GetObjectsOfClass(AUTCharacter::StaticClass(), AllCharacters, true, RF_NoFlags);
 		for (int32 i = 0; i < AllCharacters.Num(); i++)
@@ -136,6 +126,17 @@ void AUTGameState::BeginPlay()
 			{
 				checkSlow(AllCharacters[i]->IsA(AUTCharacter::StaticClass()));
 				AddOverlayMaterial(((AUTCharacter*)AllCharacters[i])->TacComOverlayMaterial);
+			}
+		}
+
+		TArray<UObject*> AllInventory;
+		GetObjectsOfClass(AUTInventory::StaticClass(), AllInventory, true, RF_NoFlags);
+		for (int32 i = 0; i < AllInventory.Num(); i++)
+		{
+			if (AllInventory[i]->HasAnyFlags(RF_ClassDefaultObject))
+			{
+				checkSlow(AllInventory[i]->IsA(AUTInventory::StaticClass()));
+				((AUTInventory*)AllInventory[i])->AddOverlayMaterials(this);
 			}
 		}
 	}
@@ -556,4 +557,58 @@ void AUTGameState::OnRep_ServerName()
 // By default, do nothing.  
 void AUTGameState::OnRep_ServerMOTD()
 {
+}
+
+void AUTGameState::AddPlayerState(APlayerState* PlayerState)
+{
+	// assign spectating ID to this player
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	// NOTE: in the case of a rejoining player, this function gets called for both the original and new PLayerStates
+	//		we will migrate the initially selected ID to avoid unnecessary ID shuffling
+	//		and thus need to check here if that has happened and avoid assigning a new one
+	if (PS != NULL && !PS->bOnlySpectator && PS->SpectatingID == 0)
+	{
+		TArray<APlayerState*> PlayerArrayCopy = PlayerArray;
+		PlayerArrayCopy.Sort([](const APlayerState& A, const APlayerState& B) -> bool
+		{
+			if (Cast<AUTPlayerState>(&A) == NULL)
+			{
+				return false;
+			}
+			else if (Cast<AUTPlayerState>(&B) == NULL)
+			{
+				return true;
+			}
+			else
+			{
+				return ((AUTPlayerState*)&A)->SpectatingID < ((AUTPlayerState*)&B)->SpectatingID;
+			}
+		});
+		// find first gap in assignments from player leaving, give it to this player
+		// if none found, assign PlayerArray.Num() + 1
+		bool bFound = false;
+		for (int32 i = 0; i < PlayerArrayCopy.Num(); i++)
+		{
+			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(PlayerArrayCopy[i]);
+			if (OtherPS == NULL || OtherPS->SpectatingID != uint8(i + 1))
+			{
+				PS->SpectatingID = uint8(i + 1);
+				bFound = true;
+				break;
+			}
+		}
+		if (!bFound)
+		{
+			PS->SpectatingID = uint8(PlayerArrayCopy.Num() + 1);
+		}
+	}
+
+	Super::AddPlayerState(PlayerState);
+	bPlayerListsAreValid = false;
+}
+
+void AUTGameState::RemovePlayerState(APlayerState* PlayerState)
+{
+	Super::RemovePlayerState(PlayerState);
+	bPlayerListsAreValid = false;
 }

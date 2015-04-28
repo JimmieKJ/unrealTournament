@@ -12,10 +12,12 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(MakeStat(FName(TEXT("SkillRating")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("TDMSkillRating")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("DMSkillRating")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("CTFSkillRating")), EStatRecordingPeriod::Persistent));
 
 	Stats.Add(MakeStat(FName(TEXT("SkillRatingSamples")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("TDMSkillRatingSamples")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("DMSkillRatingSamples")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(FName(TEXT("CTFSkillRatingSamples")), EStatRecordingPeriod::Persistent));
 
 	Stats.Add(MakeStat(FName(TEXT("MatchesPlayed")), EStatRecordingPeriod::Persistent));
 	Stats.Add(MakeStat(FName(TEXT("MatchesQuit")), EStatRecordingPeriod::Persistent));

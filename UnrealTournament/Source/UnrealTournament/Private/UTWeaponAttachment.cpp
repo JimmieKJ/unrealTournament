@@ -141,6 +141,10 @@ void AUTWeaponAttachment::PlayFiringEffects()
 	// stop any firing effects for other firemodes
 	// this is needed because if the user swaps firemodes very quickly replication might not receive a discrete stop and start new
 	StopFiringEffects(true);
+	if (WeaponType && (WeaponType.GetDefaultObject()->BaseAISelectRating > 0.f))
+	{
+		UTOwner->LastWeaponFireTime = GetWorld()->GetTimeSeconds();
+	}
 
 	// muzzle flash
 	if (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL && MuzzleFlash[UTOwner->FireMode]->Template != NULL)

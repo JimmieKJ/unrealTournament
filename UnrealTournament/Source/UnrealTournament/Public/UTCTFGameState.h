@@ -69,6 +69,33 @@ inline uint32 GetTypeHash(const FSafePlayerName& N)
 	return GetTypeHash(N.PlayerName) + GetTypeHash(N.PlayerState);
 }
 
+UENUM(BlueprintType)
+enum EAssistType
+{
+	ASSIST_Carry,
+	ASSIST_Defend,
+	ASSIST_Return,
+	ASSIST_MAX		UMETA(Hidden),
+};
+
+USTRUCT()
+struct FCTFAssist
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FSafePlayerName AssistName;
+
+	UPROPERTY()
+		TEnumAsByte<EAssistType> AssistType;
+
+	inline bool operator==(const FCTFAssist& Other) const
+	{
+		return AssistName == Other.AssistName;
+	}
+
+};
+
 USTRUCT()
 struct FCTFScoringPlay
 {
@@ -80,7 +107,7 @@ struct FCTFScoringPlay
 	UPROPERTY()
 	FSafePlayerName ScoredBy;
 	UPROPERTY()
-	TArray<FSafePlayerName> Assists;
+		TArray<FCTFAssist> Assists;
 	/** elapsed time in seconds when the cap happened */
 	UPROPERTY()
 	int32 ElapsedTime;
@@ -113,12 +140,16 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
 	uint32 bAllowSuddenDeath : 1;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
-	TArray<AUTCTFFlagBase*> FlagBases;
-
 	/** Will be true if the game is playing advantage going in to half-time */
 	UPROPERTY(Replicated)
-	uint32 bPlayingAdvantage : 1;
+		uint32 bPlayingAdvantage : 1;
+
+	/** Delay before bringing up scoreboard at halftime. */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
+		float HalftimeScoreDelay;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
+	TArray<AUTCTFFlagBase*> FlagBases;
 
 	UPROPERTY(Replicated)
 	uint8 AdvantageTeamIndex;
@@ -149,6 +180,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	
 	UFUNCTION()
 	virtual void OnHalftimeChanged();
+
+	virtual void ToggleScoreboards();
+
 private:
 	/** list of scoring plays
 	 * replicating dynamic arrays is dangerous for bandwidth and performance, but the alternative in this case is some painful code so we're as safe as possible by tightly restricting access
