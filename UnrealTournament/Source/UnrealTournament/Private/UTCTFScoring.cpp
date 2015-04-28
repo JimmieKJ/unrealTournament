@@ -102,7 +102,10 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				}
 				if (FlagRunner != ScorerPS)
 				{
-					NewScoringPlay.Assists.AddUnique(FSafePlayerName(FlagRunner));
+					FCTFAssist NewAssist;
+					NewAssist.AssistName = FSafePlayerName(FlagRunner);
+					NewAssist.AssistType = ASSIST_Carry;
+					NewScoringPlay.Assists.AddUnique(NewAssist);
 				}
 				else
 				{
@@ -117,7 +120,10 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		{
 			if (Rescuer != NULL && Rescuer->PlayerState != ScorerPS && Cast<AUTPlayerState>(Rescuer->PlayerState) != NULL && CTFGameState->OnSameTeam(Rescuer, ScorerPS))
 			{
-				NewScoringPlay.Assists.AddUnique(FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState));
+				FCTFAssist NewAssist;
+				NewAssist.AssistName = FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState);
+				NewAssist.AssistType = ASSIST_Defend;
+				NewScoringPlay.Assists.AddUnique(NewAssist);
 			}
 		}
 
@@ -132,7 +138,10 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				{
 					PS->AdjustScore(FlagReturnAssist);
 					//UE_LOG(UT, Warning, TEXT("Flag assist (return) %s score 100"), *PS->PlayerName);
-					NewScoringPlay.Assists.AddUnique(PS);
+					FCTFAssist NewAssist;
+					NewAssist.AssistName = FSafePlayerName(PS);
+					NewAssist.AssistType = ASSIST_Return;
+					NewScoringPlay.Assists.AddUnique(NewAssist);
 				}
 				else
 				{
@@ -144,12 +153,12 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		}
 
 		// increment assist counter for players who got them
-		for (const FSafePlayerName& Assist : NewScoringPlay.Assists)
+		for (const FCTFAssist& Assist : NewScoringPlay.Assists)
 		{
-			if (Assist.PlayerState != NULL)
+			if (Assist.AssistName.PlayerState != NULL)
 			{
-				Assist.PlayerState->Assists++;
-				Assist.PlayerState->bNeedsAssistAnnouncement = true;
+				Assist.AssistName.PlayerState->Assists++;
+				Assist.AssistName.PlayerState->bNeedsAssistAnnouncement = true;
 			}
 		}
 		CTFGameState->AddScoringPlay(NewScoringPlay);

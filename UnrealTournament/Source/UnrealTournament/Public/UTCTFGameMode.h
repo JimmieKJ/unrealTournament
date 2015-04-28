@@ -42,6 +42,9 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
 	int32 OvertimeDuration;
 
+	UFUNCTION(exec)
+		void CheatScore();
+
 	virtual void InitGameState();
 	virtual void PreInitializeComponents();
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );

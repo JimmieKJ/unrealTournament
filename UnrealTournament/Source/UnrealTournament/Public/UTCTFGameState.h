@@ -69,6 +69,33 @@ inline uint32 GetTypeHash(const FSafePlayerName& N)
 	return GetTypeHash(N.PlayerName) + GetTypeHash(N.PlayerState);
 }
 
+UENUM(BlueprintType)
+enum EAssistType
+{
+	ASSIST_Carry,
+	ASSIST_Defend,
+	ASSIST_Return,
+	ASSIST_MAX		UMETA(Hidden),
+};
+
+USTRUCT()
+struct FCTFAssist
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FSafePlayerName AssistName;
+
+	UPROPERTY()
+		TEnumAsByte<EAssistType> AssistType;
+
+	inline bool operator==(const FCTFAssist& Other) const
+	{
+		return AssistName == Other.AssistName;
+	}
+
+};
+
 USTRUCT()
 struct FCTFScoringPlay
 {
@@ -80,7 +107,7 @@ struct FCTFScoringPlay
 	UPROPERTY()
 	FSafePlayerName ScoredBy;
 	UPROPERTY()
-	TArray<FSafePlayerName> Assists;
+		TArray<FCTFAssist> Assists;
 	/** elapsed time in seconds when the cap happened */
 	UPROPERTY()
 	int32 ElapsedTime;

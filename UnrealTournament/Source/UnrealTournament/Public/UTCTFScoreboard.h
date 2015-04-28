@@ -43,6 +43,9 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UFUNCTION()
 	void OpenScoringPlaysPage();
 
+	UPROPERTY()
+		float TimeLineOffset;
+
 protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
