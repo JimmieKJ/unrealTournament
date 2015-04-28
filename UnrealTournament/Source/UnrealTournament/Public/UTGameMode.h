@@ -61,7 +61,7 @@ public:
 	uint32 bAllowOvertime:1;
 
 	/** If TRUE, force dead players to respawn immediately. Can be overridden with ForceRespawn=x on the url */
-	UPROPERTY(Config)
+	UPROPERTY(Config, EditDefaultsOnly)
 	bool bForceRespawn;
 
 	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
