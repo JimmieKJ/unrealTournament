@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTReplicatedEmitter.h"
+#include "UTPersistentReplicatedEmitter.h"
 #include "Particles/ParticleSystemComponent.h"
 
 AUTReplicatedEmitter::AUTReplicatedEmitter(const FObjectInitializer& ObjectInitializer)
@@ -17,4 +18,12 @@ AUTReplicatedEmitter::AUTReplicatedEmitter(const FObjectInitializer& ObjectIniti
 	SetReplicates(true);
 	bReplicateMovement = true;
 	bNetTemporary = true;
+}
+
+AUTPersistentReplicatedEmitter::AUTPersistentReplicatedEmitter(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
+{
+	bNetTemporary = false;
+	InitialLifeSpan = 0.f;
+	DedicatedServerLifeSpan = 0.f;
 }
