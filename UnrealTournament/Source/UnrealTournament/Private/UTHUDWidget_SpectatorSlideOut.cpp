@@ -76,11 +76,11 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 			int32 CameraIndex = 0;
 			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
 			{
-				if (Input->SpectatorBinds[i].Command == "ViewRedFlag")
+				if (Input->SpectatorBinds[i].Command == "ViewFlag 0")
 				{
 					RedFlagBind = Input->SpectatorBinds[i].KeyName;
 				}
-				else if (Input->SpectatorBinds[i].Command == "ViewBlueFlag")
+				else if (Input->SpectatorBinds[i].Command == "ViewFlag 1")
 				{
 					BlueFlagBind = Input->SpectatorBinds[i].KeyName;
 				}
@@ -218,7 +218,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					}
 				}
 			}
-			DrawOffset += 0.5f*(10.f-float(NumCameras))*CellHeight;
+			DrawOffset += 0.25f*(10.f-float(NumCameras))*CellHeight;
 			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 			{
 				// show flag binds
