@@ -61,14 +61,14 @@ public:
 	uint32 bAllowOvertime:1;
 
 	/** If TRUE, force dead players to respawn immediately */
-	UPROPERTY(config)
+	UPROPERTY(EditDefaultsOnly)
 	bool bForceRespawn;
 
 	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
 	UPROPERTY()
 	bool bOnlyTheStrongSurvive;
 
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly)
 	bool bHasRespawnChoices;
 
 	UPROPERTY(EditDefaultsOnly)
