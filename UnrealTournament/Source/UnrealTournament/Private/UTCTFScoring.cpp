@@ -72,10 +72,12 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		FCTFScoringPlay NewScoringPlay;
 		NewScoringPlay.Team = ScorerPS->Team;
 		NewScoringPlay.ScoredBy = FSafePlayerName(ScorerPS);
+		NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
+		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 1;
+		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += 1;
+
 		// TODO: need to handle no timelimit
-		NewScoringPlay.ElapsedTime = CTFGameState->bPlayingAdvantage
-			? TimeLimit + 60 - CTFGameState->RemainingTime
-			: NewScoringPlay.ElapsedTime = TimeLimit - CTFGameState->RemainingTime;
+		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->RemainingTime;
 		if (CTFGameState->IsMatchInOvertime())
 		{
 			NewScoringPlay.Period = 2;
@@ -86,6 +88,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		}
 
 		ScorerPS->FlagCaptures++;
+		NewScoringPlay.ScoredByCaps = ScorerPS->FlagCaptures;
 		int32 FlagPickupPoints = FlagFirstPickupPoints;
 		float TotalHeldTime = GetTotalHeldTime(GameObject);
 		for (int i = 0; i<GameObject->AssistTracking.Num(); i++)
@@ -104,7 +107,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				{
 					FCTFAssist NewAssist;
 					NewAssist.AssistName = FSafePlayerName(FlagRunner);
-					NewAssist.AssistType = ASSIST_Carry;
+					NewAssist.bCarryAssist = true;
 					NewScoringPlay.Assists.AddUnique(NewAssist);
 				}
 				else
@@ -120,10 +123,23 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		{
 			if (Rescuer != NULL && Rescuer->PlayerState != ScorerPS && Cast<AUTPlayerState>(Rescuer->PlayerState) != NULL && CTFGameState->OnSameTeam(Rescuer, ScorerPS))
 			{
-				FCTFAssist NewAssist;
-				NewAssist.AssistName = FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState);
-				NewAssist.AssistType = ASSIST_Defend;
-				NewScoringPlay.Assists.AddUnique(NewAssist);
+				bool bFoundAssist = false;
+				for (int32 j = 0; j < NewScoringPlay.Assists.Num(); j++)
+				{
+					if (NewScoringPlay.Assists[j].AssistName == FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState))
+					{
+						bFoundAssist = true;
+						NewScoringPlay.Assists[j].bDefendAssist = true;
+						break;
+					}
+				}
+				if (!bFoundAssist)
+				{
+					FCTFAssist NewAssist;
+					NewAssist.AssistName = FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState);
+					NewAssist.bDefendAssist = true;
+					NewScoringPlay.Assists.AddUnique(NewAssist);
+				}
 			}
 		}
 
@@ -138,10 +154,23 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				{
 					PS->AdjustScore(FlagReturnAssist);
 					//UE_LOG(UT, Warning, TEXT("Flag assist (return) %s score 100"), *PS->PlayerName);
-					FCTFAssist NewAssist;
-					NewAssist.AssistName = FSafePlayerName(PS);
-					NewAssist.AssistType = ASSIST_Return;
-					NewScoringPlay.Assists.AddUnique(NewAssist);
+					bool bFoundAssist = false;
+					for (int32 j = 0; j < NewScoringPlay.Assists.Num(); j++)
+					{
+						if (NewScoringPlay.Assists[j].AssistName == FSafePlayerName(PS))
+						{
+							bFoundAssist = true;
+							NewScoringPlay.Assists[j].bReturnAssist = true;
+							break;
+						}
+					}
+					if (!bFoundAssist)
+					{
+						FCTFAssist NewAssist;
+						NewAssist.AssistName = FSafePlayerName(PS);
+						NewAssist.bReturnAssist = true;
+						NewScoringPlay.Assists.AddUnique(NewAssist);
+					}
 				}
 				else
 				{

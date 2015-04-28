@@ -21,7 +21,6 @@ namespace MatchState
 	const FName MatchIsInSuddenDeath = FName(TEXT("MatchIsInSuddenDeath"));
 }
 
-
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {

@@ -70,6 +70,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float ColumnMedalX;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float FooterPosY;
 
 	// Where to draw the flags
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")

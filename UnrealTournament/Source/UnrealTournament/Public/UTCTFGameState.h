@@ -69,15 +69,6 @@ inline uint32 GetTypeHash(const FSafePlayerName& N)
 	return GetTypeHash(N.PlayerName) + GetTypeHash(N.PlayerState);
 }
 
-UENUM(BlueprintType)
-enum EAssistType
-{
-	ASSIST_Carry,
-	ASSIST_Defend,
-	ASSIST_Return,
-	ASSIST_MAX		UMETA(Hidden),
-};
-
 USTRUCT()
 struct FCTFAssist
 {
@@ -87,7 +78,13 @@ struct FCTFAssist
 	FSafePlayerName AssistName;
 
 	UPROPERTY()
-		TEnumAsByte<EAssistType> AssistType;
+		bool bCarryAssist;
+
+	UPROPERTY()
+		bool bDefendAssist;
+
+	UPROPERTY()
+		bool bReturnAssist;
 
 	inline bool operator==(const FCTFAssist& Other) const
 	{
@@ -107,22 +104,27 @@ struct FCTFScoringPlay
 	UPROPERTY()
 	FSafePlayerName ScoredBy;
 	UPROPERTY()
-		TArray<FCTFAssist> Assists;
-	/** elapsed time in seconds when the cap happened */
+	int32 ScoredByCaps;
+
 	UPROPERTY()
-	int32 ElapsedTime;
+		TArray<FCTFAssist> Assists;
+	/** Remaining time in seconds when the cap happened */
+	UPROPERTY()
+		int32 RemainingTime;
 	/** period in which the cap happened (0 : first half, 1 : second half, 2+: OT) */
 	UPROPERTY()
 	uint8 Period;
+	UPROPERTY()
+		int32 TeamScores[2];
 
 	FCTFScoringPlay()
-	: Team(NULL), ElapsedTime(0), Period(0)
+		: Team(NULL), RemainingTime(0), Period(0)
 	{}
 	FCTFScoringPlay(const FCTFScoringPlay& Other) = default;
 
 	inline bool operator==(const FCTFScoringPlay& Other) const
 	{
-		return (Team == Other.Team && ScoredBy == Other.ScoredBy && Assists == Other.Assists && ElapsedTime == Other.ElapsedTime && Period == Other.Period);
+		return (Team == Other.Team && ScoredBy == Other.ScoredBy && Assists == Other.Assists && RemainingTime == Other.RemainingTime && Period == Other.Period);
 	}
 };
 
