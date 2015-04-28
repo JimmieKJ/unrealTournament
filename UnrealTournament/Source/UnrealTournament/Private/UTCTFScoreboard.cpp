@@ -215,7 +215,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 		CurrentPeriod = CTFState->bSecondHalf ? 1 : 0;
 	}
 	Canvas->SetLinearDrawColor(FLinearColor::White);
-	float XOffset = Canvas->ClipX * 0.1f;
+	float XOffset = Canvas->ClipX * 0.08f;
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
@@ -238,6 +238,9 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	float ScoreHeight = MedYL + SmallYL;
 	float TopYPos = YPos;
+	float ScoringOffsetX, ScoringOffsetY;
+	Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
+
 	for (const FCTFScoringPlay& Play : CTFState->GetScoringPlays())
 	{
 		if (Play.Team != NULL) // should always be true...
@@ -288,10 +291,8 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				Canvas->DrawText(UTHUDOwner->SmallFont, AssistLine, XOffset + 0.2f*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
 
 				float SingleXL, SingleYL;
-				Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", SingleXL, SingleYL, RenderScale, RenderScale);
-				YPos = BoxYPos + 0.5f*(ScoreHeight - SingleYL);
-
-				float ScoreX = XOffset + 0.95f*ScoreWidth - SingleXL;
+				YPos = BoxYPos + 0.5f*(ScoreHeight - ScoringOffsetY);
+				float ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
 				Canvas->SetLinearDrawColor(CTFState->Teams[0]->TeamColor);
 				FString SingleScorePart = FString::Printf(TEXT(" %i"), Play.TeamScores[0]);
 				Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
@@ -302,7 +303,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				ScoreX += SingleXL;
 				Canvas->DrawText(UTHUDOwner->MediumFont, "-", ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 				Canvas->SetLinearDrawColor(CTFState->Teams[1]->TeamColor);
-				Canvas->TextSize(UTHUDOwner->MediumFont, "-", SingleXL, SingleYL, RenderScale, RenderScale);
 				ScoreX += SingleXL;
 				Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 

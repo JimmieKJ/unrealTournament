@@ -7,7 +7,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
-	Size = FVector2D(1400.0f, 1048.0f);
+	Size = FVector2D(1400.0f, 974.0f);
 	ScreenPosition = FVector2D(0.5f, 0.5f);
 	Origin = FVector2D(0.5f, 0.5f);
 
@@ -19,7 +19,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderY = 8;
 	ColumnY = 12;
 	ColumnMedalX = 0.6;
-	FooterPosY = 1016.f;
+	FooterPosY = 936.f;
 	CellHeight = 40;
 
 	FlagX = 0.065;
@@ -382,7 +382,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float& YOffset)
 			{
 				return;
 			}
-			YOffset = 800;
+			YOffset = 800.f;
 		}
 		// Draw the Background
 		DrawTexture(TextureAtlas, 0, YOffset, 1269, 38, 4, 132, 30, 38, 1.0);
