@@ -72,10 +72,10 @@ public:
 	FName BlueFlagBind;
 
 	UPROPERTY()
-	FName CameraBind[9];
+	FName CameraBind[10];
 
 	UPROPERTY()
-	FString CameraString[9];
+	FString CameraString[10];
 
 
 	UPROPERTY()
