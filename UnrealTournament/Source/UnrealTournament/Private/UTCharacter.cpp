@@ -3785,7 +3785,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float TextXL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
 			bool bFarAway = (Dist > TeamPlayerIndicatorMaxDistance);
-			if (bTacCom && !bFarAway && PC->PlayerCameraManager)
+			if (bTacCom && !bFarAway && PC->PlayerCameraManager && (PC->GetViewTarget() != this) && (PC->GetViewTarget()->AttachmentReplication.AttachParent != this))
 			{
 				// need to do trace, since taccom guys always rendered
 				AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PC->PlayerCameraManager);
