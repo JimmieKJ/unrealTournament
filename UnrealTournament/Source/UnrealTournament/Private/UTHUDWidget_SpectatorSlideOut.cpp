@@ -248,12 +248,26 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
 			DrawOffset += CellHeight;
 
+			bool bOverflow = false;
 			for (int32 i = 0; i < NumCameras; i++)
 			{
 				if (CameraBind[i] != NAME_None)
 				{
 					DrawCamBind(CameraBind[i], CameraString[i], DeltaTime, XOffset, DrawOffset, false);
-					DrawOffset += CellHeight;
+					if (!bOverflow)
+					{
+						DrawOffset += CellHeight;
+						if (DrawOffset > Canvas->ClipY - CellHeight)
+						{
+							bOverflow = true;
+							XOffset = XOffset + Size.X + 2.f;
+							DrawOffset -= CellHeight;
+						}
+					}
+					else
+					{
+						DrawOffset -= CellHeight;
+					}
 				}
 			}
 		}
