@@ -107,6 +107,10 @@ void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, 
 	{
 		Super::ClientAdjustPosition_Implementation(TimeStamp, NewLocation, NewVelocity, NewBase, NewBaseBoneName, bHasBase, bBaseRelativePosition, ServerMovementMode);
 	}
+	else
+	{
+		ClientAckGoodMove_Implementation(TimeStamp);
+	}
 }
 
 void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
@@ -1013,7 +1017,7 @@ void UUTCharacterMovement::ProcessOldServerMove(float OldTimeStamp, FVector OldA
 
 void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 {
-	if (!HasValidData() || !IsComponentTickEnabled())
+	if (!HasValidData())
 	{
 		return;
 	}
