@@ -1722,7 +1722,7 @@ void AUTPlayerController::UpdateTacComOverlays()
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
 			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
-			if (UTChar)
+			if (UTChar && !UTChar->IsRagdoll())
 			{
 				UTChar->UpdateTacComMesh(bTacComView);
 			}
