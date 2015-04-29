@@ -864,7 +864,7 @@ bool AUTGameMode::IsEnemy(AController * First, AController* Second)
 void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	// Ignore all killing when entering overtime as we kill off players and don't want it affecting their score.
-	if (GetMatchState() != MatchState::MatchEnteringOvertime)
+	if ((GetMatchState() != MatchState::MatchEnteringOvertime) && (GetMatchState() != MatchState::WaitingPostMatch))
 	{
 		AUTPlayerState* const KillerPlayerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 		AUTPlayerState* const KilledPlayerState = KilledPlayer ? Cast<AUTPlayerState>(KilledPlayer->PlayerState) : NULL;
@@ -1862,6 +1862,7 @@ bool AUTGameMode::ReadyToStartMatch()
 			return true;
 		}
 	}
+	return true;
 
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
