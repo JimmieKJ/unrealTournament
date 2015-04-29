@@ -270,6 +270,7 @@ public:
 	virtual void Reset();
 	virtual void RestartGame();
 	virtual void BeginGame();
+	virtual bool AllowPausing(APlayerController* PC) override;
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
