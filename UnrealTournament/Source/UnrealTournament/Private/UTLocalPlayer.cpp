@@ -117,7 +117,7 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 
 bool UUTLocalPlayer::IsAFriend(FUniqueNetIdRepl PlayerId)
 {
-	return (OnlineFriendsInterface.IsValid() && OnlineFriendsInterface->IsFriend(0, *PlayerId, EFriendsLists::ToString(EFriendsLists::InGamePlayers)));
+	return (PlayerId.IsValid() && OnlineFriendsInterface.IsValid() && OnlineFriendsInterface->IsFriend(0, *PlayerId, EFriendsLists::ToString(EFriendsLists::InGamePlayers)));
 }
 
 FString UUTLocalPlayer::GetNickname() const
