@@ -27,6 +27,8 @@ protected:
 	
 	virtual void BuildExitMenu(TSharedPtr <SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
 	virtual TSharedRef<SWidget> BuildBackground();
+	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
+
 };
 
 #endif
