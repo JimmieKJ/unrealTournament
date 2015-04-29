@@ -1223,8 +1223,11 @@ void AUTCharacter::StopRagdoll()
 	}
 	GetCapsuleComponent()->SetRelativeRotation(FixedRotation);
 	GetCapsuleComponent()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetCapsuleComponent()->RelativeScale3D);
-	GetCapsuleComponent()->SetCapsuleSize(GetCapsuleComponent()->GetUnscaledCapsuleRadius(), GetCharacterMovement()->CrouchedHalfHeight);
-	bIsCrouched = true;
+	if ((Role == ROLE_Authority) || IsLocallyControlled())
+	{
+		GetCapsuleComponent()->SetCapsuleSize(GetCapsuleComponent()->GetUnscaledCapsuleRadius(), GetCharacterMovement()->CrouchedHalfHeight);
+		bIsCrouched = true;
+	}
 	RootComponent = GetCapsuleComponent();
 
 	GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
