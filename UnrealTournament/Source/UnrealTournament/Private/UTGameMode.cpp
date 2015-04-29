@@ -1210,6 +1210,12 @@ void AUTGameMode::EndMatch()
 	}
 }
 
+bool AUTGameMode::AllowPausing(APlayerController* PC)
+{
+	// allow pausing even in listen server mode if no remote players are connected
+	return (Super::AllowPausing(PC) || GetWorld()->GetNetDriver() == NULL || GetWorld()->GetNetDriver()->ClientConnections.Num() == 0);
+}
+
 void AUTGameMode::UpdateSkillRating()
 {
 
