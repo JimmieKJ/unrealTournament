@@ -17,12 +17,14 @@ struct FTimedImpactEffect
 	float CreationTime;
 	/** life time scaling */
 	UPROPERTY()
-		float LifetimeScaling;
+	float LifetimeScaling;
+	UPROPERTY()
+	float FadeMultipllier;
 
 	FTimedImpactEffect()
 	{}
 	FTimedImpactEffect(USceneComponent* InComp, float InTime, float InScaling)
-		: EffectComp(InComp), CreationTime(InTime), LifetimeScaling(InScaling)
+		: EffectComp(InComp), CreationTime(InTime), LifetimeScaling(InScaling), FadeMultipllier(1.0f)
 	{}
 };
 
@@ -114,6 +116,9 @@ class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
 	UPROPERTY()
 	TArray<FTimedImpactEffect> TimedEffects;
 
+	UPROPERTY()
+	TArray<FTimedImpactEffect> FadingEffects;
+
 protected:
 	/** level summary for UI details */
 	UPROPERTY(VisibleAnywhere, Instanced, Category = LevelSummary)
@@ -153,6 +158,13 @@ public:
 
 	/** checks lifetime on all active effects and culls as necessary */
 	virtual void ExpireImpactEffects();
+
+	virtual void FadeImpactEffects(float DeltaTime);
+
+	const float ImpactEffectFadeTime;
+	
+	UPROPERTY()
+	float ImpactEffectFadeSpeed;
 
 	UPROPERTY()
 	TArray<FTimedMaterialParameter> MaterialParamCurves;
