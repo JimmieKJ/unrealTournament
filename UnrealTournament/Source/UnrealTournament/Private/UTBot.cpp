@@ -1838,18 +1838,25 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 
 bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString)
 {
-	FSingleEndpointEval NodeEval(Goal);
-	float Weight = 0.0f;
-	if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
+	if (Goal == NULL)
 	{
-		GoalString = SuccessGoalString;
-		SetMoveTarget(RouteCache[0]);
-		StartWaitForMove();
-		return true;
+		return false;
 	}
 	else
 	{
-		return false;
+		FSingleEndpointEval NodeEval(Goal);
+		float Weight = 0.0f;
+		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
+		{
+			GoalString = SuccessGoalString;
+			SetMoveTarget(RouteCache[0]);
+			StartWaitForMove();
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
 }
 
