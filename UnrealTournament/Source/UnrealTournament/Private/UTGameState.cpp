@@ -142,6 +142,15 @@ void AUTGameState::BeginPlay()
 	}
 }
 
+float AUTGameState::GetClockTime()
+{
+	if (IsMatchInOvertime())
+	{
+		return ElapsedTime-TimeLimit;
+	}
+	return (TimeLimit > 0.f) ? RemainingTime : ElapsedTime;
+}
+
 void AUTGameState::OnRep_RemainingTime()
 {
 	// if we received RemainingTime, it takes precedence
@@ -152,7 +161,11 @@ void AUTGameState::OnRep_RemainingTime()
 void AUTGameState::DefaultTimer()
 {
 	Super::DefaultTimer();
-
+	if (IsMatchAtHalftime())
+	{
+		// no elapsed time - it was incremented in super
+		ElapsedTime--;
+	}
 	if (GetWorld()->GetNetMode() == NM_Client)
 	{
 		if (RemainingMinute > 0)

@@ -50,7 +50,16 @@ void AUTCTFGameState::CacheFlagBase(AUTCTFFlagBase* BaseToCache)
 	{
 		UE_LOG(UT,Warning,TEXT("Found a Flag Base (%s) without a flag"), *GetNameSafe(BaseToCache));
 	}
+}
 
+float AUTCTFGameState::GetClockTime()
+{
+	if (IsMatchInOvertime())
+	{
+		// 2 halves in CTF
+		return ElapsedTime - 2.f*TimeLimit;
+	}
+	return (TimeLimit > 0.f) ? RemainingTime : ElapsedTime;
 }
 
 AUTTeamInfo* AUTCTFGameState::FindLeadingTeam()
