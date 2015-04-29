@@ -174,6 +174,10 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		{
 			DesiredLoc += FlagBaseFreeCamOffset;
 		}
+		else if (Cast<APlayerState>(OutVT.Target))
+		{
+			DesiredLoc = LastThirdPersonCameraLoc;
+		}
 		FVector Loc = (LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget) || ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f)) ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
 
 		AUTCharacter* BaseChar = UTCharacter;

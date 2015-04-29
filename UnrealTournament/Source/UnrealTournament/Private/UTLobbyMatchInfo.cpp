@@ -438,6 +438,12 @@ FText AUTLobbyMatchInfo::GetDebugInfo()
 	return FText::Format(NSLOCTEXT("UTLobbyMatchInfo","DebugFormat","Owner [{OwnerName}] State [{CurrentState}] RuleSet [{CurrentRuleSet}] Flags [{ShouldShowInDock}, {InProgress}]  Stats: {MatchStats}"), Args);
 }
 
+void AUTLobbyMatchInfo::OnRep_CurrentRuleset()
+{
+	OnRep_Update();
+	OnRulesetUpdatedDelegate.ExecuteIfBound();
+}
+
 
 void AUTLobbyMatchInfo::OnRep_Update()
 {

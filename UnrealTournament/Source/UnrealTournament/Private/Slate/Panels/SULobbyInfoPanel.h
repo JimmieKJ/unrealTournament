@@ -85,7 +85,7 @@ protected:
 
 	FText GetMatchButtonText() const;
 	FText GetReadyButtonText() const;
-
+	bool GetReadyButtonEnabled() const;
 	TSharedRef<SWidget> BuildNewMatchButton();
 
 	FString GetMatchCount() const;

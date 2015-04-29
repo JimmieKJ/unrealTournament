@@ -864,7 +864,7 @@ bool AUTGameMode::IsEnemy(AController * First, AController* Second)
 void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	// Ignore all killing when entering overtime as we kill off players and don't want it affecting their score.
-	if (GetMatchState() != MatchState::MatchEnteringOvertime)
+	if ((GetMatchState() != MatchState::MatchEnteringOvertime) && (GetMatchState() != MatchState::WaitingPostMatch))
 	{
 		AUTPlayerState* const KillerPlayerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 		AUTPlayerState* const KilledPlayerState = KilledPlayer ? Cast<AUTPlayerState>(KilledPlayer->PlayerState) : NULL;
@@ -1194,7 +1194,7 @@ void AUTGameMode::EndMatch()
 	{
 		// If a pawn is marked pending kill, *Iterator will be NULL
 		APawn* Pawn = *Iterator;
-		if (Pawn)
+		if (Pawn && !Cast<ASpectatorPawn>(Pawn))
 		{
 			Pawn->TurnOff();
 		}
@@ -1208,6 +1208,12 @@ void AUTGameMode::EndMatch()
 			UTGameSession->EndMatch();
 		}
 	}
+}
+
+bool AUTGameMode::AllowPausing(APlayerController* PC)
+{
+	// allow pausing even in listen server mode if no remote players are connected
+	return (Super::AllowPausing(PC) || GetWorld()->GetNetDriver() == NULL || GetWorld()->GetNetDriver()->ClientConnections.Num() == 0);
 }
 
 void AUTGameMode::UpdateSkillRating()
@@ -1862,6 +1868,7 @@ bool AUTGameMode::ReadyToStartMatch()
 			return true;
 		}
 	}
+	return true;
 
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)

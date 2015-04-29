@@ -19,7 +19,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderY = 8;
 	ColumnY = 12;
 	ColumnMedalX = 0.6;
-
+	FooterPosY = 936.f;
 	CellHeight = 40;
 
 	FlagX = 0.065;
@@ -88,9 +88,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 	DrawGamePanel(RenderDelta, YOffset);
 	DrawTeamPanel(RenderDelta, YOffset);
 	DrawScorePanel(RenderDelta, YOffset);
-
-	YOffset = 936;
-	DrawServerPanel(RenderDelta, YOffset);
+	DrawServerPanel(RenderDelta, FooterPosY);
 }
 
 void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
@@ -145,8 +143,8 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		}
 		else
 		{
-			FText Timer = (UTGameState->TimeLimit > 0) ? UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->RemainingTime, true, true, true) :
-															UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->ElapsedTime, true, true, true);
+			float RemainingTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
+			FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RemainingTime, true, true, true);
 			DrawText(Timer, Size.X * 0.985, 88, UTHUDOwner->NumberFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 	}
@@ -384,7 +382,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float& YOffset)
 			{
 				return;
 			}
-			YOffset = 800;
+			YOffset = 800.f;
 		}
 		// Draw the Background
 		DrawTexture(TextureAtlas, 0, YOffset, 1269, 38, 4, 132, 30, 38, 1.0);

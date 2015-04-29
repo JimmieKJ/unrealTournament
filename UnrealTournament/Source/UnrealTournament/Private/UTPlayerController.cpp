@@ -1722,7 +1722,7 @@ void AUTPlayerController::UpdateTacComOverlays()
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
 			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
-			if (UTChar)
+			if (UTChar && !UTChar->IsRagdoll())
 			{
 				UTChar->UpdateTacComMesh(bTacComView);
 			}
@@ -1751,10 +1751,10 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
 	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
 
-	// free all Pawns locally
+	// freeze all Pawns locally
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (It->IsValid())
+		if (It->IsValid() && !Cast<ASpectatorPawn>(It->Get()))
 		{
 			It->Get()->TurnOff();
 		}
@@ -1911,7 +1911,7 @@ void AUTPlayerController::ClientHalftime_Implementation()
 	// Freeze all of the pawns
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It)
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
 		{
 			(*It)->TurnOff();
 		}

@@ -1150,6 +1150,9 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 
 void AUTCharacter::StartRagdoll()
 {
+	// turn off any taccom  @TODO FIXMESTEVE - should be able to keep on, at least when feigning
+	UpdateTacComMesh(false);
+
 	// APawn::TurnOff disables collision at the end of match, undo that.
 	SetActorEnableCollision(true);
 
@@ -1220,8 +1223,11 @@ void AUTCharacter::StopRagdoll()
 	}
 	GetCapsuleComponent()->SetRelativeRotation(FixedRotation);
 	GetCapsuleComponent()->SetRelativeScale3D(GetClass()->GetDefaultObject<AUTCharacter>()->GetCapsuleComponent()->RelativeScale3D);
-	GetCapsuleComponent()->SetCapsuleSize(GetCapsuleComponent()->GetUnscaledCapsuleRadius(), GetCharacterMovement()->CrouchedHalfHeight);
-	bIsCrouched = true;
+	if ((Role == ROLE_Authority) || IsLocallyControlled())
+	{
+		GetCapsuleComponent()->SetCapsuleSize(GetCapsuleComponent()->GetUnscaledCapsuleRadius(), GetCharacterMovement()->CrouchedHalfHeight);
+		bIsCrouched = true;
+	}
 	RootComponent = GetCapsuleComponent();
 
 	GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
@@ -2931,6 +2937,7 @@ void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
 		int32 Index = GS->FindOverlayMaterial(TacComOverlayMaterial);
 		if (Index != INDEX_NONE)
 		{
+			uint16 OldOverlayFlags = CharOverlayFlags;
 			if (bTacComEnabled)
 			{
 				CharOverlayFlags |= (1 << Index);
@@ -2939,7 +2946,10 @@ void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
 			{
 				CharOverlayFlags &= ~(1 << Index);
 			}
-			UpdateCharOverlays();
+			if (CharOverlayFlags != OldOverlayFlags)
+			{
+				UpdateCharOverlays();
+			}
 		}
 	}
 
@@ -3785,7 +3795,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float TextXL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
 			bool bFarAway = (Dist > TeamPlayerIndicatorMaxDistance);
-			if (bTacCom && !bFarAway && PC->PlayerCameraManager)
+			if (bTacCom && !bFarAway && PC->PlayerCameraManager && (PC->GetViewTarget() != this) && (PC->GetViewTarget()->AttachmentReplication.AttachParent != this))
 			{
 				// need to do trace, since taccom guys always rendered
 				AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PC->PlayerCameraManager);

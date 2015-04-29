@@ -16,6 +16,7 @@ class SUWServerBrowser;
 class SUWFriendsPopup;
 class SUTQuickMatch;
 class SUWLoginDialog;
+class SUWRedirectDialog;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
 
@@ -412,7 +413,13 @@ public:
 protected:
 #if !UE_SERVER
 	TWeakPtr<SUWDialog> ConnectingDialog;
+	TSharedPtr<SUWRedirectDialog> RedirectDialog;
+
 #endif
+
+	// Holds the current status of any ongoing downloads.
+	FText DownloadStatusText;
+
 	virtual void ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 public:
 	virtual void ShowConnectingDialog();
@@ -431,6 +438,13 @@ public:
 
 	// Holds a list of maps to play in Single player
 	TArray<FString> SinglePlayerMapList;
+
+	virtual void UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft);
+	virtual void AccquireContent(TArray<FString>& ContentList);
+	virtual void CancelDownload();
+
+	virtual FText GetDownloadStatusText();
+	virtual bool IsDownloadInProgress();
 
 };
 

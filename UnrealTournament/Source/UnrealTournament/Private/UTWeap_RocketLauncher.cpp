@@ -37,7 +37,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	LastTargetLockCheckTime = 0.0f;
 
 	UnderReticlePadding = 50.0f;
-	CrosshairScale = 0.75f;
+	CrosshairScale = 0.5f;
 
 	CrosshairRotationTime = 0.3f;
 	CurrentRotation = 0.0f;

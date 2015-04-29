@@ -61,22 +61,8 @@ FText UUTHUDWidget_TeamGameClock::GetBlueScoreText_Implementation()
 
 FText UUTHUDWidget_TeamGameClock::GetClockText_Implementation()
 {
-	float RemainingTime = 0.0;
-	if (UTGameState)
-	{
-		RemainingTime = (UTGameState->TimeLimit) ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
-	}
-	
+	float RemainingTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
 	FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(),FText::GetEmpty(),RemainingTime,false);
-
-	if (UTGameState && UTGameState->RemainingTime >= 3600)	// More than an hour
-	{
-		ClockText.TextScale = AltClockScale;
-	}
-	else
-	{
-		ClockText.TextScale = GetClass()->GetDefaultObject<UUTHUDWidget_TeamGameClock>()->ClockText.TextScale;
-	}
-
+	ClockText.TextScale = (RemainingTime >= 3600) ? AltClockScale : GetClass()->GetDefaultObject<UUTHUDWidget_TeamGameClock>()->ClockText.TextScale;
 	return ClockString;
 }

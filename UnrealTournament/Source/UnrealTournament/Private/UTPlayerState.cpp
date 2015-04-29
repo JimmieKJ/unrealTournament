@@ -102,7 +102,7 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
 		AUTCharacter* P = Cast<AUTCharacter>(*It);
-		if (P != NULL && P->PlayerState == this)
+		if (P != NULL && P->PlayerState == this && !P->bTearOff)
 		{
 			P->NotifyTeamChanged();
 		}

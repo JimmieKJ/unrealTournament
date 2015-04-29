@@ -68,8 +68,8 @@ void AUTLobbyPlayerState::ServerDestroyOrLeaveMatch_Implementation()
 	}
 }
 
-bool AUTLobbyPlayerState::ServerJoinMatch_Validate(AUTLobbyMatchInfo* MatchToJoin) { return true; }
-void AUTLobbyPlayerState::ServerJoinMatch_Implementation(AUTLobbyMatchInfo* MatchToJoin)
+bool AUTLobbyPlayerState::ServerJoinMatch_Validate(AUTLobbyMatchInfo* MatchToJoin, bool bAsSpectator) { return true; }
+void AUTLobbyPlayerState::ServerJoinMatch_Implementation(AUTLobbyMatchInfo* MatchToJoin, bool bAsSpectator)
 {
 	// CurrentMatch may have been set by a previous call if client is lagged and sends multiple requests
 	if (CurrentMatch != MatchToJoin)
@@ -81,7 +81,7 @@ void AUTLobbyPlayerState::ServerJoinMatch_Implementation(AUTLobbyMatchInfo* Matc
 			{
 				GameState->RemoveFromAMatch(this);
 			}
-			GameState->JoinMatch(MatchToJoin, this);
+			GameState->JoinMatch(MatchToJoin, this, bAsSpectator);
 		}
 	}
 }

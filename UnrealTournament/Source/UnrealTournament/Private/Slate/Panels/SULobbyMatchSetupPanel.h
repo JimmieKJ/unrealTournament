@@ -97,6 +97,9 @@ protected:
 	FOnMatchInfoUpdated OnMatchInfoUpdatedDelegate;
 	virtual void OnMatchInfoUpdated();
 
+	FOnRulesetUpdated OnRulesetUpdatedDelegate;
+	virtual void OnRulesetUpdated();
+
 	// Screenshots..	
 	/** bushes used for the map list */
 	TArray<FSlateDynamicImageBrush*> MaplistScreenshots;
@@ -119,6 +122,10 @@ protected:
 
 	void OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed);
 	const FSlateBrush* GetGameModeBadge() const;
+
+	FReply CancelDownloadClicked();
+	EVisibility CancelButtonVisible() const;
+
 };
 
 

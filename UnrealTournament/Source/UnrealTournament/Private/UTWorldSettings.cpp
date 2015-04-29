@@ -7,12 +7,13 @@
 #include "UTLevelSummary.h"
 
 AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+: Super(ObjectInitializer), ImpactEffectFadeTime(1.0f)
 {
 	KillZDamageType = UUTDmgType_KillZ::StaticClass();
 
 	MaxImpactEffectVisibleLifetime = 30.0f;
 	MaxImpactEffectInvisibleLifetime = 15.0f;
+	ImpactEffectFadeSpeed = 0.5f;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -131,6 +132,39 @@ void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect, float LifeSca
 	}
 }
 
+void AUTWorldSettings::FadeImpactEffects(float DeltaTime)
+{
+	float WorldTime = GetWorld()->TimeSeconds;
+
+	for (int32 i = 0; i < FadingEffects.Num(); i++)
+	{
+		float LastRenderTime = WorldTime;
+		UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(FadingEffects[i].EffectComp);
+		if (Prim != NULL)
+		{
+			LastRenderTime = Prim->LastRenderTime;
+		}
+
+		float DesiredTimeout = (WorldTime - LastRenderTime < 1.0f) ? MaxImpactEffectVisibleLifetime : MaxImpactEffectInvisibleLifetime;
+		DesiredTimeout *= FadingEffects[i].LifetimeScaling;
+
+		float TimeLived = WorldTime - FadingEffects[i].CreationTime;
+
+		UDecalComponent* Decal = Cast<UDecalComponent>(FadingEffects[i].EffectComp);
+		if (Decal)
+		{
+			Decal->FadeScreenSize += ImpactEffectFadeSpeed * DeltaTime * FadingEffects[i].FadeMultipllier;
+		}
+
+		if (TimeLived > DesiredTimeout)
+		{
+			FadingEffects[i].EffectComp->DetachFromParent();
+			FadingEffects[i].EffectComp->DestroyComponent();
+			FadingEffects.RemoveAt(i--);
+		}
+	}
+}
+
 void AUTWorldSettings::ExpireImpactEffects()
 {
 	float WorldTime = GetWorld()->TimeSeconds;
@@ -145,8 +179,13 @@ void AUTWorldSettings::ExpireImpactEffects()
 			{
 				if (TimedEffects[i].EffectComp != NULL && TimedEffects[i].EffectComp->IsRegistered())
 				{
-					TimedEffects[i].EffectComp->DetachFromParent();
-					TimedEffects[i].EffectComp->DestroyComponent();
+					TimedEffects[i].CreationTime = WorldTime - MaxImpactEffectVisibleLifetime * TimedEffects[i].LifetimeScaling + ImpactEffectFadeTime;
+					UDecalComponent* Decal = Cast<UDecalComponent>(TimedEffects[i].EffectComp);
+					if (Decal)
+					{
+						TimedEffects[i].FadeMultipllier = Decal->FadeScreenSize / 0.01f;
+					}
+					FadingEffects.Add(TimedEffects[i]);
 				}
 			}
 			TimedEffects.RemoveAt(0, NumToKill);
@@ -170,11 +209,26 @@ void AUTWorldSettings::ExpireImpactEffects()
 			}
 			float DesiredTimeout = (WorldTime - LastRenderTime < 1.0f) ? MaxImpactEffectVisibleLifetime : MaxImpactEffectInvisibleLifetime;
 			DesiredTimeout *= TimedEffects[i].LifetimeScaling;
-			if (DesiredTimeout > 0.0f && WorldTime - TimedEffects[i].CreationTime > DesiredTimeout)
+			if (DesiredTimeout > 0.0f)
 			{
-				TimedEffects[i].EffectComp->DetachFromParent();
-				TimedEffects[i].EffectComp->DestroyComponent();
-				TimedEffects.RemoveAt(i--);
+				float TimeLived = WorldTime - TimedEffects[i].CreationTime;
+				if (TimeLived > DesiredTimeout)
+				{
+					TimedEffects[i].EffectComp->DetachFromParent();
+					TimedEffects[i].EffectComp->DestroyComponent();
+					TimedEffects.RemoveAt(i--);
+				}
+				else if (TimeLived > DesiredTimeout - ImpactEffectFadeTime)
+				{
+					UDecalComponent* Decal = Cast<UDecalComponent>(TimedEffects[i].EffectComp);
+					if (Decal)
+					{
+						TimedEffects[i].FadeMultipllier = Decal->FadeScreenSize / 0.01f;
+					}
+
+					FadingEffects.Add(TimedEffects[i]);
+					TimedEffects.RemoveAt(i--);
+				}
 			}
 		}
 	}
@@ -211,6 +265,8 @@ void AUTWorldSettings::AddTimedLightParameter(ULightComponent* InLight, ETimedLi
 void AUTWorldSettings::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	FadeImpactEffects(DeltaTime);
 
 	for (int32 i = 0; i < MaterialParamCurves.Num(); i++)
 	{

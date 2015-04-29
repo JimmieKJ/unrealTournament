@@ -31,6 +31,9 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 	OnMatchInfoUpdatedDelegate.BindSP(this, &SULobbyMatchSetupPanel::OnMatchInfoUpdated); 
 	MatchInfo->OnMatchInfoUpdatedDelegate = OnMatchInfoUpdatedDelegate;
 
+	OnRulesetUpdatedDelegate.BindSP(this, &SULobbyMatchSetupPanel::OnRulesetUpdated);
+	MatchInfo->OnRulesetUpdatedDelegate = OnRulesetUpdatedDelegate;
+
 	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
 
 	ChildSlot
@@ -118,6 +121,20 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 						.Text(this, &SULobbyMatchSetupPanel::GetStatusText )
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					]
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.OnClicked(this, &SULobbyMatchSetupPanel::CancelDownloadClicked)
+						.Visibility(this, &SULobbyMatchSetupPanel::CancelButtonVisible)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SULobbyMatchSetupPanel","CancelDownload","[Click to Cancel]"))
+							.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesText_Small")
+						]
+					]
+
 				]
 			]
 		]
@@ -125,8 +142,24 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 	];
 
 	OnMatchInfoUpdated();
+	OnRulesetUpdated();
 	BuildMapList();
 }
+
+FReply SULobbyMatchSetupPanel::CancelDownloadClicked()
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->IsDownloadInProgress())
+	{
+		PlayerOwner->CancelDownload();
+	}
+	return FReply::Handled();
+}
+
+EVisibility SULobbyMatchSetupPanel::CancelButtonVisible() const
+{
+	return PlayerOwner->IsDownloadInProgress() ? EVisibility::Visible : EVisibility::Hidden;
+}
+
 
 void SULobbyMatchSetupPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
@@ -599,7 +632,11 @@ FText SULobbyMatchSetupPanel::GetStatusText() const
 {
 	if (MatchInfo.IsValid())
 	{
-		if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
+		if (MatchInfo->CurrentRuleset.IsValid() && PlayerOwner->IsDownloadInProgress())
+		{
+			return PlayerOwner->GetDownloadStatusText();
+		}
+		else if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 		{
 			if (bIsHost)
 			{
@@ -632,6 +669,20 @@ void SULobbyMatchSetupPanel::OnMatchInfoUpdated()
 	if (MatchInfo->OwnerId.IsValid() && MatchInfo->CurrentRuleset.IsValid())
 	{
 		BuildGameRulesPanel();
+	}
+}
+
+void SULobbyMatchSetupPanel::OnRulesetUpdated()
+{
+	if (MatchInfo->CurrentRuleset.IsValid())
+	{
+		TArray<FString> RequiredContent;
+		MatchInfo->GetNeededPackagesForCurrentRuleset(RequiredContent);
+
+		if (RequiredContent.Num() > 0)
+		{
+			PlayerOwner->AccquireContent(RequiredContent);		
+		}
 	}
 }
 
@@ -780,7 +831,7 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 	}
 	else if (ButtonPressed == UTDIALOG_BUTTON_CANCEL)
 	{
-		if (bIsHost && !MatchInfo->CurrentRuleset.IsValid())	
+		if (bIsHost && !MatchInfo->CurrentRuleset.IsValid() && PlayerData.Num() > 0)	
 		{
 			if (PlayerData[0].IsValid() && PlayerData[0]->PlayerState.IsValid())
 			{

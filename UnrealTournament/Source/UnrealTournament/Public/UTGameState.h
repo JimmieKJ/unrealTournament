@@ -93,6 +93,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UFUNCTION()
 	virtual void OnRep_RemainingTime();
 
+	/** Returns time in seconds that should be displayed on game clock. */
+	virtual float GetClockTime();
+
 	// How long must a player wait before respawning
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	float RespawnWaitTime;

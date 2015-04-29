@@ -316,7 +316,7 @@ void AUTLobbyGameState::HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	MatchInfo->SetSettings(this, MatchToCopy);
 }
 
-void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer)
+void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer, bool bAsSpectator)
 {
 	if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
 	{
@@ -328,7 +328,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 		if (GM)
 		{
-			if (MatchInfo->bJoinAnytime)
+			if (!bAsSpectator && MatchInfo->bJoinAnytime)
 			{
 				 if ( MatchInfo->MatchHasRoom() )
 				 {

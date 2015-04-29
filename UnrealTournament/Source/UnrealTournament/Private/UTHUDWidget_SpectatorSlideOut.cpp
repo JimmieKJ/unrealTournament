@@ -11,7 +11,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
 	Size = FVector2D(500.0f, 108.0f);
-	ScreenPosition = FVector2D(0.0f, 0.02f);
+	ScreenPosition = FVector2D(0.0f, 0.005f);
 	Origin = FVector2D(0.0f, 0.0f);
 
 	FlagX = 0.09;
@@ -76,11 +76,11 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 			int32 CameraIndex = 0;
 			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
 			{
-				if (Input->SpectatorBinds[i].Command == "ViewRedFlag")
+				if (Input->SpectatorBinds[i].Command == "ViewFlag 0")
 				{
 					RedFlagBind = Input->SpectatorBinds[i].KeyName;
 				}
-				else if (Input->SpectatorBinds[i].Command == "ViewBlueFlag")
+				else if (Input->SpectatorBinds[i].Command == "ViewFlag 1")
 				{
 					BlueFlagBind = Input->SpectatorBinds[i].KeyName;
 				}
@@ -196,7 +196,6 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			}
 		}
 
-		DrawOffset += CellHeight;
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
 		if (Input && UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
@@ -212,13 +211,14 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					{
 						CameraString[NumCameras] = Cam->CamLocationName;
 						NumCameras++;
-						if (NumCameras == 9)
+						if (NumCameras == 10)
 						{
 							break;
 						}
 					}
 				}
 			}
+			DrawOffset += 0.25f*(10.f-float(NumCameras))*CellHeight;
 			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 			{
 				// show flag binds
@@ -241,19 +241,35 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					DrawOffset += CellHeight;
 				}
 			}
-			for (int32 i = 0; i < NumCameras; i++)
-			{
-				if (CameraBind[i] != NAME_None)
-				{
-					DrawCamBind(CameraBind[i], CameraString[i], DeltaTime, XOffset, DrawOffset, false);
-					DrawOffset += CellHeight;
-				}
-			}
 			static FName NAME_PressFire = FName(TEXT("Fire"));
 			DrawCamBind(NAME_PressFire, "View Next Player", DeltaTime, XOffset, DrawOffset, false);
 			DrawOffset += CellHeight;
 			static FName NAME_PressAltFire = FName(TEXT("AltFire"));
 			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
+			DrawOffset += CellHeight;
+
+			bool bOverflow = false;
+			for (int32 i = 0; i < NumCameras; i++)
+			{
+				if (CameraBind[i] != NAME_None)
+				{
+					DrawCamBind(CameraBind[i], CameraString[i], DeltaTime, XOffset, DrawOffset, false);
+					if (!bOverflow)
+					{
+						DrawOffset += CellHeight;
+						if (DrawOffset > Canvas->ClipY - CellHeight)
+						{
+							bOverflow = true;
+							XOffset = XOffset + Size.X + 2.f;
+							DrawOffset -= CellHeight;
+						}
+					}
+					else
+					{
+						DrawOffset -= CellHeight;
+					}
+				}
+			}
 		}
 	}
 }

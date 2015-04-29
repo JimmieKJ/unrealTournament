@@ -156,5 +156,8 @@ public:
 	
 	}
 
+private:
+	FGuid UniqueAnalyticSessionGuid;
+
 };
 

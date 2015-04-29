@@ -43,9 +43,17 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 					.WidthOverride(165)
 					[
 						// Here is our button
-						SNew(SButton)
+						SNew(SUTComboButton)
 						.OnClicked(this, &SUMatchPanel::ButtonClicked)
 						.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
+						.MenuButtonStyle(SUWindowsStyle::Get(),"UT.ContextMenu.Button")
+						.MenuButtonTextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
+						.HasDownArrow(false)
+						.OnButtonSubMenuSelect(this, &SUMatchPanel::OnSubMenuSelect)
+						.bRightClickOpensMenu(true)
+						.MenuPlacement(MenuPlacement_MenuRight)
+						.DefaultMenuItems(TEXT("Spectate"))
+						.ButtonContent()
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -346,13 +354,33 @@ FReply SUMatchPanel::ButtonClicked()
 			{
 				if(PS)
 				{
-					PS->ServerJoinMatch(MatchInfo.Get());
+					PS->ServerJoinMatch(MatchInfo.Get(),false);
 				}
 			}
 		}
 	}
 	return FReply::Handled();
 }
+
+void SUMatchPanel::OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender)
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GWorld, 0));
+	if (LocalPlayer)
+	{
+		AUTLobbyPC* PC = Cast<AUTLobbyPC>(LocalPlayer->PlayerController);
+		if (PC)
+		{
+			AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PC->PlayerState);
+			{
+				if(PS)
+				{
+					PS->ServerJoinMatch(MatchInfo.Get(),true);
+				}
+			}
+		}
+	}
+}
+
 
 FText SUMatchPanel::GetMatchBadgeText() const
 {

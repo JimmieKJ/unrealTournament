@@ -21,7 +21,6 @@ namespace MatchState
 	const FName MatchIsInSuddenDeath = FName(TEXT("MatchIsInSuddenDeath"));
 }
 
-
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -87,25 +86,28 @@ void AUTCTFGameMode::InitGameState()
 
 void AUTCTFGameMode::CheatScore()
 {
-	int32 ScoringTeam = (FMath::FRand() < 0.5f) ? 0 : 1;
-	TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();
-	AUTPlayerState* Scorer = Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState);
-	if (FMath::FRand() < 0.5f)
+	if (GetNetMode() == NM_Standalone)
 	{
-		FAssistTracker NewAssist;
-		NewAssist.Holder = Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState);
-		NewAssist.TotalHeldTime = 0.5f;
-		CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject()->AssistTracking.Add(NewAssist);
+		int32 ScoringTeam = (FMath::FRand() < 0.5f) ? 0 : 1;
+		TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();
+		AUTPlayerState* Scorer = Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState);
+		if (FMath::FRand() < 0.5f)
+		{
+			FAssistTracker NewAssist;
+			NewAssist.Holder = Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState);
+			NewAssist.TotalHeldTime = 0.5f;
+			CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject()->AssistTracking.Add(NewAssist);
+		}
+		if (FMath::FRand() < 0.5f)
+		{
+			CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject()->HolderRescuers.Add(Members[FMath::RandHelper(Members.Num())]);
+		}
+		if (FMath::FRand() < 0.5f)
+		{
+			Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState)->LastFlagReturnTime = GetWorld()->GetTimeSeconds() - 0.1f;
+		}
+		ScoreObject(CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject(), Cast<AUTCharacter>(Cast<AController>(Scorer->GetOwner())->GetPawn()), Scorer, FName("FlagCapture"));
 	}
-	if (FMath::FRand() < 0.5f)
-	{
-		CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject()->HolderRescuers.Add(Members[FMath::RandHelper(Members.Num())]);
-	}
-	if (FMath::FRand() < 0.5f)
-	{
-		Cast<AUTPlayerState>(Members[FMath::RandHelper(Members.Num())]->PlayerState)->LastFlagReturnTime = GetWorld()->GetTimeSeconds() - 0.1f;
-	}
-	ScoreObject(CTFGameState->FlagBases[ScoringTeam]->GetCarriedObject(), Cast<AUTCharacter>(Cast<AController>(Scorer->GetOwner())->GetPawn()), Scorer, FName("FlagCapture"));
 }
 
 void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
@@ -422,18 +424,15 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		if (PC != NULL)
 		{
 			PC->ClientHalftime();
-			if (!PC->PlayerState->bOnlySpectator)
-			{
-				int32 TeamToWatch = (PC->GetTeamNum() < Teams.Num()) ? PC->GetTeamNum() : BestTeam;
-				PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
-			}
+			int32 TeamToWatch = (!PC->PlayerState->bOnlySpectator && (PC->GetTeamNum() < Teams.Num())) ? PC->GetTeamNum() : BestTeam;
+			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
 		}
 	}
 	
 	// Freeze all of the pawns
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It)
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
 		{
 			(*It)->TurnOff();
 		}
@@ -468,7 +467,7 @@ void AUTCTFGameMode::HandleExitingHalftime()
 	TArray<APawn*> PawnsToDestroy;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It)
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
 		{
 			PawnsToDestroy.Add(*It);
 		}
