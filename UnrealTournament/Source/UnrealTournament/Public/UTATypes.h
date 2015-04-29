@@ -374,3 +374,17 @@ namespace FQuickMatchTypeRulesetTag
 	const FString CTF = TEXT("CTF");
 	const FString DM = TEXT("Deathmatch");
 }
+
+UENUM()
+namespace ERedirectStatus
+{
+	enum Type
+	{
+		Pending,
+		InProgress,
+		Completed, 
+		Failed,
+		Cancelled,
+		MAX,
+	};
+}

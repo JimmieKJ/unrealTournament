@@ -7,6 +7,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "UTMenuGameMode.h"
 #include "UTProfileSettings.h"
+#include "UTGameViewportClient.h"
 #include "Slate/SUWindowsDesktop.h"
 #include "Slate/SUWindowsMainMenu.h"
 #include "Slate/Panels/SUWServerBrowser.h"
@@ -23,6 +24,7 @@
 #include "Slate/SUWHUDSettingsDialog.h"
 #include "Slate/SUTQuickMatch.h"
 #include "Slate/SUWFriendsPopup.h"
+#include "Slate/SUWRedirectDialog.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -40,6 +42,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bShowSocialNotification = false;
 	ServerPingBlockSize = 30;
 	bSuppressToastsInGame = false;
+	DownloadStatusText = FText::GetEmpty();
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -1922,5 +1925,46 @@ void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
 	if (OnlineFriendsInterface.IsValid())
 	{
 		OnlineFriendsInterface->SendInvite(0, *FriendID.Get(), EFriendsLists::ToString(EFriendsLists::Default));
+	}
+}
+
+void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft)
+{
+	DownloadStatusText = FText::Format(NSLOCTEXT("UTLocalPlayer","DownloadStatusFormat","Downloading {0} Files: {1} ({2} / {3}) ...."), FText::AsNumber(NumFilesLeft), FText::FromString(FileURL), FText::AsNumber(NumBytes), FText::AsPercent(Progress));
+	UE_LOG(UT,Verbose,TEXT("Redirect: %s %i [%f%%]"), *FileURL, NumBytes, Progress);
+}
+
+void UUTLocalPlayer::AccquireContent(TArray<FString>& ContentList)
+{
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	if (UTGameViewport)
+	{
+		for (int32 i = 0; i < ContentList.Num(); i++)
+		{
+			if (ContentList[i] != TEXT(""))
+			{
+				UTGameViewport->DownloadRedirect(ContentList[i]);
+			}
+		}
+	}
+}
+
+FText UUTLocalPlayer::GetDownloadStatusText()
+{
+	return IsDownloadInProgress() ? DownloadStatusText : FText::GetEmpty();
+}
+
+bool UUTLocalPlayer::IsDownloadInProgress()
+{
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	return UTGameViewport ? UTGameViewport->IsDownloadInProgress() : false;
+}
+
+void UUTLocalPlayer::CancelDownload()
+{
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+	{
+		UTGameViewport->CancelAllRedirectDownloads();		
 	}
 }

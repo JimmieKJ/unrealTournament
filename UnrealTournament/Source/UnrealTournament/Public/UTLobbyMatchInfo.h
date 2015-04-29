@@ -10,6 +10,7 @@
 #include "UTLobbyMatchInfo.generated.h"
 
 DECLARE_DELEGATE(FOnMatchInfoUpdated);
+DECLARE_DELEGATE(FOnRulesetUpdated);
 
 USTRUCT()
 struct FPlayerListInfo
@@ -100,7 +101,7 @@ public:
 	bool bMapListChanged;
 
 	// The current ruleset the governs this match
-	UPROPERTY(Replicated, ReplicatedUsing = OnRep_Update)
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_CurrentRuleset)
 	TWeakObjectPtr<AUTReplicatedGameRuleset> CurrentRuleset;
 
 	// A list of players in this lobby
@@ -159,6 +160,7 @@ public:
 	virtual void ServerSetRankCeiling(int32 NewRankCeiling);
 
 	FOnMatchInfoUpdated OnMatchInfoUpdatedDelegate;
+	FOnRulesetUpdated OnRulesetUpdatedDelegate;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerManageUser(int32 CommandID, AUTLobbyPlayerState* Target);
@@ -233,6 +235,10 @@ protected:
 	// Only available on the server, this holds a cached reference to the GameState.
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyGameState> LobbyGameState;
+
+	UFUNCTION()
+	virtual void OnRep_CurrentRuleset();
+
 
 	UFUNCTION()
 	virtual void OnRep_Update();

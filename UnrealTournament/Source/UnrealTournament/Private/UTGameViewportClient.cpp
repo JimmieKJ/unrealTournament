@@ -574,4 +574,202 @@ void UUTGameViewportClient::Tick(float DeltaSeconds)
 			VerifyFilesToDownloadAndReconnect();
 		}
 	}
+
+	UpdateRedirects(DeltaSeconds);
 }
+
+void UUTGameViewportClient::UpdateRedirects(float DeltaTime)
+{
+	if (PendingDownloads.Num() >0)
+	{
+		if (PendingDownloads[0].Status == ERedirectStatus::Pending)
+		{
+			PendingDownloads[0].HttpRequest = FHttpModule::Get().CreateRequest();
+			if (PendingDownloads[0].HttpRequest.IsValid())
+			{
+				PendingDownloads[0].Status = ERedirectStatus::InProgress;
+				PendingDownloads[0].HttpRequest->SetURL(PendingDownloads[0].FileURL);
+				PendingDownloads[0].HttpRequest->OnProcessRequestComplete().BindUObject(this, &UUTGameViewportClient::HttpRequestComplete);
+				PendingDownloads[0].HttpRequest->OnRequestProgress().BindUObject(this, &UUTGameViewportClient::HttpRequestProgress);
+
+				if ( PendingDownloads[0].FileURL.Contains(TEXT("epicgames")) ) 				
+				{
+					IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+					if (OnlineSubsystem)
+					{
+						IOnlineIdentityPtr OnlineIdentityInterface;
+						OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+						if (OnlineIdentityInterface.IsValid())
+						{
+							FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
+							PendingDownloads[0].HttpRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+						}
+					}
+				}
+
+				PendingDownloads[0].HttpRequest->SetVerb("GET");
+				if ( !PendingDownloads[0].HttpRequest->ProcessRequest() )
+				{
+					// Failed too early, clean me up
+					ContentDownloadComplete.Broadcast(this, ERedirectStatus::Failed, PendingDownloads[0].FileURL);
+					PendingDownloads.RemoveAt(0);
+				}
+				else
+				{
+					HttpRequestProgress(PendingDownloads[0].HttpRequest, 0);
+				}
+			}
+		}
+
+		if ( PendingDownloads[0].HttpRequest.IsValid() )
+		{
+			if (PendingDownloads[0].HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
+			{
+				// Update the Requester
+				PendingDownloads[0].HttpRequest->Tick(DeltaTime);
+			}
+			else if (PendingDownloads[0].HttpRequest->GetStatus() == EHttpRequestStatus::Failed)
+			{
+				// clean me up
+				ContentDownloadComplete.Broadcast(this, ERedirectStatus::Failed, PendingDownloads[0].FileURL);
+				PendingDownloads.RemoveAt(0);
+			}
+		}
+	}
+}
+
+bool UUTGameViewportClient::IsDownloadInProgress()
+{
+	return PendingDownloads.Num() > 0;
+}
+
+void UUTGameViewportClient::DownloadRedirect(FString FileURL)
+{
+	for (int32 i = 0; i < PendingDownloads.Num(); i++)
+	{
+		// Look to see if the file is already pending and if it is, don't add it again.
+		if (PendingDownloads[i].FileURL.Equals(FileURL, ESearchCase::IgnoreCase))
+		{
+			return;
+		}
+	}
+
+	PendingDownloads.Add(FPendingRedirect(FileURL));
+	// NOTE: The next tick will start the download process...	
+}
+
+void UUTGameViewportClient::CancelRedirect(FString FileURL)
+{
+	for (int32 i=0; i < PendingDownloads.Num(); i++)
+	{
+		if ( PendingDownloads[i].FileURL.Equals(FileURL, ESearchCase::IgnoreCase) )	
+		{
+			// Broadcast that this has been cancelled.
+
+			ContentDownloadComplete.Broadcast(this, ERedirectStatus::Cancelled, PendingDownloads[i].FileURL);
+			// Found it.  If we are in progress.. stop us
+			if (PendingDownloads[i].HttpRequest.IsValid() && PendingDownloads[i].HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
+			{
+				PendingDownloads[i].HttpRequest->CancelRequest();
+			}
+			else
+			{
+				// We haven't started yet so just remove it.
+				PendingDownloads.RemoveAt(i,1);			
+			}
+			
+			return;
+		}
+	}
+}
+
+void UUTGameViewportClient::CancelAllRedirectDownloads()
+{
+	for (int32 i=0; i < PendingDownloads.Num(); i++)
+	{
+		ContentDownloadComplete.Broadcast(this, ERedirectStatus::Cancelled, PendingDownloads[i].FileURL);
+
+		// Found it.  If we are in progress.. stop us
+		if (PendingDownloads[i].HttpRequest.IsValid() && PendingDownloads[i].HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
+		{
+			PendingDownloads[i].HttpRequest->CancelRequest();
+		}
+	}
+	PendingDownloads.Empty();
+}
+
+void UUTGameViewportClient::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes)
+{
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	
+	if (FirstPlayer && PendingDownloads.Num() > 0)
+	{
+		float Perc = HttpRequest->GetResponse()->GetContentLength() > 0 ? (NumBytes / HttpRequest->GetResponse()->GetContentLength()) : 0.0f;
+		FirstPlayer->UpdateRedirect(PendingDownloads[0].FileURL, NumBytes, Perc, PendingDownloads.Num());
+	}
+}
+
+void UUTGameViewportClient::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	//If the download was successful save it to disk
+	if (bSucceeded && HttpResponse.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok && PendingDownloads.Num() > 0)
+	{
+		if (HttpResponse->GetContent().Num() > 0)
+		{
+			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+		
+			FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"));
+			if (!PlatformFile.DirectoryExists(*Path))
+			{
+				PlatformFile.CreateDirectoryTree(*Path);
+			}
+
+			FString FileURL = PendingDownloads[0].FileURL;
+			FString FullFilePath = FPaths::Combine(*Path, *FPaths::GetCleanFilename(FileURL));
+			bSucceeded = FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *FullFilePath);
+
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine)
+			{
+				FString MD5 = UTEngine->MD5Sum(HttpResponse->GetContent());
+				FString BaseFilename = FPaths::GetBaseFilename(FileURL);
+				UTEngine->DownloadedContentChecksums.Add(BaseFilename, MD5);
+
+				if (FCoreDelegates::OnMountPak.IsBound())
+				{
+					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0);
+					UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, MD5);
+				}
+			}
+		}
+	}
+	else
+	{
+		if (HttpResponse.IsValid())
+		{
+			UE_LOG(UT, Warning, TEXT("HTTP Error: %d"), HttpResponse->GetResponseCode());
+			FString ErrorContent = HttpResponse->GetContentAsString();
+			UE_LOG(UT, Log, TEXT("%s"), *ErrorContent);
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("HTTP Error"));
+		}
+	}
+
+	// Remove this one.
+	if (PendingDownloads.Num() > 0)
+	{
+		PendingDownloads.RemoveAt(0,1);
+	}
+}
+
+FDelegateHandle UUTGameViewportClient::RegisterContentDownloadCompleteDelegate(const FContentDownloadComplete::FDelegate& NewDelegate)
+{
+	return ContentDownloadComplete.Add(NewDelegate);
+}
+
+void UUTGameViewportClient::RemoveContentDownloadCompleteDelegate(FDelegateHandle DelegateHandle)
+{
+	ContentDownloadComplete.Remove(DelegateHandle);
+}
+

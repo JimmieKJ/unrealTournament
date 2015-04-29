@@ -234,6 +234,7 @@ TSharedRef<SWidget> SULobbyInfoPanel::BuildMatchMenu()
 			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			.OnClicked(this, &SULobbyInfoPanel::ReadyButtonClicked)
+			.IsEnabled(this, &SULobbyInfoPanel::GetReadyButtonEnabled)
 			[
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot()
@@ -280,6 +281,20 @@ FReply SULobbyInfoPanel::MatchButtonClicked()
 	}
 
 	return FReply::Handled();
+}
+
+bool SULobbyInfoPanel::GetReadyButtonEnabled() const
+{
+	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+	if (LPS && LPS->CurrentMatch && LPS->CurrentMatch->CurrentRuleset.IsValid())
+	{
+		TArray<FString> NeededPaks;
+		if (LPS->CurrentMatch->GetNeededPackagesForCurrentRuleset(NeededPaks))
+		{
+			return NeededPaks.Num() <= 0;
+		}
+	}
+	return false;
 }
 
 FReply SULobbyInfoPanel::ReadyButtonClicked()

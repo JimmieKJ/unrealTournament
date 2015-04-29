@@ -5,6 +5,37 @@
 #include "Slate/SlateGameResources.h"
 #include "UTGameViewportClient.generated.h"
 
+// Called upon completion of a redirect transfer.  
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FContentDownloadComplete, class UUTGameViewportClient*, ERedirectStatus::Type, const FString&);
+
+// Used to hold a list of items for redirect download.
+USTRUCT()
+struct FPendingRedirect
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString FileURL;
+
+	UPROPERTY()
+	TEnumAsByte<ERedirectStatus::Type> Status;
+
+	FHttpRequestPtr HttpRequest;
+
+	FPendingRedirect()
+		: FileURL(TEXT(""))
+	{
+	}
+	
+	FPendingRedirect(FString inFileURL)
+	{
+		FileURL = inFileURL;
+		Status = ERedirectStatus::Pending;
+	}
+};
+
+
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTGameViewportClient : public UGameViewportClient
 {
@@ -43,5 +74,45 @@ protected:
 
 	virtual void VerifyFilesToDownloadAndReconnect();
 	virtual void ReconnectAfterDownloadingMap();
+
+	FContentDownloadComplete ContentDownloadComplete;
+
+	// holds a list of redirects to download.
+	TArray<FPendingRedirect> PendingDownloads;
+
+	// if there are pending redirects, this function is called each tick.  NOTE: it will only be called if there are pending directs.
+	virtual void UpdateRedirects(float DeltaTime);
+
+	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes);
+	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+
+
+public:
+
+	// Returns TRUE if there is currently a download in progress.
+	virtual bool IsDownloadInProgress();
+
+	// Adds a redirect to the download queue and downloads it.
+	virtual void DownloadRedirect(FString FileURL);
+
+	// Cancel a given redirect.  If this download is currently in progress it is ended and the next in the queue started.  
+	virtual void CancelRedirect(FString FileURL);
+
+	// Cancel all downloads.
+	virtual void CancelAllRedirectDownloads();
+
+	/**
+	 *	Gives a call back when the download has completed
+	 **/
+	virtual FDelegateHandle RegisterContentDownloadCompleteDelegate(const FContentDownloadComplete::FDelegate& NewDelegate);
+
+	/**
+	 *	Removes the  call back to an object looking to know when a player's status changed.
+	 **/
+	virtual void RemoveContentDownloadCompleteDelegate(FDelegateHandle DelegateHandle);
+
+
+
+
 };
 
