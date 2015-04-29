@@ -2,6 +2,9 @@
 #include "UnrealTournament.h"
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+
 #include "AssetRegistryModule.h"
 #include "UTLevelSummary.h"
 #if !UE_SERVER
@@ -68,8 +71,19 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 
 	LoadDownloadedAssetRegistries();
 
+	UniqueAnalyticSessionGuid = FGuid::NewGuid();
 	FUTAnalytics::Initialize();
+
 	Super::Init(InEngineLoop);
+
+
+	if (FUTAnalytics::IsAvailable())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("AnalyticSessionGuid"), UniqueAnalyticSessionGuid.ToString()));
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("ApplicationStart"), ParamArray );
+	}
+
 
 	// HACK: UGameUserSettings::ApplyNonResolutionSettings() isn't virtual so we need to force our settings to be applied...
 	GetGameUserSettings()->ApplySettings(true);
@@ -87,6 +101,16 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 
 void UUTGameEngine::PreExit()
 {
+
+	if (FUTAnalytics::IsAvailable())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("AnalyticSessionGuid"), UniqueAnalyticSessionGuid.ToString()));
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("ApplicationStop"), ParamArray );
+	}
+
+
+
 	Super::PreExit();
 	FUTAnalytics::Shutdown();
 }
