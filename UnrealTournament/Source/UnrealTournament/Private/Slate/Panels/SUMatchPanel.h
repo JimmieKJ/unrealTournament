@@ -5,6 +5,7 @@
 #include "../SUWindowsStyle.h"
 #include "TAttributeProperty.h"
 #include "UTLobbyMatchInfo.h"
+#include "../Widgets/SUTComboButton.h"
 
 #if !UE_SERVER
 
@@ -73,6 +74,9 @@ protected:
 
 	FText GetTimeRemaining() const;
 	FText GetRuleName() const;
+
+	void OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
+
 };
 
 #endif

@@ -38,7 +38,7 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 
 	// Server-Side.  Attept to Join a match
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerJoinMatch(AUTLobbyMatchInfo* MatchToJoin);
+	void ServerJoinMatch(AUTLobbyMatchInfo* MatchToJoin, bool bAsSpectator);
 
 	// Server-Side - Called when this player has been added to a match
 	virtual void AddedToMatch(AUTLobbyMatchInfo* Match);
