@@ -1194,7 +1194,7 @@ void AUTGameMode::EndMatch()
 	{
 		// If a pawn is marked pending kill, *Iterator will be NULL
 		APawn* Pawn = *Iterator;
-		if (Pawn)
+		if (Pawn && !Cast<ASpectatorPawn>(Pawn))
 		{
 			Pawn->TurnOff();
 		}

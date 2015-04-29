@@ -424,18 +424,15 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		if (PC != NULL)
 		{
 			PC->ClientHalftime();
-			if (!PC->PlayerState->bOnlySpectator)
-			{
-				int32 TeamToWatch = (PC->GetTeamNum() < Teams.Num()) ? PC->GetTeamNum() : BestTeam;
-				PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
-			}
+			int32 TeamToWatch = (!PC->PlayerState->bOnlySpectator && (PC->GetTeamNum() < Teams.Num())) ? PC->GetTeamNum() : BestTeam;
+			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
 		}
 	}
 	
 	// Freeze all of the pawns
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It)
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
 		{
 			(*It)->TurnOff();
 		}
@@ -470,7 +467,7 @@ void AUTCTFGameMode::HandleExitingHalftime()
 	TArray<APawn*> PawnsToDestroy;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It)
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
 		{
 			PawnsToDestroy.Add(*It);
 		}
