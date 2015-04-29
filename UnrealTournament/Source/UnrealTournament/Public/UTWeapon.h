@@ -5,6 +5,7 @@
 #include "UTInventory.h"
 #include "UTProjectile.h"
 #include "UTATypes.h"
+#include "UTPlayerController.h"
 
 #include "UTWeapon.generated.h"
 
@@ -152,6 +153,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** particle component for muzzle flash */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystemComponent*> MuzzleFlash;
+	/** saved transforms of MuzzleFlash components used for UpdateWeaponHand() to know original values from the blueprint */
+	UPROPERTY(Transient)
+	TArray<FTransform> MuzzleFlashDefaultTransforms;
+	/** saved sockets for MuzzleFlash components used for UpdateWeaponHand() to know original values from the blueprint */
+	UPROPERTY(Transient)
+	TArray<FName> MuzzleFlashSocketNames;
 	/** particle system for firing effects (instant hit beam and such)
 	 * particles will be sourced at FireOffset and a parameter HitLocation will be set for the target, if applicable
 	 */
@@ -669,6 +676,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** Lag a component of weapon rotation behind player's rotation. */
 	virtual float LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int Index);
+
+	/** called when initially attaching the first person weapon and when a camera viewing this player changes the weapon hand setting */
+	virtual void UpdateWeaponHand();
+
+	/** get weapon hand from the owning playercontroller, or spectating playercontroller if it's a client and a nonlocal player */
+	EWeaponHand GetWeaponHand() const;
 
 	/** Begin unequipping this weapon */
 	virtual void UnEquip();

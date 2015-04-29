@@ -22,6 +22,16 @@ struct FDeferredFireInput
 	{}
 };
 
+/** controls location and orientation of first person weapon */
+UENUM()
+enum EWeaponHand
+{
+	HAND_Right,
+	HAND_Left,
+	HAND_Center,
+	HAND_Hidden,
+};
+
 UCLASS(config=Game)
 class UNREALTOURNAMENT_API AUTPlayerController : public AUTBasePlayerController
 {
@@ -78,7 +88,7 @@ public:
 	virtual void SpectateKiller();
 	FTimerHandle SpectateKillerHandle;
 
-	virtual void CheckAutoWeaponSwitch(AUTWeapon* TestWeapon);
+	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
 	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
 	 * SoundPlayer may be NULL
@@ -473,6 +483,7 @@ public:
 protected:
 
 	// If set, this will be the final viewtarget this pawn can see.
+	UPROPERTY()
 	AActor* FinalViewTarget;
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
@@ -513,6 +524,21 @@ public:
 	/** Switch between teams 0 and 1 */
 	UFUNCTION(exec)
 	virtual void SwitchTeam();
+
+protected:
+	UPROPERTY(globalconfig, BlueprintReadOnly, Category = Weapon)
+	TEnumAsByte<EWeaponHand> WeaponHand;
+public:
+	inline EWeaponHand GetWeaponHand() const
+	{
+		return WeaponHand;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+	void SetWeaponHand(EWeaponHand NewHand);
+
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerSetWeaponHand(EWeaponHand NewHand);
 
 protected:
 	UPROPERTY(BluePrintReadOnly, Category = Dodging)

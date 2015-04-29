@@ -7,6 +7,7 @@
 
 #include "GameFramework/InputSettings.h"
 #include "UTPlayerInput.h"
+#include "UTPlayerController.h"
 #include "UTProfileSettings.generated.h"
 
 static const uint32 VALID_PROFILESETTINGS_VERSION = 6;
@@ -169,6 +170,9 @@ protected:
 
 	UPROPERTY()
 	float ViewBob;
+
+	UPROPERTY()
+	TEnumAsByte<EWeaponHand> WeaponHand;
 
 	UPROPERTY()
 	FLinearColor FFAPlayerColor;

@@ -30,7 +30,14 @@ public:
 	TArray<UClass*> WeaponList;
 	TSharedPtr< SListView<UClass*> > WeaponPriorities;
 
+	TArray< TSharedPtr<FText> > WeaponHandList;
+	TArray<FText> WeaponHandDesc;
+	TSharedPtr< SComboBox< TSharedPtr<FText> > > WeaponHand;
+	TSharedPtr<STextBlock> SelectedWeaponHand;
+
 	TSharedRef<ITableRow> GenerateWeaponListRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
+	TSharedRef<SWidget> GenerateHandListWidget(TSharedPtr<FText> InItem);
+	void OnHandSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo);
 	FReply WeaponPriorityUp();
 	FReply WeaponPriorityDown();
 

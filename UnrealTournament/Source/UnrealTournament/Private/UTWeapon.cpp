@@ -487,6 +487,7 @@ void AUTWeapon::AttachToOwnerNative()
 	// attach
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
+		UpdateWeaponHand();
 		Mesh->AttachTo(UTOwner->FirstPersonMesh);
 		if (ShouldPlay1PVisuals())
 		{
@@ -507,6 +508,92 @@ void AUTWeapon::AttachToOwnerNative()
 	{
 		UpdateOverlays();
 		SetSkin(UTOwner->GetSkin());
+	}
+}
+
+void AUTWeapon::UpdateWeaponHand()
+{
+	if (Mesh != NULL)
+	{
+		FirstPMeshOffset = FVector::ZeroVector;
+		FirstPMeshRotation = FRotator::ZeroRotator;
+
+		if (MuzzleFlashDefaultTransforms.Num() == 0)
+		{
+			for (UParticleSystemComponent* PSC : MuzzleFlash)
+			{
+				MuzzleFlashDefaultTransforms.Add((PSC == NULL) ? FTransform::Identity : PSC->GetRelativeTransform());
+				MuzzleFlashSocketNames.Add((PSC == NULL) ? NAME_None : PSC->AttachSocketName);
+			}
+		}
+		else
+		{
+			for (int32 i = 0; i < FMath::Min3<int32>(MuzzleFlash.Num(), MuzzleFlashDefaultTransforms.Num(), MuzzleFlashSocketNames.Num()); i++)
+			{
+				if (MuzzleFlash[i] != NULL)
+				{
+					MuzzleFlash[i]->AttachSocketName = MuzzleFlashSocketNames[i];
+					MuzzleFlash[i]->SetRelativeTransform(MuzzleFlashDefaultTransforms[i]);
+				}
+			}
+		}
+
+		switch (GetWeaponHand())
+		{
+			case HAND_Center:
+				// TODO: not implemented, fallthrough
+				UE_LOG(UT, Warning, TEXT("HAND_Center is not implemented yet!"));
+			case HAND_Right:
+				Mesh->SetRelativeLocationAndRotation(GetClass()->GetDefaultObject<AUTWeapon>()->Mesh->RelativeLocation, GetClass()->GetDefaultObject<AUTWeapon>()->Mesh->RelativeRotation);
+				break;
+			case HAND_Left:
+			{
+				// TODO: should probably mirror, but mirroring breaks sockets at the moment (engine bug)
+				Mesh->SetRelativeLocation(GetClass()->GetDefaultObject<AUTWeapon>()->Mesh->RelativeLocation * FVector(1.0f, -1.0f, 1.0f));
+				FRotator AdjustedRotation = (FRotationMatrix(GetClass()->GetDefaultObject<AUTWeapon>()->Mesh->RelativeRotation) * FScaleMatrix(FVector(1.0f, 1.0f, -1.0f))).Rotator();
+				Mesh->SetRelativeRotation(AdjustedRotation);
+				break;
+			}
+			case HAND_Hidden:
+			{
+				Mesh->SetRelativeLocationAndRotation(FVector(-50.0f, 0.0f, -50.0f), FRotator::ZeroRotator);
+				for (int32 i = 0; i < MuzzleFlash.Num() && i < MuzzleFlashDefaultTransforms.Num(); i++)
+				{
+					if (MuzzleFlash[i] != NULL)
+					{
+						MuzzleFlash[i]->AttachSocketName = NAME_None;
+						MuzzleFlash[i]->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
+					}
+				}
+				break;
+			}
+		}
+	}
+}
+
+EWeaponHand AUTWeapon::GetWeaponHand() const
+{
+	if (UTOwner == NULL && Role == ROLE_Authority)
+	{
+		return HAND_Right;
+	}
+	else
+	{
+		AUTPlayerController* Viewer = (UTOwner != NULL) ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
+		if (Viewer == NULL)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+				if (PC != NULL && PC->GetViewTarget() == UTOwner)
+				{
+					Viewer = PC;
+					break;
+				}
+			}
+		}
+
+		return (Viewer != NULL) ? Viewer->GetWeaponHand() : HAND_Right;
 	}
 }
 
@@ -871,8 +958,24 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 		}
 		else
 		{
+			FVector AdjustedFireOffset;
+			switch (GetWeaponHand())
+			{
+				case HAND_Right:
+					AdjustedFireOffset = FireOffset;
+					break;
+				case HAND_Left:
+					AdjustedFireOffset = FireOffset;
+					AdjustedFireOffset.Y *= -1.0f;
+					break;
+				case HAND_Center:
+				case HAND_Hidden:
+					AdjustedFireOffset = FVector::ZeroVector;
+					AdjustedFireOffset.X = FireOffset.X;
+					break;
+			}
 			// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-			FVector FinalLoc = BaseLoc + GetBaseFireRotation().RotateVector(FireOffset);
+			FVector FinalLoc = BaseLoc + GetBaseFireRotation().RotateVector(AdjustedFireOffset);
 			// trace back towards Instigator's collision, then trace from there to desired location, checking for intervening world geometry
 			FCollisionShape Collider;
 			if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL && ProjClass[CurrentFireMode].GetDefaultObject()->CollisionComp != NULL)
@@ -1368,7 +1471,7 @@ void AUTWeapon::Tick(float DeltaTime)
 		CurrentState->Tick(DeltaTime);
 
 		// if weapon is up in first person, view bob with movement
-		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->Controller) != NULL)
+		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->Controller) != NULL && GetWeaponHand() != HAND_Hidden)
 		{
 			// FOV offset - fixmesteve use viewer
 			AUTPlayerController* MyPC = Cast<AUTPlayerController>(UTOwner->GetController());
