@@ -3157,9 +3157,11 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 		FVector Start = GetPawn()->GetActorLocation();
 		Start.Z += 50.0f;
 		FCollisionQueryParams Params(FName(TEXT("TryEvasiveAction")), false, GetPawn());
+		FCollisionResponseParams ResponseParams = FCollisionResponseParams::DefaultResponseParam;
+		ResponseParams.CollisionResponse.Pawn = ECR_Ignore;
 
 		FHitResult Hit;
-		bool bHit = GetWorld()->SweepSingle(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
+		bool bHit = GetWorld()->SweepSingle(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params, ResponseParams);
 
 		// allow tighter corridors for bots that are willing to wall dodge spam around it
 		float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
@@ -3173,7 +3175,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 			{
 				Hit.Location = Start + DuckDir;
 			}
-			bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params);
+			bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params, ResponseParams);
 			bSuccess = (bHit && Hit.Normal.Z >= 0.7);
 		}
 		else
@@ -3186,7 +3188,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 		if (!bSuccess)
 		{
 			DuckDir *= -1.0f;
-			bHit = GetWorld()->SweepSingle(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
+			bHit = GetWorld()->SweepSingle(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params, ResponseParams);
 			bSuccess = (!bHit || (Hit.Location - GetPawn()->GetActorLocation()).Size() > MinDist);
 			if (bSuccess)
 			{
@@ -3195,7 +3197,7 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 					Hit.Location = Start + DuckDir;
 				}
 
-				bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params);
+				bHit = GetWorld()->SweepSingle(Hit, Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight), FQuat::Identity, ECC_Pawn, PawnShape, Params, ResponseParams);
 				bSuccess = (bHit && Hit.Normal.Z >= 0.7);
 			}
 		}
