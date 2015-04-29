@@ -438,6 +438,7 @@ void UUTLocalPlayer::ShowHUDSettings()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = true;
+			PlayerController->SetInputMode( FInputModeUIOnly() );
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
