@@ -181,7 +181,7 @@ void AUTGameState::DefaultTimer()
 		}
 	}
 
-	if (RemainingTime > 0 && !bStopGameClock)
+	if ((RemainingTime > 0) && !bStopGameClock)
 	{
 		if (IsMatchInProgress())
 		{
@@ -208,35 +208,35 @@ void AUTGameState::DefaultTimer()
 				}
 			}
 		}
-	}
 
-	if (GetWorld()->GetNetMode() != NM_DedicatedServer && IsMatchInProgress() && !bStopGameClock)
-	{
-		int32 TimerMessageIndex = -1;
-		switch (RemainingTime)
+		if (GetWorld()->GetNetMode() != NM_DedicatedServer && IsMatchInProgress())
 		{
-			case 300 : TimerMessageIndex = 13; break;		// 5 mins remain
-			case 180 : TimerMessageIndex = 12; break;		// 3 mins remain
-			case 60  : TimerMessageIndex = 11; break;		// 1 min remains
-			case 30  : TimerMessageIndex = 10; break;		// 30 seconds remain
+			int32 TimerMessageIndex = -1;
+			switch (RemainingTime)
+			{
+			case 300: TimerMessageIndex = 13; break;		// 5 mins remain
+			case 180: TimerMessageIndex = 12; break;		// 3 mins remain
+			case 60: TimerMessageIndex = 11; break;		// 1 min remains
+			case 30: TimerMessageIndex = 10; break;		// 30 seconds remain
 			default:
-				if (RemainingTime >0 && RemainingTime <= 10)
+				if (RemainingTime <= 10)
 				{
-					TimerMessageIndex = (RemainingTime -1);
+					TimerMessageIndex = RemainingTime - 1;
 				}
 				break;
-		}
+			}
 
-		if (TimerMessageIndex >= 0)
-		{
-			TArray<APlayerController*> PlayerList;
-			GEngine->GetAllLocalPlayerControllers(PlayerList);
-			for (auto It = PlayerList.CreateIterator(); It; ++It)
+			if (TimerMessageIndex >= 0)
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
-				if (PC != NULL)
+				TArray<APlayerController*> PlayerList;
+				GEngine->GetAllLocalPlayerControllers(PlayerList);
+				for (auto It = PlayerList.CreateIterator(); It; ++It)
 				{
-					PC->ClientReceiveLocalizedMessage(UUTTimerMessage::StaticClass(), TimerMessageIndex);			
+					AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
+					if (PC != NULL)
+					{
+						PC->ClientReceiveLocalizedMessage(UUTTimerMessage::StaticClass(), TimerMessageIndex);
+					}
 				}
 			}
 		}
