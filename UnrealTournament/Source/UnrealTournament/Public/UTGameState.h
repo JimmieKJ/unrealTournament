@@ -240,11 +240,11 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void OnRep_MatchState() override;
 
 	virtual void AddPlayerState(class APlayerState* PlayerState) override;
-	virtual void RemovePlayerState(class APlayerState* PlayerState) override;
 
-	/** If true, BluePlayerList and RedPlayerList are up to date. */
-	UPROPERTY()
-		bool bPlayerListsAreValid;
+	/** rearrange any players' SpectatingID so that the list of values is continuous starting from 1
+	 * generally should not be called during gameplay as reshuffling this list unnecessarily defeats the point
+	 */
+	virtual void CompactSpectatingIDs();
 
 protected:
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays

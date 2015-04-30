@@ -17,13 +17,12 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
-	bPlayerListsAreValid = false;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
 }
 
-void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
@@ -34,10 +33,10 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutL
 	DOREPLIFETIME(AUTGameState, ForceRespawnTime);  // @TODO FIXMESTEVE why not initial only
 	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
 	DOREPLIFETIME(AUTGameState, bTeamGame);  // @TODO FIXMESTEVE why not initial only
-	DOREPLIFETIME(AUTGameState, bOnlyTheStrongSurvive);  // @TODO FIXMESTEVE why not initial only
-	DOREPLIFETIME(AUTGameState, bViewKillerOnDeath);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME_CONDITION(AUTGameState, bOnlyTheStrongSurvive, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
-	DOREPLIFETIME(AUTGameState, bIsInstanceServer);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  // FIXME only before match start
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
@@ -617,11 +616,65 @@ void AUTGameState::AddPlayerState(APlayerState* PlayerState)
 	}
 
 	Super::AddPlayerState(PlayerState);
-	bPlayerListsAreValid = false;
 }
 
-void AUTGameState::RemovePlayerState(APlayerState* PlayerState)
+void AUTGameState::CompactSpectatingIDs()
 {
-	Super::RemovePlayerState(PlayerState);
-	bPlayerListsAreValid = false;
+	if (Role == ROLE_Authority)
+	{
+		// get sorted list of UTPlayerStates that have been assigned an ID
+		TArray<AUTPlayerState*> PlayerArrayCopy;
+		for (APlayerState* PS : PlayerArray)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+			if (UTPS != NULL && UTPS->SpectatingID > 0)
+			{
+				PlayerArrayCopy.Add(UTPS);
+			}
+		}
+		PlayerArrayCopy.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+		{
+			return A.SpectatingID < B.SpectatingID;
+		});
+
+		// fill in gaps from IDs at the end of the list
+		for (int32 i = 0; i < PlayerArrayCopy.Num(); i++)
+		{
+			if (PlayerArrayCopy[i]->SpectatingID != uint8(i + 1))
+			{
+				AUTPlayerState* MovedPS = PlayerArrayCopy.Pop(false);
+				MovedPS->SpectatingID = uint8(i + 1);
+				PlayerArrayCopy.Insert(MovedPS, i);
+			}
+		}
+
+		// now do the same for SpectatingIDTeam
+		for (AUTTeamInfo* Team : Teams)
+		{
+			PlayerArrayCopy.Reset();
+			const TArray<AController*> Members = Team->GetTeamMembers();
+			for (AController* C : Members)
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(C->PlayerState);
+				if (UTPS != NULL && UTPS->SpectatingIDTeam)
+				{
+					PlayerArrayCopy.Add(UTPS);
+				}
+			}
+			PlayerArrayCopy.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+			{
+				return A.SpectatingIDTeam < B.SpectatingIDTeam;
+			});
+
+			for (int32 i = 0; i < PlayerArrayCopy.Num(); i++)
+			{
+				if (PlayerArrayCopy[i]->SpectatingIDTeam != uint8(i + 1))
+				{
+					AUTPlayerState* MovedPS = PlayerArrayCopy.Pop(false);
+					MovedPS->SpectatingIDTeam = uint8(i + 1);
+					PlayerArrayCopy.Insert(MovedPS, i);
+				}
+			}
+		}
+	}
 }
