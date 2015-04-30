@@ -742,9 +742,16 @@ void SULobbyMatchSetupPanel::BuildMapList()
 		{
 			FSlateDynamicImageBrush* Screenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapListShot")));
 			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MatchInfo->MapList[i]);
+			FString Title = MatchInfo->MapList[i];
+			FString ToolTip;
 			if (Summary != NULL)
 			{
 				*Screenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
+				if (!Summary->Title.IsEmpty())
+				{
+					Title = Summary->Title;
+				}
+				ToolTip = FString::Printf(TEXT("%s\n\nAuthor: %s\nDesc: %s"), *Title, *Summary->Author, *Summary->Description.ToString());
 			}
 			else
 			{
@@ -754,10 +761,7 @@ void SULobbyMatchSetupPanel::BuildMapList()
 			MaplistScreenshots.Add(Screenshot);
 
 			int32 Row = i / 3;
-			int32 Col = i % 3;
-
-			FString Title = Summary->Title.IsEmpty() ? MatchInfo->MapList[i] : Summary->Title;
-			FString ToolTip = FString::Printf(TEXT("%s\n\nAuthor: %s\nDesc: %s"), *Title, *Summary->Author, *Summary->Description.ToString());
+			int32 Col = i % 3;			 
 
 			Grid->AddSlot(Col, Row).Padding(5.0,5.0,5.0,5.0)
 			[
