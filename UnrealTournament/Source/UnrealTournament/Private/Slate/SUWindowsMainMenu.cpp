@@ -524,6 +524,15 @@ void SUWindowsMainMenu::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dia
 
 void SUWindowsMainMenu::StartGame(bool bLanGame)
 {
+
+	// Kill any existing Dedicated servers
+	if (PlayerOwner->DedicatedServerProcessHandle.IsValid())
+	{
+		FPlatformProcess::TerminateProc(PlayerOwner->DedicatedServerProcessHandle,true);
+		PlayerOwner->DedicatedServerProcessHandle.Reset();
+	}
+
+
 	if (FUTAnalytics::IsAvailable())
 	{
 		TArray<FAnalyticsEventAttribute> ParamArray;

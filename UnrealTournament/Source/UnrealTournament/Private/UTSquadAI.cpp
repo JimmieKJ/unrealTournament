@@ -198,7 +198,7 @@ bool AUTSquadAI::CheckSquadObjectives(AUTBot* B)
 
 bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternateRoute>& Routes, bool bAllowDetours, const FString& SuccessGoalString)
 {
-	if (B->bDisableSquadRoutes)
+	if (Goal == NULL || B->bDisableSquadRoutes)
 	{
 		return false;
 	}

@@ -2138,6 +2138,28 @@ bool AUTPlayerController::ServerSuicide_Validate()
 	return true;
 }
 
+void AUTPlayerController::SetWeaponHand(EWeaponHand NewHand)
+{
+	WeaponHand = NewHand;
+	SaveConfig();
+	if (!IsTemplate())
+	{
+		ServerSetWeaponHand(NewHand);
+	}
+}
+bool AUTPlayerController::ServerSetWeaponHand_Validate(EWeaponHand NewHand)
+{
+	return true;
+}
+void AUTPlayerController::ServerSetWeaponHand_Implementation(EWeaponHand NewHand)
+{
+	WeaponHand = NewHand;
+	AUTCharacter* UTCharTarget = Cast<AUTCharacter>(GetViewTarget());
+	if (UTCharTarget != NULL && UTCharTarget->GetWeapon() != NULL)
+	{
+		UTCharTarget->GetWeapon()->UpdateWeaponHand();
+	}
+}
 
 void AUTPlayerController::Emote(int32 EmoteIndex)
 {
@@ -2179,6 +2201,7 @@ void AUTPlayerController::ReceivedPlayer()
 	
 	if (LP != NULL && GetWorld()->GetNetMode() != NM_Standalone)
 	{
+		ServerSetWeaponHand(WeaponHand);
 		if (FUTAnalytics::IsAvailable() && (GetWorld()->GetNetMode() != NM_Client || GetWorld()->GetNetDriver() != NULL)) // make sure we don't do analytics for demo playback
 		{
 			FString ServerInfo = (GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();

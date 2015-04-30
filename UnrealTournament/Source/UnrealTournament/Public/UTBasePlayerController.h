@@ -127,4 +127,8 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason);
+
+	// Let the game's player controller know there was a network failure message.
+	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
+
 };

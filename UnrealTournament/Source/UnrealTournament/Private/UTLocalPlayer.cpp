@@ -117,7 +117,7 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 
 bool UUTLocalPlayer::IsAFriend(FUniqueNetIdRepl PlayerId)
 {
-	return (OnlineFriendsInterface.IsValid() && OnlineFriendsInterface->IsFriend(0, *PlayerId, EFriendsLists::ToString(EFriendsLists::InGamePlayers)));
+	return (PlayerId.IsValid() && OnlineFriendsInterface.IsValid() && OnlineFriendsInterface->IsFriend(0, *PlayerId, EFriendsLists::ToString(EFriendsLists::InGamePlayers)));
 }
 
 FString UUTLocalPlayer::GetNickname() const
@@ -438,6 +438,7 @@ void UUTLocalPlayer::ShowHUDSettings()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = true;
+			PlayerController->SetInputMode( FInputModeUIOnly() );
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -1966,5 +1967,14 @@ void UUTLocalPlayer::CancelDownload()
 	if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
 	{
 		UTGameViewport->CancelAllRedirectDownloads();		
+	}
+}
+
+void UUTLocalPlayer::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
+{
+	AUTBasePlayerController* BasePlayerController = Cast<AUTBasePlayerController>(PlayerController);
+	if (BasePlayerController)
+	{
+		BasePlayerController->HandleNetworkFailureMessage(FailureType, ErrorString);
 	}
 }

@@ -336,6 +336,8 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 	}
 	else
 	{
+		Start.Z += 0.5f; // FindTeleportSpot() will return Z locations on flat floors that fail an XY-only trace, probably due to float precision fails
+
 		FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(Char->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), Char->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 		float GravityZ = GetWorld()->GetDefaultGravityZ(); // FIXME: query physics volumes (always, or just at start?)
 
@@ -961,6 +963,12 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 				}
 			}
 
+			const bool bDisplayProgressDialog = (GIsEditor && NumToProcess >= PathNodes.Num());
+			if (bDisplayProgressDialog)
+			{
+				GWarn->BeginSlowTask(NSLOCTEXT("UT", "BuildSpecialLinks", "Building UT Paths"), true, false);
+			}
+
 			for (; SpecialLinkBuildNodeIndex < PathNodes.Num() && NumToProcess > 0; SpecialLinkBuildNodeIndex++, NumToProcess--)
 			{
 				UUTPathNode* Node = PathNodes[SpecialLinkBuildNodeIndex];
@@ -968,9 +976,15 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 				{
 					continue;
 				}
+				GWarn->UpdateProgress(SpecialLinkBuildNodeIndex, PathNodes.Num());
 				for (NavNodeRef PolyRef : Node->Polys)
 				{
 					FVector PolyCenter = GetPolyCenter(PolyRef);
+
+					if ((PolyCenter - FVector(600, 5350, 1830)).Size2D() < 75.0f)
+					{
+						UE_LOG(UT, Log, TEXT("TEST"));
+					}
 
 					if (!IsValidJumpPoint(PolyCenter))
 					{
@@ -1133,6 +1147,10 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 						}
 					}
 				}
+			}
+			if (bDisplayProgressDialog)
+			{
+				GWarn->EndSlowTask();
 			}
 			if (!PathNodes.IsValidIndex(SpecialLinkBuildNodeIndex))
 			{

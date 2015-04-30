@@ -99,6 +99,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		bSingleTapAfterJump = PC->bSingleTapAfterJump;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
 		WeaponBob = PC->WeaponBobGlobalScaling;
+		WeaponHand = PC->GetWeaponHand();
 		FFAPlayerColor = PC->FFAPlayerColor;
 
 		PlayerFOV = PC->ConfigDefaultFOV;
@@ -181,6 +182,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
 		PC->WeaponBobGlobalScaling = WeaponBob;
+		PC->SetWeaponHand(WeaponHand);
 		PC->FFAPlayerColor = FFAPlayerColor;
 		PC->ConfigDefaultFOV = PlayerFOV;
 

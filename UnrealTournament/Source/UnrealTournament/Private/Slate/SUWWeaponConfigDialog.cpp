@@ -56,6 +56,26 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 	};
 	WeaponList.Sort(FWeaponListSort());
 
+	WeaponHandDesc.Add(NSLOCTEXT("UT", "Right", "Right"));
+	WeaponHandDesc.Add(NSLOCTEXT("UT", "Left", "Left"));
+	WeaponHandDesc.Add(NSLOCTEXT("UT", "Center", "Center"));
+	WeaponHandDesc.Add(NSLOCTEXT("UT", "Hidden", "Hidden"));
+
+	WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[HAND_Right])));
+	//WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[HAND_Left])));
+	//WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[HAND_Center])));
+	WeaponHandList.Add(MakeShareable(new FText(WeaponHandDesc[HAND_Hidden])));
+
+	TSharedPtr<FText> InitiallySelectedHand = WeaponHandList[0];
+	for (TSharedPtr<FText> TestItem : WeaponHandList)
+	{
+		if (TestItem.Get()->EqualTo(WeaponHandDesc[GetDefault<AUTPlayerController>()->GetWeaponHand()]))
+		{
+			InitiallySelectedHand = TestItem;
+		}
+	}
+	
+
 	if (DialogContent.IsValid())
 	{
 		const float MessageTextPaddingX = 10.0f;
@@ -78,7 +98,7 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(STextBlock)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-						.Text(NSLOCTEXT("SUWWeaponConfigDialog", "AutoWeaponSwitch", "Weapon Switch on Pickup").ToString())
+						.Text(NSLOCTEXT("SUWWeaponConfigDialog", "AutoWeaponSwitch", "Weapon Switch on Pickup"))
 					]
 				]
 				+ SHorizontalBox::Slot()
@@ -88,6 +108,43 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 					.ForegroundColor(FLinearColor::White)
 					.IsChecked(GetDefault<AUTPlayerController>()->bAutoWeaponSwitch ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+				]
+			]
+			+ SVerticalBox::Slot()
+			.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+			.AutoHeight()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(500)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(NSLOCTEXT("SUWWeaponConfigDialog", "WeaponHand", "Weapon Hand"))
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SAssignNew(WeaponHand, SComboBox< TSharedPtr<FText> >)
+					.InitiallySelectedItem(InitiallySelectedHand)
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+					.OptionsSource(&WeaponHandList)
+					.OnGenerateWidget(this, &SUWWeaponConfigDialog::GenerateHandListWidget)
+					.OnSelectionChanged(this, &SUWWeaponConfigDialog::OnHandSelected)
+					.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+					.Content()
+					[
+						SAssignNew(SelectedWeaponHand, STextBlock)
+						.Text(*InitiallySelectedHand.Get())
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+					]
 				]
 			]
 			+ SVerticalBox::Slot()
@@ -199,6 +256,22 @@ TSharedRef<ITableRow> SUWWeaponConfigDialog::GenerateWeaponListRow(UClass* Weapo
 		];
 }
 
+TSharedRef<SWidget> SUWWeaponConfigDialog::GenerateHandListWidget(TSharedPtr<FText> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.Text(*InItem.Get())
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+		];
+}
+
+void SUWWeaponConfigDialog::OnHandSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedWeaponHand->SetText(*NewSelection.Get());
+}
+
 FReply SUWWeaponConfigDialog::WeaponPriorityUp()
 {
 	TArray<UClass*> SelectedItems = WeaponPriorities->GetSelectedItems();
@@ -230,11 +303,30 @@ FReply SUWWeaponConfigDialog::WeaponPriorityDown()
 
 FReply SUWWeaponConfigDialog::OKClick()
 {
+	EWeaponHand NewHand = HAND_Right;
+	for (int32 i = 0; i < WeaponHandDesc.Num(); i++)
+	{
+		if (WeaponHandDesc[i].EqualTo(*WeaponHand->GetSelectedItem().Get()))
+		{
+			NewHand = EWeaponHand(i);
+			break;
+		}
+	}
+
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (UTPlayerController != NULL)
 	{
 		UTPlayerController->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
+		
+		UTPlayerController->SetWeaponHand(NewHand);
 		UTPlayerController->SaveConfig();
+	}
+	else
+	{
+		AUTPlayerController* DefaultPC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
+		DefaultPC->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
+		DefaultPC->SetWeaponHand(NewHand);
+		DefaultPC->SaveConfig();
 	}
 
 	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
