@@ -457,6 +457,10 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, const 
 		{
 			FinalOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), MaxPlayers, FMath::Clamp<int32>(BotSkillLevel,0,7));
 		}
+		else
+		{
+			FinalOptions += FString::Printf(TEXT("?BotFill=0"));
+		}
 
 		// Apply additional options.
 		if (!ForcedInstanceGameOptions.IsEmpty()) FinalOptions += ForcedInstanceGameOptions;
