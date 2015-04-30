@@ -446,6 +446,9 @@ public:
 	virtual FText GetDownloadStatusText();
 	virtual bool IsDownloadInProgress();
 
+	// Forward any network failure messages to the base player controller so that game specific actions can be taken
+	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
+
 };
 
 

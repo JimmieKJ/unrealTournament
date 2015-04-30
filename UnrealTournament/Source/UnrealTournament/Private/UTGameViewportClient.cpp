@@ -247,78 +247,81 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 		return;
 	}
 
+	FText NetworkErrorMessage;
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 
-	if (NetDriver->NetDriverName == NAME_PendingNetDriver)
+	if (FirstPlayer)
 	{
-		FirstPlayer->CloseConnectingDialog();
-	}
+		FirstPlayer->HandleNetworkFailureMessage(FailureType, ErrorString);
 
-	FText NetworkErrorMessage;
-
-	if (FailureType == ENetworkFailure::PendingConnectionFailure)
-	{
-		if (ErrorString == TEXT("NEEDPASS"))
+		if (NetDriver->NetDriverName == NAME_PendingNetDriver)
 		{
+			FirstPlayer->CloseConnectingDialog();
+		}
 
-			UE_LOG(UT,Log,TEXT("%s %s"), *NetDriver->LowLevelGetNetworkNumber(), *GetNameSafe(GetWorld()));
-			if (NetDriver != NULL && NetDriver->ServerConnection != NULL)
+		if (FailureType == ENetworkFailure::PendingConnectionFailure)
+		{
+			if (ErrorString == TEXT("NEEDPASS"))
 			{
-				LastAttemptedURL = NetDriver->ServerConnection->URL;
 
-				FirstPlayer->OpenDialog(SNew(SUWInputBox)
-										.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
-										.PlayerOwner(FirstPlayer)
-										.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
-										.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
-										);
+				UE_LOG(UT,Log,TEXT("%s %s"), *NetDriver->LowLevelGetNetworkNumber(), *GetNameSafe(GetWorld()));
+				if (NetDriver != NULL && NetDriver->ServerConnection != NULL)
+				{
+					LastAttemptedURL = NetDriver->ServerConnection->URL;
+
+					FirstPlayer->OpenDialog(SNew(SUWInputBox)
+											.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
+											.PlayerOwner(FirstPlayer)
+											.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
+											.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
+											);
+				}
 			}
-		}
-		else if (ErrorString == TEXT("TOOWEAK"))
-		{
-			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","WEAKMSG","You are not skilled enough to play on this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
-			FirstPlayer->ShowMenu();
-			return;
-		}
-		else if (ErrorString == TEXT("TOOSTRONG"))
-		{
-			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","STRONGMSG","Your skill is too high for this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
-			FirstPlayer->ShowMenu();
-			return;
-		}
-		else if (ErrorString == TEXT("NOTLOGGEDIN"))
-		{
-			// NOTE: It's possible that the player logged in during the connect sequence but after Prelogin was called on the client.  If this is the case, just reconnect.
-			if (FirstPlayer->IsLoggedIn())
+			else if (ErrorString == TEXT("TOOWEAK"))
 			{
-				FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
+				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","WEAKMSG","You are not skilled enough to play on this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+				FirstPlayer->ShowMenu();
 				return;
 			}
-			
-			// If we already have a reconnect message, then don't handle this
-			if (!ReconnectDialog.IsValid())
+			else if (ErrorString == TEXT("TOOSTRONG"))
 			{
-				ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","LoginRequiredTitle","Login Required"), 
-														   NSLOCTEXT("UTGameViewportClient","LoginRequiredMessage","You need to login to your Epic account before you can play on this server."), UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::LoginFailureDialogResult));
+				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","STRONGMSG","Your skill is too high for this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+				FirstPlayer->ShowMenu();
+				return;
 			}
-		}
-		else if (ErrorString == TEXT("BANNED"))
-		{
-			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "BannedFromServerTitle", "IMPORTANT"), NSLOCTEXT("UTGameViewportClient", "BannedFromServerMsg", "You have been banned from this server!"), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
-			FirstPlayer->ShowMenu();
-			return;
-		}
+			else if (ErrorString == TEXT("NOTLOGGEDIN"))
+			{
+				// NOTE: It's possible that the player logged in during the connect sequence but after Prelogin was called on the client.  If this is the case, just reconnect.
+				if (FirstPlayer->IsLoggedIn())
+				{
+					FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
+					return;
+				}
+			
+				// If we already have a reconnect message, then don't handle this
+				if (!ReconnectDialog.IsValid())
+				{
+					ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","LoginRequiredTitle","Login Required"), 
+															   NSLOCTEXT("UTGameViewportClient","LoginRequiredMessage","You need to login to your Epic account before you can play on this server."), UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::LoginFailureDialogResult));
+				}
+			}
+			else if (ErrorString == TEXT("BANNED"))
+			{
+				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "BannedFromServerTitle", "IMPORTANT"), NSLOCTEXT("UTGameViewportClient", "BannedFromServerMsg", "You have been banned from this server!"), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+				FirstPlayer->ShowMenu();
+				return;
+			}
 
-		// TODO: Explain to the engine team why you can't localize server error strings :(
-		else if (ErrorString == TEXT("Server full."))
-		{
-			FirstPlayer->ShowMenu();
-			FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Unable to Join"), NSLOCTEXT("UTGameViewportClient","SERVERFULL","The game you are trying to join is full!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+			// TODO: Explain to the engine team why you can't localize server error strings :(
+			else if (ErrorString == TEXT("Server full."))
+			{
+				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Unable to Join"), NSLOCTEXT("UTGameViewportClient","SERVERFULL","The game you are trying to join is full!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+				return;
+			}
 			return;
 		}
-		return;
 	}
-
 
 	switch (FailureType)
 	{

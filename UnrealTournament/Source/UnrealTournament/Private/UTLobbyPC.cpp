@@ -146,3 +146,9 @@ void AUTLobbyPC::MatchChanged(AUTLobbyMatchInfo* CurrentMatch)
 		LP->UpdatePresence(CurrentMatch == NULL ? TEXT("In Hub") : TEXT("Setting up a Match"), true, true, true, false, false);
 	}
 }
+
+void AUTLobbyPC::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
+{
+	// If we are in a match and we get a network failure, leave that match.
+	UTLobbyPlayerState->ServerDestroyOrLeaveMatch();	
+}

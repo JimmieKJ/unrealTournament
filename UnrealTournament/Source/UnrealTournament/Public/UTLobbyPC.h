@@ -51,6 +51,8 @@ public:
 
 	void MatchChanged(AUTLobbyMatchInfo* CurrentMatch);
 
+	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
+
 protected:
 	// Will be true when the initial player replication is completed.  At that point it's safe to bring up the menu
 	bool bInitialReplicationCompleted;

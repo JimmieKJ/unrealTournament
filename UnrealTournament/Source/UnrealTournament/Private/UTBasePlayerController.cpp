@@ -469,3 +469,6 @@ void AUTBasePlayerController::ServerRconKick_Implementation(const FString& NameO
 	}
 }
 
+void AUTBasePlayerController::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
+{
+}

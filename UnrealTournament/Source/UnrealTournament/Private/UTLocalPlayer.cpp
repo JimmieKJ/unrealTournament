@@ -1969,3 +1969,12 @@ void UUTLocalPlayer::CancelDownload()
 		UTGameViewport->CancelAllRedirectDownloads();		
 	}
 }
+
+void UUTLocalPlayer::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
+{
+	AUTBasePlayerController* BasePlayerController = Cast<AUTBasePlayerController>(PlayerController);
+	if (BasePlayerController)
+	{
+		BasePlayerController->HandleNetworkFailureMessage(FailureType, ErrorString);
+	}
+}
