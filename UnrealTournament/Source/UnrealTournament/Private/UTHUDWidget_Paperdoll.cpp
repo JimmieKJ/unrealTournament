@@ -41,17 +41,18 @@ void UUTHUDWidget_Paperdoll::ProcessArmor()
 {
 	PlayerArmor = 0;
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+	bool bHasShieldBelt = false;
+	bool bHasThighPads = false;
+	bool bHasChest = false;
+	bool bHasHelmet = false;
+	bool bHasJumpBoots = false;
 	if (UTHUDOwner->UTPlayerOwner->PlayerState && UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator && (UTHUDOwner->GetNetMode() != NM_Standalone))
 	{
+		bHasChest = (UTC->ArmorAmount > 0);
 		PlayerArmor = UTC->ArmorAmount;
 	}
 	else if (UTC != NULL && !UTC->IsDead())
 	{
-		bool bHasShieldBelt = false;
-		bool bHasThighPads = false;
-		bool bHasChest = false;
-		bool bHasHelmet = false;
-		bool bHasJumpBoots = false;
 		for (TInventoryIterator<> It(UTC); It; ++It)
 		{
 			AUTArmor* Armor = Cast<AUTArmor>(*It);
@@ -66,14 +67,12 @@ void UUTHUDWidget_Paperdoll::ProcessArmor()
 			}
 			else if (Cast<AUTJumpBoots>(*It) != NULL) bHasJumpBoots = true;
 		} 
-
-		PaperDoll_ShieldBeltOverlay.bHidden = !bHasShieldBelt;
-		PaperDoll_ChestArmorOverlay.bHidden = !bHasChest;
-		PaperDoll_HelmetOverlay.bHidden = !bHasHelmet;
-		PaperDoll_ThighPadArmorOverlay.bHidden = !bHasThighPads;
-		PaperDoll_BootsOverlay.bHidden = !bHasJumpBoots;
 	}
-
+	PaperDoll_ShieldBeltOverlay.bHidden = !bHasShieldBelt;
+	PaperDoll_ChestArmorOverlay.bHidden = !bHasChest;
+	PaperDoll_HelmetOverlay.bHidden = !bHasHelmet;
+	PaperDoll_ThighPadArmorOverlay.bHidden = !bHasThighPads;
+	PaperDoll_BootsOverlay.bHidden = !bHasJumpBoots;
 }
 
 bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)

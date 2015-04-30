@@ -235,6 +235,7 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 	for (TMap<AActor*, TArray<FHitResult> >::TIterator It(OverlapComponentMap); It; ++It)
 	{
 		AActor* const Victim = It.Key();
+		APawn* const VictimPawn = Cast<APawn>(Victim);
 		TArray<FHitResult> const& ComponentHits = It.Value();
 
 		FUTRadialDamageEvent DmgEvent;
@@ -247,7 +248,7 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 		// if it's friendly fire, possibly redirect to alternate Controller for damage credit
 		AController* ResolvedInstigator = InstigatedByController;
 		if ( FFInstigatedBy != NULL && InstigatedByController != NULL && FFInstigatedBy != InstigatedByController &&
-			((GS != NULL && GS->OnSameTeam(InstigatedByController, Victim)) || (InstigatedByController == Victim)) )
+			((GS != NULL && GS->OnSameTeam(InstigatedByController, Victim)) || InstigatedByController == Victim || (VictimPawn != NULL && VictimPawn->Controller == InstigatedByController)) )
 		{
 			ResolvedInstigator = FFInstigatedBy;
 			if (FFDamageType != NULL)

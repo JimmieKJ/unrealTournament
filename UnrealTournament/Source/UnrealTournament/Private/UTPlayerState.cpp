@@ -67,8 +67,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bChosePrimaryRespawnChoice, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSpreeDamage, COND_OwnerOnly);
 
-	DOREPLIFETIME_CONDITION(AUTPlayerState, SpectatingID, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTPlayerState, SpectatingIDTeam, COND_InitialOnly);
+	DOREPLIFETIME(AUTPlayerState, SpectatingID);
+	DOREPLIFETIME(AUTPlayerState, SpectatingIDTeam);
 }
 
 void AUTPlayerState::SetPlayerName(const FString& S)

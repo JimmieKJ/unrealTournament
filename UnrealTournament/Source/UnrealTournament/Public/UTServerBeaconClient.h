@@ -15,9 +15,11 @@ struct FServerBeaconInfo
 	UPROPERTY()
 	FString ServerPlayers;
 
-
 	UPROPERTY()
 	FString MOTD;
+
+	UPROPERTY()
+	FString CurrentMap;
 
 };
 

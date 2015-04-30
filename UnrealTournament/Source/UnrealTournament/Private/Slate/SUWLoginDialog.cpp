@@ -424,6 +424,18 @@ FReply SUWLoginDialog::OnForgotPasswordClick()
 
 	
 }
+
+FReply SUWLoginDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		OnCloseClick();
+	}
+
+	return FReply::Unhandled();
+}
+
+
 FReply SUWLoginDialog::OnCloseClick()
 {
 	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);

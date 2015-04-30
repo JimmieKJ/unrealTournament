@@ -1138,8 +1138,6 @@ void AUTGameMode::StartMatch()
 
 void AUTGameMode::HandleMatchHasStarted()
 {
-	Super::HandleMatchHasStarted();
-
 	// reset things, relevant for any kind of warmup mode and to make sure placed Actors like pickups are in their initial state no matter how much time has passed in pregame
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
@@ -1148,6 +1146,13 @@ void AUTGameMode::HandleMatchHasStarted()
 			IUTResetInterface::Execute_Reset(*It);
 		}
 	}
+
+	if (UTGameState != NULL)
+	{
+		UTGameState->CompactSpectatingIDs();
+	}
+
+	Super::HandleMatchHasStarted();
 
 	UTGameState->SetTimeLimit(TimeLimit);
 	bFirstBloodOccurred = false;
@@ -1868,7 +1873,6 @@ bool AUTGameMode::ReadyToStartMatch()
 			return true;
 		}
 	}
-	return true;
 
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)

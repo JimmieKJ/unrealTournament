@@ -569,7 +569,8 @@ void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCan
 		if (UTPlayerOwner != NULL)
 		{
 			AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
-			UTCharacterOwner =  (PS && PS->bOnlySpectator && UTPlayerOwner->bSpectateBehindView)
+			static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
+			UTCharacterOwner = (PS && PS->bOnlySpectator && UTPlayerOwner->PlayerCameraManager && (UTPlayerOwner->PlayerCameraManager->CameraStyle == NAME_FreeCam))
 									? NULL
 									: Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
 		}

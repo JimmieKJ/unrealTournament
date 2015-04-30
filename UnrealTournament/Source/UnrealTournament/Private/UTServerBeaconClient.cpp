@@ -77,6 +77,7 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 		}
 
 		ServerInfo.MOTD = GameState->ServerMOTD;
+		ServerInfo.CurrentMap = GetWorld()->GetMapName();
 	}
 
 	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
