@@ -10,6 +10,7 @@
 #include "UTTeleporter.h"
 #include "UTWorldSettings.h"
 #include "UTWeaponRedirector.h"
+#include "UTProj_WeaponScreen.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
 
@@ -603,9 +604,12 @@ bool AUTProjectile::ShouldIgnoreHit_Implementation(AActor* OtherActor, UPrimitiv
 {
 	// don't blow up on non-blocking volumes
 	// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
+	// don't blow up on weapon redirectors that teleport weapons fire
+	// don't blow up from our side on weapon shields; let the shield do that so it can change damage/kill credit
 	return ( ((Cast<AUTTeleporter>(OtherActor) != NULL || Cast<AVolume>(OtherActor) != NULL) && !GetVelocity().IsZero())
 			|| (Cast<AUTProjectile>(OtherActor) != NULL && !InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
-			|| (Cast<AUTWeaponRedirector>(OtherActor) != NULL && ((AUTWeaponRedirector*)OtherActor)->bWeaponPortal) );
+			|| (Cast<AUTWeaponRedirector>(OtherActor) != NULL && ((AUTWeaponRedirector*)OtherActor)->bWeaponPortal)
+			|| Cast<AUTProj_WeaponScreen>(OtherActor) != NULL );
 }
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)

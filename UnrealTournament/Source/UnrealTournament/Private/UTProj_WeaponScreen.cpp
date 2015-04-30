@@ -56,6 +56,7 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 	{
 		OtherProj->FFInstigatorController = InstigatorController;
 		OtherProj->FFDamageType = BlockedProjDamageType;
+		OtherProj->ImpactedActor = this;
 		OtherProj->Explode(OtherProj->GetActorLocation(), -HitNormal);
 	}
 	else if (bCauseMomentumToPawns && Cast<APawn>(OtherActor) != NULL && OtherActor != Instigator && !HitPawns.Contains((APawn*)OtherActor))
