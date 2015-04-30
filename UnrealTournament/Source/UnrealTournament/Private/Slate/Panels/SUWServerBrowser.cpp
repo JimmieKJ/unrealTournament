@@ -1409,6 +1409,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			// Matched... store the data.
 			PingTrackers[i].Server->Ping = Sender->Ping;
 			PingTrackers[i].Server->MOTD = ServerInfo.MOTD;
+			PingTrackers[i].Server->Map = ServerInfo.CurrentMap;
 
 			PingTrackers[i].Server->Players.Empty();
 			TArray<FString> PlayerData;
