@@ -1868,7 +1868,6 @@ bool AUTGameMode::ReadyToStartMatch()
 			return true;
 		}
 	}
-	return true;
 
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
