@@ -830,6 +830,7 @@ void SUWServerBrowser::AddGameFilters()
 
 FReply SUWServerBrowser::OnGameFilterSelection(FString Filter)
 {
+	GameFilterText->SetText(Filter);
 	GameFilter->SetIsOpen(false);
 	FilterAllServers();
 	return FReply::Handled();
