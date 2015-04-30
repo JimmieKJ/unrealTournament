@@ -454,10 +454,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return InventoryList;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
 	virtual void AddInventory(AUTInventory* InvToAdd, bool bAutoActivate);
 
-	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
 	virtual void RemoveInventory(AUTInventory* InvToRemove);
 
 	/** find an inventory item of a specified type */
