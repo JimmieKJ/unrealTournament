@@ -45,6 +45,8 @@ protected:
 
 	void OnTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
+	FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
+
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent) override;
