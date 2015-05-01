@@ -369,6 +369,133 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 	}
 }
 
+bool UUTGameplayStatics::UTSuggestProjectileVelocity(UObject* WorldContextObject, FVector& TossVelocity, const FVector& StartLoc, const FVector& EndLoc, AActor* TargetActor, float ZOvershootTolerance, float TossSpeed, float CollisionRadius, float OverrideGravityZ, int32 MaxSubdivisions, ESuggestProjVelocityTraceOption::Type TraceOption)
+{
+	// if we're not tracing, then our special code isn't going to do anything of value
+	if (TraceOption == ESuggestProjVelocityTraceOption::DoNotTrace)
+	{
+		return UGameplayStatics::SuggestProjectileVelocity(WorldContextObject, TossVelocity, StartLoc, EndLoc, TossSpeed, false, CollisionRadius, OverrideGravityZ, TraceOption);
+	}
+
+	const FVector FlightDelta = EndLoc - StartLoc;
+	const FVector DirXY = FlightDelta.GetSafeNormal2D();
+	const float DeltaXY = FlightDelta.Size2D();
+	const float DeltaZ = FlightDelta.Z;
+
+	const float TossSpeedSq = FMath::Square(TossSpeed);
+
+	UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	const float GravityZ = (OverrideGravityZ != 0.f) ? -OverrideGravityZ : -World->GetGravityZ();
+
+	// v^4 - g*(g*x^2 + 2*y*v^2)
+	const float InsideTheSqrt = FMath::Square(TossSpeedSq) - GravityZ * ((GravityZ * FMath::Square(DeltaXY)) + (2.f * DeltaZ * TossSpeedSq));
+	if (InsideTheSqrt < 0.f)
+	{
+		// sqrt will be imaginary, therefore no solutions
+		return false;
+	}
+
+	// if we got here, there are 2 solutions: one high-angle and one low-angle.
+
+	const float SqrtPart = FMath::Sqrt(InsideTheSqrt);
+
+	// this is the tangent of the firing angle for the first (+) solution
+	float TanSolutionLowAngle = (TossSpeedSq + SqrtPart) / (GravityZ * DeltaXY);
+	// this is the tangent of the firing angle for the second (-) solution
+	float TanSolutionHighAngle = (TossSpeedSq - SqrtPart) / (GravityZ * DeltaXY);
+
+	if (FMath::Square(TanSolutionLowAngle) > FMath::Square(TanSolutionHighAngle))
+	{
+		Exchange<float>(TanSolutionLowAngle, TanSolutionHighAngle);
+	}
+
+	// create a list of all the arcs we want to try
+
+	const int32 TotalArcs = MaxSubdivisions + 2;
+
+	TArray<float> PrioritizedSolutionsMagXYSq;
+	PrioritizedSolutionsMagXYSq.Reserve(TotalArcs);
+	TArray<float> PrioritizedSolutionZSign;
+	PrioritizedSolutionZSign.Reserve(TotalArcs);
+
+	// mag in the XY dir = sqrt( TossSpeedSq / (TanSolutionAngle^2 + 1) );
+	PrioritizedSolutionsMagXYSq.Add(TossSpeedSq / (FMath::Square(TanSolutionLowAngle) + 1.f));
+	PrioritizedSolutionZSign.Add(FMath::Sign(TanSolutionLowAngle));
+	for (int32 i = 1; i < TotalArcs - 1; i++)
+	{
+		float AdjustedAngle = FMath::Lerp<float>(TanSolutionLowAngle, TanSolutionHighAngle, (1.0f / (TotalArcs - 1)) * i);
+		const float MagXYSq = TossSpeedSq / (FMath::Square(AdjustedAngle) + 1.f);
+		const float MagXY = FMath::Sqrt(MagXYSq);
+		const float ZSign = FMath::Sign(AdjustedAngle);
+		const float ZSpeed = FMath::Sqrt(TossSpeedSq - MagXYSq) * ZSign;
+		// check that this intermediate solution is within the Z tolerance
+		if (StartLoc.Z + ZSpeed * (DeltaXY / MagXY) <= EndLoc.Z + ZOvershootTolerance)
+		{
+			PrioritizedSolutionsMagXYSq.Add(MagXYSq);
+			PrioritizedSolutionZSign.Add(ZSign);
+		}
+	}
+	PrioritizedSolutionsMagXYSq.Add(TossSpeedSq / (FMath::Square(TanSolutionHighAngle) + 1.f));
+	PrioritizedSolutionZSign.Add(FMath::Sign(TanSolutionHighAngle));
+	
+	static const FName NAME_SuggestProjVelTrace = FName(TEXT("SuggestProjVelTrace"));
+	FCollisionQueryParams QueryParams(NAME_SuggestProjVelTrace, true, TargetActor);
+	FCollisionResponseParams ResponseParam = FCollisionResponseParams::DefaultResponseParam;
+	ResponseParam.CollisionResponse.Pawn = ECR_Ignore;
+
+	// try solutions low to high
+	for (int32 CurrentSolutionIdx = 0; CurrentSolutionIdx < TotalArcs; CurrentSolutionIdx++)
+	{
+		const float MagXY = FMath::Sqrt(PrioritizedSolutionsMagXYSq[CurrentSolutionIdx]);
+		const float MagZ = FMath::Sqrt(TossSpeedSq - PrioritizedSolutionsMagXYSq[CurrentSolutionIdx]);		// pythagorean
+		const float ZSign = PrioritizedSolutionZSign[CurrentSolutionIdx];
+
+		const FVector ProjVelocity = (DirXY * MagXY) + (FVector::UpVector * MagZ * ZSign);
+
+		// iterate along the arc, doing stepwise traces
+		// TODO: we could potentially optimize later traces at the cost of a relatively small amount of accuracy by tracing from start point to the Step that previously failed
+		bool bFailedTrace = false;
+		static const float StepSize = 0.125f;
+		FVector TraceStart = StartLoc;
+		for (float Step = 0.f; Step < 1.f; Step += StepSize)
+		{
+			const float TimeInFlight = (Step + StepSize) * DeltaXY / MagXY;
+
+			// d = vt + .5 a t^2
+			const FVector TraceEnd = StartLoc + ProjVelocity * TimeInFlight + FVector(0.f, 0.f, 0.5f * -GravityZ * FMath::Square(TimeInFlight) - CollisionRadius);
+
+			if (TraceOption == ESuggestProjVelocityTraceOption::OnlyTraceWhileAsceding && TraceEnd.Z < TraceStart.Z)
+			{
+				// falling, we are done tracing
+				break;
+			}
+			else
+			{
+				// note: this will automatically fall back to line test if radius is small enough
+				if (World->SweepTest(TraceStart, TraceEnd, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(CollisionRadius), QueryParams, ResponseParam))
+				{
+					// hit something, failed
+					bFailedTrace = true;
+					break;
+				}
+
+			}
+
+			// advance
+			TraceStart = TraceEnd;
+		}
+
+		if (!bFailedTrace)
+		{
+			// passes all traces along the arc, we have a valid solution and can be done
+			TossVelocity = ProjVelocity;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 APlayerController* UUTGameplayStatics::GetLocalPlayerController(UObject* WorldContextObject, int32 PlayerIndex)
 {
 	UWorld* World = (WorldContextObject != NULL) ? WorldContextObject->GetWorld() : NULL;

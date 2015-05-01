@@ -1,5 +1,4 @@
-
-
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTProj_TransDisk.h"
 #include "UTWeap_Translocator.h"
@@ -7,6 +6,7 @@
 #include "UnrealNetwork.h"
 #include "UTDamageType.h"
 #include "UTLift.h"
+#include "UTReachSpec_HighJump.h"
 
 AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -258,20 +258,22 @@ void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 			DetachRootComponentFromParent(true);
 
 			// if bot, check for telefrag
-			if (Cast<AUTCharacter>(OtherActor) != NULL)
+			AUTBot* B = Cast<AUTBot>(InstigatorController);
+			if (B != NULL)
 			{
-				AUTBot* B = Cast<AUTBot>(InstigatorController);
-				if (B != NULL && B->WeaponProficiencyCheck() && FMath::FRand() < 0.1f * (B->Skill + B->Personality.Alertness + B->Personality.Tactics + B->Personality.ReactionTime))
+				if (Cast<AUTCharacter>(OtherActor) != NULL)
 				{
-					AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
-					if (UTC != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
+					if (OtherActor != B->GetPawn() && B->WeaponProficiencyCheck() && FMath::FRand() < 0.1f * (B->Skill + B->Personality.Alertness + B->Personality.Tactics + B->Personality.ReactionTime))
 					{
-						UTC->StartFire(1);
-						UTC->StopFire(1);
-						B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
-						B->MoveTimer = -1.0f;
-						B->LastTranslocTime = GetWorld()->TimeSeconds;
+						BotTranslocate();
 					}
+				}
+				// special case handling for bot following a jump path that accepts Pawns but blocks projectiles
+				// translocate now and air control through the passage
+				else if (OtherComp != NULL && OtherComp->GetCollisionResponseToChannel(ECC_Pawn) < ECR_Block && !B->TranslocTarget.IsZero() && Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get()) != NULL)
+				{
+					// TODO: check if can actually air control to/near destination?
+					BotTranslocate();
 				}
 			}
 		}
@@ -332,6 +334,21 @@ bool AUTProj_TransDisk::IsAcceptableTranslocationTo(const FVector& DesiredDest)
 	}
 }
 
+void AUTProj_TransDisk::BotTranslocate()
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(Instigator);
+	AUTBot* B = Cast<AUTBot>(InstigatorController);
+	if (UTC != NULL && B != NULL && UTC->GetWeapon() == MyTranslocator && MyTranslocator->TransDisk == this)
+	{
+		UTC->StartFire(1);
+		UTC->StopFire(1);
+		B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
+		B->TranslocTarget = FVector::ZeroVector;
+		B->MoveTimer = -1.0f;
+		B->LastTranslocTime = GetWorld()->TimeSeconds;
+	}
+}
+
 void AUTProj_TransDisk::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -346,12 +363,7 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 			switch (B->ShouldTriggerTranslocation(GetActorLocation(), GetVelocity()))
 			{
 				case BMS_Activate:
-					UTC->StartFire(1);
-					UTC->StopFire(1);
-					B->ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
-					B->TranslocTarget = FVector::ZeroVector;
-					B->MoveTimer = -1.0f;
-					B->LastTranslocTime = GetWorld()->TimeSeconds;
+					BotTranslocate();
 					break;
 				case BMS_Abort:
 					UTC->StartFire(0);

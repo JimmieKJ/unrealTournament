@@ -77,6 +77,27 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 #endif
 	);
 
+	/** alternative, more robust version of SuggestProjectileVelocity()
+	 * in particular, this handles that targets generally have collision size and hitting the exact target is not required
+	 * so the simplistic quadratic equation solution will often result in poor or no valid toss vectors (depending on collision geometry)
+	 * when there are alternative arcs that will get close enough
+	 * note, however, that this routine is slower than the engine implementation
+	 * @param TossVelocity - (output) Result launch velocity.
+	 * @param StartLoc - Intended launch location
+	 * @param EndLoc - target location
+	 * @param TargetActor - target actor (NULL is valid)
+	 * @param ZOvershootTolerance - amount an alternate arc can go over (higher than) the intended target and still be considered valid (e.g. target height)
+	 *								note that this value only applies OVER the intended target - no returned arc will ever undershoot; adjust your EndLocation to the bottom of the target's collision if necessary
+	 * @param TossSpeed - Launch speed
+	 * @param CollisionRadius - Radius of the projectile (assumed spherical), used when tracing
+	 * @param OverrideGravityZ - Optional gravity override.  0 means "do not override".
+	 * @param MaxSubdivisions - maximum number of subdivisions between the low angle (minimum possible) and high angle (maximum possible) to test for being within the tolerance value. Substantially affects performance.
+	 * @param TraceOption - Controls whether or not to validate a clear path by tracing along the calculated arc. NOTE: if you pass DoNotTrace this function becomes identical to the engine implementation, since the low arc will never fail
+	 * @return whether an acceptable solution was found and placed in TossVelocity. The lowest valid arc is always the one returned.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game|Components|ProjectileMovement")
+	static bool UTSuggestProjectileVelocity(UObject* WorldContextObject, FVector& TossVelocity, const FVector& StartLoc, const FVector& EndLoc, AActor* TargetActor, float ZOvershootTolerance, float TossSpeed, float CollisionRadius = 0.f, float OverrideGravityZ = 0.0f, int32 MaxSubdivisions = 5, ESuggestProjVelocityTraceOption::Type TraceOption = ESuggestProjVelocityTraceOption::TraceFullPath);
+
 	/** returns PlayerController at the specified player index */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Player", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
 	APlayerController* GetLocalPlayerController(UObject* WorldContextObject, int32 PlayerIndex = 0);

@@ -1012,14 +1012,9 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					{
 						ProjSpeed += FMath::Max<float>(0.0f, (FocalPoint - StartLoc).GetSafeNormal().Z * DefaultProj->TossZ);
 					}
-					TArray<AActor*> IgnoreActors;
-					IgnoreActors.Add(GetPawn());
-					IgnoreActors.Add(GetTarget());
-					IgnoreActors.Add(GetFocusActor());
 					FVector TossVel;
-					static FCollisionResponseContainer BlockWorldResponse = []() { FCollisionResponseContainer Result(ECR_Ignore); Result.WorldDynamic = ECR_Block; Result.WorldStatic = ECR_Block; return Result; }();
-					FCollisionResponseParams ResponseParams((DefaultProj->CollisionComp != NULL) ? DefaultProj->CollisionComp->GetCollisionResponseToChannels() : BlockWorldResponse);
-					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, FocalPoint, ProjSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, ResponseParams, IgnoreActors))
+					const float ZTolerance = (GetFocusActor() != NULL) ? (GetFocusActor()->GetSimpleCollisionHalfHeight() * 0.8f) : FLT_MAX;
+					if (UUTGameplayStatics::UTSuggestProjectileVelocity(this, TossVel, StartLoc, FocalPoint, GetTarget(), ZTolerance, ProjSpeed, ProjRadius, GravityZ))
 					{
 						TossVel.Z -= DefaultProj->TossZ;
 						TargetLoc = GetPawn()->GetActorLocation() + TossVel.GetSafeNormal() * 2000.0f;
@@ -1053,8 +1048,8 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 										}
 									}
 									TestLoc.Z += GetPawn()->GetSimpleCollisionHalfHeight();
-									if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, ProjSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, ResponseParams, IgnoreActors) ||
-										UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, ProjSpeed, true, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::DoNotTrace))
+									if ( UUTGameplayStatics::UTSuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, NULL, ZTolerance, ProjSpeed, ProjRadius, GravityZ) ||
+										UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, ProjSpeed, true, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::DoNotTrace) )
 									{
 										TranslocTarget = TestLoc;
 										SetFocalPoint(TestLoc, SCRIPTEDMOVE_FOCUS_PRIORITY);

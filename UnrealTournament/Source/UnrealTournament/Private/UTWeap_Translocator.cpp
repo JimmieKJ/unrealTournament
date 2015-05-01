@@ -356,8 +356,6 @@ bool AUTWeap_Translocator::DoAssistedJump()
 				AUTProjectile* DefaultProj = ProjClass[0].GetDefaultObject();
 				const float ProjRadius = DefaultProj->CollisionComp->GetUnscaledSphereRadius();
 				const float GravityZ = UTOwner->GetCharacterMovement()->GetGravityZ() * DefaultProj->ProjectileMovement->ProjectileGravityScale;
-				TArray<AActor*> IgnoreActors;
-				IgnoreActors.Add(UTOwner);
 
 				bool bFound = false;
 				for (const FVector& TestLoc : PotentialTargets)
@@ -370,7 +368,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 						EffectiveSpeed += FMath::Max<float>(0.0f, (TestLoc - StartLoc).GetSafeNormal().Z * DefaultProj->TossZ);
 					}
 					FVector TossVel;
-					if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, EffectiveSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, DefaultProj->CollisionComp->GetCollisionResponseToChannels(), IgnoreActors))
+					if (UUTGameplayStatics::UTSuggestProjectileVelocity(this, TossVel, StartLoc, TestLoc, NULL, FLT_MAX, EffectiveSpeed, ProjRadius, GravityZ))
 					{
 						// TODO: assemble successful toss list, allow bot to choose best to its goal?
 						B->TranslocTarget = TestLoc;
@@ -401,7 +399,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 								EffectiveSpeed += FMath::Max<float>(0.0f, (TestLoc - NewStart).GetSafeNormal().Z * DefaultProj->TossZ);
 							}
 							FVector TossVel;
-							if (UGameplayStatics::SuggestProjectileVelocity(this, TossVel, NewStart, TestLoc, EffectiveSpeed, false, ProjRadius, GravityZ, ESuggestProjVelocityTraceOption::TraceFullPath, DefaultProj->CollisionComp->GetCollisionResponseToChannels(), IgnoreActors))
+							if (UUTGameplayStatics::UTSuggestProjectileVelocity(this, TossVel, NewStart, TestLoc, NULL, FLT_MAX, EffectiveSpeed, ProjRadius, GravityZ))
 							{
 								B->TranslocTarget = TestLoc;
 								B->SetAdjustLoc(NewStart);
