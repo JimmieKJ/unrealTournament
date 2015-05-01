@@ -444,7 +444,7 @@ bool UUTGameplayStatics::UTSuggestProjectileVelocity(UObject* WorldContextObject
 	ResponseParam.CollisionResponse.Pawn = ECR_Ignore;
 
 	// try solutions low to high
-	for (int32 CurrentSolutionIdx = 0; CurrentSolutionIdx < TotalArcs; CurrentSolutionIdx++)
+	for (int32 CurrentSolutionIdx = 0; CurrentSolutionIdx < PrioritizedSolutionsMagXYSq.Num(); CurrentSolutionIdx++)
 	{
 		const float MagXY = FMath::Sqrt(PrioritizedSolutionsMagXYSq[CurrentSolutionIdx]);
 		const float MagZ = FMath::Sqrt(TossSpeedSq - PrioritizedSolutionsMagXYSq[CurrentSolutionIdx]);		// pythagorean
