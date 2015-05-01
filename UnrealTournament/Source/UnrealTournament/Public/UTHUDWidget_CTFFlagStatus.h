@@ -59,6 +59,18 @@ class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 		bool bStatusDir;
 
+	/** Distance to start scaling in world indicators. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float ScalingStartDist;
+
+	/** Distance to stop scaling in world indicators. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float ScalingEndDist;
+
+	/** Smallest scaling for in world indicators. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		float MinIconScale;
+
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);
 
