@@ -533,7 +533,7 @@ void AUTCTFGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 	}
 }
 
-bool AUTCTFGameMode::PlayerCanRestart( APlayerController* Player )
+bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 {
 	// Can't restart in overtime
 	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchAtHalftime() || CTFGameState->IsMatchInSuddenDeath()|| 

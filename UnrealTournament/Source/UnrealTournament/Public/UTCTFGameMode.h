@@ -65,7 +65,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 
 	virtual void PlacePlayersAroundFlagBase(int32 TeamNum);
 
-	virtual bool PlayerCanRestart( APlayerController* Player );
+	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);

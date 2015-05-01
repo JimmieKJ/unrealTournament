@@ -105,9 +105,9 @@ void AUTTeamGameMode::AnnounceMatchStart()
 	}
 }
 
-APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
-	APlayerController* PC = Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{

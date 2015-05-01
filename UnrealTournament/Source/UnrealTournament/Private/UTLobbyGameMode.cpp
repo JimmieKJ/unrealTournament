@@ -27,7 +27,7 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	GameStateClass = AUTLobbyGameState::StaticClass();
 	PlayerStateClass = AUTLobbyPlayerState::StaticClass();
 	PlayerControllerClass = AUTLobbyPC::StaticClass();
-	DefaultPlayerName = FString("Malcolm");
+	DefaultPlayerName = FText::FromString(TEXT("Malcolm"));
 	GameMessageClass = UUTGameMessage::StaticClass();
 
 	DisplayName = NSLOCTEXT("UTLobbyGameMode", "HUB", "HUB");
@@ -135,9 +135,9 @@ void AUTLobbyGameMode::ChangeName(AController* Other, const FString& S, bool bNa
 			if ( Cast<APlayerController>(Other) != NULL )
 			{
 					Cast<APlayerController>(Other)->ClientReceiveLocalizedMessage( GameMessageClass, 5 );
-					if ( FCString::Stricmp(*Other->PlayerState->PlayerName, *DefaultPlayerName) == 0 )
+					if ( FCString::Stricmp(*Other->PlayerState->PlayerName, *DefaultPlayerName.ToString()) == 0 )
 					{
-						Other->PlayerState->SetPlayerName(FString::Printf(TEXT("%s%i"), *DefaultPlayerName, Other->PlayerState->PlayerId));
+						Other->PlayerState->SetPlayerName(FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), Other->PlayerState->PlayerId));
 					}
 				return;
 			}
@@ -252,7 +252,7 @@ void AUTLobbyGameMode::Logout(AController* Exiting)
 	UpdateLobbySession();
 }
 
-bool AUTLobbyGameMode::PlayerCanRestart( APlayerController* Player )
+bool AUTLobbyGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 {
 	return false;
 }

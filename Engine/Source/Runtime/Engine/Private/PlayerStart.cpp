@@ -61,26 +61,6 @@ APlayerStart::APlayerStart(const FObjectInitializer& ObjectInitializer)
 #endif // WITH_EDITORONLY_DATA
 }
 
-void APlayerStart::PostInitializeComponents()
-{
-	Super::PostInitializeComponents();
-	if ( !IsPendingKill()  && GetWorld()->GetAuthGameMode() )
-	{
-		GetWorld()->GetAuthGameMode()->AddPlayerStart(this);
-	}
-}
-
-void APlayerStart::PostUnregisterAllComponents()
-{
-	Super::PostUnregisterAllComponents();
-
-	UWorld* ActorWorld = GetWorld();
-	if ( ActorWorld && ActorWorld->GetAuthGameMode() )
-	{
-		ActorWorld->GetAuthGameMode()->RemovePlayerStart(this);
-	}
-}
-
 #if WITH_EDITORONLY_DATA
 /** Returns ArrowComponent subobject **/
 UArrowComponent* APlayerStart::GetArrowComponent() const { return ArrowComponent; }

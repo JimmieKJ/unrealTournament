@@ -266,7 +266,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
 	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
 	virtual void InitGameState() override;
-	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void Reset();
 	virtual void RestartGame();
 	virtual void BeginGame();
@@ -303,17 +303,17 @@ public:
 	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
 	virtual void StartNewPlayer(APlayerController* NewPlayer);
-	virtual bool ShouldSpawnAtStartSpot(AController* Player);
-	virtual class AActor* FindPlayerStart( AController* Player, const FString& IncomingName = TEXT("") );
-	virtual AActor* ChoosePlayerStart( AController* Player );
+	virtual bool ShouldSpawnAtStartSpot(AController* Player) override;
+	virtual class AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;
+	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player);
 
-	virtual bool ReadyToStartMatch();
+	virtual bool ReadyToStartMatch_Implementation() override;
 
-	virtual bool HasMatchStarted() const;
-	virtual bool IsMatchInProgress() const;
-	virtual bool HasMatchEnded() const;
-	virtual void SetMatchState(FName NewState);
+	virtual bool HasMatchStarted() const override;
+	virtual bool IsMatchInProgress() const override;
+	virtual bool HasMatchEnded() const override;
+	virtual void SetMatchState(FName NewState) override;
 	virtual void CallMatchStateChangeNotify();
 
 	virtual void HandleCountdownToBegin();
@@ -333,7 +333,7 @@ public:
 	virtual void DefaultTimer();
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
-	virtual bool PlayerCanRestart( APlayerController* Player );
+	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 
 	// Allows gametypes to build their rules settings for the mid game menu.
 	virtual FText BuildServerRules(AUTGameState* GameState);
@@ -344,6 +344,10 @@ public:
 	virtual void BuildServerResponseRules(FString& OutRules);
 
 protected:
+	
+	/** Handle for efficient management of DefaultTimer timer */
+	FTimerHandle TimerHandle_DefaultTimer;
+
 	/** adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
 	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);

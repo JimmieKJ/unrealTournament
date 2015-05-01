@@ -29,11 +29,6 @@ private_subobject:
 public:
 #endif
 
-	// Begin AActor interface
-	virtual void PostInitializeComponents() override;	
-	virtual void PostUnregisterAllComponents() override;
-	// End AActor interface
-
 #if WITH_EDITORONLY_DATA
 	/** Returns ArrowComponent subobject **/
 	class UArrowComponent* GetArrowComponent() const;

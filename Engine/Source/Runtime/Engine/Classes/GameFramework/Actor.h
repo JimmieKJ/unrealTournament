@@ -2074,6 +2074,10 @@ public:
 	/** Reset actor to initial state - used when restarting level without reloading. */
 	virtual void Reset();
 
+	/** Event called when this Actor is reset to its initial state - used when restarting level without reloading. */
+	UFUNCTION(BlueprintImplementableEvent, Category = Actor, meta = (DisplayName = "OnReset"))
+	void K2_OnReset();
+
 	/** Returns the most recent time any of this actor's components were rendered */
 	virtual float GetLastRenderTime() const;
 

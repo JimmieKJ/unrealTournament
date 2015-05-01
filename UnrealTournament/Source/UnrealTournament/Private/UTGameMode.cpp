@@ -80,7 +80,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bAllowOvertime = true;
 	bForceRespawn = false;
 
-	DefaultPlayerName = FString("Malcolm");
+	DefaultPlayerName = FText::FromString(TEXT("Malcolm"));
 	MapPrefix = TEXT("DM");
 	LobbyInstanceID = 0;
 	DemoFilename = TEXT("%m-%td");
@@ -389,6 +389,8 @@ void AUTGameMode::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
 
+	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation(), true);
+
 	// Because of the behavior changes to PostBeginPlay() this really has to go here as PreInitializeCompoennts is sort of the UE4 PBP even
 	// though PBP still exists.  It can't go in InitGame() or InitGameState() because team info needed for team locked GameObjectives are not
 	// setup at that point.
@@ -411,7 +413,7 @@ void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 	// Allow subclasses to track game objectives as they are initialized
 }
 
-APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	bool bCastingView = EvalBoolOptions(ParseOption(Options, TEXT("CastingView")), false);
 	if (bCastingView)
@@ -432,7 +434,7 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, const FString& Portal,
 	{
 		BaseMutator->ModifyLogin(ModdedPortal, ModdedOptions);
 	}
-	APlayerController* Result = Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* Result = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
 	if (Result != NULL)
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Result);
@@ -1578,9 +1580,9 @@ void AUTGameMode::ChangeName(AController* Other, const FString& S, bool bNameCha
 			if ( Cast<APlayerController>(Other) != NULL )
 			{
 					Cast<APlayerController>(Other)->ClientReceiveLocalizedMessage( GameMessageClass, 5 );
-					if ( FCString::Stricmp(*Other->PlayerState->PlayerName, *DefaultPlayerName) == 0 )
+					if ( FCString::Stricmp(*Other->PlayerState->PlayerName, *(DefaultPlayerName.ToString())) == 0 )
 					{
-						Other->PlayerState->SetPlayerName(FString::Printf(TEXT("%s%i"), *DefaultPlayerName, Other->PlayerState->PlayerId));
+						Other->PlayerState->SetPlayerName(FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), Other->PlayerState->PlayerId));
 					}
 				return;
 			}
@@ -1603,9 +1605,9 @@ bool AUTGameMode::ShouldSpawnAtStartSpot(AController* Player)
 }
 
 
-AActor* AUTGameMode::FindPlayerStart(AController* Player, const FString& IncomingName)
+AActor* AUTGameMode::FindPlayerStart_Implementation(AController* Player, const FString& IncomingName)
 {
-	AActor* const Best = Super::FindPlayerStart(Player, IncomingName);
+	AActor* const Best = Super::FindPlayerStart_Implementation(Player, IncomingName);
 	if (Best)
 	{
 		LastStartSpot = Best;
@@ -1631,7 +1633,7 @@ FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const
 	return ErrorMessage;
 }
 
-AActor* AUTGameMode::ChoosePlayerStart(AController* Player)
+AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(Player->PlayerState);
 	if (bHasRespawnChoices && UTPS->RespawnChoiceA != nullptr && UTPS->RespawnChoiceB != nullptr)
@@ -1644,6 +1646,12 @@ AActor* AUTGameMode::ChoosePlayerStart(AController* Player)
 		{
 			return UTPS->RespawnChoiceB;
 		}
+	}
+
+	TArray<APlayerStart*> PlayerStarts;
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	{
+		PlayerStarts.Add(*It);
 	}
 
 	if (PlayerStarts.Num() == 0)
@@ -1713,7 +1721,7 @@ AActor* AUTGameMode::ChoosePlayerStart(AController* Player)
 			BestStart = P;
 		}
 	}
-	return (BestStart != NULL) ? BestStart : Super::ChoosePlayerStart(Player);
+	return (BestStart != NULL) ? BestStart : Super::ChoosePlayerStart_Implementation(Player);
 }
 
 float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
@@ -1857,7 +1865,7 @@ void AUTGameMode::StartPlay()
 	StartPlayTime = GetWorld()->GetTimeSeconds();
 }
 
-bool AUTGameMode::ReadyToStartMatch()
+bool AUTGameMode::ReadyToStartMatch_Implementation()
 {
 	if (GetWorld()->IsPlayInEditor() || !bDelayedStart)
 	{
@@ -2283,7 +2291,7 @@ void AUTGameMode::Logout(AController* Exiting)
 	UpdatePlayersPresence();
 }
 
-bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
+bool AUTGameMode::PlayerCanRestart_Implementation( APlayerController* Player )
 {
 	// Can't restart in overtime
 	if (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime())
@@ -2292,7 +2300,7 @@ bool AUTGameMode::PlayerCanRestart( APlayerController* Player )
 	}
 	else
 	{
-		return Super::PlayerCanRestart(Player);
+		return Super::PlayerCanRestart_Implementation(Player);
 	}
 }
 
