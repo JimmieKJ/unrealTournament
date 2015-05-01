@@ -198,7 +198,7 @@ bool FBestInventoryEval::GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) con
 }
 float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
-	if (RejectNodes.Contains(Node))
+	if (Node->bDestinationOnly || RejectNodes.Contains(Node))
 	{
 		return 0.0f;
 	}
