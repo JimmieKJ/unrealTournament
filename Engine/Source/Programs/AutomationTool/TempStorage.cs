@@ -136,6 +136,7 @@ namespace AutomationTool
 						Retry++;
 					}
 				}
+			}
 			return bFound;
 		}
         public static bool Robust_DirectoryExistsAndIsWritable_NoExceptions(string Directoryname)
