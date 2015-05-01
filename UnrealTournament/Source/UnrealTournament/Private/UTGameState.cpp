@@ -29,10 +29,10 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
-	DOREPLIFETIME(AUTGameState, RespawnWaitTime);  // @TODO FIXMESTEVE why not initial only
-	DOREPLIFETIME(AUTGameState, ForceRespawnTime);  // @TODO FIXMESTEVE why not initial only
-	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
-	DOREPLIFETIME(AUTGameState, bTeamGame);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, TimeLimit);  
+	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);  
+	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
+	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bOnlyTheStrongSurvive, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
