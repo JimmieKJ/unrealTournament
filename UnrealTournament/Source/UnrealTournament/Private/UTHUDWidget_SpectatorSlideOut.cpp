@@ -125,8 +125,13 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		if (UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 		{
 			DrawCamBind(NAME_None, "Press number to view player", DeltaTime, XOffset, DrawOffset, false);
+		}
+		else
+		{
 			DrawOffset += CellHeight;
 		}
+		DrawOffset += CellHeight;
+
 		TArray<AUTPlayerState*> RedPlayerList, BluePlayerList;
 		for (APlayerState* PS : UTGameState->PlayerArray)
 		{
@@ -179,6 +184,11 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		}
 		if (UTGameState->bTeamGame)
 		{
+			if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
+			{
+				DrawOffset += CellHeight;
+				DrawOffset += CellHeight;
+			}
 			BluePlayerList.Sort(SortFunc);
 			for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
 			{
