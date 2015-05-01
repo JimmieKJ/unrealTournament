@@ -176,6 +176,12 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	virtual void BeginPlay() override;
 
+	/** Return largest SpectatingId value in current PlayerArray. */
+	virtual int32 GetMaxSpectatingId();
+
+	/** Return largest SpectatingIdTeam value in current PlayerArray. */
+	virtual int32 GetMaxTeamSpectatingId(int32 TeamNum);
+
 	/** add an overlay to the OverlayMaterials list */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void AddOverlayMaterial(UMaterialInterface* NewOverlay);

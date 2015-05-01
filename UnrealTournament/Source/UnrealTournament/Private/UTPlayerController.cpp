@@ -762,20 +762,29 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 			{
 				Index += TeamNum * 5;
 			}
-
-			PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+			int32 MaxSpectatingId = GS->GetMaxSpectatingId();
+			while ((Index <= MaxSpectatingId) && (PlayerToView == NULL))
 			{
-				const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
-				return (PS != NULL && PS->SpectatingID == Index);
-			});
+				PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+				{
+					const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
+					return (PS != NULL && PS->SpectatingID == Index);
+				});
+				Index += 5;
+			}
 		}
 		else if (GS->Teams.IsValidIndex(TeamNum))
 		{
-			PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+			int32 MaxSpectatingId = GS->GetMaxTeamSpectatingId(TeamNum);
+			while ((Index <= MaxSpectatingId) && (PlayerToView == NULL))
 			{
-				const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
-				return (PS != NULL && PS->SpectatingIDTeam == Index && PS->GetTeamNum() == TeamNum);
-			});
+				PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+				{
+					const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
+					return (PS != NULL && PS->SpectatingIDTeam == Index && PS->GetTeamNum() == TeamNum);
+				});
+				Index += 5;
+			}
 		}
 		if (PlayerToView != NULL)
 		{

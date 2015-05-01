@@ -678,3 +678,33 @@ void AUTGameState::CompactSpectatingIDs()
 		}
 	}
 }
+
+int32 AUTGameState::GetMaxSpectatingId()
+{
+	int32 MaxSpectatingID = 0;
+	for (int32 i = 0; i<PlayerArray.Num() - 1; i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		if (PS && (PS->SpectatingID > MaxSpectatingID))
+		{
+			MaxSpectatingID = PS->SpectatingID;
+		}
+	}
+	return MaxSpectatingID;
+}
+
+int32 AUTGameState::GetMaxTeamSpectatingId(int32 TeamNum)
+{
+	int32 MaxSpectatingID = 0;
+	for (int32 i = 0; i<PlayerArray.Num() - 1; i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		if (PS && (PS->GetTeamNum() == TeamNum) && (PS->SpectatingIDTeam > MaxSpectatingID))
+		{
+			MaxSpectatingID = PS->SpectatingIDTeam;
+		}
+	}
+	return MaxSpectatingID;
+
+}
+

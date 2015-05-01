@@ -163,35 +163,35 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			};
 		}
 		RedPlayerList.Sort(SortFunc);
-		BluePlayerList.Sort(SortFunc);
-		for (int32 i = 0; i < RedPlayerList.Num(); i++)
+		for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
 		{
-			AUTPlayerState* PlayerState = RedPlayerList[i];
-			uint8 Place = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
-			if (Place <= MaxRedPlaces)
+			for (int32 i = 0; i < RedPlayerList.Num(); i++)
 			{
-				DrawPlayer(Place, PlayerState, DeltaTime, XOffset, DrawOffset);
-				DrawOffset += CellHeight;
-			}
-			else
-			{
-				break;
+				AUTPlayerState* PlayerState = RedPlayerList[i];
+				uint8 Place = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
+				if ((Place % MaxRedPlaces) == (PlayerBind % MaxRedPlaces))
+				{
+					DrawPlayer(PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
+					DrawOffset += CellHeight;
+					break;
+				}
 			}
 		}
 		if (UTGameState->bTeamGame)
 		{
-			for (int32 i = 0; i < BluePlayerList.Num(); i++)
+			BluePlayerList.Sort(SortFunc);
+			for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
 			{
-				AUTPlayerState* PlayerState = BluePlayerList[i];
-				uint8 Place = MaxRedPlaces + (UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID);
-				if (Place <= MaxRedPlaces * 2)
+				for (int32 i = 0; i < BluePlayerList.Num(); i++)
 				{
-					DrawPlayer(Place, PlayerState, DeltaTime, XOffset, DrawOffset);
-					DrawOffset += CellHeight;
-				}
-				else
-				{
-					break;
+					AUTPlayerState* PlayerState = BluePlayerList[i];
+					uint8 Place = PlayerState->SpectatingIDTeam;
+					if ((Place % MaxRedPlaces) == (PlayerBind % MaxRedPlaces))
+					{
+						DrawPlayer(MaxRedPlaces + PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
+						DrawOffset += CellHeight;
+						break;
+					}
 				}
 			}
 		}
