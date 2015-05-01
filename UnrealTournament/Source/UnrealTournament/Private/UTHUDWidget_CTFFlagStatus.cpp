@@ -87,7 +87,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
 		if (Base && Base->GetCarriedObject())
 		{
-			float Dist = (Base->GetCarriedObject()->GetActorLocation() - ViewPoint).Size();
+			float Dist = (Base->GetActorLocation() - ViewPoint).Size();
 			float WorldRenderScale = RenderScale * FMath::Clamp(1.f - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, 1.f);
 
 			bScaleByDesignedResolution = false;
@@ -125,6 +125,8 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 			// Draw flag state in world
 			bDrawInWorld = false;
+			Dist = (Base->GetCarriedObject()->GetActorLocation() - ViewPoint).Size();
+			WorldRenderScale = RenderScale * FMath::Clamp(1.f - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, 1.f);
 			if ((bSpectating || bIsEnemyFlag) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home) && ((ViewRotation.Vector() | (Base->GetCarriedObject()->GetActorLocation() - ViewPoint)) > 0.f))
 			{
 				WorldPosition = Flag->GetActorLocation();
