@@ -7,6 +7,8 @@
 #include "NavigationOctree.h"
 #include "UTLiftExit.h"
 #include "UTDmgType_FallingCrush.h"
+#include "UTReachSpec_Lift.h"
+#include "UTRecastNavMesh.h"
 
 AUTLift::AUTLift(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -96,6 +98,36 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 				bMoveWasBlocked = true;
 				return;
 			}
+			// if bot controlled character, tell it to move out from under the lift
+			if (UTChar != NULL)
+			{
+				AUTBot* B = Cast<AUTBot>(UTChar->Controller);
+				if (B != NULL && Cast<UUTReachSpec_Lift>(B->GetCurrentPath().Spec.Get()) != NULL)
+				{
+					AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+					NavNodeRef Poly = NavData->FindAnchorPoly(UTChar->GetNavAgentLocation(), UTChar, UTChar->GetNavAgentPropertiesRef());
+					if (Poly != INVALID_NAVNODEREF)
+					{
+						TArray<NavNodeRef> AdjacentPolys;
+						NavData->FindAdjacentPolys(UTChar, UTChar->GetNavAgentPropertiesRef(), Poly, true, AdjacentPolys);
+
+						FCollisionShape TestShape = UTChar->GetCapsuleComponent()->GetCollisionShape();
+						TestShape.SetCapsule(TestShape.GetCapsuleRadius(), 1000.0f);
+
+						for (NavNodeRef DestPoly : AdjacentPolys)
+						{
+							FVector TestLoc = NavData->GetPolySurfaceCenter(DestPoly);
+							if (!EncroachComponent->OverlapComponent(TestLoc, FQuat::Identity, TestShape))
+							{
+								B->GoalString = TEXT("Move out from under lift");
+								// we don't pass the poly here so the AI will always hit the exact location and not consider it reached at the poly edge which may not be far enough away
+								B->SetMoveTargetDirect(FRouteCacheItem(TestLoc + FVector(0.0f, 0.0f, UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight())));
+								break;
+							}
+						}
+					}
+				}
+			}
 			if (Cast<AUTGib>(Other) || Cast<AUTDroppedPickup>(Other) || Cast<AUTCosmetic>(Other))
 			{
 				if (bMoveWasBlocked)
@@ -123,6 +155,20 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 
 			OnEncroachActor(Other);
 			LastEncroachNotifyTime = GetWorld()->GetTimeSeconds();
+
+			// make sure bots on lift move to center in case they are causing the lift to fail by hitting their head on the sides
+			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+			{
+				AUTBot* B = Cast<AUTBot>(It->Get());
+				if (B != NULL && B->GetCharacter() != NULL && B->GetCharacter()->GetCharacterMovement()->GetMovementBase() == EncroachComponent)
+				{
+					UUTReachSpec_Lift* LiftPath = Cast<UUTReachSpec_Lift>(B->GetCurrentPath().Spec.Get());
+					if (LiftPath != NULL)
+					{
+						B->SetMoveTargetDirect(FRouteCacheItem(LiftPath->LiftCenter + FVector(0.0f, 0.0f, B->GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight())));
+					}
+				}
+			}
 		}
 	}
 }

@@ -66,7 +66,12 @@ class UUTReachSpec_Lift : public UUTReachSpec
 			}
 			else if (Asker->GetMovementBase() == Lift.Get()->GetEncroachComponent())
 			{
-				return (Asker->GetActorLocation() - LiftCenter).Size2D() < Asker->GetSimpleCollisionRadius() && FMath::Abs<float>(Asker->GetActorLocation().Z - LiftCenter.Z) > Asker->GetSimpleCollisionHalfHeight();
+				return (Asker->GetActorLocation() - LiftExitLoc).Size2D() < Lift.Get()->GetSimpleCollisionRadius() && FMath::Abs<float>(Asker->GetActorLocation().Z - LiftExitLoc.Z) > Asker->GetSimpleCollisionHalfHeight() * 1.1f;
+			}
+			// check if we got off the lift successfully and can now finish the move
+			else if (Asker->GetActorLocation().Z + Asker->GetSimpleCollisionHalfHeight() * 1.1f > LiftExitLoc.Z && !GetUTNavData(Asker->GetWorld())->RaycastWithZCheck(Asker->GetNavAgentLocation(), LiftExitLoc))
+			{
+				return false;
 			}
 			else
 			{
