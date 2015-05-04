@@ -77,9 +77,6 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	UMaterialInstanceDynamic* TimerMI;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
-	TEnumAsByte<EPickupClassification> PickupType;
-
 	// Holds the PRI of the last player to pick this item up.  Used to give a controlling bonus to score
 	UPROPERTY(BlueprintReadOnly, Category = Game)
 	AUTPlayerState* LastPickedUpBy;

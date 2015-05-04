@@ -5,6 +5,7 @@
 #include "UTPlayerInput.h"
 #include "UTCTFGameState.h"
 #include "UTSpectatorCamera.h"
+#include "UTPickupInventory.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -18,7 +19,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	ColumnHeaderPlayerX = 0.16;
 	ColumnHeaderScoreX = 0.7;
 	ColumnHeaderArmor = 0.87f;
-	ColumnY = 12;
+	ColumnY = 12; // @TODO FIXMESTEVE why not percent of canvas size
 
 	CellHeight = 40;
 	SlideIn = 0.f;
@@ -206,6 +207,35 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			}
 		}
 
+		if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
+		{
+			//draw powerup clocks
+			for (FActorIterator It(GetWorld()); It; ++It)
+			{
+				AUTPickupInventory* Pickup = Cast<AUTPickupInventory>(*It);
+				if (Pickup && Pickup->GetInventoryType() && Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->bShowPowerupTimer && (Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL))
+				{
+					FLinearColor BarColor = FLinearColor::White;
+					float FinalBarOpacity = 0.3f;
+					DrawTexture(TextureAtlas, XOffset, DrawOffset, 0.3f*Size.X, 36, 149, 138, 32, 32, FinalBarOpacity, FLinearColor::White);
+
+					FCanvasIcon HUDIcon = Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
+					DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Canvas->ClipX + 4.f, DrawOffset, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 1.f, FLinearColor::White, FVector2D(1.0, 0.0));
+
+					FFormatNamedArguments Args;
+					Args.Add("TimeRemaining", FText::AsNumber(int32(GetWorld()->GetTimerManager().GetTimerRemaining(Pickup->WakeUpTimerHandle))));
+					FLinearColor DrawColor = FLinearColor::White;
+					DrawColor.R *= 0.5f;
+					DrawColor.G *= 0.5f;
+					DrawColor.B *= 0.5f;
+					DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.15f*Size.X, DrawOffset+ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+					DrawOffset += 1.2f*CellHeight;
+				}
+
+				// also armor, superhealth
+
+			}
+		}
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
 		if (Input && UTHUDOwner->UTPlayerOwner->bShowCameraBinds)

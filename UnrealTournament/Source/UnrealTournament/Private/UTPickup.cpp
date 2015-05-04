@@ -47,7 +47,6 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	bAlwaysRelevant = true;
 	NetUpdateFrequency = 1.0f;
 	PrimaryActorTick.bCanEverTick = true;
-	PickupType = PC_Minor;
 	PickupMessageString = NSLOCTEXT("PickupMessage", "ItemPickedUp", "Item snagged.");
 	bHasTacComView = false;
 }
