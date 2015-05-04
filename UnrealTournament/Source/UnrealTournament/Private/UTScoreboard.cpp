@@ -7,7 +7,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
-	Size = FVector2D(1400.0f, 974.0f);
+	Size = FVector2D(1440.0f, 1080.0f);
 	ScreenPosition = FVector2D(0.5f, 0.5f);
 	Origin = FVector2D(0.5f, 0.5f);
 
@@ -111,7 +111,6 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 			GameName = FText::FromString(DefaultGame->DisplayName.ToString().ToUpper());
 		}
 	}
-
 	if (!GameName.IsEmpty())
 	{
 		DrawText(GameName, 355, 28, UTHUDOwner->LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
@@ -123,8 +122,8 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 
 	DrawGameOptions(RenderDelta, YOffset);
 	YOffset += 128;	// The size of this zone.
-
 }
+
 void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 {
 	if (UTGameState)
@@ -161,8 +160,6 @@ void UUTScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 	{
 		SelectionStack.Empty();
 	}
-
-
 	if (UTGameState)
 	{
 		float DrawY = YOffset;
@@ -218,7 +215,6 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 
 	int32 Place = 1;
 	int32 NumSpectators = 0;
-
 	int32 XOffset = ActualPlayerCount > 16 ? 0 : (Size.X * 0.5) - ( ((Size.X * 0.5) - CenterBuffer) * 0.5);
 	float DrawOffset = YOffset;
 	for (int32 i=0; i<UTGameState->PlayerArray.Num(); i++)
@@ -255,14 +251,11 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 
 void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
 {
-
 	if (PlayerState == NULL) return;	// Safeguard
 
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3;
-
 	float Width = (Size.X * 0.5f) - CenterBuffer;
-
 	bool bIsUnderCursor = false;
 
 	// If we are interactive, store off the bounds of this cell for selection
@@ -270,7 +263,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale), 
 										RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
-
 		SelectionStack.Add(FSelectionObject(PlayerState, Bounds));
 		bIsUnderCursor = (CursorPosition.X >= Bounds.X && CursorPosition.X <= Bounds.Z && CursorPosition.Y >= Bounds.Y && CursorPosition.Y <= Bounds.W);
 	}
@@ -293,7 +285,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		DrawColor = FLinearColor(FColor(254, 255, 174, 255));
 	}
 
-
 	FText PlayerPing;
 	if (GetWorld()->GetNetMode() == NM_Standalone)
 	{
@@ -308,7 +299,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	// Draw the position
 	
 	// Draw the background border.
-
 	FLinearColor BarColor = FLinearColor::Black;
 	float FinalBarOpacity = BarOpacity;
 	if (bIsUnderCursor) 
@@ -409,9 +399,7 @@ int32 UUTScoreboard::SelectionHitTest(FVector2D Position)
 			}
 		}
 	}
-
 	return -1;
-
 }
 
 void UUTScoreboard::TrackMouseMovement(FVector2D NewMousePosition)
@@ -466,9 +454,7 @@ void UUTScoreboard::DefaultSelection(AUTGameState* GS, uint8 TeamIndex)
 			}
 		}
 	}
-
 	SelectedPlayer.Reset();
-
 }
 
 void UUTScoreboard::SelectNext(int32 Offset, bool bDoNoWrap)
@@ -522,18 +508,22 @@ void UUTScoreboard::SelectionUp()
 {
 	SelectNext(-1);
 }
+
 void UUTScoreboard::SelectionDown()
 {
 	SelectNext(1);
 }
+
 void UUTScoreboard::SelectionLeft()
 {
 	SelectNext(-16,true);
 }
+
 void UUTScoreboard::SelectionRight()
 {
 	SelectNext(16,true);
 }
+
 void UUTScoreboard::SelectionClick()
 {
 	if (SelectedPlayer.IsValid())
