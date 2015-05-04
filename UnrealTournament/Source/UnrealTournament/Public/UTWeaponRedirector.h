@@ -107,8 +107,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = Init)
 	void InitFor(APawn* InInstigator, const FRepCollisionShape& InCollision, UPrimitiveComponent* InBase, const FTransform& InDest = FTransform::Identity);
 
-	virtual void InitFor_Implementation(APawn* InInstigator, const FRepCollisionShape& InCollision, UPrimitiveComponent* InBase, const FTransform& InDest);
-
 	UFUNCTION()
 	virtual void UpdateCollisionShape();
 
