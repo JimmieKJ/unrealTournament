@@ -7,6 +7,20 @@
 AUTCTFScoring::AUTCTFScoring(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	FlagRunScorePool = 28;
+	FlagFirstPickupPoints = 2;
+	FlagCapPoints = 20;
+	FlagCombatKillBonus = 1;
+	FlagCarrierKillBonus = 1;
+	FlagReturnPoints = 1;
+	FlagReturnHeldBonus = 0.1f;
+	FlagKillHeldBonus = 0.1f;
+	MaxFlagHeldBonus = 10;
+	BaseKillScore = 1;
+	FlagHolderPointsPerSecond = 0.1f;
+	FlagReturnAssist = 10;
+	TeamCapBonus = 2;
+	RecentActionTimeThreshold = 7.f;
 }
 
 void AUTCTFScoring::BeginPlay()

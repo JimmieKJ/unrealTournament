@@ -8,7 +8,7 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ScoringPlaysHeader = NSLOCTEXT("CTF", "ScoringPlaysHeader", "SCORING PLAYS");
-	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assists:");
+	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assisted by");
 	UnassistedText = NSLOCTEXT("CTF", "Unassisted", "Unassisted");
 	NoScoringText = NSLOCTEXT("CTF", "NoScoring", "No Scoring");
 
@@ -117,7 +117,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	}
 
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.475f*Width));
-	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score/10.f));
+	FText PlayerScore = FText::AsNumber(PlayerState->Score);
 	FText PlayerCaps = FText::AsNumber(PlayerState->FlagCaptures);
 	FText PlayerAssists = FText::AsNumber(PlayerState->Assists);
 	FText PlayerReturns = FText::AsNumber(PlayerState->FlagReturns);
