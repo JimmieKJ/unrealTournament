@@ -811,6 +811,12 @@ void UUTCharacterMovement::CalcVelocity(float DeltaTime, float Friction, bool bF
 	}
 	Super::CalcVelocity(DeltaTime, Friction, bFluid, BrakingDeceleration);
 	//UE_LOG(UTNet, Warning, TEXT("At %f DeltaTime %f Velocity is %f %f %f from acceleration %f %f"), GetCurrentSynchTime(), DeltaTime, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y);
+
+	// workaround for engine path following code not setting Acceleration correctly
+	if (bHasRequestedVelocity && Acceleration.IsZero())
+	{
+		Acceleration = Velocity.GetSafeNormal();
+	}
 }
 
 void UUTCharacterMovement::ResetTimers()
