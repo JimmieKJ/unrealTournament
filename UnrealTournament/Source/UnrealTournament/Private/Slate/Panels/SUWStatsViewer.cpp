@@ -121,7 +121,7 @@ void SUWStatsViewer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		bool bShowingStats = false;
 
 		TArray<uint8> FileContents;
-		if (bWasSuccessful && OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents) && FileContents.GetData()[FileContents.Num() - 1] == 0)
+		if (bWasSuccessful && OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents) && FileContents.Num() > 0 && FileContents.GetData()[FileContents.Num() - 1] == 0)
 		{
 			// Get the html out of the Content dir
 			FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.html"));
