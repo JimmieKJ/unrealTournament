@@ -39,7 +39,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 {
 	bInitialSignInAttempt = true;
 	LastProfileCloudWriteTime = 0;
-	ProfileCloudWriteCooldownTime = 10;
+	ProfileCloudWriteCooldownTime = 15;
 	bShowSocialNotification = false;
 	ServerPingBlockSize = 30;
 	bSuppressToastsInGame = false;
