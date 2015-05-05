@@ -48,7 +48,7 @@ void SUTWebBrowserPanel::Browse(FString URL)
 		[
 			SAssignNew(WebBrowserPanel, SWebBrowser)
 			.InitialURL(URL)
-			.ShowControls(true)
+			.ShowControls(ShowControls)
 		];
 	}
 }
