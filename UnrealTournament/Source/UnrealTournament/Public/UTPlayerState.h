@@ -92,6 +92,20 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bPendingTeamSwitch : 1;
 
+	/** Color to display ready text. */
+	FLinearColor ReadyColor;
+
+	/** Last displayed ready state. */
+	uint8 LastReadyState;
+
+	/** Color to display ready text. */
+	float LastReadySwitchTime;
+
+	/** Color to display ready text. */
+	int32 ReadySwitchCount;
+
+	virtual void UpdateReady();
+
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;

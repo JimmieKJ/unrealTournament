@@ -32,6 +32,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	TDMSkillRatingThisMatch = 0;
 	DMSkillRatingThisMatch = 0;
 	CTFSkillRatingThisMatch = 0;
+	ReadyColor = FLinearColor::White;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -1290,6 +1291,32 @@ void AUTPlayerState::ClientShowLoadoutMenu_Implementation()
 	if ( PC && PC->Player && Cast<UUTLocalPlayer>(PC->Player) )
 	{
 		Cast<UUTLocalPlayer>(PC->Player)->OpenLoadout();
-	
 	}
 }
+
+void AUTPlayerState::UpdateReady()
+{
+	uint8 NewReadyState = bReadyToPlay + (bPendingTeamSwitch >> 2);
+	if (NewReadyState != LastReadyState)
+	{
+		ReadySwitchCount = (GetWorld()->GetTimeSeconds() - LastReadySwitchTime < 0.5f) ? ReadySwitchCount + 1 : 0;
+		LastReadySwitchTime = GetWorld()->GetTimeSeconds();
+		if ((ReadySwitchCount > 2) && (bReadyToPlay || bPendingTeamSwitch))
+		{
+			if ((ReadySwitchCount & 14) == 0)
+			{
+				ReadySwitchCount += 2;
+			}
+			ReadyColor.R = (ReadySwitchCount & 2) ? 1.f : 0.f;
+			ReadyColor.G = (ReadySwitchCount & 4) ? 1.f : 0.f;
+			ReadyColor.B = (ReadySwitchCount & 8) ? 1.f : 0.f;
+		}
+	}
+	else if (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f)
+	{
+		ReadySwitchCount = 0;
+		ReadyColor = FLinearColor::White;
+	}
+	LastReadyState = NewReadyState;
+}
+
