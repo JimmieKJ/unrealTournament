@@ -302,6 +302,9 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
 	InputComponent->BindAction("PlayTaunt2", IE_Pressed, this, &AUTPlayerController::PlayTaunt2);
+
+
+	UpdateWeaponGroupKeys();
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -2684,4 +2687,87 @@ void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
 			UTEngine->SetClientTravel(GetWorld(), TEXT("?downloadfiles"), TRAVEL_Relative);
 		}
 	}
+}
+
+int32 AUTPlayerController::ParseWeaponBind(FString ActionName)
+{
+	// Check if this is a switch weapon command, and if it 
+	if (ActionName.Left(12).Equals(TEXT("switchweapon"), ESearchCase::IgnoreCase))
+	{
+		TArray<FString> Parsed;
+		ActionName.ParseIntoArray(&Parsed, TEXT(" "),true);
+		if (Parsed.Num() == 2)
+		{
+			return FCString::Atoi(*Parsed[1]);
+		}
+	}
+	return -1;
+}
+
+FString AUTPlayerController::FixedupKeyname(FString KeyName)
+{
+	if (KeyName.Equals(TEXT("one"), ESearchCase::IgnoreCase)) return TEXT("1");
+	if (KeyName.Equals(TEXT("two"), ESearchCase::IgnoreCase)) return TEXT("2");
+	if (KeyName.Equals(TEXT("three"), ESearchCase::IgnoreCase)) return TEXT("3");
+	if (KeyName.Equals(TEXT("four"), ESearchCase::IgnoreCase)) return TEXT("4");
+	if (KeyName.Equals(TEXT("five"), ESearchCase::IgnoreCase)) return TEXT("5");
+	if (KeyName.Equals(TEXT("six"), ESearchCase::IgnoreCase)) return TEXT("6");
+	if (KeyName.Equals(TEXT("seven"), ESearchCase::IgnoreCase)) return TEXT("7");
+	if (KeyName.Equals(TEXT("eight"), ESearchCase::IgnoreCase)) return TEXT("8");
+	if (KeyName.Equals(TEXT("nine"), ESearchCase::IgnoreCase)) return TEXT("9");
+	if (KeyName.Equals(TEXT("zero"), ESearchCase::IgnoreCase)) return TEXT("0");
+
+	return KeyName;
+}
+
+void AUTPlayerController::UpdateWeaponGroupKeys()
+{
+	WeaponGroupKeys.Empty();
+
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+
+	//Look though ActionMappings
+	for (int32 i = 0; i < InputSettings->ActionMappings.Num(); i++)
+	{
+		int32 GroupIdx = ParseWeaponBind(InputSettings->ActionMappings[i].ActionName.ToString());
+		if (GroupIdx >= 0)
+		{
+			if (!WeaponGroupKeys.Find(GroupIdx))
+			{
+				WeaponGroupKeys.Add(GroupIdx, FixedupKeyname(InputSettings->ActionMappings[i].Key.ToString()));
+			}
+		}
+	}
+	
+	for (int32 i = 0; i < InputSettings->AxisMappings.Num(); i++)
+	{
+		int32 GroupIdx = ParseWeaponBind(InputSettings->AxisMappings[i].AxisName.ToString());
+		if (GroupIdx >= 0)
+		{
+			if (!WeaponGroupKeys.Find(GroupIdx))
+			{
+				WeaponGroupKeys.Add(GroupIdx, FixedupKeyname(InputSettings->AxisMappings[i].AxisName.ToString()));
+			}
+		}
+	}
+
+	// Look at my Custom Keybinds
+
+	UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PlayerInput);
+	if (UTPlayerInput)
+	{
+		for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
+		{
+			int32 GroupIdx = ParseWeaponBind(UTPlayerInput->CustomBinds[i].Command);
+			if (GroupIdx >= 0)
+			{
+				if (!WeaponGroupKeys.Find(GroupIdx))
+				{
+					WeaponGroupKeys.Add(GroupIdx, FixedupKeyname(UTPlayerInput->CustomBinds[i].KeyName.ToString()));
+				}
+			}
+		}
+	}
+
+	UE_LOG(UT,Log,TEXT("Here"));
 }

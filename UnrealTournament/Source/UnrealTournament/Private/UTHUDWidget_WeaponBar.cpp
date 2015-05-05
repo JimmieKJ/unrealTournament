@@ -237,13 +237,22 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 				Opacity = bSelectedGroup ? 1.0 : InactiveIconOpacity;
 
-				if (WeaponGroups[GroupIdx].Group == 10)
+
+				FString* GroupKey = UTHUDOwner->UTPlayerOwner->WeaponGroupKeys.Find(WeaponGroups[GroupIdx].Group);
+				if (*GroupKey == TEXT(""))
 				{
-					GroupText.Text = FText::FromString(TEXT("0"));
+					if (WeaponGroups[GroupIdx].Group == 10)
+					{
+						GroupText.Text = FText::FromString(TEXT("0"));
+					}
+					else
+					{
+						GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].Group);
+					}
 				}
 				else
 				{
-					GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].Group);
+					GroupText.Text = FText::FromString(*GroupKey);
 				}
 
 				RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ((Y2 - YPosition) * 0.5) + GroupText.Position.Y);

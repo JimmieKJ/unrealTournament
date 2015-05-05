@@ -702,6 +702,15 @@ public:
 
 
 	virtual void DebugTest(FString TestCommand) override;
+
+protected:
+	int32 ParseWeaponBind(FString ActionName);
+	FString FixedupKeyname(FString KeyName);
+
+public:
+	TMap<int32,FString> WeaponGroupKeys;
+	virtual void UpdateWeaponGroupKeys();
+
 };
 
 
