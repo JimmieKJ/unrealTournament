@@ -640,6 +640,35 @@ void AUTHUD::CalcStanding()
 	}
 }
 
+float AUTHUD::GetCrosshairScale()
+{
+	// Apply pickup scaling
+	float PickupScale = 1.f;
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	if (LastPickupTime > WorldTime - 0.3f)
+	{
+		if (LastPickupTime > WorldTime - 0.15f)
+		{
+			PickupScale = (1.f + 5.f * (WorldTime - LastPickupTime));
+		}
+		else
+		{
+			PickupScale = (1.f + 5.f * (LastPickupTime + 0.3f - WorldTime));
+		}
+	}
+	return PickupScale;
+}
+
+FLinearColor AUTHUD::GetCrosshairColor(FLinearColor CrosshairColor) const
+{
+	float TimeSinceHit = GetWorld()->TimeSeconds - LastConfirmedHitTime;
+	if (TimeSinceHit < 0.4f)
+	{
+		CrosshairColor = FMath::Lerp<FLinearColor>(FLinearColor::Red, CrosshairColor, FMath::Lerp<float>(0.f, 1.f, FMath::Pow((GetWorld()->TimeSeconds - LastConfirmedHitTime) / 0.4f, 2.0f)));
+	}
+	return CrosshairColor;
+}
+
 FText AUTHUD::GetPlaceSuffix(int32 Value)
 {
 	switch (Value)
