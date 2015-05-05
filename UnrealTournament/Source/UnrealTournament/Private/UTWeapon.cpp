@@ -89,6 +89,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
 	IconColor = FLinearColor::White;
 	bShowPowerupTimer = false;
+
+	MenuDescription = NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
 }
 
 void AUTWeapon::PostInitProperties()

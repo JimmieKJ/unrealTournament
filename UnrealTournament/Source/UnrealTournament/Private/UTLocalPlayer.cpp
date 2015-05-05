@@ -25,6 +25,7 @@
 #include "Slate/SUTQuickMatch.h"
 #include "Slate/SUWFriendsPopup.h"
 #include "Slate/SUWRedirectDialog.h"
+#include "Slate/SUTLoadoutMenu.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -1977,4 +1978,52 @@ void UUTLocalPlayer::HandleNetworkFailureMessage(enum ENetworkFailure::Type Fail
 	{
 		BasePlayerController->HandleNetworkFailureMessage(FailureType, ErrorString);
 	}
+}
+void UUTLocalPlayer::OpenLoadout()
+{
+#if !UE_SERVER
+	// Create the slate widget if it doesn't exist
+	if (!LoadoutMenu.IsValid())
+	{
+		SAssignNew(LoadoutMenu, SUTLoadoutMenu).PlayerOwner(this);
+		if (LoadoutMenu.IsValid())
+		{
+			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(LoadoutMenu.ToSharedRef()),60);
+		}
+
+		// Make it visible.
+		if (LoadoutMenu.IsValid())
+		{
+			// Widget is already valid, just make it visible.
+			LoadoutMenu->SetVisibility(EVisibility::Visible);
+			LoadoutMenu->OnMenuOpened();
+
+			if (PlayerController)
+			{
+				PlayerController->bShowMouseCursor = true;
+				PlayerController->SetInputMode( FInputModeUIOnly() );
+			}
+		}
+	}
+#endif
+}
+void UUTLocalPlayer::CloseLoadout()
+{
+#if !UE_SERVER
+	if (LoadoutMenu.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(LoadoutMenu.ToSharedRef());
+		LoadoutMenu->OnMenuClosed();
+		LoadoutMenu.Reset();
+		if (PlayerController)
+		{
+			PlayerController->bShowMouseCursor = false;
+			PlayerController->SetInputMode(FInputModeGameOnly());
+			PlayerController->SetPause(false);
+		}
+
+		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+
+	}
+#endif
 }

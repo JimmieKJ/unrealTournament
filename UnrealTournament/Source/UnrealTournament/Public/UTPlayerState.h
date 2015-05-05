@@ -383,6 +383,32 @@ public:
 	void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel);
 #endif
 
+	// If true, the game type considers this player special.
+	UPROPERTY(Replicated)
+	uint32 bSpecialPlayer:1;
+
+	// Allows gametypes to force a given hat on someone
+	UPROPERTY(replicatedUsing = OnRepOverrideHat)
+	TSubclassOf<AUTHat> OverrideHatClass;
+
+	UFUNCTION()
+	virtual void OnRepOverrideHat();
+
+	virtual void SetOverrideHatClass(const FString& NewOverrideHatClass);
+
+public:
+	UPROPERTY(Replicated)
+	TArray<AUTReplicatedLoadoutInfo*> Loadout;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerUpdateLoadout(const TArray<AUTReplicatedLoadoutInfo*>& NewLoadout);
+
+	UFUNCTION(Client, Reliable)
+	virtual void ClientShowLoadoutMenu();
+
+	virtual float GetAvailableCurrency();
+
+
 
 };
 

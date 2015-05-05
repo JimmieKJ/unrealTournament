@@ -359,6 +359,15 @@ void AUTGameMode::InitGameState()
 		UTGameState->bWeaponStay = bWeaponStayActive;
 
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
+
+		// Setup the loadout replication
+		for (int32 i=0; i < LoadoutWeapons.Num(); i++)
+		{
+			if (LoadoutWeapons[i].WeaponClass)
+			{
+				UTGameState->AddLoadoutWeapon(LoadoutWeapons[i].WeaponClass, LoadoutWeapons[i].RoundMask, LoadoutWeapons[i].InitialCost);
+			}
+		}
 	}
 	else
 	{
@@ -2868,3 +2877,8 @@ void AUTGameMode::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState
 
 }
 #endif
+
+bool AUTGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
+{
+	return true;
+}

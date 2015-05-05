@@ -4,6 +4,7 @@
 #include "TAttributeProperty.h"
 #include "UTServerBeaconLobbyClient.h"
 #include "UTBotConfig.h"
+#include "UTReplicatedLoadoutInfo.h"
 #include "UTGameMode.generated.h"
 
 /** Defines the current state of the game. */
@@ -32,6 +33,29 @@ struct FSelectedBot
 	{}
 	FSelectedBot(const FString& InName, uint8 InTeam)
 		: BotName(InName), Team(InTeam)
+	{}
+};
+
+USTRUCT()
+struct FLoadoutInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The class of the weapon to include
+	UPROPERTY()
+	TSubclassOf<AUTWeapon> WeaponClass;
+
+	// What rounds should this weapon be available
+	UPROPERTY()
+	uint8 RoundMask;
+
+	// How much should this weapon cost to be included in the loadout
+	UPROPERTY()
+	float InitialCost;
+
+	FLoadoutInfo()
+		: WeaponClass(nullptr)
+		, RoundMask(0x00)
 	{}
 };
 
@@ -543,6 +567,12 @@ public:
 #endif
 
 	virtual void InstanceNextMap(const FString& NextMap);
+
+	// Allow game modes to restrict some content.
+	virtual bool ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass);
+
+	UPROPERTY(Config)
+	TArray<FLoadoutInfo> LoadoutWeapons;
 
 };
 

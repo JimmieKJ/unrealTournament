@@ -1,9 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTReplicatedLoadoutInfo.h"
 #include "UTGameState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
+
 
 UCLASS(Config = Game)
 class UNREALTOURNAMENT_API AUTGameState : public AGameState
@@ -269,6 +271,15 @@ public:
 	UPROPERTY(Replicated)
 	bool bIsInstanceServer;
 
+	// Holds a list of weapons available for loadouts
+	UPROPERTY(Replicated)
+	TArray<AUTReplicatedLoadoutInfo*> LoadoutWeapons;
+
+	// Adds a weapon to the list of possible loadout weapons.
+	virtual void AddLoadoutWeapon(TSubclassOf<AUTWeapon> WeaponClass, uint8 RoundMask, float InitialCost);
+
+	// Adjusts the cost of a weapon available for loadouts
+	virtual void AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float NewCost);
 };
 
 

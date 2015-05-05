@@ -2652,27 +2652,10 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	if (MyUTHUD)
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL)
 	{
-		UUTScoreboard* Scoreboard = MyUTHUD->GetScoreboard();
-		if (Scoreboard) Scoreboard->BecomeInteractive();
-	}
-
-
-	TArray<FString> Keys;
-	ResolveKeybind(TestCommand, Keys);
-	if (Keys.Num() > 0)
-	{
-		FString AllKeys = Keys[0];
-		for (int32 i=1;i<Keys.Num();i++)
-		{
-			AllKeys += TEXT(",") + Keys[i];
-		}
-		UE_LOG(UT,Log,TEXT("Command %s = %s"), *TestCommand, *AllKeys);		
-	}
-	else
-	{
-		UE_LOG(UT,Log,TEXT("Command %s = [NONE]"), *TestCommand);		
+		LP->OpenLoadout();
 	}
 }
 

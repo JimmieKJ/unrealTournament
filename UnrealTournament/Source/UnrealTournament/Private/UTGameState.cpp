@@ -6,6 +6,7 @@
 #include "UTRemoteRedeemer.h"
 #include "Net/UnrealNetwork.h"
 #include "UTTimerMessage.h"
+#include "UTReplicatedLoadoutInfo.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -30,6 +31,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
 	DOREPLIFETIME(AUTGameState, TimeLimit);  
+	DOREPLIFETIME(AUTGameState, ForceRespawnTime);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
 	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);  
@@ -38,7 +41,14 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  // FIXME only before match start
+	DOREPLIFETIME(AUTGameState, LoadoutWeapons);
 
+	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bOnlyTheStrongSurvive, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
@@ -708,3 +718,29 @@ int32 AUTGameState::GetMaxTeamSpectatingId(int32 TeamNum)
 
 }
 
+void AUTGameState::AddLoadoutWeapon(TSubclassOf<AUTWeapon> WeaponClass, uint8 RoundMask, float InitialCost)
+{
+
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	AUTReplicatedLoadoutInfo* NewLoadoutInfo = GetWorld()->SpawnActor<AUTReplicatedLoadoutInfo>(Params);
+	if (NewLoadoutInfo)
+	{
+		NewLoadoutInfo->WeaponClass = WeaponClass;	
+		NewLoadoutInfo->RoundMask = RoundMask;
+		NewLoadoutInfo->CurrentCost = InitialCost;
+		LoadoutWeapons.Add(NewLoadoutInfo);
+	}
+}
+
+void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float NewCost)
+{
+	for (int32 i=0; i < LoadoutWeapons.Num(); i++)
+	{
+		if (LoadoutWeapons[i]->WeaponClass == WeaponClass)
+		{
+			LoadoutWeapons[i]->CurrentCost = NewCost;
+			return;
+		}
+	}
+}

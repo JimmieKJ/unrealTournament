@@ -1292,7 +1292,14 @@ void AUTCharacter::PlayDying()
 
 		Hat->OnWearerDeath(LastTakeHitInfo.DamageType);
 
-		Hat->SetLifeSpan(7.0f);
+		if (Hat->bDontDropOnDeath)
+		{
+			Hat->Destroy();
+		}
+		else
+		{
+			Hat->SetLifeSpan(7.0f);
+		}
 	}
 
 	if (LeaderHat && LeaderHat->GetAttachParentActor())
@@ -1301,7 +1308,14 @@ void AUTCharacter::PlayDying()
 
 		LeaderHat->OnWearerDeath(LastTakeHitInfo.DamageType);
 
-		LeaderHat->SetLifeSpan(7.0f);
+		if (LeaderHat->bDontDropOnDeath)
+		{
+			LeaderHat->Destroy();
+		}
+		else
+		{
+			LeaderHat->SetLifeSpan(7.0f);
+		}
 	}
 
 	if (GetNetMode() != NM_DedicatedServer && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
@@ -2416,17 +2430,31 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
 {
-	// Add the default character inventory
-	for (int i=0;i<DefaultCharacterInventory.Num();i++)
+	// Check to see if this player has an active loadout.  If they do, apply it.
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+	if (UTPlayerState && UTPlayerState->Loadout.Num() > 0)
 	{
-		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultCharacterInventory[i], FVector(0.0f), FRotator(0, 0, 0)), true);
+		for (int32 i=0; i < UTPlayerState->Loadout.Num(); i++)
+		{
+			AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->WeaponClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+		}
+	}
+	else
+	{
+		// Add the default character inventory
+		for (int i=0;i<DefaultCharacterInventory.Num();i++)
+		{
+			AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultCharacterInventory[i], FVector(0.0f), FRotator(0, 0, 0)), true);
+		}
+
+		// Add the default inventory passed in from the game
+		for (int i=0;i<DefaultInventoryToAdd.Num();i++)
+		{
+			AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
+		}
 	}
 
-	// Add the default inventory passed in from the game
-	for (int i=0;i<DefaultInventoryToAdd.Num();i++)
-	{
-		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
-	}
+	SwitchToBestWeapon();
 }
 
 bool AUTCharacter::CanDodge() const
@@ -3445,7 +3473,7 @@ void AUTCharacter::OnRep_PlayerState()
 	if (PS)
 	{
 		SetHatVariant(PS->HatVariant);
-		SetHatClass(PS->HatClass);
+		SetHatClass(PS->OverrideHatClass != nullptr ? PS->OverrideHatClass : PS->HatClass);
 		SetEyewearVariant(PS->EyewearVariant);
 		SetEyewearClass(PS->EyewearClass);
 	}

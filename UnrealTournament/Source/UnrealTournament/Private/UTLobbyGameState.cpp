@@ -63,7 +63,6 @@ void AUTLobbyGameState::PostInitializeComponents()
 				if (!bExistsAlready)
 				{
 					FActorSpawnParameters Params;
-					Params.Name = FName(*AllowedGameRulesets[i]);
 					Params.Owner = this;
 					AUTReplicatedGameRuleset* NewReplicatedRuleset = GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
 					if (NewReplicatedRuleset)

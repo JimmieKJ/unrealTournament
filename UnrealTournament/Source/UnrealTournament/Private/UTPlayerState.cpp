@@ -61,6 +61,9 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
 	DOREPLIFETIME(AUTPlayerState, HatVariant);
 	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
+	DOREPLIFETIME(AUTPlayerState, bSpecialPlayer);
+	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
+	DOREPLIFETIME(AUTPlayerState, Loadout);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -393,6 +396,13 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
 	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
+
+	// Allow the game mode to validate the hat.
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if ( GameMode && !GameMode->ValidateHat(this, NewHatClass) )
+	{
+		return;
+	}
 
 	if (HatClass != nullptr && !HatClass->IsChildOf(AUTHatLeader::StaticClass()))
 	{
@@ -1244,4 +1254,42 @@ void AUTPlayerState::OnRep_PlayerName()
 {
 	Super::OnRep_PlayerName();
 	bHasValidClampedName = false;
+}
+
+
+void AUTPlayerState::SetOverrideHatClass(const FString& NewOverrideHatClass)
+{
+	OverrideHatClass = NewOverrideHatClass == TEXT("") ? nullptr : LoadClass<AUTHat>(NULL, *NewOverrideHatClass, NULL, LOAD_NoWarn, NULL);
+	OnRepOverrideHat();
+}
+
+void AUTPlayerState::OnRepOverrideHat()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	UE_LOG(UT,Log,TEXT("OnRepOverrideHat: %s %s"), (OverrideHatClass == nullptr ? TEXT("None") : *OverrideHatClass->GetFullName()), ( UTChar ? *UTChar->GetFullName() : TEXT("None") ) );
+	if (UTChar != nullptr)
+	{
+		UTChar->SetHatClass(OverrideHatClass == nullptr ? HatClass : OverrideHatClass);
+	}
+}
+
+bool AUTPlayerState::ServerUpdateLoadout_Validate(const TArray<AUTReplicatedLoadoutInfo*>& NewLoadout) { return true; }
+void AUTPlayerState::ServerUpdateLoadout_Implementation(const TArray<AUTReplicatedLoadoutInfo*>& NewLoadout)
+{
+	Loadout = NewLoadout;
+}
+
+float AUTPlayerState::GetAvailableCurrency()
+{
+	return 0.0f;
+}
+
+void AUTPlayerState::ClientShowLoadoutMenu_Implementation()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	if ( PC && PC->Player && Cast<UUTLocalPlayer>(PC->Player) )
+	{
+		Cast<UUTLocalPlayer>(PC->Player)->OpenLoadout();
+	
+	}
 }
