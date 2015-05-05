@@ -6,6 +6,7 @@
 #include "UTCTFGameState.h"
 #include "UTSpectatorCamera.h"
 #include "UTPickupInventory.h"
+#include "UTArmor.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -120,7 +121,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					: FMath::Max(0.f, SlideIn - DeltaTime*Size.X*SlideSpeed);
 
 		int32 MaxRedPlaces = UTGameState->bTeamGame ? 5 : 10; // warning: hardcoded to match default binds, which has 5 red and 5 blue
-		int32 XOffset = SlideIn - Size.X;
+		float XOffset = SlideIn - Size.X;
 		float DrawOffset = 0.f;
 
 		if (UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
@@ -213,27 +214,13 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			for (FActorIterator It(GetWorld()); It; ++It)
 			{
 				AUTPickupInventory* Pickup = Cast<AUTPickupInventory>(*It);
-				if (Pickup && Pickup->GetInventoryType() && Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->bShowPowerupTimer && (Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL))
+				if (Pickup && Pickup->GetInventoryType() && Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->bShowPowerupTimer 
+					&& ((Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL) || Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass())))
 				{
-					FLinearColor BarColor = FLinearColor::White;
-					float FinalBarOpacity = 0.3f;
-					DrawTexture(TextureAtlas, XOffset, DrawOffset, 0.3f*Size.X, 36, 149, 138, 32, 32, FinalBarOpacity, FLinearColor::White);
-
-					FCanvasIcon HUDIcon = Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
-					DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Canvas->ClipX + 4.f, DrawOffset, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 1.f, FLinearColor::White, FVector2D(1.0, 0.0));
-
-					FFormatNamedArguments Args;
-					Args.Add("TimeRemaining", FText::AsNumber(int32(GetWorld()->GetTimerManager().GetTimerRemaining(Pickup->WakeUpTimerHandle))));
-					FLinearColor DrawColor = FLinearColor::White;
-					DrawColor.R *= 0.5f;
-					DrawColor.G *= 0.5f;
-					DrawColor.B *= 0.5f;
-					DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.15f*Size.X, DrawOffset+ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+					DrawPowerup(Pickup, XOffset, DrawOffset);
 					DrawOffset += 1.2f*CellHeight;
 				}
-
-				// also armor, superhealth
-
+				// @TODO FIXMESTEVE also differentiate for CTF multiple, and add superhealth
 			}
 		}
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
@@ -311,6 +298,45 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				}
 			}
 		}
+	}
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickupInventory* Pickup, float XOffset, float YOffset)
+{
+	// @TODO FIXMESTEVE get rid of armor hacks when they have icons
+	FLinearColor BarColor = FLinearColor::White;
+	float RemainingTime = GetWorld()->GetTimerManager().GetTimerRemaining(Pickup->WakeUpTimerHandle);
+	float FinalBarOpacity = (RemainingTime > 0.f) ? FMath::Clamp(1.f - 0.4f*(Pickup->RespawnTime - RemainingTime), 0.3f, 1.f) : 1.f;
+	DrawTexture(TextureAtlas, XOffset, YOffset, 0.4f*Size.X, 42, 149, 138, 32, 32, FinalBarOpacity, FLinearColor::White);
+
+	if (Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass()))
+	{
+		FFormatNamedArguments Args;
+		Args.Add("Armor", FText::AsNumber(Pickup->GetInventoryType()->GetDefaultObject<AUTArmor>()->ArmorAmount));
+		FLinearColor DrawColor = FLinearColor::Yellow;
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+
+		DrawTexture(ArmorIcon.Texture, XOffset + 0.13f*Size.X, YOffset, 0.08f*Size.X, 0.08f*Size.X, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.f, FLinearColor::White);
+	}
+	else
+	{
+		FCanvasIcon HUDIcon = Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
+		DrawTexture(HUDIcon.Texture, XOffset + 0.01f*Canvas->ClipX, YOffset - 0.0055f*Canvas->ClipX, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 1.f, FLinearColor::White);
+	}
+
+	FLinearColor DrawColor = FLinearColor::White;
+	if (RemainingTime > 0.f)
+	{
+		FFormatNamedArguments Args;
+		Args.Add("TimeRemaining", FText::AsNumber(int32(RemainingTime)));
+		DrawColor.R *= 0.5f;
+		DrawColor.G *= 0.5f;
+		DrawColor.B *= 0.5f;
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.28f*Size.X, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	}
+	else
+	{
+		DrawText(NSLOCTEXT("UTCharacter", "PowerupUp", "UP"), XOffset + 0.28f*Size.X, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 }
 

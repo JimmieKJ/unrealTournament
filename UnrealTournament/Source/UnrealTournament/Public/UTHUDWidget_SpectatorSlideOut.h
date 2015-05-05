@@ -14,6 +14,7 @@ public:
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawFlag(FName KeyName, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected);
+	virtual void DrawPowerup(class AUTPickupInventory* Pickup, float XOffset, float YOffset);
 	virtual void InitializeWidget(AUTHUD* Hud);
 
 	// The total Height of a given cell
