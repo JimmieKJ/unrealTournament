@@ -95,6 +95,8 @@ public:
 	UPROPERTY(config)
 	bool bShouldSuppressLanWarning;
 
+	bool bBenchmarkInProgress;
+
 private:
 #if !UE_SERVER
 	void RunSynthBenchmark(bool bSaveSettingsOnceDetected);
