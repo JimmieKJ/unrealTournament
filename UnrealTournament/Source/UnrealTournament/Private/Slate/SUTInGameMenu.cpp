@@ -178,8 +178,7 @@ FReply SUTInGameMenu::OnSpectateClick()
 
 void SUTInGameMenu::SetInitialPanel()
 {
-	SAssignNew(HomePanel, SUInGameHomePanel)
-		.PlayerOwner(PlayerOwner);
+	SAssignNew(HomePanel, SUInGameHomePanel, PlayerOwner);
 
 	if (HomePanel.IsValid())
 	{

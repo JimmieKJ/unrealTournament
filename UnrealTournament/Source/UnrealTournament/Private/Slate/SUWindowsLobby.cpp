@@ -23,7 +23,7 @@
 
 void SUWindowsLobby::SetInitialPanel()
 {
-	SAssignNew(HomePanel, SULobbyInfoPanel).PlayerOwner(PlayerOwner);
+	SAssignNew(HomePanel, SULobbyInfoPanel, PlayerOwner);
 
 	if (HomePanel.IsValid())
 	{

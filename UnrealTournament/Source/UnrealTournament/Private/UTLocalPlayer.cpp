@@ -395,8 +395,7 @@ TSharedPtr<class SUWServerBrowser> UUTLocalPlayer::GetServerBrowser()
 {
 	if (!ServerBrowserWidget.IsValid())
 	{
-		SAssignNew(ServerBrowserWidget, SUWServerBrowser)
-			.PlayerOwner(this);
+		SAssignNew(ServerBrowserWidget, SUWServerBrowser, this);
 	}
 
 	return ServerBrowserWidget;
@@ -406,8 +405,7 @@ TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()
 {
 	if (!StatsViewerWidget.IsValid())
 	{
-		SAssignNew(StatsViewerWidget, SUWStatsViewer)
-			.PlayerOwner(this);
+		SAssignNew(StatsViewerWidget, SUWStatsViewer, this);
 	}
 
 	return StatsViewerWidget;
@@ -417,8 +415,7 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 {
 	if (!CreditsPanelWidget.IsValid())
 	{
-		SAssignNew(CreditsPanelWidget, SUWCreditsPanel)
-			.PlayerOwner(this);
+		SAssignNew(CreditsPanelWidget, SUWCreditsPanel, this);
 	}
 
 	return CreditsPanelWidget;

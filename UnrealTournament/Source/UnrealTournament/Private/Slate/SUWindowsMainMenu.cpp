@@ -36,9 +36,8 @@ void SUWindowsMainMenu::CreateDesktop()
 
 void SUWindowsMainMenu::SetInitialPanel()
 {
-	SAssignNew(HomePanel, SUHomePanel)
-		.PlayerOwner(PlayerOwner);
-
+	SAssignNew(HomePanel, SUHomePanel, PlayerOwner);
+	
 	if (HomePanel.IsValid())
 	{
 		ActivatePanel(HomePanel);
@@ -378,8 +377,7 @@ FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
 	if ( !WebPanel.IsValid() )
 	{
 		// Create the Web panel
-		SAssignNew(WebPanel, SUTWebBrowserPanel)
-			.PlayerOwner(PlayerOwner);
+		SAssignNew(WebPanel, SUTWebBrowserPanel, PlayerOwner);
 	}
 
 	if (WebPanel.IsValid())

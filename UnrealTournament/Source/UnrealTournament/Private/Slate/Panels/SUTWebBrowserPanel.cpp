@@ -12,6 +12,13 @@
 
 #if !UE_SERVER
 
+void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
+{
+	ShowControls = InArgs._ShowControls;
+
+	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
+}
+
 void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 {
 	this->ChildSlot

@@ -10,14 +10,12 @@ class SUWPanel : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWPanel)
 	{}
-
-	SLATE_ARGUMENT(TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner)
-
+	
 	SLATE_END_ARGS()
 
 public:
 	/** needed for every widget */
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> PlayerOwner);
 
 	virtual void ConstructPanel(FVector2D CurrentViewportSize);
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
