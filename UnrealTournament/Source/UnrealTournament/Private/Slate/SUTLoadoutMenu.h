@@ -63,7 +63,7 @@ protected:
 	void AvailableWeaponChanged(TSharedPtr<FLoadoutData> NewSelection, ESelectInfo::Type SelectInfo);
 	void SelectedWeaponChanged(TSharedPtr<FLoadoutData> NewSelection, ESelectInfo::Type SelectInfo);
 
-	const FSlateBrush* SUTLoadoutMenu::GetDescriptionImage() const;
+	const FSlateBrush* GetDescriptionImage() const;
 	FText GetDescriptionText() const;
 
 	FReply OnAcceptClicked();

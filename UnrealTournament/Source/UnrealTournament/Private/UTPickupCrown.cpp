@@ -4,8 +4,6 @@
 #include "UTPickupCrown.h"
 #include "UTKMGameMode.h"
 
-static FName NAME_PercentComplete(TEXT("PercentComplete"));
-
 
 AUTPickupCrown::AUTPickupCrown(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
