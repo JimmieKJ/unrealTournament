@@ -8,10 +8,6 @@ class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 {
 	GENERATED_UCLASS_BODY()
 
-	/** If TRUE then noone has been killed yet */
-	UPROPERTY()
-	uint32 bFirstBlood:1;
-
 	/** Flag whether "X kills remain" has been played yet */
 	UPROPERTY()
 	uint32 bPlayedTenKillsRemain:1;

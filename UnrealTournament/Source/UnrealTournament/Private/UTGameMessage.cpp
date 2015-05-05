@@ -21,6 +21,9 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","You didn't make the cut");
 	YouAreOnBlue = NSLOCTEXT("UTGameMessage", "YouAreOnBlue", "You are on BLUE.");
 	YouAreOnRed = NSLOCTEXT("UTGameMessage", "YouAreOnRed", "You are on RED.");
+	Coronation = NSLOCTEXT("UTGameMessage", "Coronation","Coronation.");
+	GameChanger = NSLOCTEXT("UTGameMessage", "GameChanger", "Game Changer!");
+
 
 	bIsStatusAnnouncement = true;
 }
@@ -88,6 +91,12 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			break;
 		case 10:
 			return GetDefault<UUTGameMessage>(GetClass())->YouAreOnBlue;
+			break;
+		case 11:
+			return GetDefault<UUTGameMessage>(GetClass())->Coronation;
+			break;
+		case 12:
+			return GetDefault<UUTGameMessage>(GetClass())->GameChanger;
 			break;
 		default:
 			return FText::GetEmpty();

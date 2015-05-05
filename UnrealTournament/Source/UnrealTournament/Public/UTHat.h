@@ -14,6 +14,12 @@ class UNREALTOURNAMENT_API AUTHat : public AUTCosmetic
 
 	float HeadshotRotationTime;
 
+	// If set to true, this hat will not be dropped in to the world upon the death of the character wearing it.
+	// it's used for special hats :)
+	UPROPERTY(EditDefaultsOnly, Category = hat)
+	bool bDontDropOnDeath;
+	
+
 	UPROPERTY()
 	bool bHeadshotRotating;
 

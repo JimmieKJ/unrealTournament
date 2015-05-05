@@ -10,6 +10,7 @@ AUTHat::AUTHat(const class FObjectInitializer& ObjectInitializer)
 {	
 	HeadshotRotationRate.Yaw = 900;
 	HeadshotRotationTime = 0.8f;
+	bDontDropOnDeath=false;
 }
 
 void AUTHat::SetBodiesToSimulatePhysics()
