@@ -15,11 +15,12 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	Origin = FVector2D(0.5f, 0.5f);
 	AnimationAlpha = 0.0f;
 	StatusScale = 1.f;
-	InWorldAlpha = 0.5f;
+	InWorldAlpha = 0.4f;
 
 	ScalingStartDist = 4000.f;
 	ScalingEndDist = 15000.f;
-	MinIconScale = 0.5f;
+	MaxIconScale = 0.8f;
+	MinIconScale = 0.4f;
 }
 
 void UUTHUDWidget_CTFFlagStatus::InitializeWidget(AUTHUD* Hud)
@@ -88,7 +89,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		if (Base && Base->GetCarriedObject())
 		{
 			float Dist = (Base->GetActorLocation() - ViewPoint).Size();
-			float WorldRenderScale = RenderScale * FMath::Clamp(1.f - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, 1.f);
+			float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
 
 			bScaleByDesignedResolution = false;
 			bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
@@ -126,7 +127,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			// Draw flag state in world
 			bDrawInWorld = false;
 			Dist = (Base->GetCarriedObject()->GetActorLocation() - ViewPoint).Size();
-			WorldRenderScale = RenderScale * FMath::Clamp(1.f - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, 1.f);
+			WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
 			if ((bSpectating || bIsEnemyFlag) && (Flag->Holder != UTPlayerOwner->PlayerState) && (FlagState != CarriedObjectState::Home) && ((ViewRotation.Vector() | (Base->GetCarriedObject()->GetActorLocation() - ViewPoint)) > 0.f))
 			{
 				WorldPosition = Flag->GetActorLocation();
