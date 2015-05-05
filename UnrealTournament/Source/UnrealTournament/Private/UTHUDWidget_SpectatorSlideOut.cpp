@@ -311,17 +311,16 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickupInventory* Pickup, flo
 
 	if (Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass()))
 	{
+		DrawTexture(ArmorIcon.Texture, XOffset + 0.01f*Canvas->ClipX, YOffset, 0.08f*Size.X, 0.08f*Size.X, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.f, FLinearColor::White);
 		FFormatNamedArguments Args;
 		Args.Add("Armor", FText::AsNumber(Pickup->GetInventoryType()->GetDefaultObject<AUTArmor>()->ArmorAmount));
 		FLinearColor DrawColor = FLinearColor::Yellow;
-		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
-
-		DrawTexture(ArmorIcon.Texture, XOffset + 0.13f*Size.X, YOffset, 0.08f*Size.X, 0.08f*Size.X, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.f, FLinearColor::White);
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 0.01f*Canvas->ClipX + 0.04f*Size.X, YOffset + ColumnY, UTHUDOwner->MediumFont, FVector2D(1.f,1.f), FLinearColor::Black, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	else
 	{
 		FCanvasIcon HUDIcon = Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
-		DrawTexture(HUDIcon.Texture, XOffset + 0.01f*Canvas->ClipX, YOffset - 0.0055f*Canvas->ClipX, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 1.f, FLinearColor::White);
+		DrawTexture(HUDIcon.Texture, XOffset + 0.01f*Canvas->ClipX, YOffset - 0.0055f*Canvas->ClipX, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.5f, FLinearColor::White);
 	}
 
 	FLinearColor DrawColor = FLinearColor::White;
