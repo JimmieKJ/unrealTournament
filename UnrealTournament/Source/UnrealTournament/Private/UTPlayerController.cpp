@@ -1847,9 +1847,32 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 	BestRot.Pitch = -10.f;
 	BestRot.Roll = 0.f;
 	BestRot.Yaw = FMath::UnwindDegrees(BestRot.Yaw);
+	float CurrentYaw = BestRot.Yaw;
 
 	// @TODO FIXMESTEVE - if update, work harder to stay close to current view, slowly move back to behind
 	BestRot.Yaw = TestViewTarget->GetActorRotation().Yaw + 15.f;
+	if (bIsUpdate)
+	{
+		float DesiredYaw = BestRot.Yaw;
+
+		// check if too far to change directly
+		if (DesiredYaw - CurrentYaw > 180.f)
+		{
+			DesiredYaw -= 360.f;
+		}
+		else if (CurrentYaw - DesiredYaw > 180.f)
+		{
+			CurrentYaw -= 360.f;
+		}
+		if (DesiredYaw - CurrentYaw > 30.f)
+		{
+			BestRot.Yaw = CurrentYaw + 15.f + FMath::Clamp(60.f - (DesiredYaw - CurrentYaw), 0.f , 15.f);
+		}
+		else if (CurrentYaw - DesiredYaw > 30.f)
+		{
+			BestRot.Yaw = CurrentYaw - 15.f - FMath::Clamp(60.f - (CurrentYaw - DesiredYaw), 0.f, 15.f);
+		}
+	}
 	float UnBlockedPct = (Cast<APawn>(TestViewTarget) && (PlayerCameraManager->FreeCamDistance > 0.f)) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
 
 	AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TestViewTarget);
