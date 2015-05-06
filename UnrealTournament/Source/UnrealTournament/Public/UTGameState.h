@@ -281,6 +281,11 @@ public:
 	// Adjusts the cost of a weapon available for loadouts
 	virtual void AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float NewCost);
 
+	/** Game specific rating of a player as a desireable camera focus for spectators. */
+	virtual float ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Character)
+	{
+		return 0.f;
+	};
 
 protected:
 	// These IDs are banned for the remainder of the match

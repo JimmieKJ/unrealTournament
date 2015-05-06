@@ -171,6 +171,12 @@ float AUTPlayerCameraManager::RatePlayerCamera(AUTPlayerState* InPS, AUTCharacte
 	{
 		Score += (InPS->Score > CurrentCamPS->Score) ? HigherScoreBonus : -1.f * HigherScoreBonus;
 	}
+
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		Score += GameState->ScoreCameraView(InPS, Character);
+	}
 	// todo - have redeemer, armor, etc
 
 	return Score;

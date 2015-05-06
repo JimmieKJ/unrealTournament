@@ -203,4 +203,5 @@ public:
 
 	virtual FText GetGameStatusText();
 
+	virtual float ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Character) override;
 };
