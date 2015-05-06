@@ -136,10 +136,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void OnWinnerReceived();
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameState)
-	virtual void SetTimeLimit(uint32 NewTimeLimit);
+	virtual void SetTimeLimit(int32 NewTimeLimit);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameState)
-	virtual void SetGoalScore(uint32 NewGoalScore);
+	virtual void SetGoalScore(int32 NewGoalScore);
 
 	UFUNCTION()
 	virtual void SetWinner(AUTPlayerState* NewWinner);

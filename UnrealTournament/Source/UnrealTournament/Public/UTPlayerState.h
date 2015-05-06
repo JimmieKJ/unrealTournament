@@ -352,7 +352,7 @@ public:
 	virtual void ServerNextChatDestination();
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
-	uint32 CountryFlag;
+	int32 CountryFlag;
 
 	virtual void ValidateEntitlements();
 
