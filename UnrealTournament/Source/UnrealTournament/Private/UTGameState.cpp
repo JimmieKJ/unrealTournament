@@ -4,6 +4,7 @@
 #include "UTMultiKillMessage.h"
 #include "UTSpreeMessage.h"
 #include "UTRemoteRedeemer.h"
+#include "UTGameMessage.h"
 #include "Net/UnrealNetwork.h"
 #include "UTTimerMessage.h"
 #include "UTReplicatedLoadoutInfo.h"
@@ -18,6 +19,8 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
+
+	KickThreshold=50.0;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -740,6 +743,46 @@ void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float N
 		{
 			LoadoutWeapons[i]->CurrentCost = NewCost;
 			return;
+		}
+	}
+}
+
+bool AUTGameState::IsTempBanned(const TSharedPtr<class FUniqueNetId>& UniqueId)
+{
+	for (int32 i=0; i< TempBans.Num(); i++)
+	{
+		if (TempBans[i]->ToString() == UniqueId->ToString())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void AUTGameState::VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter)
+{
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (Game && Game->NumPlayers > 0)
+	{
+		BadGuy->LogBanRequest(Voter);
+		Game->BroadcastLocalized(Voter, UUTGameMessage::StaticClass(), 13, Voter, BadGuy);
+
+		float Perc = (float(BadGuy->CountBanVotes()) / float(Game->NumPlayers)) * 100.0f;
+		BadGuy->KickPercent = int8(Perc);
+		UE_LOG(UT,Log,TEXT("VoteForTempBan %f %i %i %i"),Perc,BadGuy->KickPercent,BadGuy->CountBanVotes(),Game->NumPlayers);
+
+		if ( Perc >=  KickThreshold )
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(BadGuy->GetOwner());
+			if (PC)
+			{
+				AUTGameSession* GS = Cast<AUTGameSession>(Game->GameSession);
+				if (GS)
+				{
+					GS->KickPlayer(PC,NSLOCTEXT("UTGameState","TempKickBan","The players on this server have decided you need to leave."));
+					TempBans.Add(BadGuy->UniqueId.GetUniqueNetId());				
+				}
+			}
 		}
 	}
 }

@@ -65,6 +65,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bSpecialPlayer);
 	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
 	DOREPLIFETIME(AUTPlayerState, Loadout);
+	DOREPLIFETIME(AUTPlayerState, KickPercent);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -1320,3 +1321,56 @@ void AUTPlayerState::UpdateReady()
 	LastReadyState = NewReadyState;
 }
 
+void AUTPlayerState::LogBanRequest(AUTPlayerState* Voter)
+{
+	float CurrentTime = GetWorld()->GetRealTimeSeconds();
+	for (int32 i=0; i < BanVotes.Num(); i++)
+	{
+		if (BanVotes[i].Voter->ToString() == Voter->UniqueId.GetUniqueNetId()->ToString())
+		{
+			if (BanVotes[i].BanTime < CurrentTime - 120.0)
+			{
+				// Update the ban
+				BanVotes[i].BanTime = CurrentTime;
+			}
+
+			return;
+		}
+	}
+
+	BanVotes.Add(FTempBanInfo(Voter->UniqueId.GetUniqueNetId(), CurrentTime));
+}
+
+int AUTPlayerState::CountBanVotes()
+{
+	int32 VoteCount = 0;
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		float CurrentTime = GetWorld()->GetRealTimeSeconds();
+		int32 Idx = 0;
+		while (Idx < BanVotes.Num())
+		{
+			if (BanVotes[Idx].BanTime < CurrentTime - 120.0)
+			{
+				// Expired, delete it
+				BanVotes.RemoveAt(Idx);
+			}
+			else
+			{
+				// only count bans of people online
+				for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
+				{
+					if (GameState->PlayerArray[i]->UniqueId == BanVotes[Idx].Voter)
+					{
+						VoteCount++;
+						break;
+					}
+				}
+				Idx++;
+			}
+		}
+	}
+	
+	return VoteCount;
+}

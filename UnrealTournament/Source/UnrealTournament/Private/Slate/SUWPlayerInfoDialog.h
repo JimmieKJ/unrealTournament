@@ -73,11 +73,14 @@ protected:
 
 	TSharedPtr<class SVerticalBox> InfoPanel;
 	TSharedPtr<class SHorizontalBox> FriendPanel;
+	TSharedPtr<class SButton> KickButton;
 	FName FriendStatus;
 
 	FText GetFunnyText();
 	virtual void BuildFriendPanel();
 	virtual FReply OnSendFriendRequest();
+
+	virtual FReply KickVote();
 
 };
 #endif

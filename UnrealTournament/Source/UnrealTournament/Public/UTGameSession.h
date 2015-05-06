@@ -71,4 +71,6 @@ protected:
 	UPROPERTY(Config)
 	TArray<FString> BannedUsers;
 
+
+
 };

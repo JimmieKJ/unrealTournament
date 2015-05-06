@@ -22,6 +22,7 @@ struct FDeferredFireInput
 	{}
 };
 
+
 /** controls location and orientation of first person weapon */
 UENUM()
 enum EWeaponHand
@@ -723,6 +724,10 @@ protected:
 public:
 	TMap<int32,FString> WeaponGroupKeys;
 	virtual void UpdateWeaponGroupKeys();
+
+	UFUNCTION(server, reliable, withvalidation)
+	void ServerRegisterBanVote(AUTPlayerState* BadGuy);
+
 
 };
 

@@ -155,26 +155,35 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 {
 	for (int32 i=0;i<AvailableMatches.Num();i++)
 	{
-		if (AvailableMatches[i]->CurrentState == ELobbyMatchState::WaitingForPlayers ||
-			AvailableMatches[i]->CurrentState != ELobbyMatchState::Launching ||
-			AvailableMatches[i]->CurrentState != ELobbyMatchState::InProgress)	
+		if ( AvailableMatches[i] )
 		{
-			for (int32 j=0;j<AvailableMatches[i]->Players.Num();j++)
+			if (AvailableMatches[i]->CurrentState == ELobbyMatchState::WaitingForPlayers ||
+				AvailableMatches[i]->CurrentState != ELobbyMatchState::Launching ||
+				AvailableMatches[i]->CurrentState != ELobbyMatchState::InProgress)	
 			{
-				if (AvailableMatches[i]->Players[j]->UniqueId.IsValid() && AvailableMatches[i]->Players[j]->UniqueId.ToString() == PlayerID)
+				for (int32 j=0;j<AvailableMatches[i]->Players.Num();j++)
 				{
-					return AvailableMatches[i];
+					if (AvailableMatches[i]->Players[j].IsValid())
+					{
+						if (AvailableMatches[i]->Players[j]->UniqueId.IsValid() && AvailableMatches[i]->Players[j]->UniqueId.ToString() == PlayerID)
+						{
+							return AvailableMatches[i];
+						}
+					}
+				}
+
+				for (int32 j=0;j<AvailableMatches[i]->PlayersInMatchInstance.Num();j++)
+				{
+					if (AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.IsValid() && AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.ToString() == PlayerID)
+					{
+						return AvailableMatches[i];
+					}
 				}
 			}
 
-			for (int32 j=0;j<AvailableMatches[i]->PlayersInMatchInstance.Num();j++)
-			{
-				if (AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.IsValid() && AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.ToString() == PlayerID)
-				{
-					return AvailableMatches[i];
-				}
-			}
+
 		}
+
 	}
 
 	return NULL;

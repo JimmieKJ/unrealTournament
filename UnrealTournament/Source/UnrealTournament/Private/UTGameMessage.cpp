@@ -23,7 +23,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	YouAreOnRed = NSLOCTEXT("UTGameMessage", "YouAreOnRed", "You are on RED.");
 	Coronation = NSLOCTEXT("UTGameMessage", "Coronation","Coronation.");
 	GameChanger = NSLOCTEXT("UTGameMessage", "GameChanger", "Game Changer!");
-
+	KickVote = NSLOCTEXT("UTGameMessage", "KickVote", "{Player1Name} voted to kick {Player2Name}");
 
 	bIsStatusAnnouncement = true;
 }
@@ -98,6 +98,8 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 		case 12:
 			return GetDefault<UUTGameMessage>(GetClass())->GameChanger;
 			break;
+		case 13:
+			return GetDefault<UUTGameMessage>(GetClass())->KickVote;
 		default:
 			return FText::GetEmpty();
 	}

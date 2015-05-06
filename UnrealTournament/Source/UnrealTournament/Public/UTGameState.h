@@ -280,6 +280,22 @@ public:
 
 	// Adjusts the cost of a weapon available for loadouts
 	virtual void AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float NewCost);
+
+
+protected:
+	// These IDs are banned for the remainder of the match
+	TArray<TSharedPtr<class FUniqueNetId>> TempBans;
+
+public:
+	// Returns true if this player has been temp banned from this server/instance
+	bool IsTempBanned(const TSharedPtr<class FUniqueNetId>& UniqueId);
+
+	// Registers a vote for temp banning a player.  If the player goes above the threashhold, they will be banned for the remainder of the match
+	void VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter);
+
+	UPROPERTY(Config)
+	float KickThreshold;
+
 };
 
 

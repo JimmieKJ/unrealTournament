@@ -28,6 +28,24 @@ struct FWeaponSpree
 	int32 Kills;
 };
 
+struct FTempBanInfo
+{
+	// The person who voted for this ban
+	TSharedPtr<class FUniqueNetId> Voter;
+
+	// When was the vote cast.  Votes will time out over time (5mins)
+	float BanTime;
+
+	FTempBanInfo(const TSharedPtr<class FUniqueNetId> inVoter, float inBanTime)
+		: Voter(inVoter)
+		, BanTime(inBanTime)
+	{
+	}
+
+};
+
+
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
 {
@@ -423,6 +441,15 @@ public:
 	virtual float GetAvailableCurrency();
 
 
+protected:
+	TArray<FTempBanInfo> BanVotes;
+
+public:
+	void LogBanRequest(AUTPlayerState* Voter);
+	int CountBanVotes();
+
+	UPROPERTY(Replicated)
+	uint8 KickPercent;
 
 };
 

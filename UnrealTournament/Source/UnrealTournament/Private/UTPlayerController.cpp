@@ -2819,3 +2819,13 @@ void AUTPlayerController::UpdateWeaponGroupKeys()
 
 	UE_LOG(UT,Log,TEXT("Here"));
 }
+
+bool AUTPlayerController::ServerRegisterBanVote_Validate(AUTPlayerState* BadGuy) { return true; }
+void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* BadGuy)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && UTPlayerState)
+	{
+		GameState->VoteForTempBan(BadGuy, UTPlayerState);	
+	}
+}
