@@ -172,6 +172,9 @@ public:
 	UFUNCTION(client, reliable)
 	void ClientHalftime();
 
+	/** Switch to best current camera while spectating. */
+	virtual void ChooseBestCamera();
+
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
 
@@ -224,6 +227,14 @@ public:
 
 	UFUNCTION(exec)
 	virtual void ToggleTacCom();
+
+	/** Enables auto cam (auto cam turned off whenever use a spectator camera bind. */
+	UFUNCTION(exec)
+		virtual void EnableAutoCam();
+
+	/** Enables Auto best camera for spectators. */
+	UPROPERTY(BluePrintReadWrite)
+		bool bAutoCam;
 
 	/** Enables TacCom for spectators. */
 	UPROPERTY(BluePrintReadWrite)

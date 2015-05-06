@@ -38,6 +38,27 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 	UPROPERTY()
 	float EndGameFreeCamDistance;
 
+	/** Spectator cam auto prioritization. */
+	/** Bonus for currently viewed camera. */
+	UPROPERTY(Config)
+		float CurrentCamBonus;
+	
+	/** Bonus for having flag. */
+	UPROPERTY(Config)
+		float FlagCamBonus;
+	
+	/** Bonus for having powerup. */
+	UPROPERTY(Config)
+		float PowerupBonus;
+	
+	/** Bonus for having higher score than current focus. */
+	UPROPERTY(Config)
+		float HigherScoreBonus;
+	
+	/** Action bonus (declines over time since last action. */
+	UPROPERTY(Config)
+		float CurrentActionBonus;
+
 	/** Sweep to find valid third person camera offset. */
 	virtual void CheckCameraSweep(FHitResult& OutHit, AActor* TargetActor, const FVector& Start, const FVector& End);
 
@@ -49,5 +70,8 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 	virtual void UpdateCamera(float DeltaTime) override;
 	virtual void UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime) override;
 	virtual void ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV) override;
+
+	/** Rate player as camera focus for spectating. */
+	virtual float RatePlayerCamera(AUTPlayerState* InPS, AUTCharacter *Character, APlayerState* CurrentCamPS);
 };
 

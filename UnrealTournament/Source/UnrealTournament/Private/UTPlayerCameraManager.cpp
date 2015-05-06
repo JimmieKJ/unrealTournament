@@ -146,6 +146,36 @@ void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
 	}
 }
 
+float AUTPlayerCameraManager::RatePlayerCamera(AUTPlayerState* InPS, AUTCharacter *Character, APlayerState* CurrentCamPS)
+{
+	// 100 is about max
+	float Score = 0.f;
+	if (InPS == CurrentCamPS)
+	{
+		Score += CurrentCamBonus;
+	}
+	float LastActionTime = GetWorld()->GetTimeSeconds() - FMath::Max(Character->LastTakeHitTime, Character->LastWeaponFireTime);
+	Score += FMath::Max(0.f, CurrentActionBonus - LastActionTime);
+
+	if (InPS->CarriedObject)
+	{
+		Score += FlagCamBonus;
+	}
+
+	if (Character->GetWeaponOverlayFlags() != 0)
+	{
+		Score += PowerupBonus;
+	}
+
+	if (CurrentCamPS)
+	{
+		Score += (InPS->Score > CurrentCamPS->Score) ? HigherScoreBonus : -1.f * HigherScoreBonus;
+	}
+	// todo - have redeemer, armor, etc
+
+	return Score;
+}
+
 void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));

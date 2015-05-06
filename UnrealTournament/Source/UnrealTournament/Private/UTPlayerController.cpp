@@ -51,6 +51,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bTapCrouchToSlide = true;
 	CrouchSlideTapInterval = 0.25f;
 	bHasUsedSpectatingBind = false;
+	bAutoCam = true;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
@@ -1723,6 +1724,11 @@ void AUTPlayerController::ToggleTacCom()
 	}
 }
 
+void AUTPlayerController::EnableAutoCam()
+{
+	bAutoCam = true;
+}
+
 void AUTPlayerController::UpdateTacComOverlays()
 {
 	if (GetNetMode() != NM_DedicatedServer)
@@ -1811,7 +1817,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 
 		// FIXME: HACK: PlayerState->bOnlySpectator check is workaround for bug possessing new Pawn where we are actually in the spectating state for a short time after getting the new pawn as viewtarget
 		//				happens because Pawn is replicated via property replication and ViewTarget is RPC'ed so comes first
-		if (IsLocalController() && bSpectateBehindView && PlayerState != NULL && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
+		if (IsLocalController() && bSpectateBehindView && PlayerState && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
 		{
 			// pick good starting rotation
 			FindGoodView(false);
@@ -1821,14 +1827,17 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 
 FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
 {
-	float OldYaw = FMath::UnwindDegrees(GetControlRotation().Yaw);
-	FindGoodView(true);
-	FRotator NewRotation = GetControlRotation();
-	float NewYaw = FMath::UnwindDegrees(NewRotation.Yaw);
-	if (FMath::Abs(NewYaw - OldYaw) < 60.f)
+	if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		NewRotation.Yaw = (1.f - 7.f*DeltaTime)*OldYaw + 7.f*DeltaTime*NewYaw;
-		SetControlRotation(NewRotation);
+		float OldYaw = FMath::UnwindDegrees(GetControlRotation().Yaw);
+		FindGoodView(true);
+		FRotator NewRotation = GetControlRotation();
+		float NewYaw = FMath::UnwindDegrees(NewRotation.Yaw);
+		if (FMath::Abs(NewYaw - OldYaw) < 60.f)
+		{
+			NewRotation.Yaw = (1.f - 7.f*DeltaTime)*OldYaw + 7.f*DeltaTime*NewYaw;
+			SetControlRotation(NewRotation);
+		}
 	}
 	return GetControlRotation();
 }
@@ -2097,6 +2106,13 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
 
+
+	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam)
+	{
+		// possibly switch cameras
+		ChooseBestCamera();
+	}
+
 	// Follow the last spectated player again when they respawn
 	if ((StateName == NAME_Spectating) && LastSpectatedPlayerState && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
 	{
@@ -2123,6 +2139,37 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		UpdateTacComOverlays();
 	}
 }
+
+void AUTPlayerController::ChooseBestCamera()
+{
+	// for now, choose just between live players.  Eventually also use level cameras, etc.
+	float BestScore = 0.f;
+	APlayerState* BestPS = LastSpectatedPlayerState;
+	AUTPlayerCameraManager* UTCam = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	if (UTCam)
+	{
+		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		{
+			AUTCharacter* Pawn = Cast<AUTCharacter>(*Iterator);
+			AUTPlayerState* NextPlayerState = (Pawn && (Pawn->Health > 0)) ? Cast<AUTPlayerState>(Pawn->PlayerState) : NULL;
+			if (NextPlayerState)
+			{
+				float NewScore = UTCam->RatePlayerCamera(NextPlayerState, Pawn, LastSpectatedPlayerState);
+				if (NewScore > BestScore)
+				{
+					BestScore = NewScore;
+					BestPS = NextPlayerState;
+				}
+			}
+		}
+	}
+
+	if (BestPS && (BestPS != LastSpectatedPlayerState))
+	{
+		ServerViewPlayerState(BestPS);
+	}
+}
+
 
 void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
