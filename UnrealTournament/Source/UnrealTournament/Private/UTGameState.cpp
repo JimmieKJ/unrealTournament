@@ -20,7 +20,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
 
-	KickThreshold=50.0;
+	KickThreshold=51.0;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");

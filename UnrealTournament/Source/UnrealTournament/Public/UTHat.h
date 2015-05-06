@@ -26,6 +26,10 @@ class UNREALTOURNAMENT_API AUTHat : public AUTCosmetic
 	UPROPERTY(EditDefaultsOnly, Category = nonleaderhat)
 	TSubclassOf<class AUTHatLeader> LeaderHatClass;
 
+	// If set to true, this hat is special and can't be selected via the menus or URL.  It can only be assigned by the game
+	UPROPERTY(EditDefaultsOnly, Category = nonleaderhat)
+	bool bOverrideOnly;
+
 	UFUNCTION()
 	void HeadshotRotationComplete();
 

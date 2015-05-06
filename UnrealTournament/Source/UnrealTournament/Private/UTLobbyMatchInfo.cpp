@@ -335,11 +335,15 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
-			// Add this player to the players in Match
-			PlayersInMatchInstance.Add(FPlayerListInfo(Players[i]));
 
-			// Tell the client to connect to the instance
-			Players[i]->ClientConnectToInstance(GameInstanceGUID, GM->ServerInstanceGUID.ToString(),false);
+			if (Players[i].IsValid())
+			{
+				// Add this player to the players in Match
+				PlayersInMatchInstance.Add(FPlayerListInfo(Players[i]));
+
+				// Tell the client to connect to the instance
+				Players[i]->ClientConnectToInstance(GameInstanceGUID, GM->ServerInstanceGUID.ToString(),false);
+			}
 		}
 	}
 	SetLobbyMatchState(ELobbyMatchState::InProgress);

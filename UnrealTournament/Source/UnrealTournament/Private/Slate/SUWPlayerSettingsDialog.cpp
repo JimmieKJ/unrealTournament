@@ -155,8 +155,11 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTHat::StaticClass()) && !TestClass->IsChildOf(AUTHatLeader::StaticClass()))
 				{
-					HatList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTHat>()->CosmeticName)));
-					HatPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));
+					if (!TestClass->GetDefaultObject<AUTHat>()->bOverrideOnly)
+					{
+						HatList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTHat>()->CosmeticName)));
+						HatPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));
+					}
 				}
 			}
 		}

@@ -97,7 +97,6 @@ void AUTKMGameMode::KingHasBeenKilled(AUTPlayerState* KingPlayerState, APawn* Ki
 	AUTPickupCrown* CrownPickup = GetWorld()->SpawnActor<AUTPickupCrown>(AUTPickupCrown::StaticClass(), KingPawn->GetActorLocation() + FVector(0,0,200), FRotator(0,0,0), Params);
 	if (CrownPickup)
 	{
-		UE_LOG(UT,Log,TEXT("Initial Collision: %s %i"), (CrownPickup->Collision ? TEXT("YES") : TEXT("NO")), CrownPickup->Collision->IsPendingKill());
 		CrownPickup->Movement->Velocity = FVector(0,0,350);
 	}
 }

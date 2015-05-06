@@ -10,7 +10,7 @@ AUTPickupCrown::AUTPickupCrown(const FObjectInitializer& ObjectInitializer)
 {
 	InitialLifeSpan=0.0;
 
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CrownMesh(TEXT("StaticMesh'/Game/EpicInternal/PK/crown.crown'"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CrownMesh(TEXT("StaticMesh'/Game/RestrictedAssets/Pickups/Decos/crown.crown'"));
 
 	Collision->InitCapsuleSize(48, 48.0f);
 	UStaticMeshComponent* StaticMesh = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("Mesh")));
@@ -79,10 +79,5 @@ void AUTPickupCrown::Tick( float DeltaSeconds )
 		{
 			TouchingActors = TEXT("None");
 		}
-		UE_LOG(UT,Log,TEXT("Collision: %s %i"), *TouchingActors, Collision->IsPendingKill());
-	}
-	else
-	{
-		UE_LOG(UT,Log,TEXT("Collision: No Collision Component"));
 	}
 }

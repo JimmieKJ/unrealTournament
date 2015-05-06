@@ -2880,5 +2880,16 @@ void AUTGameMode::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState
 
 bool AUTGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
 {
-	return true;
+	// Load the hat and make sure it's not override only.
+	UClass* HatClassObject = LoadClass<AUTHat>(NULL, *HatClass, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	if (HatClassObject)
+	{
+		AUTHat* DefaultHat = HatClassObject->GetDefaultObject<AUTHat>();
+		if (DefaultHat && !DefaultHat->bOverrideOnly)
+		{
+			return true;
+		}
+	}
+	
+	return false;
 }
