@@ -93,6 +93,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 
 	LastThirdPersonCameraLoc = FVector::ZeroVector;
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
+	bAllowSpecCameraControl = false;
 }
 
 // @TODO FIXMESTEVE SPLIT OUT true spectator controls
@@ -199,7 +200,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-		FRotator Rotator = PCOwner->GetControlRotation();
+		FRotator Rotator = (bAllowSpecCameraControl || !UTPC) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(DeltaTime);
 		if (Cast<AUTProjectile>(OutVT.Target) && !OutVT.Target->IsPendingKillPending())
 		{
 			Rotator = OutVT.Target->GetVelocity().Rotation();

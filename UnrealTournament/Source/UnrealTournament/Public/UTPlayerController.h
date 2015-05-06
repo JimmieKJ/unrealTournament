@@ -174,15 +174,18 @@ public:
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
 
-	/** Update rotation to be good view of current viewtarget. */
+	/** Update rotation to be good view of current viewtarget.  UnBlockedPct is how much of the camera offset trace needs to be unblocked. */
 	UFUNCTION()
-	virtual void FindGoodView();
+	virtual void FindGoodView(bool bIsUpdate);
 
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
 	UFUNCTION(exec)
 	virtual void ViewPlayerNum(int32 Index, uint8 TeamNum = 255);
+
+	UFUNCTION(exec)
+	virtual void ViewNextPlayer();
 
 	/** View Player holding flag specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)
@@ -207,6 +210,16 @@ public:
 
 	UFUNCTION(exec)
 	virtual void ViewCamera(int32 Index);
+
+	UFUNCTION(exec)
+		virtual void StartCameraControl();
+
+	UFUNCTION(exec)
+		virtual void EndCameraControl();
+
+	/** Returns updated rotation for third person camera view. */
+	UFUNCTION()
+		virtual FRotator GetSpectatingRotation(float DeltaTime);
 
 	UFUNCTION(exec)
 	virtual void ToggleTacCom();

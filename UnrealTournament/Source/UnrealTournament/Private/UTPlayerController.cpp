@@ -809,7 +809,6 @@ void AUTPlayerController::ToggleBehindView()
 	}
 }
 
-
 void AUTPlayerController::ToggleSlideOut()
 {
 	bRequestingSlideOut = !bRequestingSlideOut;
@@ -818,6 +817,11 @@ void AUTPlayerController::ToggleSlideOut()
 void AUTPlayerController::ToggleShowBinds()
 {
 	bShowCameraBinds = !bShowCameraBinds;
+}
+
+void AUTPlayerController::ViewNextPlayer()
+{
+	ServerViewNextPlayer();
 }
 
 bool AUTPlayerController::ServerViewFlagHolder_Validate(uint8 TeamIndex)
@@ -1015,10 +1019,6 @@ void AUTPlayerController::OnFire()
 			bPlayerIsWaiting)
 		{
 			ServerRestartPlayer();
-		}
-		else
-		{
-			ServerViewNextPlayer();
 		}
 	}
 	else
@@ -1613,8 +1613,6 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	}
 	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
 	{
-		// If we can't restart this player, try to view a new player
-		ServerViewNextPlayer();
 		return;
 	}
 
@@ -1648,8 +1646,6 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	}
 	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
 	{
-		// If we can't restart this player, try to view a new player
-		ServerViewNextPlayer();
 		return;
 	}
 
@@ -1818,12 +1814,26 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		if (IsLocalController() && bSpectateBehindView && PlayerState != NULL && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
 		{
 			// pick good starting rotation
-			FindGoodView();
+			FindGoodView(false);
 		}
 	}
 }
 
-void AUTPlayerController::FindGoodView()
+FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
+{
+	float OldYaw = FMath::UnwindDegrees(GetControlRotation().Yaw);
+	FindGoodView(true);
+	FRotator NewRotation = GetControlRotation();
+	float NewYaw = FMath::UnwindDegrees(NewRotation.Yaw);
+	if (FMath::Abs(NewYaw - OldYaw) < 60.f)
+	{
+		NewRotation.Yaw = (1.f - 7.f*DeltaTime)*OldYaw + 7.f*DeltaTime*NewYaw;
+		SetControlRotation(NewRotation);
+	}
+	return GetControlRotation();
+}
+
+void AUTPlayerController::FindGoodView(bool bIsUpdate)
 {
 	AActor* TestViewTarget = GetViewTarget();
 	if (!TestViewTarget || !PlayerCameraManager || (TestViewTarget == this) || (TestViewTarget == GetSpectatorPawn()) || Cast<AUTProjectile>(TestViewTarget) || Cast<AUTViewPlaceholder>(TestViewTarget))
@@ -1836,7 +1846,11 @@ void AUTPlayerController::FindGoodView()
 	// Always start looking down slightly
 	BestRot.Pitch = -10.f;
 	BestRot.Roll = 0.f;
+	BestRot.Yaw = FMath::UnwindDegrees(BestRot.Yaw);
+
+	// @TODO FIXMESTEVE - if update, work harder to stay close to current view, slowly move back to behind
 	BestRot.Yaw = TestViewTarget->GetActorRotation().Yaw + 15.f;
+	float UnBlockedPct = (Cast<APawn>(TestViewTarget) && (PlayerCameraManager->FreeCamDistance > 0.f)) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
 
 	AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TestViewTarget);
 	if (Flag)
@@ -1847,24 +1861,28 @@ void AUTPlayerController::FindGoodView()
 		}
 		else if (Flag->Holder && Flag->AttachmentReplication.AttachParent)
 		{
+			UnBlockedPct = (PlayerCameraManager->FreeCamDistance > 0.f) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
 			BestRot.Yaw = Flag->AttachmentReplication.AttachParent->GetActorRotation().Yaw + 15.f;
 		}
 	}
 
 	if ((TestViewTarget == FinalViewTarget) && Cast<AUTCharacter>(TestViewTarget))
 	{
+		UnBlockedPct = 1.f;
 		BestRot.Yaw += 180.f;
 	}
 
 	// look for acceptable view
 	float YawIncrement = 30.f;
+	float OffsetMag = -60.f;
 	float YawOffset = 0.f;
 	bool bFoundGoodView = false;
 	float BestView = BestRot.Yaw;
 	float BestDist = 0.f;
 	float StartYaw = BestRot.Yaw;
+	int32 IncrementCount = 1;
 	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
-	while (!bFoundGoodView && (YawOffset < 360.f) && CamMgr)
+	while (!bFoundGoodView && (IncrementCount < 12) && CamMgr)
 	{
 		BestRot.Yaw = StartYaw + YawOffset;
 		FVector TargetLoc = TestViewTarget->GetActorLocation();
@@ -1872,14 +1890,19 @@ void AUTPlayerController::FindGoodView()
 		FHitResult Result(1.f);
 		CamMgr->CheckCameraSweep(Result, TestViewTarget, TargetLoc, Pos);
 		float NewDist = (Result.Location - TargetLoc).SizeSquared();
-		bFoundGoodView = !Result.bBlockingHit;
+		bFoundGoodView = Result.Time > UnBlockedPct;
 		if (NewDist > BestDist)
 		{
 			BestDist = NewDist;
 			BestView = BestRot.Yaw;
 		}
-		YawOffset += YawIncrement;
-		YawIncrement = 45.f;
+		float NewOffset = (YawIncrement * IncrementCount);
+		if ((IncrementCount % 2) == 0)
+		{
+			NewOffset *= -1.f;
+		}
+		IncrementCount++;
+		YawOffset += NewOffset;
 	}
 	if (!bFoundGoodView)
 	{
@@ -1887,6 +1910,25 @@ void AUTPlayerController::FindGoodView()
 	}
 	SetControlRotation(BestRot);
 }
+
+void AUTPlayerController::StartCameraControl()
+{
+	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	if (CamMgr)
+	{
+		CamMgr->bAllowSpecCameraControl = true;
+	}
+}
+
+void AUTPlayerController::EndCameraControl()
+{
+	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	if (CamMgr)
+	{
+		CamMgr->bAllowSpecCameraControl = false;
+	}
+}
+
 
 void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams)
 {
