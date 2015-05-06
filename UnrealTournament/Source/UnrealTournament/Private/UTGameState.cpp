@@ -353,7 +353,7 @@ void AUTGameState::OnTeamSideSwap()
 	}
 }
 
-void AUTGameState::SetTimeLimit(uint32 NewTimeLimit)
+void AUTGameState::SetTimeLimit(int32 NewTimeLimit)
 {
 	TimeLimit = NewTimeLimit;
 	RemainingTime = TimeLimit;
@@ -362,7 +362,7 @@ void AUTGameState::SetTimeLimit(uint32 NewTimeLimit)
 	ForceNetUpdate();
 }
 
-void AUTGameState::SetGoalScore(uint32 NewGoalScore)
+void AUTGameState::SetGoalScore(int32 NewGoalScore)
 {
 	GoalScore = NewGoalScore;
 	ForceNetUpdate();
