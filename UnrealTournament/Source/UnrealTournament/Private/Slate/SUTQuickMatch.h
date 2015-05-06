@@ -39,7 +39,7 @@ struct FServerSearchPingTracker
 };
 
 
-class SUTQuickMatch: public SCompoundWidget
+class UNREALTOURNAMENT_API SUTQuickMatch : public SCompoundWidget
 {
 public:
 

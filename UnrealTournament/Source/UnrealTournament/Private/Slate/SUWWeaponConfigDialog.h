@@ -5,7 +5,7 @@
 #include "SUWDialog.h"
 
 #if !UE_SERVER
-class SUWWeaponConfigDialog : public SUWDialog, public FGCObject
+class UNREALTOURNAMENT_API SUWWeaponConfigDialog : public SUWDialog, public FGCObject
 {
 public:
 	SLATE_BEGIN_ARGS(SUWWeaponConfigDialog)

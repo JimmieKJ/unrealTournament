@@ -9,7 +9,7 @@
 /** function called to filter characters that are input; return true to keep it, false to remove it */
 DECLARE_DELEGATE_RetVal_OneParam(bool, FInputBoxFilterDelegate, TCHAR);
 
-class SUWInputBox : public SUWDialog
+class UNREALTOURNAMENT_API SUWInputBox : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWInputBox)
 	: _DialogSize(FVector2D(700,300))

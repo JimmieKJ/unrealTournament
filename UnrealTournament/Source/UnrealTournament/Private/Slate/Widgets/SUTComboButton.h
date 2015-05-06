@@ -11,7 +11,7 @@ class SUTComboButton;
 
 DECLARE_DELEGATE_TwoParams( FUTButtonSubMenuSelect, int32, TSharedPtr<SUTComboButton> );
 
-class SUTComboButton : public SMenuAnchor
+class UNREALTOURNAMENT_API SUTComboButton : public SMenuAnchor
 {
 	SLATE_BEGIN_ARGS(SUTComboButton)
 		: _ComboButtonStyle( &FCoreStyle::Get().GetWidgetStyle< FComboButtonStyle >( "ComboButton" ) )

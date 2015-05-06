@@ -8,7 +8,7 @@
 
 #if !UE_SERVER
 
-class SUMidGameInfoPanel : public SUChatPanel
+class UNREALTOURNAMENT_API SUMidGameInfoPanel : public SUChatPanel
 {
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);

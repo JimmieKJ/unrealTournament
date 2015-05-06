@@ -43,7 +43,7 @@ struct FSimpleBind
 	void WriteBind();
 };
 
-class SUWControlSettingsDialog : public SUWDialog
+class UNREALTOURNAMENT_API SUWControlSettingsDialog : public SUWDialog
 {
 public:
 

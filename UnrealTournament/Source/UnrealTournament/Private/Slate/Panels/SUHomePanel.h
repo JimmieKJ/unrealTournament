@@ -8,7 +8,7 @@
 #if !UE_SERVER
 
 
-class SUHomePanel : public SUWPanel
+class UNREALTOURNAMENT_API SUHomePanel : public SUWPanel
 {
 	virtual void ConstructPanel(FVector2D ViewportSize);
 

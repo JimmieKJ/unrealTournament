@@ -46,7 +46,7 @@ public:
 
 
 
-class SULobbyInfoPanel : public SUInGameHomePanel
+class UNREALTOURNAMENT_API SULobbyInfoPanel : public SUInGameHomePanel
 {
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);

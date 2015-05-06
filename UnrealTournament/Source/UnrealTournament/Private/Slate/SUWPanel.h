@@ -6,7 +6,7 @@
 
 #if !UE_SERVER
 
-class SUWPanel : public SCompoundWidget
+class UNREALTOURNAMENT_API SUWPanel : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWPanel)
 	{}

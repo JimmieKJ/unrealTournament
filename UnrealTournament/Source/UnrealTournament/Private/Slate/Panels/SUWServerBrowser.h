@@ -32,7 +32,7 @@ public:
 };
 
 
-class SServerRuleRow : public SMultiColumnTableRow< TSharedPtr<FServerRuleData> >
+class UNREALTOURNAMENT_API SServerRuleRow : public SMultiColumnTableRow< TSharedPtr<FServerRuleData> >
 {
 public:
 	
@@ -105,7 +105,7 @@ public:
 	}
 };
 
-class SServerPlayerRow : public SMultiColumnTableRow< TSharedPtr<FServerPlayerData> >
+class UNREALTOURNAMENT_API SServerPlayerRow : public SMultiColumnTableRow< TSharedPtr<FServerPlayerData> >
 {
 public:
 	
@@ -403,7 +403,7 @@ public:
  * An Item Editor used by list testing.
  * It visualizes a string and edits its contents.
  */
-class SServerBrowserRow : public SMultiColumnTableRow< TSharedPtr<FServerData> >
+class UNREALTOURNAMENT_API SServerBrowserRow : public SMultiColumnTableRow< TSharedPtr<FServerData> >
 {
 public:
 	
@@ -559,7 +559,7 @@ namespace EBrowserState
 	static FName RefreshInProgress = TEXT("RefreshInProgress");
 }
 
-class SUWServerBrowser : public SUWPanel
+class UNREALTOURNAMENT_API SUWServerBrowser : public SUWPanel
 {
 public:
 

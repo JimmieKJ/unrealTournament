@@ -9,7 +9,7 @@
 
 #include "SWebBrowser.h"
 
-class SUTWebBrowserPanel : public SUWPanel
+class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 {
 	SLATE_BEGIN_ARGS(SUTWebBrowserPanel)
 	: _ShowControls(true)

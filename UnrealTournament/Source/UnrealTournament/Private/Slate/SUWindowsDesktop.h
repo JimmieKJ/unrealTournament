@@ -6,7 +6,7 @@
 #include "Slate/SlateGameResources.h"
 
 #if !UE_SERVER
-class SUWindowsDesktop : public SCompoundWidget
+class UNREALTOURNAMENT_API SUWindowsDesktop : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SUWindowsDesktop)

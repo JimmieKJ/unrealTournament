@@ -8,7 +8,7 @@
 DECLARE_DELEGATE_OneParam(FDragHandler, FVector2D);
 DECLARE_DELEGATE_OneParam(FZoomHandler, float);
 
-class SDragImage : public SImage
+class UNREALTOURNAMENT_API SDragImage : public SImage
 {
 public:
 	SLATE_BEGIN_ARGS(SDragImage)

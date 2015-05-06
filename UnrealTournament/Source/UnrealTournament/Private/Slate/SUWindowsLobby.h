@@ -8,7 +8,7 @@
 
 
 #if !UE_SERVER
-class SUWindowsLobby : public SUTInGameMenu
+class UNREALTOURNAMENT_API SUWindowsLobby : public SUTInGameMenu
 {
 
 protected:

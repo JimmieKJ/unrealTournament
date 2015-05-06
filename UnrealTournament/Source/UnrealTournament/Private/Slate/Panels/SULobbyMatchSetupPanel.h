@@ -37,7 +37,7 @@ public:
 };
 
 
-class SULobbyMatchSetupPanel : public SCompoundWidget
+class UNREALTOURNAMENT_API SULobbyMatchSetupPanel : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SULobbyMatchSetupPanel)
 		: _bIsHost(false)

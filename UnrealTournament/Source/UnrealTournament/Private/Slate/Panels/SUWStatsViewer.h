@@ -10,7 +10,7 @@
 
 #include "SWebBrowser.h"
 
-class SUWStatsViewer : public SUWPanel
+class UNREALTOURNAMENT_API SUWStatsViewer : public SUWPanel
 {
 
 	virtual void ConstructPanel(FVector2D ViewportSize);

@@ -7,7 +7,7 @@
 
 DECLARE_DELEGATE_OneParam( FUTButtonClick, int32 );
 
-class SUTButton : public SButton
+class UNREALTOURNAMENT_API SUTButton : public SButton
 {
 	SLATE_BEGIN_ARGS(SUTButton)
 		: _Content()

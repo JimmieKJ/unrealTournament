@@ -6,7 +6,7 @@
 
 #if !UE_SERVER
 
-class SUTGameLayerManager : public SCompoundWidget
+class UNREALTOURNAMENT_API SUTGameLayerManager : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUTGameLayerManager)
 	{}

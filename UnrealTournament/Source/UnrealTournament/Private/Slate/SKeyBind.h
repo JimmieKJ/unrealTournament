@@ -8,7 +8,7 @@
 
 DECLARE_DELEGATE_TwoParams(FOnKeyBindingChanged, FKey,FKey);
 
-class SKeyBind : public SButton
+class UNREALTOURNAMENT_API SKeyBind : public SButton
 {
 public:
 

@@ -5,7 +5,7 @@
 #include "SUWDialog.h"
 
 #if !UE_SERVER
-class SUWPlayerInfoDialog : public SUWDialog, public FGCObject
+class UNREALTOURNAMENT_API SUWPlayerInfoDialog : public SUWDialog, public FGCObject
 {
 public:
 

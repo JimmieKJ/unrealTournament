@@ -7,7 +7,7 @@
 
 #if !UE_SERVER
 
-class SUWLoginDialog : public SCompoundWidget
+class UNREALTOURNAMENT_API SUWLoginDialog : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWLoginDialog)
 	{}

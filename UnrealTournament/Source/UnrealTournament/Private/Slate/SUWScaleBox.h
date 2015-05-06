@@ -3,7 +3,7 @@
 
 #include "SlateBasics.h"
 #if !UE_SERVER
-class SUWScaleBox : public SCompoundWidget
+class UNREALTOURNAMENT_API SUWScaleBox : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWScaleBox)
 	: _bMaintainAspectRatio(true)

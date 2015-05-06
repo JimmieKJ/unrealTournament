@@ -7,7 +7,7 @@
 
 #if !UE_SERVER
 
-class SUTMenuBase : public SUWindowsDesktop
+class UNREALTOURNAMENT_API SUTMenuBase : public SUWindowsDesktop
 {
 public:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
