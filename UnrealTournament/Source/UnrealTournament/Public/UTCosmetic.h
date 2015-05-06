@@ -39,22 +39,22 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FColorSwap> VariantColorSwaps;
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Cosmetic Wearer Killed Enemy"))
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Killed Enemy"))
 	virtual void OnFlashCountIncremented();
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Cosmetic Wearer Got Killing Spree"))
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Got Killing Spree"))
 	virtual void OnSpreeLevelChanged(int32 NewSpreeLevel);
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Cosmetic Wearer Started Taunting"))
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Started Taunting"))
 	virtual void OnWearerEmoteStarted();
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "On Cosmetic Wearer Stopped Taunting"))
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Stopped Taunting"))
 	virtual void OnWearerEmoteEnded();
 
 	UFUNCTION(BlueprintNativeEvent)
 	void OnWearerHeadshot();
 
-	UFUNCTION(BlueprintNativeEvent, meta = (FriendlyName = "On Variant Selected"))
+	UFUNCTION(BlueprintNativeEvent, meta = (DisplayName = "On Variant Selected"))
 	void OnVariantSelected(int32 Variant);
 
 	UFUNCTION(BlueprintNativeEvent, meta = (FriendlyName = "On Cosmetic Wearer Death"))

@@ -351,7 +351,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSlowerEmote();
 
-	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (FriendlyName = "Play Taunt"))
+	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (DisplayName = "Play Taunt"))
 	void PlayTaunt();
 
 	UFUNCTION(BlueprintCallable, Category = Taunt)
@@ -1459,7 +1459,7 @@ protected:
 	UFUNCTION()
 	void DeathCleanupTimer();
 
-	UFUNCTION(BlueprintNativeEvent, Category = "Pawn|Character|InternalEvents", meta = (FriendlyName = "CanDodge"))
+	UFUNCTION(BlueprintNativeEvent, Category = "Pawn|Character|InternalEvents", meta = (DisplayName = "CanDodge"))
 	bool CanDodgeInternal() const;
 
 	/** multiplier to firing speed */

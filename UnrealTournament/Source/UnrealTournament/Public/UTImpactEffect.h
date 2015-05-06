@@ -98,7 +98,7 @@ private:
 	 * @param SpawnedBy - calling Actor, if any (for example, the projectile that exploded), commonly used for LastRenderTime checks to avoid the effect
 	 * @param InstigatedBy - Controller that instigated the effect, if any - commonly used to prioritize effects created by local players
 	 */
-	UFUNCTION(BlueprintCallable, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", FriendlyName = "SpawnEffect", AutoCreateRefTerm = "EffectParams"), Category = Effects)
+	UFUNCTION(BlueprintCallable, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", DisplayName = "SpawnEffect", AutoCreateRefTerm = "EffectParams"), Category = Effects)
 	static void CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp = NULL, AActor* SpawnedBy = NULL, AController* InstigatedBy = NULL, ESoundReplicationType SoundReplication = SRT_IfSourceNotReplicated, const FImpactEffectNamedParameters& EffectParams
 #if CPP
 		= FImpactEffectNamedParameters()
