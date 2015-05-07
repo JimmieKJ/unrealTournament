@@ -73,5 +73,8 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 
 	/** Rate player as camera focus for spectating. */
 	virtual float RatePlayerCamera(AUTPlayerState* InPS, AUTCharacter *Character, APlayerState* CurrentCamPS);
+
+	virtual void ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot) override;
+
 };
 

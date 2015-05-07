@@ -317,3 +317,12 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 		PostProcessBlendCacheWeights.Insert(1.0f, 0);
 	}
 }
+
+void AUTPlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot)
+{
+	if (PCOwner && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && !bAllowSpecCameraControl)
+	{
+		return;
+	}
+	Super::ProcessViewRotation(DeltaTime, OutViewRotation, OutDeltaRot);
+}
