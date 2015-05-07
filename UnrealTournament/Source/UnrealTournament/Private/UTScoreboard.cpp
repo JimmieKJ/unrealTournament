@@ -19,7 +19,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderY = 8;
 	ColumnY = 12;
 	ColumnMedalX = 0.6;
-	FooterPosY = 936.f;
+	FooterPosY = 1020.f;
 	CellHeight = 40;
 
 	FlagX = 0.065;
@@ -368,7 +368,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 }
 
-void UUTScoreboard::DrawServerPanel(float RenderDelta, float& YOffset)
+void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 {
 	if (UTGameState)
 	{
@@ -379,8 +379,8 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float& YOffset)
 			{
 				return;
 			}
-			YOffset = 800.f;
 		}
+
 		// Draw the Background
 		DrawTexture(TextureAtlas, 0, YOffset, 1269, 38, 4, 132, 30, 38, 1.0);
 		DrawText(FText::FromString(UTGameState->ServerName), 10, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);

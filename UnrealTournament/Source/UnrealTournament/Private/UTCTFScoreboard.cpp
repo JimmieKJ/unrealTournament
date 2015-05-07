@@ -232,7 +232,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 
 	float XL, YL;
 	Canvas->TextSize(UTHUDOwner->LargeFont, ScoringPlaysHeader.ToString(), XL, YL, RenderScale, RenderScale);
-	YPos += YL * 0.5f;
 	Canvas->DrawText(UTHUDOwner->LargeFont, ScoringPlaysHeader, (Canvas->ClipX - XL) * 0.5, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += YL * 1.2f;
 	float ScoreWidth = 0.5f* (Canvas->ClipX - 2.f*XOffset);

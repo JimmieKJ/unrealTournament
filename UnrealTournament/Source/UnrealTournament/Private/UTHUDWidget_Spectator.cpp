@@ -21,9 +21,9 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
-		if (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
+		if (UTGameState->IsMatchAtHalftime() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
 		{
-			return !bShowScores;
+			return true;
 		}
 		return (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL)));
 	}
