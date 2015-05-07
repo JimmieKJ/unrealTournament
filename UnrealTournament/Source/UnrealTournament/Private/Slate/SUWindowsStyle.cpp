@@ -379,6 +379,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{ // Server Browser
 	
 		Style.Set("UT.Icon.Epic", new IMAGE_BRUSH("Icons/UT.Icon.Epic", Icon54x54));
+		Style.Set("UT.Icon.Raxxy", new IMAGE_BRUSH("Icons/UT.Icon.Raxxy", Icon54x54));
 		Style.Set("UT.Icon.Globe", new IMAGE_BRUSH("Icons/UT.Icon.Globe", Icon54x54));
 	}
 

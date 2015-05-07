@@ -1095,9 +1095,12 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				
 				uint32 ServerPing = -1;
 
+				int32 ServerTrustLevel = 2;
+				Result.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
+
 				FString BeaconIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags);
+				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags,ServerTrustLevel);
 				NewServer->SearchResult = Result;
 
 				if (PingList.Num() == 0 || ServerGamePath != LOBBY_GAME_PATH )
@@ -1681,7 +1684,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		int32 NumFriends = 0;
 		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00,0);
 		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
@@ -1699,7 +1702,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
 		AllHubServers.Remove(RandomHUB);
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00,0);
 		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
@@ -1951,7 +1954,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 {
 
-	if (HUB->bFakeHUB)
+	if (HUB->bFakeHUB || HUB->TrustLevel > 1)
 	{
 		return 	SNew(SBox)						// First the overlaid box that controls everything....
 			.HeightOverride(54)
@@ -1963,13 +1966,22 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 	}
 	else
 	{
-		return 	SNew(SBox)						// First the overlaid box that controls everything....
-			.HeightOverride(54)
-			.WidthOverride(54)
-			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Epic"))
-			];
+		if (HUB->TrustLevel == 0)
+		{
+			return 	SNew(SBox).HeightOverride(54).WidthOverride(54)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Epic"))
+				];
+		}
+		else
+		{
+			return 	SNew(SBox).HeightOverride(54).WidthOverride(54)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Raxxy"))
+				];
+		}
 	
 	}
 
