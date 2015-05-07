@@ -25,7 +25,7 @@ bool UUTDeathMessage::UseLargeFont(int32 MessageIndex) const
 
 FLinearColor UUTDeathMessage::GetMessageColor(int32 MessageIndex) const
 {
-	return FLinearColor::Red;
+	return FLinearColor(1.f, 0.2f, 0.2f);
 }
 
 void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
