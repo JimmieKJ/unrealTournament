@@ -5,6 +5,10 @@
 UUTPlayerInput::UUTPlayerInput(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	AccelerationPower = 0;
+	Acceleration = 0.00005f;
+	AccelerationOffset = 0;
+	AccelerationMax = 1;
 }
 
 bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)

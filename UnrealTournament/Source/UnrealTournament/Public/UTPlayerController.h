@@ -738,8 +738,8 @@ public:
 
 	UFUNCTION(server, reliable, withvalidation)
 	void ServerRegisterBanVote(AUTPlayerState* BadGuy);
-
-
+	
+	virtual void UpdateRotation(float DeltaTime) override;
 };
 
 

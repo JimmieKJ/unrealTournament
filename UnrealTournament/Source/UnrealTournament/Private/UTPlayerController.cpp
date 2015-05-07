@@ -39,7 +39,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	BaseLookUpRate = 45.f;
 
 	bAutoWeaponSwitch = true;
-
+	
 	MaxDodgeClickTime = 0.25f;
 	MaxDodgeTapTime = 0.3f;
 	LastTapLeftTime = -10.f;
@@ -1336,22 +1336,18 @@ void AUTPlayerController::PerformSingleTapDodge()
 		if (MovementStrafeAxis > 0.5f)
 		{
 			MyCharMovement->bPressedDodgeRight = true;
-			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Right"));
 		}
 		else if (MovementStrafeAxis < -0.5f)
 		{
 			MyCharMovement->bPressedDodgeLeft = true;
-			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Left"));
 		}
 		else if ( MovementForwardAxis >= 0.f)
 		{
 			MyCharMovement->bPressedDodgeForward = true;
-			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Forward"));
 		}
 		else
 		{
 			MyCharMovement->bPressedDodgeBack = true;
-			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Back"));
 		}
 	}
 }
@@ -2885,4 +2881,38 @@ void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* B
 	{
 		GameState->VoteForTempBan(BadGuy, UTPlayerState);	
 	}
+}
+
+void AUTPlayerController::UpdateRotation(float DeltaTime)
+{
+	UUTPlayerInput* Input = Cast<UUTPlayerInput>(PlayerInput);
+	if (Input)
+	{
+		if (Input->AccelerationPower > 0)
+		{
+			float BaseSensivity = Input->GetMouseSensitivity();
+			FRotator UnscaledInput = RotationInput * (1.0f / BaseSensivity);
+			float InputLength = FMath::Sqrt(UnscaledInput.Yaw * UnscaledInput.Yaw + UnscaledInput.Pitch * UnscaledInput.Pitch);
+			float InputSpeed = InputLength / DeltaTime;
+			if (InputSpeed > 0)
+			{
+				UE_LOG(LogUTPlayerController, Verbose, TEXT("AUTPlayerController::UpdateRotation Pre: %f %f Speed: %f"), RotationInput.Yaw, RotationInput.Pitch, InputSpeed);
+				InputSpeed -= Input->AccelerationOffset;
+				if (InputSpeed > 0)
+				{
+					float AdjustmentAmount = FMath::Pow(InputSpeed * Input->Acceleration, Input->AccelerationPower);
+					if (Input->AccelerationMax > 0 && AdjustmentAmount > Input->AccelerationMax)
+					{
+						AdjustmentAmount = Input->AccelerationMax * DeltaTime;
+					}
+
+					// Scale rotation input by acceleration
+					RotationInput = UnscaledInput * (BaseSensivity + AdjustmentAmount);
+					UE_LOG(LogUTPlayerController, Verbose, TEXT("AUTPlayerController::UpdateRotation Post: %f %f"), RotationInput.Yaw, RotationInput.Pitch);
+				}
+			}
+		}
+	}
+
+	Super::UpdateRotation(DeltaTime);
 }
