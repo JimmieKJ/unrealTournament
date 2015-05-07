@@ -11,6 +11,9 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assisted by");
 	UnassistedText = NSLOCTEXT("CTF", "Unassisted", "Unassisted");
 	NoScoringText = NSLOCTEXT("CTF", "NoScoring", "No Scoring");
+	PeriodText[0] = NSLOCTEXT("UTScoreboard", "FirstHalf", "First Half");
+	PeriodText[1] = NSLOCTEXT("UTScoreboard", "SecondHalf", "Second Half");
+	PeriodText[2] = NSLOCTEXT("UTScoreboard", "Overtime", "Overtime");
 
 	ColumnHeaderScoreX = 0.54;
 	ColumnHeaderCapsX = 0.66;
@@ -24,6 +27,7 @@ void UUTCTFScoreboard::OpenScoringPlaysPage()
 {
 	SetPage(1);
 }
+
 void UUTCTFScoreboard::PageChanged_Implementation()
 {
 	GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
@@ -203,24 +207,8 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 {
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
-	uint8 CurrentPeriod = 0;
-	if (CTFState->HasMatchEnded())
-	{
-		// show scores for last played period
-		for (const FCTFScoringPlay& Play : CTFState->GetScoringPlays())
-		{
-			CurrentPeriod = FMath::Max<uint8>(CurrentPeriod, Play.Period);
-		}
-	}
-	// TODO: currently there's no intermission between second half and OT
-	else if (CTFState->IsMatchAtHalftime())
-	{
-		CurrentPeriod = 0;
-	}
-	else
-	{
-		CurrentPeriod = CTFState->bSecondHalf ? 1 : 0;
-	}
+	int32 CurrentPeriod = -1;
+
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	float XOffset = Canvas->ClipX * 0.08f;
 	FFontRenderInfo TextRenderInfo;
@@ -236,7 +224,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	YPos += YL * 1.2f;
 	float ScoreWidth = 0.5f* (Canvas->ClipX - 2.f*XOffset);
 	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
-	bool bDrewSomething = false;
 
 	float MedYL;
 	Canvas->TextSize(UTHUDOwner->MediumFont, "TEST", XL, MedYL, RenderScale, RenderScale);
@@ -246,38 +233,62 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	float TopYPos = YPos;
 	float ScoringOffsetX, ScoringOffsetY;
 	Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-
+	int32 NumPlays = CTFState->GetScoringPlays().Num();
+	int32 SmallPlays = FMath::Max(2 * (NumPlays - 10), 0);
+	int32 SkippedPlays = FMath::Max(SmallPlays - 20, 0);
 	for (const FCTFScoringPlay& Play : CTFState->GetScoringPlays())
 	{
 		if (Play.Team != NULL) // should always be true...
 		{
-			if (Play.Period >= CurrentPeriod)
+			if (Play.Period > CurrentPeriod)
 			{
-				bDrewSomething = true;
-				float BoxYPos = YPos;
-
-				// draw background
-				FLinearColor DrawColor = FLinearColor::White;
-				DrawTexture(TextureAtlas, XOffset, YPos, ScoreWidth, ScoreHeight, 149, 138, 32, 32, 0.5f, DrawColor);
-
-				FString ScoredByLine = Play.ScoredBy.GetPlayerName();
-				if (Play.ScoredByCaps > 1)
+				CurrentPeriod++;
+				if (CurrentPeriod < 3)
 				{
-					ScoredByLine += FString::Printf(TEXT(" (%i)"), Play.ScoredByCaps);
+					float XL, YL;
+					Canvas->TextSize(UTHUDOwner->MediumFont, "XXX", XL, YL, RenderScale, RenderScale);
+					DrawText(PeriodText[CurrentPeriod], XOffset + 0.2f*ScoreWidth, YPos, UTHUDOwner->MediumFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top, TextRenderInfo);
+					YPos += YL;
 				}
-				float XL, YL;
-				Canvas->TextSize(UTHUDOwner->MediumFont, ScoredByLine, XL, YL, RenderScale, RenderScale);
+			}
+			if (SkippedPlays > 0)
+			{
+				SkippedPlays--;
+				continue;
+			}
+			float BoxYPos = YPos;
+			bool bIsSmallPlay = (SmallPlays > 0);
+			if (bIsSmallPlay)
+			{
+				SmallPlays--;
+			}
+			// draw background
+			FLinearColor DrawColor = FLinearColor::White;
+			float CurrentScoreHeight = bIsSmallPlay ? 0.5f*ScoreHeight : ScoreHeight;
+			DrawTexture(TextureAtlas, XOffset, YPos, ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, 0.5f, DrawColor);
 
-				// time of game
-				FString TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), Play.RemainingTime, false, true, false).ToString();
-				Canvas->SetLinearDrawColor(FLinearColor::White);
-				Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.05f*ScoreWidth, YPos + 0.5f*ScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
+			FString ScoredByLine = Play.ScoredBy.GetPlayerName();
+			if (Play.ScoredByCaps > 1)
+			{
+				ScoredByLine += FString::Printf(TEXT(" (%i)"), Play.ScoredByCaps);
+			}
+			float XL, YL;
+			Canvas->TextSize(UTHUDOwner->MediumFont, ScoredByLine, XL, YL, RenderScale, RenderScale);
 
-				// scored by
-				Canvas->SetLinearDrawColor(Play.Team->TeamColor);
-				Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.2f*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
-				YPos += YL;
-				float OldYL = YL;
+			// time of game
+			FString TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), Play.RemainingTime, false, true, false).ToString();
+			Canvas->SetLinearDrawColor(FLinearColor::White);
+			Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.05f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
+
+			// scored by
+			Canvas->SetLinearDrawColor(Play.Team->TeamColor);
+			float ScorerNameYOffset = bIsSmallPlay ? YPos + 0.5f*CurrentScoreHeight - 0.5f*YL : YPos;
+			Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.2f*ScoreWidth, ScorerNameYOffset, RenderScale, RenderScale, TextRenderInfo);
+			YPos += YL;
+			float OldYL = YL;
+
+			if (!bIsSmallPlay)
+			{
 				// assists
 				FString AssistLine;
 				if (Play.Assists.Num() > 0)
@@ -295,37 +306,37 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				}
 				Canvas->TextSize(UTHUDOwner->SmallFont, AssistLine, XL, YL, RenderScale, RenderScale);
 				Canvas->DrawText(UTHUDOwner->SmallFont, AssistLine, XOffset + 0.2f*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+			}
 
-				float SingleXL, SingleYL;
-				YPos = BoxYPos + 0.5f*(ScoreHeight - ScoringOffsetY);
-				float ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
-				Canvas->SetLinearDrawColor(CTFState->Teams[0]->TeamColor);
-				FString SingleScorePart = FString::Printf(TEXT(" %i"), Play.TeamScores[0]);
-				Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
-				Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-				Canvas->SetLinearDrawColor(FLinearColor::White);
-				ScoreX += SingleXL;
-				Canvas->TextSize(UTHUDOwner->MediumFont, "-", SingleXL, SingleYL, RenderScale, RenderScale);
-				ScoreX += SingleXL;
-				Canvas->DrawText(UTHUDOwner->MediumFont, "-", ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-				Canvas->SetLinearDrawColor(CTFState->Teams[1]->TeamColor);
-				ScoreX += SingleXL;
-				Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+			float SingleXL, SingleYL;
+			YPos = BoxYPos + 0.5f*(CurrentScoreHeight - ScoringOffsetY);
+			float ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
+			Canvas->SetLinearDrawColor(CTFState->Teams[0]->TeamColor);
+			FString SingleScorePart = FString::Printf(TEXT(" %i"), Play.TeamScores[0]);
+			Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
+			Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+			Canvas->SetLinearDrawColor(FLinearColor::White);
+			ScoreX += SingleXL;
+			Canvas->TextSize(UTHUDOwner->MediumFont, "-", SingleXL, SingleYL, RenderScale, RenderScale);
+			ScoreX += SingleXL;
+			Canvas->DrawText(UTHUDOwner->MediumFont, "-", ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+			Canvas->SetLinearDrawColor(CTFState->Teams[1]->TeamColor);
+			ScoreX += SingleXL;
+			Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 
-				YPos += MedYL+SmallYL;
-				if (YPos >= MaxHeight + ScoreHeight)
+			YPos += bIsSmallPlay ? MedYL : MedYL + SmallYL;
+			if (YPos >= MaxHeight + ScoreHeight)
+			{
+				XOffset += ScoreWidth + 0.5f*XOffset;
+				YPos = TopYPos;
+				if (XOffset > Canvas->ClipX - ScoreWidth)
 				{
-					XOffset += ScoreWidth + 0.5f*XOffset;
-					YPos = TopYPos;
-					if (XOffset > Canvas->ClipX - ScoreWidth)
-					{
-						break;
-					}
+					break;
 				}
 			}
 		}
 	}
-	if (!bDrewSomething)
+	if (CTFState->GetScoringPlays().Num() == 0)
 	{
 		float XL, YL;
 		Canvas->TextSize(UTHUDOwner->MediumFont, NoScoringText.ToString(), XL, YL, RenderScale, RenderScale);
