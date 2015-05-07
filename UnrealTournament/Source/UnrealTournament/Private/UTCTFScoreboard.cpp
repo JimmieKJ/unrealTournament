@@ -21,6 +21,12 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	ColumnHeaderReturnsX = 0.79;
 	ReadyX = 0.7f;
 	NumPages = 2;
+
+	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
+	HUDAtlas = HUDTex.Object;
+
+	TeamIconUV[0] = FVector2D(257.f, 940.f);
+	TeamIconUV[1] = FVector2D(333.f, 940.f);
 }
 
 void UUTCTFScoreboard::OpenScoringPlaysPage()
@@ -267,6 +273,11 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 			float CurrentScoreHeight = bIsSmallPlay ? 0.5f*ScoreHeight : ScoreHeight;
 			DrawTexture(TextureAtlas, XOffset, YPos, ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, 0.5f, DrawColor);
 
+			// draw scoring team icon
+			int32 IconIndex = Play.Team->TeamIndex;
+			IconIndex = FMath::Min(IconIndex, 1);
+			DrawTexture(HUDAtlas, XOffset + 0.1f*ScoreWidth, YPos + 0.1f*CurrentScoreHeight, 0.8*CurrentScoreHeight, 0.8*CurrentScoreHeight, TeamIconUV[IconIndex].X, TeamIconUV[IconIndex].Y, 72, 72, 1.f, Play.Team->TeamColor);
+
 			FString ScoredByLine = Play.ScoredBy.GetPlayerName();
 			if (Play.ScoredByCaps > 1)
 			{
@@ -305,6 +316,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 					AssistLine = UnassistedText.ToString();
 				}
 				Canvas->TextSize(UTHUDOwner->SmallFont, AssistLine, XL, YL, RenderScale, RenderScale);
+				Canvas->SetLinearDrawColor(FLinearColor::White);
 				Canvas->DrawText(UTHUDOwner->SmallFont, AssistLine, XOffset + 0.2f*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
 			}
 

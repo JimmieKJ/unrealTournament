@@ -48,6 +48,12 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY()
 		float TimeLineOffset;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		UTexture2D* HUDAtlas;
+
+	UPROPERTY(EditAnywhere, Category = "Scoreboard")
+		FVector2D TeamIconUV[2];
+
 protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
