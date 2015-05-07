@@ -234,8 +234,8 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	float ScoringOffsetX, ScoringOffsetY;
 	Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
 	int32 NumPlays = CTFState->GetScoringPlays().Num();
-	int32 SmallPlays = FMath::Max(2 * (NumPlays - 10), 0);
-	int32 SkippedPlays = FMath::Max(SmallPlays - 20, 0);
+	int32 SmallPlays = FMath::Max(2 * (NumPlays - 12), 0);
+	int32 SkippedPlays = FMath::Max(SmallPlays - 24, 0);
 	for (const FCTFScoringPlay& Play : CTFState->GetScoringPlays())
 	{
 		if (Play.Team != NULL) // should always be true...
@@ -282,7 +282,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 
 			// scored by
 			Canvas->SetLinearDrawColor(Play.Team->TeamColor);
-			float ScorerNameYOffset = bIsSmallPlay ? YPos + 0.5f*CurrentScoreHeight - 0.5f*YL : YPos;
+			float ScorerNameYOffset = bIsSmallPlay ? BoxYPos + 0.5f*CurrentScoreHeight - 0.6f*YL : YPos;
 			Canvas->DrawText(UTHUDOwner->MediumFont, ScoredByLine, XOffset + 0.2f*ScoreWidth, ScorerNameYOffset, RenderScale, RenderScale, TextRenderInfo);
 			YPos += YL;
 			float OldYL = YL;
@@ -309,7 +309,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 			}
 
 			float SingleXL, SingleYL;
-			YPos = BoxYPos + 0.5f*(CurrentScoreHeight - ScoringOffsetY);
+			YPos = BoxYPos + 0.5f*CurrentScoreHeight - 0.6f*ScoringOffsetY;
 			float ScoreX = XOffset + 0.95f*ScoreWidth - ScoringOffsetX;
 			Canvas->SetLinearDrawColor(CTFState->Teams[0]->TeamColor);
 			FString SingleScorePart = FString::Printf(TEXT(" %i"), Play.TeamScores[0]);
@@ -324,7 +324,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 			ScoreX += SingleXL;
 			Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 
-			YPos += bIsSmallPlay ? MedYL : MedYL + SmallYL;
+			YPos = BoxYPos + CurrentScoreHeight + 8.f*RenderScale;
 			if (YPos >= MaxHeight + ScoreHeight)
 			{
 				XOffset += ScoreWidth + 0.5f*XOffset;
