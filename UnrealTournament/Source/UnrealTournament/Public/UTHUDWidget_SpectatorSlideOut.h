@@ -73,6 +73,9 @@ public:
 	FName BlueFlagBind;
 
 	UPROPERTY()
+		FName AutoCamBind;
+
+	UPROPERTY()
 	FName CameraBind[10];
 
 	UPROPERTY()

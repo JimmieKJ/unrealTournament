@@ -792,6 +792,7 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 		}
 		if (PlayerToView != NULL)
 		{
+			bAutoCam = false;
 			BehindView(bSpectateBehindView);
 			ServerViewPlayerState(*PlayerToView);
 		}
@@ -822,6 +823,7 @@ void AUTPlayerController::ToggleShowBinds()
 
 void AUTPlayerController::ViewNextPlayer()
 {
+	bAutoCam = false;
 	ServerViewNextPlayer();
 }
 
@@ -860,6 +862,7 @@ void AUTPlayerController::ViewClosestVisiblePlayer()
 	}
 	if (BestChar)
 	{
+		bAutoCam = false;
 		ServerViewPlayerState(BestChar);
 	}
 }
@@ -880,6 +883,7 @@ void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 
 void AUTPlayerController::ViewFlag(uint8 Index)
 {
+	bAutoCam = false;
 	ServerViewFlag(Index);
 }
 
@@ -913,6 +917,7 @@ void AUTPlayerController::ViewCamera(int32 Index)
 				CamCount++;
 				if (CamCount == Index)
 				{
+					bAutoCam = false;
 					AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
 					NewViewTarget->SetActorLocationAndRotation(Cam->GetActorLocation(), Cam->GetActorRotation());
 					ResetCameraMode();
@@ -937,6 +942,7 @@ void AUTPlayerController::ViewProjectile()
 				APawn* Pawn = *Iterator;
 				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
 				{
+					bAutoCam = false;
 					ServerViewPawn(*Iterator);
 				}
 			}
@@ -958,6 +964,7 @@ void AUTPlayerController::ViewProjectile()
 					LastSpectatedPlayerState = ViewedCharacter->PlayerState;
 				}
 			}
+			bAutoCam = false;
 			ServerViewProjectile();
 		}
 	}
@@ -2868,8 +2875,6 @@ void AUTPlayerController::UpdateWeaponGroupKeys()
 			}
 		}
 	}
-
-	UE_LOG(UT,Log,TEXT("Here"));
 }
 
 bool AUTPlayerController::ServerRegisterBanVote_Validate(AUTPlayerState* BadGuy) { return true; }

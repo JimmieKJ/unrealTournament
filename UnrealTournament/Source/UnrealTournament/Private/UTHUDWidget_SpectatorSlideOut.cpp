@@ -88,9 +88,12 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 				}
 				else if (Input->SpectatorBinds[i].Command.Left(10) == "ViewCamera")
 				{
-					// @TODO FIXMESTEVE - parse and get value
 					CameraBind[CameraIndex] = Input->SpectatorBinds[i].KeyName;
 					CameraIndex++;
+				}
+				else if (Input->SpectatorBinds[i].Command == "EnableAutoCam")
+				{
+					AutoCamBind = Input->SpectatorBinds[i].KeyName;
 				}
 			}
 		}
@@ -246,6 +249,9 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				}
 			}
 			DrawOffset += 0.25f*(10.f-float(NumCameras))*CellHeight;
+			DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
+			DrawOffset += CellHeight;
+
 			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 			{
 				// show flag binds
@@ -269,7 +275,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				}
 			}
 			static FName NAME_PressFire = FName(TEXT("Fire"));
-			DrawCamBind(NAME_PressFire, "View Next Player", DeltaTime, XOffset, DrawOffset, false);
+			DrawCamBind(NAME_PressFire, "Camera Rotation Control", DeltaTime, XOffset, DrawOffset, false);
 			DrawOffset += CellHeight;
 			static FName NAME_PressAltFire = FName(TEXT("AltFire"));
 			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
