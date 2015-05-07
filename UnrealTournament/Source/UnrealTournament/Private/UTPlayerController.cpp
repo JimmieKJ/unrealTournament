@@ -1829,6 +1829,11 @@ FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
+		{
+			return GetControlRotation();
+		}
 		float OldYaw = FMath::UnwindDegrees(GetControlRotation().Yaw);
 		FindGoodView(true);
 		FRotator NewRotation = GetControlRotation();
