@@ -127,7 +127,7 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	}
 
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.475f*Width));
-	FText PlayerScore = FText::AsNumber(PlayerState->Score);
+	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
 	FText PlayerCaps = FText::AsNumber(PlayerState->FlagCaptures);
 	FText PlayerAssists = FText::AsNumber(PlayerState->Assists);
 	FText PlayerReturns = FText::AsNumber(PlayerState->FlagReturns);
