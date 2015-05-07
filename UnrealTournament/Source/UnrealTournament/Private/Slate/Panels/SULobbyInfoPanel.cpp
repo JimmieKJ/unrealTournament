@@ -308,9 +308,11 @@ FReply SULobbyInfoPanel::ReadyButtonClicked()
 		{
 			if (LPS->CurrentMatch->OwnerId == LPS->UniqueId)	// Host
 			{
+					AUTLobbyMatchInfo* MatchInfo = LPS->CurrentMatch;
+
+/*
 					// Look to see if everyone is ready....
 					bool bAllReady = true;
-					AUTLobbyMatchInfo* MatchInfo = LPS->CurrentMatch;
 					for (int32 i=0; i < MatchInfo->Players.Num(); i++)
 					{
 						if (MatchInfo->Players[i].IsValid() && MatchInfo->Players[i] != LPS && !MatchInfo->Players[i]->bReadyToPlay)
@@ -325,7 +327,7 @@ FReply SULobbyInfoPanel::ReadyButtonClicked()
 						PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","NotEveryoneReadyCaption","Not Ready"),NSLOCTEXT("LobbyMessages","NotEveryoneReadyMsg","Everone isn't ready to play.  Please wait for everyone before starting the match!"), UTDIALOG_BUTTON_OK);
 						return FReply::Handled();
 					}
-
+*/
 					if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 					{
 						MatchInfo->ServerStartMatch();	

@@ -1696,12 +1696,12 @@ bool UUTLocalPlayer::IsPlayerShowingSocialNotification() const
 
 void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful)
 {
-	UE_LOG(UT,Log,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
+	UE_LOG(UT,Verbose,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
 }
 
 void UUTLocalPlayer::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
-	UE_LOG(UT,Log,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
+	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
 
 void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId)

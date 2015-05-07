@@ -96,6 +96,5 @@ const FSlateBrush* AUTReplicatedGameRuleset::GetSlateBadge() const
 
 void AUTReplicatedGameRuleset::GotTag()
 {
-	UE_LOG(UT,Log,TEXT("GotTag: %s"), *UniqueTag);
 }
 

@@ -126,6 +126,9 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 	Players.Add(PlayerToAdd);
 	PlayerToAdd->AddedToMatch(this);
 	PlayerToAdd->ChatDestination = ChatDestinations::Match;
+
+	// Players default to ready
+	PlayerToAdd->bReadyToPlay = true;
 }
 
 bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
