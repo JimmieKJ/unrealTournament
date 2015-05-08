@@ -121,6 +121,19 @@ protected:
 	TSharedPtr<SEditableTextBox> MouseSensitivityEdit;
 	/** range of values passed to PlayerInput->SetMouseSensitivity() which will be normalized to 0.0 - 1.0 for the slider widget */
 	FVector2D MouseSensitivityRange;
+	void EditSensitivity(const FText& Input, ETextCommit::Type);
+
+	TSharedPtr<SCheckBox> MouseAccelerationCheckBox;
+	TSharedPtr<SEditableTextBox> MouseAccelerationEdit;
+	TSharedPtr<SSlider> MouseAcceleration;
+	FVector2D MouseAccelerationRange;
+	void EditAcceleration(const FText& Input, ETextCommit::Type);
+
+	TSharedPtr<SCheckBox> MouseAccelerationMaxCheckBox;
+	TSharedPtr<SEditableTextBox> MouseAccelerationMaxEdit;
+	TSharedPtr<SSlider> MouseAccelerationMax;
+	FVector2D MouseAccelerationMaxRange;
+	void EditAccelerationMax(const FText& Input, ETextCommit::Type);
 
 	//movement settings
 	TSharedPtr<SCheckBox> SingleTapWallDodge;
@@ -130,7 +143,6 @@ protected:
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeClickTime;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeTapTime;
 
-	void EditSensitivity(const FText& Input, ETextCommit::Type);
 
 	float MaxDodgeClickTimeValue;
 	float MaxDodgeTapTimeValue;
