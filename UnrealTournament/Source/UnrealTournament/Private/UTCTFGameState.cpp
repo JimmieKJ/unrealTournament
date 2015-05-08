@@ -269,3 +269,13 @@ float AUTCTFGameState::ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Chara
 	}
 	return 0.f;
 }
+
+uint8 AUTCTFGameState::NearestTeamSide(AActor* InActor)
+{
+	if (FlagBases.Num() > 1)
+	{
+		((InActor->GetActorLocation() - FlagBases[0]->GetActorLocation()).Size() < (InActor->GetActorLocation() - FlagBases[1]->GetActorLocation()).Size()) ? 0 : 1;
+	}
+	return 255;
+}
+

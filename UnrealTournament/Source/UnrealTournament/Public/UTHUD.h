@@ -101,6 +101,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		UTexture2D* HUDAtlas;
 
+	UPROPERTY(EditAnywhere, Category = "Scoreboard")
+		FVector2D TeamIconUV[2];
+
 	/** last time we hit an enemy in LOS */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float LastConfirmedHitTime;

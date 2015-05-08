@@ -204,4 +204,6 @@ public:
 	virtual FText GetGameStatusText();
 
 	virtual float ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Character) override;
+
+	virtual uint8 NearestTeamSide(AActor* InActor) override;
 };

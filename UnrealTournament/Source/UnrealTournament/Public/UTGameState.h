@@ -301,6 +301,11 @@ public:
 	UPROPERTY(Config)
 	float KickThreshold;
 
+	/** Returns which team side InActor is closest to.   255 = no team. */
+	virtual uint8 NearestTeamSide(AActor* InActor)
+	{
+		return 255;
+	};
 };
 
 

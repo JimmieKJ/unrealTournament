@@ -95,5 +95,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		UTexture2D* FlagAtlas;
 
+	UPROPERTY()
+		TArray<AUTPickupInventory*> PowerupList;
+
+	UPROPERTY()
+		bool bPowerupListInitialized;
+
+	virtual void InitPowerupList();
+
 private:
 };

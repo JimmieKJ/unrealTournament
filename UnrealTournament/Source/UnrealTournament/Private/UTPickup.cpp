@@ -49,6 +49,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	PickupMessageString = NSLOCTEXT("PickupMessage", "ItemPickedUp", "Item snagged.");
 	bHasTacComView = false;
+	TeamSide = 255;
 }
 
 void AUTPickup::SetupTimerSprite()

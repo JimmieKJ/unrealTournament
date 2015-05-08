@@ -21,9 +21,6 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	ColumnHeaderReturnsX = 0.79;
 	ReadyX = 0.7f;
 	NumPages = 2;
-
-	TeamIconUV[0] = FVector2D(257.f, 940.f);
-	TeamIconUV[1] = FVector2D(333.f, 940.f);
 }
 
 void UUTCTFScoreboard::OpenScoringPlaysPage()
@@ -273,7 +270,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 			// draw scoring team icon
 			int32 IconIndex = Play.Team->TeamIndex;
 			IconIndex = FMath::Min(IconIndex, 1);
-			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 0.1f*ScoreWidth, YPos + 0.1f*CurrentScoreHeight, 0.8*CurrentScoreHeight, 0.8*CurrentScoreHeight, TeamIconUV[IconIndex].X, TeamIconUV[IconIndex].Y, 72, 72, 1.f, Play.Team->TeamColor);
+			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + 0.1f*ScoreWidth, YPos + 0.1f*CurrentScoreHeight, 0.8*CurrentScoreHeight, 0.8*CurrentScoreHeight, UTHUDOwner->TeamIconUV[IconIndex].X, UTHUDOwner->TeamIconUV[IconIndex].Y, 72, 72, 1.f, Play.Team->TeamColor);
 
 			FString ScoredByLine = Play.ScoredBy.GetPlayerName();
 			if (Play.ScoredByCaps > 1)

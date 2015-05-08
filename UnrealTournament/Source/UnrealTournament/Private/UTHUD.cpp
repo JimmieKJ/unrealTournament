@@ -61,6 +61,9 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	bFontsCached = false;
 	bShowOverlays = true;
 	bHaveAddedSpectatorWidgets = false;
+
+	TeamIconUV[0] = FVector2D(257.f, 940.f);
+	TeamIconUV[1] = FVector2D(333.f, 940.f);
 }
 
 void AUTHUD::BeginPlay()

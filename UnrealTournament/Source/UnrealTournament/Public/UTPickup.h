@@ -163,6 +163,10 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	 */
 	virtual float GetRespawnTimeOffset(APawn* Asker) const;
 
+	/** For spectator slide out - show which side this pickup is on when there are multiple. */
+	UPROPERTY(BlueprintReadWrite, Category = Pickup)
+		uint8 TeamSide;
+
 protected:
 	/** last time pickup respawned, used by GetRespawnTimeOffset() */
 	float LastRespawnTime;
