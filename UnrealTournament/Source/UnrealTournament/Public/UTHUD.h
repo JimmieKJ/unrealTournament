@@ -98,6 +98,9 @@ public:
 	/** Crosshair asset pointer */
 	UTexture2D* DefaultCrosshairTex;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		UTexture2D* HUDAtlas;
+
 	/** last time we hit an enemy in LOS */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float LastConfirmedHitTime;

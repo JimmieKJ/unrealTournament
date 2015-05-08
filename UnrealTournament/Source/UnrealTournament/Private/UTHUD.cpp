@@ -53,6 +53,9 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
+	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
+	HUDAtlas = HUDTex.Object;
+
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
 	bFontsCached = false;
