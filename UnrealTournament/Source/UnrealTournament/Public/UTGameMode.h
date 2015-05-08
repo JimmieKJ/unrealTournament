@@ -74,7 +74,7 @@ public:
 	float GameDifficulty;		
 
 	/** How long to wait after the end of a match before the transition to the new level start */
-	UPROPERTY(globalconfig)
+	UPROPERTY(config)
 	float EndTimeDelay;			
 
 	/* How long after the end of the match before we display the scoreboard */

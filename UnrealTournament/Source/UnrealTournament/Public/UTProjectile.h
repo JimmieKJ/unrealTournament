@@ -181,6 +181,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY()
 	AUTProjectile* MyFakeProjectile;
 
+	/** If true (usually), move fake to server replicated position. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Projectile)
+		bool bMoveFakeToReplicatedPos;
+
 	/** Real projectile for which this projectile is providing visuals */
 	UPROPERTY()
 		AUTProjectile* MasterProjectile;
