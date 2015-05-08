@@ -66,6 +66,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
 	DOREPLIFETIME(AUTPlayerState, Loadout);
 	DOREPLIFETIME(AUTPlayerState, KickPercent);
+	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -1283,7 +1284,7 @@ void AUTPlayerState::ServerUpdateLoadout_Implementation(const TArray<AUTReplicat
 
 float AUTPlayerState::GetAvailableCurrency()
 {
-	return 0.0f;
+	return AvailableCurrency;
 }
 
 void AUTPlayerState::ClientShowLoadoutMenu_Implementation()
@@ -1373,4 +1374,16 @@ int AUTPlayerState::CountBanVotes()
 	}
 	
 	return VoteCount;
+}
+
+void AUTPlayerState::OnRepSpecialPlayer()
+{
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter* Character = Cast<AUTCharacter>(*It);
+		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
+		{
+			Character->UpdateTacComMesh(bSpecialPlayer);
+		}
+	}
 }

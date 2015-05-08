@@ -26,12 +26,12 @@ AUTPickupCrown::AUTPickupCrown(const FObjectInitializer& ObjectInitializer)
 	StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	StaticMesh->bReceivesDecals = false;
 	StaticMesh->SetStaticMesh(CrownMesh.Object);
+	StaticMesh->SetWorldScale3D(FVector(2.0f,2.0f,2.0f));
 	Mesh = StaticMesh;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	PrimaryActorTick.bAllowTickOnDedicatedServer = true;
-
 }
 
 void AUTPickupCrown::GiveTo_Implementation(APawn* Target)

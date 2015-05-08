@@ -416,8 +416,12 @@ public:
 #endif
 
 	// If true, the game type considers this player special.
-	UPROPERTY(Replicated)
+	UPROPERTY(replicatedUsing = OnRepSpecialPlayer)
 	uint32 bSpecialPlayer:1;
+
+	UFUNCTION()
+	virtual void OnRepSpecialPlayer();
+
 
 	// Allows gametypes to force a given hat on someone
 	UPROPERTY(replicatedUsing = OnRepOverrideHat)
@@ -427,6 +431,10 @@ public:
 	virtual void OnRepOverrideHat();
 
 	virtual void SetOverrideHatClass(const FString& NewOverrideHatClass);
+
+protected:
+	UPROPERTY(Replicated)
+	float AvailableCurrency;
 
 public:
 	UPROPERTY(Replicated)
