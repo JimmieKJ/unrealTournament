@@ -574,5 +574,8 @@ public:
 	UPROPERTY(Config)
 	TArray<FLoadoutInfo> LoadoutWeapons;
 
+	// Called when the player attempts to restart using AltFire
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	bool PlayerCanAltRestart( APlayerController* Player );
 };
 

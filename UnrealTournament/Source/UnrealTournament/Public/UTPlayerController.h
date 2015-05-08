@@ -740,6 +740,9 @@ public:
 	void ServerRegisterBanVote(AUTPlayerState* BadGuy);
 	
 	virtual void UpdateRotation(float DeltaTime) override;
+
+	UFUNCTION(client, reliable)
+	void ClientOpenLoadout();
 };
 
 

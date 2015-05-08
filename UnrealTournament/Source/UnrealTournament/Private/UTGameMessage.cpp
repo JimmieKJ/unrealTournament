@@ -21,7 +21,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	DidntMakeTheCut= NSLOCTEXT("UTGameMessage","DidntMakeTheCut","You didn't make the cut");
 	YouAreOnBlue = NSLOCTEXT("UTGameMessage", "YouAreOnBlue", "You are on BLUE.");
 	YouAreOnRed = NSLOCTEXT("UTGameMessage", "YouAreOnRed", "You are on RED.");
-	Coronation = NSLOCTEXT("UTGameMessage", "Coronation","Coronation.");
+	Coronation = NSLOCTEXT("UTGameMessage", "Coronation","Coronation {Player1Name} is your new king!");
 	GameChanger = NSLOCTEXT("UTGameMessage", "GameChanger", "Game Changer!");
 	KickVote = NSLOCTEXT("UTGameMessage", "KickVote", "{Player1Name} voted to kick {Player2Name}");
 

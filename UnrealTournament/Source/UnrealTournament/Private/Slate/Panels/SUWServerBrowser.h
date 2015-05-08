@@ -765,6 +765,8 @@ protected:
 
 	bool bWantsAFullRefilter;
 
+	int32 TotalPlayersPlaying;
+
 };
 
 #endif

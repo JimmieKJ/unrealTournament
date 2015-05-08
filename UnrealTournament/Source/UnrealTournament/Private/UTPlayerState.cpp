@@ -1282,6 +1282,12 @@ void AUTPlayerState::ServerUpdateLoadout_Implementation(const TArray<AUTReplicat
 	Loadout = NewLoadout;
 }
 
+void AUTPlayerState::AdjustCurrency(float Adjustment)
+{
+	AvailableCurrency += Adjustment;
+	if (AvailableCurrency < 0.0) AvailableCurrency = 0.0f;
+}
+
 float AUTPlayerState::GetAvailableCurrency()
 {
 	return AvailableCurrency;

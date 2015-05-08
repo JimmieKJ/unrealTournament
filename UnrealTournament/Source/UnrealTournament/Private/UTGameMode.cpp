@@ -2893,3 +2893,8 @@ bool AUTGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
 	
 	return false;
 }
+
+bool AUTGameMode::PlayerCanAltRestart_Implementation( APlayerController* Player )
+{
+	return PlayerCanRestart(Player);
+}

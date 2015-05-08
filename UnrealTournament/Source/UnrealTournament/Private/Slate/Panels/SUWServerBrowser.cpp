@@ -932,12 +932,32 @@ FText SUWServerBrowser::GetStatusText() const
 	{
 		int32 PingCount = PingList.Num() + PingTrackers.Num();
 
+
 		FFormatNamedArguments Args;
 		Args.Add( TEXT("PingCount"), FText::AsNumber(PingCount) );
 		Args.Add( TEXT("FilteredHubCount"), FText::AsNumber(FilteredHubsSource.Num() > 0 ? FilteredHubsSource.Num() : AllHubServers.Num()) );
 		Args.Add( TEXT("HubCount"), FText::AsNumber(AllHubServers.Num()) );
 		Args.Add( TEXT("FilteredServerCount"), FText::AsNumber(FilteredServersSource.Num()> 0 ? FilteredServersSource.Num() : AllInternetServers.Num()) );
 		Args.Add( TEXT("ServerCount"), FText::AsNumber(AllInternetServers.Num()) );
+		Args.Add( TEXT("TotalPlayers"), FText::AsNumber(TotalPlayersPlaying) );
+
+		int32 PlayerCount = 0;
+		if (bShowingHubs)
+		{
+			for (int32 i=0; i < FilteredHubsSource.Num(); i++)
+			{
+				PlayerCount += FilteredHubsSource[i]->NumPlayers + FilteredHubsSource[i]->NumSpectators;
+			}
+		}
+		else
+		{
+			for (int32 i=0; i < FilteredServersSource.Num(); i++)
+			{
+				PlayerCount += FilteredServersSource[i]->NumPlayers + FilteredServersSource[i]->NumSpectators;
+			}
+		}
+
+		Args.Add( TEXT("PlayerCount"), FText::AsNumber(PlayerCount) );
 
 		if (PingCount > 0)
 		{
@@ -945,7 +965,7 @@ FText SUWServerBrowser::GetStatusText() const
 		}
 		else
 		{
-			return FText::Format( NSLOCTEXT("SUWServerBrowser","IdleStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers"), Args);
+			return FText::Format( NSLOCTEXT("SUWServerBrowser","IdleStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers -- {PlayerCount} of {TotalPlayers} Players"), Args);
 		}
 	}
 }
@@ -1031,6 +1051,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 	if (bWasSuccessful)
 	{
+		TotalPlayersPlaying = 0;
 		if (SearchSettings->SearchResults.Num() > 0)
 		{
 			for (int32 ServerIndex = 0; ServerIndex < SearchSettings->SearchResults.Num(); ServerIndex++)
@@ -1111,6 +1132,8 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				{
 					PingList.Insert(NewServer,0);
 				}
+
+				TotalPlayersPlaying += ServerNoPlayers + ServerNoSpecs;
 			}
 		}
 
@@ -1141,6 +1164,8 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		InternetServerList->RequestListRefresh();
 		HUBServerList->RequestListRefresh();
 		PingNextServer();
+
+
 	}
 	else
 	{

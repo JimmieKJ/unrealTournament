@@ -2439,19 +2439,17 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 			AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->WeaponClass, FVector(0.0f), FRotator(0, 0, 0)), true);
 		}
 	}
-	else
-	{
-		// Add the default character inventory
-		for (int i=0;i<DefaultCharacterInventory.Num();i++)
-		{
-			AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultCharacterInventory[i], FVector(0.0f), FRotator(0, 0, 0)), true);
-		}
 
-		// Add the default inventory passed in from the game
-		for (int i=0;i<DefaultInventoryToAdd.Num();i++)
-		{
-			AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
-		}
+	// Add the default character inventory
+	for (int i=0;i<DefaultCharacterInventory.Num();i++)
+	{
+		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultCharacterInventory[i], FVector(0.0f), FRotator(0, 0, 0)), true);
+	}
+
+	// Add the default inventory passed in from the game
+	for (int i=0;i<DefaultInventoryToAdd.Num();i++)
+	{
+		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
 	}
 
 	SwitchToBestWeapon();

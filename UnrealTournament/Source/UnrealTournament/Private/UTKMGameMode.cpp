@@ -7,6 +7,8 @@
 #include "UTHUD_KM.h"
 #include "UTCharacter.h"
 #include "UTPickupCrown.h"
+#include "UTPickupCoin.h"
+#include "UTPickupWeapon.h"
 
 AUTKMGameMode::AUTKMGameMode(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -80,6 +82,8 @@ void AUTKMGameMode::BecomeKing(AUTPlayerState* KingPlayerState)
 {
 	if (KingPlayerState)
 	{
+		CurrentKing = KingPlayerState;
+		KingPlayerState->AdjustCurrency(100);
 		//  Announce the new king...
 		BroadcastLocalized(this, UUTGameMessage::StaticClass(), 11, KingPlayerState, NULL, NULL);
 		KingPlayerState->bSpecialPlayer = true;
@@ -89,8 +93,11 @@ void AUTKMGameMode::BecomeKing(AUTPlayerState* KingPlayerState)
 
 void AUTKMGameMode::KingHasBeenKilled(AUTPlayerState* KingPlayerState, APawn* KingPawn, AUTPlayerState* KillerPlayerState)
 {
+	CurrentKing = NULL;
 	KingPlayerState->bSpecialPlayer = false;
 	KingPlayerState->SetOverrideHatClass(TEXT(""));
+
+	SpawnCoin(KingPawn->GetActorLocation(),200);
 
 	FActorSpawnParameters Params;
 	Params.bNoCollisionFail = true;
@@ -104,4 +111,67 @@ void AUTKMGameMode::KingHasBeenKilled(AUTPlayerState* KingPlayerState, APawn* Ki
 bool AUTKMGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
 {
 	return (HatClass != CrownClassName || HatOwner->bSpecialPlayer);
+}
+
+bool AUTKMGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
+{
+	if (CurrentKing && Injured && InstigatedBy)
+	{
+		AUTPlayerState* InjuredPlayerState = Cast<AUTPlayerState>(Injured->PlayerState);
+		AUTPlayerState* InstigatorPlayerState = Cast<AUTPlayerState>(InstigatedBy->PlayerState);
+		if (InjuredPlayerState && InstigatorPlayerState)
+		{
+			if (!InjuredPlayerState->bSpecialPlayer && !InstigatorPlayerState->bSpecialPlayer)	
+			{
+				int32 Value = int32( float(FMath::Clamp<int32>(Damage, 0, 100)) * 0.2);
+				SpawnCoin(Injured->GetActorLocation(), Value);
+				Damage = 0;
+				Momentum *= 1.25;
+			}
+		}
+	}
+
+	return Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
+}
+
+void AUTKMGameMode::SpawnCoin(FVector Location, float Value)
+{
+	FActorSpawnParameters Params;
+	Params.bNoCollisionFail = true;
+
+	AUTPickupCoin* Coin = GetWorld()->SpawnActor<AUTPickupCoin>(AUTPickupCoin::StaticClass(), Location + FVector(0,0,200), FRotator(0,0,0), Params);
+	if (Coin)
+	{
+		Coin->SetValue(Value);
+
+		float RandX = FMath::FRandRange(-400,400);
+		float RandY = FMath::FRandRange(-400,400);
+		float RandZ = FMath::FRandRange(275,400);
+		Coin->Movement->Velocity = FVector(RandX, RandY, RandZ);
+
+		//Coin->Movement->Velocity = FVector(0,0,350);
+	}
+}
+
+bool AUTKMGameMode::PlayerCanAltRestart_Implementation( APlayerController* Player )
+{
+	AUTPlayerController* PlayerController = Cast<AUTPlayerController>(Player);
+	if (PlayerController)
+	{
+		PlayerController->ClientOpenLoadout();
+		return false;
+	}
+	return PlayerCanRestart(Player);
+}
+
+void AUTKMGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+	for (TActorIterator<AUTPickupWeapon> It(GetWorld()); It; ++It)
+	{
+		It->Destroy();
+
+		// Spawn coin here..
+	}
+
 }

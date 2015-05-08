@@ -448,6 +448,8 @@ public:
 
 	virtual float GetAvailableCurrency();
 
+	virtual void AdjustCurrency(float Adjustment);
+
 
 protected:
 	TArray<FTempBanInfo> BanVotes;

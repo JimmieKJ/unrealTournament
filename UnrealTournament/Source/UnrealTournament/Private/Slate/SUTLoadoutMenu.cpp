@@ -541,7 +541,7 @@ FText SUTLoadoutMenu::GetLoadoutTitle() const
 		}
 	}
 	
-	FText CurrentCash = FText::AsNumber(0);
+	FText CurrentCash = FText::AsNumber(CurrentCurrency);
 	return FText::Format(NSLOCTEXT("SUTLoadoutMenuu","LoadoutTitleFormat","Loadout... ${0}/${1}"), FText::AsNumber(TotalCostOfCurrentLoadout), CurrentCash);
 }
 

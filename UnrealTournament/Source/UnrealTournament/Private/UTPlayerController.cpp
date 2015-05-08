@@ -1055,7 +1055,7 @@ void AUTPlayerController::OnAltFire()
 		PlayMenuSelectSound();
 		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) && bPlayerIsWaiting)
 		{
-			ServerRestartPlayerAltFire();
+			ServerRestartPlayer();
 		}
 		else
 		{
@@ -1648,9 +1648,16 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 			}
 		}
 	}
-	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
+	else 
 	{
-		return;
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode)
+		{
+			if (!GameMode->PlayerCanAltRestart(this))
+			{
+				return;
+			}
+		}
 	}
 
 	Super::ServerRestartPlayer_Implementation();
@@ -2915,4 +2922,13 @@ void AUTPlayerController::UpdateRotation(float DeltaTime)
 	}
 
 	Super::UpdateRotation(DeltaTime);
+}
+
+void AUTPlayerController::ClientOpenLoadout_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->OpenLoadout();
+	}
 }
