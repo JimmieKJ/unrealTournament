@@ -89,6 +89,12 @@ void AUTPlayerState::UpdatePing(float InPing)
 
 void AUTPlayerState::CalculatePing(float NewPing)
 {
+	if (NewPing < 0.f)
+	{
+		// caused by timestamp wrap around
+		return;
+	}
+
 	float OldPing = ExactPing;
 	Super::UpdatePing(NewPing);
 
