@@ -321,21 +321,20 @@ static TAutoConsoleVariable<int32> CVarSmoothFrameRate(
 float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) const
 {
 	float MaxTickRate = 0;
+	UWorld* World = NULL;
+
+	for (int32 WorldIndex = 0; WorldIndex < WorldList.Num(); ++WorldIndex)
+	{
+		if (WorldList[WorldIndex].WorldType == EWorldType::Game)
+		{
+			World = WorldList[WorldIndex].World();
+			break;
+		}
+	}
 
 	// Don't smooth here if we're a dedicated server
 	if (IsRunningDedicatedServer())
 	{
-		UWorld* World = NULL;
-
-		for (int32 WorldIndex = 0; WorldIndex < WorldList.Num(); ++WorldIndex)
-		{
-			if (WorldList[WorldIndex].WorldType == EWorldType::Game)
-			{
-				World = WorldList[WorldIndex].World();
-				break;
-			}
-		}
-
 		if (World)
 		{
 			UNetDriver* NetDriver = World->GetNetDriver();
@@ -371,6 +370,21 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	if (bSmoothFrameRate && bAllowFrameRateSmoothing && CVarSmoothFrameRate.GetValueOnGameThread())
 	{
 		MaxTickRate = 1.f / SmoothedDeltaTime;
+	}
+
+	// clamp frame rate based on negotiated net speed
+	if (World)
+	{
+		UNetDriver* NetDriver = World->GetNetDriver();
+		if (NetDriver && NetDriver->GetNetMode() == NM_Client)
+		{
+			UPlayer * LocalPlayer = World->GetFirstLocalPlayerFromController();
+			if (LocalPlayer)
+			{
+				float NetRateClamp = float(LocalPlayer->CurrentNetSpeed) / 100.f;
+				MaxTickRate = FMath::Min(MaxTickRate, NetRateClamp);
+			}
+		}
 	}
 
 	// Hard cap at frame rate cap
