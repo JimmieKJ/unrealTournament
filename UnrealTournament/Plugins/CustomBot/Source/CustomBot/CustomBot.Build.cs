@@ -18,6 +18,11 @@ namespace UnrealBuildTool.Rules
                     "AIModule",
 				}
 			);
+			
+			if (UEBuildConfiguration.bBuildEditor == true)
+			{
+				PrivateDependencyModuleNames.Add("UnrealEd");
+			}
 		}
 	}
 }

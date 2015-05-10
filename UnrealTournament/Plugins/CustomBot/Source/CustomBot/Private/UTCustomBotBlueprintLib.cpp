@@ -35,6 +35,7 @@ AUTCustomBot* UUTCustomBotBlueprintLib::AddCustomBot(UObject* WorldContextObject
 
 		if (GameMode)
 		{
+			GameMode->BotFillCount++;
 			NewBot->InitializeSkill(GameMode->GameDifficulty);
 			GameMode->NumBots++;
 			GameMode->ChangeTeam(NewBot, TeamNum);

@@ -27,36 +27,12 @@
 
 #include "UnrealEngine.h"
 
+#include "VisualLogger/VisualLogger.h"
+
 //----------------------------------------------------------------------//
 // Required UT
 //----------------------------------------------------------------------//
-
-class UAudioComponent;
-class USphereComponent;
-
-
-#include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerState.h"
-#include "GameFramework/Character.h"
-#include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/LocalMessage.h"
-#include "GameFramework/ProjectileMovementComponent.h"
-#include "Components/SkeletalMeshComponent.h"
-#include "AI/Navigation/RecastNavMesh.h"
-#include "Engine/Canvas.h"
-#include "Engine/LocalPlayer.h"
-#include "Curves/CurveLinearColor.h"
-#include "AssetData.h"
-
-class SUWindowsDesktop;
-class AUTPickup;
-
-#include "UTTeamInterface.h"
-#include "UTCharacter.h"
-#include "UTWeapon.h"
-#include "UTLocalPlayer.h"
-#include "UTBaseGameMode.h"
-#include "UTBot.h"
-#include "UTGameMode.h"
-
+#include "UnrealTournament.h"
 #include "UTCustomBot.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogUTCustomBot, Warning, All);
