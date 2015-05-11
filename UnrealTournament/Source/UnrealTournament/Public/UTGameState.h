@@ -6,6 +6,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
 
+struct FLoadoutInfo;
 
 UCLASS(Config = Game)
 class UNREALTOURNAMENT_API AUTGameState : public AGameState
@@ -273,13 +274,13 @@ public:
 
 	// Holds a list of weapons available for loadouts
 	UPROPERTY(Replicated)
-	TArray<AUTReplicatedLoadoutInfo*> LoadoutWeapons;
+	TArray<AUTReplicatedLoadoutInfo*> AvailableLoadout;
 
 	// Adds a weapon to the list of possible loadout weapons.
-	virtual void AddLoadoutWeapon(TSubclassOf<AUTWeapon> WeaponClass, uint8 RoundMask, float InitialCost);
+	virtual void AddLoadoutItem(const FLoadoutInfo& Loadout);
 
 	// Adjusts the cost of a weapon available for loadouts
-	virtual void AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float NewCost);
+	virtual void AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float NewCost);
 
 	/** Game specific rating of a player as a desireable camera focus for spectators. */
 	virtual float ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Character)

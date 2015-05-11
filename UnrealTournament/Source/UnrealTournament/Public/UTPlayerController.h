@@ -750,7 +750,10 @@ public:
 	virtual void UpdateRotation(float DeltaTime) override;
 
 	UFUNCTION(client, reliable)
-	void ClientOpenLoadout();
+	void ClientOpenLoadout(bool bBuyMenu);
+
+	UFUNCTION(Exec)
+	void ShowBuyMenu();
 };
 
 

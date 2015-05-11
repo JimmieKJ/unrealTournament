@@ -455,7 +455,7 @@ protected:
 #endif
 
 public:
-	virtual void OpenLoadout();
+	virtual void OpenLoadout(bool bBuyMenu = false);
 	virtual void CloseLoadout();
 
 };

@@ -1288,6 +1288,29 @@ void AUTPlayerState::ServerUpdateLoadout_Implementation(const TArray<AUTReplicat
 	Loadout = NewLoadout;
 }
 
+bool AUTPlayerState::ServerBuyLoadout_Validate(AUTReplicatedLoadoutInfo* DesiredLoadout) { return true; }
+void AUTPlayerState::ServerBuyLoadout_Implementation(AUTReplicatedLoadoutInfo* DesiredLoadout)
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		if (DesiredLoadout->CurrentCost <= GetAvailableCurrency())
+		{
+				UTChar->AddInventory(GetWorld()->SpawnActor<AUTInventory>(DesiredLoadout->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+				AdjustCurrency(DesiredLoadout->CurrentCost * -1);
+		}
+		else
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());	
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(),14, this);
+			}
+		}
+	}
+}
+
+
 void AUTPlayerState::AdjustCurrency(float Adjustment)
 {
 	AvailableCurrency += Adjustment;

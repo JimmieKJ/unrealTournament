@@ -16,6 +16,40 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
 }
 
+USTRUCT()
+struct FLoadoutInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The class of the weapon to include
+	UPROPERTY()
+	TSubclassOf<AUTInventory> ItemClass;
+
+	// What rounds should this weapon be available
+	UPROPERTY()
+	uint8 RoundMask;
+
+	// How much should this weapon cost to be included in the loadout
+	UPROPERTY()
+	float InitialCost;
+
+	// If true, this item will always be included in the loadout.
+	UPROPERTY()
+	uint32 bDefaultInclude:1;
+
+	// If true, this item is only available for purchase
+	UPROPERTY()
+	uint32 bPurchaseOnly:1;
+
+	FLoadoutInfo()
+		: ItemClass(nullptr)
+		, RoundMask(0x00)
+		, InitialCost(0.0f)
+		, bDefaultInclude(false)
+		, bPurchaseOnly(false)
+	{}
+};
+
 /** list of bots user asked to put into the game */
 USTRUCT()
 struct FSelectedBot
@@ -33,29 +67,6 @@ struct FSelectedBot
 	{}
 	FSelectedBot(const FString& InName, uint8 InTeam)
 		: BotName(InName), Team(InTeam)
-	{}
-};
-
-USTRUCT()
-struct FLoadoutInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	// The class of the weapon to include
-	UPROPERTY()
-	TSubclassOf<AUTWeapon> WeaponClass;
-
-	// What rounds should this weapon be available
-	UPROPERTY()
-	uint8 RoundMask;
-
-	// How much should this weapon cost to be included in the loadout
-	UPROPERTY()
-	float InitialCost;
-
-	FLoadoutInfo()
-		: WeaponClass(nullptr)
-		, RoundMask(0x00)
 	{}
 };
 
@@ -572,7 +583,7 @@ public:
 	virtual bool ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass);
 
 	UPROPERTY(Config)
-	TArray<FLoadoutInfo> LoadoutWeapons;
+	TArray<FLoadoutInfo> AvailableLoadout;
 
 	// Called when the player attempts to restart using AltFire
 	UFUNCTION(BlueprintNativeEvent, Category="Game")

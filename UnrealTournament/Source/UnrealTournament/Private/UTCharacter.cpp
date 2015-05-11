@@ -2430,14 +2430,23 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
 {
-	// Check to see if this player has an active loadout.  If they do, apply it.
+	// Check to see if this player has an active loadout.  If they do, apply it.  NOTE: Loadouts are 100% authoratative.  So if we apply any type of loadout, then end the AddDefaultInventory 
+	// call right there.  If you are using the loadout system and want to insure a player has some default items, use bDefaultInclude and make sure their cost is 0.
+
 	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
 	if (UTPlayerState && UTPlayerState->Loadout.Num() > 0)
 	{
 		for (int32 i=0; i < UTPlayerState->Loadout.Num(); i++)
 		{
-			AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->WeaponClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+			if (UTPlayerState->GetAvailableCurrency() >= UTPlayerState->Loadout[i]->CurrentCost)
+			{
+				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+				UTPlayerState->AdjustCurrency(UTPlayerState->Loadout[i]->CurrentCost * -1);
+			}
 		}
+
+		return;
+
 	}
 
 	// Add the default character inventory

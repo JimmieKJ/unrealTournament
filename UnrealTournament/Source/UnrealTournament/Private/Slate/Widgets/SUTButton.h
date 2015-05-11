@@ -6,6 +6,7 @@
 #if !UE_SERVER
 
 DECLARE_DELEGATE_OneParam( FUTButtonClick, int32 );
+DECLARE_DELEGATE_OneParam( FUTMouseOver, int32 );
 
 class UNREALTOURNAMENT_API SUTButton : public SButton
 {
@@ -25,6 +26,7 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		, _ForegroundColor( FCoreStyle::Get().GetSlateColor( "InvertedForeground" ) )
 		, _IsFocusable( true )
 		, _IsToggleButton( false )
+		, _WidgetTag(0)
 		{}
 
 		/** Slot for this button's content (optional) */
@@ -77,11 +79,17 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		/** Determines if this is a toggle button or not. */
 		SLATE_ARGUMENT( bool, IsToggleButton )
 
+		SLATE_ARGUMENT(int32, WidgetTag)
+
+		SLATE_EVENT( FUTMouseOver, UTOnMouseOver)
+
+		SLATE_EVENT( FOnClicked, OnClicked )
 
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
 
+	virtual void OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
 	virtual void OnFocusLost( const FFocusEvent& InFocusEvent ) override;
 
@@ -97,6 +105,10 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 protected:
 	FUTButtonClick OnButtonClick;
 	bool bIsToggleButton;
+
+	FUTMouseOver OnMouseOver;
+
+	int32 WidgetTag;
 
 	virtual FReply Pressed(int32 MouseButtonIndex);
 	virtual FReply Released(int32 MouseButtonIndex, bool bIsUnderCusor);

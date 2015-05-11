@@ -158,7 +158,7 @@ bool AUTKMGameMode::PlayerCanAltRestart_Implementation( APlayerController* Playe
 	AUTPlayerController* PlayerController = Cast<AUTPlayerController>(Player);
 	if (PlayerController)
 	{
-		PlayerController->ClientOpenLoadout();
+		PlayerController->ClientOpenLoadout(false);
 		return false;
 	}
 	return PlayerCanRestart(Player);

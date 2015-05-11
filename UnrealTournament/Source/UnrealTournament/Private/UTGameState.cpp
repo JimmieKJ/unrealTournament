@@ -43,7 +43,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  // FIXME only before match start
-	DOREPLIFETIME(AUTGameState, LoadoutWeapons);
+	DOREPLIFETIME(AUTGameState, AvailableLoadout);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);
@@ -720,28 +720,30 @@ int32 AUTGameState::GetMaxTeamSpectatingId(int32 TeamNum)
 
 }
 
-void AUTGameState::AddLoadoutWeapon(TSubclassOf<AUTWeapon> WeaponClass, uint8 RoundMask, float InitialCost)
+void AUTGameState::AddLoadoutItem(const FLoadoutInfo& Item)
 {
-
 	FActorSpawnParameters Params;
 	Params.Owner = this;
 	AUTReplicatedLoadoutInfo* NewLoadoutInfo = GetWorld()->SpawnActor<AUTReplicatedLoadoutInfo>(Params);
 	if (NewLoadoutInfo)
 	{
-		NewLoadoutInfo->WeaponClass = WeaponClass;	
-		NewLoadoutInfo->RoundMask = RoundMask;
-		NewLoadoutInfo->CurrentCost = InitialCost;
-		LoadoutWeapons.Add(NewLoadoutInfo);
+		NewLoadoutInfo->ItemClass = Item.ItemClass;	
+		NewLoadoutInfo->RoundMask = Item.RoundMask;
+		NewLoadoutInfo->CurrentCost = Item.InitialCost;
+		NewLoadoutInfo->bDefaultInclude = Item.bDefaultInclude;
+		NewLoadoutInfo->bPurchaseOnly = Item.bPurchaseOnly;
+
+		AvailableLoadout.Add(NewLoadoutInfo);
 	}
 }
 
-void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float NewCost)
+void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float NewCost)
 {
-	for (int32 i=0; i < LoadoutWeapons.Num(); i++)
+	for (int32 i=0; i < AvailableLoadout.Num(); i++)
 	{
-		if (LoadoutWeapons[i]->WeaponClass == WeaponClass)
+		if (AvailableLoadout[i]->ItemClass == ItemClass)
 		{
-			LoadoutWeapons[i]->CurrentCost = NewCost;
+			AvailableLoadout[i]->CurrentCost = NewCost;
 			return;
 		}
 	}

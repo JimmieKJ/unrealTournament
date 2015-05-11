@@ -361,11 +361,11 @@ void AUTGameMode::InitGameState()
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
 
 		// Setup the loadout replication
-		for (int32 i=0; i < LoadoutWeapons.Num(); i++)
+		for (int32 i=0; i < AvailableLoadout.Num(); i++)
 		{
-			if (LoadoutWeapons[i].WeaponClass)
+			if (AvailableLoadout[i].ItemClass)
 			{
-				UTGameState->AddLoadoutWeapon(LoadoutWeapons[i].WeaponClass, LoadoutWeapons[i].RoundMask, LoadoutWeapons[i].InitialCost);
+				UTGameState->AddLoadoutItem(AvailableLoadout[i]);
 			}
 		}
 	}
@@ -498,6 +498,18 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 
 			// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
 			PS->ValidateEntitlements();
+
+			// Setup the default loadout
+			if (UTGameState->AvailableLoadout.Num() > 0)
+			{
+				for (int32 i=0; i < UTGameState->AvailableLoadout.Num(); i++)			
+				{
+					if (UTGameState->AvailableLoadout[i]->bDefaultInclude)
+					{
+						PS->Loadout.Add(UTGameState->AvailableLoadout[i]);
+					}
+				}
+			}
 		}
 	}
 	return Result;

@@ -26,6 +26,7 @@
 #include "Slate/SUWFriendsPopup.h"
 #include "Slate/SUWRedirectDialog.h"
 #include "Slate/SUTLoadoutMenu.h"
+#include "Slate/SUTBuyMenu.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -1976,13 +1977,21 @@ void UUTLocalPlayer::HandleNetworkFailureMessage(enum ENetworkFailure::Type Fail
 		BasePlayerController->HandleNetworkFailureMessage(FailureType, ErrorString);
 	}
 }
-void UUTLocalPlayer::OpenLoadout()
+void UUTLocalPlayer::OpenLoadout(bool bBuyMenu)
 {
 #if !UE_SERVER
 	// Create the slate widget if it doesn't exist
 	if (!LoadoutMenu.IsValid())
 	{
-		SAssignNew(LoadoutMenu, SUTLoadoutMenu).PlayerOwner(this);
+		if (bBuyMenu)
+		{
+			SAssignNew(LoadoutMenu, SUTBuyMenu).PlayerOwner(this);
+		}
+		else
+		{
+			SAssignNew(LoadoutMenu, SUTLoadoutMenu).PlayerOwner(this);
+		}
+
 		if (LoadoutMenu.IsValid())
 		{
 			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(LoadoutMenu.ToSharedRef()),60);

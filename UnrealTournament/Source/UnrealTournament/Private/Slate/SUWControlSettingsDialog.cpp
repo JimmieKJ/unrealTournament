@@ -327,6 +327,10 @@ void SUWControlSettingsDialog::CreateBinds()
 		->AddMapping("TeamTalk")
 		->AddDefaults(EKeys::Y)));
 
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Buy Menu", "Buy Menu")))
+		->AddMapping("ShowBuyMenu")
+		->AddDefaults(EKeys::B)));
+
 	// TODO: mod binding registration
 }
 

@@ -443,6 +443,9 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerUpdateLoadout(const TArray<AUTReplicatedLoadoutInfo*>& NewLoadout);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerBuyLoadout(AUTReplicatedLoadoutInfo* DesiredLoadout);
+
 	UFUNCTION(Client, Reliable)
 	virtual void ClientShowLoadoutMenu();
 
