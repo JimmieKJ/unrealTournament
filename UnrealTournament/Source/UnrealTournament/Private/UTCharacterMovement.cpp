@@ -274,7 +274,6 @@ void UUTCharacterMovement::AdjustMovementTimers(float Adjustment)
 void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
-
 	UMovementComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	bool bOwnerIsRagdoll = UTOwner && UTOwner->IsRagdoll();
 	if (bOwnerIsRagdoll)
@@ -289,7 +288,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	}
 
 	const FVector InputVector = ConsumeInputVector();
-		if (!HasValidData() || ShouldSkipUpdate(DeltaTime) || UpdatedComponent->IsSimulatingPhysics())
+	if (!HasValidData() || ShouldSkipUpdate(DeltaTime) || UpdatedComponent->IsSimulatingPhysics())
 	{
 		return;
 	}
@@ -308,7 +307,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 		// If we are a client we might have received an update from the server.
 		const bool bIsClient = (GetNetMode() == NM_Client && CharacterOwner->Role == ROLE_AutonomousProxy);
-		if (bIsClient)
+		if (bIsClient && !bOwnerIsRagdoll)
 		{
 			ClientUpdatePositionAfterServerUpdate();
 		}
@@ -336,7 +335,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			Acceleration = ScaleInputAcceleration(ConstrainInputAcceleration(InputVector));
 			AnalogInputModifier = ComputeAnalogInputModifier();
 
-			if (CharacterOwner->Role == ROLE_Authority)
+			if ((CharacterOwner->Role == ROLE_Authority) && !bOwnerIsRagdoll)
 			{
 				PerformMovement(DeltaTime);
 			}
@@ -345,7 +344,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 				ReplicateMoveToServer(DeltaTime, Acceleration);
 			}
 		}
-		else if (CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy)
+		else if ((CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy) && !bOwnerIsRagdoll)
 		{
 			// Server ticking for remote client.
 			// Between net updates from the client we need to update position if based on another object,
@@ -353,19 +352,18 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			MaybeUpdateBasedMovement(DeltaTime);
 			SaveBaseLocation();
 		}
-		else if (!CharacterOwner->Controller && (CharacterOwner->Role == ROLE_Authority))
+		else if (!CharacterOwner->Controller && (CharacterOwner->Role == ROLE_Authority) && !bOwnerIsRagdoll)
 		{
 			// still update forces
 			ApplyAccumulatedForces(DeltaTime);
 			PerformMovement(DeltaTime);
 		}
 	}
-	else if (CharacterOwner->Role == ROLE_SimulatedProxy)
+	else if (!bOwnerIsRagdoll && CharacterOwner->Role == ROLE_SimulatedProxy)
 	{
 		AdjustProxyCapsuleSize();
 		SimulatedTick(DeltaTime);
 	}
-
 	if (bEnablePhysicsInteraction && !bOwnerIsRagdoll)
 	{
 		if (CurrentFloor.HitResult.IsValidBlockingHit())
@@ -382,6 +380,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			}
 		}
 	}
+
 	if (bOwnerIsRagdoll)
 	{
 		// ignore jump/slide key presses this frame since the character is in ragdoll and they don't apply

@@ -136,7 +136,6 @@ void AUTPlayerController::NetStats()
 	{
 		MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass());
 	}
-
 }
 
 void AUTPlayerController::ServerNegotiatePredictionPing_Implementation(float NewPredictionPing)
