@@ -142,12 +142,12 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 	return MediumFont;
 }
 
-AUTPlayerState* AUTHUD::GetViewedPlayerState()
+AUTPlayerState* AUTHUD::GetScorerPlayerState()
 {
 	AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
-	if (PS && PS->bOnlySpectator && UTPlayerOwner->bSpectateBehindView)
+	if (PS && (!PS->bOnlySpectator || UTPlayerOwner->bSpectateBehindView))
 	{
-		// no full HUD when spectating someone in third person
+		// view your own score unless you are a first person spectator
 		return PS;
 	}
 	APawn* PawnOwner = (UTPlayerOwner->GetPawn() != NULL) ? UTPlayerOwner->GetPawn() : Cast<APawn>(UTPlayerOwner->GetViewTarget());
@@ -592,7 +592,7 @@ void AUTHUD::CalcStanding()
 	CurrentPlayerScore = 0;
 	NumActualPlayers = 0;
 
-	AUTPlayerState* MyPS = GetViewedPlayerState();
+	AUTPlayerState* MyPS = GetScorerPlayerState();
 
 	if (!UTPlayerOwner || !MyPS) return;	// Quick out if not ready
 

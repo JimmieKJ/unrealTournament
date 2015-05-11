@@ -20,7 +20,7 @@ void UUTHUDWidget_DMPlayerScore::Draw_Implementation(float DeltaTime)
 {
 	if (UTHUDOwner->UTPlayerOwner != NULL)
 	{
-		AUTPlayerState* PS = UTHUDOwner->GetViewedPlayerState();
+		AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();
 		if (PS != NULL && !PS->bOnlySpectator)
 		{
 			float Score = int32(PS->Score);
