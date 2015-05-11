@@ -245,6 +245,23 @@ void AUTHUD::BuildHudWidget(FString NewWidgetString)
 	}
 }
 
+bool AUTHUD::HasHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
+{
+	if ((NewWidgetClass == NULL) || (HudWidgets.Num() == 0))
+	{
+		return false;
+	}
+
+	for (int32 i = 0; i < HudWidgets.Num(); i++)
+	{
+		if (HudWidgets[i] && (HudWidgets[i]->GetClass() == NewWidgetClass))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 {
 	if (NewWidgetClass == NULL) return NULL;

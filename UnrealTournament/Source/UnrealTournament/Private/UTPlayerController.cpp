@@ -28,6 +28,7 @@
 #include "DataChannel.h"
 #include "Engine/GameInstance.h"
 #include "UTSpectatorCamera.h"
+#include "UTHUDWidget_NetInfo.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -126,6 +127,16 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
+}
+
+void AUTPlayerController::NetStats()
+{
+	bShowNetInfo = !bShowNetInfo;
+	if (MyUTHUD && !MyUTHUD->HasHudWidget(UUTHUDWidget_NetInfo::StaticClass()))
+	{
+		MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass());
+	}
+
 }
 
 void AUTPlayerController::ServerNegotiatePredictionPing_Implementation(float NewPredictionPing)

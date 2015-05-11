@@ -24,7 +24,7 @@ UUTHUDWidget_NetInfo::UUTHUDWidget_NetInfo(const class FObjectInitializer& Objec
 
 bool UUTHUDWidget_NetInfo::ShouldDraw_Implementation(bool bShowScores)
 {
-	return (!bShowScores && UTHUDOwner && UTHUDOwner->PlayerOwner && Cast<AUTPlayerState>(UTHUDOwner->PlayerOwner->PlayerState)); // && UTHUDOwner && UTHUDOwner->PlayerOwner && UTHUDOwner->PlayerOwner->bShowNetInfo)
+	return (!bShowScores && UTHUDOwner && Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->bShowNetInfo);
 }
 
 void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
@@ -34,30 +34,55 @@ void UUTHUDWidget_NetInfo::Draw_Implementation(float DeltaTime)
 	float XOffset = 16.f;
 	float DrawOffset = 0.f;
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTHUDOwner->PlayerOwner->PlayerState);
-	if (!UTPS)
-	{
-		return;
-	}
+	UNetConnection* Connection = Cast<UNetConnection>(UTHUDOwner->PlayerOwner->Player);
+	UNetDriver* NetDriver = GetWorld()->GetNetDriver();
+
 	DrawTexture(TextureAtlas, 0.5f*XOffset, DrawOffset, Size.X, Size.Y, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
 
 	DrawOffset += 0.5f * CellHeight;
 
-	// @TODO FIXMESTEVE - exec which adds this widget to HUD and enables it with flag
 	// ping
-	DrawText(NSLOCTEXT("NetInfo", "Ping title", "Ping"), XOffset, DrawOffset, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-	FFormatNamedArguments Args;
-	Args.Add("PingMS", FText::AsNumber(int32(1000.f*UTPS->ExactPing)));
-	DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping", "{PingMS} ms"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->MediumFont, 1.0f, 1.0f, GetValueColor(UTPS->ExactPing, 0.07f, 0.16f), ETextHorzPos::Left, ETextVertPos::Center);
+	if (UTPS)
+	{
+		DrawText(NSLOCTEXT("NetInfo", "Ping title", "Ping"), XOffset, DrawOffset, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		FFormatNamedArguments Args;
+		Args.Add("PingMS", FText::AsNumber(int32(UTPS->ExactPing)));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "Ping", "{PingMS} ms"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, GetValueColor(UTPS->ExactPing, 70.f, 160.f), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += CellHeight;
+	}
 
 	// ping variance - magnitude and frequency of variance
 
 	// netspeed
-	
+	if (Connection)
+	{
+		DrawText(NSLOCTEXT("NetInfo", "NetSpeed title", "Net Speed"), XOffset, DrawOffset, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		FFormatNamedArguments Args;
+		Args.Add("NetBytes", FText::AsNumber(Connection->CurrentNetSpeed));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytes", "{NetBytes} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += CellHeight;
+	}
+
 	// bytes in and out
+	if (NetDriver)
+	{
+		DrawText(NSLOCTEXT("NetInfo", "BytesIn title", "Bytes In"), XOffset, DrawOffset, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		FFormatNamedArguments Args;
+		Args.Add("NetBytesIN", FText::AsNumber(NetDriver->InBytesPerSecond));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytesIN", "{NetBytesIN} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += CellHeight;
+
+		DrawText(NSLOCTEXT("NetInfo", "BytesOut title", "Bytes Out"), XOffset, DrawOffset, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		Args.Add("NetBytes", FText::AsNumber(NetDriver->OutBytesPerSecond));
+		DrawText(FText::Format(NSLOCTEXT("NetInfo", "NetBytes", "{NetBytes} bytes/s"), Args), XOffset + DataColumnX*Size.X, DrawOffset, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawOffset += CellHeight;
+	}
 
 	// cool graph options
 
 	// packet loss
+
+	// ping prediction stats
 }
 
 FLinearColor UUTHUDWidget_NetInfo::GetValueColor(float Value, float ThresholdBest, float ThresholdWorst) const

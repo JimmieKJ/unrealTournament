@@ -175,6 +175,14 @@ public:
 	/** Switch to best current camera while spectating. */
 	virtual void ChooseBestCamera();
 
+	/** If true, show networking stats widget on HUD. */
+	UPROPERTY()
+		bool bShowNetInfo;
+
+	/** Toggle showing net stats on HUD. */
+	UFUNCTION(exec)
+		virtual void NetStats();
+
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
 
