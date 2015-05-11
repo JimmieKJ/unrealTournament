@@ -45,22 +45,25 @@ void AUTMutator_WeaponReplacement::BeginPlay()
 	}
 }
 
-void AUTMutator_WeaponReplacement::ModifyPlayer_Implementation(APawn* Other)
+void AUTMutator_WeaponReplacement::ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn)
 {
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
-	for (int32 i=0; i<UTCharacter->DefaultCharacterInventory.Num(); i++)
+	if (bIsNewSpawn)
 	{
-		for (int32 j=0; j < WeaponsToReplace.Num(); j++)
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
+		for (int32 i = 0; i < UTCharacter->DefaultCharacterInventory.Num(); i++)
 		{
-			FReplacementInfo info = WeaponsToReplace[j];
-			UClass* oldWeapon = StaticLoadClass(AUTWeapon::StaticClass(), nullptr, *info.OldClassPath);
-			if (UTCharacter->DefaultCharacterInventory[i] == oldWeapon)
+			for (int32 j = 0; j < WeaponsToReplace.Num(); j++)
 			{
-				UTCharacter->DefaultCharacterInventory[i] = StaticLoadClass(AUTWeapon::StaticClass(), nullptr, *info.NewClassPath);
+				FReplacementInfo info = WeaponsToReplace[j];
+				UClass* oldWeapon = StaticLoadClass(AUTWeapon::StaticClass(), nullptr, *info.OldClassPath);
+				if (UTCharacter->DefaultCharacterInventory[i] == oldWeapon)
+				{
+					UTCharacter->DefaultCharacterInventory[i] = StaticLoadClass(AUTWeapon::StaticClass(), nullptr, *info.NewClassPath);
+				}
 			}
 		}
 	}
-	return Super::ModifyPlayer_Implementation(Other);
+	return Super::ModifyPlayer_Implementation(Other, bIsNewSpawn);
 }
 
 bool AUTMutator_WeaponReplacement::CheckRelevance_Implementation(AActor* Other)
@@ -126,6 +129,10 @@ bool AUTMutator_WeaponReplacement::CheckRelevance_Implementation(AActor* Other)
 					}
 				}
 			}
+		}
+		else if (Cast<AUTWeapon>(Other) != NULL && WeaponsToReplace.FindByPredicate([=](const FReplacementInfo& Item) { return StaticLoadClass(AUTWeapon::StaticClass(), nullptr, *Item.OldClassPath) == Other->GetClass(); }) == NULL)
+		{
+			return false;
 		}
 	}
 

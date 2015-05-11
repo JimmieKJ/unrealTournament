@@ -23,6 +23,6 @@ class AUTMutator_WeaponArena : public AUTMutator
 
 	virtual void PreInitializeComponents() override;
 	virtual void BeginPlay() override;
-	void ModifyPlayer_Implementation(APawn* Other) override;
+	void ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn) override;
 	bool CheckRelevance_Implementation(AActor* Other) override;
 };

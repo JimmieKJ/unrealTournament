@@ -1513,9 +1513,6 @@ void AUTGameMode::PlayEndOfMatchMessage()
 	}
 }
 
-// workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to spawn inventory unless it's called from RestartPlayer()
-static bool bSetPlayerDefaultsSpawnInventory = false;
-
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
 	if ((aPlayer == NULL) || (aPlayer->PlayerState == NULL) || aPlayer->PlayerState->PlayerName.IsEmpty())
@@ -1529,9 +1526,10 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		return;
 	}
 
-	bSetPlayerDefaultsSpawnInventory = true;
-	Super::RestartPlayer(aPlayer);
-	bSetPlayerDefaultsSpawnInventory = false;
+	{
+		TGuardValue<bool> FlagGuard(bSetPlayerDefaultsNewSpawn, true);
+		Super::RestartPlayer(aPlayer);
+	}
 
 	if (Cast<AUTBot>(aPlayer) != NULL)
 	{
@@ -1569,10 +1567,10 @@ void AUTGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 
 	if (BaseMutator != NULL)
 	{
-		BaseMutator->ModifyPlayer(PlayerPawn);
+		BaseMutator->ModifyPlayer(PlayerPawn, bSetPlayerDefaultsNewSpawn);
 	}
 
-	if (bSetPlayerDefaultsSpawnInventory)
+	if (bSetPlayerDefaultsNewSpawn)
 	{
 		GiveDefaultInventory(PlayerPawn);
 	}

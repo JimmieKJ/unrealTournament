@@ -285,6 +285,10 @@ public:
 	UPROPERTY(GlobalConfig)
 	FString DemoFilename;
 
+	/** workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to do new spawn stuff like spawning inventory unless it's called from RestartPlayer() */
+	UPROPERTY(Transient, BlueprintReadOnly)
+	bool bSetPlayerDefaultsNewSpawn;
+
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
 	 */

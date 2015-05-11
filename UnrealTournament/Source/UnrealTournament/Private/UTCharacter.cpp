@@ -26,6 +26,7 @@
 #include "UTCharacterContent.h"
 #include "UTPlayerCameraManager.h"
 #include "ComponentReregisterContext.h"
+#include "UTMutator.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -2024,6 +2025,15 @@ void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 				Last->NextInventory = InvToAdd;
 			}
 			InvToAdd->GivenTo(this, bAutoActivate);
+			
+			if (InvToAdd->GetOwner() == this)
+			{
+				AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (Game != NULL && Game->BaseMutator != NULL)
+				{
+					Game->BaseMutator->ModifyInventory(InvToAdd, this);
+				}
+			}
 		}
 	}
 }
