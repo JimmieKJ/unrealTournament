@@ -360,7 +360,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 			PerformMovement(DeltaTime);
 		}
 	}
-		else if (CharacterOwner->Role == ROLE_SimulatedProxy)
+	else if (CharacterOwner->Role == ROLE_SimulatedProxy)
 	{
 		AdjustProxyCapsuleSize();
 		SimulatedTick(DeltaTime);
@@ -671,37 +671,40 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		return;
 	}
 	OldZ = CharacterOwner->GetActorLocation().Z;
-
-	float RealGroundFriction = GroundFriction;
-	if (bIsDodgeRolling)
-	{
-		GroundFriction = 0.f;
-	}
-	else if (bWasDodgeRolling)
-	{
-		Velocity *= RollEndingSpeedFactor;
-	}
-	bWasDodgeRolling = bIsDodgeRolling;
-
-	bool bSavedWantsToCrouch = bWantsToCrouch;
-	bWantsToCrouch = bWantsToCrouch || bIsDodgeRolling;
-	bForceMaxAccel = bIsDodgeRolling;
-	FVector Loc = CharacterOwner->GetActorLocation();
-/*
-	if (CharacterOwner->Role < ROLE_Authority)
-	{
-		UE_LOG(UTNet, Warning, TEXT("CLIENT MOVE at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
-	}
-	else
-	{
-		UE_LOG(UTNet, Warning, TEXT("SERVER Move at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
-	}
-*/
-	Super::PerformMovement(DeltaSeconds);
-	bWantsToCrouch = bSavedWantsToCrouch;
-	GroundFriction = RealGroundFriction;
-
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
+
+	if (!UTOwner || !UTOwner->IsRagdoll())
+	{
+		float RealGroundFriction = GroundFriction;
+		if (bIsDodgeRolling)
+		{
+			GroundFriction = 0.f;
+		}
+		else if (bWasDodgeRolling)
+		{
+			Velocity *= RollEndingSpeedFactor;
+		}
+		bWasDodgeRolling = bIsDodgeRolling;
+
+		bool bSavedWantsToCrouch = bWantsToCrouch;
+		bWantsToCrouch = bWantsToCrouch || bIsDodgeRolling;
+		bForceMaxAccel = bIsDodgeRolling;
+		FVector Loc = CharacterOwner->GetActorLocation();
+		/*
+		if (CharacterOwner->Role < ROLE_Authority)
+		{
+		UE_LOG(UTNet, Warning, TEXT("CLIENT MOVE at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
+		}
+		else
+		{
+		UE_LOG(UTNet, Warning, TEXT("SERVER Move at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsDodgeRolling, bIsSprinting, bPressedSlide);
+		}
+		*/
+		Super::PerformMovement(DeltaSeconds);
+		bWantsToCrouch = bSavedWantsToCrouch;
+		GroundFriction = RealGroundFriction;
+	}
+
 	if (UTOwner != NULL)
 	{
 		UTOwner->PositionUpdated(bShotSpawned);
