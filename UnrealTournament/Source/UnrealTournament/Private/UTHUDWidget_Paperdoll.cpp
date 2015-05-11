@@ -49,6 +49,7 @@ void UUTHUDWidget_Paperdoll::ProcessArmor()
 	if (UTHUDOwner->UTPlayerOwner->PlayerState && UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator && (UTHUDOwner->GetNetMode() != NM_Standalone))
 	{
 		bHasChest = (UTC->ArmorAmount > 0);
+		bHasThighPads = (UTC->ArmorAmount > 100);
 		PlayerArmor = UTC->ArmorAmount;
 	}
 	else if (UTC != NULL && !UTC->IsDead())
