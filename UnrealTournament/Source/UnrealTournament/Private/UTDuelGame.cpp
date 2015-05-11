@@ -16,7 +16,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("UTGameMode", "Duel", "Duel");
 	PowerupDuration = 10.f;
 	GoalScore = 0;
-	TimeLimit = 15.f;
+	TimeLimit = 10.f;
 	MaxReadyWaitTime = 60;
 	bForceRespawn = true;
 	bAnnounceTeam = false;

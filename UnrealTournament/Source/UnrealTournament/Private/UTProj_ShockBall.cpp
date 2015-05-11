@@ -15,6 +15,7 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectIniti
 	bIsEnergyProjectile = true;
 	PrimaryActorTick.bCanEverTick = true;
 	ComboVortexType = AUTPhysicsVortex::StaticClass();
+	bMoveFakeToReplicatedPos = false;
 }
 
 void AUTProj_ShockBall::InitFakeProjectile(AUTPlayerController* OwningPlayer)
@@ -65,11 +66,6 @@ void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* 
 
 void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
 {
-	if (!bUsingClientSideHits)
-	{
-		return;
-	}
-
 	// @TODO FIXMESTEVE - do I limit how far I move combo, so fair to all?
 	TArray<USphereComponent*> Components;
 	GetComponents<USphereComponent>(Components);

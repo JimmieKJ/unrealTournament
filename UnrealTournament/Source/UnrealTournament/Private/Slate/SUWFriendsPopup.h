@@ -5,7 +5,7 @@
 
 #if !UE_SERVER
 
-class SUWFriendsPopup : public SCompoundWidget
+class UNREALTOURNAMENT_API SUWFriendsPopup : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWFriendsPopup)
 	{}

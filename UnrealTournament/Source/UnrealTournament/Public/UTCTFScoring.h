@@ -4,7 +4,7 @@
 #pragma once
 #include "UTCTFScoring.generated.h"
 
-UCLASS(config = Game)
+UCLASS()
 class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 {
 	GENERATED_UCLASS_BODY()
@@ -15,57 +15,57 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 
 	// CTF Scoring.. made config for now so we can easily tweak it all.  Won't be config in the final.
 	// Each player who carried the flag get's a % of this pool and is guarenteed at least 1 point
-	UPROPERTY(Config)
+	UPROPERTY()
 		uint32 FlagRunScorePool;
 
 	// The player who initially picked up the flag will give thee points
-	UPROPERTY(Config)
+	UPROPERTY()
 		uint32 FlagFirstPickupPoints;
 
 	// The player who caps the flag will get these points
-	UPROPERTY(Config)
+	UPROPERTY()
 		uint32 FlagCapPoints;
 
 	// # of points the player receives for returning the flag
-	UPROPERTY(Config)
+	UPROPERTY()
 		uint32 FlagReturnPoints;
 
 	// Points multiplied by time your flag was held before being returned
-	UPROPERTY(Config)
-		uint32 FlagReturnHeldBonus;
+	UPROPERTY()
+		float FlagReturnHeldBonus;
 
 	// Points multiplied by time your flag was held before carrier was killed
-	UPROPERTY(Config)
-		uint32 FlagKillHeldBonus;
+	UPROPERTY()
+		float FlagKillHeldBonus;
 
-	UPROPERTY(Config)
+	UPROPERTY()
 		uint32 MaxFlagHeldBonus;
 
 	// Players who are near the flag get bonuses when they kill
-	UPROPERTY(Config)
+	UPROPERTY()
 		uint32 BaseKillScore;
 
 	// Bonus for killing players threatening the flag carrier
-	UPROPERTY(Config)
+	UPROPERTY()
 		uint32 FlagCombatKillBonus;
 
 	// Bonus for killing enemy flag carrier.
-	UPROPERTY(config)
+	UPROPERTY()
 		float FlagCarrierKillBonus;
 
 	// Bonus for assist by returning enemy flag allowing team to score.
-	UPROPERTY(config)
+	UPROPERTY()
 		float FlagReturnAssist;
 
 	// Bonus score for everyone on team after flag cap.
-	UPROPERTY(config)
+	UPROPERTY()
 		float TeamCapBonus;
 
 	// Points per second for holding flag when own flag is out
-	UPROPERTY(config)
-		uint32 FlagHolderPointsPerSecond;
+	UPROPERTY()
+		float FlagHolderPointsPerSecond;
 
-	UPROPERTY(config)
+	UPROPERTY()
 		float RecentActionTimeThreshold;
 
 	virtual void BeginPlay() override;

@@ -26,6 +26,7 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	InitialFlashTime = 0.3f;
 	InitialFlashScale = 5.f;
 	InitialFlashColor = FLinearColor::White;
+	bShowPowerupTimer = true;
 }
 
 void AUTInventory::PostInitProperties()

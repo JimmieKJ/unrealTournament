@@ -28,6 +28,7 @@
 #include "DataChannel.h"
 #include "Engine/GameInstance.h"
 #include "UTSpectatorCamera.h"
+#include "UTHUDWidget_NetInfo.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -39,7 +40,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	BaseLookUpRate = 45.f;
 
 	bAutoWeaponSwitch = true;
-
+	
 	MaxDodgeClickTime = 0.25f;
 	MaxDodgeTapTime = 0.3f;
 	LastTapLeftTime = -10.f;
@@ -51,6 +52,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bTapCrouchToSlide = true;
 	CrouchSlideTapInterval = 0.25f;
 	bHasUsedSpectatingBind = false;
+	bAutoCam = true;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
@@ -125,6 +127,16 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
+}
+
+void AUTPlayerController::NetStats()
+{
+	bShowNetInfo = !bShowNetInfo;
+	if (MyUTHUD && !MyUTHUD->HasHudWidget(UUTHUDWidget_NetInfo::StaticClass()))
+	{
+		MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass());
+	}
+
 }
 
 void AUTPlayerController::ServerNegotiatePredictionPing_Implementation(float NewPredictionPing)
@@ -302,6 +314,9 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
 	InputComponent->BindAction("PlayTaunt2", IE_Pressed, this, &AUTPlayerController::PlayTaunt2);
+
+
+	UpdateWeaponGroupKeys();
 }
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
@@ -360,7 +375,7 @@ void AUTPlayerController::InitPlayerState()
 			{
 				// don't call SetPlayerName() as that will broadcast entry messages but the GameMode hasn't had a chance
 				// to potentially apply a player/bot name yet
-				PlayerState->PlayerName = GameMode->DefaultPlayerName;
+				PlayerState->PlayerName = GameMode->DefaultPlayerName.ToString();
 			}
 		}
 	}
@@ -762,23 +777,33 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 			{
 				Index += TeamNum * 5;
 			}
-
-			PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+			int32 MaxSpectatingId = GS->GetMaxSpectatingId();
+			while ((Index <= MaxSpectatingId) && (PlayerToView == NULL))
 			{
-				const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
-				return (PS != NULL && PS->SpectatingID == Index);
-			});
+				PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+				{
+					const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
+					return (PS != NULL && PS->SpectatingID == Index);
+				});
+				Index += 5;
+			}
 		}
 		else if (GS->Teams.IsValidIndex(TeamNum))
 		{
-			PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+			int32 MaxSpectatingId = GS->GetMaxTeamSpectatingId(TeamNum);
+			while ((Index <= MaxSpectatingId) && (PlayerToView == NULL))
 			{
-				const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
-				return (PS != NULL && PS->SpectatingIDTeam == Index && PS->GetTeamNum() == TeamNum);
-			});
+				PlayerToView = GS->PlayerArray.FindByPredicate([=](const APlayerState* TestItem) -> bool
+				{
+					const AUTPlayerState* PS = Cast<AUTPlayerState>(TestItem);
+					return (PS != NULL && PS->SpectatingIDTeam == Index && PS->GetTeamNum() == TeamNum);
+				});
+				Index += 5;
+			}
 		}
 		if (PlayerToView != NULL)
 		{
+			bAutoCam = false;
 			BehindView(bSpectateBehindView);
 			ServerViewPlayerState(*PlayerToView);
 		}
@@ -797,7 +822,6 @@ void AUTPlayerController::ToggleBehindView()
 	}
 }
 
-
 void AUTPlayerController::ToggleSlideOut()
 {
 	bRequestingSlideOut = !bRequestingSlideOut;
@@ -806,6 +830,12 @@ void AUTPlayerController::ToggleSlideOut()
 void AUTPlayerController::ToggleShowBinds()
 {
 	bShowCameraBinds = !bShowCameraBinds;
+}
+
+void AUTPlayerController::ViewNextPlayer()
+{
+	bAutoCam = false;
+	ServerViewNextPlayer();
 }
 
 bool AUTPlayerController::ServerViewFlagHolder_Validate(uint8 TeamIndex)
@@ -843,6 +873,7 @@ void AUTPlayerController::ViewClosestVisiblePlayer()
 	}
 	if (BestChar)
 	{
+		bAutoCam = false;
 		ServerViewPlayerState(BestChar);
 	}
 }
@@ -863,6 +894,7 @@ void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 
 void AUTPlayerController::ViewFlag(uint8 Index)
 {
+	bAutoCam = false;
 	ServerViewFlag(Index);
 }
 
@@ -896,6 +928,7 @@ void AUTPlayerController::ViewCamera(int32 Index)
 				CamCount++;
 				if (CamCount == Index)
 				{
+					bAutoCam = false;
 					AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
 					NewViewTarget->SetActorLocationAndRotation(Cam->GetActorLocation(), Cam->GetActorRotation());
 					ResetCameraMode();
@@ -920,6 +953,7 @@ void AUTPlayerController::ViewProjectile()
 				APawn* Pawn = *Iterator;
 				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
 				{
+					bAutoCam = false;
 					ServerViewPawn(*Iterator);
 				}
 			}
@@ -941,6 +975,7 @@ void AUTPlayerController::ViewProjectile()
 					LastSpectatedPlayerState = ViewedCharacter->PlayerState;
 				}
 			}
+			bAutoCam = false;
 			ServerViewProjectile();
 		}
 	}
@@ -1004,10 +1039,6 @@ void AUTPlayerController::OnFire()
 		{
 			ServerRestartPlayer();
 		}
-		else
-		{
-			ServerViewNextPlayer();
-		}
 	}
 	else
 	{
@@ -1035,7 +1066,7 @@ void AUTPlayerController::OnAltFire()
 		PlayMenuSelectSound();
 		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) && bPlayerIsWaiting)
 		{
-			ServerRestartPlayerAltFire();
+			ServerRestartPlayer();
 		}
 		else
 		{
@@ -1316,22 +1347,18 @@ void AUTPlayerController::PerformSingleTapDodge()
 		if (MovementStrafeAxis > 0.5f)
 		{
 			MyCharMovement->bPressedDodgeRight = true;
-			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Right"));
 		}
 		else if (MovementStrafeAxis < -0.5f)
 		{
 			MyCharMovement->bPressedDodgeLeft = true;
-			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Left"));
 		}
 		else if ( MovementForwardAxis >= 0.f)
 		{
 			MyCharMovement->bPressedDodgeForward = true;
-			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Forward"));
 		}
 		else
 		{
 			MyCharMovement->bPressedDodgeBack = true;
-			UE_LOG(LogUTPlayerController, Verbose, TEXT("SingleTapDodge Back"));
 		}
 	}
 }
@@ -1601,8 +1628,6 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	}
 	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
 	{
-		// If we can't restart this player, try to view a new player
-		ServerViewNextPlayer();
 		return;
 	}
 
@@ -1634,11 +1659,16 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 			}
 		}
 	}
-	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
+	else 
 	{
-		// If we can't restart this player, try to view a new player
-		ServerViewNextPlayer();
-		return;
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode)
+		{
+			if (!GameMode->PlayerCanAltRestart(this))
+			{
+				return;
+			}
+		}
 	}
 
 	Super::ServerRestartPlayer_Implementation();
@@ -1713,6 +1743,11 @@ void AUTPlayerController::ToggleTacCom()
 		}
 		UpdateTacComOverlays();
 	}
+}
+
+void AUTPlayerController::EnableAutoCam()
+{
+	bAutoCam = true;
 }
 
 void AUTPlayerController::UpdateTacComOverlays()
@@ -1803,15 +1838,37 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 
 		// FIXME: HACK: PlayerState->bOnlySpectator check is workaround for bug possessing new Pawn where we are actually in the spectating state for a short time after getting the new pawn as viewtarget
 		//				happens because Pawn is replicated via property replication and ViewTarget is RPC'ed so comes first
-		if (IsLocalController() && bSpectateBehindView && PlayerState != NULL && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
+		if (IsLocalController() && bSpectateBehindView && PlayerState && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
 		{
 			// pick good starting rotation
-			FindGoodView();
+			FindGoodView(false);
 		}
 	}
 }
 
-void AUTPlayerController::FindGoodView()
+FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
+		{
+			return GetControlRotation();
+		}
+		float OldYaw = FMath::UnwindDegrees(GetControlRotation().Yaw);
+		FindGoodView(true);
+		FRotator NewRotation = GetControlRotation();
+		float NewYaw = FMath::UnwindDegrees(NewRotation.Yaw);
+		if (FMath::Abs(NewYaw - OldYaw) < 60.f)
+		{
+			NewRotation.Yaw = (1.f - 7.f*DeltaTime)*OldYaw + 7.f*DeltaTime*NewYaw;
+			SetControlRotation(NewRotation);
+		}
+	}
+	return GetControlRotation();
+}
+
+void AUTPlayerController::FindGoodView(bool bIsUpdate)
 {
 	AActor* TestViewTarget = GetViewTarget();
 	if (!TestViewTarget || !PlayerCameraManager || (TestViewTarget == this) || (TestViewTarget == GetSpectatorPawn()) || Cast<AUTProjectile>(TestViewTarget) || Cast<AUTViewPlaceholder>(TestViewTarget))
@@ -1824,7 +1881,34 @@ void AUTPlayerController::FindGoodView()
 	// Always start looking down slightly
 	BestRot.Pitch = -10.f;
 	BestRot.Roll = 0.f;
+	BestRot.Yaw = FMath::UnwindDegrees(BestRot.Yaw);
+	float CurrentYaw = BestRot.Yaw;
+
+	// @TODO FIXMESTEVE - if update, work harder to stay close to current view, slowly move back to behind
 	BestRot.Yaw = TestViewTarget->GetActorRotation().Yaw + 15.f;
+	if (bIsUpdate)
+	{
+		float DesiredYaw = BestRot.Yaw;
+
+		// check if too far to change directly
+		if (DesiredYaw - CurrentYaw > 180.f)
+		{
+			DesiredYaw -= 360.f;
+		}
+		else if (CurrentYaw - DesiredYaw > 180.f)
+		{
+			CurrentYaw -= 360.f;
+		}
+		if (DesiredYaw - CurrentYaw > 30.f)
+		{
+			BestRot.Yaw = CurrentYaw + 15.f + FMath::Clamp(60.f - (DesiredYaw - CurrentYaw), 0.f , 15.f);
+		}
+		else if (CurrentYaw - DesiredYaw > 30.f)
+		{
+			BestRot.Yaw = CurrentYaw - 15.f - FMath::Clamp(60.f - (CurrentYaw - DesiredYaw), 0.f, 15.f);
+		}
+	}
+	float UnBlockedPct = (Cast<APawn>(TestViewTarget) && (PlayerCameraManager->FreeCamDistance > 0.f)) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
 
 	AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TestViewTarget);
 	if (Flag)
@@ -1835,24 +1919,28 @@ void AUTPlayerController::FindGoodView()
 		}
 		else if (Flag->Holder && Flag->AttachmentReplication.AttachParent)
 		{
+			UnBlockedPct = (PlayerCameraManager->FreeCamDistance > 0.f) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
 			BestRot.Yaw = Flag->AttachmentReplication.AttachParent->GetActorRotation().Yaw + 15.f;
 		}
 	}
 
 	if ((TestViewTarget == FinalViewTarget) && Cast<AUTCharacter>(TestViewTarget))
 	{
+		UnBlockedPct = 1.f;
 		BestRot.Yaw += 180.f;
 	}
 
 	// look for acceptable view
 	float YawIncrement = 30.f;
+	float OffsetMag = -60.f;
 	float YawOffset = 0.f;
 	bool bFoundGoodView = false;
 	float BestView = BestRot.Yaw;
 	float BestDist = 0.f;
 	float StartYaw = BestRot.Yaw;
+	int32 IncrementCount = 1;
 	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
-	while (!bFoundGoodView && (YawOffset < 360.f) && CamMgr)
+	while (!bFoundGoodView && (IncrementCount < 12) && CamMgr)
 	{
 		BestRot.Yaw = StartYaw + YawOffset;
 		FVector TargetLoc = TestViewTarget->GetActorLocation();
@@ -1860,14 +1948,19 @@ void AUTPlayerController::FindGoodView()
 		FHitResult Result(1.f);
 		CamMgr->CheckCameraSweep(Result, TestViewTarget, TargetLoc, Pos);
 		float NewDist = (Result.Location - TargetLoc).SizeSquared();
-		bFoundGoodView = !Result.bBlockingHit;
+		bFoundGoodView = Result.Time > UnBlockedPct;
 		if (NewDist > BestDist)
 		{
 			BestDist = NewDist;
 			BestView = BestRot.Yaw;
 		}
-		YawOffset += YawIncrement;
-		YawIncrement = 45.f;
+		float NewOffset = (YawIncrement * IncrementCount);
+		if ((IncrementCount % 2) == 0)
+		{
+			NewOffset *= -1.f;
+		}
+		IncrementCount++;
+		YawOffset += NewOffset;
 	}
 	if (!bFoundGoodView)
 	{
@@ -1875,6 +1968,25 @@ void AUTPlayerController::FindGoodView()
 	}
 	SetControlRotation(BestRot);
 }
+
+void AUTPlayerController::StartCameraControl()
+{
+	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	if (CamMgr)
+	{
+		CamMgr->bAllowSpecCameraControl = true;
+	}
+}
+
+void AUTPlayerController::EndCameraControl()
+{
+	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	if (CamMgr)
+	{
+		CamMgr->bAllowSpecCameraControl = false;
+	}
+}
+
 
 void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams)
 {
@@ -2020,6 +2132,13 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
 
+
+	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam)
+	{
+		// possibly switch cameras
+		ChooseBestCamera();
+	}
+
 	// Follow the last spectated player again when they respawn
 	if ((StateName == NAME_Spectating) && LastSpectatedPlayerState && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
 	{
@@ -2046,6 +2165,37 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		UpdateTacComOverlays();
 	}
 }
+
+void AUTPlayerController::ChooseBestCamera()
+{
+	// for now, choose just between live players.  Eventually also use level cameras, etc.
+	float BestScore = 0.f;
+	APlayerState* BestPS = LastSpectatedPlayerState;
+	AUTPlayerCameraManager* UTCam = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	if (UTCam)
+	{
+		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		{
+			AUTCharacter* Pawn = Cast<AUTCharacter>(*Iterator);
+			AUTPlayerState* NextPlayerState = (Pawn && (Pawn->Health > 0)) ? Cast<AUTPlayerState>(Pawn->PlayerState) : NULL;
+			if (NextPlayerState)
+			{
+				float NewScore = UTCam->RatePlayerCamera(NextPlayerState, Pawn, LastSpectatedPlayerState);
+				if (NewScore > BestScore)
+				{
+					BestScore = NewScore;
+					BestPS = NextPlayerState;
+				}
+			}
+		}
+	}
+
+	if (BestPS && (BestPS != LastSpectatedPlayerState))
+	{
+		ServerViewPlayerState(BestPS);
+	}
+}
+
 
 void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
@@ -2640,27 +2790,10 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	if (MyUTHUD)
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL)
 	{
-		UUTScoreboard* Scoreboard = MyUTHUD->GetScoreboard();
-		if (Scoreboard) Scoreboard->BecomeInteractive();
-	}
-
-
-	TArray<FString> Keys;
-	ResolveKeybind(TestCommand, Keys);
-	if (Keys.Num() > 0)
-	{
-		FString AllKeys = Keys[0];
-		for (int32 i=1;i<Keys.Num();i++)
-		{
-			AllKeys += TEXT(",") + Keys[i];
-		}
-		UE_LOG(UT,Log,TEXT("Command %s = %s"), *TestCommand, *AllKeys);		
-	}
-	else
-	{
-		UE_LOG(UT,Log,TEXT("Command %s = [NONE]"), *TestCommand);		
+		LP->OpenLoadout();
 	}
 }
 
@@ -2674,5 +2807,139 @@ void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()
 			// quit so we can download everything
 			UTEngine->SetClientTravel(GetWorld(), TEXT("?downloadfiles"), TRAVEL_Relative);
 		}
+	}
+}
+
+int32 AUTPlayerController::ParseWeaponBind(FString ActionName)
+{
+	// Check if this is a switch weapon command, and if it 
+	if (ActionName.Left(12).Equals(TEXT("switchweapon"), ESearchCase::IgnoreCase))
+	{
+		TArray<FString> Parsed;
+		ActionName.ParseIntoArray(&Parsed, TEXT(" "),true);
+		if (Parsed.Num() == 2)
+		{
+			return FCString::Atoi(*Parsed[1]);
+		}
+	}
+	return -1;
+}
+
+FString AUTPlayerController::FixedupKeyname(FString KeyName)
+{
+	if (KeyName.Equals(TEXT("one"), ESearchCase::IgnoreCase)) return TEXT("1");
+	if (KeyName.Equals(TEXT("two"), ESearchCase::IgnoreCase)) return TEXT("2");
+	if (KeyName.Equals(TEXT("three"), ESearchCase::IgnoreCase)) return TEXT("3");
+	if (KeyName.Equals(TEXT("four"), ESearchCase::IgnoreCase)) return TEXT("4");
+	if (KeyName.Equals(TEXT("five"), ESearchCase::IgnoreCase)) return TEXT("5");
+	if (KeyName.Equals(TEXT("six"), ESearchCase::IgnoreCase)) return TEXT("6");
+	if (KeyName.Equals(TEXT("seven"), ESearchCase::IgnoreCase)) return TEXT("7");
+	if (KeyName.Equals(TEXT("eight"), ESearchCase::IgnoreCase)) return TEXT("8");
+	if (KeyName.Equals(TEXT("nine"), ESearchCase::IgnoreCase)) return TEXT("9");
+	if (KeyName.Equals(TEXT("zero"), ESearchCase::IgnoreCase)) return TEXT("0");
+
+	return KeyName;
+}
+
+void AUTPlayerController::UpdateWeaponGroupKeys()
+{
+	WeaponGroupKeys.Empty();
+
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+
+	//Look though ActionMappings
+	for (int32 i = 0; i < InputSettings->ActionMappings.Num(); i++)
+	{
+		int32 GroupIdx = ParseWeaponBind(InputSettings->ActionMappings[i].ActionName.ToString());
+		if (GroupIdx >= 0)
+		{
+			if (!WeaponGroupKeys.Find(GroupIdx))
+			{
+				WeaponGroupKeys.Add(GroupIdx, FixedupKeyname(InputSettings->ActionMappings[i].Key.ToString()));
+			}
+		}
+	}
+	
+	for (int32 i = 0; i < InputSettings->AxisMappings.Num(); i++)
+	{
+		int32 GroupIdx = ParseWeaponBind(InputSettings->AxisMappings[i].AxisName.ToString());
+		if (GroupIdx >= 0)
+		{
+			if (!WeaponGroupKeys.Find(GroupIdx))
+			{
+				WeaponGroupKeys.Add(GroupIdx, FixedupKeyname(InputSettings->AxisMappings[i].AxisName.ToString()));
+			}
+		}
+	}
+
+	// Look at my Custom Keybinds
+
+	UUTPlayerInput* UTPlayerInput = Cast<UUTPlayerInput>(PlayerInput);
+	if (UTPlayerInput)
+	{
+		for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
+		{
+			int32 GroupIdx = ParseWeaponBind(UTPlayerInput->CustomBinds[i].Command);
+			if (GroupIdx >= 0)
+			{
+				if (!WeaponGroupKeys.Find(GroupIdx))
+				{
+					WeaponGroupKeys.Add(GroupIdx, FixedupKeyname(UTPlayerInput->CustomBinds[i].KeyName.ToString()));
+				}
+			}
+		}
+	}
+}
+
+bool AUTPlayerController::ServerRegisterBanVote_Validate(AUTPlayerState* BadGuy) { return true; }
+void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* BadGuy)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && UTPlayerState)
+	{
+		GameState->VoteForTempBan(BadGuy, UTPlayerState);	
+	}
+}
+
+void AUTPlayerController::UpdateRotation(float DeltaTime)
+{
+	UUTPlayerInput* Input = Cast<UUTPlayerInput>(PlayerInput);
+	if (Input)
+	{
+		if (Input->AccelerationPower > 0)
+		{
+			float BaseSensivity = Input->GetMouseSensitivity();
+			FRotator UnscaledInput = RotationInput * (1.0f / BaseSensivity);
+			float InputLength = FMath::Sqrt(UnscaledInput.Yaw * UnscaledInput.Yaw + UnscaledInput.Pitch * UnscaledInput.Pitch);
+			float InputSpeed = InputLength / DeltaTime;
+			if (InputSpeed > 0)
+			{
+				UE_LOG(LogUTPlayerController, Verbose, TEXT("AUTPlayerController::UpdateRotation Pre: %f %f Speed: %f"), RotationInput.Yaw, RotationInput.Pitch, InputSpeed);
+				InputSpeed -= Input->AccelerationOffset;
+				if (InputSpeed > 0)
+				{
+					float AdjustmentAmount = FMath::Pow(InputSpeed * Input->Acceleration, Input->AccelerationPower);
+					if (Input->AccelerationMax > 0 && AdjustmentAmount > Input->AccelerationMax)
+					{
+						AdjustmentAmount = Input->AccelerationMax * DeltaTime;
+					}
+
+					// Scale rotation input by acceleration
+					RotationInput = UnscaledInput * (BaseSensivity + AdjustmentAmount);
+					UE_LOG(LogUTPlayerController, Verbose, TEXT("AUTPlayerController::UpdateRotation Post: %f %f"), RotationInput.Yaw, RotationInput.Pitch);
+				}
+			}
+		}
+	}
+
+	Super::UpdateRotation(DeltaTime);
+}
+
+void AUTPlayerController::ClientOpenLoadout_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->OpenLoadout();
 	}
 }

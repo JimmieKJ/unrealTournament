@@ -102,7 +102,7 @@ struct FRuleSubsetInfo
 
 };
 
-class SUWGameSetupDialog : public SUWDialog
+class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog
 {
 public:
 	SLATE_BEGIN_ARGS(SUWGameSetupDialog)

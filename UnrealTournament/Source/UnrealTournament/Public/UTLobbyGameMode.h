@@ -60,7 +60,7 @@ public:
 	virtual void PostLogin( APlayerController* NewPlayer );
 	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
 	virtual void Logout(AController* Exiting);
-	virtual bool PlayerCanRestart(APlayerController* Player);
+	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 	virtual TSubclassOf<AGameSession> GetGameSessionClass() const;
 	virtual void OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState);
 

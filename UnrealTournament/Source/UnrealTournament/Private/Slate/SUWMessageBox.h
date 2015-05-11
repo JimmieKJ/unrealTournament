@@ -6,7 +6,7 @@
 
 #if !UE_SERVER
 
-class SUWMessageBox : public SUWDialog
+class UNREALTOURNAMENT_API SUWMessageBox : public SUWDialog
 {
 	SLATE_BEGIN_ARGS(SUWMessageBox)
 	: _DialogSize(FVector2D(700,400))

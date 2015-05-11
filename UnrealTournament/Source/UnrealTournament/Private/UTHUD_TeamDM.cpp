@@ -14,11 +14,14 @@ AUTHUD_TeamDM::AUTHUD_TeamDM(const FObjectInitializer& ObjectInitializer)
 FLinearColor AUTHUD_TeamDM::GetBaseHUDColor()
 {
 	FLinearColor TeamColor = Super::GetBaseHUDColor();
-
-	AUTPlayerState* PS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	if (PS != NULL && PS->Team != NULL)
+	APawn* HUDPawn = Cast<APawn>(UTPlayerOwner->GetViewTarget());
+	if (HUDPawn)
 	{
-		TeamColor = PS->Team->TeamColor;
+		AUTPlayerState* PS = Cast<AUTPlayerState>(HUDPawn->PlayerState);
+		if (PS != NULL && PS->Team != NULL)
+		{
+			TeamColor = PS->Team->TeamColor;
+		}
 	}
 	return TeamColor;
 }

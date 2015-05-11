@@ -22,6 +22,7 @@ struct FDeferredFireInput
 	{}
 };
 
+
 /** controls location and orientation of first person weapon */
 UENUM()
 enum EWeaponHand
@@ -171,18 +172,32 @@ public:
 	UFUNCTION(client, reliable)
 	void ClientHalftime();
 
+	/** Switch to best current camera while spectating. */
+	virtual void ChooseBestCamera();
+
+	/** If true, show networking stats widget on HUD. */
+	UPROPERTY()
+		bool bShowNetInfo;
+
+	/** Toggle showing net stats on HUD. */
+	UFUNCTION(exec)
+		virtual void NetStats();
+
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
 
-	/** Update rotation to be good view of current viewtarget. */
+	/** Update rotation to be good view of current viewtarget.  UnBlockedPct is how much of the camera offset trace needs to be unblocked. */
 	UFUNCTION()
-	virtual void FindGoodView();
+	virtual void FindGoodView(bool bIsUpdate);
 
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
 
 	UFUNCTION(exec)
 	virtual void ViewPlayerNum(int32 Index, uint8 TeamNum = 255);
+
+	UFUNCTION(exec)
+	virtual void ViewNextPlayer();
 
 	/** View Player holding flag specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)
@@ -209,7 +224,25 @@ public:
 	virtual void ViewCamera(int32 Index);
 
 	UFUNCTION(exec)
+		virtual void StartCameraControl();
+
+	UFUNCTION(exec)
+		virtual void EndCameraControl();
+
+	/** Returns updated rotation for third person camera view. */
+	UFUNCTION()
+		virtual FRotator GetSpectatingRotation(float DeltaTime);
+
+	UFUNCTION(exec)
 	virtual void ToggleTacCom();
+
+	/** Enables auto cam (auto cam turned off whenever use a spectator camera bind. */
+	UFUNCTION(exec)
+		virtual void EnableAutoCam();
+
+	/** Enables Auto best camera for spectators. */
+	UPROPERTY(BluePrintReadWrite)
+		bool bAutoCam;
 
 	/** Enables TacCom for spectators. */
 	UPROPERTY(BluePrintReadWrite)
@@ -702,6 +735,22 @@ public:
 
 
 	virtual void DebugTest(FString TestCommand) override;
+
+protected:
+	int32 ParseWeaponBind(FString ActionName);
+	FString FixedupKeyname(FString KeyName);
+
+public:
+	TMap<int32,FString> WeaponGroupKeys;
+	virtual void UpdateWeaponGroupKeys();
+
+	UFUNCTION(server, reliable, withvalidation)
+	void ServerRegisterBanVote(AUTPlayerState* BadGuy);
+	
+	virtual void UpdateRotation(float DeltaTime) override;
+
+	UFUNCTION(client, reliable)
+	void ClientOpenLoadout();
 };
 
 

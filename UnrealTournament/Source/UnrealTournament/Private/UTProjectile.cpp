@@ -75,6 +75,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	bFakeClientProjectile = false;
 	bReplicateUTMovement = false;
 	bReplicateMovement = false;
+	bMoveFakeToReplicatedPos = true;
 
 	bInitiallyWarnTarget = true;
 
@@ -305,11 +306,19 @@ void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
 	}
 	//UE_LOG(UT, Warning, TEXT("%s CORRECTION %f in msec %f"), *GetName(), Error, 1000.f * Error/GetVelocity().Size());
 
-	MyFakeProjectile->ReplicatedMovement.Location = GetActorLocation();
-	MyFakeProjectile->ReplicatedMovement.Rotation = GetActorRotation();
-	MyFakeProjectile->PostNetReceiveLocationAndRotation();
+	if (bMoveFakeToReplicatedPos)
+	{
+		MyFakeProjectile->ReplicatedMovement.Location = GetActorLocation();
+		MyFakeProjectile->ReplicatedMovement.Rotation = GetActorRotation();
+		MyFakeProjectile->PostNetReceiveLocationAndRotation();
+	}
+	else
+	{
+		ReplicatedMovement.Location = MyFakeProjectile->GetActorLocation();
+		ReplicatedMovement.Rotation = MyFakeProjectile->GetActorRotation();
+		PostNetReceiveLocationAndRotation();
+	}
 	MyFakeProjectile->SetLifeSpan(GetLifeSpan());
-
 	if (bNetTemporary)
 	{
 		// @TODO FIXMESTEVE - will have issues if there are replicated properties that haven't been received yet
@@ -489,7 +498,17 @@ void AUTProjectile::OnRep_UTProjReplicatedMovement()
 
 void AUTProjectile::PostNetReceiveLocationAndRotation()
 {
+	if (!bMoveFakeToReplicatedPos && MyFakeProjectile)
+	{
+		// use fake proj position
+		ReplicatedMovement.Location = MyFakeProjectile->GetActorLocation();
+		ReplicatedMovement.Rotation = MyFakeProjectile->GetActorRotation();
+	}
 	Super::PostNetReceiveLocationAndRotation();
+	if (!bMoveFakeToReplicatedPos && MyFakeProjectile)
+	{
+		return;
+	}
 
 	// forward predict to get to position on server now
 	if (!bFakeClientProjectile)

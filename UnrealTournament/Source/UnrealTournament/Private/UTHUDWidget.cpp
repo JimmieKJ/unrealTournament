@@ -877,12 +877,12 @@ FVector2D UUTHUDWidget::RenderObj_TextAt(FHUDRenderObject_Text& TextObject, floa
 
 float UUTHUDWidget::GetDrawScaleOverride()
 {
-	return UTHUDOwner->HUDWidgetScaleOverride;
+	return (UTHUDOwner) ? UTHUDOwner->HUDWidgetScaleOverride : 1.0;
 }
 
 UWorld* UUTHUDWidget::GetWorld() const
 {
-	return UTHUDOwner->GetWorld();
+	return (UTHUDOwner) ? UTHUDOwner->GetWorld() : nullptr;
 }
 
 FString UUTHUDWidget::GetClampedName(AUTPlayerState* PS, UFont* NameFont, float NameScale, float MaxWidth)

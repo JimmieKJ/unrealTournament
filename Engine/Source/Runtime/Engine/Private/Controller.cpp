@@ -425,7 +425,7 @@ void AController::InitPlayerState()
 			{
 				// don't call SetPlayerName() as that will broadcast entry messages but the GameMode hasn't had a chance
 				// to potentially apply a player/bot name yet
-				PlayerState->PlayerName = GameMode->DefaultPlayerName;
+				PlayerState->PlayerName = GameMode->DefaultPlayerName.ToString();
 			}
 		}
 	}

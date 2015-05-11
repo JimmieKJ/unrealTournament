@@ -92,7 +92,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 						if (FCoreDelegates::OnMountPak.IsBound())
 						{
 							FCoreDelegates::OnMountPak.Execute(Path, 0);
-							UTEngine->MountedDownloadedContentChecksums.Add(Path, Checksum);
+							UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, Checksum);
 							bAlreadyDownloaded = true;
 						}
 					}
@@ -169,7 +169,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 						if (FCoreDelegates::OnMountPak.IsBound())
 						{
 							FCoreDelegates::OnMountPak.Execute(Path, 0);
-							UTEngine->MountedDownloadedContentChecksums.Add(Path, It.Value());
+							UTEngine->MountedDownloadedContentChecksums.Add(It.Key(), It.Value());
 							bNeedsToDownload = false;
 							bMountedPreviousDownload = true;
 						}

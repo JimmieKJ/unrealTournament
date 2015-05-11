@@ -166,7 +166,6 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 #endif // WITH_SERVER_CODE
 	}
 
-#if STATS
 	// Update network stats
 	if ( Time - StatUpdateTime > StatPeriod && ( ClientConnections.Num() > 0 || ServerConnection != NULL ) )
 	{
@@ -181,28 +180,30 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 		int32 PendingCount = 0;
 		int32 NetSaturated = 0;
 
+		float RealTime = Time - StatUpdateTime;
+
+		// Use the elapsed time to keep things scaled to one measured unit
+		InBytes = FMath::TruncToInt(InBytes / RealTime);
+		OutBytes = FMath::TruncToInt(OutBytes / RealTime);
+
+		NetGUIDOutBytes = FMath::TruncToInt(NetGUIDOutBytes / RealTime);
+		NetGUIDInBytes = FMath::TruncToInt(NetGUIDInBytes / RealTime);
+
+		// Save off for stats later
+
+		InBytesPerSecond = InBytes;
+		OutBytesPerSecond = OutBytes;
+
+		InPackets = FMath::TruncToInt(InPackets / RealTime);
+		OutPackets = FMath::TruncToInt(OutPackets / RealTime);
+		InBunches = FMath::TruncToInt(InBunches / RealTime);
+		OutBunches = FMath::TruncToInt(OutBunches / RealTime);
+		OutPacketsLost = FMath::TruncToInt(100.f * OutPacketsLost / FMath::Max((float)OutPackets, 1.f));
+		InPacketsLost = FMath::TruncToInt(100.f * InPacketsLost / FMath::Max((float)InPackets + InPacketsLost, 1.f));
+
+#if STATS
 		if (FThreadStats::IsCollectingData())
 		{
-			float RealTime = Time - StatUpdateTime;
-
-			// Use the elapsed time to keep things scaled to one measured unit
-			InBytes = FMath::TruncToInt(InBytes / RealTime);
-			OutBytes = FMath::TruncToInt(OutBytes / RealTime);
-
-			NetGUIDOutBytes = FMath::TruncToInt(NetGUIDOutBytes / RealTime);
-			NetGUIDInBytes = FMath::TruncToInt(NetGUIDInBytes / RealTime);
-
-			// Save off for stats later
-
-			InBytesPerSecond = InBytes;
-			OutBytesPerSecond = OutBytes;
-
-			InPackets = FMath::TruncToInt(InPackets / RealTime);
-			OutPackets = FMath::TruncToInt(OutPackets / RealTime);
-			InBunches = FMath::TruncToInt(InBunches / RealTime);
-			OutBunches = FMath::TruncToInt(OutBunches / RealTime);
-			OutPacketsLost = FMath::TruncToInt(100.f * OutPacketsLost / FMath::Max((float)OutPackets,1.f));
-			InPacketsLost = FMath::TruncToInt(100.f * InPacketsLost / FMath::Max((float)InPackets + InPacketsLost,1.f));
 			
 			if (ServerConnection != NULL && ServerConnection->PlayerController != NULL && ServerConnection->PlayerController->PlayerState != NULL)
 			{
@@ -290,26 +291,27 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 		SET_DWORD_STAT(STAT_NumNetGUIDsUnAckd, PendingCount);
 		SET_DWORD_STAT(STAT_NetSaturated, NetSaturated);
 		
-		// Reset everything
-		InBytes = 0;
-		OutBytes = 0;
-		NetGUIDOutBytes = 0;
-		NetGUIDInBytes = 0;
-		InPackets = 0;
-		OutPackets = 0;
-		InBunches = 0;
-		OutBunches = 0;
-		OutPacketsLost = 0;
-		InPacketsLost = 0;
-		VoicePacketsSent = 0;
-		VoiceBytesSent = 0;
-		VoicePacketsRecv = 0;
-		VoiceBytesRecv = 0;
-		VoiceInPercent = 0;
-		VoiceOutPercent = 0;
-		StatUpdateTime = Time;
 	}
 #endif
+
+	// Reset everything
+	InBytes = 0;
+	OutBytes = 0;
+	NetGUIDOutBytes = 0;
+	NetGUIDInBytes = 0;
+	InPackets = 0;
+	OutPackets = 0;
+	InBunches = 0;
+	OutBunches = 0;
+	OutPacketsLost = 0;
+	InPacketsLost = 0;
+	VoicePacketsSent = 0;
+	VoiceBytesSent = 0;
+	VoicePacketsRecv = 0;
+	VoiceBytesRecv = 0;
+	VoiceInPercent = 0;
+	VoiceOutPercent = 0;
+	StatUpdateTime = Time;
 
 	// Poll all sockets.
 	if( ServerConnection )

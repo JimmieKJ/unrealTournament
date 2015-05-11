@@ -171,7 +171,7 @@ struct FUTPathLink
 	UPROPERTY(BlueprintReadOnly, Category = PathLink)
 	int32 CollisionHeight;
 	/** traversal flags (e.g. jumping required) */
-	UPROPERTY(BlueprintReadOnly, Category = PathLink)
+	UPROPERTY()
 	uint16 ReachFlags;
 	/** path distance from each poly in Start to EndPoly
 	* this array mirrors Start->Polys

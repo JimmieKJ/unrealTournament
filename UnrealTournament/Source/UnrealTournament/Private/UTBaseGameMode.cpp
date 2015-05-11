@@ -83,7 +83,7 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 	}
 }
 
-APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	// local players don't go through PreLogin()
 	if (UniqueId.IsValid() && Cast<ULocalPlayer>(NewPlayer) != NULL && IOnlineSubsystem::Get() != NULL)
@@ -96,7 +96,7 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, const FStrin
 		}
 	}
 
-	return Super::Login(NewPlayer, Portal, Options, UniqueId, ErrorMessage);
+	return Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
 }
 
 void AUTBaseGameMode::PostLogin(APlayerController* NewPlayer)

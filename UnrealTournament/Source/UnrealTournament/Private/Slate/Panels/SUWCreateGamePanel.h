@@ -9,7 +9,7 @@
 
 #if !UE_SERVER
 
-class SUWCreateGamePanel : public SUWPanel, public FGCObject
+class UNREALTOURNAMENT_API SUWCreateGamePanel : public SUWPanel, public FGCObject
 {
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);	

@@ -351,7 +351,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSlowerEmote();
 
-	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (FriendlyName = "Play Taunt"))
+	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (DisplayName = "Play Taunt"))
 	void PlayTaunt();
 
 	UFUNCTION(BlueprintCallable, Category = Taunt)
@@ -454,10 +454,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return InventoryList;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
 	virtual void AddInventory(AUTInventory* InvToAdd, bool bAutoActivate);
 
-	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
 	virtual void RemoveInventory(AUTInventory* InvToRemove);
 
 	/** find an inventory item of a specified type */
@@ -1459,7 +1459,7 @@ protected:
 	UFUNCTION()
 	void DeathCleanupTimer();
 
-	UFUNCTION(BlueprintNativeEvent, Category = "Pawn|Character|InternalEvents", meta = (FriendlyName = "CanDodge"))
+	UFUNCTION(BlueprintNativeEvent, Category = "Pawn|Character|InternalEvents", meta = (DisplayName = "CanDodge"))
 	bool CanDodgeInternal() const;
 
 	/** multiplier to firing speed */

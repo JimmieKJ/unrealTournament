@@ -75,7 +75,7 @@ void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, b
 						UUTReachSpec_Lift* LiftSpec = NewObject<UUTReachSpec_Lift>(StopNode);
 						LiftSpec->Lift = TheLift;
 						LiftSpec->LiftExitLoc = ExitLoc;
-						LiftSpec->LiftCenter = BestStop + LiftCenterOffset;
+						LiftSpec->LiftCenter = NextStop + LiftCenterOffset;
 						LiftSpec->bEntryPath = false;
 						FUTPathLink* NewLink = new(StopNode->Paths) FUTPathLink(StopNode, StopPoly, MyNode, MyPoly, LiftSpec, PathSize.Radius, PathSize.Height, bRequireLiftJump ? R_JUMP : 0);
 						for (NavNodeRef StartPoly : StopNode->Polys)

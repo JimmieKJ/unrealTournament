@@ -1,0 +1,23 @@
+{
+	"FileVersion" : 3,
+
+    "FriendlyName": "Custom Bot Framework",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.3.0",
+	"Description" : "Code additions required to be able to created custom-logic bots",
+	"Category" : "UnrealTournament.Expansion",
+	"EnabledByDefault" : false,
+    "CanContainContent" : true,
+
+	"Modules" :
+	[
+		{
+			"Name" : "CustomBot",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Linux" ]
+		}
+	]
+}

@@ -9,7 +9,7 @@
 #if !UE_SERVER
 
 
-class SUChatPanel : public SUWPanel
+class UNREALTOURNAMENT_API SUChatPanel : public SUWPanel
 {
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);

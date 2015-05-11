@@ -61,6 +61,7 @@ const FVector2D Icon64x64(64.0f, 64.0f);
 const FVector2D Icon36x24(36.0f, 24.0f);
 const FVector2D Icon17x22(17.0f, 22.0f);
 const FVector2D Icon128x128(128.0f, 128.0f);
+const FVector2D Icon256x256(256.0f, 256.0f);
 
 FSlateSound SUWindowsStyle::ButtonPressSound;
 FSlateSound SUWindowsStyle::ButtonHoverSound;
@@ -114,12 +115,34 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	//Style.Set("UT.Backgrounds.BK02", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.BK02", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Backgrounds.Overlay", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.Overlay", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
+
 	Style.Set("UT.Background.Dark", new FSlateColorBrush(FLinearColor(0, 0, 0, .5f)));
 
 	Style.Set("UT.Version.TextStyle", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Bold", 14))
 		.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255)))
 		);
+
+	// Loadout
+	{
+		Style.Set("UT.Loadout.List.Normal", new IMAGE_BRUSH( "Loadout/UT.Loadout.List.Normal", Icon128x128, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+		Style.Set("UT.Loadout.Tab", new BOX_BRUSH("Loadout/UT.Loadout.Tab", FMargin(2.0f / 85.0f, 0.0f, 58.0f / 85.0f, 0.0f)));
+		Style.Set("UT.Loadout.UpperBar", new IMAGE_BRUSH( "Loadout/UT.Loadout.UpperBar", FVector2D(16.0f, 16.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+		Style.Set("UT.Loadout.List.Row", FTableRowStyle()
+			.SetEvenRowBackgroundBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetEvenRowBackgroundHoveredBrush(IMAGE_BRUSH("Loadout/UT.Loadout.List.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal))
+			.SetOddRowBackgroundBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetOddRowBackgroundHoveredBrush(IMAGE_BRUSH("Loadout/UT.Loadout.List.Hovered", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), ESlateBrushTileType::Horizontal))
+			.SetSelectorFocusedBrush(IMAGE_BRUSH("Loadout/UT.Loadout.List.Selected", Icon256x256, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
+			.SetActiveBrush(IMAGE_BRUSH("Loadout/UT.Loadout.List.Selected", Icon256x256, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
+			.SetActiveHoveredBrush(IMAGE_BRUSH("Loadout/UT.Loadout.List.Selected", Icon256x256, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
+			.SetInactiveBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetInactiveHoveredBrush(FSlateNoResource(FVector2D(128.0f, 128.0f)))
+			.SetTextColor(FLinearColor::White)
+			.SetSelectedTextColor(FLinearColor::Yellow)
+			);
+	}
 
 
 	Style.Set("UT.Dialog.Background", new BOX_BRUSH("TopMenu/UT.Dialog.Background", FMargin(10.0f / 256.0f, 64.0f/256.0f, 10.0f / 256.0f, 25.0f/256.0f)));
@@ -356,6 +379,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{ // Server Browser
 	
 		Style.Set("UT.Icon.Epic", new IMAGE_BRUSH("Icons/UT.Icon.Epic", Icon54x54));
+		Style.Set("UT.Icon.Raxxy", new IMAGE_BRUSH("Icons/UT.Icon.Raxxy", Icon54x54));
 		Style.Set("UT.Icon.Globe", new IMAGE_BRUSH("Icons/UT.Icon.Globe", Icon54x54));
 	}
 

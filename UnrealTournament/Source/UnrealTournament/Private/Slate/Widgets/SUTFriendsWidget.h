@@ -6,7 +6,7 @@
 #if !UE_SERVER
 
 //class declare
-class SUTFriendsWidget : public SCompoundWidget
+class UNREALTOURNAMENT_API SUTFriendsWidget : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SUTFriendsWidget)

@@ -8,7 +8,7 @@
 
 #include "Http.h"
 
-class SUWRedirectDialog : public SUWDialog
+class UNREALTOURNAMENT_API SUWRedirectDialog : public SUWDialog
 {
 public:
 

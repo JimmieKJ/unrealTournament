@@ -932,12 +932,32 @@ FText SUWServerBrowser::GetStatusText() const
 	{
 		int32 PingCount = PingList.Num() + PingTrackers.Num();
 
+
 		FFormatNamedArguments Args;
 		Args.Add( TEXT("PingCount"), FText::AsNumber(PingCount) );
 		Args.Add( TEXT("FilteredHubCount"), FText::AsNumber(FilteredHubsSource.Num() > 0 ? FilteredHubsSource.Num() : AllHubServers.Num()) );
 		Args.Add( TEXT("HubCount"), FText::AsNumber(AllHubServers.Num()) );
 		Args.Add( TEXT("FilteredServerCount"), FText::AsNumber(FilteredServersSource.Num()> 0 ? FilteredServersSource.Num() : AllInternetServers.Num()) );
 		Args.Add( TEXT("ServerCount"), FText::AsNumber(AllInternetServers.Num()) );
+		Args.Add( TEXT("TotalPlayers"), FText::AsNumber(TotalPlayersPlaying) );
+
+		int32 PlayerCount = 0;
+		if (bShowingHubs)
+		{
+			for (int32 i=0; i < FilteredHubsSource.Num(); i++)
+			{
+				PlayerCount += FilteredHubsSource[i]->NumPlayers + FilteredHubsSource[i]->NumSpectators;
+			}
+		}
+		else
+		{
+			for (int32 i=0; i < FilteredServersSource.Num(); i++)
+			{
+				PlayerCount += FilteredServersSource[i]->NumPlayers + FilteredServersSource[i]->NumSpectators;
+			}
+		}
+
+		Args.Add( TEXT("PlayerCount"), FText::AsNumber(PlayerCount) );
 
 		if (PingCount > 0)
 		{
@@ -945,7 +965,7 @@ FText SUWServerBrowser::GetStatusText() const
 		}
 		else
 		{
-			return FText::Format( NSLOCTEXT("SUWServerBrowser","IdleStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers"), Args);
+			return FText::Format( NSLOCTEXT("SUWServerBrowser","IdleStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers -- {PlayerCount} of {TotalPlayers} Players"), Args);
 		}
 	}
 }
@@ -1031,6 +1051,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 	if (bWasSuccessful)
 	{
+		TotalPlayersPlaying = 0;
 		if (SearchSettings->SearchResults.Num() > 0)
 		{
 			for (int32 ServerIndex = 0; ServerIndex < SearchSettings->SearchResults.Num(); ServerIndex++)
@@ -1095,9 +1116,12 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				
 				uint32 ServerPing = -1;
 
+				int32 ServerTrustLevel = 2;
+				Result.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
+
 				FString BeaconIP;
 				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags);
+				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags,ServerTrustLevel);
 				NewServer->SearchResult = Result;
 
 				if (PingList.Num() == 0 || ServerGamePath != LOBBY_GAME_PATH )
@@ -1108,6 +1132,8 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				{
 					PingList.Insert(NewServer,0);
 				}
+
+				TotalPlayersPlaying += ServerNoPlayers + ServerNoSpecs;
 			}
 		}
 
@@ -1138,6 +1164,8 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		InternetServerList->RequestListRefresh();
 		HUBServerList->RequestListRefresh();
 		PingNextServer();
+
+
 	}
 	else
 	{
@@ -1681,7 +1709,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		int32 NumFriends = 0;
 		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00,0);
 		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
@@ -1699,7 +1727,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		TallyInternetServers(NumPlayers, NumSpectators, NumFriends);
 
 		AllHubServers.Remove(RandomHUB);
-		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00);
+		RandomHUB = FServerData::Make( TEXT("[Internet] Individual Servers"), TEXT("@RandomServers"), TEXT("ALL"), LOBBY_GAME_PATH, TEXT("HUB"), TEXT(""),NumPlayers,NumSpectators,0,0,AllInternetServers.Num(),0,0,TEXT(""),0,0x00,0);
 		RandomHUB->NumFriends = NumFriends;
 		RandomHUB->MOTD = TEXT("Browse a random collection of servers on the internet.");
 		RandomHUB->bFakeHUB = true;
@@ -1951,7 +1979,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 {
 
-	if (HUB->bFakeHUB)
+	if (HUB->bFakeHUB || HUB->TrustLevel > 1)
 	{
 		return 	SNew(SBox)						// First the overlaid box that controls everything....
 			.HeightOverride(54)
@@ -1963,13 +1991,22 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 	}
 	else
 	{
-		return 	SNew(SBox)						// First the overlaid box that controls everything....
-			.HeightOverride(54)
-			.WidthOverride(54)
-			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Epic"))
-			];
+		if (HUB->TrustLevel == 0)
+		{
+			return 	SNew(SBox).HeightOverride(54).WidthOverride(54)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Epic"))
+				];
+		}
+		else
+		{
+			return 	SNew(SBox).HeightOverride(54).WidthOverride(54)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Raxxy"))
+				];
+		}
 	
 	}
 

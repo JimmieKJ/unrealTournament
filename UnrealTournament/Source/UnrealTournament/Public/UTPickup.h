@@ -77,9 +77,6 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	UMaterialInstanceDynamic* TimerMI;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
-	TEnumAsByte<EPickupClassification> PickupType;
-
 	// Holds the PRI of the last player to pick this item up.  Used to give a controlling bonus to score
 	UPROPERTY(BlueprintReadOnly, Category = Game)
 	AUTPlayerState* LastPickedUpBy;
@@ -165,6 +162,10 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	 * only valid on server
 	 */
 	virtual float GetRespawnTimeOffset(APawn* Asker) const;
+
+	/** For spectator slide out - show which side this pickup is on when there are multiple. */
+	UPROPERTY(BlueprintReadWrite, Category = Pickup)
+		uint8 TeamSide;
 
 protected:
 	/** last time pickup respawned, used by GetRespawnTimeOffset() */

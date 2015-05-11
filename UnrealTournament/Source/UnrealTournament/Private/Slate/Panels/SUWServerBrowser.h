@@ -32,7 +32,7 @@ public:
 };
 
 
-class SServerRuleRow : public SMultiColumnTableRow< TSharedPtr<FServerRuleData> >
+class UNREALTOURNAMENT_API SServerRuleRow : public SMultiColumnTableRow< TSharedPtr<FServerRuleData> >
 {
 public:
 	
@@ -105,7 +105,7 @@ public:
 	}
 };
 
-class SServerPlayerRow : public SMultiColumnTableRow< TSharedPtr<FServerPlayerData> >
+class UNREALTOURNAMENT_API SServerPlayerRow : public SMultiColumnTableRow< TSharedPtr<FServerPlayerData> >
 {
 public:
 	
@@ -235,6 +235,9 @@ public:
 	// Server Flags
 	int32 Flags;
 
+	// The Server trust level
+	int32 TrustLevel;
+
 	FString MOTD;
 
 	FOnlineSessionSearchResult SearchResult;
@@ -245,7 +248,7 @@ public:
 	TArray<TSharedPtr<FServerRuleData>> Rules;
 	TArray<TSharedPtr<FServerPlayerData>> Players;
 
-	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inMaxSpectators, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags)
+	FServerData(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers, int32 inMaxSpectators, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags, int32 inTrustLevel)
 	: Name( inName )
 	, IP( inIP )
 	, BeaconIP( inBeaconIP )
@@ -262,6 +265,7 @@ public:
 	, Version( inVersion ) 
 	, Ping( inPing )
 	, Flags( inFlags )
+	, TrustLevel( inTrustLevel )
 	{		
 		Rules.Empty();
 		Players.Empty();
@@ -270,9 +274,9 @@ public:
 		bFakeHUB = false;
 	}
 
-	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers,  int32 inMaxSpectators, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags)
+	static TSharedRef<FServerData> Make(const FString& inName, const FString& inIP, const FString& inBeaconIP, const FString& inGameModePath, const FString& inGameModeName, const FString& inMap, int32 inNumPlayers, int32 inNumSpecators, int32 inMaxPlayers,  int32 inMaxSpectators, int32 inNumMatches, int32 inMinRank, int32 inMaxRank, const FString& inVersion, int32 inPing, int32 inFlags, int32 inTrustLevel)
 	{
-		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inMaxSpectators, inNumMatches, inMinRank, inMaxRank, inVersion, inPing, inFlags ) );
+		return MakeShareable( new FServerData( inName, inIP, inBeaconIP, inGameModePath, inGameModeName, inMap, inNumPlayers, inNumSpecators, inMaxPlayers, inMaxSpectators, inNumMatches, inMinRank, inMaxRank, inVersion, inPing, inFlags, inTrustLevel ) );
 	}
 
 	void Update(TSharedPtr<FServerData> NewData)
@@ -296,7 +300,9 @@ public:
 		Ping = NewData->Ping;
 		Flags = NewData->Flags;
 		MOTD = NewData->MOTD;
+		TrustLevel = NewData->TrustLevel;
 		SearchResult = NewData->SearchResult;
+
 
 
 		HUBInstances.Empty(); Rules.Empty(); Players.Empty();
@@ -403,7 +409,7 @@ public:
  * An Item Editor used by list testing.
  * It visualizes a string and edits its contents.
  */
-class SServerBrowserRow : public SMultiColumnTableRow< TSharedPtr<FServerData> >
+class UNREALTOURNAMENT_API SServerBrowserRow : public SMultiColumnTableRow< TSharedPtr<FServerData> >
 {
 public:
 	
@@ -559,7 +565,7 @@ namespace EBrowserState
 	static FName RefreshInProgress = TEXT("RefreshInProgress");
 }
 
-class SUWServerBrowser : public SUWPanel
+class UNREALTOURNAMENT_API SUWServerBrowser : public SUWPanel
 {
 public:
 
@@ -758,6 +764,8 @@ protected:
 	bool IsUnresponsive(TSharedPtr<FServerData> Server, int32 BestPing = 0);
 
 	bool bWantsAFullRefilter;
+
+	int32 TotalPlayersPlaying;
 
 };
 

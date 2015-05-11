@@ -32,6 +32,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	TDMSkillRatingThisMatch = 0;
 	DMSkillRatingThisMatch = 0;
 	CTFSkillRatingThisMatch = 0;
+	ReadyColor = FLinearColor::White;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -61,6 +62,11 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
 	DOREPLIFETIME(AUTPlayerState, HatVariant);
 	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
+	DOREPLIFETIME(AUTPlayerState, bSpecialPlayer);
+	DOREPLIFETIME(AUTPlayerState, OverrideHatClass);
+	DOREPLIFETIME(AUTPlayerState, Loadout);
+	DOREPLIFETIME(AUTPlayerState, KickPercent);
+	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -83,6 +89,12 @@ void AUTPlayerState::UpdatePing(float InPing)
 
 void AUTPlayerState::CalculatePing(float NewPing)
 {
+	if (NewPing < 0.f)
+	{
+		// caused by timestamp wrap around
+		return;
+	}
+
 	float OldPing = ExactPing;
 	Super::UpdatePing(NewPing);
 
@@ -393,6 +405,13 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
 	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
+
+	// Allow the game mode to validate the hat.
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if ( GameMode && !GameMode->ValidateHat(this, NewHatClass) )
+	{
+		return;
+	}
 
 	if (HatClass != nullptr && !HatClass->IsChildOf(AUTHatLeader::StaticClass()))
 	{
@@ -1244,4 +1263,139 @@ void AUTPlayerState::OnRep_PlayerName()
 {
 	Super::OnRep_PlayerName();
 	bHasValidClampedName = false;
+}
+
+
+void AUTPlayerState::SetOverrideHatClass(const FString& NewOverrideHatClass)
+{
+	OverrideHatClass = NewOverrideHatClass == TEXT("") ? nullptr : LoadClass<AUTHat>(NULL, *NewOverrideHatClass, NULL, LOAD_NoWarn, NULL);
+	OnRepOverrideHat();
+}
+
+void AUTPlayerState::OnRepOverrideHat()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	UE_LOG(UT,Log,TEXT("OnRepOverrideHat: %s %s"), (OverrideHatClass == nullptr ? TEXT("None") : *OverrideHatClass->GetFullName()), ( UTChar ? *UTChar->GetFullName() : TEXT("None") ) );
+	if (UTChar != nullptr)
+	{
+		UTChar->SetHatClass(OverrideHatClass == nullptr ? HatClass : OverrideHatClass);
+	}
+}
+
+bool AUTPlayerState::ServerUpdateLoadout_Validate(const TArray<AUTReplicatedLoadoutInfo*>& NewLoadout) { return true; }
+void AUTPlayerState::ServerUpdateLoadout_Implementation(const TArray<AUTReplicatedLoadoutInfo*>& NewLoadout)
+{
+	Loadout = NewLoadout;
+}
+
+void AUTPlayerState::AdjustCurrency(float Adjustment)
+{
+	AvailableCurrency += Adjustment;
+	if (AvailableCurrency < 0.0) AvailableCurrency = 0.0f;
+}
+
+float AUTPlayerState::GetAvailableCurrency()
+{
+	return AvailableCurrency;
+}
+
+void AUTPlayerState::ClientShowLoadoutMenu_Implementation()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	if ( PC && PC->Player && Cast<UUTLocalPlayer>(PC->Player) )
+	{
+		Cast<UUTLocalPlayer>(PC->Player)->OpenLoadout();
+	}
+}
+
+void AUTPlayerState::UpdateReady()
+{
+	uint8 NewReadyState = bReadyToPlay + (bPendingTeamSwitch >> 2);
+	if (NewReadyState != LastReadyState)
+	{
+		ReadySwitchCount = (GetWorld()->GetTimeSeconds() - LastReadySwitchTime < 0.5f) ? ReadySwitchCount + 1 : 0;
+		LastReadySwitchTime = GetWorld()->GetTimeSeconds();
+		if ((ReadySwitchCount > 2) && (bReadyToPlay || bPendingTeamSwitch))
+		{
+			if ((ReadySwitchCount & 14) == 0)
+			{
+				ReadySwitchCount += 2;
+			}
+			ReadyColor.R = (ReadySwitchCount & 2) ? 1.f : 0.f;
+			ReadyColor.G = (ReadySwitchCount & 4) ? 1.f : 0.f;
+			ReadyColor.B = (ReadySwitchCount & 8) ? 1.f : 0.f;
+		}
+	}
+	else if (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f)
+	{
+		ReadySwitchCount = 0;
+		ReadyColor = FLinearColor::White;
+	}
+	LastReadyState = NewReadyState;
+}
+
+void AUTPlayerState::LogBanRequest(AUTPlayerState* Voter)
+{
+	float CurrentTime = GetWorld()->GetRealTimeSeconds();
+	for (int32 i=0; i < BanVotes.Num(); i++)
+	{
+		if (BanVotes[i].Voter->ToString() == Voter->UniqueId.GetUniqueNetId()->ToString())
+		{
+			if (BanVotes[i].BanTime < CurrentTime - 120.0)
+			{
+				// Update the ban
+				BanVotes[i].BanTime = CurrentTime;
+			}
+
+			return;
+		}
+	}
+
+	BanVotes.Add(FTempBanInfo(Voter->UniqueId.GetUniqueNetId(), CurrentTime));
+}
+
+int AUTPlayerState::CountBanVotes()
+{
+	int32 VoteCount = 0;
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		float CurrentTime = GetWorld()->GetRealTimeSeconds();
+		int32 Idx = 0;
+		while (Idx < BanVotes.Num())
+		{
+			if (BanVotes[Idx].BanTime < CurrentTime - 120.0)
+			{
+				// Expired, delete it
+				BanVotes.RemoveAt(Idx);
+			}
+			else
+			{
+				// only count bans of people online
+				for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
+				{
+					if (GameState->PlayerArray[i]->UniqueId == BanVotes[Idx].Voter)
+					{
+						VoteCount++;
+						break;
+					}
+				}
+				Idx++;
+			}
+		}
+	}
+	
+	return VoteCount;
+}
+
+void AUTPlayerState::OnRepSpecialPlayer()
+{
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter* Character = Cast<AUTCharacter>(*It);
+		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
+		{
+			Character->UpdateTacComMesh(bSpecialPlayer);
+		}
+	}
 }

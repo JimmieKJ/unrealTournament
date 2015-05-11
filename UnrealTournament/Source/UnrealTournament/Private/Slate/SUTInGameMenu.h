@@ -6,7 +6,7 @@
 #include "SUTMenuBase.h"
 
 #if !UE_SERVER
-class SUTInGameMenu : public SUTMenuBase
+class UNREALTOURNAMENT_API SUTInGameMenu : public SUTMenuBase
 {
 public:
 	virtual FReply OnReturnToLobby(TSharedPtr<SComboButton> MenuButton);

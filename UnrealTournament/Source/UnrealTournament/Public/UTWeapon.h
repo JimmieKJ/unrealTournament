@@ -789,4 +789,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
 	FTextureUVs WeaponBarInactiveUVs;
 
+	// These are different from the menubar icons and are used in some of the menus.
+
+	// Holds a reference to the 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UTexture2D* MenuGraphic;
+
+	// Holds a reference to the 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	FTextureUVs MenuGraphicUVs;
+
+	// This is the long description that will be displayed in the menu.  
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	FText MenuDescription;
+
+
 };

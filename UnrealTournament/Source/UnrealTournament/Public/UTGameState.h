@@ -1,9 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTReplicatedLoadoutInfo.h"
 #include "UTGameState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
+
 
 UCLASS(Config = Game)
 class UNREALTOURNAMENT_API AUTGameState : public AGameState
@@ -134,10 +136,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void OnWinnerReceived();
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameState)
-	virtual void SetTimeLimit(uint32 NewTimeLimit);
+	virtual void SetTimeLimit(int32 NewTimeLimit);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameState)
-	virtual void SetGoalScore(uint32 NewGoalScore);
+	virtual void SetGoalScore(int32 NewGoalScore);
 
 	UFUNCTION()
 	virtual void SetWinner(AUTPlayerState* NewWinner);
@@ -175,6 +177,12 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual bool IsMatchInCountdown() const;
 
 	virtual void BeginPlay() override;
+
+	/** Return largest SpectatingId value in current PlayerArray. */
+	virtual int32 GetMaxSpectatingId();
+
+	/** Return largest SpectatingIdTeam value in current PlayerArray. */
+	virtual int32 GetMaxTeamSpectatingId(int32 TeamNum);
 
 	/** add an overlay to the OverlayMaterials list */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
@@ -263,6 +271,41 @@ public:
 	UPROPERTY(Replicated)
 	bool bIsInstanceServer;
 
+	// Holds a list of weapons available for loadouts
+	UPROPERTY(Replicated)
+	TArray<AUTReplicatedLoadoutInfo*> LoadoutWeapons;
+
+	// Adds a weapon to the list of possible loadout weapons.
+	virtual void AddLoadoutWeapon(TSubclassOf<AUTWeapon> WeaponClass, uint8 RoundMask, float InitialCost);
+
+	// Adjusts the cost of a weapon available for loadouts
+	virtual void AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float NewCost);
+
+	/** Game specific rating of a player as a desireable camera focus for spectators. */
+	virtual float ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Character)
+	{
+		return 0.f;
+	};
+
+protected:
+	// These IDs are banned for the remainder of the match
+	TArray<TSharedPtr<class FUniqueNetId>> TempBans;
+
+public:
+	// Returns true if this player has been temp banned from this server/instance
+	bool IsTempBanned(const TSharedPtr<class FUniqueNetId>& UniqueId);
+
+	// Registers a vote for temp banning a player.  If the player goes above the threashhold, they will be banned for the remainder of the match
+	void VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter);
+
+	UPROPERTY(Config)
+	float KickThreshold;
+
+	/** Returns which team side InActor is closest to.   255 = no team. */
+	virtual uint8 NearestTeamSide(AActor* InActor)
+	{
+		return 255;
+	};
 };
 
 

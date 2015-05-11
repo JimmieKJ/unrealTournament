@@ -260,6 +260,12 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 				break;
 			}
 
+			if (Cast<AKillZVolume>(FindPhysicsVolume(GetWorld(), CurrentLoc, FCollisionShape::MakeSphere(0.0f))) != NULL) // zero for perf, could change if accuracy becomes an issue
+			{
+				// jump crosses into kill volume
+				break;
+			}
+
 			FVector Diff = End - CurrentLoc;
 			FVector NewVelocity = Diff.GetSafeNormal2D() * FMath::Min<float>(Diff.Size2D() / TimeStep, XYSpeed);
 			NewVelocity.Z = ZSpeed;
@@ -286,7 +292,8 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 						}
 						else
 						{
-							if (EndPoly != INVALID_NAVNODEREF && EndPoly == FindNearestPoly(CurrentLoc, ScoutShape.GetExtent()))
+							// note: the downward offset for FindNearestPoly() is needed to get consistent results when slightly off the navmesh and on a slanted surface
+							if (EndPoly != INVALID_NAVNODEREF && EndPoly == FindNearestPoly(CurrentLoc - FVector(0.0f, 0.0f, ScoutShape.GetExtent().Z * 0.5f), ScoutShape.GetExtent()))
 							{
 								// if we made it to the poly we got close enough
 								if (MaxFallSpeed != NULL)
@@ -2145,7 +2152,7 @@ void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties
 		// add polys in adjacent pathnodes
 		for (const FUTPathLink& Link : Node->Paths)
 		{
-			if (Link.StartEdgePoly == StartPoly && (!bOnlyWalkable || Link.ReachFlags == 0))
+			if (Link.StartEdgePoly == StartPoly && (!bOnlyWalkable || (Link.ReachFlags == 0 && !Link.Spec.IsValid())))
 			{
 				Polys.AddUnique(Link.EndPoly);
 				for (NavNodeRef OtherPoly : Link.AdditionalEndPolys)

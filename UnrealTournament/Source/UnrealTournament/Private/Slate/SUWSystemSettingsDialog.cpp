@@ -687,7 +687,7 @@ FReply SUWSystemSettingsDialog::OnAutodetectClick()
 {
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 	UUTLocalPlayer* LocalPlayer = GetPlayerOwner().Get();
-	if (ensure(LocalPlayer))
+	if (ensure(LocalPlayer) && !UserSettings->bBenchmarkInProgress)
 	{
 		UserSettings->BenchmarkDetailSettings(LocalPlayer, false);
 	}

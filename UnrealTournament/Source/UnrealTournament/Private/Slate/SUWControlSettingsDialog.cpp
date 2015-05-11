@@ -599,6 +599,8 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildKeyboardTab()
 TSharedRef<SWidget> SUWControlSettingsDialog::BuildMouseTab()
 {
 	MouseSensitivityRange = FVector2D(0.0075f, 0.15f);
+	MouseAccelerationRange = FVector2D(0.00001f, 0.0001f);
+	MouseAccelerationMaxRange = FVector2D(0.5f, 1.5f);
 
 	//Is Mouse Inverted
 	bool bMouseInverted = false;
@@ -611,7 +613,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMouseTab()
 			break;
 		}
 	}
-
+	
 	return SNew(SBox)
 	.VAlign(VAlign_Fill)
 	[
@@ -667,7 +669,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMouseTab()
 				.ForegroundColor(FLinearColor::White)
 				.IsChecked(bMouseInverted ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 			]
-		]
+		]		
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
@@ -712,7 +714,123 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMouseTab()
 					.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->GetMouseSensitivity() - MouseSensitivityRange.X) / (MouseSensitivityRange.Y - MouseSensitivityRange.X))
 				]
 			]
-		]
+		]		
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Left)
+		.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseAcceleration", "Mouse Acceleration").ToString())
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SAssignNew(MouseAccelerationCheckBox, SCheckBox)
+				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+				.ForegroundColor(FLinearColor::White)
+				.IsChecked(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationPower > 0 ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+			]
+		]				
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseAccelerationAmount", "Acceleration Amount (0-20)").ToString())
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(200)
+				[
+					SAssignNew(MouseAccelerationEdit, SEditableTextBox)
+					.MinDesiredWidth(200)
+					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
+					.Text(FText::AsNumber(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->Acceleration))
+					.OnTextCommitted(this, &SUWControlSettingsDialog::EditAcceleration)
+				]		
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f, 0.0f, 0.0f, 0.0f)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(400)
+				.Content()
+				[
+					SAssignNew(MouseAcceleration, SSlider)
+					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
+					.Orientation(Orient_Horizontal)
+					.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->Acceleration - MouseAccelerationRange.X) / (MouseAccelerationRange.Y - MouseAccelerationRange.X))
+				]
+			]
+		]	
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("SUWControlSettingsDialog", "MouseAccelerationMax", "Acceleration Max (0-20)").ToString())
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(200)
+				[
+					SAssignNew(MouseAccelerationMaxEdit, SEditableTextBox)
+					.MinDesiredWidth(200)
+					.Style(SUWindowsStyle::Get(),"UT.Common.Editbox.White")
+					.Text(FText::AsNumber(UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationMax))
+					.OnTextCommitted(this, &SUWControlSettingsDialog::EditAccelerationMax)
+				]		
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f, 0.0f, 0.0f, 0.0f)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(400)
+				.Content()
+				[
+					SAssignNew(MouseAccelerationMax, SSlider)
+					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
+					.Orientation(Orient_Horizontal)
+					.Value((UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationMax - MouseAccelerationMaxRange.X) / (MouseAccelerationMaxRange.Y - MouseAccelerationMaxRange.X))
+				]
+			]
+		]	
 	];
 }
 
@@ -912,7 +1030,6 @@ FReply SUWControlSettingsDialog::OKClick()
 		Bind->WriteBind();
 	}
 	UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>()->SaveConfig();
-	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->SaveConfig();
 
 	//Update the playing players custom binds
 	APlayerController* PC = GetPlayerOwner()->PlayerController;
@@ -926,9 +1043,31 @@ FReply SUWControlSettingsDialog::OKClick()
 
 	// mouse sensitivity
 	float NewSensitivity = MouseSensitivity->GetValue() * (MouseSensitivityRange.Y - MouseSensitivityRange.X) + MouseSensitivityRange.X;
+	float NewAcceleration = MouseAcceleration->GetValue() * (MouseAccelerationRange.Y - MouseAccelerationRange.X) + MouseAccelerationRange.X;
+	float NewAccelerationMax = MouseAccelerationMax->GetValue() * (MouseAccelerationMaxRange.Y - MouseAccelerationMaxRange.X) + MouseAccelerationMaxRange.X;
+	float NewAccelerationPower = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationPower;
+	if (MouseAccelerationCheckBox->IsChecked())
+	{
+		// Leave untouched if non-zero
+		if (NewAccelerationPower <= 0)
+		{
+			NewAccelerationPower = 1.0f;
+		}
+	}
+	else
+	{
+		NewAccelerationPower = 0;
+	}
+	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationPower = NewAccelerationPower;
+	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->Acceleration = NewAcceleration;
+	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->AccelerationMax = NewAccelerationMax;
+
 	for (TObjectIterator<UUTPlayerInput> It(RF_NoFlags); It; ++It)
 	{
 		It->SetMouseSensitivity(NewSensitivity);
+		It->AccelerationPower = NewAccelerationPower;
+		It->Acceleration = NewAcceleration;
+		It->AccelerationMax = NewAccelerationMax;
 
 		//Invert mouse
 		for (FInputAxisConfigEntry& Entry : It->AxisConfig)
@@ -970,6 +1109,7 @@ FReply SUWControlSettingsDialog::OKClick()
 		It->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 	}
 	AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
+	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->SaveConfig();
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	GetPlayerOwner()->SaveProfileSettings();
@@ -1002,6 +1142,28 @@ void SUWControlSettingsDialog::EditSensitivity(const FText& Input, ETextCommit::
 	}
 }
 
+void SUWControlSettingsDialog::EditAcceleration(const FText& Input, ETextCommit::Type)
+{
+	float ChangedAcceleration = FCString::Atof(*Input.ToString());
+
+	if (ChangedAcceleration >= 0.0f && ChangedAcceleration <= 20.0f)
+	{
+		ChangedAcceleration /= 20.0f;
+		MouseAcceleration->SetValue(ChangedAcceleration);
+	}
+}
+
+void SUWControlSettingsDialog::EditAccelerationMax(const FText& Input, ETextCommit::Type)
+{
+	float ChangedAccelerationMax = FCString::Atof(*Input.ToString());
+
+	if (ChangedAccelerationMax >= 0.0f && ChangedAccelerationMax <= 20.0f)
+	{
+		ChangedAccelerationMax /= 20.0f;
+		MouseAccelerationMax->SetValue(ChangedAccelerationMax);
+	}
+}
+
 void SUWControlSettingsDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	SUWDialog::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
@@ -1009,6 +1171,16 @@ void SUWControlSettingsDialog::Tick(const FGeometry& AllottedGeometry, const dou
 	if (MouseSensitivityEdit.IsValid() && !MouseSensitivityEdit->HasKeyboardFocus())
 	{		
 		MouseSensitivityEdit->SetText(FText::FromString(FString::Printf(TEXT("%f"), MouseSensitivity->GetValue() * 20.0f)));
+	}
+
+	if (MouseAccelerationEdit.IsValid() && !MouseAccelerationEdit->HasKeyboardFocus())
+	{
+		MouseAccelerationEdit->SetText(FText::FromString(FString::Printf(TEXT("%f"), MouseAcceleration->GetValue() * 20.0f)));
+	}
+
+	if (MouseAccelerationMaxEdit.IsValid() && !MouseAccelerationMaxEdit->HasKeyboardFocus())
+	{
+		MouseAccelerationMaxEdit->SetText(FText::FromString(FString::Printf(TEXT("%f"), MouseAccelerationMax->GetValue() * 20.0f)));
 	}
 }
 

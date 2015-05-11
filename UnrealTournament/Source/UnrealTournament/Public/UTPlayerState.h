@@ -28,6 +28,24 @@ struct FWeaponSpree
 	int32 Kills;
 };
 
+struct FTempBanInfo
+{
+	// The person who voted for this ban
+	TSharedPtr<class FUniqueNetId> Voter;
+
+	// When was the vote cast.  Votes will time out over time (5mins)
+	float BanTime;
+
+	FTempBanInfo(const TSharedPtr<class FUniqueNetId> inVoter, float inBanTime)
+		: Voter(inVoter)
+		, BanTime(inBanTime)
+	{
+	}
+
+};
+
+
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
 {
@@ -91,6 +109,20 @@ public:
 	/** Whether this player has a pending switch team request (waiting for swap partner) */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bPendingTeamSwitch : 1;
+
+	/** Color to display ready text. */
+	FLinearColor ReadyColor;
+
+	/** Last displayed ready state. */
+	uint8 LastReadyState;
+
+	/** Color to display ready text. */
+	float LastReadySwitchTime;
+
+	/** Color to display ready text. */
+	int32 ReadySwitchCount;
+
+	virtual void UpdateReady();
 
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
@@ -320,7 +352,7 @@ public:
 	virtual void ServerNextChatDestination();
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
-	uint32 CountryFlag;
+	int32 CountryFlag;
 
 	virtual void ValidateEntitlements();
 
@@ -383,6 +415,51 @@ public:
 	void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel);
 #endif
 
+	// If true, the game type considers this player special.
+	UPROPERTY(replicatedUsing = OnRepSpecialPlayer)
+	uint32 bSpecialPlayer:1;
+
+	UFUNCTION()
+	virtual void OnRepSpecialPlayer();
+
+
+	// Allows gametypes to force a given hat on someone
+	UPROPERTY(replicatedUsing = OnRepOverrideHat)
+	TSubclassOf<AUTHat> OverrideHatClass;
+
+	UFUNCTION()
+	virtual void OnRepOverrideHat();
+
+	virtual void SetOverrideHatClass(const FString& NewOverrideHatClass);
+
+protected:
+	UPROPERTY(Replicated)
+	float AvailableCurrency;
+
+public:
+	UPROPERTY(Replicated)
+	TArray<AUTReplicatedLoadoutInfo*> Loadout;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerUpdateLoadout(const TArray<AUTReplicatedLoadoutInfo*>& NewLoadout);
+
+	UFUNCTION(Client, Reliable)
+	virtual void ClientShowLoadoutMenu();
+
+	virtual float GetAvailableCurrency();
+
+	virtual void AdjustCurrency(float Adjustment);
+
+
+protected:
+	TArray<FTempBanInfo> BanVotes;
+
+public:
+	void LogBanRequest(AUTPlayerState* Voter);
+	int CountBanVotes();
+
+	UPROPERTY(Replicated)
+	uint8 KickPercent;
 
 };
 

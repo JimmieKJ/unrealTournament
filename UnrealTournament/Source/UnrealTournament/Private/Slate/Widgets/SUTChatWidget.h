@@ -5,7 +5,7 @@
 #if !UE_SERVER
 class IChatViewModel;
 
-class SUTChatWidget : public SCompoundWidget
+class UNREALTOURNAMENT_API SUTChatWidget : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SUTChatWidget)

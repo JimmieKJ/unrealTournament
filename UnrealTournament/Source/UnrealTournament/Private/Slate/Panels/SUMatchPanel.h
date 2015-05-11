@@ -9,7 +9,7 @@
 
 #if !UE_SERVER
 
-class SUMatchPanel : public SCompoundWidget
+class UNREALTOURNAMENT_API SUMatchPanel : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUMatchPanel)
 		: _MatchInfo(NULL)

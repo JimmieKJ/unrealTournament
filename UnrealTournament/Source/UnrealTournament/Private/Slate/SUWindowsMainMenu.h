@@ -15,14 +15,14 @@ class SUWGameSetupDialog;
 
 
 #if !UE_SERVER
-class SUWindowsMainMenu : public SUTMenuBase
+class UNREALTOURNAMENT_API SUWindowsMainMenu : public SUTMenuBase
 {
 protected:
 	bool bNeedToShowGamePanel;
 
 	TSharedPtr<SUWCreateGamePanel> GamePanel;
 	TSharedPtr<SUTWebBrowserPanel> WebPanel;
-
+	
 	TSharedRef<SWidget> AddPlayNow();
 
 	virtual void CreateDesktop();

@@ -5,6 +5,8 @@
 #include "UTPlayerInput.h"
 #include "UTCTFGameState.h"
 #include "UTSpectatorCamera.h"
+#include "UTPickupInventory.h"
+#include "UTArmor.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -18,7 +20,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	ColumnHeaderPlayerX = 0.16;
 	ColumnHeaderScoreX = 0.7;
 	ColumnHeaderArmor = 0.87f;
-	ColumnY = 12;
+	ColumnY = 12; // @TODO FIXMESTEVE why not percent of canvas size
 
 	CellHeight = 40;
 	SlideIn = 0.f;
@@ -86,9 +88,12 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 				}
 				else if (Input->SpectatorBinds[i].Command.Left(10) == "ViewCamera")
 				{
-					// @TODO FIXMESTEVE - parse and get value
 					CameraBind[CameraIndex] = Input->SpectatorBinds[i].KeyName;
 					CameraIndex++;
+				}
+				else if (Input->SpectatorBinds[i].Command == "EnableAutoCam")
+				{
+					AutoCamBind = Input->SpectatorBinds[i].KeyName;
 				}
 			}
 		}
@@ -108,6 +113,44 @@ bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 	return false;
 }
 
+void UUTHUDWidget_SpectatorSlideOut::InitPowerupList()
+{
+	bPowerupListInitialized = true;
+	TArray<UClass *> PickupClasses;
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AUTPickupInventory* Pickup = Cast<AUTPickupInventory>(*It);
+		// @TODO FIXMESTEVE add superhealth
+		if (Pickup && Pickup->GetInventoryType() && Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->bShowPowerupTimer
+			&& ((Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL) || Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass())))
+		{
+			PowerupList.Add(Pickup);
+			PickupClasses.Add(Pickup->GetClass());
+		}
+	}  
+
+	// now differentiate by teamside if multiple of the same powerup
+	if (UTGameState)
+	{
+		for (int32 i = 0; i < PowerupList.Num(); i++)
+		{
+			int32 Count = 0;
+			for (int32 j = 0; j < PickupClasses.Num(); j++)
+			{
+				if (PickupClasses[j] == PowerupList[i]->GetClass())
+				{
+					Count++;
+				}
+			}
+			if (Count > 1)
+			{
+				// assign a team side  
+				PowerupList[i]->TeamSide = UTGameState->NearestTeamSide(PowerupList[i]);
+			}
+		}
+	}
+}
+
 void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
@@ -119,14 +162,19 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					: FMath::Max(0.f, SlideIn - DeltaTime*Size.X*SlideSpeed);
 
 		int32 MaxRedPlaces = UTGameState->bTeamGame ? 5 : 10; // warning: hardcoded to match default binds, which has 5 red and 5 blue
-		int32 XOffset = SlideIn - Size.X;
+		float XOffset = SlideIn - Size.X;
 		float DrawOffset = 0.f;
 
 		if (UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 		{
 			DrawCamBind(NAME_None, "Press number to view player", DeltaTime, XOffset, DrawOffset, false);
+		}
+		else
+		{
 			DrawOffset += CellHeight;
 		}
+		DrawOffset += CellHeight;
+
 		TArray<AUTPlayerState*> RedPlayerList, BluePlayerList;
 		for (APlayerState* PS : UTGameState->PlayerArray)
 		{
@@ -163,40 +211,60 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			};
 		}
 		RedPlayerList.Sort(SortFunc);
-		BluePlayerList.Sort(SortFunc);
-		for (int32 i = 0; i < RedPlayerList.Num(); i++)
+		for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
 		{
-			AUTPlayerState* PlayerState = RedPlayerList[i];
-			uint8 Place = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
-			if (Place <= MaxRedPlaces)
+			for (int32 i = 0; i < RedPlayerList.Num(); i++)
 			{
-				DrawPlayer(Place, PlayerState, DeltaTime, XOffset, DrawOffset);
-				DrawOffset += CellHeight;
-			}
-			else
-			{
-				break;
-			}
-		}
-		if (UTGameState->bTeamGame)
-		{
-			for (int32 i = 0; i < BluePlayerList.Num(); i++)
-			{
-				AUTPlayerState* PlayerState = BluePlayerList[i];
-				uint8 Place = MaxRedPlaces + (UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID);
-				if (Place <= MaxRedPlaces * 2)
+				AUTPlayerState* PlayerState = RedPlayerList[i];
+				uint8 Place = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
+				if ((Place % MaxRedPlaces) == (PlayerBind % MaxRedPlaces))
 				{
-					DrawPlayer(Place, PlayerState, DeltaTime, XOffset, DrawOffset);
+					DrawPlayer(PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
 					DrawOffset += CellHeight;
-				}
-				else
-				{
 					break;
 				}
 			}
 		}
+		if (UTGameState->bTeamGame)
+		{
+			if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
+			{
+				DrawOffset += CellHeight;
+				DrawOffset += CellHeight;
+			}
+			BluePlayerList.Sort(SortFunc);
+			for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
+			{
+				for (int32 i = 0; i < BluePlayerList.Num(); i++)
+				{
+					AUTPlayerState* PlayerState = BluePlayerList[i];
+					uint8 Place = PlayerState->SpectatingIDTeam;
+					if ((Place % MaxRedPlaces) == (PlayerBind % MaxRedPlaces))
+					{
+						DrawPlayer(MaxRedPlaces + PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
+						DrawOffset += CellHeight;
+						break;
+					}
+				}
+			}
+		}
 
-		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
+		if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
+		{
+			if (!bPowerupListInitialized)
+			{
+				InitPowerupList();
+			}
+			//draw powerup clocks
+			for (int32 i = 0; i < PowerupList.Num(); i++ )
+			{
+				if (PowerupList[i] != NULL)
+				{
+					DrawPowerup(PowerupList[i], XOffset, DrawOffset);
+					DrawOffset += 1.2f*CellHeight;
+				}
+			}
+		}
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
 		if (Input && UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 		{
@@ -219,6 +287,10 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				}
 			}
 			DrawOffset += 0.25f*(10.f-float(NumCameras))*CellHeight;
+			DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
+			DrawOffset += CellHeight;
+
+			AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
 			{
 				// show flag binds
@@ -242,7 +314,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				}
 			}
 			static FName NAME_PressFire = FName(TEXT("Fire"));
-			DrawCamBind(NAME_PressFire, "View Next Player", DeltaTime, XOffset, DrawOffset, false);
+			DrawCamBind(NAME_PressFire, "Camera Rotation Control", DeltaTime, XOffset, DrawOffset, false);
 			DrawOffset += CellHeight;
 			static FName NAME_PressAltFire = FName(TEXT("AltFire"));
 			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
@@ -271,6 +343,48 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				}
 			}
 		}
+	}
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickupInventory* Pickup, float XOffset, float YOffset)
+{
+	// @TODO FIXMESTEVE get rid of armor hacks when they have icons
+	FLinearColor BarColor = FLinearColor::White;
+	float RemainingTime = GetWorld()->GetTimerManager().GetTimerRemaining(Pickup->WakeUpTimerHandle);
+	float FinalBarOpacity = (RemainingTime > 0.f) ? FMath::Clamp(1.f - 0.4f*(Pickup->RespawnTime - RemainingTime), 0.3f, 1.f) : 1.f;
+	DrawTexture(TextureAtlas, XOffset, YOffset, 0.4f*Size.X, 42, 149, 138, 32, 32, FinalBarOpacity, FLinearColor::White);
+
+	if (Pickup->TeamSide < 2)
+	{
+		DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YOffset, 0.08f*Size.X, 0.08f*Size.X, UTHUDOwner->TeamIconUV[Pickup->TeamSide].X, UTHUDOwner->TeamIconUV[Pickup->TeamSide].Y, 72, 72, 1.f, ((Pickup->TeamSide == 0) ? FLinearColor::Red : FLinearColor::Blue));
+	}
+	if (Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass()))
+	{
+		DrawTexture(ArmorIcon.Texture, XOffset + 0.12f*Size.X, YOffset, 0.08f*Size.X, 0.08f*Size.X, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.f, FLinearColor::White);
+		FFormatNamedArguments Args;
+		Args.Add("Armor", FText::AsNumber(Pickup->GetInventoryType()->GetDefaultObject<AUTArmor>()->ArmorAmount));
+		FLinearColor DrawColor = FLinearColor::Yellow;
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 0.16f*Size.X, YOffset + ColumnY, UTHUDOwner->MediumFont, FVector2D(1.f,1.f), FLinearColor::Black, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	}
+	else
+	{
+		FCanvasIcon HUDIcon = Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
+		DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Size.X, YOffset - 0.0055f*Canvas->ClipX, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.8f, FLinearColor::White);
+	}
+
+	FLinearColor DrawColor = FLinearColor::White;
+	if (RemainingTime > 0.f)
+	{
+		FFormatNamedArguments Args;
+		Args.Add("TimeRemaining", FText::AsNumber(int32(RemainingTime)));
+		DrawColor.R *= 0.5f;
+		DrawColor.G *= 0.5f;
+		DrawColor.B *= 0.5f;
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.28f*Size.X, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	}
+	else
+	{
+		DrawText(NSLOCTEXT("UTCharacter", "PowerupUp", "UP"), XOffset + 0.28f*Size.X, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 }
 

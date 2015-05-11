@@ -21,9 +21,9 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
-		if (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
+		if (UTGameState->IsMatchAtHalftime() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
 		{
-			return !bShowScores;
+			return true;
 		}
 		return (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL)));
 	}
@@ -165,7 +165,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
 				bShortMessage = true;
 				AUTPlayerState* PS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
-				if (UTGameState->bTeamGame && PS && PS->Team)
+				if (UTGameState->bTeamGame && PS && PS->Team && (!UTGameState->GameModeClass || !UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>() || UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>()->bAnnounceTeam))
 				{
 					SpectatorMessage = (PS->Team->TeamIndex == 0)
 						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Red Team Led by {PlayerName}"), Args)

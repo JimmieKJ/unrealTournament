@@ -253,3 +253,29 @@ FText AUTCTFGameState::GetGameStatusText()
 
 	return Super::GetGameStatusText();
 }
+
+float AUTCTFGameState::ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Character)
+{
+	// bonus score to player near but not holding enemy flag
+	if (InPS && Character && !InPS->CarriedObject && InPS->Team && (InPS->Team->GetTeamNum() < 2))
+	{
+		uint8 EnemyTeamNum = 1 - InPS->Team->GetTeamNum();
+		AUTCTFFlag* EnemyFlag = FlagBases[EnemyTeamNum] ? FlagBases[EnemyTeamNum]->MyFlag : NULL;
+		if (EnemyFlag && ((EnemyFlag->GetActorLocation() - Character->GetActorLocation()).Size() < FlagBases[EnemyTeamNum]->LastSecondSaveDistance))
+		{
+			float MaxScoreDist = FlagBases[EnemyTeamNum]->LastSecondSaveDistance;
+			return FMath::Clamp(10.f * (MaxScoreDist - (EnemyFlag->GetActorLocation() - Character->GetActorLocation()).Size()) / MaxScoreDist, 0.f, 10.f);
+		}
+	}
+	return 0.f;
+}
+
+uint8 AUTCTFGameState::NearestTeamSide(AActor* InActor)
+{
+	if (FlagBases.Num() > 1)
+	{
+		((InActor->GetActorLocation() - FlagBases[0]->GetActorLocation()).Size() < (InActor->GetActorLocation() - FlagBases[1]->GetActorLocation()).Size()) ? 0 : 1;
+	}
+	return 255;
+}
+

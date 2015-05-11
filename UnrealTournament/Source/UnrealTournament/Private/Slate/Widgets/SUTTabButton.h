@@ -5,7 +5,7 @@
 
 #if !UE_SERVER
 
-class SUTTabButton : public SButton
+class UNREALTOURNAMENT_API SUTTabButton : public SButton
 {
 	SLATE_BEGIN_ARGS(SUTTabButton)
 		: _Content()

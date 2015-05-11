@@ -93,6 +93,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 
 	LastThirdPersonCameraLoc = FVector::ZeroVector;
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
+	bAllowSpecCameraControl = false;
 }
 
 // @TODO FIXMESTEVE SPLIT OUT true spectator controls
@@ -143,6 +144,42 @@ void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
 	{
 		Super::UpdateCamera(DeltaTime);
 	}
+}
+
+float AUTPlayerCameraManager::RatePlayerCamera(AUTPlayerState* InPS, AUTCharacter *Character, APlayerState* CurrentCamPS)
+{
+	// 100 is about max
+	float Score = 0.f;
+	if (InPS == CurrentCamPS)
+	{
+		Score += CurrentCamBonus;
+	}
+	float LastActionTime = GetWorld()->GetTimeSeconds() - FMath::Max(Character->LastTakeHitTime, Character->LastWeaponFireTime);
+	Score += FMath::Max(0.f, CurrentActionBonus - LastActionTime);
+
+	if (InPS->CarriedObject)
+	{
+		Score += FlagCamBonus;
+	}
+
+	if (Character->GetWeaponOverlayFlags() != 0)
+	{
+		Score += PowerupBonus;
+	}
+
+	if (CurrentCamPS)
+	{
+		Score += (InPS->Score > CurrentCamPS->Score) ? HigherScoreBonus : -1.f * HigherScoreBonus;
+	}
+
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		Score += GameState->ScoreCameraView(InPS, Character);
+	}
+	// todo - have redeemer, armor, etc
+
+	return Score;
 }
 
 void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime)
@@ -199,7 +236,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-		FRotator Rotator = PCOwner->GetControlRotation();
+		FRotator Rotator = (bAllowSpecCameraControl || !UTPC) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(DeltaTime);
 		if (Cast<AUTProjectile>(OutVT.Target) && !OutVT.Target->IsPendingKillPending())
 		{
 			Rotator = OutVT.Target->GetVelocity().Rotation();
@@ -231,32 +268,20 @@ void AUTPlayerCameraManager::CheckCameraSweep(FHitResult& OutHit, AActor* Target
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
 	FCollisionQueryParams BoxParams(NAME_FreeCam, false, TargetActor);
 
-	// When viewing a placeholder actor, just don't collide with any pawns
-	AUTViewPlaceholder* UTPlaceholder = Cast<AUTViewPlaceholder>(TargetActor);
-	if (UTPlaceholder != nullptr)
+	AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TargetActor);
+	if (Flag)
 	{
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		if (Flag->Holder)
 		{
-			BoxParams.AddIgnoredActor(*It);
+			BoxParams.AddIgnoredActor(Flag->Holder);
 		}
-	}
-	else
-	{
-		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TargetActor);
-		if (Flag)
+		if (Flag->HomeBase)
 		{
-			if (Flag->Holder)
-			{
-				BoxParams.AddIgnoredActor(Flag->Holder);
-			}
-			if (Flag->HomeBase)
-			{
-				BoxParams.AddIgnoredActor(Flag->HomeBase);
-			}
-			if (Flag->AttachmentReplication.AttachParent)
-			{
-				BoxParams.AddIgnoredActor(Flag->AttachmentReplication.AttachParent);
-			}
+			BoxParams.AddIgnoredActor(Flag->HomeBase);
+		}
+		if (Flag->AttachmentReplication.AttachParent)
+		{
+			BoxParams.AddIgnoredActor(Flag->AttachmentReplication.AttachParent);
 		}
 	}
 	GetWorld()->SweepSingle(OutHit, Start, End, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
@@ -279,4 +304,13 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 		PostProcessBlendCache.Insert(StylizedPPSettings[UTPCOwner->StylizedPPIndex], 0);
 		PostProcessBlendCacheWeights.Insert(1.0f, 0);
 	}
+}
+
+void AUTPlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot)
+{
+	if (PCOwner && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && !bAllowSpecCameraControl && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
+	{
+		return;
+	}
+	Super::ProcessViewRotation(DeltaTime, OutViewRotation, OutDeltaRot);
 }

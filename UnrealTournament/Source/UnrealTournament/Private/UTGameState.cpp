@@ -4,8 +4,10 @@
 #include "UTMultiKillMessage.h"
 #include "UTSpreeMessage.h"
 #include "UTRemoteRedeemer.h"
+#include "UTGameMessage.h"
 #include "Net/UnrealNetwork.h"
 #include "UTTimerMessage.h"
+#include "UTReplicatedLoadoutInfo.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -18,6 +20,8 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
 
+	KickThreshold=51.0;
+
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
 }
@@ -29,16 +33,24 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
-	DOREPLIFETIME(AUTGameState, RespawnWaitTime);  // @TODO FIXMESTEVE why not initial only
-	DOREPLIFETIME(AUTGameState, ForceRespawnTime);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, TimeLimit);  
 	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
-	DOREPLIFETIME(AUTGameState, bTeamGame);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);  
+	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
+	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bOnlyTheStrongSurvive, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  // FIXME only before match start
+	DOREPLIFETIME(AUTGameState, LoadoutWeapons);
 
+	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bOnlyTheStrongSurvive, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
@@ -341,7 +353,7 @@ void AUTGameState::OnTeamSideSwap()
 	}
 }
 
-void AUTGameState::SetTimeLimit(uint32 NewTimeLimit)
+void AUTGameState::SetTimeLimit(int32 NewTimeLimit)
 {
 	TimeLimit = NewTimeLimit;
 	RemainingTime = TimeLimit;
@@ -350,7 +362,7 @@ void AUTGameState::SetTimeLimit(uint32 NewTimeLimit)
 	ForceNetUpdate();
 }
 
-void AUTGameState::SetGoalScore(uint32 NewGoalScore)
+void AUTGameState::SetGoalScore(int32 NewGoalScore)
 {
 	GoalScore = NewGoalScore;
 	ForceNetUpdate();
@@ -673,6 +685,102 @@ void AUTGameState::CompactSpectatingIDs()
 					AUTPlayerState* MovedPS = PlayerArrayCopy.Pop(false);
 					MovedPS->SpectatingIDTeam = uint8(i + 1);
 					PlayerArrayCopy.Insert(MovedPS, i);
+				}
+			}
+		}
+	}
+}
+
+int32 AUTGameState::GetMaxSpectatingId()
+{
+	int32 MaxSpectatingID = 0;
+	for (int32 i = 0; i<PlayerArray.Num() - 1; i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		if (PS && (PS->SpectatingID > MaxSpectatingID))
+		{
+			MaxSpectatingID = PS->SpectatingID;
+		}
+	}
+	return MaxSpectatingID;
+}
+
+int32 AUTGameState::GetMaxTeamSpectatingId(int32 TeamNum)
+{
+	int32 MaxSpectatingID = 0;
+	for (int32 i = 0; i<PlayerArray.Num() - 1; i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		if (PS && (PS->GetTeamNum() == TeamNum) && (PS->SpectatingIDTeam > MaxSpectatingID))
+		{
+			MaxSpectatingID = PS->SpectatingIDTeam;
+		}
+	}
+	return MaxSpectatingID;
+
+}
+
+void AUTGameState::AddLoadoutWeapon(TSubclassOf<AUTWeapon> WeaponClass, uint8 RoundMask, float InitialCost)
+{
+
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	AUTReplicatedLoadoutInfo* NewLoadoutInfo = GetWorld()->SpawnActor<AUTReplicatedLoadoutInfo>(Params);
+	if (NewLoadoutInfo)
+	{
+		NewLoadoutInfo->WeaponClass = WeaponClass;	
+		NewLoadoutInfo->RoundMask = RoundMask;
+		NewLoadoutInfo->CurrentCost = InitialCost;
+		LoadoutWeapons.Add(NewLoadoutInfo);
+	}
+}
+
+void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTWeapon> WeaponClass, float NewCost)
+{
+	for (int32 i=0; i < LoadoutWeapons.Num(); i++)
+	{
+		if (LoadoutWeapons[i]->WeaponClass == WeaponClass)
+		{
+			LoadoutWeapons[i]->CurrentCost = NewCost;
+			return;
+		}
+	}
+}
+
+bool AUTGameState::IsTempBanned(const TSharedPtr<class FUniqueNetId>& UniqueId)
+{
+	for (int32 i=0; i< TempBans.Num(); i++)
+	{
+		if (TempBans[i]->ToString() == UniqueId->ToString())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void AUTGameState::VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter)
+{
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (Game && Game->NumPlayers > 0)
+	{
+		BadGuy->LogBanRequest(Voter);
+		Game->BroadcastLocalized(Voter, UUTGameMessage::StaticClass(), 13, Voter, BadGuy);
+
+		float Perc = (float(BadGuy->CountBanVotes()) / float(Game->NumPlayers)) * 100.0f;
+		BadGuy->KickPercent = int8(Perc);
+		UE_LOG(UT,Log,TEXT("VoteForTempBan %f %i %i %i"),Perc,BadGuy->KickPercent,BadGuy->CountBanVotes(),Game->NumPlayers);
+
+		if ( Perc >=  KickThreshold )
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(BadGuy->GetOwner());
+			if (PC)
+			{
+				AUTGameSession* GS = Cast<AUTGameSession>(Game->GameSession);
+				if (GS)
+				{
+					GS->KickPlayer(PC,NSLOCTEXT("UTGameState","TempKickBan","The players on this server have decided you need to leave."));
+					TempBans.Add(BadGuy->UniqueId.GetUniqueNetId());				
 				}
 			}
 		}

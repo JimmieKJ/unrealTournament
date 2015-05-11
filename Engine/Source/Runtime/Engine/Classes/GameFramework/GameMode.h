@@ -3,6 +3,7 @@
 #pragma once
 #include "TimerManager.h"
 #include "GameFramework/Info.h"
+#include "PlayerStart.h"
 #include "GameMode.generated.h"
 
 class FDebugDisplayInfo;
@@ -67,18 +68,23 @@ class ENGINE_API AGameMode : public AInfo
 	// Code to deal with the match state machine
 
 	/** Returns the current match state, this is an accessor to protect the state machine flow */
-	FName GetMatchState() const { return MatchState; }
+	UFUNCTION(BlueprintCallable, Category="Game")
+	FName GetMatchState() const;
 
 	/** Returns true if the match state is InProgress or later */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual bool HasMatchStarted() const;
 
 	/** Returns true if the match state is InProgress or other gameplay state */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual bool IsMatchInProgress() const;
 
 	/** Returns true if the match state is WaitingPostMatch or later */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual bool HasMatchEnded() const;
 
 	/** Transitions to WaitingToStart and calls BeginPlay on actors. */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual void StartPlay();
 
 	/**
@@ -88,31 +94,39 @@ class ENGINE_API AGameMode : public AInfo
 	virtual void PostSeamlessTravel();
 
 	/** Transition from WaitingToStart to InProgress. You can call this manually, will also get called if ReadyToStartMatch returns true */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual void StartMatch();
 
 	/** Transition from InProgress to WaitingPostMatch. You can call this manually, will also get called if ReadyToEndMatch returns true */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual void EndMatch();
 
 	/** Transition to LeavingMap state. Start the transition out of the current map. Called at start of seamless travel, or right before map change for hard travel. */
 	virtual void StartToLeaveMap();
 
 	/** Restart the game, by default travel to the current map */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual void RestartGame();
 
 	/** Return to main menu, and disconnect any players */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual void ReturnToMainMenuHost();
 
 	/** Report that a match has failed due to unrecoverable error */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual void AbortMatch();
 
 protected:
 
 	/** What match state we are currently in */
-	UPROPERTY()
 	FName MatchState;
 
 	/** Updates the match state and calls the appropriate transition functions */
 	virtual void SetMatchState(FName NewState);
+
+	/** Implementable event to respond to match state changes */
+	UFUNCTION(BlueprintImplementableEvent, Category="Game", meta=(DisplayName="OnSetMatchState"))
+	void K2_OnSetMatchState(FName NewState);
 
 	// Games should override these functions to deal with their game specific logic
 
@@ -120,13 +134,15 @@ protected:
 	virtual void HandleMatchIsWaitingToStart();
 
 	/** @return True if ready to Start Match. Games should override this */
-	virtual bool ReadyToStartMatch();
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	bool ReadyToStartMatch();
 
 	/** Called when the state transitions to InProgress */
 	virtual void HandleMatchHasStarted();
 
 	/** @return true if ready to End Match. Games should override this */
-	virtual bool ReadyToEndMatch();
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	bool ReadyToEndMatch();
 
 	/** Called when the map transitions to WaitingPostMatch */
 	virtual void HandleMatchHasEnded();
@@ -195,35 +211,34 @@ public:
 	int32 NumTravellingPlayers;
 
 	/** Used to assign unique PlayerIDs to each PlayerState. */
-	UPROPERTY()
 	int32 CurrentID;    
 
 	/** The default player name assigned to players that join with no name specified. */
-	UPROPERTY(localized)
-	FString DefaultPlayerName;
-
-	/** Array of available player starts. */
-	UPROPERTY()
-	TArray<class APlayerStart*> PlayerStarts;
+	UPROPERTY(EditAnywhere, Category=GameMode)
+	FText DefaultPlayerName;
 
 	/** Contains strings describing localized game agnostic messages. */
 	UPROPERTY()
 	TSubclassOf<class ULocalMessage> EngineMessageClass;
 
 	/** The class of PlayerController to spawn for players logging in. */
-	UPROPERTY(EditAnywhere, noclear, BlueprintReadWrite, Category=Classes)
+	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Classes)
 	TSubclassOf<class APlayerController> PlayerControllerClass;
 
 	/** The pawn class used by the PlayerController for players when spectating. */
-	UPROPERTY(EditAnywhere, noclear, BlueprintReadWrite, Category=Classes)
+	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Classes)
 	TSubclassOf<class ASpectatorPawn> SpectatorClass;
 
+	/** The PlayerController class used when spectating a network replay. */
+	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category = Classes)
+	TSubclassOf<class APlayerController> ReplaySpectatorPlayerControllerClass;
+
 	/** A PlayerState of this class will be associated with every player to replicate relevant player information to all clients. */
-	UPROPERTY(EditAnywhere, noclear, BlueprintReadWrite, Category=Classes)
+	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Classes)
 	TSubclassOf<class APlayerState> PlayerStateClass;
 
 	/** Class of GameState associated with this GameMode. */
-	UPROPERTY(EditAnywhere, noclear, BlueprintReadWrite, Category=Classes)
+	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Classes)
 	TSubclassOf<class AGameState> GameStateClass;
 
 	/** GameState is used to replicate game state relevant properties to all clients. */
@@ -251,8 +266,12 @@ protected:
 	TArray<struct FGameClassShortName> GameModeClassAliases;
 
 	/** Time a playerstate will stick around in an inactive state after a player logout */
-	UPROPERTY(config)
+	UPROPERTY(EditAnywhere, Category=GameMode)
 	float InactivePlayerStateLifeSpan;
+
+	/** If true, dedicated servers will record replays when HandleMatchHasStarted/HandleMatchHasStopped is called */
+	UPROPERTY(config)
+	bool bHandleDedicatedServerReplays;
 
 public:
 
@@ -268,12 +287,21 @@ public:
 	// End AActor interface
 
 	/** 
+	 * Overridable function to determine whether an Actor should have Reset called when the game has Reset called on it.
+	 * Default implementation returns true
+	 * @param ActorToReset The actor to make a determination for
 	 * @return true if ActorToReset should have Reset() called on it while restarting the game, 
 	 *		   false if the GameMode will manually reset it or if the actor does not need to be reset
-	 */
-	virtual bool ShouldReset(AActor* ActorToReset);
 
-	/** Resets level by calling Reset() on all actors */
+	 */
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	bool ShouldReset(AActor* ActorToReset);
+
+	/** 
+	  * Overridable function called when resetting level.
+	  * Default implementation calls Reset() on all actors except GameMode and Controllers
+	  */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual void ResetLevel();
 
 	/**
@@ -312,6 +340,7 @@ public:
 	void RemovePlayerControllerFromPlayerCount(APlayerController* PC);
 
 	/** Total number of players */
+	UFUNCTION(BlueprintCallable, Category="Game")
 	virtual int32 GetNumPlayers();
 
 	/**
@@ -412,44 +441,59 @@ public:
 	 * Called to login new players by creating a player controller, overridable by the game
 	 *
 	 * Sets up basic properties of the player (name, unique id, registers with backend, etc) and should not be used to do
-	 * more complicated game logic.  The player controller is not fully initialized within this function as far as networking is conecerned.
+	 * more complicated game logic.  The player controller is not fully initialized within this function as far as networking is concerned.
 	 * Save "game logic" for PostLogin which is called shortly afterward.
 	 *
+	 * @param NewPlayer pointer to the UPlayer object that represents this player (either local or remote)
+	 * @param RemoteRole the remote role this controller has
+	 * @param Portal desired portal location specified by the client
+	 * @param Options game options passed in by the client at login
+	 * @param UniqueId platform specific unique identifier for the logging in player
+	 * @param ErrorMessage [out] error message, if any, why this login will be failing
+	 *
 	 * If login is successful, returns a new PlayerController to associate with this player. Login fails if ErrorMessage string is set. 
+	 *
+	 * @return a new player controller for the logged in player, NULL if login failed for any reason
 	 */
-	virtual APlayerController* Login(class UPlayer* NewPlayer, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
 
 	/** Called after a successful login.  This is the first place it is safe to call replicated functions on the PlayerAController. */
 	virtual void PostLogin( APlayerController* NewPlayer );
 
 	/** Notification that a player has successfully logged in, and has been given a player controller */
-	UFUNCTION(BlueprintImplementableEvent, Category="Game", meta=(FriendlyName="PostLogin"))
-	virtual void K2_PostLogin( APlayerController* NewPlayer );
+	UFUNCTION(BlueprintImplementableEvent, Category="Game", meta=(DisplayName="OnPostLogin"))
+	void K2_PostLogin( APlayerController* NewPlayer );
 
-	/** Spawns a PlayerController at the specified location; split out from Login()/HandleSeamlessTravelPlayer() for easier overriding */
-	virtual APlayerController* SpawnPlayerController(FVector const& SpawnLocation, FRotator const& SpawnRotation);
+	/** 
+	 * Spawns a PlayerController at the specified location; split out from Login()/HandleSeamlessTravelPlayer() for easier overriding 
+	 *
+	 * @param RemoteRole the role this controller will play remotely
+	 * @param SpawnLocation location in the world to spawn
+	 * @param SpawnRotation rotation to set relative to the world
+	 *
+	 * @return PlayerController for the player, NULL if there is any reason this player shouldn't exist or due to some error
+	 */
+	virtual APlayerController* SpawnPlayerController(ENetRole RemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
 
 	/** @Returns true if NewPlayerController may only join the server as a spectator. */
-	virtual bool MustSpectate(APlayerController* NewPlayerController) const;
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	bool MustSpectate(APlayerController* NewPlayerController) const;
 
 	/** returns default pawn class for given controller */
-	virtual UClass* GetDefaultPawnClassForController(AController* InController);
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	TSubclassOf<APawn> GetDefaultPawnClassForController(AController* InController);
 
 	/** Called when StartSpot is selected for spawning NewPlayer to allow optional initialization. */
-	virtual void InitStartSpot(class AActor* StartSpot, AController* NewPlayer);
-
-	/** Register new player start */
-	virtual void AddPlayerStart(APlayerStart* NewPlayerStart);
-
-	/** Remove an existing player start */
-	virtual void RemovePlayerStart(APlayerStart* RemovedPlayerStart);
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	void InitStartSpot(class AActor* StartSpot, AController* NewPlayer);
 
 	/**
 	 * @param	NewPlayer - Controller for whom this pawn is spawned
 	 * @param	StartSpot - PlayerStart at which to spawn pawn
 	 * @return	a pawn of the default pawn class
 	 */
-	virtual APawn* SpawnDefaultPawnFor(AController* NewPlayer, class AActor* StartSpot);
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	APawn* SpawnDefaultPawnFor(AController* NewPlayer, class AActor* StartSpot);
 
 	/** replicates the current level streaming status to the given PlayerController */
 	virtual void ReplicateStreamingStatus(APlayerController* PC);
@@ -466,6 +510,10 @@ public:
 	/** Called when a Controller with a PlayerState leaves the match. */
 	virtual void Logout( AController* Exiting );
 
+	/** Implementable event when a Controller with a PlayerState leaves the match. */
+	UFUNCTION(BlueprintImplementableEvent, Category="Game", meta=(DisplayName="OnLogout"))
+	void K2_OnLogout(AController* ExitingController);
+
 	/**
 	 * Make sure pawn properties are back to default
 	 * Also a good place to modify them on spawn
@@ -473,10 +521,26 @@ public:
 	virtual void SetPlayerDefaults(APawn* PlayerPawn);
 
 	/** Return whether Viewer is allowed to spectate from the point of view of ViewTarget. */
-	virtual bool CanSpectate( APlayerController* Viewer, APlayerState* ViewTarget );
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	bool CanSpectate( APlayerController* Viewer, APlayerState* ViewTarget );
 
-	/* Use reduce damage for teamplay modifications, etc. */
-	virtual void ChangeName( AController* Other, const FString& S, bool bNameChange );
+	/** 
+	 * Sets the name for a controller 
+	 * @param Controller	The controller of the player to change the name of
+	 * @param NewName		The name to set the player to
+	 * @param bNameChange	Whether the name is changing or if this is the first time it has been set
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game")
+	virtual void ChangeName( AController* Controller, const FString& NewName, bool bNameChange );
+
+	/** 
+	 * Overridable event for GameMode blueprint to respond to a change name call
+	 * @param Controller	The controller of the player to change the name of
+	 * @param NewName		The name to set the player to
+	 * @param bNameChange	Whether the name is changing or if this is the first time it has been set
+	 */
+	UFUNCTION(BlueprintImplementableEvent,Category="Game",meta=(DisplayName="OnChangeName"))
+	void K2_OnChangeName( AController* Other, const FString& NewName, bool bNameChange );
 
 	/* Send a player to a URL.*/
 	virtual void SendPlayer( APlayerController* aPlayer, const FString& URL );
@@ -496,13 +560,14 @@ public:
 
 	/** 
 	 * Return the 'best' player start for this player to start from.
-	 * @param Player - is the AController for whom we are choosing a playerstart
-	 * @param IncomingName - specifies the tag of a Playerstart to use
+	 * @param Player The AController for whom we are choosing a Player Start
+	 * @param IncomingName Specifies the tag of a Player Start to use
 	 * @returns Actor chosen as player start (usually a PlayerStart)
 	 */
-	virtual class AActor* FindPlayerStart( AController* Player, const FString& IncomingName = TEXT("") );
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	class AActor* FindPlayerStart( AController* Player, const FString& IncomingName = TEXT("") );
 
-	UFUNCTION(BlueprintPure, Category=Game, meta=(FriendlyName="FindPlayerStart"))
+	UFUNCTION(BlueprintPure, Category=Game, meta=(DisplayName="FindPlayerStart"))
 	AActor* K2_FindPlayerStart(AController* Player);
 
 	/** 
@@ -511,10 +576,12 @@ public:
 	* @param Player is the controller for whom we are choosing a playerstart
 	* @returns AActor chosen as player start (usually a PlayerStart)
 	 */
-	virtual class AActor* ChoosePlayerStart( AController* Player );
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	class AActor* ChoosePlayerStart( AController* Player );
 
 	/** @return true if it's valid to call RestartPlayer. Will call Player->CanRestartPlayer */
-	virtual bool PlayerCanRestart( APlayerController* Player );
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	bool PlayerCanRestart( APlayerController* Player );
 
 	/**
 	 * Used to notify the game type that it is ok to update a player's gameplay
@@ -556,7 +623,7 @@ public:
 	 * called on server during seamless level transitions to get the list of Actors that should be moved into the new level
 	 * PlayerControllers, Role < ROLE_Authority Actors, and any non-Actors that are inside an Actor that is in the list
 	 * (i.e. Object.Outer == Actor in the list)
-	 * are all autmoatically moved regardless of whether they're included here
+	 * are all automatically moved regardless of whether they're included here
 	 * only dynamic actors in the PersistentLevel may be moved (this includes all actors spawned during gameplay)
 	 * this is called for both parts of the transition because actors might change while in the middle (e.g. players might join or leave the game)
 	 * @see also PlayerController::GetSeamlessTravelActorList() (the function that's called on clients)
@@ -569,13 +636,16 @@ public:
 	virtual FString GetRedirectURL(const FString& MapName) const;
 
 	/** 
-	 * used to swap a viewport/connection's PlayerControllers when seamless travelling and the new GameMode's
+	 * used to swap a viewport/connection's PlayerControllers when seamless traveling and the new GameMode's
 	 * controller class is different than the previous
 	 * includes network handling
 	 * @param OldPC - the old PC that should be discarded
 	 * @param NewPC - the new PC that should be used for the player
 	 */
 	virtual void SwapPlayerControllers(APlayerController* OldPC, APlayerController* NewPC);
+
+	UFUNCTION(BlueprintImplementableEvent, Category="Game", meta=(DisplayName="OnSwapPlayerControllers"))
+	void K2_OnSwapPlayerControllers(APlayerController* OldPC, APlayerController* NewPC);
 
 	/** 
 	 * Handles reinitializing players that remained through a seamless level transition
@@ -593,16 +663,16 @@ public:
 	/** Does end of game handling for the online layer */
 	virtual void RestartPlayer(class AController* NewPlayer);
 
+	UFUNCTION(BlueprintImplementableEvent, Category="Game", meta=(DisplayName="OnRestartPlayer"))
+	void K2_OnRestartPlayer(AController* NewPlayer);
+
 	/** Given a string, return a fully-qualified GameMode class name */
 	static FString StaticGetFullGameClassName(FString const& Str);
 
-	/** Called periodically, overridden by subclasses */
-	virtual void DefaultTimer();	
+	/** Returns true if replays will start/stop during gameplay starting/stopping */
+	virtual bool IsHandlingReplays();
 
 protected:
-
-	/** Handle for efficient management of DefaultTimer timer */
-	FTimerHandle TimerHandle_DefaultTimer;
 
 	/**
 	 * Customize incoming player based on URL options

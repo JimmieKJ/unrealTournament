@@ -16,12 +16,10 @@
 void SUWGameSetupDialog::Construct(const FArguments& InArgs)
 {
 	UUTEpicDefaultRulesets* DefaultRuleset = UUTEpicDefaultRulesets::StaticClass()->GetDefaultObject<UUTEpicDefaultRulesets>();
-	UE_LOG(UT,Log,TEXT("Pulling Categories %i"), DefaultRuleset ? DefaultRuleset->RuleCategories.Num() : -1);
 	if (DefaultRuleset)
 	{
 		for (int32 i = 0; i < DefaultRuleset->RuleCategories.Num(); i++)
 		{
-			UE_LOG(UT,Log,TEXT("Adding Categories %s / %s"), *DefaultRuleset->RuleCategories[i].CategoryName.ToString(), *DefaultRuleset->RuleCategories[i].CategoryButtonText);
 			Categories.Add(DefaultRuleset->RuleCategories[i].CategoryName);
 			CategoryTexts.Add(FText::FromString(DefaultRuleset->RuleCategories[i].CategoryButtonText));
 		}

@@ -5,7 +5,7 @@
 
 #if !UE_SERVER
 
-class SUWToast : public SCompoundWidget
+class UNREALTOURNAMENT_API SUWToast : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWToast)
 	:_Lifetime(3.0f)

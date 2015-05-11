@@ -199,7 +199,6 @@ public:
 												FString inMapPlaylist, int32 inMaxPlayers, FString inDisplayTexture, FString inGameMode, FString inGameOptions)
 	{
 		FActorSpawnParameters Params;
-		Params.Name = FName(*inUniqueTag);
 		Params.Owner = Owner;
 		AUTReplicatedGameRuleset* NewReplicatedRuleset = Owner->GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
 		if (NewReplicatedRuleset)

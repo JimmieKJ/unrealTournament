@@ -321,7 +321,31 @@ void SUWPlayerInfoDialog::ZoomPlayerPreview(float WheelDelta)
 
 TSharedRef<class SWidget> SUWPlayerInfoDialog::BuildCustomButtonBar()
 {
-	return SAssignNew(FriendPanel, SHorizontalBox);
+	TSharedPtr<SHorizontalBox> CustomBox;
+	SAssignNew(CustomBox, SHorizontalBox);
+	CustomBox->AddSlot()
+	.AutoWidth()
+	[
+		SAssignNew(FriendPanel, SHorizontalBox)
+	];
+
+	if (GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client)
+	{
+		CustomBox->AddSlot()
+		.Padding(10.0f,0.0f,10.0f,0.0f)
+		[
+			SAssignNew(KickButton, SButton)
+			.HAlign(HAlign_Center)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWPlayerInfoDialog","KickVote","Vote to Kick"))
+			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+			.OnClicked(this, &SUWPlayerInfoDialog::KickVote)
+		];
+	}
+
+
+	return CustomBox.ToSharedRef();
 }
 
 FReply SUWPlayerInfoDialog::OnSendFriendRequest()
@@ -441,5 +465,23 @@ void SUWPlayerInfoDialog::BuildFriendPanel()
 
 }
 
+FReply SUWPlayerInfoDialog::KickVote()
+{
+	if (TargetPlayerState.IsValid()) 
+	{
+		AUTPlayerState* MyPlayerState =  Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+		if (TargetPlayerState != MyPlayerState)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+			if (PC)
+			{
+				PC->ServerRegisterBanVote(TargetPlayerState.Get());
+				KickButton->SetEnabled(false);
+			}
+		}
+	}
+
+	return FReply::Handled();
+}
 
 #endif

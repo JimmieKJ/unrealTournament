@@ -14,6 +14,7 @@ public:
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawFlag(FName KeyName, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected);
+	virtual void DrawPowerup(class AUTPickupInventory* Pickup, float XOffset, float YOffset);
 	virtual void InitializeWidget(AUTHUD* Hud);
 
 	// The total Height of a given cell
@@ -72,6 +73,9 @@ public:
 	FName BlueFlagBind;
 
 	UPROPERTY()
+		FName AutoCamBind;
+
+	UPROPERTY()
 	FName CameraBind[10];
 
 	UPROPERTY()
@@ -90,6 +94,14 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		UTexture2D* FlagAtlas;
+
+	UPROPERTY()
+		TArray<AUTPickupInventory*> PowerupList;
+
+	UPROPERTY()
+		bool bPowerupListInitialized;
+
+	virtual void InitPowerupList();
 
 private:
 };

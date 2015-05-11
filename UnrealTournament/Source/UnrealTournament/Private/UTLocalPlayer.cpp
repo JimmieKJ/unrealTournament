@@ -25,6 +25,7 @@
 #include "Slate/SUTQuickMatch.h"
 #include "Slate/SUWFriendsPopup.h"
 #include "Slate/SUWRedirectDialog.h"
+#include "Slate/SUTLoadoutMenu.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -38,7 +39,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 {
 	bInitialSignInAttempt = true;
 	LastProfileCloudWriteTime = 0;
-	ProfileCloudWriteCooldownTime = 10;
+	ProfileCloudWriteCooldownTime = 15;
 	bShowSocialNotification = false;
 	ServerPingBlockSize = 30;
 	bSuppressToastsInGame = false;
@@ -394,8 +395,7 @@ TSharedPtr<class SUWServerBrowser> UUTLocalPlayer::GetServerBrowser()
 {
 	if (!ServerBrowserWidget.IsValid())
 	{
-		SAssignNew(ServerBrowserWidget, SUWServerBrowser)
-			.PlayerOwner(this);
+		SAssignNew(ServerBrowserWidget, SUWServerBrowser, this);
 	}
 
 	return ServerBrowserWidget;
@@ -405,8 +405,7 @@ TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()
 {
 	if (!StatsViewerWidget.IsValid())
 	{
-		SAssignNew(StatsViewerWidget, SUWStatsViewer)
-			.PlayerOwner(this);
+		SAssignNew(StatsViewerWidget, SUWStatsViewer, this);
 	}
 
 	return StatsViewerWidget;
@@ -416,8 +415,7 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 {
 	if (!CreditsPanelWidget.IsValid())
 	{
-		SAssignNew(CreditsPanelWidget, SUWCreditsPanel)
-			.PlayerOwner(this);
+		SAssignNew(CreditsPanelWidget, SUWCreditsPanel, this);
 	}
 
 	return CreditsPanelWidget;
@@ -1698,12 +1696,12 @@ bool UUTLocalPlayer::IsPlayerShowingSocialNotification() const
 
 void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful)
 {
-	UE_LOG(UT,Log,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
+	UE_LOG(UT,Verbose,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
 }
 
 void UUTLocalPlayer::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
-	UE_LOG(UT,Log,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
+	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
 
 void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId)
@@ -1977,4 +1975,52 @@ void UUTLocalPlayer::HandleNetworkFailureMessage(enum ENetworkFailure::Type Fail
 	{
 		BasePlayerController->HandleNetworkFailureMessage(FailureType, ErrorString);
 	}
+}
+void UUTLocalPlayer::OpenLoadout()
+{
+#if !UE_SERVER
+	// Create the slate widget if it doesn't exist
+	if (!LoadoutMenu.IsValid())
+	{
+		SAssignNew(LoadoutMenu, SUTLoadoutMenu).PlayerOwner(this);
+		if (LoadoutMenu.IsValid())
+		{
+			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(LoadoutMenu.ToSharedRef()),60);
+		}
+
+		// Make it visible.
+		if (LoadoutMenu.IsValid())
+		{
+			// Widget is already valid, just make it visible.
+			LoadoutMenu->SetVisibility(EVisibility::Visible);
+			LoadoutMenu->OnMenuOpened();
+
+			if (PlayerController)
+			{
+				PlayerController->bShowMouseCursor = true;
+				PlayerController->SetInputMode( FInputModeUIOnly() );
+			}
+		}
+	}
+#endif
+}
+void UUTLocalPlayer::CloseLoadout()
+{
+#if !UE_SERVER
+	if (LoadoutMenu.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(LoadoutMenu.ToSharedRef());
+		LoadoutMenu->OnMenuClosed();
+		LoadoutMenu.Reset();
+		if (PlayerController)
+		{
+			PlayerController->bShowMouseCursor = false;
+			PlayerController->SetInputMode(FInputModeGameOnly());
+			PlayerController->SetPause(false);
+		}
+
+		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+
+	}
+#endif
 }

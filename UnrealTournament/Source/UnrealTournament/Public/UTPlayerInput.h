@@ -33,8 +33,20 @@ class UNREALTOURNAMENT_API UUTPlayerInput : public UPlayerInput
 
 	/** Binds only valid for spectators */
 	UPROPERTY(Config)
-		TArray<FCustomKeyBinding> SpectatorBinds;
+	TArray<FCustomKeyBinding> SpectatorBinds;
 
+	UPROPERTY(Config)
+	float AccelerationPower;
+
+	UPROPERTY(Config)
+	float Acceleration;
+
+	UPROPERTY(Config)
+	float AccelerationOffset;
+
+	UPROPERTY(Config)
+	float AccelerationMax;
+	
 	virtual bool ExecuteCustomBind(FKey Key, EInputEvent EventType);
 	virtual void UTForceRebuildingKeyMaps(const bool bRestoreDefaults = false); 
 };

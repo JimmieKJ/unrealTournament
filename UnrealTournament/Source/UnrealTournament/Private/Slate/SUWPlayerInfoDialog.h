@@ -5,7 +5,7 @@
 #include "SUWDialog.h"
 
 #if !UE_SERVER
-class SUWPlayerInfoDialog : public SUWDialog, public FGCObject
+class UNREALTOURNAMENT_API SUWPlayerInfoDialog : public SUWDialog, public FGCObject
 {
 public:
 
@@ -73,11 +73,14 @@ protected:
 
 	TSharedPtr<class SVerticalBox> InfoPanel;
 	TSharedPtr<class SHorizontalBox> FriendPanel;
+	TSharedPtr<class SButton> KickButton;
 	FName FriendStatus;
 
 	FText GetFunnyText();
 	virtual void BuildFriendPanel();
 	virtual FReply OnSendFriendRequest();
+
+	virtual FReply KickVote();
 
 };
 #endif

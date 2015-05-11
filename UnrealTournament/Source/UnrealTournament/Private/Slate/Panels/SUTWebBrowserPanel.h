@@ -9,9 +9,20 @@
 
 #include "SWebBrowser.h"
 
-class SUTWebBrowserPanel : public SUWPanel
+class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 {
+	SLATE_BEGIN_ARGS(SUTWebBrowserPanel)
+	: _ShowControls(true)
+	{}
+
+	SLATE_ARGUMENT(bool, ShowControls)
+
+	SLATE_END_ARGS()
+	
 public:
+
+	void Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner);
+
 	virtual void ConstructPanel(FVector2D ViewportSize);
 	virtual void Browse(FString URL);
 
@@ -22,7 +33,7 @@ protected:
 	TSharedPtr<SWebBrowser> WebBrowserPanel;
 
 	float GetReverseScale() const;
-
+	bool ShowControls;
 };
 
 #endif

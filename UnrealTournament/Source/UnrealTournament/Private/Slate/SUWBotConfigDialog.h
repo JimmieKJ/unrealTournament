@@ -9,7 +9,7 @@
 
 /** version of STableRow that allows multi-select by single clicking without modifier keys */
 template<typename ItemType>
-class SSimpleMultiSelectTableRow : public STableRow<ItemType>
+class UNREALTOURNAMENT_API SSimpleMultiSelectTableRow : public STableRow<ItemType>
 {
 public:
 	SLATE_BEGIN_ARGS(SSimpleMultiSelectTableRow<ItemType>)
@@ -44,7 +44,7 @@ public:
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 };
 
-class SUWBotConfigDialog : public SUWDialog, public FGCObject
+class UNREALTOURNAMENT_API SUWBotConfigDialog : public SUWDialog, public FGCObject
 {
 public:
 	SLATE_BEGIN_ARGS(SUWBotConfigDialog)

@@ -53,11 +53,17 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
+	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
+	HUDAtlas = HUDTex.Object;
+
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
 	bFontsCached = false;
 	bShowOverlays = true;
 	bHaveAddedSpectatorWidgets = false;
+
+	TeamIconUV[0] = FVector2D(257.f, 940.f);
+	TeamIconUV[1] = FVector2D(333.f, 940.f);
 }
 
 void AUTHUD::BeginPlay()
@@ -237,6 +243,23 @@ void AUTHUD::BuildHudWidget(FString NewWidgetString)
 		TSubclassOf<UUTHUDWidget> NewWidgetClass = ResolveHudWidgetByName(*NewWidgetString);
 		if (NewWidgetClass != NULL) AddHudWidget(NewWidgetClass);
 	}
+}
+
+bool AUTHUD::HasHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
+{
+	if ((NewWidgetClass == NULL) || (HudWidgets.Num() == 0))
+	{
+		return false;
+	}
+
+	for (int32 i = 0; i < HudWidgets.Num(); i++)
+	{
+		if (HudWidgets[i] && (HudWidgets[i]->GetClass() == NewWidgetClass))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
@@ -540,10 +563,15 @@ FLinearColor AUTHUD::GetWidgetTeamColor()
 	// Add code to cache and return the team color if it's a team game
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS == NULL || (GS->bTeamGame && UTPlayerOwner && UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->Team))
+	if (GS == NULL || (GS->bTeamGame && UTPlayerOwner && UTPlayerOwner->GetViewTarget()))
 	{
 		//return UTPlayerOwner->UTPlayerState->Team->TeamColor;
-		return (UTPlayerOwner->GetTeamNum() == 0) ? FLinearColor(0.15,0.0,0.0,1.0) : FLinearColor(0.025,0.025,0.1,1.0);
+		APawn* HUDPawn = Cast<APawn>(UTPlayerOwner->GetViewTarget());
+		AUTPlayerState* PS = HUDPawn ? Cast<AUTPlayerState>(HUDPawn->PlayerState) : NULL;
+		if (PS != NULL)
+		{
+			return (PS->GetTeamNum() == 0) ? FLinearColor(0.15, 0.0, 0.0, 1.0) : FLinearColor(0.025, 0.025, 0.1, 1.0);
+		}
 	}
 
 	return FLinearColor::Black;
@@ -638,6 +666,35 @@ void AUTHUD::CalcStanding()
 		}
 
 	}
+}
+
+float AUTHUD::GetCrosshairScale()
+{
+	// Apply pickup scaling
+	float PickupScale = 1.f;
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	if (LastPickupTime > WorldTime - 0.3f)
+	{
+		if (LastPickupTime > WorldTime - 0.15f)
+		{
+			PickupScale = (1.f + 5.f * (WorldTime - LastPickupTime));
+		}
+		else
+		{
+			PickupScale = (1.f + 5.f * (LastPickupTime + 0.3f - WorldTime));
+		}
+	}
+	return PickupScale;
+}
+
+FLinearColor AUTHUD::GetCrosshairColor(FLinearColor CrosshairColor) const
+{
+	float TimeSinceHit = GetWorld()->TimeSeconds - LastConfirmedHitTime;
+	if (TimeSinceHit < 0.4f)
+	{
+		CrosshairColor = FMath::Lerp<FLinearColor>(FLinearColor::Red, CrosshairColor, FMath::Lerp<float>(0.f, 1.f, FMath::Pow((GetWorld()->TimeSeconds - LastConfirmedHitTime) / 0.4f, 2.0f)));
+	}
+	return CrosshairColor;
 }
 
 FText AUTHUD::GetPlaceSuffix(int32 Value)

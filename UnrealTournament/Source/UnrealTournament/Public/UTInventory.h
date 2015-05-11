@@ -182,6 +182,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	FCanvasIcon HUDIcon;
 
+	/** Whether to show timer for this on spectator slide out HUD. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+		bool bShowPowerupTimer;
+
 	/** How important is this inventory item when rendering a group of them */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	float HUDRenderPriority;

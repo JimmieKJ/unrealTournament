@@ -88,6 +88,9 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	BaseAISelectRating = 0.55f;
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
 	IconColor = FLinearColor::White;
+	bShowPowerupTimer = false;
+
+	MenuDescription = NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
 }
 
 void AUTWeapon::PostInitProperties()
@@ -1554,13 +1557,8 @@ void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 
 FLinearColor AUTWeapon::GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const
 {
-	FLinearColor CrosshairColor(FLinearColor::White);
-	float TimeSinceHit = GetWorld()->TimeSeconds - WeaponHudWidget->UTHUDOwner->LastConfirmedHitTime;
-	if (TimeSinceHit < 0.4f)
-	{
-		CrosshairColor = FMath::Lerp<FLinearColor>(FLinearColor::Red, CrosshairColor, FMath::Lerp<float>(0.f, 1.f, FMath::Pow((GetWorld()->TimeSeconds - WeaponHudWidget->UTHUDOwner->LastConfirmedHitTime) / 0.4f, 2.0f)));
-	}
-	return CrosshairColor;
+	FLinearColor CrosshairColor = FLinearColor::White;
+	return WeaponHudWidget->UTHUDOwner->GetCrosshairColor(CrosshairColor);
 }
 
 bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState *& HitPlayerState) const
@@ -1601,22 +1599,7 @@ bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState 
 
 float AUTWeapon::GetCrosshairScale(AUTHUD* HUD)
 {
-	// Apply pickup scaling
-	float PickupScale = 1.f;
-	const float LastPickupTime = HUD->LastPickupTime;
-	const float WorldTime = GetWorld()->GetTimeSeconds();
-	if (LastPickupTime > WorldTime - 0.3f)
-	{
-		if (LastPickupTime > WorldTime - 0.15f)
-		{
-			PickupScale = (1.f + 5.f * (WorldTime - LastPickupTime));
-		}
-		else
-		{
-			PickupScale = (1.f + 5.f * (LastPickupTime + 0.3f - WorldTime));
-		}
-	}
-	return PickupScale;
+	return HUD->GetCrosshairScale();
 }
 
 void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
@@ -1640,7 +1623,7 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 			AUTPlayerState* PS;
 			if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
 			{
-				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * 2.0f * CrosshairScale, H  * 2.0f * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f), 45.0f);
+				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, 2.f* W * CrosshairScale, 2.f * H * CrosshairScale, 407, 940, 72, 72, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f));
 			}
 			else
 			{

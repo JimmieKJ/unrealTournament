@@ -20,6 +20,7 @@ UUTGameUserSettings::UUTGameUserSettings(const class FObjectInitializer& ObjectI
 	SoundClassVolumes[EUTSoundClass::SFX] = 1.0f;
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
 	InitialBenchmarkState = -1;
+	bBenchmarkInProgress=false;
 }
 
 bool UUTGameUserSettings::IsVersionValid()
@@ -213,6 +214,7 @@ void UUTGameUserSettings::BenchmarkDetailSettings(UUTLocalPlayer* LocalPlayer, b
 		// allow for the dialog to be displayed before running the synth benchmark
 		FTimerHandle UnusedHandle;
 		LocalPlayer->GetWorld()->GetTimerManager().SetTimer(UnusedHandle, FTimerDelegate::CreateUObject(this, &UUTGameUserSettings::RunSynthBenchmark, bSaveSettingsOnceDetected), 0.5f, false);
+		bBenchmarkInProgress = true;
 	}
 }
 
@@ -239,7 +241,7 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 	}
 
 	SettingsAutodetectedEvent.Broadcast(DetectedLevels);
-
+	bBenchmarkInProgress = false;
 	if (AutoDetectingSettingsDialog.IsValid())
 	{
 		AutoDetectingSettingsDialog->OnDialogClosed();

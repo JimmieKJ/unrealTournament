@@ -5,7 +5,7 @@
 
 #if !UE_SERVER
 
-class SUWDialog : public SCompoundWidget
+class UNREALTOURNAMENT_API SUWDialog : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWDialog)
 	: _DialogSize(FVector2D(400,200))

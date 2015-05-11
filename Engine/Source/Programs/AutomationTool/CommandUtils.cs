@@ -1943,7 +1943,7 @@ namespace AutomationTool
             }
             string Root = RootSharedTempStorageDirectory();
             string Result = CombinePaths(Root, GameFolder);
-            if (String.IsNullOrEmpty(GameFolder) || !DirectoryExistsAndIsWritable_NoExceptions(Result))
+            if (String.IsNullOrEmpty(GameFolder) || !Robust_DirectoryExistsAndIsWritable_NoExceptions(Result))
             {
                 string GameStr = "Game";
                 bool HadGame = false;
@@ -1953,10 +1953,10 @@ namespace AutomationTool
                     Result = CombinePaths(Root, ShortFolder);
                     HadGame = true;
                 }
-                if (!HadGame || !DirectoryExistsAndIsWritable_NoExceptions(Result))
+                if (!HadGame || !Robust_DirectoryExistsAndIsWritable_NoExceptions(Result))
                 {
                     Result = CombinePaths(Root, "UE4");
-                    if (!DirectoryExistsAndIsWritable_NoExceptions(Result))
+                    if (!Robust_DirectoryExistsAndIsWritable_NoExceptions(Result))
                     {
                         throw new AutomationException("Could not find an appropriate shared temp folder {0}", Result);
                     }

@@ -22,7 +22,7 @@ class UNREALTOURNAMENT_API IUTTeamInterface
 	}
 
 	/** version of GetTeamNum() for blueprints */
-	UFUNCTION(BlueprintImplementableEvent, meta = (FriendlyName = "GetTeamNum"))
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "GetTeamNum"))
 	uint8 ScriptGetTeamNum();
 
 	/** return team number the object is on, or 255 for no team */

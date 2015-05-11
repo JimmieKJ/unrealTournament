@@ -55,6 +55,19 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 	{
 		ErrorMessage = TEXT("NOTLOGGEDIN");
 	}
+
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		if (GameState->IsTempBanned(UniqueId))
+		{
+			UE_LOG(UT,Log,TEXT("Banned"));
+			ErrorMessage = TEXT("BANNED");
+			return;
+		}
+	
+	}
+
 }
 
 bool AUTGameSession::BanPlayer(class APlayerController* BannedPlayer, const FText& BanReason)

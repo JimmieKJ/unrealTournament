@@ -9,7 +9,7 @@
 
 #if !UE_SERVER
 
-class SUWSystemSettingsDialog : public SUWDialog
+class UNREALTOURNAMENT_API SUWSystemSettingsDialog : public SUWDialog
 {
 public:
 	SLATE_BEGIN_ARGS(SUWSystemSettingsDialog)

@@ -1624,8 +1624,11 @@ void AActor::Destroyed()
 }
 
 void AActor::TornOff() {}
-void AActor::Reset() {}
 
+void AActor::Reset()
+{
+	K2_OnReset();
+}
 void AActor::FellOutOfWorld(const UDamageType& dmgType)
 {
 	DisableComponentsSimulatePhysics();

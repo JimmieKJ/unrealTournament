@@ -13,10 +13,26 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 {
 	if (UTHUDOwner != NULL && UTHUDOwner->UTPlayerOwner != NULL)
 	{
-		AUTCharacter* UTCharacter = UTHUDOwner->UTPlayerOwner->GetUTCharacter();
-		if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL)
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+		if (UTCharacter)
 		{
-			UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, DeltaTime);
+			if (UTCharacter->GetWeapon() != NULL)
+			{
+				UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, DeltaTime);
+			}
+			else
+			{
+				// fall back crosshair
+				UTexture2D* CrosshairTexture = UTHUDOwner->DefaultCrosshairTex;
+				if (CrosshairTexture != NULL)
+				{
+					float W = CrosshairTexture->GetSurfaceWidth();
+					float H = CrosshairTexture->GetSurfaceHeight();
+					float CrosshairScale = UTHUDOwner->GetCrosshairScale();
+
+					DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, UTHUDOwner->GetCrosshairColor(FLinearColor::White), FVector2D(0.5f, 0.5f));
+				}
+			}
 		}
 	}
 }

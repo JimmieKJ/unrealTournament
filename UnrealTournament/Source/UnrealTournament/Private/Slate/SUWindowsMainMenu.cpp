@@ -36,11 +36,12 @@ void SUWindowsMainMenu::CreateDesktop()
 
 void SUWindowsMainMenu::SetInitialPanel()
 {
-	SAssignNew(HomePanel, SUHomePanel)
-		.PlayerOwner(PlayerOwner);
-
+	SAssignNew(HomePanel, SUTWebBrowserPanel, PlayerOwner)
+		.ShowControls(false);
 	if (HomePanel.IsValid())
 	{
+		TSharedPtr<SUTWebBrowserPanel> WebPanel = StaticCastSharedPtr<SUTWebBrowserPanel>(HomePanel);
+		WebPanel->Browse(TEXT("http://www.unrealtournament.com/blog/mock/"));
 		ActivatePanel(HomePanel);
 	}
 }
@@ -378,8 +379,7 @@ FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
 	if ( !WebPanel.IsValid() )
 	{
 		// Create the Web panel
-		SAssignNew(WebPanel, SUTWebBrowserPanel)
-			.PlayerOwner(PlayerOwner);
+		SAssignNew(WebPanel, SUTWebBrowserPanel, PlayerOwner);
 	}
 
 	if (WebPanel.IsValid())

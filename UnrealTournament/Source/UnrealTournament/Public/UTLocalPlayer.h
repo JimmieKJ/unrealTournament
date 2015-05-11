@@ -449,6 +449,15 @@ public:
 	// Forward any network failure messages to the base player controller so that game specific actions can be taken
 	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
 
+protected:
+#if !UE_SERVER
+	TSharedPtr<SUWindowsDesktop> LoadoutMenu;
+#endif
+
+public:
+	virtual void OpenLoadout();
+	virtual void CloseLoadout();
+
 };
 
 

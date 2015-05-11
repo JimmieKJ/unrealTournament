@@ -7,9 +7,9 @@
 
 #if !UE_SERVER
 
-void SUWPanel::Construct(const FArguments& InArgs)
+void SUWPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
 {
-	PlayerOwner = InArgs._PlayerOwner;
+	PlayerOwner = InPlayerOwner;
 	checkSlow(PlayerOwner != NULL);
 
 	FVector2D ViewportSize;
