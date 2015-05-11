@@ -68,7 +68,7 @@ UCLASS(Blueprintable, NotPlaceable)
 class UNREALTOURNAMENT_API AUTWeaponRedirector : public AActor
 {
 	GENERATED_BODY()
-
+public:
 	AUTWeaponRedirector(const FObjectInitializer& OI)
 	: Super(OI)
 	{
@@ -106,6 +106,7 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, Category = Init)
 	void InitFor(APawn* InInstigator, const FRepCollisionShape& InCollision, UPrimitiveComponent* InBase, const FTransform& InDest = FTransform::Identity);
+	virtual void InitFor_Implementation(APawn* InInstigator, const FRepCollisionShape& InCollision, UPrimitiveComponent* InBase, const FTransform& InDest);
 
 	UFUNCTION()
 	virtual void UpdateCollisionShape();

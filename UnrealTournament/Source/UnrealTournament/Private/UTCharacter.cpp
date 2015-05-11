@@ -3751,7 +3751,10 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
-		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, TeleportStart, GetActorRotation(), Params);
+		if (!bIsTranslocating)
+		{
+			GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, TeleportStart, GetActorRotation(), Params);
+		}
 		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, GetActorLocation(), GetActorRotation(), Params);
 	}
 	if (bResult && !bIsATest)
