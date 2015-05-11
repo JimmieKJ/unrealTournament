@@ -79,4 +79,5 @@ void AUTAfterImageEffect::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AUTAfterImageEffect, CharMesh, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTAfterImageEffect, TeamColor, COND_InitialOnly);
 }
