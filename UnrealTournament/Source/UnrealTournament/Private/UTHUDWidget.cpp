@@ -674,6 +674,17 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 	FVector2D TextSize;
 	if (Font && !Text.IsEmpty())
 	{
+	/*	if ((Font != UTHUDOwner->TinyFont)
+			&& (Font != UTHUDOwner->SmallFont)
+			&& (Font != UTHUDOwner->MediumFont)
+			&& (Font != UTHUDOwner->LargeFont)
+			&& (Font != UTHUDOwner->HugeFont)
+			&& (Font != UTHUDOwner->ScoreFont)
+			&& (Font != UTHUDOwner->NumberFont))
+		{
+			UE_LOG(UT, Warning, TEXT("%s draw text with font %s"), *GetName(), *Font->GetName());
+		}*/
+		
 		Canvas->StrLen(Font, Text.ToString(), XL, YL);
 		TextSize = FVector2D(XL,YL); // Save for Later
 
