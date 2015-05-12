@@ -3869,10 +3869,10 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{
 				FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
-				TeamColor.R *= 0.24f;
-				TeamColor.G *= 0.24f;
-				TeamColor.B *= 0.24f;
-				TeamColor.A = 0.6f;
+				TeamColor.R *= 0.3f;
+				TeamColor.G *= 0.3f;
+				TeamColor.B *= 0.3f;
+				TeamColor.A = 0.4f;
 				Canvas->SetLinearDrawColor(TeamColor);
 				float Border = 2.f*Scale;
 				float Height = bFarAway ? 0.75*YL : YL + 0.5*YL;
