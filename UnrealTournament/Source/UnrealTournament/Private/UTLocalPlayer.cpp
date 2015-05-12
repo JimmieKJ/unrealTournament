@@ -1575,6 +1575,10 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			}
 
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
+
+			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
+			Context.LastURL.RemoveOption(TEXT("QuickStart"));
+			
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
 			bWantsToFindMatch = false;
@@ -1586,6 +1590,8 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 	// Any failures, return to the main menu.
 	bWantsToConnectAsSpectator = false;
+	bWantsToFindMatch = false;
+	QuickMatchJoinType = NAME_None;
 
 	if (Result == EOnJoinSessionCompleteResult::AlreadyInSession)
 	{

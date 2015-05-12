@@ -30,10 +30,12 @@ struct FServerSearchPingTracker
 {
 	TSharedPtr<FServerSearchInfo> Server;
 	TWeakObjectPtr<AUTServerBeaconClient> Beacon;
+	float PingStartTime;
 
-	FServerSearchPingTracker(TSharedPtr<FServerSearchInfo> inServer, AUTServerBeaconClient* inBeacon)
+	FServerSearchPingTracker(TSharedPtr<FServerSearchInfo> inServer, AUTServerBeaconClient* inBeacon, float inPingStartTime)
 		: Server(inServer)
 		, Beacon(inBeacon)
+		, PingStartTime(inPingStartTime)
 	{
 	};
 };
@@ -119,6 +121,9 @@ private:
 
 	FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
 	FReply OnCancelClick();
+
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+
 };
 
 #endif
