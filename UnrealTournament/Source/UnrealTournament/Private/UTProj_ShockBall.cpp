@@ -83,10 +83,14 @@ void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, F
 void AUTProj_ShockBall::PerformCombo(class AController* InstigatedBy, class AActor* DamageCauser)
 {
 	//Consume extra ammo for the combo
-	AUTWeapon* Weapon = Cast<AUTWeapon>(DamageCauser);
-	if (Weapon != NULL)
+	if (Role == ROLE_Authority)
 	{
-		Weapon->AddAmmo(-ComboAmmoCost);
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		AUTWeapon* Weapon = Cast<AUTWeapon>(DamageCauser);
+		if (Weapon && (!GameMode || GameMode->bAmmoIsLimited || (Weapon->Ammo > 9)))
+		{
+			Weapon->AddAmmo(-ComboAmmoCost);
+		}
 	}
 
 	//The player who combos gets the credit

@@ -111,7 +111,14 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		{
 			UTOwner->SetFlashExtra(UTOwner->FlashExtra + 1, CurrentFireMode);
 		}
-		AddAmmo(-BeamPulseAmmoCost);
+		if (Role == ROLE_Authority)
+		{
+			AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (!GameMode || GameMode->bAmmoIsLimited || (Ammo > 9))
+			{
+				AddAmmo(-BeamPulseAmmoCost);
+			}
+		}
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
 		bPendingBeamPulse = false;
 	}
