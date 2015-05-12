@@ -44,8 +44,6 @@ struct FTempBanInfo
 
 };
 
-
-
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
 {
@@ -380,6 +378,10 @@ public:
 	
 	bool HasWrittenStatsToCloud() { return bWroteStatsToCloud; }
 
+	/** Current name scaling on spectator slide out. */
+	UPROPERTY(BlueprintReadWrite, Category = Spectator)
+		float SpectatorNameScale;
+
 private:
 	bool bReadStatsFromCloud;
 	bool bSuccessfullyReadStatsFromCloud;
@@ -453,7 +455,6 @@ public:
 
 	virtual void AdjustCurrency(float Adjustment);
 
-
 protected:
 	TArray<FTempBanInfo> BanVotes;
 
@@ -463,7 +464,6 @@ public:
 
 	UPROPERTY(Replicated)
 	uint8 KickPercent;
-
 };
 
 

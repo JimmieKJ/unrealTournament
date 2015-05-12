@@ -125,27 +125,33 @@ void UUTHUDWidget_SpectatorSlideOut::InitPowerupList()
 			&& ((Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL) || Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass())))
 		{
 			PowerupList.Add(Pickup);
-			PickupClasses.Add(Pickup->GetClass());
+			PickupClasses.AddUnique(Pickup->GetInventoryType()->GetClass());
 		}
 	}  
 
-	// now differentiate by teamside if multiple of the same powerup
+	// now differentiate by team side if multiple of the same powerup
 	if (UTGameState)
 	{
-		for (int32 i = 0; i < PowerupList.Num(); i++)
+		for (int32 i = 0; i < PickupClasses.Num(); i++)
 		{
 			int32 Count = 0;
-			for (int32 j = 0; j < PickupClasses.Num(); j++)
+			for (int32 j = 0; j < PowerupList.Num(); j++)
 			{
-				if (PickupClasses[j] == PowerupList[i]->GetClass())
+				if (PickupClasses[i] == PowerupList[j]->GetInventoryType()->GetClass())
 				{
 					Count++;
 				}
 			}
 			if (Count > 1)
 			{
-				// assign a team side  
-				PowerupList[i]->TeamSide = UTGameState->NearestTeamSide(PowerupList[i]);
+				for (int32 j = 0; j < PowerupList.Num(); j++)
+				{
+					if (PickupClasses[i] == PowerupList[j]->GetInventoryType()->GetClass())
+					{
+						// assign a team side  
+						PowerupList[j]->TeamSide = UTGameState->NearestTeamSide(PowerupList[j]);
+					}
+				}
 			}
 		}
 	}
@@ -442,7 +448,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	if (PlayerState == NULL) return;
 
 	FLinearColor DrawColor = FLinearColor::White;
-	float BarOpacity = 0.3f;
+	float FinalBarOpacity = 0.3f;
 	float Width = Size.X;
 
 	FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
@@ -455,23 +461,15 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	{
 		BarColor = PlayerState->Team->TeamColor;
 	}
-	float FinalBarOpacity = BarOpacity;
 
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
-	if (Character && (Character->Health > 0))
+	if (Character && (Character->Health > 0) && (PlayerState->SpectatorNameScale <= 1.1f))
 	{
 		float LastActionTime = GetWorld()->GetTimeSeconds() - FMath::Max(Character->LastTakeHitTime, Character->LastWeaponFireTime);
-
-		if (LastActionTime < ActionHighlightTime)
-		{
-			float Blend = 1.f - LastActionTime / ActionHighlightTime;
-			BarColor.R = BarColor.R + (1.f - BarColor.R)*Blend;
-			BarColor.G = BarColor.G + (1.f - BarColor.G)*Blend;
-			BarColor.B = BarColor.B + (1.f - BarColor.B)*Blend;
-			FinalBarOpacity = 0.75f;
-		}
+		PlayerState->SpectatorNameScale = FMath::Max(PlayerState->SpectatorNameScale, 1.4f - LastActionTime / ActionHighlightTime);
 	}
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);	
+	PlayerState->SpectatorNameScale = FMath::Max(1.f, (1.f - 5.f*RenderDelta) * PlayerState->SpectatorNameScale + 5.f*RenderDelta);
+	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	if ((PlayerState == UTHUDOwner->UTPlayerOwner->LastSpectatedPlayerState) || (PlayerState->CarriedObject && (PlayerState->CarriedObject == UTHUDOwner->UTPlayerOwner->GetViewTarget())))
 	{
@@ -484,8 +482,8 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 32, 24, FlagU, FlagV, 32, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	
 
 	// Draw the Text
-	DrawText(Position, XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
-	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(Position, XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->MediumFont, 1.f ,1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, UTHUDOwner->MediumFont, PlayerState->SpectatorNameScale, PlayerState->SpectatorNameScale, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	if (UTGameState && UTGameState->HasMatchStarted() && Character)
 	{

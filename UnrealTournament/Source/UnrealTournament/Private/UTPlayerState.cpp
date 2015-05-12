@@ -33,6 +33,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	DMSkillRatingThisMatch = 0;
 	CTFSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
+	SpectatorNameScale = 1.f;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
