@@ -147,11 +147,12 @@ float UUTGameplayStatics::GetGravityZ(UObject* WorldContextObject, const FVector
 }
 
 /** largely copied from GameplayStatics.cpp, with mods to use our trace channel and better handling if we don't get a hit on the target */
-static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector const& Origin, AActor const* IgnoredActor, const TArray<AActor*>& IgnoreActors, FHitResult& OutHitResult)
+static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector const& Origin, AActor const* IgnoredActor, FHitResult& OutHitResult)
 {
 	static FName NAME_ComponentIsVisibleFrom = FName(TEXT("ComponentIsVisibleFrom"));
 	FCollisionQueryParams LineParams(NAME_ComponentIsVisibleFrom, true, IgnoredActor);
-	LineParams.AddIgnoredActors(IgnoreActors);
+	FCollisionResponseParams ResponseParams = FCollisionResponseParams::DefaultResponseParam;
+	ResponseParams.CollisionResponse.Pawn = ECR_Ignore; // we don't want Pawns to block other Pawns from being hit also
 
 	// Do a trace from origin to middle of box
 	UWorld* World = VictimComp->GetWorld();
@@ -163,7 +164,7 @@ static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector cons
 		// tiny nudge so LineTraceSingle doesn't early out with no hits
 		TraceStart.Z += 0.01f;
 	}
-	bool const bHadBlockingHit = World->LineTraceSingle(OutHitResult, TraceStart, TraceEnd, COLLISION_TRACE_WEAPON, LineParams);
+	bool const bHadBlockingHit = World->LineTraceSingle(OutHitResult, TraceStart, TraceEnd, COLLISION_TRACE_WEAPON, LineParams, ResponseParams);
 
 	// If there was a blocking hit, it will be the last one
 	if (bHadBlockingHit)
@@ -182,11 +183,15 @@ static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector cons
 	}
 
 	// didn't hit anything, including the victim component; try a component only trace to get hit information
+	// LineTraceComponent() assumes Visibility channel so we have to force that on...
+	ECollisionResponse SavedVisResponse = VictimComp->GetCollisionResponseToChannel(ECC_Visibility);
+	VictimComp->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 	if (!VictimComp->LineTraceComponent(OutHitResult, TraceStart, TraceEnd, LineParams))
 	{
 		FVector FakeHitLoc = VictimComp->GetComponentLocation();
 		OutHitResult = FHitResult(VictimComp->GetOwner(), VictimComp, FakeHitLoc, (Origin - FakeHitLoc).GetSafeNormal());
 	}
+	VictimComp->SetCollisionResponseToChannel(ECC_Visibility, SavedVisResponse);
 	return true;
 }
 bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff,
@@ -218,7 +223,7 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 		{
 			FHitResult Hit(OverlapActor, Overlap.Component.Get(), OverlapActor->GetActorLocation(), FVector(0,0,1.f));
 			if ((OverlapActor->GetActorLocation() - Origin).Size() <= CollisionFreeRadius || 
-				ComponentIsVisibleFrom(Overlap.Component.Get(), Origin, DamageCauser, IgnoreActors, Hit))
+				ComponentIsVisibleFrom(Overlap.Component.Get(), Origin, DamageCauser, Hit))
 			{
 				TArray<FHitResult>& HitList = OverlapComponentMap.FindOrAdd(OverlapActor);
 				HitList.Add(Hit);

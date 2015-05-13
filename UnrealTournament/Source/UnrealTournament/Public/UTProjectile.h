@@ -183,15 +183,15 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	/** If true (usually), move fake to server replicated position. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Projectile)
-		bool bMoveFakeToReplicatedPos;
+	bool bMoveFakeToReplicatedPos;
 
 	/** Real projectile for which this projectile is providing visuals */
 	UPROPERTY()
-		AUTProjectile* MasterProjectile;
+	AUTProjectile* MasterProjectile;
 
 	/** True once fully spawned, to avoid destroying replicated projectiles during spawn on client */
 	UPROPERTY()
-		bool bHasSpawnedFully;
+	bool bHasSpawnedFully;
 
 	/** Perform any custom initialization for this projectile as fake client side projectile */
 	virtual void InitFakeProjectile(class AUTPlayerController* OwningPlayer);
@@ -281,6 +281,8 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity);
 	UFUNCTION()
 	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION()
+	virtual void OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
 	void Explode(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL);

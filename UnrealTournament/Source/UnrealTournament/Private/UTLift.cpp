@@ -66,12 +66,15 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 		//if (GetWorld()->GetTimeSeconds() - LastEncroachNotifyTime > 0.2f)
 		{
 			//if (Other) { UE_LOG(UT, Warning, TEXT("RECEIVE HIT %s"), *Other->GetName()); }
-			if (Cast<AUTProjectile>(Other))
+			AUTProjectile* Proj = Cast<AUTProjectile>(Other);
+			if (Proj != NULL)
 			{
 				if (bMoveWasBlocked)
 				{
 					// projectile didn't get out of the way
-					Cast<AUTProjectile>(Other)->Explode(HitLocation, HitNormal, MyComp);
+					Proj->ImpactedActor = this;
+					Proj->Explode(Proj->GetActorLocation(), -HitNormal, MyComp);
+					Proj->ImpactedActor = NULL;
 				}
 				bMoveWasBlocked = true;
 				return;
