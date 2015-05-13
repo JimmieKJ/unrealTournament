@@ -25,6 +25,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		float CenterBuffer;
 
+	UPROPERTY()
+		UFont* SlideOutFont;
+
 	/** Current slide offset. */
 	float SlideIn;
 
