@@ -19,7 +19,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	FlagX = 0.09;
 	ColumnHeaderPlayerX = 0.18f;
 	ColumnHeaderScoreX = 0.7f;
-	ColumnHeaderArmor = 0.9f;
+	ColumnHeaderArmor = 0.89f;
 	ColumnY = 0.11f * Size.Y;
 
 	CellHeight = 32;
