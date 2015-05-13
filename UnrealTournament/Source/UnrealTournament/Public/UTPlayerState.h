@@ -274,7 +274,7 @@ public:
 	virtual void ServerReceiveStatsID(const FString& NewStatsID);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerRecieveCountryFlag(uint32 NewCountryFlag);
+	virtual void ServerReceiveCountryFlag(uint32 NewCountryFlag);
 
 	UFUNCTION()
 	AUTCharacter* GetUTCharacter();

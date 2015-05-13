@@ -95,10 +95,10 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 	}
 
 	UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Info %i"), NumInstances);
-	ClientRecieveInfo(ServerInfo, NumInstances);
+	ClientReceiveInfo(ServerInfo, NumInstances);
 }
 
-void AUTServerBeaconClient::ClientRecieveInfo_Implementation(const FServerBeaconInfo ServerInfo, int32 NumInstances)
+void AUTServerBeaconClient::ClientReceiveInfo_Implementation(const FServerBeaconInfo ServerInfo, int32 NumInstances)
 {
 	HostServerInfo = ServerInfo;
 	InstanceCount = NumInstances;
@@ -124,16 +124,16 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 	if (LastInstanceIndex < InstanceHostNames.Num() && LastInstanceIndex < InstanceDescriptions.Num() )
 	{
 		UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
-		ClientRecieveInstance(LastInstanceIndex, InstanceHostNames.Num(), InstanceHostNames[LastInstanceIndex], InstanceDescriptions[LastInstanceIndex]);
+		ClientReceiveInstance(LastInstanceIndex, InstanceHostNames.Num(), InstanceHostNames[LastInstanceIndex], InstanceDescriptions[LastInstanceIndex]);
 	}
 	else
 	{
 		UE_LOG(LogBeacon, Verbose, TEXT("<--- Out of Instances [%i] %i"), LastInstanceIndex, InstanceHostNames.Num());
-		ClientRecievedAllInstance(InstanceHostNames.Num());
+		ClientReceivedAllInstance(InstanceHostNames.Num());
 	}
 }
 
-void AUTServerBeaconClient::ClientRecieveInstance_Implementation(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription)
+void AUTServerBeaconClient::ClientReceiveInstance_Implementation(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription)
 {
 	UE_LOG(LogBeacon, Verbose, TEXT("---> Received Instance [%i] Host [%s] Desc [%s]"), InstanceCount, *InstanceHostName, *InstanceDescription);
 	if (InstanceCount >= 0 && InstanceCount < TotalInstances)
@@ -145,7 +145,7 @@ void AUTServerBeaconClient::ClientRecieveInstance_Implementation(uint32 Instance
 	ServerRequestInstances(InstanceCount);
 }
 
-void AUTServerBeaconClient::ClientRecievedAllInstance_Implementation(uint32 FinalCount)
+void AUTServerBeaconClient::ClientReceivedAllInstance_Implementation(uint32 FinalCount)
 {
 	if (InstanceHostNames.Num() != InstanceDescriptions.Num() || InstanceHostNames.Num() != FinalCount)
 	{

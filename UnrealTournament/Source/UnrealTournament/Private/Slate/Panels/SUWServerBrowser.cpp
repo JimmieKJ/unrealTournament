@@ -1139,10 +1139,10 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 		if ( FParse::Param(FCommandLine::Get(), TEXT("DumpServers")) )
 		{
-			UE_LOG(UT,Log,TEXT("Recieved a list of %i Servers....."), PingList.Num());
+			UE_LOG(UT,Log,TEXT("Received a list of %i Servers....."), PingList.Num());
 			for (int32 i=0;i<PingList.Num();i++)
 			{
-				UE_LOG(UT,Log,TEXT("Recieved Server %i - %s %s  : Players %i/%i"), i, *PingList[i]->Name, *PingList[i]->IP, PingList[i]->NumPlayers, PingList[i]->MaxPlayers);
+				UE_LOG(UT,Log,TEXT("Received Server %i - %s %s  : Players %i/%i"), i, *PingList[i]->Name, *PingList[i]->IP, PingList[i]->NumPlayers, PingList[i]->MaxPlayers);
 			}
 			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 		}

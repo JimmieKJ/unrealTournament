@@ -1706,7 +1706,7 @@ void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bW
 	UE_LOG(UT,Verbose,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
 }
 
-void UUTLocalPlayer::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
+void UUTLocalPlayer::OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
 	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
@@ -1807,7 +1807,7 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState); 
 		if (PS)
 		{
-			PS->ServerRecieveCountryFlag(NewFlag);
+			PS->ServerReceiveCountryFlag(NewFlag);
 		}
 	}
 }

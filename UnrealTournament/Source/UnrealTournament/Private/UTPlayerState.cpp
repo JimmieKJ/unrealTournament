@@ -644,7 +644,7 @@ void AUTPlayerState::BeginPlay()
 		if (Settings)
 		{
 			CountryFlag = Settings->CountryFlag;
-			ServerRecieveCountryFlag(CountryFlag);
+			ServerReceiveCountryFlag(CountryFlag);
 		}
 	}
 
@@ -1045,9 +1045,9 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
 
-bool AUTPlayerState::ServerRecieveCountryFlag_Validate(uint32 NewCountryFlag) { return true; }
+bool AUTPlayerState::ServerReceiveCountryFlag_Validate(uint32 NewCountryFlag) { return true; }
 
-void AUTPlayerState::ServerRecieveCountryFlag_Implementation(uint32 NewCountryFlag)
+void AUTPlayerState::ServerReceiveCountryFlag_Implementation(uint32 NewCountryFlag)
 {
 	CountryFlag = NewCountryFlag;
 }
