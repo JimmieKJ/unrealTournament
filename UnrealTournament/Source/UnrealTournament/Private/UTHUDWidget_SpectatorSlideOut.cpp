@@ -19,7 +19,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	FlagX = 0.09;
 	ColumnHeaderPlayerX = 0.18f;
 	ColumnHeaderScoreX = 0.7f;
-	ColumnHeaderArmor = 0.87f;
+	ColumnHeaderArmor = 0.9f;
 	ColumnY = 0.11f * Size.Y;
 
 	CellHeight = 32;
@@ -228,10 +228,22 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				{
 					DrawPlayer(PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
 					DrawOffset += CellHeight;
+					PlayerState->bNeedsAssistAnnouncement = true; // hack - use this transient property
 					break;
 				}
 			}
 		}
+		for (int32 i = 0; i < RedPlayerList.Num(); i++)
+		{
+			AUTPlayerState* PlayerState = RedPlayerList[i];
+			if (!PlayerState->bNeedsAssistAnnouncement)
+			{
+				DrawPlayer(-1, PlayerState, DeltaTime, XOffset, DrawOffset);
+				DrawOffset += CellHeight;
+			}
+			PlayerState->bNeedsAssistAnnouncement = false;
+		}
+
 		if (UTGameState->bTeamGame)
 		{
 			if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
@@ -250,9 +262,20 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					{
 						DrawPlayer(MaxRedPlaces + PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
 						DrawOffset += CellHeight;
+						PlayerState->bNeedsAssistAnnouncement = true;
 						break;
 					}
 				}
+			}
+			for (int32 i = 0; i < BluePlayerList.Num(); i++)
+			{
+				AUTPlayerState* PlayerState = BluePlayerList[i];
+				if (!PlayerState->bNeedsAssistAnnouncement)
+				{
+					DrawPlayer(-1, PlayerState, DeltaTime, XOffset, DrawOffset);
+					DrawOffset += CellHeight;
+				}
+				PlayerState->bNeedsAssistAnnouncement = false;
 			}
 		}
 
@@ -453,7 +476,6 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	float FinalBarOpacity = 0.3f;
 	float Width = Size.X;
 
-	FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, SlideOutFont, 1.f, 0.475f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
 
@@ -484,7 +506,11 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 32, 24, FlagU, FlagV, 32, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	
 
 	// Draw the Text
-	DrawText(Position, XOffset + 4.f, YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	if (Index >= 0)
+	{
+		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
+		DrawText(Position, XOffset + 4.f, YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	}
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, PlayerState->SpectatorNameScale, PlayerState->SpectatorNameScale, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	if (UTGameState && UTGameState->HasMatchStarted())
@@ -521,7 +547,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 				DrawColor.R *= 0.5f;
 				DrawColor.G *= 0.5f;
 				DrawColor.B *= 0.5f;
-				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + (Width * (ColumnHeaderArmor + 0.07f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + (Width * (ColumnHeaderArmor + 0.065f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 			}
 		}
 		else
