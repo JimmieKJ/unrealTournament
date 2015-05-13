@@ -38,7 +38,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SprintMaxWallNormal = -0.7f;
 	AutoSprintDelayInterval = 1.5f;
 	LandingStepUp = 40.f;
-	LandingAssistBoost = 380.f;
+	LandingAssistBoost = 430.f;
 	CrouchedSpeedMultiplier_DEPRECATED = 0.31f;
 	MaxWalkSpeedCrouched = 315.f;
 	MaxWallDodges = 99;
@@ -1512,7 +1512,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						// bDitch=true means that pawn is straddling two slopes, neither of which he can stand on
 						bool bDitch = ((OldHitImpactNormal.Z > 0.f) && (Hit.ImpactNormal.Z > 0.f) && (FMath::Abs(Delta.Z) <= KINDA_SMALL_NUMBER) && ((Hit.ImpactNormal | OldHitImpactNormal) < 0.f));
 						SafeMoveUpdatedComponent(Delta, PawnRotation, true, Hit);
-						if (Hit.Time == 0)
+						if (Hit.Time == 0.f)
 						{
 							// if we are stuck then try to side step
 							FVector SideDelta = (OldHitNormal + Hit.ImpactNormal).GetSafeNormal2D();
