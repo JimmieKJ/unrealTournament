@@ -393,7 +393,7 @@ void SUWHUDSettingsDialog::OnHUDOpacityChanged(float NewValue)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetOpacity = float(int(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->HUDWidgetOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
 	}
 }
 
@@ -401,7 +401,7 @@ void SUWHUDSettingsDialog::OnHUDBorderOpacityChanged(float NewValue)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetBorderOpacity = float(int(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->HUDWidgetBorderOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
 	}
 }
 
@@ -409,7 +409,7 @@ void SUWHUDSettingsDialog::OnHUDSlateOpacityChanged(float NewValue)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetSlateOpacity = float(int(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->HUDWidgetSlateOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
 	}
 }
 
@@ -417,7 +417,7 @@ void SUWHUDSettingsDialog::OnHUDScaleChanged(float NewValue)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetScaleOverride = 2.0 * float(int(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->HUDWidgetScaleOverride = 2.0 * float(int32(NewValue * 100.0f)) / 100.0f;
 	}
 }
 
@@ -425,7 +425,7 @@ void SUWHUDSettingsDialog::OnWeaponBarOpacityChanged(float NewValue)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = float(int(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
 	}
 }
 
@@ -433,7 +433,7 @@ void SUWHUDSettingsDialog::OnWeaponBarIconOpacityChanged(float NewValue)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity = float(int(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
 	}
 }
 
@@ -441,7 +441,7 @@ void SUWHUDSettingsDialog::OnWeaponBarEmptyOpacityChanged(float NewValue)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = float(int(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = float(int32(NewValue * 100.0f)) / 100.0f;
 	}
 }
 
@@ -451,7 +451,7 @@ void SUWHUDSettingsDialog::OnWeaponBarScaleChanged(float NewValue)
 {
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetWeaponBarScaleOverride = 2.0 * float(int(NewValue * 100.0f)) / 100.0f;
+		TargetHUD->HUDWidgetWeaponBarScaleOverride = 2.0 * float(int32(NewValue * 100.0f)) / 100.0f;
 	}
 }
 

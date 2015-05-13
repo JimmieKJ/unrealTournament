@@ -1378,7 +1378,7 @@ void AUTPlayerState::LogBanRequest(AUTPlayerState* Voter)
 	BanVotes.Add(FTempBanInfo(Voter->UniqueId.GetUniqueNetId(), CurrentTime));
 }
 
-int AUTPlayerState::CountBanVotes()
+int32 AUTPlayerState::CountBanVotes()
 {
 	int32 VoteCount = 0;
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();

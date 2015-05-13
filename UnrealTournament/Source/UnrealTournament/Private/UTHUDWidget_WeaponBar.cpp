@@ -332,7 +332,7 @@ int32 UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGrou
 		// Parse over the character and see what weapons they have.
 		if (ActualRequiredGroups >= 0)
 		{
-			for (int i = ActualRequiredGroups; i >= 0; i--)
+			for (int32 i = ActualRequiredGroups; i >= 0; i--)
 			{
 				FWeaponGroup G = FWeaponGroup(i, NULL);
 				WeaponGroups.Add(G);

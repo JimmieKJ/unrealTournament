@@ -71,7 +71,7 @@ public:
 	/** Returns the HUD text to display for this item */
 	virtual FText GetHUDText() 
 	{ 
-		return FText::AsNumber(int(TimeRemaining)); 
+		return FText::AsNumber(int32(TimeRemaining)); 
 	}
 
 	virtual bool HUDShouldRender(UUTHUDWidget* TargetWidget);

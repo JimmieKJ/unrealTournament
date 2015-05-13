@@ -71,19 +71,19 @@ void AUTHUD::BeginPlay()
 	Super::BeginPlay();
 
 	// Parse the widgets found in the ini
-	for (int i = 0; i < RequiredHudWidgetClasses.Num(); i++)
+	for (int32 i = 0; i < RequiredHudWidgetClasses.Num(); i++)
 	{
 		BuildHudWidget(*RequiredHudWidgetClasses[i]);
 	}
 
 	// Parse any hard coded widgets
-	for (int WidgetIndex = 0 ; WidgetIndex < HudWidgetClasses.Num(); WidgetIndex++)
+	for (int32 WidgetIndex = 0 ; WidgetIndex < HudWidgetClasses.Num(); WidgetIndex++)
 	{
 		BuildHudWidget(HudWidgetClasses[WidgetIndex]);
 	}
 
 	DamageIndicators.AddZeroed(MAX_DAMAGE_INDICATORS);
-	for (int i=0;i<MAX_DAMAGE_INDICATORS;i++)
+	for (int32 i=0;i<MAX_DAMAGE_INDICATORS;i++)
 	{
 		DamageIndicators[i].RotationAngle = 0.0f;
 		DamageIndicators[i].DamageAmount = 0.0f;
@@ -100,7 +100,7 @@ void AUTHUD::AddSpectatorWidgets()
 	bHaveAddedSpectatorWidgets = true;
 
 	// Parse the widgets found in the ini
-	for (int i = 0; i < SpectatorHudWidgetClasses.Num(); i++)
+	for (int32 i = 0; i < SpectatorHudWidgetClasses.Num(); i++)
 	{
 		BuildHudWidget(*SpectatorHudWidgetClasses[i]);
 	}
@@ -287,7 +287,7 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 
 UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidgetClass, bool bExactClass)
 {
-	for (int i=0; i<HudWidgets.Num(); i++)
+	for (int32 i=0; i<HudWidgets.Num(); i++)
 	{
 		if (bExactClass ? HudWidgets[i]->GetClass() == SearchWidgetClass : HudWidgets[i]->IsA(SearchWidgetClass))
 		{
@@ -380,7 +380,7 @@ void AUTHUD::DrawHUD()
 			AddSpectatorWidgets();
 		}
 
-		for (int WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
+		for (int32 WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 		{
 			// If we aren't hidden then set the canvas and render..
 			if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden() && !HudWidgets[WidgetIndex]->IsPendingKill())
@@ -401,11 +401,11 @@ void AUTHUD::DrawHUD()
 	}
 }
 
-FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours, bool bForceMinutes, bool bForceTwoDigits) const
+FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForceHours, bool bForceMinutes, bool bForceTwoDigits) const
 {
-	int Hours = Seconds / 3600;
+	int32 Hours = Seconds / 3600;
 	Seconds -= Hours * 3600;
-	int Mins = Seconds / 60;
+	int32 Mins = Seconds / 60;
 	Seconds -= Mins * 60;
 	bool bDisplayHours = bForceHours || Hours > 0;
 	bool bDisplayMinutes = bDisplayHours || bForceMinutes || Mins > 0;
@@ -467,7 +467,7 @@ void AUTHUD::DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAli
 	Canvas->DrawItem(TextItem);
 }
 
-void AUTHUD::DrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits, bool bRightAlign)
+void AUTHUD::DrawNumber(int32 Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int32 MinDigits, bool bRightAlign)
 {
 	FNumberFormattingOptions Opts;
 	Opts.MinimumIntegralDigits = MinDigits;
@@ -490,9 +490,9 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UD
 		// Figure out Left/Right....
 		float FinalAng = ( FVector::DotProduct( FVector::CrossProduct(CharacterRotation.Vector(), FVector(0,0,1)), HitSafeNormal)) > 0 ? 360 - Ang : Ang;
 
-		int BestIndex = 0;
+		int32 BestIndex = 0;
 		float BestTime = DamageIndicators[0].FadeTime;
-		for (int i=0; i < MAX_DAMAGE_INDICATORS; i++)
+		for (int32 i=0; i < MAX_DAMAGE_INDICATORS; i++)
 		{
 			if (DamageIndicators[i].FadeTime <= 0.0f)					
 			{
@@ -520,7 +520,7 @@ void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UD
 
 void AUTHUD::DrawDamageIndicators()
 {
-	for (int i=0; i < DamageIndicators.Num(); i++)
+	for (int32 i=0; i < DamageIndicators.Num(); i++)
 	{
 		if (DamageIndicators[i].FadeTime > 0.0f)
 		{
@@ -603,7 +603,7 @@ void AUTHUD::CalcStanding()
 	{
 
 		// Build the leaderboard.
-		for (int i=0;i<GameState->PlayerArray.Num();i++)
+		for (int32 i=0;i<GameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
 			if (PS != NULL && !PS->bIsSpectator)
@@ -637,7 +637,7 @@ void AUTHUD::CalcStanding()
 		// Find my index in it.
 
 		CurrentPlayerStanding = 1;
-		int MyIndex = Leaderboard.Find(MyPS);
+		int32 MyIndex = Leaderboard.Find(MyPS);
 		if (MyIndex >= 0)
 		{
 			for (int32 i=0; i < MyIndex; i++)

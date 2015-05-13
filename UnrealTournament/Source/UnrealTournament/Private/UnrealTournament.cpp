@@ -254,7 +254,7 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 	FARFilter ARFilter;
 	ARFilter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
 
-	/*for (int PathIndex = 0; PathIndex < RootPaths.Num(); PathIndex++)
+	/*for (int32 PathIndex = 0; PathIndex < RootPaths.Num(); PathIndex++)
 	{
 		ARFilter.PackagePaths.Add(FName(*RootPaths[PathIndex]));
 	}*/

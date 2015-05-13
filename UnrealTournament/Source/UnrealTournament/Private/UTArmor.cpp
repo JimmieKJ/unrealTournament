@@ -78,7 +78,7 @@ int32 AUTArmor::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) con
 	}
 }
 
-void AUTArmor::ReduceArmor(int Amount)
+void AUTArmor::ReduceArmor(int32 Amount)
 {
 	ArmorAmount -= Amount;
 	if (ArmorAmount <= 0)

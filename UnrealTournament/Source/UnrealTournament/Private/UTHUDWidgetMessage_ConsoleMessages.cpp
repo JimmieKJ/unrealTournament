@@ -29,7 +29,7 @@ void UUTHUDWidgetMessage_ConsoleMessages::DrawMessages(float DeltaTime)
 	Canvas->Reset();
 
 	float Y = 0;
-	int MessageIndex = NumVisibleLines < MessageQueue.Num() ? NumVisibleLines : MessageQueue.Num();
+	int32 MessageIndex = NumVisibleLines < MessageQueue.Num() ? NumVisibleLines : MessageQueue.Num();
 	while (MessageIndex >= 0)
 	{
 		if (MessageQueue[MessageIndex].MessageClass != NULL)	

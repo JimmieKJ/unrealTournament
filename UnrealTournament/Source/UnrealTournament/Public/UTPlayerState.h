@@ -460,7 +460,7 @@ protected:
 
 public:
 	void LogBanRequest(AUTPlayerState* Voter);
-	int CountBanVotes();
+	int32 CountBanVotes();
 
 	UPROPERTY(Replicated)
 	uint8 KickPercent;

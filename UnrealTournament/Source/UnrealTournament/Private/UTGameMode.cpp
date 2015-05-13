@@ -1408,7 +1408,7 @@ void AUTGameMode::TravelToNextMap()
 		}
 
 		int32 MapIndex = -1;
-		for (int i=0;i<MapRotation.Num();i++)
+		for (int32 i=0;i<MapRotation.Num();i++)
 		{
 			if (MapRotation[i].EndsWith(CurrentMapName))
 			{
@@ -1692,7 +1692,7 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	}
 	
 	// Always randomize the list order a bit to prevent groups of bad starts from permanently making the next decent start overused
-	for (int i = 0; i < 2; i++)
+	for (int32 i = 0; i < 2; i++)
 	{
 		int32 RandIndexOne = FMath::RandHelper(PlayerStarts.Num());
 		int32 RandIndexTwo = FMath::RandHelper(PlayerStarts.Num());
@@ -1909,7 +1909,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		{
 			if ((MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0) || (GetNetMode() == NM_Standalone))
 			{
-				for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+				for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 					if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
@@ -2039,7 +2039,7 @@ void AUTGameMode::HandleEnteringOvertime()
 		AUTPlayerState* KillPlayer = NULL;
 		float BestScore = 0.0;
 
-		for (int PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+		for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
 		{
 			if (UTGameState->PlayerArray[PlayerIdx] != NULL)
 			{
@@ -2185,7 +2185,7 @@ AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
 	AUTPlayerState* BestPlayer = NULL;
 	float BestScore = 0.0;
 
-	for (int PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
+	for (int32 PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
 	{
 		if (UTGameState->PlayerArray[PlayerIdx] != NULL)
 		{
@@ -2769,12 +2769,12 @@ void AUTGameMode::UpdateLobbyPlayerList()
 {
 	if (ensure(LobbyBeacon))
 	{
-		for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+		for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if (PS && !PS->bIsSpectator)
 			{
-				int32 Score = int(PS->Score);
+				int32 Score = int32(PS->Score);
 				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, Score);
 			}
 		}

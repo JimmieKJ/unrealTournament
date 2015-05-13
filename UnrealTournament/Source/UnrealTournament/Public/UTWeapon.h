@@ -675,7 +675,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual bool ShouldLagRot();
 
 	/** Lag a component of weapon rotation behind player's rotation. */
-	virtual float LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int Index);
+	virtual float LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int32 Index);
 
 	/** called when initially attaching the first person weapon and when a camera viewing this player changes the weapon hand setting */
 	virtual void UpdateWeaponHand();

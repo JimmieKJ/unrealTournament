@@ -116,6 +116,6 @@ private:
 	float WeaponNameDisplayTimer;
 
 	float FadeTimer;
-	int LastGroup;
+	int32 LastGroup;
 	float LastGroupSlot;
 };

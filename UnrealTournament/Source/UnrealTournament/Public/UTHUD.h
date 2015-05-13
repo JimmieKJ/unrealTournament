@@ -284,13 +284,13 @@ public:
 	void CalcStanding();
 
 	// Takes seconds and converts it to a string
-	FText ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true) const;
+	FText ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true) const;
 
 	// Creates a suffix string based on a value (st, nd, rd, th).
 	FText GetPlaceSuffix(int32 Value);
 
 	void DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale=1.0, bool bOutline=false);
-	void DrawNumber(int Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int MinDigits=0, bool bRightAlign=false);
+	void DrawNumber(int32 Number, float X, float Y, FLinearColor Color, float GlowOpacity, float Scale, int32 MinDigits=0, bool bRightAlign=false);
 
 	virtual float GetCrosshairScale();
 	virtual FLinearColor GetCrosshairColor(FLinearColor InColor) const;

@@ -102,7 +102,7 @@ protected:
 
 	FString GUIDJoin_CurrentGUID;
 	bool GUIDJoinWantsToSpectate;
-	int GUIDJoinAttemptCount;
+	int32 GUIDJoinAttemptCount;
 	bool GUIDJoinWantsToFindMatch;
 
 	void AttemptGUIDJoin();

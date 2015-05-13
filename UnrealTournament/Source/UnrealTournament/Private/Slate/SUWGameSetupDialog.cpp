@@ -204,7 +204,7 @@ void SUWGameSetupDialog::BuildCategories()
 {
 	TSharedPtr<SUTTabButton> Button;
 
-	for (int i=0;i<Categories.Num(); i++)
+	for (int32 i=0;i<Categories.Num(); i++)
 	{
 		TabButtonPanel->AddSlot()
 		.Padding(FMargin(25.0f,0.0f,0.0f,0.0f))

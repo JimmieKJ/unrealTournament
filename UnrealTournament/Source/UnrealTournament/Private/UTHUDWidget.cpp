@@ -86,11 +86,11 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 			// Note we drop the fraction after the length divide or we can end up with coords on 1/2 pixel boundaries
 			if (bCentreX)
 			{
-				DrawPos.X = DrawPos.X - (int)(Parameters.DrawXL / 2);
+				DrawPos.X = DrawPos.X - (int32)(Parameters.DrawXL / 2);
 			}
 			if (bCentreY)
 			{
-				DrawPos.Y = DrawPos.Y - (int)(Parameters.DrawYL / 2);
+				DrawPos.Y = DrawPos.Y - (int32)(Parameters.DrawYL / 2);
 			}
 		}
 

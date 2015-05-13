@@ -18,7 +18,7 @@ UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectI
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
 {
 	MessageQueue.AddZeroed(MESSAGE_QUEUE_LENGTH);
-	for (int i=0;i<MessageQueue.Num();i++)
+	for (int32 i=0;i<MessageQueue.Num();i++)
 	{
 		MessageQueue[i].MessageClass = NULL;
 		MessageQueue[i].Text = FText::GetEmpty();
@@ -50,7 +50,7 @@ void UUTHUDWidgetMessage::Draw_Implementation(float DeltaTime)
 
 void UUTHUDWidgetMessage::ClearMessages()
 {
-	for (int QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
+	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
 		if (MessageQueue[QueueIndex].MessageClass != NULL)
 		{
@@ -63,14 +63,14 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 {
 	// Pass 1 - Precache anything that's needed and age out messages.
 
-	for (int QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
+	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
 		MessageQueue[QueueIndex].bHasBeenRendered = false;
 		if (MessageQueue[QueueIndex].MessageClass != NULL)
 		{
 			if (MessageQueue[QueueIndex].DisplayFont == NULL)
 			{
-				for (int j=QueueIndex; j < MessageQueue.Num() - 1; j++)
+				for (int32 j=QueueIndex; j < MessageQueue.Num() - 1; j++)
 				{
 					MessageQueue[j] = MessageQueue[j+1];
 				}
@@ -92,7 +92,7 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 		MessageQueue[QueueIndex].LifeLeft -= DeltaTime;
 		if (MessageQueue[QueueIndex].LifeLeft <= 0.0)
 		{
-			for (int j=QueueIndex; j < MessageQueue.Num() - 1; j++)
+			for (int32 j=QueueIndex; j < MessageQueue.Num() - 1; j++)
 			{
 				MessageQueue[j] = MessageQueue[j+1];
 			}
@@ -109,7 +109,7 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 	Canvas->Reset();
 
 	float Y = 0;
-	for (int QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
+	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 	{
 		// When we hit the empty section of the array, exit out
 		if (MessageQueue[QueueIndex].MessageClass == NULL)
@@ -274,7 +274,7 @@ float UUTHUDWidgetMessage::GetTextScale(int32 QueueIndex)
 
 void UUTHUDWidgetMessage::DumpMessages()
 {
-	for (int i=0;i<MessageQueue.Num();i++)
+	for (int32 i=0;i<MessageQueue.Num();i++)
 	{
 		if (MessageQueue[i].MessageClass == NULL)
 		{

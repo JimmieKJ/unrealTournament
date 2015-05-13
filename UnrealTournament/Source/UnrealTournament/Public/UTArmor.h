@@ -48,7 +48,7 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
 
-	virtual void ReduceArmor(int Amount);
+	virtual void ReduceArmor(int32 Amount);
 
 	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const override;
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const override

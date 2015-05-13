@@ -120,11 +120,11 @@ protected:
 	void PromptForEULAAcceptance();
 
 public:
-	static FText ConvertTime(FText Prefix, FText Suffix, int Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true)
+	static FText ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true)
 	{
-		int Hours = Seconds / 3600;
+		int32 Hours = Seconds / 3600;
 		Seconds -= Hours * 3600;
-		int Mins = Seconds / 60;
+		int32 Mins = Seconds / 60;
 		Seconds -= Mins * 60;
 		bool bDisplayHours = bForceHours || Hours > 0;
 		bool bDisplayMinutes = bDisplayHours || bForceMinutes || Mins > 0;

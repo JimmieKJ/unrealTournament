@@ -79,7 +79,7 @@ protected:
 	bool bNeedsWeaponOptions;
 	bool bShowingFriends;
 	
-	int TickCountDown;
+	int32 TickCountDown;
 	virtual void OpenDelayedMenu();
 
 	virtual bool ShouldShowBrowserIcon()

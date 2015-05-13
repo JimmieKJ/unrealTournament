@@ -354,7 +354,7 @@ void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
 		PreviousPlayerNames.Empty();
 		PreviousPlayerNames.AddZeroed(Aliases->Num());
 
-		for (int PlayerIdx = 0; PlayerIdx < Aliases->Num(); PlayerIdx++)
+		for (int32 PlayerIdx = 0; PlayerIdx < Aliases->Num(); PlayerIdx++)
 		{
 			const TSharedPtr<FJsonValue>& AliasJsonValue = (*Aliases)[PlayerIdx];
 			PreviousPlayerNames[PlayerIdx] = AliasJsonValue->AsObject()->GetStringField(TEXT("Name"));
@@ -369,7 +369,7 @@ void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
 		MatchStats.Empty();
 		MatchStats.AddZeroed(Matches->Num());
 
-		for (int MatchIdx = 0; MatchIdx < Matches->Num(); MatchIdx++)
+		for (int32 MatchIdx = 0; MatchIdx < Matches->Num(); MatchIdx++)
 		{
 			const TSharedPtr<FJsonValue>& MatchJsonValue = (*Matches)[MatchIdx];
 
