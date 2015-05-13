@@ -1250,7 +1250,7 @@ void APlayerController::OnNetCleanup(UNetConnection* Connection)
 void APlayerController::ClientReceiveLocalizedMessage_Implementation( TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject )
 {
 	// Wait for player to be up to date with replication when joining a server, before stacking up messages
-	if ( GetNetMode() == NM_DedicatedServer || GetWorld()->GameState == NULL )
+	if (GetNetMode() == NM_DedicatedServer || GetWorld()->GameState == NULL || Message == NULL)
 	{
 		return;
 	}
