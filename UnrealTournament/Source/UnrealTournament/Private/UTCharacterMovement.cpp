@@ -679,7 +679,7 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		{
 			GroundFriction = 0.f;
 		}
-		else if (bWasDodgeRolling)
+		else if (bWasDodgeRolling && (MovementMode != MOVE_Falling))
 		{
 			Velocity *= RollEndingSpeedFactor;
 		}
