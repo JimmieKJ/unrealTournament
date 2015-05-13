@@ -26,6 +26,7 @@
 #include "Slate/SUWFriendsPopup.h"
 #include "Slate/SUWRedirectDialog.h"
 #include "Slate/SUTLoadoutMenu.h"
+#include "Slate/SUTBuyMenu.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -1574,6 +1575,10 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			}
 
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
+
+			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
+			Context.LastURL.RemoveOption(TEXT("QuickStart"));
+			
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
 			bWantsToFindMatch = false;
@@ -1585,6 +1590,8 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 	// Any failures, return to the main menu.
 	bWantsToConnectAsSpectator = false;
+	bWantsToFindMatch = false;
+	QuickMatchJoinType = NAME_None;
 
 	if (Result == EOnJoinSessionCompleteResult::AlreadyInSession)
 	{
@@ -1699,7 +1706,7 @@ void UUTLocalPlayer::OnPresenceUpdated(const FUniqueNetId& UserId, const bool bW
 	UE_LOG(UT,Verbose,TEXT("OnPresenceUpdated %s"), (bWasSuccessful ? TEXT("Successful") : TEXT("Failed")));
 }
 
-void UUTLocalPlayer::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
+void UUTLocalPlayer::OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence)
 {
 	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
@@ -1800,7 +1807,7 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState); 
 		if (PS)
 		{
-			PS->ServerRecieveCountryFlag(NewFlag);
+			PS->ServerReceiveCountryFlag(NewFlag);
 		}
 	}
 }
@@ -1976,13 +1983,21 @@ void UUTLocalPlayer::HandleNetworkFailureMessage(enum ENetworkFailure::Type Fail
 		BasePlayerController->HandleNetworkFailureMessage(FailureType, ErrorString);
 	}
 }
-void UUTLocalPlayer::OpenLoadout()
+void UUTLocalPlayer::OpenLoadout(bool bBuyMenu)
 {
 #if !UE_SERVER
 	// Create the slate widget if it doesn't exist
 	if (!LoadoutMenu.IsValid())
 	{
-		SAssignNew(LoadoutMenu, SUTLoadoutMenu).PlayerOwner(this);
+		if (bBuyMenu)
+		{
+			SAssignNew(LoadoutMenu, SUTBuyMenu).PlayerOwner(this);
+		}
+		else
+		{
+			SAssignNew(LoadoutMenu, SUTLoadoutMenu).PlayerOwner(this);
+		}
+
 		if (LoadoutMenu.IsValid())
 		{
 			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(LoadoutMenu.ToSharedRef()),60);

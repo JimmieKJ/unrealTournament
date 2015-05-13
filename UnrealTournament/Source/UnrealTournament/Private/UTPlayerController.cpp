@@ -136,7 +136,6 @@ void AUTPlayerController::NetStats()
 	{
 		MyUTHUD->AddHudWidget(UUTHUDWidget_NetInfo::StaticClass());
 	}
-
 }
 
 void AUTPlayerController::ServerNegotiatePredictionPing_Implementation(float NewPredictionPing)
@@ -315,6 +314,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
 	InputComponent->BindAction("PlayTaunt2", IE_Pressed, this, &AUTPlayerController::PlayTaunt2);
 
+	InputComponent->BindAction("ShowBuyMenu", IE_Pressed, this, &AUTPlayerController::ShowBuyMenu);
 
 	UpdateWeaponGroupKeys();
 }
@@ -1061,7 +1061,7 @@ void AUTPlayerController::OnAltFire()
 	{
 		new(DeferredFireInputs) FDeferredFireInput(1, true);
 	}
-	else if (IsInState(NAME_Spectating))
+	else if ( GetWorld()->GetGameState<AUTGameState>()->HasMatchStarted() && IsInState(NAME_Spectating) )
 	{
 		PlayMenuSelectSound();
 		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) && bPlayerIsWaiting)
@@ -2793,7 +2793,7 @@ void AUTPlayerController::DebugTest(FString TestCommand)
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
-		LP->OpenLoadout();
+		LP->OpenLoadout(TestCommand.Equals(TEXT("buy"),ESearchCase::IgnoreCase));
 	}
 }
 
@@ -2935,11 +2935,23 @@ void AUTPlayerController::UpdateRotation(float DeltaTime)
 	Super::UpdateRotation(DeltaTime);
 }
 
-void AUTPlayerController::ClientOpenLoadout_Implementation()
+void AUTPlayerController::ClientOpenLoadout_Implementation(bool bBuyMenu)
 {
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
-		LocalPlayer->OpenLoadout();
+		LocalPlayer->OpenLoadout(bBuyMenu);
+	}
+}
+
+void AUTPlayerController::ShowBuyMenu()
+{
+	// It's silly to send this to the server before handling it here.  I probably should just for safe keepeing but for now
+	// just locally.
+
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && GS->AvailableLoadout.Num() > 0)
+	{
+		ClientOpenLoadout_Implementation(true);
 	}
 }

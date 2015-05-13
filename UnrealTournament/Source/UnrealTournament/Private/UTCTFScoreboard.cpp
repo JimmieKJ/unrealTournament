@@ -236,6 +236,14 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	int32 NumPlays = CTFState->GetScoringPlays().Num();
 	int32 SmallPlays = FMath::Max(2 * (NumPlays - 12), 0);
 	int32 SkippedPlays = FMath::Max(SmallPlays - 24, 0);
+
+	if (NumPlays > 0)
+	{
+		// draw background
+		FLinearColor DrawColor = FLinearColor::Black;
+		DrawColor.A = 0.5f;
+		DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, 0.05f*ScoreWidth + FMath::Min(MaxHeight, NumPlays * ScoreHeight) + YL, 149, 138, 32, 32, 0.5f, DrawColor);
+	}
 	for (const FCTFScoringPlay& Play : CTFState->GetScoringPlays())
 	{
 		if (Play.Team != NULL) // should always be true...
@@ -338,6 +346,13 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 				if (XOffset > Canvas->ClipX - ScoreWidth)
 				{
 					break;
+				}
+				else
+				{
+					// draw background
+					FLinearColor DrawColor = FLinearColor::Black;
+					DrawColor.A = 0.5f;
+					DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, 0.05f*ScoreWidth + MaxHeight, 149, 138, 32, 32, 0.5f, DrawColor);
 				}
 			}
 		}

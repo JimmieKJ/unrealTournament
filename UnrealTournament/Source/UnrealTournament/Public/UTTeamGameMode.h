@@ -86,7 +86,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 #endif
 
 	/**  Find the best player on a given team */
-	virtual AUTPlayerState* FindBestPlayerOnTeam(int TeamNumToTest);
+	virtual AUTPlayerState* FindBestPlayerOnTeam(int32 TeamNumToTest);
 	
 	/** Only broadcast "dominating" message once. */
 	UPROPERTY()

@@ -805,7 +805,7 @@ void SUWServerBrowser::AddGameFilters()
 		if (Menu.IsValid())
 		{
 
-			for (int i=0;i<GameTypes.Num();i++)
+			for (int32 i=0;i<GameTypes.Num();i++)
 			{
 				(*Menu).AddSlot()
 				.AutoHeight()
@@ -1139,10 +1139,10 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 		if ( FParse::Param(FCommandLine::Get(), TEXT("DumpServers")) )
 		{
-			UE_LOG(UT,Log,TEXT("Recieved a list of %i Servers....."), PingList.Num());
-			for (int i=0;i<PingList.Num();i++)
+			UE_LOG(UT,Log,TEXT("Received a list of %i Servers....."), PingList.Num());
+			for (int32 i=0;i<PingList.Num();i++)
 			{
-				UE_LOG(UT,Log,TEXT("Recieved Server %i - %s %s  : Players %i/%i"), i, *PingList[i]->Name, *PingList[i]->IP, PingList[i]->NumPlayers, PingList[i]->MaxPlayers);
+				UE_LOG(UT,Log,TEXT("Received Server %i - %s %s  : Players %i/%i"), i, *PingList[i]->Name, *PingList[i]->IP, PingList[i]->NumPlayers, PingList[i]->MaxPlayers);
 			}
 			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 		}
@@ -1208,7 +1208,7 @@ void SUWServerBrowser::ExpireDeadServers()
 		if (!AllHubServers[i]->bFakeHUB)
 		{
 			bool bFound = false;
-			for (int j=0; j < PingList.Num(); j++)
+			for (int32 j=0; j < PingList.Num(); j++)
 			{
 				if (AllHubServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == PingList[j]->SearchResult.Session.SessionInfo->GetSessionId())	
 				{
@@ -1310,7 +1310,7 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 
 void SUWServerBrowser::CleanupQoS()
 {
-	for (int i=0;i<PingTrackers.Num();i++)
+	for (int32 i=0;i<PingTrackers.Num();i++)
 	{
 		if (PingTrackers[i].Beacon.IsValid())
 		{
@@ -1441,7 +1441,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			PingTrackers[i].Server->Players.Empty();
 			TArray<FString> PlayerData;
-			int Cnt = ServerInfo.ServerPlayers.ParseIntoArray(&PlayerData, TEXT("\t"), true);
+			int32 Cnt = ServerInfo.ServerPlayers.ParseIntoArray(&PlayerData, TEXT("\t"), true);
 			for (int32 p=0;p+2 < Cnt; p+=3)
 			{
 				FString Name = PlayerData[p];
@@ -1794,7 +1794,7 @@ void SUWServerBrowser::OnServerListSelectionChanged(TSharedPtr<FServerData> Sele
 		PingServer(SelectedItem);
 
 		RulesListSource.Empty();
-		for (int i=0;i<SelectedItem->Rules.Num();i++)
+		for (int32 i=0;i<SelectedItem->Rules.Num();i++)
 		{
 			RulesListSource.Add(SelectedItem->Rules[i]);
 		}
@@ -1803,7 +1803,7 @@ void SUWServerBrowser::OnServerListSelectionChanged(TSharedPtr<FServerData> Sele
 		PlayersListSource.Empty();
 		if (SelectedItem.IsValid())
 		{
-			for (int i=0;i<SelectedItem->Players.Num();i++)
+			for (int32 i=0;i<SelectedItem->Players.Num();i++)
 			{
 				PlayersListSource.Add(SelectedItem->Players[i]);
 			}

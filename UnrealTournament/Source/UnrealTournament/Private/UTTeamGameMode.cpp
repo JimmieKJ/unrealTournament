@@ -457,10 +457,10 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 }
 #endif
 
-AUTPlayerState* AUTTeamGameMode::FindBestPlayerOnTeam(int TeamNumToTest)
+AUTPlayerState* AUTTeamGameMode::FindBestPlayerOnTeam(int32 TeamNumToTest)
 {
 	AUTPlayerState* Best = NULL;
-	for (int i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		if (PS != NULL && PS->GetTeamNum() == TeamNumToTest && (Best == NULL || Best->Score < PS->Score))
@@ -538,7 +538,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			TArray<FAnalyticsEventAttribute> ParamArray;
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Reason"), Reason.ToString()));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TeamCount"), UTGameState->Teams.Num()));
-			for (int i=0;i<UTGameState->Teams.Num();i++)
+			for (int32 i=0;i<UTGameState->Teams.Num();i++)
 			{
 				FString TeamName = FString::Printf(TEXT("TeamScore%i"), i);
 				ParamArray.Add(FAnalyticsEventAttribute(TeamName, UTGameState->Teams[i]->Score));

@@ -29,16 +29,13 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 		RootComponent = CollisionComp;
 	}
 
-	// @TODO FIXMESTEVE move to just projectiles that want this, add warning if no PawnOverlapSphere and set OverlapRadius
 	OverlapRadius = 10.f;
 	PawnOverlapSphere = ObjectInitializer.CreateOptionalDefaultSubobject<USphereComponent>(this, TEXT("AssistSphereComp"));
 	if (PawnOverlapSphere != NULL)
 	{
-		//PawnOverlapSphere->bHiddenInGame = false;
-		//PawnOverlapSphere->bVisible = true;
 		PawnOverlapSphere->InitSphereRadius(OverlapRadius);
 		PawnOverlapSphere->BodyInstance.SetCollisionProfileName("ProjectileOverlap");
-		PawnOverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnOverlapBegin);
+		PawnOverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnPawnSphereOverlapBegin);
 		PawnOverlapSphere->bTraceComplexOnMove = false; 
 		PawnOverlapSphere->bReceivesDecals = false;
 		PawnOverlapSphere->AttachParent = RootComponent;
@@ -94,6 +91,11 @@ bool AUTProjectile::DisableEmitterLights() const
 
 void AUTProjectile::PreInitializeComponents()
 {
+	// FIXME: engine bug with blueprints and C++ delegate assignments
+	// the previously set delegate for PawnOverlapSphere isn't changed to the new assignment in all blueprints derived from this
+	PawnOverlapSphere->OnComponentBeginOverlap.RemoveDynamic(this, &AUTProjectile::OnOverlapBegin);
+	PawnOverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnPawnSphereOverlapBegin);
+
 	Super::PreInitializeComponents();
 
 	if (SpawnInstigator != NULL)
@@ -578,6 +580,15 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 		}
 
 		ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
+	}
+}
+void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	// since PawnOverlapSphere doesn't hit blocking objects, it is possible it is touching a target through a wall
+	// make sure that the hit is valid before proceeding
+	if (!GetWorld()->LineTraceTest(SweepResult.Location, GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("PawnSphereOverlapTrace")), true, this)))
+	{
+		OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
 	}
 }
 

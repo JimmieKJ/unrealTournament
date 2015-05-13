@@ -86,11 +86,11 @@ void FUTCanvasTextItem::Draw(FCanvas* InCanvas)
 			// Note we drop the fraction after the length divide or we can end up with coords on 1/2 pixel boundaries
 			if (bCentreX)
 			{
-				DrawPos.X = DrawPos.X - (int)(Parameters.DrawXL / 2);
+				DrawPos.X = DrawPos.X - (int32)(Parameters.DrawXL / 2);
 			}
 			if (bCentreY)
 			{
-				DrawPos.Y = DrawPos.Y - (int)(Parameters.DrawYL / 2);
+				DrawPos.Y = DrawPos.Y - (int32)(Parameters.DrawYL / 2);
 			}
 		}
 
@@ -674,6 +674,17 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 	FVector2D TextSize;
 	if (Font && !Text.IsEmpty())
 	{
+	/*	if ((Font != UTHUDOwner->TinyFont)
+			&& (Font != UTHUDOwner->SmallFont)
+			&& (Font != UTHUDOwner->MediumFont)
+			&& (Font != UTHUDOwner->LargeFont)
+			&& (Font != UTHUDOwner->HugeFont)
+			&& (Font != UTHUDOwner->ScoreFont)
+			&& (Font != UTHUDOwner->NumberFont))
+		{
+			UE_LOG(UT, Warning, TEXT("%s draw text with font %s"), *GetName(), *Font->GetName());
+		}*/
+		
 		Canvas->StrLen(Font, Text.ToString(), XL, YL);
 		TextSize = FVector2D(XL,YL); // Save for Later
 

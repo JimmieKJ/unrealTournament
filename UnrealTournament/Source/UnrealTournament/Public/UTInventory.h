@@ -213,6 +213,18 @@ public:
 		FLinearColor InitialFlashColor;
 
 	float FlashTimer;
+
+public:
+	// These are different from the menubar icons and are used in some of the menus.
+
+	// Holds a reference to the 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+	UTexture2D* MenuGraphic;
+
+	// This is the long description that will be displayed in the menu.  
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+	FText MenuDescription;
+
 };
 
 // template to access a character's inventory

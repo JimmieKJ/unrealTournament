@@ -675,7 +675,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual bool ShouldLagRot();
 
 	/** Lag a component of weapon rotation behind player's rotation. */
-	virtual float LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int Index);
+	virtual float LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int32 Index);
 
 	/** called when initially attaching the first person weapon and when a camera viewing this player changes the weapon hand setting */
 	virtual void UpdateWeaponHand();
@@ -788,20 +788,5 @@ public:
 	// The UV coords for this weapon when displaying it on the weapon bar
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
 	FTextureUVs WeaponBarInactiveUVs;
-
-	// These are different from the menubar icons and are used in some of the menus.
-
-	// Holds a reference to the 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	UTexture2D* MenuGraphic;
-
-	// Holds a reference to the 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	FTextureUVs MenuGraphicUVs;
-
-	// This is the long description that will be displayed in the menu.  
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	FText MenuDescription;
-
 
 };

@@ -80,17 +80,20 @@ void AUTMutator_WeaponArena::BeginPlay()
 	}
 }
 
-void AUTMutator_WeaponArena::ModifyPlayer_Implementation(APawn* Other)
+void AUTMutator_WeaponArena::ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn)
 {
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
-	for (int32 i = UTCharacter->DefaultCharacterInventory.Num() - 1; i >= 0; i--)
+	if (bIsNewSpawn)
 	{
-		if (!bAllowTranslocator || UTCharacter->DefaultCharacterInventory[i] == NULL || !UTCharacter->DefaultCharacterInventory[i]->IsChildOf(AUTWeap_Translocator::StaticClass()))
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
+		for (int32 i = UTCharacter->DefaultCharacterInventory.Num() - 1; i >= 0; i--)
 		{
-			UTCharacter->DefaultCharacterInventory.RemoveAt(i);
+			if (!bAllowTranslocator || UTCharacter->DefaultCharacterInventory[i] == NULL || !UTCharacter->DefaultCharacterInventory[i]->IsChildOf(AUTWeap_Translocator::StaticClass()))
+			{
+				UTCharacter->DefaultCharacterInventory.RemoveAt(i);
+			}
 		}
 	}
-	return Super::ModifyPlayer_Implementation(Other);
+	return Super::ModifyPlayer_Implementation(Other, bIsNewSpawn);
 }
 
 bool AUTMutator_WeaponArena::CheckRelevance_Implementation(AActor* Other)
@@ -100,6 +103,10 @@ bool AUTMutator_WeaponArena::CheckRelevance_Implementation(AActor* Other)
 	if (bRecursionGuard)
 	{
 		return Super::CheckRelevance_Implementation(Other);
+	}
+	else if (Cast<AUTWeapon>(Other) != NULL && Other->GetClass() != ArenaWeaponType && (!bAllowTranslocator || !Other->IsA(AUTWeap_Translocator::StaticClass())))
+	{
+		return false;
 	}
 	else
 	{

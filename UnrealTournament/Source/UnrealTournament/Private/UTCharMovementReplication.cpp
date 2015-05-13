@@ -103,7 +103,8 @@ void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, 
 {
 	//UE_LOG(UTNet, Warning, TEXT("Received client adjust position for %f"), TimeStamp);
 	// use normal replication when simulating physics
-	if (CharacterOwner == NULL || CharacterOwner->GetRootComponent() == NULL || !CharacterOwner->GetRootComponent()->IsSimulatingPhysics())
+	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTOwner == NULL || UTOwner->GetRootComponent() == NULL || (!UTOwner->GetRootComponent()->IsSimulatingPhysics() && !UTOwner->IsRagdoll()))
 	{
 		Super::ClientAdjustPosition_Implementation(TimeStamp, NewLocation, NewVelocity, NewBase, NewBaseBoneName, bHasBase, bBaseRelativePosition, ServerMovementMode);
 	}
@@ -1024,7 +1025,7 @@ void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 
 	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
 	check(ClientData);
-	// UE_LOG(UT, Warning, TEXT("Ack ping is %f vs ExactPing %f"), GetCurrentMovementTime() - TimeStamp, CharacterOwner->PlayerState->ExactPing); 
+	//UE_LOG(UT, Warning, TEXT("Ack ping is %f vs ExactPing %f"), GetCurrentMovementTime() - TimeStamp, CharacterOwner->PlayerState->ExactPing); 
 
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(CharacterOwner->PlayerState);
 	if (UTPS)

@@ -89,7 +89,7 @@ protected:
 	void OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
 
 	float BlinkyTimer;
-	int Dots;
+	int32 Dots;
 
 	TSharedPtr<STextBlock> StatusText;
 	FText GetStatusText() const;

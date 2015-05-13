@@ -89,8 +89,6 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
 	IconColor = FLinearColor::White;
 	bShowPowerupTimer = false;
-
-	MenuDescription = NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
 }
 
 void AUTWeapon::PostInitProperties()
@@ -1410,7 +1408,7 @@ bool AUTWeapon::ShouldLagRot()
 	return true;
 }
 
-float AUTWeapon::LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int Index)
+float AUTWeapon::LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int32 Index)
 {
 	// check if NewValue is clockwise from LastValue
 	NewValue = FMath::UnwindDegrees(NewValue);

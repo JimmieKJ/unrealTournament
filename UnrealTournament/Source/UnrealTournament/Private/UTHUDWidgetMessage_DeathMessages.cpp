@@ -21,8 +21,8 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)
 {
 	Canvas->Reset();
 	float Y = 0;
-	int DrawCnt=0;
-	for (int MessageIndex = MessageQueue.Num() - 1; MessageIndex >= 0 && DrawCnt < 2; MessageIndex--)
+	int32 DrawCnt=0;
+	for (int32 MessageIndex = MessageQueue.Num() - 1; MessageIndex >= 0 && DrawCnt < 2; MessageIndex--)
 	{
 		if (MessageQueue[MessageIndex].MessageClass != NULL)	
 		{

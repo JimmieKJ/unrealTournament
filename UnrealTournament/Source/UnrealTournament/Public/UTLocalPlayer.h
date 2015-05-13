@@ -91,7 +91,7 @@ public:
 	}
 #endif
 
-	// Holds all of the chat this client has recieved.
+	// Holds all of the chat this client has received.
 	TArray<TSharedPtr<FStoredChatMessage>> ChatArchive;
 	virtual void SaveChat(FName Type, FString Message, FLinearColor Color);
 
@@ -352,7 +352,7 @@ protected:
 	virtual void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 
 	virtual void OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful);
-	virtual void OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence);
+	virtual void OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence);
 
 	bool bPendingSession;
 	FOnlineSessionSearchResult PendingSession;
@@ -455,7 +455,7 @@ protected:
 #endif
 
 public:
-	virtual void OpenLoadout();
+	virtual void OpenLoadout(bool bBuyMenu = false);
 	virtual void CloseLoadout();
 
 };

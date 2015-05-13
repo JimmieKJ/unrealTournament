@@ -290,7 +290,7 @@ void SUTQuickMatch::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
 		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUTQuickMatch::OnServerBeaconFailure);
 		FURL BeaconURL(nullptr, *BeaconIP, TRAVEL_Absolute);
 		Beacon->InitClient(BeaconURL);
-		PingTrackers.Add(FServerSearchPingTracker(ServerToPing, Beacon));
+		PingTrackers.Add(FServerSearchPingTracker(ServerToPing, Beacon, PlayerOwner->GetWorld()->GetRealTimeSeconds()));
 	}
 }
 
@@ -459,5 +459,30 @@ void SUTQuickMatch::TellSlateIWantKeyboardFocus()
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
 }
 
+void SUTQuickMatch::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	TArray<TWeakObjectPtr<AUTServerBeaconClient>> KillList;
+	if (PingTrackers.Num() > 0)
+	{
+		float CurrentTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
+		for (int32 i = 0; i < PingTrackers.Num(); i++)
+		{
+			if (CurrentTime - PingTrackers[i].PingStartTime > 5)
+			{
+				// This tracker is far outside what we want to consider.  Kill it...
+				KillList.Add(PingTrackers[i].Beacon);
+			}
+		
+		}
+
+		if (KillList.Num() > 0)
+		{
+			for (int32 i=0; i<KillList.Num(); i++)
+			{
+				OnServerBeaconFailure(KillList[i].Get());
+			}
+		}
+	}
+}
 
 #endif

@@ -80,7 +80,7 @@ public:
 	virtual void ClientGenericInitialization();
 
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerRecieveAverageRank(int32 NewAverageRank);
+	virtual void ServerReceiveAverageRank(int32 NewAverageRank);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListBegin(const FString& CloudId);
@@ -102,7 +102,7 @@ protected:
 
 	FString GUIDJoin_CurrentGUID;
 	bool GUIDJoinWantsToSpectate;
-	int GUIDJoinAttemptCount;
+	int32 GUIDJoinAttemptCount;
 	bool GUIDJoinWantsToFindMatch;
 
 	void AttemptGUIDJoin();

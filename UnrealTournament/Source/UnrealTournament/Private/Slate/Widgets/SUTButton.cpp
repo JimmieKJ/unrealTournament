@@ -11,6 +11,9 @@
 void SUTButton::Construct(const FArguments& InArgs)
 {
 	OnButtonClick = InArgs._UTOnButtonClicked;
+	OnMouseOver = InArgs._UTOnMouseOver;
+	WidgetTag = InArgs._WidgetTag;
+
 	bIsToggleButton = InArgs._IsToggleButton;
 	SButton::Construct( SButton::FArguments()
 		.Content()
@@ -32,6 +35,7 @@ void SUTButton::Construct(const FArguments& InArgs)
 		.IsFocusable(InArgs._IsFocusable)
 		.PressedSoundOverride(InArgs._PressedSoundOverride)
 		.HoveredSoundOverride(InArgs._HoveredSoundOverride)
+		.OnClicked(InArgs._OnClicked)
 	);
 }
 
@@ -119,7 +123,8 @@ FReply SUTButton::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeybo
 
 FReply SUTButton::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	return Pressed(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1);
+	Pressed(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1);
+	return SButton::OnMouseButtonDown(MyGeometry, MouseEvent);
 }
 
 
@@ -132,7 +137,8 @@ FReply SUTButton::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const
 FReply SUTButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	const bool bIsUnderMouse = MyGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
-	return Released(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1, bIsUnderMouse);
+	Released(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1, bIsUnderMouse);
+	return SButton::OnMouseButtonUp(MyGeometry, MouseEvent);
 }
 
 void SUTButton::UnPressed()
@@ -164,6 +170,13 @@ void SUTButton::OnMouseLeave( const FPointerEvent& MouseEvent )
 	}
 }
 
-
+void SUTButton::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) 
+{
+	if (OnMouseOver.IsBound())
+	{
+		OnMouseOver.Execute(WidgetTag);
+	}
+	SButton::OnMouseEnter(MyGeometry, MouseEvent);
+}
 
 #endif

@@ -361,11 +361,11 @@ void AUTGameMode::InitGameState()
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
 
 		// Setup the loadout replication
-		for (int32 i=0; i < LoadoutWeapons.Num(); i++)
+		for (int32 i=0; i < AvailableLoadout.Num(); i++)
 		{
-			if (LoadoutWeapons[i].WeaponClass)
+			if (AvailableLoadout[i].ItemClass)
 			{
-				UTGameState->AddLoadoutWeapon(LoadoutWeapons[i].WeaponClass, LoadoutWeapons[i].RoundMask, LoadoutWeapons[i].InitialCost);
+				UTGameState->AddLoadoutItem(AvailableLoadout[i]);
 			}
 		}
 	}
@@ -498,6 +498,18 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 
 			// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
 			PS->ValidateEntitlements();
+
+			// Setup the default loadout
+			if (UTGameState->AvailableLoadout.Num() > 0)
+			{
+				for (int32 i=0; i < UTGameState->AvailableLoadout.Num(); i++)			
+				{
+					if (UTGameState->AvailableLoadout[i]->bDefaultInclude)
+					{
+						PS->Loadout.Add(UTGameState->AvailableLoadout[i]);
+					}
+				}
+			}
 		}
 	}
 	return Result;
@@ -1396,7 +1408,7 @@ void AUTGameMode::TravelToNextMap()
 		}
 
 		int32 MapIndex = -1;
-		for (int i=0;i<MapRotation.Num();i++)
+		for (int32 i=0;i<MapRotation.Num();i++)
 		{
 			if (MapRotation[i].EndsWith(CurrentMapName))
 			{
@@ -1501,9 +1513,6 @@ void AUTGameMode::PlayEndOfMatchMessage()
 	}
 }
 
-// workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to spawn inventory unless it's called from RestartPlayer()
-static bool bSetPlayerDefaultsSpawnInventory = false;
-
 void AUTGameMode::RestartPlayer(AController* aPlayer)
 {
 	if ((aPlayer == NULL) || (aPlayer->PlayerState == NULL) || aPlayer->PlayerState->PlayerName.IsEmpty())
@@ -1517,9 +1526,10 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		return;
 	}
 
-	bSetPlayerDefaultsSpawnInventory = true;
-	Super::RestartPlayer(aPlayer);
-	bSetPlayerDefaultsSpawnInventory = false;
+	{
+		TGuardValue<bool> FlagGuard(bSetPlayerDefaultsNewSpawn, true);
+		Super::RestartPlayer(aPlayer);
+	}
 
 	if (Cast<AUTBot>(aPlayer) != NULL)
 	{
@@ -1557,10 +1567,10 @@ void AUTGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 
 	if (BaseMutator != NULL)
 	{
-		BaseMutator->ModifyPlayer(PlayerPawn);
+		BaseMutator->ModifyPlayer(PlayerPawn, bSetPlayerDefaultsNewSpawn);
 	}
 
-	if (bSetPlayerDefaultsSpawnInventory)
+	if (bSetPlayerDefaultsNewSpawn)
 	{
 		GiveDefaultInventory(PlayerPawn);
 	}
@@ -1682,7 +1692,7 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	}
 	
 	// Always randomize the list order a bit to prevent groups of bad starts from permanently making the next decent start overused
-	for (int i = 0; i < 2; i++)
+	for (int32 i = 0; i < 2; i++)
 	{
 		int32 RandIndexOne = FMath::RandHelper(PlayerStarts.Num());
 		int32 RandIndexTwo = FMath::RandHelper(PlayerStarts.Num());
@@ -1899,7 +1909,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		{
 			if ((MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0) || (GetNetMode() == NM_Standalone))
 			{
-				for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+				for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 					if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
@@ -2029,7 +2039,7 @@ void AUTGameMode::HandleEnteringOvertime()
 		AUTPlayerState* KillPlayer = NULL;
 		float BestScore = 0.0;
 
-		for (int PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
+		for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
 		{
 			if (UTGameState->PlayerArray[PlayerIdx] != NULL)
 			{
@@ -2175,7 +2185,7 @@ AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
 	AUTPlayerState* BestPlayer = NULL;
 	float BestScore = 0.0;
 
-	for (int PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
+	for (int32 PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
 	{
 		if (UTGameState->PlayerArray[PlayerIdx] != NULL)
 		{
@@ -2759,12 +2769,12 @@ void AUTGameMode::UpdateLobbyPlayerList()
 {
 	if (ensure(LobbyBeacon))
 	{
-		for (int i=0;i<UTGameState->PlayerArray.Num();i++)
+		for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if (PS && !PS->bIsSpectator)
 			{
-				int32 Score = int(PS->Score);
+				int32 Score = int32(PS->Score);
 				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, Score);
 			}
 		}

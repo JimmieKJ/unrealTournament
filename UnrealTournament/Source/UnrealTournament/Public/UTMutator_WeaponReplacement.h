@@ -26,6 +26,6 @@ class AUTMutator_WeaponReplacement : public AUTMutator
 	TArray<FReplacementInfo> WeaponsToReplace;
 
 	virtual void BeginPlay() override;
-	void ModifyPlayer_Implementation(APawn* Other) override;
+	void ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn) override;
 	bool CheckRelevance_Implementation(AActor* Other) override;
 };

@@ -44,8 +44,6 @@ struct FTempBanInfo
 
 };
 
-
-
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
 {
@@ -276,7 +274,7 @@ public:
 	virtual void ServerReceiveStatsID(const FString& NewStatsID);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerRecieveCountryFlag(uint32 NewCountryFlag);
+	virtual void ServerReceiveCountryFlag(uint32 NewCountryFlag);
 
 	UFUNCTION()
 	AUTCharacter* GetUTCharacter();
@@ -380,6 +378,10 @@ public:
 	
 	bool HasWrittenStatsToCloud() { return bWroteStatsToCloud; }
 
+	/** Current name scaling on spectator slide out. */
+	UPROPERTY(BlueprintReadWrite, Category = Spectator)
+		float SpectatorNameScale;
+
 private:
 	bool bReadStatsFromCloud;
 	bool bSuccessfullyReadStatsFromCloud;
@@ -443,6 +445,9 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerUpdateLoadout(const TArray<AUTReplicatedLoadoutInfo*>& NewLoadout);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerBuyLoadout(AUTReplicatedLoadoutInfo* DesiredLoadout);
+
 	UFUNCTION(Client, Reliable)
 	virtual void ClientShowLoadoutMenu();
 
@@ -450,17 +455,15 @@ public:
 
 	virtual void AdjustCurrency(float Adjustment);
 
-
 protected:
 	TArray<FTempBanInfo> BanVotes;
 
 public:
 	void LogBanRequest(AUTPlayerState* Voter);
-	int CountBanVotes();
+	int32 CountBanVotes();
 
 	UPROPERTY(Replicated)
 	uint8 KickPercent;
-
 };
 
 

@@ -105,7 +105,7 @@ AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner(uint32& bTied)
 	{
 		float BestScore = 0.0;
 
-		for (int PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
+		for (int32 PlayerIdx=0; PlayerIdx < UTGameState->PlayerArray.Num();PlayerIdx++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 			if (PS != NULL && PS->Team == BestTeam)

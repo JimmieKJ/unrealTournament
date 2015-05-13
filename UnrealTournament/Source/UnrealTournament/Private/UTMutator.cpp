@@ -45,11 +45,19 @@ bool AUTMutator::CheckRelevance_Implementation(AActor* Other)
 	return (NextMutator == NULL || NextMutator->CheckRelevance(Other));
 }
 
-void AUTMutator::ModifyPlayer_Implementation(APawn* Other)
+void AUTMutator::ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn)
 {
 	if (NextMutator != NULL)
 	{
-		NextMutator->ModifyPlayer(Other);
+		NextMutator->ModifyPlayer(Other, bIsNewSpawn);
+	}
+}
+
+void AUTMutator::ModifyInventory_Implementation(AUTInventory* NewInv, AUTCharacter* NewOwner)
+{
+	if (NextMutator != NULL)
+	{
+		NextMutator->ModifyInventory(NewInv, NewOwner);
 	}
 }
 

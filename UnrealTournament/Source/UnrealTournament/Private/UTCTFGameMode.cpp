@@ -338,7 +338,7 @@ void AUTCTFGameMode::HandleHalftime()
 void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 {
 	TArray<AController*> Members = Teams[TeamNum]->GetTeamMembers();
-	const int MaxPlayers = FMath::Min(8, Members.Num());
+	const int32 MaxPlayers = FMath::Min(8, Members.Num());
 
 	FVector FlagLoc = CTFGameState->FlagBases[TeamNum]->GetActorLocation();
 	float AngleSlices = 360.0f / MaxPlayers;
@@ -387,7 +387,7 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 	TArray<AUTCharacter*> BestPlayers;
 	int32 BestTeam = 0;
 	int32 BestTeamScore = 0;
-	for (int i=0;i<Teams.Num();i++)
+	for (int32 i=0;i<Teams.Num();i++)
 	{
 		BestPlayers.Add(NULL);
 		PlacePlayersAroundFlagBase(i);
@@ -476,7 +476,7 @@ void AUTCTFGameMode::HandleExitingHalftime()
 		}
 	}
 
-	for (int i=0;i<PawnsToDestroy.Num();i++)
+	for (int32 i=0;i<PawnsToDestroy.Num();i++)
 	{
 		APawn* Pawn = PawnsToDestroy[i];
 		if (Pawn != NULL && !Pawn->IsPendingKill())

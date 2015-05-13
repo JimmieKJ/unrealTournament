@@ -19,8 +19,14 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	/** menu display name
 	 * if this is empty the mutator is not shown in menus (assumed meant for internal use only)
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Mutator)
+	UPROPERTY(AssetRegistrySearchable, EditDefaultsOnly, BlueprintReadOnly, Category = Mutator)
 	FText DisplayName;
+	/** displayed author */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Mutator)
+	FText Author;
+	/** long description */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Mutator)
+	FText Description;
 
 	/** UMG menu for configuring the mutator (optional) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = UI)
@@ -79,7 +85,13 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 
 	/** called when a player pawn is spawned and to reset its parameters (like movement speed and such)*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	void ModifyPlayer(APawn* Other);
+	void ModifyPlayer(APawn* Other, bool bIsNewSpawn);
+
+	/** called just after giving inventory item Inv to pawn NewOwner
+	 * NOTE: may be called more than once for the same item if it can be dropped (when a second player picks up the drop)
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ModifyInventory(AUTInventory* Inv, AUTCharacter* NewOwner);
 
 	/** allows mutators to modify/react to damage
 	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used

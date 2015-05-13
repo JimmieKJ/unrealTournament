@@ -348,7 +348,7 @@ int32 AUTLobbyGameMode::GetNumPlayers()
 
 int32 AUTLobbyGameMode::GetNumMatches()
 {
-	int Cnt = 0;
+	int32 Cnt = 0;
 	if (UTLobbyGameState && UTLobbyGameState->GameInstances.Num())
 	{
 		for (int32 i = 0; i < UTLobbyGameState->GameInstances.Num(); i++)

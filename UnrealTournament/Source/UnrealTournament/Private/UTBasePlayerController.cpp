@@ -309,12 +309,12 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerRecieveAverageRank(LP->GetBaseELORank());
+		ServerReceiveAverageRank(LP->GetBaseELORank());
 	}
 }
 
-bool AUTBasePlayerController::ServerRecieveAverageRank_Validate(int32 NewAverageRank) { return true; }
-void AUTBasePlayerController::ServerRecieveAverageRank_Implementation(int32 NewAverageRank)
+bool AUTBasePlayerController::ServerReceiveAverageRank_Validate(int32 NewAverageRank) { return true; }
+void AUTBasePlayerController::ServerReceiveAverageRank_Implementation(int32 NewAverageRank)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS) PS->AverageRank = NewAverageRank;

@@ -33,6 +33,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	DMSkillRatingThisMatch = 0;
 	CTFSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
+	SpectatorNameScale = 1.f;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -643,7 +644,7 @@ void AUTPlayerState::BeginPlay()
 		if (Settings)
 		{
 			CountryFlag = Settings->CountryFlag;
-			ServerRecieveCountryFlag(CountryFlag);
+			ServerReceiveCountryFlag(CountryFlag);
 		}
 	}
 
@@ -1044,9 +1045,9 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
 
-bool AUTPlayerState::ServerRecieveCountryFlag_Validate(uint32 NewCountryFlag) { return true; }
+bool AUTPlayerState::ServerReceiveCountryFlag_Validate(uint32 NewCountryFlag) { return true; }
 
-void AUTPlayerState::ServerRecieveCountryFlag_Implementation(uint32 NewCountryFlag)
+void AUTPlayerState::ServerReceiveCountryFlag_Implementation(uint32 NewCountryFlag)
 {
 	CountryFlag = NewCountryFlag;
 }
@@ -1288,6 +1289,29 @@ void AUTPlayerState::ServerUpdateLoadout_Implementation(const TArray<AUTReplicat
 	Loadout = NewLoadout;
 }
 
+bool AUTPlayerState::ServerBuyLoadout_Validate(AUTReplicatedLoadoutInfo* DesiredLoadout) { return true; }
+void AUTPlayerState::ServerBuyLoadout_Implementation(AUTReplicatedLoadoutInfo* DesiredLoadout)
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		if (DesiredLoadout->CurrentCost <= GetAvailableCurrency())
+		{
+				UTChar->AddInventory(GetWorld()->SpawnActor<AUTInventory>(DesiredLoadout->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+				AdjustCurrency(DesiredLoadout->CurrentCost * -1);
+		}
+		else
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());	
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(),14, this);
+			}
+		}
+	}
+}
+
+
 void AUTPlayerState::AdjustCurrency(float Adjustment)
 {
 	AvailableCurrency += Adjustment;
@@ -1354,7 +1378,7 @@ void AUTPlayerState::LogBanRequest(AUTPlayerState* Voter)
 	BanVotes.Add(FTempBanInfo(Voter->UniqueId.GetUniqueNetId(), CurrentTime));
 }
 
-int AUTPlayerState::CountBanVotes()
+int32 AUTPlayerState::CountBanVotes()
 {
 	int32 VoteCount = 0;
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();

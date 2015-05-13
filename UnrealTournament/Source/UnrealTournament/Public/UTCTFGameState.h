@@ -157,7 +157,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	uint8 AdvantageTeamIndex;
 
 	/** Sets the # of teams.  This will also Pre-seed FlagsBases */
-	virtual void SetMaxNumberOfTeams(int TeamCount);
+	virtual void SetMaxNumberOfTeams(int32 TeamCount);
 
 	/** Cache a flag by in the FlagBases array */
 	virtual void CacheFlagBase(AUTCTFFlagBase* BaseToCache);

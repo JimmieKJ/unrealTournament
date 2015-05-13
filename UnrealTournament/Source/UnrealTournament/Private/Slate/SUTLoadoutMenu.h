@@ -3,72 +3,46 @@
 
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "FLoadoutData.h"
 #include "SUWindowsDesktop.h"
 
 #if !UE_SERVER
-
-class FLoadoutData 
-{
-public:
-	TWeakObjectPtr<AUTReplicatedLoadoutInfo> LoadoutInfo;
-	TWeakObjectPtr<AUTWeapon> DefaultWeaponObject;
-	TSharedPtr<FSlateDynamicImageBrush> WeaponImage;
-
-	FLoadoutData(TWeakObjectPtr<AUTReplicatedLoadoutInfo> inLoadoutInfo)
-		: LoadoutInfo(inLoadoutInfo)
-	{
-		if (LoadoutInfo.IsValid())
-		{
-			DefaultWeaponObject = LoadoutInfo->WeaponClass->GetDefaultObject<AUTWeapon>();
-			if (DefaultWeaponObject.IsValid() && DefaultWeaponObject->MenuGraphic)
-			{
-				FString ImageName = DefaultWeaponObject->GetName() + TEXT("_Img");
-
-				WeaponImage = MakeShareable(new FSlateDynamicImageBrush(DefaultWeaponObject->MenuGraphic, FVector2D(256.0,128.0),FName(*ImageName)));
-			}
-		}
-	};
-
-	static TSharedRef<FLoadoutData> Make(TWeakObjectPtr<AUTReplicatedLoadoutInfo> inLoadoutInfo)
-	{
-		return MakeShareable( new FLoadoutData( inLoadoutInfo) );
-	}
-};
-
 
 class SUTLoadoutMenu : public SUWindowsDesktop
 {
 protected:
 	virtual void CreateDesktop();
-	void CollectWeapons();
-	TSharedRef<ITableRow> GenerateAvailableLoadoutInfoListWidget( TSharedPtr<FLoadoutData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
-	TSharedRef<ITableRow> GenerateSelectedLoadoutInfoListWidget( TSharedPtr<FLoadoutData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
+	void CollectItems();
 
-	TSharedPtr<SListView<TSharedPtr<FLoadoutData>>> AvailableWeaponList;
-	TSharedPtr<SListView<TSharedPtr<FLoadoutData>>> SelectedWeaponList;
+	TSharedPtr<FLoadoutData> CurrentItem;
 
-	TSharedPtr<FLoadoutData> CurrentWeapon;
-
-	TArray<TSharedPtr<FLoadoutData>> AvailableWeapons;
-	TArray<TSharedPtr<FLoadoutData>> SelectedWeapons;
-
-	FReply OnAddClicked();
-	FReply OnRemovedClicked();
+	TArray<TSharedPtr<FLoadoutData>> AvailableItems;
+	TArray<TSharedPtr<FLoadoutData>> SelectedItems;
 
 	float TotalCostOfCurrentLoadout;
 	void TallyLoadout();
 
 	FText GetLoadoutTitle() const;
 
-	void AvailableWeaponChanged(TSharedPtr<FLoadoutData> NewSelection, ESelectInfo::Type SelectInfo);
-	void SelectedWeaponChanged(TSharedPtr<FLoadoutData> NewSelection, ESelectInfo::Type SelectInfo);
-
-	const FSlateBrush* GetDescriptionImage() const;
-	FText GetDescriptionText() const;
+	const FSlateBrush* GetItemImage() const;
+	FText GetItemDescriptionText() const;
 
 	FReply OnAcceptClicked();
 	bool OnAcceptEnabled() const;
 	FReply OnCancelledClicked();
+
+	TSharedPtr<SGridPanel> AvailableItemsPanel;
+	TSharedPtr<SGridPanel> SelectedItemsPanel;
+
+	void RefreshAvailableItemsList();
+	void RefreshSelectedItemsList();
+
+	void AvailableUpdateItemInfo(int32 Index);
+
+	FReply OnAvailableClick(int32 Index);
+	FReply OnSelectedClick(int32 Index);
+	FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
+
 };
 
 #endif

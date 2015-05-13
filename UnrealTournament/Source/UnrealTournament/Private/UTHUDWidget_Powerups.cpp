@@ -100,7 +100,7 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 		RenderObj_TextureAt(RightTexture[0], XOffset + BarWidth + RightTexture[0].Position.X, RightTexture[0].Position.Y, RightTexture[0].GetWidth(), RightTexture[0].GetHeight());
 		RenderObj_TextureAt(RightTexture[1], XOffset + BarWidth + RightTexture[1].Position.X, RightTexture[1].Position.Y, RightTexture[1].GetWidth(), RightTexture[1].GetHeight());
 
-		for (int i=0;i<RenderItems.Num(); i++)
+		for (int32 i=0;i<RenderItems.Num(); i++)
 		{
 			AUTInventory* InventoryItem = RenderItems[i].InventoryItem;
 			if (InventoryItem)

@@ -6,13 +6,15 @@
 #include "Slate/SlateGameResources.h"
 #include "SUTLoadoutMenu.h"
 #include "SUWindowsStyle.h"
+#include "Widgets/SUTButton.h"
+#include "SUTUtils.h"
 #include "UTPlayerState.h"
 
 #if !UE_SERVER
 
 void SUTLoadoutMenu::CreateDesktop()
 {
-	CollectWeapons();
+	CollectItems();
 
 	ChildSlot
 	.VAlign(VAlign_Fill)
@@ -82,7 +84,7 @@ void SUTLoadoutMenu::CreateDesktop()
 							.HAlign(HAlign_Center)
 							[
 								SNew(STextBlock)
-								.Text(NSLOCTEXT("SUTLoadoutMenu","LoadoutTitle","Weapon Loadout"))
+								.Text(NSLOCTEXT("SUTLoadoutMenu","LoadoutTitle","Loadout"))
 								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 							]
 						]
@@ -105,8 +107,9 @@ void SUTLoadoutMenu::CreateDesktop()
 					+SHorizontalBox::Slot()
 					.HAlign(HAlign_Right)
 					.AutoWidth()
+					.Padding(10.0,0.0,20.0,0.0)
 					[
-						SNew(SBox).WidthOverride(700)
+						SNew(SBox).WidthOverride(800)
 						[
 							SNew(SOverlay)
 							+SOverlay::Slot()
@@ -120,73 +123,31 @@ void SUTLoadoutMenu::CreateDesktop()
 								+SVerticalBox::Slot()
 								.HAlign(HAlign_Right)
 								.AutoHeight()
+								.Padding(10.0,0.0,10.0,0.0)
 								[
 									SNew(STextBlock)
-									.Text(FText::FromString(TEXT("Available Weapons")))
+									.Text(FText::FromString(TEXT("Available Items")))
 									.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.TitleTextStyle")
 								]
 
 								+SVerticalBox::Slot()
 								.HAlign(HAlign_Fill)
 								[
-									SAssignNew(AvailableWeaponList, SListView< TSharedPtr<FLoadoutData> >)
-									.ItemHeight(96.0)
-									.ListItemsSource( &AvailableWeapons)
-									.OnGenerateRow( this, &SUTLoadoutMenu::GenerateAvailableLoadoutInfoListWidget)
-									.OnSelectionChanged( this, &SUTLoadoutMenu::AvailableWeaponChanged)
-									.SelectionMode(ESelectionMode::Single)
-								]
-							]
-						]
-					]
-					+SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					.Padding(10.0,0.0,10.0,0.0)
-					.AutoWidth()
-					[
-						SNew(SBox)
-						.WidthOverride(240)
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew(SButton)
-								.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-								.OnClicked(this, &SUTLoadoutMenu::OnAddClicked)
-								[
-									SNew(SHorizontalBox)
-									+SHorizontalBox::Slot().HAlign(HAlign_Center)
+									SNew(SScrollBox)
+									+SScrollBox::Slot()
 									[
-										SNew(STextBlock)
-										.Text(FText::FromString(TEXT("Add :>>")))
-										.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.TitleTextStyle")
-									]
-								]
-							]
-							+SVerticalBox::Slot()
-							.Padding(0.0,15.0,0.0,0.0)
-							.AutoHeight()
-							[
-								SNew(SButton)
-								.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-								.OnClicked(this, &SUTLoadoutMenu::OnRemovedClicked)
-								[
-									SNew(SHorizontalBox)
-									+SHorizontalBox::Slot().HAlign(HAlign_Center)
-									[
-										SNew(STextBlock)
-										.Text(FText::FromString(TEXT("<<: Remove")))
-										.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.TitleTextStyle")
+										SAssignNew(AvailableItemsPanel, SGridPanel)
 									]
 								]
 							]
 						]
 					]
+
 					+SHorizontalBox::Slot()
 					.AutoWidth()
+					.Padding(20.0, 0.0, 10.0, 0.0)
 					[
-						SNew(SBox).WidthOverride(700)
+						SNew(SBox).WidthOverride(800)
 						[
 							SNew(SOverlay)
 							+SOverlay::Slot()
@@ -198,6 +159,7 @@ void SUTLoadoutMenu::CreateDesktop()
 							[
 								SNew(SVerticalBox)
 								+SVerticalBox::Slot()
+								.Padding(10.0,0.0,10.0,0.0)
 								.AutoHeight()
 								[
 									SNew(STextBlock)
@@ -207,13 +169,11 @@ void SUTLoadoutMenu::CreateDesktop()
 
 								+SVerticalBox::Slot()
 								[
-									SAssignNew(SelectedWeaponList, SListView< TSharedPtr<FLoadoutData> >)
-									.ItemHeight(96.0)
-									.ListItemsSource( &SelectedWeapons)
-									.OnGenerateRow( this, &SUTLoadoutMenu::GenerateSelectedLoadoutInfoListWidget )
-									.OnSelectionChanged( this, &SUTLoadoutMenu::SelectedWeaponChanged)
-									.SelectionMode(ESelectionMode::Single)
-	
+									SNew(SScrollBox)
+									+ SScrollBox::Slot()
+									[
+										SAssignNew(SelectedItemsPanel, SGridPanel)
+									]
 								]
 							]
 						]
@@ -256,7 +216,7 @@ void SUTLoadoutMenu::CreateDesktop()
 										.HeightOverride(128)
 										[
 											SNew(SImage)
-											.Image(this, &SUTLoadoutMenu::GetDescriptionImage)
+											.Image(this, &SUTLoadoutMenu::GetItemImage)
 										]
 									]
 								]
@@ -268,7 +228,7 @@ void SUTLoadoutMenu::CreateDesktop()
 									.Justification(ETextJustify::Left)
 									.DecoratorStyleSet( &SUWindowsStyle::Get() )
 									.AutoWrapText( true )
-									.Text(this, &SUTLoadoutMenu::GetDescriptionText)
+									.Text(this, &SUTLoadoutMenu::GetItemDescriptionText)
 
 									
 								]
@@ -375,155 +335,43 @@ void SUTLoadoutMenu::CreateDesktop()
 
 	];
 
-	if (AvailableWeapons.Num() >0)
-	{
-		AvailableWeaponList->SetSelection(AvailableWeapons[0]);
-	}
+	RefreshAvailableItemsList();
+	RefreshSelectedItemsList();
 }
 
-void SUTLoadoutMenu::CollectWeapons()
+void SUTLoadoutMenu::CollectItems()
 {
 	// Create the loadout information.
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GameState && GameState->LoadoutWeapons.Num() > 0)
+	if (GameState && GameState->AvailableLoadout.Num() > 0)
 	{
-		for (int32 i=0; i < GameState->LoadoutWeapons.Num(); i++)
+		for (int32 i=0; i < GameState->AvailableLoadout.Num(); i++)
 		{
-			if (GameState->LoadoutWeapons[i]->WeaponClass)
+			if (GameState->AvailableLoadout[i]->ItemClass && !GameState->AvailableLoadout[i]->bPurchaseOnly)
 			{
-				TSharedPtr<FLoadoutData> D = FLoadoutData::Make(GameState->LoadoutWeapons[i]);
-				AvailableWeapons.Add( D );
+				TSharedPtr<FLoadoutData> D = FLoadoutData::Make(GameState->AvailableLoadout[i]);
+				if (GameState->AvailableLoadout[i]->bDefaultInclude)
+				{
+					SelectedItems.Add( D );
+				}
+				else
+				{
+					AvailableItems.Add( D );
+				}
 			}
 		}
 	}
 	TallyLoadout();
 }
 
-TSharedRef<ITableRow> SUTLoadoutMenu::GenerateAvailableLoadoutInfoListWidget( TSharedPtr<FLoadoutData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
-{
-	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
-		.Style(SUWindowsStyle::Get(),"UT.Loadout.List.Row")
-		[
-
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot().AutoHeight()
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot().AutoWidth()
-				[
-					SNew(SBox).WidthOverride(600).HeightOverride(140)
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot().VAlign(VAlign_Center).HAlign(HAlign_Right)
-						[
-							SNew(STextBlock)
-							.Text(InItem->DefaultWeaponObject->DisplayName)
-							.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
-						]
-						+SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot().AutoHeight()
-							[
-								SNew(SBox).WidthOverride(192).HeightOverride(96)
-								[
-									SNew(SImage)
-									.Image(InItem->WeaponImage.Get())
-								]
-							]
-						]
-					]
-				]
-			]
-		];
-}
-
-TSharedRef<ITableRow> SUTLoadoutMenu::GenerateSelectedLoadoutInfoListWidget( TSharedPtr<FLoadoutData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
-{
-	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
-		.Style(SUWindowsStyle::Get(),"UT.Loadout.List.Row")
-		[
-
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot().AutoHeight()
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot().AutoWidth()
-				[
-					SNew(SBox).WidthOverride(600).HeightOverride(140)
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot().AutoHeight()
-							[
-								SNew(SBox).WidthOverride(192).HeightOverride(96)
-								[
-									SNew(SImage)
-									.Image(InItem->WeaponImage.Get())
-								]
-							]
-						]
-						+SHorizontalBox::Slot().VAlign(VAlign_Center).HAlign(HAlign_Left)
-						[
-							SNew(STextBlock)
-							.Text(InItem->DefaultWeaponObject->DisplayName)
-							.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
-						]
-					]
-				]
-			]
-		];
-}
-
-FReply SUTLoadoutMenu::OnAddClicked()
-{
-	TArray<TSharedPtr<FLoadoutData>> SelectedItems = AvailableWeaponList->GetSelectedItems();
-	if (SelectedItems.Num() > 0)
-	{
-		TSharedPtr<FLoadoutData> Selected = SelectedItems[0];
-		if (Selected.IsValid())
-		{
-			AvailableWeapons.Remove(Selected);
-			SelectedWeapons.Add(Selected);
-		}
-	}
-
-	AvailableWeaponList->RequestListRefresh();
-	SelectedWeaponList->RequestListRefresh();
-	TallyLoadout();
-
-	return FReply::Handled();
-}
-
-FReply SUTLoadoutMenu::OnRemovedClicked()
-{
-	TArray<TSharedPtr<FLoadoutData>> SelectedItems = SelectedWeaponList->GetSelectedItems();
-	if (SelectedItems.Num() > 0)
-	{
-		TSharedPtr<FLoadoutData> Selected = SelectedItems[0];
-		if (Selected.IsValid())
-		{
-			SelectedWeapons.Remove(Selected);
-			AvailableWeapons.Add(Selected);
-		}
-	}
-
-	AvailableWeaponList->RequestListRefresh();
-	SelectedWeaponList->RequestListRefresh();
-	TallyLoadout();
-	return FReply::Handled();
-}
-
 void SUTLoadoutMenu::TallyLoadout()
 {
 	TotalCostOfCurrentLoadout = 0.0f;
-	for (int32 i=0; i < SelectedWeapons.Num(); i++)
+	for (int32 i=0; i < SelectedItems.Num(); i++)
 	{
-		if (SelectedWeapons[i].IsValid() && SelectedWeapons[i]->LoadoutInfo.IsValid())
+		if (SelectedItems[i].IsValid() && SelectedItems[i]->LoadoutInfo.IsValid())
 		{
-			TotalCostOfCurrentLoadout += SelectedWeapons[i]->LoadoutInfo->CurrentCost;
+			TotalCostOfCurrentLoadout += SelectedItems[i]->LoadoutInfo->CurrentCost;
 		}
 	}
 
@@ -545,38 +393,21 @@ FText SUTLoadoutMenu::GetLoadoutTitle() const
 	return FText::Format(NSLOCTEXT("SUTLoadoutMenuu","LoadoutTitleFormat","Loadout... ${0}/${1}"), FText::AsNumber(TotalCostOfCurrentLoadout), CurrentCash);
 }
 
-
-void SUTLoadoutMenu::AvailableWeaponChanged(TSharedPtr<FLoadoutData> NewSelection, ESelectInfo::Type SelectInfo)
+const FSlateBrush* SUTLoadoutMenu::GetItemImage() const
 {
-	if (NewSelection.IsValid())
+	if (CurrentItem.IsValid())
 	{
-		CurrentWeapon = NewSelection;
-	}
-}
-
-void SUTLoadoutMenu::SelectedWeaponChanged(TSharedPtr<FLoadoutData> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	if (NewSelection.IsValid())
-	{
-		CurrentWeapon = NewSelection;
-	}
-}
-
-const FSlateBrush* SUTLoadoutMenu::GetDescriptionImage() const
-{
-	if (CurrentWeapon.IsValid())
-	{
-		return CurrentWeapon->WeaponImage.Get();
+		return CurrentItem->Image.Get();
 	}
 
 	return SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");
 }
 
-FText SUTLoadoutMenu::GetDescriptionText() const
+FText SUTLoadoutMenu::GetItemDescriptionText() const
 {
-	if (CurrentWeapon.IsValid() && CurrentWeapon->DefaultWeaponObject.IsValid())
+	if (CurrentItem.IsValid() && CurrentItem->DefaultObject.IsValid())
 	{
-		return CurrentWeapon->DefaultWeaponObject->MenuDescription;
+		return CurrentItem->DefaultObject->MenuDescription;
 	}
 
 	return NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
@@ -590,11 +421,11 @@ FReply SUTLoadoutMenu::OnAcceptClicked()
 		if (PC && PC->UTPlayerState)
 		{
 			TArray<AUTReplicatedLoadoutInfo*> NewLoadout;
-			for (int32 i=0; i < SelectedWeapons.Num(); i++)
+			for (int32 i=0; i < SelectedItems.Num(); i++)
 			{
-				if (SelectedWeapons[i].IsValid() && SelectedWeapons[i]->LoadoutInfo.IsValid() )
+				if (SelectedItems[i].IsValid() && SelectedItems[i]->LoadoutInfo.IsValid() )
 				{
-					NewLoadout.Add(SelectedWeapons[i]->LoadoutInfo.Get());
+					NewLoadout.Add(SelectedItems[i]->LoadoutInfo.Get());
 				}
 			}
 
@@ -627,5 +458,173 @@ bool SUTLoadoutMenu::OnAcceptEnabled() const
 	return TotalCostOfCurrentLoadout <= CurrentCurrency;
 
 }
+
+void SUTLoadoutMenu::RefreshAvailableItemsList()
+{
+	AvailableItems.Sort(FCompareByCost());
+	if (AvailableItemsPanel.IsValid())
+	{
+		AvailableItemsPanel->ClearChildren();
+		for (int32 Idx = 0; Idx < AvailableItems.Num(); Idx++)	
+		{
+			int32 Row = Idx / 3;
+			int32 Col = Idx % 3;
+
+			// Add the cell...
+			AvailableItemsPanel->AddSlot(Col, Row).Padding(5.0, 5.0, 5.0, 5.0)
+				[
+					SNew(SBox)
+					.WidthOverride(256)
+					.HeightOverride(200)
+					[
+						SNew(SUTButton)
+						.OnClicked(this, &SUTLoadoutMenu::OnAvailableClick, Idx)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
+						.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
+						.UTOnMouseOver(this, &SUTLoadoutMenu::AvailableUpdateItemInfo)
+						.WidgetTag(Idx)
+												
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(SBox)
+								.WidthOverride(256)
+								.HeightOverride(128)
+								[
+									SNew(SImage)
+									.Image(AvailableItems[Idx]->Image.Get())
+								]
+							]
+							+ SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.AutoHeight()
+							[
+								SNew(STextBlock)
+								.Text(AvailableItems[Idx]->DefaultObject->DisplayName)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Hub.MapsText")
+								.ColorAndOpacity(FLinearColor::Black)
+							]
+
+							+ SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Bottom)
+							.AutoHeight()
+							[
+								SNew(STextBlock)
+								.Text(FText::AsCurrency(AvailableItems[Idx]->LoadoutInfo->CurrentCost))
+								.TextStyle(SUWindowsStyle::Get(), "UT.Hub.MapsText")
+								.ColorAndOpacity(FLinearColor::Black)
+							]
+						]
+					]
+				];
+		}
+	}
+}
+void SUTLoadoutMenu::RefreshSelectedItemsList()
+{
+	SelectedItems.Sort(FCompareByCost());
+	if (SelectedItemsPanel.IsValid())
+	{
+		SelectedItemsPanel->ClearChildren();
+		for (int32 Idx = 0; Idx < SelectedItems.Num(); Idx++)
+		{
+			int32 Row = Idx / 3;
+			int32 Col = Idx % 3;
+
+			// Add the cell...
+			SelectedItemsPanel->AddSlot(Col, Row).Padding(5.0, 5.0, 5.0, 5.0)
+				[
+					SNew(SBox)
+					.WidthOverride(256)
+					.HeightOverride(200)
+					[
+						SNew(SButton)
+						.OnClicked(this, &SUTLoadoutMenu::OnSelectedClick, Idx)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
+						.ToolTip(SUTUtils::CreateTooltip(SelectedItems[Idx]->DefaultObject->DisplayName))
+						[
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(SBox)
+								.WidthOverride(256)
+								.HeightOverride(128)
+								[
+									SNew(SImage)
+									.Image(SelectedItems[Idx]->Image.Get())
+								]
+							]
+							+ SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.AutoHeight()
+							[
+								SNew(STextBlock)
+								.Text(SelectedItems[Idx]->DefaultObject->DisplayName)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Hub.MapsText")
+								.ColorAndOpacity(FLinearColor::Black)
+							]
+						]
+					]
+				];
+		}
+	}
+}
+
+void SUTLoadoutMenu::AvailableUpdateItemInfo(int32 Index)
+{
+	if (Index >= 0 && Index <= AvailableItems.Num())
+	{
+		CurrentItem = AvailableItems[Index];
+	}
+}
+
+FReply SUTLoadoutMenu::OnAvailableClick(int32 Index)
+{
+	if (Index >= 0 && Index <= AvailableItems.Num())
+	{
+		SelectedItems.Add(AvailableItems[Index]);
+		AvailableItems.RemoveAt(Index);
+		RefreshAvailableItemsList();
+		RefreshSelectedItemsList();
+		TallyLoadout();
+
+	}
+
+
+	return FReply::Handled();
+}
+
+FReply SUTLoadoutMenu::OnSelectedClick(int32 Index)
+{
+	if (Index >= 0 && Index <= SelectedItems.Num())
+	{
+		if (!SelectedItems[Index]->LoadoutInfo->bDefaultInclude)
+		{
+			AvailableItems.Add(SelectedItems[Index]);
+			SelectedItems.RemoveAt(Index);
+			RefreshAvailableItemsList();
+			RefreshSelectedItemsList();
+			TallyLoadout();
+		}
+	}
+
+
+	return FReply::Handled();
+}
+
+FReply SUTLoadoutMenu::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		OnCancelledClicked();
+	}
+
+	return FReply::Unhandled();
+}
+
 
 #endif

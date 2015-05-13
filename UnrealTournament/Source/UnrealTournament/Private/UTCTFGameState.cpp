@@ -24,7 +24,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	DOREPLIFETIME(AUTCTFGameState, ScoringPlays);
 }
 
-void AUTCTFGameState::SetMaxNumberOfTeams(int TeamCount)
+void AUTCTFGameState::SetMaxNumberOfTeams(int32 TeamCount)
 {
 	for (int32 TeamIdx = 0; TeamIdx < TeamCount; TeamIdx++)
 	{
@@ -71,7 +71,7 @@ AUTTeamInfo* AUTCTFGameState::FindLeadingTeam()
 	{
 		WinningTeam = Teams[0];
 		bTied = false;
-		for (int i=1;i<Teams.Num();i++)
+		for (int32 i=1;i<Teams.Num();i++)
 		{
 			if (Teams[i]->Score == WinningTeam->Score)
 			{
@@ -124,7 +124,7 @@ AUTCTFFlagBase* AUTCTFGameState::GetFlagBase(uint8 TeamNum)
 
 void AUTCTFGameState::ResetFlags()
 {
-	for (int i=0; i < FlagBases.Num(); i++)
+	for (int32 i=0; i < FlagBases.Num(); i++)
 	{
 		if (FlagBases[i] != NULL)
 		{
@@ -274,7 +274,7 @@ uint8 AUTCTFGameState::NearestTeamSide(AActor* InActor)
 {
 	if (FlagBases.Num() > 1)
 	{
-		((InActor->GetActorLocation() - FlagBases[0]->GetActorLocation()).Size() < (InActor->GetActorLocation() - FlagBases[1]->GetActorLocation()).Size()) ? 0 : 1;
+		return ((InActor->GetActorLocation() - FlagBases[0]->GetActorLocation()).Size() < (InActor->GetActorLocation() - FlagBases[1]->GetActorLocation()).Size()) ? 0 : 1;
 	}
 	return 255;
 }

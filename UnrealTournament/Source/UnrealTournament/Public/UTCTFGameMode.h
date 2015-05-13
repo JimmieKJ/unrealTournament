@@ -91,7 +91,7 @@ protected:
 	virtual bool CheckAdvantage();
 
 	// Holds the amount of time to give a flag carrier who has the flag out going in to half-time
-	int AdvantageGraceTime;
+	int32 AdvantageGraceTime;
 
 	virtual void EndOfHalf();
 

@@ -113,7 +113,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		if (UTPlayerInput)
 		{
 			CustomBinds.Empty();
-			for (int i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
+			for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
 			{
 				CustomBinds.Add(UTPlayerInput->CustomBinds[i]);
 			}
@@ -127,19 +127,19 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 	if (DefaultInputSettingsObject)
 	{
 		ActionMappings.Empty();
-		for (int i = 0; i < DefaultInputSettingsObject->ActionMappings.Num(); i++)
+		for (int32 i = 0; i < DefaultInputSettingsObject->ActionMappings.Num(); i++)
 		{
 			ActionMappings.Add(DefaultInputSettingsObject->ActionMappings[i]);
 		}
 
 		AxisMappings.Empty();
-		for (int i = 0; i < DefaultInputSettingsObject->AxisMappings.Num(); i++)
+		for (int32 i = 0; i < DefaultInputSettingsObject->AxisMappings.Num(); i++)
 		{
 			AxisMappings.Add(DefaultInputSettingsObject->AxisMappings[i]);
 		}
 
 		AxisConfig.Empty();
-		for (int i = 0; i < DefaultInputSettingsObject->AxisConfig.Num(); i++)
+		for (int32 i = 0; i < DefaultInputSettingsObject->AxisConfig.Num(); i++)
 		{
 			AxisConfig.Add(DefaultInputSettingsObject->AxisConfig[i]);
 			if (AxisConfig[i].AxisKeyName == EKeys::MouseY && AxisConfig[i].AxisProperties.bInvert)
@@ -196,7 +196,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		if (UTPlayerInput && CustomBinds.Num() > 0)
 		{
 			UTPlayerInput->CustomBinds.Empty();
-			for (int i = 0; i < CustomBinds.Num(); i++)
+			for (int32 i = 0; i < CustomBinds.Num(); i++)
 			{
 				UTPlayerInput->CustomBinds.Add(CustomBinds[i]);
 			}
@@ -218,7 +218,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		if (ActionMappings.Num() > 0)
 		{
 			DefaultInputSettingsObject->ActionMappings.Empty();
-			for (int i = 0; i < ActionMappings.Num(); i++)
+			for (int32 i = 0; i < ActionMappings.Num(); i++)
 			{
 				DefaultInputSettingsObject->ActionMappings.Add(ActionMappings[i]);
 			}
@@ -227,7 +227,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		if (AxisConfig.Num() > 0)
 		{
 			DefaultInputSettingsObject->AxisConfig.Empty();
-			for (int i = 0; i < AxisConfig.Num(); i++)
+			for (int32 i = 0; i < AxisConfig.Num(); i++)
 			{
 				DefaultInputSettingsObject->AxisConfig.Add(AxisConfig[i]);
 				if (bInvertMouse && AxisConfig[i].AxisKeyName == EKeys::MouseY)
@@ -240,7 +240,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		if (AxisMappings.Num() > 0)
 		{
 			DefaultInputSettingsObject->AxisMappings.Empty();
-			for (int i = 0; i < AxisMappings.Num(); i++)
+			for (int32 i = 0; i < AxisMappings.Num(); i++)
 			{
 				DefaultInputSettingsObject->AxisMappings.Add(AxisMappings[i]);
 			}
