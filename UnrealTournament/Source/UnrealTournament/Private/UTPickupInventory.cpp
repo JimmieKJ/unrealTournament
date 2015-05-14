@@ -241,6 +241,12 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 {
 	CreatePickupMesh(this, Mesh, InventoryType, FloatHeight, RotationOffset, bAllowRotatingPickup);
+	if (Mesh != NULL && !State.bActive && Role < ROLE_Authority)
+	{
+		// if State was received first whole actor might have been hidden, reset everything
+		StartSleeping();
+		OnRep_RespawnTimeRemaining();
+	}
 
 	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 }
