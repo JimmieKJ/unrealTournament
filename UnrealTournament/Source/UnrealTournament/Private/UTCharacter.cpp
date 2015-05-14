@@ -3942,7 +3942,7 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 		{
 			FVector HatRelativeLocation = Hat->GetRootComponent()->RelativeLocation;
 			FRotator HatRelativeRotation = Hat->GetRootComponent()->RelativeRotation;
-			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
+			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget, true);
 			Hat->SetActorRelativeRotation(HatRelativeRotation);
 			Hat->SetActorRelativeLocation(HatRelativeLocation);
 			Hat->OnVariantSelected(HatVariant);
@@ -3983,7 +3983,7 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 		Eyewear = GetWorld()->SpawnActor<AUTEyewear>(EyewearClass, GetActorLocation(), GetActorRotation(), Params);
 		if (Eyewear != NULL)
 		{
-			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget);
+			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget, true);
 			Eyewear->OnVariantSelected(EyewearVariant);
 		}
 	}
@@ -4566,7 +4566,7 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 			{
 				FVector HatRelativeLocation = LeaderHat->GetRootComponent()->RelativeLocation;
 				FRotator HatRelativeRotation = LeaderHat->GetRootComponent()->RelativeRotation;
-				LeaderHat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget);
+				LeaderHat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget, true);
 				LeaderHat->SetActorRelativeRotation(HatRelativeRotation);
 				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
 				LeaderHat->OnVariantSelected(HatVariant);
