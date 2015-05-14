@@ -48,6 +48,9 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY()
 		float TimeLineOffset;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scoreboard")
+		USoundBase* ScoreUpdateSound;
+
 protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
