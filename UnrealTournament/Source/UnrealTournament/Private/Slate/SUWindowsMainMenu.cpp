@@ -41,7 +41,7 @@ void SUWindowsMainMenu::SetInitialPanel()
 	if (HomePanel.IsValid())
 	{
 		TSharedPtr<SUTWebBrowserPanel> WebPanel = StaticCastSharedPtr<SUTWebBrowserPanel>(HomePanel);
-		WebPanel->Browse(TEXT("http://www.unrealtournament.com/blog/mock/"));
+		WebPanel->Browse(TEXT("http://www.necris.net/fragcenter"));
 		ActivatePanel(HomePanel);
 	}
 }
@@ -327,7 +327,7 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 
 void SUWindowsMainMenu::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed)
 {
-	if (ButtonPressed != UTDIALOG_BUTTON_CANCEL && CreateGameDialog.IsValid() && CreateGameDialog->SelectedRuleset.IsValid() && CreateGameDialog->MapPlayList.Num() > 0)
+	if ( ButtonPressed != UTDIALOG_BUTTON_CANCEL && CreateGameDialog.IsValid() )
 	{
 		if (ButtonPressed == UTDIALOG_BUTTON_PLAY)
 		{
@@ -547,30 +547,48 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("MenuStartGame"), ParamArray );
 	}
 
-	// Build the URL
+	FString StartingMap;
+	FString GameOptions;
 
-	// First copy the map play list. TODO: Find a good solution for the map list without using the ini if possible
-	PlayerOwner->SinglePlayerMapList.Empty();
-	for (int32 i=0; i< CreateGameDialog->MapPlayList.Num(); i++ )
+	if (CreateGameDialog->IsCustomSettings())
 	{
-		if (CreateGameDialog->MapPlayList[i].bSelected)
+		CreateGameDialog->GetCustomGameSettings(StartingMap, GameOptions);	
+	}
+	else
+	{
+		// Build the settings from the ruleset...
+
+		AUTReplicatedGameRuleset* CurrentRule = CreateGameDialog->SelectedRuleset.Get();
+	
+		StartingMap = CreateGameDialog->MapPlayList[0].MapName;
+
+		// Copy the map rotation list in to the config.
+		AUTGameMode* DefaultGameMode = CurrentRule->GetDefaultGameModeObject();
+		DefaultGameMode->MapRotation.Empty();
+		for (int32 i=0; i< CreateGameDialog->MapPlayList.Num(); i++ )
 		{
-			PlayerOwner->SinglePlayerMapList.Add(CreateGameDialog->MapPlayList[i].MapName);
+			if (CreateGameDialog->MapPlayList[i].bSelected)
+			{
+				DefaultGameMode->MapRotation.Add(CreateGameDialog->MapPlayList[i].MapName);
+			}
+		}
+		
+		DefaultGameMode->SaveConfig();
+
+		GameOptions = FString::Printf(TEXT("?Game=%s"), *CurrentRule->GameMode);
+		GameOptions += CurrentRule->GameOptions;
+		GameOptions += FString::Printf(TEXT("?MaxPlayers=%i"), CurrentRule->MaxPlayers);
+		if ( CreateGameDialog->BotSkillLevel >= 0 )
+		{
+			// Load the level summary of this map.
+			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
+
+			// This match wants bots.  
+			GameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), Summary->OptimalPlayerCount, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));				
 		}
 	}
 
-	// First, grab the starting map.
-	FString URL = PlayerOwner->SinglePlayerMapList[0] + FString::Printf(TEXT("?Game=%s"), *CreateGameDialog->SelectedRuleset->GameMode);
-	URL += CreateGameDialog->SelectedRuleset->GameOptions;
-
-	// Set the Max players
-	URL += FString::Printf(TEXT("?MaxPlayers=%i"), CreateGameDialog->SelectedRuleset->MaxPlayers);
-
-	// Set the Bot Skill level and if they are needed.
-	if (CreateGameDialog->BotSkillLevel >= 0)
-	{
-		URL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), CreateGameDialog->SelectedRuleset->MaxPlayers, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));
-	}
+	FString URL = StartingMap + GameOptions;
 
 	if (bLanGame)
 	{

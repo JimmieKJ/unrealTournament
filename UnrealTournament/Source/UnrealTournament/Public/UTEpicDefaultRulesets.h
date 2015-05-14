@@ -52,6 +52,7 @@ public:
 			6, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_DM.GB_DM'"), 
 			TEXT("DM"),
+			TEXT("/Script/UnrealTournament.UTDMGameMode"),
 			TEXT("?TimeLimit=10"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
@@ -67,6 +68,7 @@ public:
 			16, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeDM.GB_LargeDM'"), 
 			TEXT("DM"),
+			TEXT("/Script/UnrealTournament.UTDMGameMode"),
 			TEXT("?TimeLimit=10"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
@@ -82,6 +84,7 @@ public:
 			12, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'"), 
 			TEXT("TDM"),
+			TEXT("/Script/UnrealTournament.UTTeamDMGameMode"),
 			TEXT("?TimeLimit=20"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
@@ -97,6 +100,7 @@ public:
 			2, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'"), 
 			TEXT("Duel"),
+			TEXT("/Script/UnrealTournament.UTDuelGame"),
 			TEXT("?TimeLimit=10"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
@@ -112,6 +116,7 @@ public:
 			12, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'"), 
 			TEXT("CTF"),
+			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
 			TEXT("?TimeLimit=20"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
@@ -128,6 +133,7 @@ public:
 			20, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeCTF.GB_LargeCTF'"), 
 			TEXT("CTF"),
+			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
 			TEXT("?TimeLimit=20"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
@@ -143,6 +149,7 @@ public:
 			6, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDM.GB_InstagibDM'"), 
 			TEXT("DM"),
+			TEXT("/Script/UnrealTournament.UTDMGameMode"),
 			TEXT("?TimeLimit=10?Mutator=Instagib"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
@@ -158,25 +165,10 @@ public:
 			12, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDuel.GB_InstagibDuel'"), 
 			TEXT("TDM"),
+			TEXT("/Script/UnrealTournament.UTTeamDMGameMode"),
 			TEXT("?TimeLimit=20?Mutator=Instagib"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
-/*
-		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
-			TEXT("iDuel"), 
-			TEXT("Competitive,Instagib"), 
-			TEXT("Instagib Duel"), 
-			TEXT("Two players enter, one player leaves -- Instagib style."), 
-			TEXT("You against one other opponent!\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>FragLimit : 20</>\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n\nMaximum of 2 players allowed!"),
-			6, 
-			TEXT("DM-Outpost23,DM-SidCastle,DM-Cannon,DM-Deadfall,DM-Spacer"), 
-			12, 
-			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDuel.GB_InstagibDuel'"), 
-			TEXT("Duel"),
-			TEXT("?GoalScore=20?TimeLimit=10?Mutator=Instagib"));
-
-		if (NewRuleset) Storage.Add(NewRuleset);
-*/
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("iCTF"), 
@@ -189,6 +181,7 @@ public:
 			12, 
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'"), 
 			TEXT("CTF"),
+			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
 			TEXT("?TimeLimit=20?Mutator=Instagib"));
 
 		if (NewRuleset) Storage.Add(NewRuleset);
@@ -196,7 +189,7 @@ public:
 
 
 	static AUTReplicatedGameRuleset* AddDefaultRuleset(AActor* Owner, FString inUniqueTag, FString inCategoryList, FString inTitle, FString inTooltip, FString inDescription, int32 inMapPlaylistSize,
-												FString inMapPlaylist, int32 inMaxPlayers, FString inDisplayTexture, FString inGameMode, FString inGameOptions)
+												FString inMapPlaylist, int32 inMaxPlayers, FString inDisplayTexture, FString inGameMode, FString inGameModeClass, FString inGameOptions)
 	{
 		FActorSpawnParameters Params;
 		Params.Owner = Owner;
@@ -212,6 +205,7 @@ public:
 			NewReplicatedRuleset->MaxPlayers = inMaxPlayers;
 			NewReplicatedRuleset->DisplayTexture = inDisplayTexture;
 			NewReplicatedRuleset->GameMode = inGameMode;
+			NewReplicatedRuleset->GameModeClass = inGameModeClass;
 			NewReplicatedRuleset->GameOptions = inGameOptions;
 
 			TArray<FString> StrArray;

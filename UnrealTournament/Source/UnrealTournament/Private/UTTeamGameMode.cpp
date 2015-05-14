@@ -10,6 +10,9 @@
 #include "UTGameMessage.h"
 #include "UTCTFGameMessage.h"
 #include "UTCTFRewardMessage.h"
+#include "Slate/SUWindowsStyle.h"
+#include "Slate/SlateGameResources.h"
+#include "SNumericEntryBox.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -406,7 +409,6 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 #if !UE_SERVER
 void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-/*
 	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
 
 	TSharedPtr< TAttributePropertyBool > BalanceTeamsAttr = MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams")));
@@ -453,7 +455,6 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 			]
 		]
 	];
-*/
 }
 #endif
 

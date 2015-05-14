@@ -579,6 +579,7 @@ public:
 #if !UE_SERVER
 	TSharedRef<SWidget> NewPlayerInfoLine(FString LeftStr, FString RightStr);
 	virtual void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState);
+
 #endif
 
 	virtual void InstanceNextMap(const FString& NextMap);

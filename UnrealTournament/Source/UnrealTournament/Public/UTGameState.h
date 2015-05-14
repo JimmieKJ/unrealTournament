@@ -6,6 +6,8 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
 
+class AUTGameMode;
+
 struct FLoadoutInfo;
 
 UCLASS(Config = Game)
@@ -307,6 +309,14 @@ public:
 	{
 		return 255;
 	};
+
+
+	// Used to get a list of game modes and maps that can be choosen from the menu.  Typically, this just pulls all of 
+	// available local content however, in hubs it will be from data replicated from the server.
+
+	void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
+	void GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList);
+
 };
 
 

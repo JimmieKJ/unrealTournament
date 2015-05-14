@@ -17,6 +17,8 @@
 #include "UTBot.h"
 #include "UTSquadAI.h"
 #include "Slate/Panels/SULobbyMatchSetupPanel.h"
+#include "Slate/SlateGameResources.h"
+#include "SNumericEntryBox.h"
 #include "UTCharacterContent.h"
 #include "UTGameEngine.h"
 #include "UTWorldSettings.h"
@@ -2399,7 +2401,6 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 #if !UE_SERVER
 void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-/*
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit")));
 	ConfigProps.Add(TimeLimitAttr);
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
@@ -2408,8 +2409,6 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	ConfigProps.Add(ForceRespawnAttr);
 	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill")));
 	ConfigProps.Add(CombatantsAttr);
-	TSharedPtr< TAttributeProperty<float> > BotSkillAttr = MakeShareable(new TAttributeProperty<float>(this, &GameDifficulty, TEXT("Difficulty")));
-	ConfigProps.Add(BotSkillAttr);
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
 	MenuSpace->AddSlot()
@@ -2455,54 +2454,6 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 					.MaxSliderValue(32)
 					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 
-				)
-			]
-		]
-	];
-	// TODO: BotSkill should be a list box with the usual items; this is a simple placeholder
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "BotSkill", "Bot Skill"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
-					.Text(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-					SNew(SNumericEntryBox<float>)
-					.LabelPadding(FMargin(10.0f, 0.0f))
-					.Value(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetOptional)
-					.OnValueChanged(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::Set)
-					.AllowSpin(true)
-					.Delta(1)
-					.MinValue(0)
-					.MaxValue(7)
-					.MinSliderValue(0)
-					.MaxSliderValue(7)
-					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 				)
 			]
 		]
@@ -2643,12 +2594,13 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			]
 		]
 	];
-*/
+
 }
 
 
-
 #endif
+
+
 
 void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 {

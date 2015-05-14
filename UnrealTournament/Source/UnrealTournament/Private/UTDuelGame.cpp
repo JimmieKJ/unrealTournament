@@ -4,6 +4,9 @@
 #include "UTHUD_TeamDM.h"
 #include "UTTimedPowerup.h"
 #include "UTPickupWeapon.h"
+#include "Slate/SlateGameResources.h"
+#include "Slate/SUWindowsStyle.h"
+#include "SNumericEntryBox.h"
 #include "UTDuelGame.h"
 
 
@@ -104,7 +107,6 @@ void AUTDuelGame::PlayEndOfMatchMessage()
 #if !UE_SERVER
 void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-/*
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit")));
 	ConfigProps.Add(TimeLimitAttr);
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
@@ -112,54 +114,6 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	TSharedPtr< TAttributeProperty<float> > BotSkillAttr = MakeShareable(new TAttributeProperty<float>(this, &GameDifficulty, TEXT("Difficulty")));
 	ConfigProps.Add(BotSkillAttr);
 
-	// TODO: BotSkill should be a list box with the usual items; this is a simple placeholder
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.Padding(0.0f, 5.0f, 0.0f, 0.0f)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "BotSkill", "Bot Skill"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
-					.Text(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-					SNew(SNumericEntryBox<float>)
-					.LabelPadding(FMargin(10.0f, 0.0f))
-					.Value(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetOptional)
-					.OnValueChanged(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::Set)
-					.AllowSpin(true)
-					.Delta(1)
-					.MinValue(0)
-					.MaxValue(7)
-					.MinSliderValue(0)
-					.MaxSliderValue(7)
-					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-				)
-			]
-		]
-	];
 	MenuSpace->AddSlot()
 	.Padding(0.0f,0.0f,0.0f,5.0f)
 	.AutoHeight()
@@ -252,7 +206,6 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			]
 		]
 	];
-*/
 }
 
 #endif

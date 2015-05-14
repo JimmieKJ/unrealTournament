@@ -388,3 +388,23 @@ namespace ERedirectStatus
 		MAX,
 	};
 }
+
+/**
+ *	Holds information to build a map list.
+ **/
+struct FMapListItem
+{
+	/** package name (actual loaded name and also display name if there's no title) */
+	FString PackageName;
+	/** optional title pulled from asset registry, if it exists */
+	FString Title;
+
+	FMapListItem(const FString& InPackageName, const FString& InTitle)
+		: PackageName(InPackageName), Title(InTitle)
+	{}
+
+	FString GetDisplayName() const
+	{
+		return !Title.IsEmpty() ? Title : PackageName;
+	}
+};

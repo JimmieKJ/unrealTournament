@@ -8,6 +8,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UTTimerMessage.h"
 #include "UTReplicatedLoadoutInfo.h"
+#include "UTMutator.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -785,6 +786,83 @@ void AUTGameState::VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter)
 					TempBans.Add(BadGuy->UniqueId.GetUniqueNetId());				
 				}
 			}
+		}
+	}
+}
+
+void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList)
+{
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		// non-native classes are detected by asset search even if they're loaded for consistency
+		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown) && It->HasAnyClassFlags(CLASS_Native))
+		{
+			if (It->IsChildOf(AUTGameMode::StaticClass()))
+			{
+				if (!It->GetDefaultObject<AUTGameMode>()->bHideInUI)
+				{
+					GameModes.Add(*It);
+				}
+			}
+			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
+			{
+				MutatorList.Add(*It);
+			}
+		}
+	}
+
+	{
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTGameMode::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()) && !TestClass->GetDefaultObject<AUTGameMode>()->bHideInUI)
+				{
+					GameModes.AddUnique(TestClass);
+				}
+			}
+		}
+	}
+
+	{
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTMutator::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTMutator::StaticClass()) && !TestClass->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
+				{
+					MutatorList.AddUnique(TestClass);
+				}
+			}
+		}
+	}
+}
+
+void AUTGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList)
+{
+	TArray<FAssetData> MapAssets;
+	GetAllAssetData(UWorld::StaticClass(), MapAssets);
+	for (const FAssetData& Asset : MapAssets)
+	{
+		FString MapPackageName = Asset.PackageName.ToString();
+		// ignore /Engine/ as those aren't real gameplay maps
+		// make sure expected file is really there
+		if ( DefaultGameMode->SupportsMap(Asset.AssetName.ToString()) && !MapPackageName.StartsWith(TEXT("/Engine/")) &&
+			IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
+		{
+			static FName NAME_Title(TEXT("Title"));
+			const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
+			MapList.Add(MakeShareable(new FMapListItem(Asset.AssetName.ToString(), (Title != NULL) ? *Title : FString())));
 		}
 	}
 }

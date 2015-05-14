@@ -35,6 +35,8 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackages);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackagesChecksums);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackagesRedirectURLs);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, bCustomRuleset);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, GameModeClass);
 }
 
 void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
@@ -98,3 +100,17 @@ void AUTReplicatedGameRuleset::GotTag()
 {
 }
 
+AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
+{
+	if (!GameModeClass.IsEmpty())
+	{
+		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *GameModeClass, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		if (GModeClass)
+		{
+			AUTGameMode* DefaultGameModeObject = GModeClass->GetDefaultObject<AUTGameMode>();
+			return DefaultGameModeObject;
+		}
+	}
+
+	return NULL;
+}

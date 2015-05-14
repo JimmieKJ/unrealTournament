@@ -10,6 +10,7 @@
 #include "UTAudioSettings.h"
 #include "UTLevelSummary.h"
 #include "UTReplicatedGameRuleset.h"
+#include "Panels/SUWCreateGamePanel.h"
 
 
 #if !UE_SERVER
@@ -107,7 +108,7 @@ class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog
 public:
 	SLATE_BEGIN_ARGS(SUWGameSetupDialog)
 	: _DialogTitle(NSLOCTEXT("SUWGameSetupDialog", "Title", "GAME SETTINGS"))
-	, _DialogSize(FVector2D(1380, 1040))
+	, _DialogSize(FVector2D(1700, 1040))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -134,6 +135,14 @@ public:
 	void ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo);
 	int32 BotSkillLevel;
 
+	// Will return true if this settings dialog is on the custom tab.  
+	bool IsCustomSettings()
+	{
+		return CurrentCategory == FName(TEXT("Custom"));
+	}
+
+	void GetCustomGameSettings(FString& StartingMap, FString&GameOptions);
+
 protected:
 
 	// Holds the list of categories to create.
@@ -158,6 +167,11 @@ protected:
 	TSharedPtr<SButton> GameModeButtons;
 	TSharedPtr<SButton> MapsButton;
 
+	TSharedPtr<SVerticalBox> MapBox;
+	TSharedPtr<SVerticalBox> HideBox;
+
+	TSharedPtr<SUWCreateGamePanel> CustomPanel;
+
 	FText GetMatchRulesTitle() const;
 	FText GetMatchRulesDescription() const;
 
@@ -168,7 +182,6 @@ protected:
 	FReply OnRuleClick(int32 RuleIndex);
 	FReply OnMapClick(int32 MapIndex);
 
-	TSharedPtr<SVerticalBox> MapBox;
 	void BuildMapList();
 	void BuildMapPanel();
 
@@ -178,6 +191,7 @@ protected:
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
 	FText GetBotSkillText() const;
 	void OnBotMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
+
 };
 
 #endif

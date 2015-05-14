@@ -22,63 +22,14 @@
 
 void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 {
-	for (TObjectIterator<UClass> It; It; ++It)
+	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
 	{
-		// non-native classes are detected by asset search even if they're loaded for consistency
-		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown) && It->HasAnyClassFlags(CLASS_Native))
-		{
-			if (It->IsChildOf(AUTGameMode::StaticClass()))
-			{
-				if (!It->GetDefaultObject<AUTGameMode>()->bHideInUI)
-				{
-					AllGametypes.Add(*It);
-				}
-			}
-			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
-			{
-				MutatorListAvailable.Add(*It);
-			}
-		}
+		GameState->GetAvailableGameData(AllGametypes, MutatorListAvailable);
 	}
 
-	{
-		TArray<FAssetData> AssetList;
-		GetAllBlueprintAssetData(AUTGameMode::StaticClass(), AssetList);
-		for (const FAssetData& Asset : AssetList)
-		{
-			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
-			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-			if (ClassPath != NULL)
-			{
-				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()) && !TestClass->GetDefaultObject<AUTGameMode>()->bHideInUI)
-				{
-					AllGametypes.AddUnique(TestClass);
-				}
-			}
-		}
-	}
-
-	{
-		TArray<FAssetData> AssetList;
-		GetAllBlueprintAssetData(AUTMutator::StaticClass(), AssetList);
-		for (const FAssetData& Asset : AssetList)
-		{
-			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
-			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-			if (ClassPath != NULL)
-			{
-				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTMutator::StaticClass()) && !TestClass->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
-				{
-					MutatorListAvailable.AddUnique(TestClass);
-				}
-			}
-		}
-	}
-
+	// Set the Initial Game Type, restoring the previous selection if possible.
 	TSubclassOf<AUTGameMode> InitialSelectedGameClass = AUTDMGameMode::StaticClass();
-	// restore previous selection if possible
 	FString LastGametypePath;
 	if (GConfig->GetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), LastGametypePath, GGameIni) && LastGametypePath.Len() > 0)
 	{
@@ -92,6 +43,7 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 		}
 	}
 
+	// Set the initial selected mutators if possible.
 	TArray<FString> LastMutators;
 	if (GConfig->GetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni))
 	{
@@ -119,183 +71,24 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
-		SNew(SOverlay)
-		+SOverlay::Slot()
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.Padding(0.0f, 0.0f, 0.0f, 5.0f)
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SUWScaleBox)
-					.bMaintainAspectRatio(false)
-					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.Backgrounds.BK01"))
-					]
-				]
-			]
-		]
-		+SOverlay::Slot()
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SUWScaleBox)
-					.bMaintainAspectRatio(false)
-					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.Backgrounds.Overlay"))
-					]
-				]
-			]
-		]
 
-		+SOverlay::Slot()
-		[
 			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
-			[
-
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.VAlign(VAlign_Fill)
-				[
-					BuildGamePanel(InitialSelectedGameClass)
-				]
-			]
 			+SVerticalBox::Slot()
-			.AutoHeight()
-			.VAlign(VAlign_Bottom)
-			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Fill)
 			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(SBox)
-					.HeightOverride(8)
-					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Bar"))
-					]
-				]
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					// Buttom Menu Bar
-					SNew(SOverlay)
-					+ SOverlay::Slot()
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.HAlign(HAlign_Fill)
-						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
-						]
-					]
-					+SOverlay::Slot()
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							SNew(SBox)
-							.HeightOverride(56)
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.HAlign(HAlign_Right)
-								[
-									BuildMenu()
-								]
-							]
-						]
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							SNew(SBox)
-							.HeightOverride(8)
-							[
-								SNew(SCanvas)
-							]
-						]
-
-					]
-				]
+				BuildGamePanel(InitialSelectedGameClass)
 			]
 		]
 	];
 
 }
 
-TSharedRef<SWidget> SUWCreateGamePanel::BuildMenu()
-{
-	TSharedPtr<SHorizontalBox> Box = SNew(SHorizontalBox);
-	Box->AddSlot()
-	.Padding(0.0f,0.0f,5.0f,0.0f)
-	.AutoWidth()
-	.VAlign(VAlign_Center)
-	[
-		SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-		.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-		.OnClicked(this, &SUWCreateGamePanel::OfflineClick)
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWCreateGamePanel","MenuBar_OFFLINE","PLAY OFFLINE").ToString())
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-			]
-		]
-	];
-
-#if PLATFORM_WINDOWS
-	Box->AddSlot()
-	.Padding(0.0f,0.0f,5.0f,0.0f)
-	.AutoWidth()
-	.VAlign(VAlign_Center)
-	[
-		SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-		.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-		.OnClicked(this, &SUWCreateGamePanel::HostClick)
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWCreateGamePanel","MenuBar_ONLINE","START SERVER").ToString())
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-			]
-		]
-	];
-#endif
-
-	return Box.ToSharedRef();
-}
 
 TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> InitialSelectedGameClass)
 {
@@ -422,7 +215,6 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 					[
 						SAssignNew(MapRecommendedPlayers, STextBlock)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-						.Text(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)))
 					]
 				]
 			]
@@ -639,15 +431,17 @@ void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ES
 	UUTLevelSummary* Summary = NewSelection.IsValid() ? UUTGameEngine::LoadLevelSummary(NewSelection.Get()->PackageName) : NULL;
 	if (Summary != NULL)
 	{
+		int32 OptimalPlayerCount = SelectedGameClass.GetDefaultObject()->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+	
 		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(Summary->Author)));
-		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(Summary->OptimalPlayerCount.X), FText::AsNumber(Summary->OptimalPlayerCount.Y)));
+		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0}"), FText::AsNumber(OptimalPlayerCount)));
 		MapDesc->SetText(Summary->Description);
 		*LevelScreenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
 	}
 	else
 	{
 		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(TEXT("Unknown"))));
-		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0} - {1}"), FText::AsNumber(8), FText::AsNumber(12)));
+		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0}"), FText::AsNumber(10)));
 		MapDesc->SetText(FText());
 		*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
 	}
@@ -766,21 +560,13 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		// generate map list
 		const AUTGameMode* GameDefaults = SelectedGameClass.GetDefaultObject();
 		AllMaps.Empty();
-		TArray<FAssetData> MapAssets;
-		GetAllAssetData(UWorld::StaticClass(), MapAssets);
-		for (const FAssetData& Asset : MapAssets)
+
+		AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
+		if (GameState)
 		{
-			FString MapPackageName = Asset.PackageName.ToString();
-			// ignore /Engine/ as those aren't real gameplay maps
-			// make sure expected file is really there
-			if ( GameDefaults->SupportsMap(Asset.AssetName.ToString()) && !MapPackageName.StartsWith(TEXT("/Engine/")) &&
-				IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
-			{
-				static FName NAME_Title(TEXT("Title"));
-				const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
-				AllMaps.Add(MakeShareable(new FMapListItem(Asset.AssetName.ToString(), (Title != NULL) ? *Title : FString())));
-			}
+			GameState->GetAvailableMaps(GameDefaults, AllMaps);
 		}
+
 		AllMaps.Sort([](const TSharedPtr<FMapListItem>& A, const TSharedPtr<FMapListItem>& B)
 					{
 						bool bHasTitleA = !A.Get()->Title.IsEmpty();
@@ -820,216 +606,11 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		OnMapSelected(MapList->GetSelectedItem(), ESelectInfo::Direct);
 	}
 }
-
-FReply SUWCreateGamePanel::OfflineClick()
-{
-	StartGame(EServerStartMode::SERVER_Standalone);
-	return FReply::Handled();
-}
-FReply SUWCreateGamePanel::HostClick()
-{
-	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (!UTEngine->IsCloudAndLocalContentInSync())
-	{
-		PlayerOwner->ShowMessage(NSLOCTEXT("SUWCreateGamePanel", "CloudSyncErrorCaption", "Cloud Not Synced"), NSLOCTEXT("SUWCreateGamePanel", "CloudSyncErrorMsg", "Some files are not up to date on your cloud storage. Would you like to start anyway?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUWCreateGamePanel::CloudOutOfSyncResult));
-	}
-	else
-	{
-		UUTGameUserSettings* GameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-
-		bool bShowingLanWarning = false;
-		if( !GameSettings->bShouldSuppressLanWarning )
-		{
-			TWeakObjectPtr<UUTLocalPlayer> PlayerOwner = GetPlayerOwner();
-
-			auto OnDialogConfirmation = [PlayerOwner] (TSharedPtr<SCompoundWidget> Widget, uint16 Button)
-			{
-				if (PlayerOwner.IsValid() && PlayerOwner->PlayerController)
-				{
-					PlayerOwner->PlayerController->bShowMouseCursor = false;
-					PlayerOwner->PlayerController->SetInputMode(FInputModeGameOnly());
-				}
-
-				UUTGameUserSettings* GameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-				GameSettings->SaveConfig();
-			};
-
-			bool bCanBindAll = false;
-			TSharedRef<FInternetAddr> Address = ISocketSubsystem::Get()->GetLocalHostAddr(*GWarn, bCanBindAll);
-			if (Address->IsValid())
-			{
-				FString StringAddress = Address->ToString(false);
-
-				// Note: This is an extremely basic way to test for local network and it only covers the common case
-				if (StringAddress.StartsWith(TEXT("192.168.")))
-				{
-					if( PlayerOwner->PlayerController )
-					{
-						PlayerOwner->PlayerController->SetInputMode( FInputModeUIOnly() );
-					}
-					bShowingLanWarning = true;
-					PlayerOwner->ShowSupressableConfirmation(
-						NSLOCTEXT("SUWCreateGamePanel", "LocalNetworkWarningTitle", "Local Network Detected"),
-						NSLOCTEXT("SUWCreateGamePanel", "LocalNetworkWarningDesc", "Make sure ports 7777 and 15000 are forwarded in your router to be visible to players outside your local network"),
-						FVector2D(0, 0),
-						GameSettings->bShouldSuppressLanWarning,
-						FDialogResultDelegate::CreateLambda( OnDialogConfirmation ) );
-				}
-
-			}
-		}
-		StartGame(EServerStartMode::SERVER_Listen);
-
-		if (PlayerOwner->PlayerController && bShowingLanWarning)
-		{ 
-			// ensure the user can click the warning.  The game will have tried to hide the cursor otherwise
-			PlayerOwner->PlayerController->bShowMouseCursor = true;
-			PlayerOwner->PlayerController->SetInputMode(FInputModeUIOnly());
-		}
-	}
-
-	return FReply::Handled();
-}
-
-void SUWCreateGamePanel::CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
-{
-	if (ButtonID == UTDIALOG_BUTTON_YES)
-	{
-		StartGame(EServerStartMode::SERVER_Listen);
-	}
-}
-
-FReply SUWCreateGamePanel::StartGame(EServerStartMode Mode)
-{
-	if (FUTAnalytics::IsAvailable())
-	{
-		TArray<FAnalyticsEventAttribute> ParamArray;
-		if (Mode == EServerStartMode::SERVER_Dedicated)		ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Dedicated")));
-		if (Mode == EServerStartMode::SERVER_Listen)		ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Listen")));
-		if (Mode == EServerStartMode::SERVER_Standalone)	ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Standalone")));
-		
-		FUTAnalytics::GetProvider().RecordEvent( TEXT("MenuStartGame"), ParamArray );
-	}
-
-	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
-	if (Mode != SERVER_Standalone && Engine != NULL && !Engine->IsCloudAndLocalContentInSync())
-	{
-		PendingStartMode = Mode;
-		FText DialogText = NSLOCTEXT("UT", "ContentOutOfSyncWarning", "You have locally created custom content that is not in your cloud storage. Players may be unable to join your server. Are you sure?");
-		FDialogResultDelegate Callback;
-		Callback.BindSP(this, &SUWCreateGamePanel::StartGameWarningComplete);
-		GetPlayerOwner()->ShowMessage(NSLOCTEXT("U1T", "ContentNotInSync", "Custom Content Out of Sync"), DialogText, UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, Callback);
-	}
-	else
-	{
-		StartGameInternal(Mode);
-	}
-
-	return FReply::Handled();
-}
-
-void SUWCreateGamePanel::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID)
-{
-	if (ButtonID == UTDIALOG_BUTTON_YES || ButtonID == UTDIALOG_BUTTON_OK)
-	{
-		StartGameInternal(PendingStartMode);
-	}
-}
-
-void SUWCreateGamePanel::StartGameInternal(EServerStartMode Mode)
-{
-	FString SelectedMapName = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->PackageName : TEXT("");
-	// save changes
-	GConfig->SetString(TEXT("CreateGameDialog"), TEXT("LastGametypePath"), *SelectedGameClass->GetPathName(), GGameIni);
-	SelectedGameClass.GetDefaultObject()->UILastStartingMap = SelectedMapName;
-	SelectedGameClass.GetDefaultObject()->SaveConfig();
-	AUTGameState::StaticClass()->GetDefaultObject()->SaveConfig();
-
-	FString NewURL = FString::Printf(TEXT("%s?game=%s"), *SelectedMapName, *SelectedGameClass->GetPathName());
-	TArray<FString> LastMutators;
-	if (MutatorListEnabled.Num() > 0)
-	{
-		LastMutators.Add(MutatorListEnabled[0]->GetPathName());
-		NewURL += FString::Printf(TEXT("?mutator=%s"), *MutatorListEnabled[0]->GetPathName());
-		for (int32 i = 1; i < MutatorListEnabled.Num(); i++)
-		{
-			NewURL += TEXT(",");
-			NewURL += MutatorListEnabled[i]->GetPathName();
-			LastMutators.Add(MutatorListEnabled[i]->GetPathName());
-		}
-	}
-	GConfig->SetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni);
-
-	if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
-	{
-		if (FPlatformProcess::IsProcRunning(GetPlayerOwner()->DedicatedServerProcessHandle))
-		{
-			FPlatformProcess::TerminateProc(GetPlayerOwner()->DedicatedServerProcessHandle);
-		}
-		GetPlayerOwner()->DedicatedServerProcessHandle.Reset();
-	}
-
-	if (Mode == SERVER_Dedicated || Mode == SERVER_Listen)
-	{
-		GConfig->Flush(false);
-		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
-		FString Options = FString::Printf(TEXT("unrealtournament %s -log -server"), *NewURL);
-
-		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-		if (OnlineSubsystem)
-		{
-			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-			if (OnlineIdentityInterface.IsValid())
-			{
-				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetPlayerOwner()->GetControllerId());
-				if (UserId.IsValid())
-				{
-					Options += FString::Printf(TEXT(" -cloudID=%s"), *UserId->ToString());
-				}
-			}
-		}
-
-		FString McpConfigOverride;
-		if (FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride))
-		{
-			Options += FString::Printf(TEXT(" -MCPCONFIG=%s"), *McpConfigOverride);
-		}
-
-		UE_LOG(UT, Log, TEXT("Run dedicated server with command line: %s %s"), *ExecPath, *Options);
-		if (Mode == SERVER_Listen)
-		{
-			GetPlayerOwner()->DedicatedServerProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *(Options + FString::Printf(TEXT(" -ClientProcID=%u"), FPlatformProcess::GetCurrentProcessId())), true, false, false, NULL, 0, NULL, NULL);
-
-			if (GetPlayerOwner()->DedicatedServerProcessHandle.IsValid())
-			{
-				GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), TEXT("127.0.0.1"), TRAVEL_Absolute);
-
-				PlayerOwner->HideMenu();
-			}
-		}
-		else
-		{
-			FProcHandle ServerHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
-			if (ServerHandle.IsValid())
-			{
-				FPlatformMisc::RequestExit(false);
-			}
-		}
-	}
-	else if (GetPlayerOwner()->PlayerController != NULL)
-	{
-		GEngine->SetClientTravel(GetPlayerOwner()->PlayerController->GetWorld(), *NewURL, TRAVEL_Absolute);
-		PlayerOwner->HideMenu();
-	}
-}
-FReply SUWCreateGamePanel::CancelClick()
+void SUWCreateGamePanel::Cancel()
 {
 	// revert config changes
 	SelectedGameClass.GetDefaultObject()->ReloadConfig();
 	AUTGameState::StaticClass()->GetDefaultObject()->ReloadConfig();
-
-	//GetPlayerOwner()->CloseDialog(SharedThis(this));
-	return FReply::Handled();
 }
 
 TSharedRef<ITableRow> SUWCreateGamePanel::GenerateMutatorListRow(UClass* MutatorType, const TSharedRef<STableViewBase>& OwningList)
@@ -1098,5 +679,49 @@ FReply SUWCreateGamePanel::ConfigureBots()
 	return FReply::Handled();
 }
 
+void SUWCreateGamePanel::GetCustomGameSettings(FString& StartingMap, FString&GameOptions, int32 BotSkillLevel)
+{
+	StartingMap = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->PackageName : TEXT("");
+	AUTGameMode* DefaultGameMode = SelectedGameClass->GetDefaultObject<AUTGameMode>();
+	if (DefaultGameMode)
+	{
+		// The TAttributeProperty's that link the options page to the game mode will have already set their values
+		// so just save config on the default object and return the game.
+
+		DefaultGameMode->UILastStartingMap = StartingMap;
+
+		GameOptions = FString::Printf(TEXT("?Game=%s"), *SelectedGameClass->GetPathName());
+
+		TArray<FString> LastMutators;
+		if (MutatorListEnabled.Num() > 0)
+		{
+			LastMutators.Add(MutatorListEnabled[0]->GetPathName());
+			GameOptions += FString::Printf(TEXT("?mutator=%s"), *MutatorListEnabled[0]->GetPathName());
+			for (int32 i = 1; i < MutatorListEnabled.Num(); i++)
+			{
+				GameOptions += TEXT(",") + MutatorListEnabled[i]->GetPathName();
+				LastMutators.Add(MutatorListEnabled[i]->GetPathName());
+			}
+		}
+		GConfig->SetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni);
+
+		// If we don't want bots, clear BotFillCount
+
+		if (BotSkillLevel >=0)
+		{
+			// Load the level summary of this map.
+			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
+			DefaultGameMode->BotFillCount = Summary->OptimalPlayerCount;
+			GameOptions += FString::Printf(TEXT("?Difficulty=%i"), BotSkillLevel);
+		}
+		else
+		{
+			DefaultGameMode->BotFillCount = 0;
+		}
+
+		DefaultGameMode->SaveConfig();
+	}
+}
 
 #endif
+

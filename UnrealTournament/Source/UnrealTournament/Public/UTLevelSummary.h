@@ -15,22 +15,30 @@ class UNREALTOURNAMENT_API UUTLevelSummary : public UObject
 	{
 		Author = TEXT("Unknown");
 		Description = NSLOCTEXT("LevelSummary", "DefaultDesc", "Needs Description");
-		OptimalPlayerCount.X = 8;
-		OptimalPlayerCount.Y = 12;
+		OptimalPlayerCount = 6;
+		OptimalTeamPlayerCount = 10;
 	}
 
 	/** localized title of the map */
 	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
 	FString Title;
+
 	/** desired number of players for best gameplay */
 	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
-	FIntPoint OptimalPlayerCount;
+	int32 OptimalPlayerCount;
+
+	/** desired number of players for best gameplay */
+	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
+	int32 OptimalTeamPlayerCount;
+
 	/** name of author(s) */
 	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
 	FString Author;
+
 	/** level description */
 	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
 	FText Description;
+
 	/** level screenshot */
 	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
 	UTexture2D* Screenshot;

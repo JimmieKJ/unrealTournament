@@ -9,7 +9,6 @@
 #include "UTLobbyMatchInfo.h"
 #include "UTEpicDefaultRulesets.h"
 
-
 #if !UE_SERVER
 
 
@@ -87,52 +86,59 @@ void SUWGameSetupDialog::Construct(const FArguments& InArgs)
 				]
 
 				+ SVerticalBox::Slot()
-				.Padding(15.0f, 0.0f, 10.0f, 10.0f)
 				.AutoHeight()
 				[
-					SNew(SBox)
-					.HeightOverride(220)
+					SAssignNew(HideBox, SVerticalBox)
+					+ SVerticalBox::Slot()
+					.Padding(15.0f, 0.0f, 10.0f, 10.0f)
+					.AutoHeight()
 					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.Padding(10.0,10.0,0.0,5.0)
-						.FillWidth(1.0)
+						SNew(SBox)
+						.HeightOverride(220)
 						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.AutoHeight()
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.Padding(10.0,10.0,0.0,5.0)
+							.FillWidth(1.0)
 							[
-								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesTitle")
-								.Text(this, &SUWGameSetupDialog::GetMatchRulesTitle)
-								.ColorAndOpacity(FLinearColor::Yellow)
-							]
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesTitle")
+									.Text(this, &SUWGameSetupDialog::GetMatchRulesTitle)
+									.ColorAndOpacity(FLinearColor::Yellow)
+								]
 
-							+SVerticalBox::Slot()
-							.FillHeight(1.0)
-							[
-								SNew(SRichTextBlock)
-								.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesText")
-								.Justification(ETextJustify::Left)
-								.DecoratorStyleSet( &SUWindowsStyle::Get() )
-								.AutoWrapText( true )
-								.Text(this, &SUWGameSetupDialog::GetMatchRulesDescription)
+								+SVerticalBox::Slot()
+								.FillHeight(1.0)
+								[
+									SNew(SRichTextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesText")
+									.Justification(ETextJustify::Left)
+									.DecoratorStyleSet( &SUWindowsStyle::Get() )
+									.AutoWrapText( true )
+									.Text(this, &SUWGameSetupDialog::GetMatchRulesDescription)
+								]
 							]
 						]
 					]
+					+SVerticalBox::Slot()
+					.Padding(15.0f, 0.0f, 10.0f, 0.0f)
+					.FillHeight(1.0)
+					.HAlign(HAlign_Fill)
+					[
+						SAssignNew(MapBox, SVerticalBox)
+					]
 				]
-				+SVerticalBox::Slot()
-				.Padding(15.0f, 0.0f, 10.0f, 0.0f)
-				.FillHeight(1.0)
-				.HAlign(HAlign_Fill)
-				[
-					SAssignNew(MapBox, SVerticalBox)
-				]
-
 			]
 		];
 	}
 	BuildCategories();
+
+	
+
 	DisableButton(UTDIALOG_BUTTON_OK);
 	DisableButton(UTDIALOG_BUTTON_PLAY);
 	DisableButton(UTDIALOG_BUTTON_LAN);
@@ -255,6 +261,26 @@ void SUWGameSetupDialog::BuildRuleList(FName Category)
 {
 	RulesPanel->ClearChildren();
 	RuleSubset.Empty();
+
+	CurrentCategory = Category;
+
+	if (GetPlayerOwner()->GetWorld()->GetNetMode() != ENetMode::NM_Client && Category == FName(TEXT("Custom")))
+	{
+		HideBox->SetVisibility(EVisibility::Hidden);
+		RulesPanel->AddSlot(0,0)
+		[
+			SAssignNew(CustomPanel, SUWCreateGamePanel, GetPlayerOwner())
+		];
+
+		EnableButton(UTDIALOG_BUTTON_PLAY);
+		EnableButton(UTDIALOG_BUTTON_LAN);
+
+		return;	
+
+	}
+	CustomPanel.Reset();
+
+	HideBox->SetVisibility(EVisibility::Visible);
 
 	int32 Cnt = 0;
 	for (int32 i=0;i<GameRulesets.Num();i++)
@@ -438,8 +464,8 @@ void SUWGameSetupDialog::BuildMapPanel()
 
 			for (int32 i=0; i< SelectedRuleset->MapPlaylist.Num(); i++)
 			{
-				int32 Row = i / 5;
-				int32 Col = i % 5;
+				int32 Row = i / 6;
+				int32 Col = i % 6;
 
 				FString Title = MapPlayList[i].MapName;
 				FString ToolTip = MapPlayList[i].MapName;
@@ -706,6 +732,14 @@ void SUWGameSetupDialog::ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> M
 				}
 			}
 		}
+	}
+}
+
+void SUWGameSetupDialog::GetCustomGameSettings(FString& StartingMap, FString&GameOptions)
+{
+	if (CustomPanel.IsValid())
+	{
+		CustomPanel->GetCustomGameSettings(StartingMap, GameOptions, BotSkillLevel);
 	}
 }
 
