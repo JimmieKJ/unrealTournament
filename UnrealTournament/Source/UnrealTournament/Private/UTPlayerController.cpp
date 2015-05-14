@@ -1519,6 +1519,11 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	}
 	else if (P != NULL)
 	{
+		// hide first person mesh (but not attachments) if hidden weapons
+		if (GetWeaponHand() == HAND_Hidden && P->GetWeapon() != NULL)
+		{
+			HiddenComponents.Add(P->GetWeapon()->Mesh->ComponentId);
+		}
 		// hide third person character model
 		HideComponentTree(P->GetMesh(), HiddenComponents);
 		// hide flag
