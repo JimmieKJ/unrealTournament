@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTScoreboard.h"
+#include "UTHUDWidget_Spectator.h"
 
 UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -372,18 +373,27 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 {
 	if (UTGameState)
 	{
-		if (!UTGameState->HasMatchStarted())
+		FText SpectatorMessage;
+		bool bShortMessage = false;
+		if (UTHUDOwner->SpectatorMessageWidget)
+		{
+			SpectatorMessage = UTHUDOwner->SpectatorMessageWidget->GetSpectatorMessageText(bShortMessage);
+		}
+		if (!SpectatorMessage.IsEmpty() && !bShortMessage && (UTGameState->PlayerArray.Num() < 26) && (UTHUDOwner->ScoreboardPage == 0))
 		{
 			// Only draw if there is room above spectator panel
-			if (UTGameState->PlayerArray.Num() > 26)
-			{
-				return;
-			}
+			UTHUDOwner->SpectatorMessageWidget->PreDraw(RenderDelta, UTHUDOwner, Canvas, CanvasCenter);
+			UTHUDOwner->SpectatorMessageWidget->DrawSimpleMessage(SpectatorMessage, RenderDelta, bShortMessage);
+			return;
+		}
+		if (SpectatorMessage.IsEmpty() || bShortMessage)
+		{
+			SpectatorMessage = FText::FromString(UTGameState->ServerName);
 		}
 
 		// Draw the Background
 		DrawTexture(TextureAtlas, 0, YOffset, 1269, 38, 4, 132, 30, 38, 1.0);
-		DrawText(FText::FromString(UTGameState->ServerName), 10, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(SpectatorMessage, 10, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		DrawText(FText::FromString(UTGameState->ServerDescription), 1259, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if (NumPages > 1)
 		{

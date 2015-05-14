@@ -16,7 +16,6 @@
 #include "Json.h"
 #include "DisplayDebugHelpers.h"
 
-
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	WidgetOpacity = 1.0f;
@@ -282,6 +281,10 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	}
 
 	Widget->InitializeWidget(this);
+	if (Cast<UUTHUDWidget_Spectator>(Widget))
+	{
+		SpectatorMessageWidget = Cast<UUTHUDWidget_Spectator>(Widget);
+	}
 	return Widget;
 }
 
@@ -361,7 +364,6 @@ void AUTHUD::CacheFonts()
 void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
-
 
 	if (!IsPendingKillPending() || !IsPendingKill())
 	{

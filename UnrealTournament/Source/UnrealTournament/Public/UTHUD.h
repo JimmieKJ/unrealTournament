@@ -91,6 +91,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float WidgetOpacity;
 
+	/** Cached reference to the spectator message widget. */
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	class UUTHUDWidget_Spectator* SpectatorMessageWidget;
+
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;
