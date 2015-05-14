@@ -8,6 +8,7 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ScoringPlaysHeader = NSLOCTEXT("CTF", "ScoringPlaysHeader", "SCORING PLAYS");
+	ScoringBreakdownHeader = NSLOCTEXT("CTF", "ScoringBreakdownHeader", "SCORING BREAKDOWN");
 	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assisted by");
 	UnassistedText = NSLOCTEXT("CTF", "Unassisted", "Unassisted");
 	NoScoringText = NSLOCTEXT("CTF", "NoScoring", "No Scoring");
@@ -228,9 +229,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	float MedYL;
 	Canvas->TextSize(UTHUDOwner->MediumFont, ScoringPlaysHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
 
-	Canvas->DrawText(UTHUDOwner->MediumFont, ScoringPlaysHeader, (0.5f * Canvas->ClipX - XL) * 0.5f, YPos, RenderScale, RenderScale, TextRenderInfo);
-
-	YPos += 1.2f * MedYL;
 	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
 	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
 	float ScoreHeight = MedYL + SmallYL;
@@ -238,13 +236,21 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 	float ScoringOffsetX, ScoringOffsetY;
 	Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
 	int32 TotalPlays = CTFState->GetScoringPlays().Num();
-	if (TotalPlays > 0)
+
+	// draw background
+	FLinearColor DrawColor = FLinearColor::Black;
+	DrawColor.A = 0.5f;
+	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, DrawColor);
+
+	Canvas->DrawText(UTHUDOwner->MediumFont, ScoringPlaysHeader, XOffset + (ScoreWidth - XL) * 0.5f, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += 1.2f * MedYL;
+	if (CTFState->GetScoringPlays().Num() == 0)
 	{
-		// draw background
-		FLinearColor DrawColor = FLinearColor::Black;
-		DrawColor.A = 0.5f;
-		DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, FMath::Min(MaxHeight, 0.05f*ScoreWidth + TotalPlays * ScoreHeight + MedYL), 149, 138, 32, 32, 0.5f, DrawColor);
+		float YL;
+		Canvas->TextSize(UTHUDOwner->MediumFont, NoScoringText.ToString(), XL, YL, RenderScale, RenderScale);
+		DrawText(NoScoringText, XOffset + (ScoreWidth - XL) * 0.5f, YPos, UTHUDOwner->MediumFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top, TextRenderInfo);
 	}
+
 	float OldTimeLineOffset = TimeLineOffset;
 	TimeLineOffset += 2.f*DeltaTime;
 	float TimeFloor = FMath::FloorToInt(TimeLineOffset);
@@ -356,16 +362,35 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 			YPos = BoxYPos + CurrentScoreHeight + 8.f*RenderScale;
 		}
 	}
-	if (CTFState->GetScoringPlays().Num() == 0)
-	{
-		DrawText(NoScoringText, XOffset + 0.2f*ScoreWidth, YPos, UTHUDOwner->MediumFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top, TextRenderInfo);
-	}
 
 	XOffset = ScoreWidth + 2.f*XOffset;
 	YPos = TopYPos;
+	DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+
+	bScaleByDesignedResolution = true;
+	RenderPosition = SavedRenderPosition;
+}
+
+void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
+{
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	TextRenderInfo.bClipText = true;
+	FVector2D SavedRenderPosition = RenderPosition;
+	RenderPosition = FVector2D(0.f, 0.f);
+	bScaleByDesignedResolution = false;
+
 	FLinearColor DrawColor = FLinearColor::Black;
 	DrawColor.A = 0.5f;
 	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, DrawColor);
+
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	float MedYL;
+	Canvas->TextSize(UTHUDOwner->MediumFont, ScoringBreakdownHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+
+	Canvas->DrawText(UTHUDOwner->MediumFont, ScoringBreakdownHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += 1.2f * MedYL;
 
 	bScaleByDesignedResolution = true;
 	RenderPosition = SavedRenderPosition;

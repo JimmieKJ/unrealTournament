@@ -13,6 +13,8 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY()
 	FText ScoringPlaysHeader;
 	UPROPERTY()
+		FText ScoringBreakdownHeader;
+	UPROPERTY()
 	FText AssistedByText;
 	UPROPERTY()
 	FText UnassistedText;
@@ -56,6 +58,7 @@ protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawScoringPlays(float RenderDelta, float& YOffset);
+	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight);
 
 	virtual void PageChanged_Implementation() override;
 };
