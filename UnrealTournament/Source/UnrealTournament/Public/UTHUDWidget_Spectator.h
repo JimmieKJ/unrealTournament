@@ -19,6 +19,8 @@ public:
 	/** Draw the bar and the spectator message.  If bShortMessage, don't use entire bottom of screen. */
 	virtual void DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage);
 
+	virtual FText GetSpectatorMessageText(bool &bShortMessage);
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spectator")
 	UTexture2D* TextureAtlas;

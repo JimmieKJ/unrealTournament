@@ -68,116 +68,121 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 	if (TextureAtlas && UTGameState)
 	{
 		bool bShortMessage = false;
-		FText SpectatorMessage;
-		if (!UTGameState->HasMatchStarted())	
+		FText SpectatorMessage = GetSpectatorMessageText(bShortMessage);
+		DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);
+	}
+}
+
+FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
+{
+	FText SpectatorMessage;
+	if (!UTGameState->HasMatchStarted())
+	{
+		// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
+		AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
+		if (UTGameState->IsMatchInCountdown())
 		{
-			// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
-			AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
-			if (UTGameState->IsMatchInCountdown())
-			{
-				SpectatorMessage = (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
-									? NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position")
-									: NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
-			}
-			else if (UTGameState->PlayersNeeded > 0)
-			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForPlayers", "Waiting for players to join.");
-			}
-			else if (UTPS && UTPS->bReadyToPlay)
-			{
-				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
-									? NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ALTFIRE] to change teams.")
-									: NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
-			}
-			else if (UTPS && UTPS->bOnlySpectator)
-			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
-			}
-			else
-			{
-				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
-									? NSLOCTEXT("UUTHUDWidget_Spectator", "GetReadyTeam", "Press [FIRE] to ready up, [ALTFIRE] to change teams.")
-									: NSLOCTEXT("UUTHUDWidget_Spectator", "GetReady", "Press [FIRE] when you are ready.");
-			}
+			SpectatorMessage = (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
+				? NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position")
+				: NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
 		}
-		else if (!UTGameState->HasMatchEnded())
+		else if (UTGameState->PlayersNeeded > 0)
 		{
-			if (UTGameState->IsMatchAtHalftime())
-			{
-				FFormatNamedArguments Args;
-				Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
-				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args);
-			}
-			else if (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
-			{
-				AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
-				AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
-				if (!ViewCharacter)
-				{
-					AUTCarriedObject* Flag = Cast<AUTCarriedObject>(ViewActor);
-					if (Flag && Flag->Holder)
-					{
-						ViewCharacter = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
-					}
-				}
-				if (ViewCharacter && ViewCharacter->PlayerState)
-				{
-					FFormatNamedArguments Args;
-					Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
-					bShortMessage = true;
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
-				}
-				else if (!UTHUDOwner->UTPlayerOwner->bHasUsedSpectatingBind)
-				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [ENTER] to view camera binds.");
-				}
-			}
-			else if (UTGameState->IsMatchInOvertime() && (UTGameState->bOnlyTheStrongSurvive || UTGameState->IsMatchInSuddenDeath()))
-			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [FIRE] to change viewpoint...");
-			}
-			else 
-			{
-				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
-				{
-					FFormatNamedArguments Args;
-					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
-						.SetMinimumFractionalDigits(1)
-						.SetMaximumFractionalDigits(1);
-					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RespawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
-				}
-				else
-				{
-					SpectatorMessage = (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnChoiceA != nullptr)
-											? NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]")
-											: NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
-				}
-			}
+			SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForPlayers", "Waiting for players to join.");
+		}
+		else if (UTPS && UTPS->bReadyToPlay)
+		{
+			SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
+				? NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ALTFIRE] to change teams.")
+				: NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
+		}
+		else if (UTPS && UTPS->bOnlySpectator)
+		{
+			SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
 		}
 		else
 		{
+			SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
+				? NSLOCTEXT("UUTHUDWidget_Spectator", "GetReadyTeam", "Press [FIRE] to ready up, [ALTFIRE] to change teams.")
+				: NSLOCTEXT("UUTHUDWidget_Spectator", "GetReady", "Press [FIRE] when you are ready.");
+		}
+	}
+	else if (!UTGameState->HasMatchEnded())
+	{
+		if (UTGameState->IsMatchAtHalftime())
+		{
+			FFormatNamedArguments Args;
+			Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
+			SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args);
+		}
+		else if (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
+		{
 			AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
 			AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
+			if (!ViewCharacter)
+			{
+				AUTCarriedObject* Flag = Cast<AUTCarriedObject>(ViewActor);
+				if (Flag && Flag->Holder)
+				{
+					ViewCharacter = Cast<AUTCharacter>(Flag->AttachmentReplication.AttachParent);
+				}
+			}
 			if (ViewCharacter && ViewCharacter->PlayerState)
 			{
 				FFormatNamedArguments Args;
 				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
 				bShortMessage = true;
-				AUTPlayerState* PS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
-				if (UTGameState->bTeamGame && PS && PS->Team && (!UTGameState->GameModeClass || !UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>() || UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>()->bAnnounceTeam))
-				{
-					SpectatorMessage = (PS->Team->TeamIndex == 0)
-						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Red Team Led by {PlayerName}"), Args)
-						: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Blue Team Led by {PlayerName}"), Args);
-				}
-				else
-				{
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
-				}
+				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
+			}
+			else if (!UTHUDOwner->UTPlayerOwner->bHasUsedSpectatingBind)
+			{
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [ENTER] to view camera binds.");
 			}
 		}
-		DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);
+		else if (UTGameState->IsMatchInOvertime() && (UTGameState->bOnlyTheStrongSurvive || UTGameState->IsMatchInSuddenDeath()))
+		{
+			SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [FIRE] to change viewpoint...");
+		}
+		else
+		{
+			if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
+			{
+				FFormatNamedArguments Args;
+				static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
+					.SetMinimumFractionalDigits(1)
+					.SetMaximumFractionalDigits(1);
+				Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
+				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
+			}
+			else
+			{
+				SpectatorMessage = (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnChoiceA != nullptr)
+					? NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]")
+					: NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
+			}
+		}
 	}
+	else
+	{
+		AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
+		AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
+		if (ViewCharacter && ViewCharacter->PlayerState)
+		{
+			FFormatNamedArguments Args;
+			Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
+			bShortMessage = true;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
+			if (UTGameState->bTeamGame && PS && PS->Team && (!UTGameState->GameModeClass || !UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>() || UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>()->bAnnounceTeam))
+			{
+				SpectatorMessage = (PS->Team->TeamIndex == 0)
+					? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Red Team Led by {PlayerName}"), Args)
+					: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Blue Team Led by {PlayerName}"), Args);
+			}
+			else
+			{
+				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
+			}
+		}
+	}
+	return SpectatorMessage;
 }
-
