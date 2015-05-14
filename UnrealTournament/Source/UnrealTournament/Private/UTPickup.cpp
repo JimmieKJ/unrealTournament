@@ -209,6 +209,11 @@ void AUTPickup::StartSleeping_Implementation()
 		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
 		if (TimerEffect != NULL && TimerEffect->Template != NULL)
 		{
+			// FIXME: workaround for particle bug; screen facing particles don't handle negative scale correctly
+			FVector FixedScale = TimerEffect->GetComponentScale();
+			FixedScale = FVector(FMath::Abs<float>(FixedScale.X), FMath::Abs<float>(FixedScale.Y), FMath::Abs<float>(FixedScale.Z));
+			TimerEffect->SetWorldScale3D(FixedScale);
+
 			TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
 			TimerEffect->SetHiddenInGame(false);
 			PrimaryActorTick.SetTickFunctionEnable(true);
