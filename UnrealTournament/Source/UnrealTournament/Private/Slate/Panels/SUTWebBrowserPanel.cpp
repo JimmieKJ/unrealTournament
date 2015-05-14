@@ -15,26 +15,40 @@
 void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
 {
 	ShowControls = InArgs._ShowControls;
+	DesiredViewportSize = InArgs._ViewportSize;
+	bAllowScaling = InArgs._AllowScaling;
 
 	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
 }
 
 void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 {
-	this->ChildSlot
-	.VAlign(VAlign_Fill)
-	.HAlign(HAlign_Fill)
-	[
-		SNew(SDPIScaler)
-		.DPIScale(this, &SUTWebBrowserPanel::GetReverseScale)
+	if (bAllowScaling)
+	{
+		this->ChildSlot
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
 		[
-			SNew(SOverlay)
-			+ SOverlay::Slot()
+			SAssignNew(WebBrowserContainer, SVerticalBox)
+		];
+	}
+	else
+	{
+		this->ChildSlot
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SDPIScaler)
+			.DPIScale(this, &SUTWebBrowserPanel::GetReverseScale)
 			[
-				SAssignNew(WebBrowserContainer, SVerticalBox)
+				SNew(SOverlay)
+				+ SOverlay::Slot()
+				[
+					SAssignNew(WebBrowserContainer, SVerticalBox)
+				]
 			]
-		]
-	];
+		];
+	}
 }
 
 void SUTWebBrowserPanel::Browse(FString URL)
@@ -49,6 +63,7 @@ void SUTWebBrowserPanel::Browse(FString URL)
 			SAssignNew(WebBrowserPanel, SWebBrowser)
 			.InitialURL(URL)
 			.ShowControls(ShowControls)
+			.ViewportSize(DesiredViewportSize)
 		];
 	}
 }

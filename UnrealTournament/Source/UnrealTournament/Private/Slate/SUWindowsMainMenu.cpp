@@ -37,7 +37,10 @@ void SUWindowsMainMenu::CreateDesktop()
 void SUWindowsMainMenu::SetInitialPanel()
 {
 	SAssignNew(HomePanel, SUTWebBrowserPanel, PlayerOwner)
+		.ViewportSize(FVector2D(1920,1020))
+		.AllowScaling(true)
 		.ShowControls(false);
+
 	if (HomePanel.IsValid())
 	{
 		TSharedPtr<SUTWebBrowserPanel> WebPanel = StaticCastSharedPtr<SUTWebBrowserPanel>(HomePanel);

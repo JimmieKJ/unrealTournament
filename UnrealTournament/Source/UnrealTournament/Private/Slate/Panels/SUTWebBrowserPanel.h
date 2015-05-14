@@ -13,9 +13,13 @@ class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 {
 	SLATE_BEGIN_ARGS(SUTWebBrowserPanel)
 	: _ShowControls(true)
+	, _ViewportSize(FVector2D(1920, 1080))
+	, _AllowScaling(false)
 	{}
 
 	SLATE_ARGUMENT(bool, ShowControls)
+	SLATE_ARGUMENT(FVector2D, ViewportSize)
+	SLATE_ARGUMENT(bool, AllowScaling)
 
 	SLATE_END_ARGS()
 	
@@ -27,6 +31,9 @@ public:
 	virtual void Browse(FString URL);
 
 protected:
+
+	FVector2D DesiredViewportSize;
+	bool bAllowScaling;
 
 	TSharedPtr<SVerticalBox> WebBrowserContainer;
 	// The Actual Web browser panel.
