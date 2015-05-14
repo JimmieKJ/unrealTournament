@@ -3,6 +3,7 @@
 #include "UTPickup.h"
 #include "UTPickupInventory.h"
 #include "UTPickupWeapon.h"
+#include "UTWorldSettings.h"
 
 void AUTPickupWeapon::BeginPlay()
 {
@@ -101,11 +102,17 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 				GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTPickupWeapon::CheckTouching, RespawnTime, false);
 			}
 			PlayTakenEffects(false);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, TouchedBy, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, false);
 			if (TouchedBy->IsLocallyControlled())
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(TouchedBy->Controller);
 				if (PC != NULL)
 				{
+					// TODO: does not properly support splitscreen
+					if (BaseEffect != NULL && BaseTemplateTaken != NULL)
+					{
+						BaseEffect->SetTemplate(BaseTemplateTaken);
+					}
 					PC->AddWeaponPickup(this);
 				}
 			}
@@ -134,6 +141,26 @@ void AUTPickupWeapon::CheckTouching()
 	if (NextCheckInterval > 0.0f)
 	{
 		GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTPickupWeapon::CheckTouching, NextCheckInterval, false);
+	}
+}
+
+void AUTPickupWeapon::PlayTakenEffects(bool bReplicate)
+{
+	if (bReplicate)
+	{
+		Super::PlayTakenEffects(bReplicate);
+	}
+	else if (GetNetMode() != NM_DedicatedServer)
+	{
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS == NULL || WS->EffectIsRelevant(this, GetActorLocation(), true, false, 10000.0f, 1000.0f, false))
+		{
+			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent, NAME_None, TakenEffectTransform.GetLocation(), TakenEffectTransform.GetRotation().Rotator());
+			if (PSC != NULL)
+			{
+				PSC->SetRelativeScale3D(TakenEffectTransform.GetScale3D());
+			}
+		}
 	}
 }
 

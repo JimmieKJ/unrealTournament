@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 #include "UTRecastNavMesh.h"
 #include "UTPickupMessage.h"
+#include "UTWorldSettings.h"
 
 static FName NAME_Progress(TEXT("Progress"));
 
@@ -235,18 +236,21 @@ void AUTPickup::StartSleeping_Implementation()
 }
 void AUTPickup::PlayTakenEffects(bool bReplicate)
 {
-	if (bReplicate)
+	if (bReplicate && Role == ROLE_Authority)
 	{
 		State.bRepTakenEffects = true;
 		ForceNetUpdate();
 	}
-	// TODO: EffectIsRelevant() ?
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent, NAME_None, TakenEffectTransform.GetLocation(), TakenEffectTransform.GetRotation().Rotator());
-		if (PSC != NULL)
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS == NULL || WS->EffectIsRelevant(this, GetActorLocation(), true, false, 10000.0f, 1000.0f, false))
 		{
-			PSC->SetRelativeScale3D(TakenEffectTransform.GetScale3D());
+			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent, NAME_None, TakenEffectTransform.GetLocation(), TakenEffectTransform.GetRotation().Rotator());
+			if (PSC != NULL)
+			{
+				PSC->SetRelativeScale3D(TakenEffectTransform.GetScale3D());
+			}
 		}
 		if (BaseEffect != NULL && BaseTemplateTaken != NULL)
 		{
@@ -375,7 +379,7 @@ void AUTPickup::PostNetReceive()
 	}
 	if (!State.bActive && State.bRepTakenEffects)
 	{
-		PlayTakenEffects(false);
+		PlayTakenEffects(true);
 	}
 }
 
