@@ -32,7 +32,7 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 	{
 		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-			GetWorldTimerManager().SetTimer(CTFScoreboard->OpenScoringPlaysHandle, CTFScoreboard, &UUTCTFScoreboard::OpenScoringPlaysPage, 10.0f, false);
+			GetWorldTimerManager().SetTimer(CTFScoreboard->OpenScoringPlaysHandle, CTFScoreboard, &UUTCTFScoreboard::OpenScoringPlaysPage, 6.0f, false);
 		}
 		else
 		{

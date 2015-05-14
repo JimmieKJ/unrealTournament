@@ -613,9 +613,7 @@ void UUTHUDWidget::PostDraw(float RenderedTime)
 
 	LastRenderTime = RenderedTime;
 	Canvas = NULL;
-	UTPlayerOwner = NULL;
 	UTCharacterOwner = NULL;
-	UTGameState = NULL;
 }
 
 void UUTHUDWidget::DrawAllRenderObjects(float RenderedTime, FVector2D DrawOffset)
