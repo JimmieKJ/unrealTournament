@@ -1803,7 +1803,10 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 
 void AUTPlayerController::ShowEndGameScoreboard()
 {
-	MyUTHUD->ToggleScoreboard(true);
+	if (MyUTHUD != NULL)
+	{
+		MyUTHUD->ToggleScoreboard(true);
+	}
 }
 
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)

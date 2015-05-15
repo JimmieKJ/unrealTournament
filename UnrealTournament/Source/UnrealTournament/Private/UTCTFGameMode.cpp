@@ -337,6 +337,10 @@ void AUTCTFGameMode::HandleHalftime()
 
 void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 {
+	if ((CTFGameState == NULL) || (CTFGameState->FlagBases.Num() >= TeamNum) || (CTFGameState->FlagBases[TeamNum] == NULL) )
+	{
+		return;
+	}
 	TArray<AController*> Members = Teams[TeamNum]->GetTeamMembers();
 	const int32 MaxPlayers = FMath::Min(8, Members.Num());
 
@@ -345,7 +349,7 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 	int32 PlacementCounter = 0;
 	for (AController* C : Members)
 	{
-		AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
+		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
 		if (UTChar && !UTChar->IsDead())
 		{
 			while (PlacementCounter < MaxPlayers)
