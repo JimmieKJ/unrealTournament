@@ -60,13 +60,7 @@ public:
 	uint32 bCustomRuleset:1;
 
 	UPROPERTY(Replicated)
-	TArray<FString> CustomPackages;
-
-	UPROPERTY(Replicated)
-	TArray<FString> CustomPackagesChecksums;
-
-	UPROPERTY(Replicated)
-	TArray<FString> CustomPackagesRedirectURLs;
+	TArray<FPackageRedirectReference> RequiredPackages;
 
 	// -------------- These are server side only.
 

@@ -56,7 +56,7 @@ protected:
 public:
 
 	/** human readable localized name for the game mode */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Game)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, AssetRegistrySearchable, Category = Game)
 	FText DisplayName;
 
 	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;

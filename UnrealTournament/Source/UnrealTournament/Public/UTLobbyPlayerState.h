@@ -16,6 +16,7 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 	GENERATED_UCLASS_BODY()
 
 	virtual void PreInitializeComponents() override;
+	virtual void BeginPlay() override;
 
 	// The match this player is currently in.
 	UPROPERTY(Replicated, replicatedUsing = OnRep_CurrentMatch )
@@ -76,6 +77,34 @@ public:
 	FString DesiredQuickStartGameMode;
 	// The Unique ID of a friend this player wants to join
 	FString DesiredFriendToJoin;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void Server_ReadyToBeginDataPush();
+
+	UFUNCTION(Client, Reliable)
+	virtual void Client_BeginDataPush(int32 ExpectedSendCount);
+
+
+protected:
+
+	// This is a system that pulls all of the needed allowed data for setting up custom rulesets.  When a LPS becomes live on the client, it 
+	// will request a data push from the server.  As data comes in, it will fill out the data in the Lobby Game State.  
+
+	int32 TotalBlockCount;
+	int32 CurrentBlock;
+
+	// checks if the client is ready for a datapush.  Both the LPS and LGS must exist on the client before the system can begin.
+	// Normally this will be the case when Client_BeginDataPush is called, however, replication order isn't guarenteed so we have
+	// to make sure it's ready.  If not, set a time and try again in 1/2 a second.
+	virtual void CheckDataPushReady();
+
+	// Tells the server to send me a new block.
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void Server_SendDataBlock(int32 Block);
+
+	// Tells the client to receive a block.
+	UFUNCTION(Client, Reliable)
+	virtual void Client_ReceiveBlock(int32 Block, FAllowedData Data);
 
 };
 

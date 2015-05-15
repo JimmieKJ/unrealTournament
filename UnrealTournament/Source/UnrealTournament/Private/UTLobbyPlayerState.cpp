@@ -17,6 +17,18 @@ void AUTLobbyPlayerState::PreInitializeComponents()
 	DesiredQuickStartGameMode = TEXT("");
 }
 
+void AUTLobbyPlayerState::BeginPlay()
+{
+	Super::BeginPlay();
+	UE_LOG(UT,Log,TEXT("[DataPush] - BeginPlay"));
+	// If we are a client, this means we have finished the initial actor replication and can start the data push
+	if (Role != ROLE_Authority)
+	{
+		UE_LOG(UT,Log,TEXT("[DataPush] - Telling Server to Start"));
+		Server_ReadyToBeginDataPush();
+	}
+}
+
 
 void AUTLobbyPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
@@ -143,3 +155,86 @@ void AUTLobbyPlayerState::OnRep_CurrentMatch()
 
 #endif
 }
+
+bool AUTLobbyPlayerState::Server_ReadyToBeginDataPush_Validate() { return true; }
+void AUTLobbyPlayerState::Server_ReadyToBeginDataPush_Implementation()
+{
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GameState)
+	{
+		//UE_LOG(UT,Log,TEXT("[DataPush] - Telling Client to start %i"),GameState->AllowedGameData.Num());
+		Client_BeginDataPush(GameState->AllowedGameData.Num());
+	}	
+}
+
+void AUTLobbyPlayerState::Client_BeginDataPush_Implementation(int32 ExpectedSendCount)
+{
+	TotalBlockCount = ExpectedSendCount;
+
+	//UE_LOG(UT,Log,TEXT("[DataPush] - Begin with an expected send count of %i"), TotalBlockCount);
+
+	// Check to see if the client is ready for a data push.
+	CheckDataPushReady();
+}
+
+void AUTLobbyPlayerState::CheckDataPushReady()
+{
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GameState)
+	{
+		// We are ready.  Setup the 
+
+		//UE_LOG(UT,Log,TEXT("[DataPush] - Requesting Block 0"));
+
+		CurrentBlock = 0;
+		Server_SendDataBlock(CurrentBlock);
+	}
+	else
+	{
+		//UE_LOG(UT,Log,TEXT("[DataPush] - GameState not yet replicated.  Delaying for 1/2 second"));
+
+		// We don't have the GameState replicated yet.  Try again in 1/2 a second
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyPlayerState::CheckDataPushReady, 0.5f, false);
+	}
+}
+
+bool AUTLobbyPlayerState::Server_SendDataBlock_Validate(int32 Block) { return true; }
+void AUTLobbyPlayerState::Server_SendDataBlock_Implementation(int32 Block)
+{
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+
+	//UE_LOG(UT,Log,TEXT("[DataPush] - Sending Block %i (%s)"), Block, GameState ? TEXT("Good To Send") : TEXT("Can't Send"));
+
+	if (GameState && Block < GameState->AllowedGameData.Num())
+	{
+		Client_ReceiveBlock(Block, GameState->AllowedGameData[Block]);
+	}
+}
+
+void AUTLobbyPlayerState::Client_ReceiveBlock_Implementation(int32 Block, FAllowedData Data)
+{
+
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	//UE_LOG(UT,Log,TEXT("[DataPush] - Received Block %i (%s)"), Block, GameState ? TEXT("Good To Save") : TEXT("Can't Save"));
+	if (GameState)
+	{
+		GameState->ClientAssignGameData(Data);
+		Block++;
+		if (Block < TotalBlockCount)
+		{
+			//UE_LOG(UT,Log,TEXT("[DataPush] - Requesting Block %i"), Block);
+			Server_SendDataBlock(Block);
+		}
+		else
+		{
+			//UE_LOG(UT,Log,TEXT("[DataPush] - Completed %i vs %i"), Block, TotalBlockCount);
+			GameState->bGameDataReplicationCompleted = true;
+		}
+	}	
+}
+
+
+
+
+

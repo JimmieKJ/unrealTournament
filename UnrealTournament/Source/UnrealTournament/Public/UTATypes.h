@@ -408,3 +408,90 @@ struct FMapListItem
 		return !Title.IsEmpty() ? Title : PackageName;
 	}
 };
+
+
+/*
+	Describes a package that might be needed
+*/
+USTRUCT()
+struct FPackageRedirectReference
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString PackageName;
+
+	UPROPERTY()
+	FString PackageURLProtocol;
+
+	UPROPERTY()
+	FString PackageURL;
+
+	UPROPERTY()
+	FString PackageChecksum;
+
+	FPackageRedirectReference()
+		: PackageName(TEXT("")), PackageURLProtocol(TEXT("")), PackageURL(TEXT("")), PackageChecksum(TEXT(""))
+	{}
+
+	FPackageRedirectReference(FString inPackageName, FString inPackageURLProtocol, FString inPackageURL, FString inPackageChecksum)
+		: PackageName(inPackageName), PackageURLProtocol(inPackageURLProtocol), PackageURL(inPackageURL), PackageChecksum(inPackageChecksum)
+	{}
+
+	FPackageRedirectReference(FPackageRedirectReference* OtherReference)
+	{
+		PackageName = OtherReference->PackageName;
+		PackageURLProtocol = OtherReference->PackageURLProtocol;
+		PackageURL = OtherReference->PackageURL;
+		PackageChecksum = OtherReference->PackageChecksum;
+	}
+
+};
+
+UENUM()
+namespace EGameDataType
+{
+	enum Type
+	{
+		GameMode,
+		Map,
+		Mutator, 
+		MAX,
+	};
+}
+
+USTRUCT()
+struct FAllowedData
+{
+	GENERATED_USTRUCT_BODY()
+
+	// What type of data is this.
+	UPROPERTY()
+	TEnumAsByte<EGameDataType::Type> DataType;
+
+	// The menu description for this data.  Since we do not want to 
+	UPROPERTY()
+	FString MenuDescription;
+
+	UPROPERTY()
+	FString Reference;
+
+	UPROPERTY()
+	FString Package;
+
+	UPROPERTY()
+	bool bIsCustomContent;
+
+	FAllowedData()
+		: DataType(EGameDataType::GameMode)
+		, MenuDescription(TEXT(""))
+		, Reference(TEXT(""))
+		, Package(TEXT(""))
+		, bIsCustomContent(false)
+	{}
+
+	FAllowedData(EGameDataType::Type inDataType, FString inMenuDescription, FString inReference, FString inPackage, bool inbIsCustomContent)
+		: DataType(inDataType), MenuDescription(inMenuDescription), Reference(inReference), Package(inPackage), bIsCustomContent(inbIsCustomContent)
+	{}
+
+};

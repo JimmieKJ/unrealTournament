@@ -484,76 +484,80 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		SelectedGameClass = NewSelection;
 		SelectedGameClass.GetDefaultObject()->CreateConfigWidgets(GameConfigPanel, false, GameConfigProps);
 
-		TSharedPtr< TAttributePropertyBool > DemoRecAttr = MakeShareable(new TAttributePropertyBool(SelectedGameClass.GetDefaultObject(), &SelectedGameClass.GetDefaultObject()->bRecordDemo));
-		GameConfigProps.Add(DemoRecAttr);
-		GameConfigPanel->AddSlot()
-		.AutoHeight()
-		.VAlign(VAlign_Top)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
+		if (GetPlayerOwner()->GetWorld()->GetNetMode() != NM_Client)
+		{
+			TSharedPtr< TAttributePropertyBool > DemoRecAttr = MakeShareable(new TAttributePropertyBool(SelectedGameClass.GetDefaultObject(), &SelectedGameClass.GetDefaultObject()->bRecordDemo));
+			GameConfigProps.Add(DemoRecAttr);
+			GameConfigPanel->AddSlot()
+			.AutoHeight()
+			.VAlign(VAlign_Top)
 			[
-				SNew(SBox)
-				.WidthOverride(350)
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(20.0f,0.0f,0.0f,0.0f)
-			[
-				SNew(SBox)
-				.WidthOverride(330)
-				[
-					SNew(SCheckBox)
-					.IsChecked(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-					.OnCheckStateChanged(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-					.Type(ESlateCheckBoxType::CheckBox)
-				]
-			]
-		];
-
-		// Configure bots button
-		GameConfigPanel->AddSlot()
-		.AutoHeight()
-		.VAlign(VAlign_Top)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SBox)
-				.WidthOverride(350)
-				[
-					SNullWidget::NullWidget
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(20.0f,0.0f,0.0f,0.0f)
-			.AutoWidth()
-			[
-				SNew(SBox)
-				.WidthOverride(320)
-				[
-					SNew(SButton)
-					.HAlign(HAlign_Center)
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-					.OnClicked(this, &SUWCreateGamePanel::ConfigureBots)
+					SNew(SBox)
+					.WidthOverride(350)
 					[
 						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
-						.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
-						.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots").ToString())
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
 					]
 				]
-			]
-		];
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(20.0f,0.0f,0.0f,0.0f)
+				[
+					SNew(SBox)
+					.WidthOverride(330)
+					[
+						SNew(SCheckBox)
+						.IsChecked(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+						.OnCheckStateChanged(DemoRecAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+						.Type(ESlateCheckBoxType::CheckBox)
+					]
+				]
+			];
+
+			// Configure bots button
+			GameConfigPanel->AddSlot()
+			.AutoHeight()
+			.VAlign(VAlign_Top)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(350)
+					[
+						SNullWidget::NullWidget
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(20.0f,0.0f,0.0f,0.0f)
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(320)
+					[
+						SNew(SButton)
+						.HAlign(HAlign_Center)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+						.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+						.OnClicked(this, &SUWCreateGamePanel::ConfigureBots)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+							.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
+							.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots").ToString())
+						]
+					]
+				]
+			];
+		}
+
 
 		SelectedGameName->SetText(SelectedGameClass.GetDefaultObject()->DisplayName.ToString());
 
@@ -665,7 +669,7 @@ FReply SUWCreateGamePanel::ConfigureMutator()
 				MutatorConfigMenu = CreateWidget<UUserWidget>(GetPlayerOwner()->GetWorld(), Mut->ConfigMenu);
 				if (MutatorConfigMenu != NULL)
 				{
-					MutatorConfigMenu->AddToViewport();
+					MutatorConfigMenu->AddToViewport(400);
 				}
 			}
 		}
@@ -679,7 +683,7 @@ FReply SUWCreateGamePanel::ConfigureBots()
 	return FReply::Handled();
 }
 
-void SUWCreateGamePanel::GetCustomGameSettings(FString& StartingMap, FString&GameOptions, int32 BotSkillLevel)
+void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32 BotSkillLevel)
 {
 	StartingMap = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->PackageName : TEXT("");
 	AUTGameMode* DefaultGameMode = SelectedGameClass->GetDefaultObject<AUTGameMode>();
@@ -690,20 +694,26 @@ void SUWCreateGamePanel::GetCustomGameSettings(FString& StartingMap, FString&Gam
 
 		DefaultGameMode->UILastStartingMap = StartingMap;
 
-		GameOptions = FString::Printf(TEXT("?Game=%s"), *SelectedGameClass->GetPathName());
+		GameMode = SelectedGameClass->GetPathName();
 
 		TArray<FString> LastMutators;
 		if (MutatorListEnabled.Num() > 0)
 		{
+			FString MutatorOption = TEXT("");
 			LastMutators.Add(MutatorListEnabled[0]->GetPathName());
-			GameOptions += FString::Printf(TEXT("?mutator=%s"), *MutatorListEnabled[0]->GetPathName());
+
+			MutatorOption += FString::Printf(TEXT("?mutator=%s"), *MutatorListEnabled[0]->GetPathName());
 			for (int32 i = 1; i < MutatorListEnabled.Num(); i++)
 			{
-				GameOptions += TEXT(",") + MutatorListEnabled[i]->GetPathName();
+				MutatorOption += TEXT(",") + MutatorListEnabled[i]->GetPathName();
 				LastMutators.Add(MutatorListEnabled[i]->GetPathName());
 			}
+
+			GameOptions.Add(MutatorOption);
 		}
+
 		GConfig->SetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni);
+		DefaultGameMode->GetGameURLOptions(GameOptions);
 
 		// If we don't want bots, clear BotFillCount
 
@@ -712,7 +722,7 @@ void SUWCreateGamePanel::GetCustomGameSettings(FString& StartingMap, FString&Gam
 			// Load the level summary of this map.
 			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
 			DefaultGameMode->BotFillCount = Summary->OptimalPlayerCount;
-			GameOptions += FString::Printf(TEXT("?Difficulty=%i"), BotSkillLevel);
+			GameOptions.Add(FString::Printf(TEXT("Difficulty=%i"), BotSkillLevel));
 		}
 		else
 		{

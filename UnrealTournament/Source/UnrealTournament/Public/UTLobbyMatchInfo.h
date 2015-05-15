@@ -274,6 +274,10 @@ public:
 	virtual void SetMatchStats(FString Update);
 
 	bool GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions);
+
 };
 
 

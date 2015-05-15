@@ -104,6 +104,13 @@ void AUTDuelGame::PlayEndOfMatchMessage()
 	AUTGameMode::PlayEndOfMatchMessage();
 }
 
+void AUTDuelGame::GetGameURLOptions(TArray<FString>& OptionsList)
+{
+	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
+	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
+}
+
+
 #if !UE_SERVER
 void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
@@ -111,8 +118,6 @@ void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	ConfigProps.Add(TimeLimitAttr);
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
 	ConfigProps.Add(GoalScoreAttr);
-	TSharedPtr< TAttributeProperty<float> > BotSkillAttr = MakeShareable(new TAttributeProperty<float>(this, &GameDifficulty, TEXT("Difficulty")));
-	ConfigProps.Add(BotSkillAttr);
 
 	MenuSpace->AddSlot()
 	.Padding(0.0f,0.0f,0.0f,5.0f)

@@ -141,7 +141,7 @@ public:
 		return CurrentCategory == FName(TEXT("Custom"));
 	}
 
-	void GetCustomGameSettings(FString& StartingMap, FString&GameOptions);
+	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions);
 
 protected:
 

@@ -26,4 +26,8 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
 #endif
 
+public:
+	virtual void GetGameURLOptions(TArray<FString>& OptionsList);
+
+
 };

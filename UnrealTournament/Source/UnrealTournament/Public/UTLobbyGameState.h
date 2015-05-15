@@ -38,6 +38,7 @@ struct FGameInstanceData
 
 };
 
+
 class AUTGameMode;
 
 UCLASS(notplaceable, Config = Game)
@@ -189,6 +190,9 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	int32 AvailabelGameRulesetCount;
 
+
+	void ScanAssetRegistry();
+
 public:
 	// The actual cached copy of all of the game rulesets
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
@@ -197,6 +201,27 @@ public:
 	virtual TWeakObjectPtr<AUTReplicatedGameRuleset> FindRuleset(FString TagToFind);
 
 	void GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* ClientBeacon, uint32 GameInstanceID, const FString& CurrentMap);
+
+public:
+	// This array holds all of the data that a client can configure in his custom dialog.  When this object is created, this array will be filled out.
+	UPROPERTY(Config)
+	TArray<FAllowedData> AllowedGameData;
+
+	// This will be true when all of the entries in AllowedGameData have been replicated and assigned on the client.
+	bool bGameDataReplicationCompleted;
+
+	// Hold sorted allowed data types.  NOTE: these are only valid on the client as they are filled out as part of the 
+	// data pump system.  
+
+	TArray<FAllowedData> AllowedGameModes;
+	TArray<FAllowedData> AllowedMutators;
+	TArray<FAllowedData> AllowedMaps;
+
+	void ClientAssignGameData(FAllowedData Data);
+
+	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
+	virtual void GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList);
+
 
 };
 

@@ -6,6 +6,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "Net/UnrealNetwork.h"
 #include "UTGameEngine.h"
+#include "UTReplicatedGameRuleset.h"
 
 
 AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectInitializer)
@@ -526,15 +527,15 @@ void AUTLobbyMatchInfo::OnRep_MatchStats()
 bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs)
 {
 	NeededPackageURLs.Empty();
-	for (int32 i = 0; i < CurrentRuleset->CustomPackages.Num(); i++)
+	for (int32 i = 0; i < CurrentRuleset->RequiredPackages.Num(); i++)
 	{
-		FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *CurrentRuleset->CustomPackages[i]) + TEXT(".pak");
+		FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *CurrentRuleset->RequiredPackages[i].PackageName) + TEXT(".pak");
 		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 		if (UTEngine)
 		{
-			if (UTEngine->LocalContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			if (UTEngine->LocalContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
 			{
-				if (UTEngine->LocalContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				if (UTEngine->LocalContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
 				{
 					continue;
 				}
@@ -545,9 +546,9 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 				}
 			}
 
-			if (UTEngine->MountedDownloadedContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			if (UTEngine->MountedDownloadedContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
 			{
-				if (UTEngine->MountedDownloadedContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				if (UTEngine->MountedDownloadedContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
 				{
 					// We've already mounted the content needed and the checksum matches
 					continue;
@@ -561,39 +562,90 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 					}
 
 					// Remove the CRC entry
-					UTEngine->MountedDownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
-					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
+					UTEngine->MountedDownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
+					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
 
 					// Delete the original file
 					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
 				}
 			}
 
-			if (UTEngine->DownloadedContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			if (UTEngine->DownloadedContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
 			{
-				if (UTEngine->DownloadedContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				if (UTEngine->DownloadedContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
 				{
 					// Mount the pak
 					if (FCoreDelegates::OnMountPak.IsBound())
 					{
 						FCoreDelegates::OnMountPak.Execute(Path, 0);
-						UTEngine->MountedDownloadedContentChecksums.Add(CurrentRuleset->CustomPackages[i], CurrentRuleset->CustomPackagesChecksums[i]);
+						UTEngine->MountedDownloadedContentChecksums.Add(CurrentRuleset->RequiredPackages[i].PackageName, CurrentRuleset->RequiredPackages[i].PackageChecksum);
 					}
 
 					continue;
 				}
 				else
 				{
-					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
+					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
 
 					// Delete the original file
 					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
 				}
 			}
 
-			NeededPackageURLs.Add(CurrentRuleset->CustomPackagesRedirectURLs[i]);
+			NeededPackageURLs.Add(CurrentRuleset->RequiredPackages[i].PackageURL);
 		}
 	}
 
 	return true;
+}
+
+bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions) { return true; }
+void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions)
+{
+	// We need to build a one off custom replicated ruleset just for this hub.  :)
+
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+
+	FActorSpawnParameters Params;
+	Params.Owner = GameState;
+	AUTReplicatedGameRuleset* NewReplicatedRuleset = GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
+	if (NewReplicatedRuleset)
+	{
+
+		// Look up the game mode in the AllowedGameData array and get the text description.
+
+		FString Desc = TEXT("A custom match.");
+		for (int32 i=0;i<GameState->AllowedGameData.Num();i++)
+		{
+			if (GameState->AllowedGameData[i].Package.Equals(GameMode, ESearchCase::IgnoreCase))
+			{
+				Desc = FString::Printf(TEXT("A custom %s match!"), *GameState->AllowedGameData[i].MenuDescription);
+				break;
+			}
+		
+		}
+
+
+		NewReplicatedRuleset->Title = TEXT("Custom Rule");
+		NewReplicatedRuleset->Tooltip = TEXT("");
+		NewReplicatedRuleset->Description = Desc + TEXT("\nBe warned, anything goes in here, so enter at your own risk.\n");
+
+		for (int32 i=0; i < GameOptions.Num(); i++)
+		{
+			NewReplicatedRuleset->Description += GameOptions[i] + TEXT("\n");
+		}
+
+		NewReplicatedRuleset->MapPlaylistSize = 1;
+		NewReplicatedRuleset->MapPlaylist.Add(StartingMap);
+		NewReplicatedRuleset->MinPlayersToStart = 2;
+		NewReplicatedRuleset->MaxPlayers = 16;
+		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";
+		NewReplicatedRuleset->GameModeClass= GameMode;
+		NewReplicatedRuleset->bCustomRuleset = true;
+
+		MapList.Add(StartingMap);
+
+		// Add code to setup the required packages array
+		CurrentRuleset = NewReplicatedRuleset;
+	}
 }

@@ -819,17 +819,29 @@ ECheckBoxState SULobbyMatchSetupPanel::GetAllowJIPState() const
 
 void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed)
 {
-	if (ButtonPressed == UTDIALOG_BUTTON_OK && MatchInfo.IsValid() && SetupDialog.IsValid() && SetupDialog->SelectedRuleset.IsValid())
+	if (ButtonPressed == UTDIALOG_BUTTON_OK && MatchInfo.IsValid() && SetupDialog.IsValid() )
 	{
-		TArray<FString> MapList;
-		for (int32 i=0; i< SetupDialog->MapPlayList.Num(); i++ )
+		if (SetupDialog->SelectedRuleset.IsValid())
 		{
-			if (SetupDialog->MapPlayList[i].bSelected)
+			TArray<FString> MapList;
+			for (int32 i=0; i< SetupDialog->MapPlayList.Num(); i++ )
 			{
-				MapList.Add(SetupDialog->MapPlayList[i].MapName);
+				if (SetupDialog->MapPlayList[i].bSelected)
+				{
+					MapList.Add(SetupDialog->MapPlayList[i].MapName);
+				}
 			}
+			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, MapList, SetupDialog->BotSkillLevel);
 		}
-		MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, MapList, SetupDialog->BotSkillLevel);
+		else if (SetupDialog->IsCustomSettings())
+		{
+			FString GameMode;
+			FString StartingMap;
+			TArray<FString> GameOptions;
+
+			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptions);
+			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, GameOptions);
+		}
 
 		// NOTE: The dialog closes itself... :)
 	}

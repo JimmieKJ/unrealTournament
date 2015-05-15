@@ -24,7 +24,7 @@ public:
 		}
 	}
 
-	void GetCustomGameSettings(FString& StartingMap, FString&GameOptions, int32 BotSkillLevel);
+	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32 BotSkillLevel);
 
 protected:
 	enum EServerStartMode

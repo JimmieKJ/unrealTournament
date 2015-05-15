@@ -314,8 +314,8 @@ public:
 	// Used to get a list of game modes and maps that can be choosen from the menu.  Typically, this just pulls all of 
 	// available local content however, in hubs it will be from data replicated from the server.
 
-	void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
-	void GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList);
+	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
+	virtual void GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList);
 
 };
 

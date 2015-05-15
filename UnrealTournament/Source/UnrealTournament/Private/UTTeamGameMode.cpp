@@ -406,6 +406,12 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 	}
 }
 
+void AUTTeamGameMode::GetGameURLOptions(TArray<FString>& OptionsList)
+{
+	Super::GetGameURLOptions(OptionsList);
+	OptionsList.Add(FString::Printf(TEXT("BalanceTeams=%i"), bBalanceTeams));
+}
+
 #if !UE_SERVER
 void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {

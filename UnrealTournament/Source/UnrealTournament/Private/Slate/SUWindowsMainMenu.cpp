@@ -555,7 +555,15 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 
 	if (CreateGameDialog->IsCustomSettings())
 	{
-		CreateGameDialog->GetCustomGameSettings(StartingMap, GameOptions);	
+		FString GameMode;
+		TArray<FString> GameOptionsList;
+		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptionsList);	
+
+		GameOptions = FString::Printf(TEXT("?Game=%s"), *GameMode);
+		for (int32 i = 0; i < GameOptionsList.Num(); i++)
+		{
+			GameOptions += FString::Printf(TEXT("?%s"),*GameOptionsList[i]);
+		}
 	}
 	else
 	{
@@ -563,7 +571,7 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 
 		AUTReplicatedGameRuleset* CurrentRule = CreateGameDialog->SelectedRuleset.Get();
 	
-		StartingMap = CreateGameDialog->MapPlayList[0].MapName;
+		StartingMap = TEXT(""); //
 
 		// Copy the map rotation list in to the config.
 		AUTGameMode* DefaultGameMode = CurrentRule->GetDefaultGameModeObject();
@@ -573,8 +581,14 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 			if (CreateGameDialog->MapPlayList[i].bSelected)
 			{
 				DefaultGameMode->MapRotation.Add(CreateGameDialog->MapPlayList[i].MapName);
+				if (StartingMap == TEXT(""))
+				{
+					StartingMap = CreateGameDialog->MapPlayList[i].MapName;
+				}
 			}
 		}
+
+		if (StartingMap == TEXT("")) StartingMap = CreateGameDialog->MapPlayList[0].MapName;
 		
 		DefaultGameMode->SaveConfig();
 

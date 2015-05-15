@@ -1405,7 +1405,14 @@ void AUTGameMode::TravelToNextMap()
 	{
 		if (!RconNextMapName.IsEmpty())
 		{
-			GetWorld()->ServerTravel(RconNextMapName, false);
+
+			FString TravelMapName = RconNextMapName;
+			if ( FPackageName::IsShortPackageName(RconNextMapName) )
+			{
+				FPackageName::SearchForPackageOnDisk(RconNextMapName, &TravelMapName); 
+			}
+
+			GetWorld()->ServerTravel(TravelMapName, false);
 			return;
 		}
 
@@ -1424,7 +1431,14 @@ void AUTGameMode::TravelToNextMap()
 			MapIndex = (MapIndex + 1) % MapRotation.Num();
 			if (MapIndex >=0 && MapIndex < MapRotation.Num())
 			{
-				GetWorld()->ServerTravel(MapRotation[MapIndex],false);
+
+				FString TravelMapName = MapRotation[MapIndex];
+				if ( FPackageName::IsShortPackageName(MapRotation[MapIndex]) )
+				{
+					FPackageName::SearchForPackageOnDisk(MapRotation[MapIndex], &TravelMapName); 
+				}
+		
+				GetWorld()->ServerTravel(TravelMapName, false);
 				return;
 			}
 		}
@@ -2398,6 +2412,14 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	}
 }
 
+void AUTGameMode::GetGameURLOptions(TArray<FString>& OptionsList)
+{
+	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
+	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
+	OptionsList.Add(FString::Printf(TEXT("bForceRespawn=%i"), bForceRespawn));
+	OptionsList.Add(FString::Printf(TEXT("BotFill=%i"), BotFillCount));
+}
+
 #if !UE_SERVER
 void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
@@ -2684,11 +2706,6 @@ void AUTGameMode::AssignDefaultSquadFor(AController* C)
 			}
 		}
 	}
-}
-
-FString AUTGameMode::GetDefaultLobbyOptions() const
-{
-	return DefaultLobbyOptions;
 }
 
 void AUTGameMode::NotifyLobbyGameIsReady()

@@ -99,4 +99,7 @@ protected:
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateLobbyBadge(FString BadgeText);
 
+public:
+	virtual void GetGameURLOptions(TArray<FString>& OptionsList);
+
 };

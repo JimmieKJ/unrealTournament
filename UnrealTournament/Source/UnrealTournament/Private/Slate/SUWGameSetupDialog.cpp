@@ -264,7 +264,7 @@ void SUWGameSetupDialog::BuildRuleList(FName Category)
 
 	CurrentCategory = Category;
 
-	if (GetPlayerOwner()->GetWorld()->GetNetMode() != ENetMode::NM_Client && Category == FName(TEXT("Custom")))
+	if (Category == FName(TEXT("Custom")))
 	{
 		HideBox->SetVisibility(EVisibility::Hidden);
 		RulesPanel->AddSlot(0,0)
@@ -272,6 +272,7 @@ void SUWGameSetupDialog::BuildRuleList(FName Category)
 			SAssignNew(CustomPanel, SUWCreateGamePanel, GetPlayerOwner())
 		];
 
+		EnableButton(UTDIALOG_BUTTON_OK);
 		EnableButton(UTDIALOG_BUTTON_PLAY);
 		EnableButton(UTDIALOG_BUTTON_LAN);
 
@@ -735,11 +736,11 @@ void SUWGameSetupDialog::ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> M
 	}
 }
 
-void SUWGameSetupDialog::GetCustomGameSettings(FString& StartingMap, FString&GameOptions)
+void SUWGameSetupDialog::GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions)
 {
 	if (CustomPanel.IsValid())
 	{
-		CustomPanel->GetCustomGameSettings(StartingMap, GameOptions, BotSkillLevel);
+		CustomPanel->GetCustomGameSettings(GameMode, StartingMap, GameOptions, BotSkillLevel);
 	}
 }
 

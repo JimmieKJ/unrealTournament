@@ -7,6 +7,7 @@
 #include "UTLobbyGameMode.h"
 #include "Net/UnrealNetwork.h"
 #include "UTEpicDefaultRulesets.h"
+#include "UTMutator.h"
 
 AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -43,40 +44,45 @@ void AUTLobbyGameState::PostInitializeComponents()
 
 	// Load custom server rule sets.  NOTE: Custom, rules can not have the same unique tag or title as a default rule
 
-	for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
+	if (Role == ROLE_Authority)
 	{
-		if (!AllowedGameRulesets[i].IsEmpty())
+		for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
 		{
-			UUTGameRuleset* NewRuleset = ConstructObject<UUTGameRuleset>(UUTGameRuleset::StaticClass(), GetTransientPackage(), *AllowedGameRulesets[i]);
-			if (NewRuleset)
+			if (!AllowedGameRulesets[i].IsEmpty())
 			{
-				bool bExistsAlready = false;
-				for (int32 j=0; j < AvailableGameRulesets.Num(); j++)
+				UUTGameRuleset* NewRuleset = ConstructObject<UUTGameRuleset>(UUTGameRuleset::StaticClass(), GetTransientPackage(), *AllowedGameRulesets[i]);
+				if (NewRuleset)
 				{
-					if ( AvailableGameRulesets[j]->UniqueTag.Equals(NewRuleset->UniqueTag, ESearchCase::IgnoreCase) || AvailableGameRulesets[j]->Title.ToLower() == NewRuleset->Title.ToLower() )
+					bool bExistsAlready = false;
+					for (int32 j=0; j < AvailableGameRulesets.Num(); j++)
 					{
-						bExistsAlready = true;
-						break;
+						if ( AvailableGameRulesets[j]->UniqueTag.Equals(NewRuleset->UniqueTag, ESearchCase::IgnoreCase) || AvailableGameRulesets[j]->Title.ToLower() == NewRuleset->Title.ToLower() )
+						{
+							bExistsAlready = true;
+							break;
+						}
 					}
-				}
 
-				if (!bExistsAlready)
-				{
-					FActorSpawnParameters Params;
-					Params.Owner = this;
-					AUTReplicatedGameRuleset* NewReplicatedRuleset = GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
-					if (NewReplicatedRuleset)
+					if (!bExistsAlready)
 					{
-						NewReplicatedRuleset->SetRules(NewRuleset);
-						AvailableGameRulesets.Add(NewReplicatedRuleset);
+						FActorSpawnParameters Params;
+						Params.Owner = this;
+						AUTReplicatedGameRuleset* NewReplicatedRuleset = GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
+						if (NewReplicatedRuleset)
+						{
+							NewReplicatedRuleset->SetRules(NewRuleset);
+							AvailableGameRulesets.Add(NewReplicatedRuleset);
+						}
 					}
 				}
 			}
 		}
-	}
 	
 
-	AvailabelGameRulesetCount = AvailableGameRulesets.Num();
+		AvailabelGameRulesetCount = AvailableGameRulesets.Num();
+
+		ScanAssetRegistry();
+	}
 
 }
 	
@@ -698,3 +704,172 @@ void AUTLobbyGameState::GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* 
 	}
 }
 
+void AUTLobbyGameState::ScanAssetRegistry()
+{
+	UE_LOG(UT,Log,TEXT("Beginning Lobby Scan of Asset Registry to generate custom settings list...."));
+
+	static FName NAME_DisplayName(TEXT("DisplayName"));
+
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		// non-native classes are detected by asset search even if they're loaded for consistency
+		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown) && It->HasAnyClassFlags(CLASS_Native))
+		{
+			if (It->IsChildOf(AUTGameMode::StaticClass()))
+			{
+				AUTGameMode* GM = It->GetDefaultObject<AUTGameMode>();
+				if (!GM->bHideInUI)
+				{
+					// This is bad.. needs to be localized on the client :( but for not it will work. 
+					AllowedGameData.Add(FAllowedData(EGameDataType::GameMode, GM->DisplayName.ToString(), GM->GetClass()->GetName(), GM->GetClass()->GetPathName(), false));
+				}
+			}
+			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
+			{
+				AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, It->GetDefaultObject<AUTMutator>()->DisplayName.ToString(), It->GetName(), TEXT(""), false));
+			}
+		}
+	}
+
+	TArray<FAssetData> AssetList;
+	GetAllBlueprintAssetData(AUTGameMode::StaticClass(), AssetList);
+	for (const FAssetData& Asset : AssetList)
+	{
+		static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+		static FName NAME_HideInUI(TEXT("bHideInUI"));
+		const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+		const FString* Hide = Asset.TagsAndValues.Find(NAME_HideInUI);
+		if (ClassPath != NULL && Hide != NULL && Hide->Equals(TEXT("false"), ESearchCase::IgnoreCase))
+		{
+			const FString* DisplayName = Asset.TagsAndValues.Find(NAME_DisplayName);
+			if (DisplayName != NULL)
+			{
+				AllowedGameData.Add( FAllowedData(EGameDataType::GameMode, *DisplayName, *ClassPath, Asset.PackageName.ToString(), false));
+			}
+		}
+	}
+
+	AssetList.Empty();
+	GetAllBlueprintAssetData(AUTMutator::StaticClass(), AssetList);
+	for (const FAssetData& Asset : AssetList)
+	{
+		static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+		const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+		if (ClassPath != NULL)
+		{
+			const FString* DisplayName = Asset.TagsAndValues.Find(NAME_DisplayName);
+			if (DisplayName != NULL)
+			{
+				AllowedGameData.Add( FAllowedData(EGameDataType::Mutator, *DisplayName, *ClassPath, Asset.PackageName.ToString(), false));
+			}
+		}
+	}
+
+	// Next , Grab the maps...
+	TArray<FAssetData> MapAssets;
+	GetAllAssetData(UWorld::StaticClass(), MapAssets);
+	for (const FAssetData& Asset : MapAssets)
+	{
+		FString MapPackageName = Asset.PackageName.ToString();
+		if ( !MapPackageName.StartsWith(TEXT("/Engine/")) && IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
+		{
+			static FName NAME_Title(TEXT("Title"));
+			const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
+			AllowedGameData.Add(FAllowedData(EGameDataType::Map, (Title != NULL && *Title != TEXT("")) ? *Title : Asset.AssetName.ToString(), TEXT(""),Asset.AssetName.ToString(), false) );
+		}
+	}
+
+	UE_LOG(UT,Log,TEXT("Scan Complete!!"))
+
+}
+
+void AUTLobbyGameState::ClientAssignGameData(FAllowedData Data)
+{
+	if (Data.DataType == EGameDataType::GameMode) AllowedGameModes.Add(Data);
+	else if (Data.DataType == EGameDataType::Mutator) AllowedMutators.Add(Data);
+	else if (Data.DataType == EGameDataType::Map) AllowedMaps.Add(Data);
+	else
+	{
+		UE_LOG(UT,Log,TEXT("ClientAssignGameData received bad data"));
+	}
+}
+
+void AUTLobbyGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList)
+{
+	Super::GetAvailableGameData(GameModes, MutatorList);
+	// Now process it against the allowed list....
+	
+	int32 GIndex = 0;
+	while (GIndex < GameModes.Num())
+	{
+		bool bFound = false;
+		for (int32 i=0; i < AllowedGameModes.Num(); i++)
+		{
+			if (GameModes[GIndex]->GetName() == AllowedGameModes[i].Reference)
+			{
+				bFound = true;
+				break;
+			}
+		}
+
+		if (bFound)
+		{
+			GIndex++;
+		}
+		else
+		{
+			GameModes.RemoveAt(GIndex);
+		}
+	}
+
+	int32 MIndex = 0;
+	while (MIndex < MutatorList.Num())
+	{
+		bool bFound = false;
+		for (int32 i=0; i < AllowedMutators.Num(); i++)
+		{
+			if (MutatorList[MIndex]->GetName() == AllowedMutators[i].Reference)
+			{
+				bFound = true;
+				break;
+			}
+		}
+
+		if (bFound)
+		{
+			MIndex++;
+		}
+		else
+		{
+			MutatorList.RemoveAt(MIndex);
+		}
+	}
+}
+
+void AUTLobbyGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList)
+{
+	Super::GetAvailableMaps(DefaultGameMode, MapList);
+
+	int32 MIndex = 0;
+	while (MIndex < MapList.Num())
+	{
+		bool bFound = false;
+		for (int32 i=0; i < AllowedMaps.Num(); i++)
+		{
+			if (MapList[MIndex]->PackageName.Equals(AllowedMaps[i].Package, ESearchCase::IgnoreCase))
+			{
+				bFound = true;
+				break;
+			}
+		}
+
+		if (bFound)
+		{
+			MIndex++;
+		}
+		else
+		{
+			MapList.RemoveAt(MIndex);
+		}
+	}
+}
