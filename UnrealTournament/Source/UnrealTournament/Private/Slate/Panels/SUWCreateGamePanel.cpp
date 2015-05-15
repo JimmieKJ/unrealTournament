@@ -86,9 +86,20 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 			]
 		]
 	];
-
 }
 
+SUWCreateGamePanel::~SUWCreateGamePanel()
+{
+	if (LevelScreenshot != NULL)
+	{
+		delete LevelScreenshot;
+		LevelScreenshot = NULL;
+	}
+	if (MutatorConfigMenu.IsValid())
+	{
+		MutatorConfigMenu->RemoveFromViewport();
+	}
+}
 
 TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> InitialSelectedGameClass)
 {
@@ -421,9 +432,6 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 	return GamePanel.ToSharedRef();
 }
 
-
-
-
 void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection.Get()->GetDisplayName()) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
@@ -615,6 +623,10 @@ void SUWCreateGamePanel::Cancel()
 	// revert config changes
 	SelectedGameClass.GetDefaultObject()->ReloadConfig();
 	AUTGameState::StaticClass()->GetDefaultObject()->ReloadConfig();
+	if (MutatorConfigMenu.IsValid())
+	{
+		MutatorConfigMenu->RemoveFromViewport();
+	}
 }
 
 TSharedRef<ITableRow> SUWCreateGamePanel::GenerateMutatorListRow(UClass* MutatorType, const TSharedRef<STableViewBase>& OwningList)

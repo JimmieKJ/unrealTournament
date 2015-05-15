@@ -15,14 +15,7 @@ public:
 	virtual void ConstructPanel(FVector2D ViewportSize);	
 	virtual TSharedRef<SWidget> BuildGamePanel(TSubclassOf<AUTGameMode> InitialSelectedGameClass);
 
-	virtual ~SUWCreateGamePanel()
-	{
-		if (LevelScreenshot != NULL)
-		{
-			delete LevelScreenshot;
-			LevelScreenshot = NULL;
-		}
-	}
+	virtual ~SUWCreateGamePanel();
 
 	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32 BotSkillLevel);
 

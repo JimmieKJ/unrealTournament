@@ -341,6 +341,7 @@ void SUWindowsMainMenu::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dia
 			CheckLocalContentForLanPlay();
 		}
 	}
+	CreateGameDialog.Reset();
 }
 
 FReply SUWindowsMainMenu::OnTutorialClick()
