@@ -9,6 +9,10 @@ void AUTPickupWeapon::BeginPlay()
 {
 	AUTPickup::BeginPlay(); // skip AUTPickupInventory so we can propagate WeaponType as InventoryType
 
+	if (TimerEffect != NULL)
+	{
+		TimerEffect->SetVisibility(true); // note: HiddenInGame used to hide when weapon is available, weapon stay, etc
+	}
 	SetInventoryType((Role == ROLE_Authority) ? TSubclassOf<AUTInventory>(WeaponType) : InventoryType); // initial replication is before BeginPlay() now so we need to make sure client doesn't clobber it :(
 }
 
