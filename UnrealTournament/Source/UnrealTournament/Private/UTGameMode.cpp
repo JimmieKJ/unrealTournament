@@ -66,7 +66,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MinPlayersToStart = 2;
 	MaxWaitForPlayers = 90.f;
 	bOnlyTheStrongSurvive = false;
-	EndScoreboardDelay = 2.0f;
+	EndScoreboardDelay = 3.0f;
 	GameDifficulty = 3.0f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
@@ -1764,14 +1764,14 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 	float Score = 30.0f;
 
 	AActor* LastSpot = (Player != NULL && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
-	AUTPlayerState *UTPS = Cast<AUTPlayerState>(Player->PlayerState);
+	AUTPlayerState *UTPS = Player ? Cast<AUTPlayerState>(Player->PlayerState) : NULL;
 	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot))
 	{
 		// avoid re-using starts
 		Score -= 15.0f;
 	}
 	FVector StartLoc = P->GetActorLocation() + AUTCharacter::StaticClass()->GetDefaultObject<AUTCharacter>()->BaseEyeHeight;
-	if (UTPS->RespawnChoiceA)
+	if (UTPS && UTPS->RespawnChoiceA)
 	{
 		if (P == UTPS->RespawnChoiceA)
 		{
@@ -1834,24 +1834,24 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 			else if (bHasRespawnChoices && OtherController->PlayerState && !OtherController->GetPawn() && !OtherController->PlayerState->bOnlySpectator)
 			{
 				// make sure no one else has this start as a pending choice
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(OtherController->PlayerState);
-				if (UTPS)
+				AUTPlayerState* OtherUTPS = Cast<AUTPlayerState>(OtherController->PlayerState);
+				if (OtherUTPS)
 				{
-					if (P == UTPS->RespawnChoiceA || P == UTPS->RespawnChoiceB)
+					if (P == OtherUTPS->RespawnChoiceA || P == OtherUTPS->RespawnChoiceB)
 					{
 						return -5.f;
 					}
 					if (bTwoPlayerGame)
 					{
 						// avoid choosing starts near a pending start
-						if (UTPS->RespawnChoiceA)
+						if (OtherUTPS->RespawnChoiceA)
 						{
-							float Dist = (UTPS->RespawnChoiceA->GetActorLocation() - StartLoc).Size();
+							float Dist = (OtherUTPS->RespawnChoiceA->GetActorLocation() - StartLoc).Size();
 							Score -= 7.f * FMath::Max(0.f, (5000.f - Dist) / 5000.f);
 						}
-						if (UTPS->RespawnChoiceB)
+						if (OtherUTPS->RespawnChoiceB)
 						{
-							float Dist = (UTPS->RespawnChoiceB->GetActorLocation() - StartLoc).Size();
+							float Dist = (OtherUTPS->RespawnChoiceB->GetActorLocation() - StartLoc).Size();
 							Score -= 7.f * FMath::Max(0.f, (5000.f - Dist) / 5000.f);
 						}
 					}

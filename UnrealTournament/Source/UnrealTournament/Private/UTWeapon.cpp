@@ -1616,7 +1616,7 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 		bDrawCrosshair = FiringState[i]->DrawHUD(WeaponHudWidget) && bDrawCrosshair;
 	}
 
-	if (bDrawCrosshair)
+	if (bDrawCrosshair && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
 	{
 		UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex;
 		if (CrosshairTexture != NULL)
