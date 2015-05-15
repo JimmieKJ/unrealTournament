@@ -13,8 +13,6 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY()
 	FText ScoringPlaysHeader;
 	UPROPERTY()
-		FText ScoringBreakdownHeader;
-	UPROPERTY()
 	FText AssistedByText;
 	UPROPERTY()
 	FText UnassistedText;

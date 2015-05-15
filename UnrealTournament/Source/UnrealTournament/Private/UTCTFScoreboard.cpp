@@ -9,7 +9,6 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ScoringPlaysHeader = NSLOCTEXT("CTF", "ScoringPlaysHeader", "SCORING PLAYS");
-	ScoringBreakdownHeader = NSLOCTEXT("CTF", "ScoringBreakdownHeader", "SCORING BREAKDOWN");
 	AssistedByText = NSLOCTEXT("CTF", "AssistedBy", "Assisted by");
 	UnassistedText = NSLOCTEXT("CTF", "Unassisted", "Unassisted");
 	NoScoringText = NSLOCTEXT("CTF", "NoScoring", "No Scoring");
@@ -388,19 +387,23 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	DrawColor.A = 0.5f;
 	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, DrawColor);
 
-	float XL, SmallYL;
-	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
-	float MedYL;
-	Canvas->TextSize(UTHUDOwner->MediumFont, ScoringBreakdownHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
-
-	Canvas->DrawText(UTHUDOwner->MediumFont, ScoringBreakdownHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
-	YPos += 1.2f * MedYL;
-
 	AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();
 	if (!PS)
 	{
 		return;
 	}
+
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("PlayerName"), FText::FromString(PS->PlayerName));
+	FText CombinedHeader = FText::Format(NSLOCTEXT("UTCTFScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"), Args);
+
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	float MedYL;
+	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+
+	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += 1.2f * MedYL;
 
 	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "Kills", "Kills"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), PS->Kills), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
@@ -432,11 +435,13 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	YPos += SmallYL;
 
 	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "FlagHeldTime", "Flag Held Time"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagHeldTime))), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), PS->GetStatsValue(NAME_FlagHeldTime), false);
+	Canvas->DrawText(UTHUDOwner->SmallFont, ClockString, XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += SmallYL;
 
 	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "FlagDenialTime", "Flag Denial Time"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagHeldDenyTime))), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), PS->GetStatsValue(NAME_FlagHeldDenyTime), false);
+	Canvas->DrawText(UTHUDOwner->SmallFont, ClockString, XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
 	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagHeldDeny))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += SmallYL;
 
