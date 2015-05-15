@@ -260,7 +260,9 @@ public:
 	virtual void PawnLeavingGame() override;
 
 	/**	We override player tick to keep updating the player's rotation when the game is over. */
-	virtual void PlayerTick(float DeltaTime);
+	virtual void PlayerTick(float DeltaTime) override;
+
+	virtual void Tick(float DeltaTime) override;
 
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
@@ -754,6 +756,25 @@ public:
 
 	UFUNCTION(Exec)
 	void ShowBuyMenu();
+
+	UPROPERTY()
+		AUTPlayerState* CurrentlyViewedPS;
+
+	UPROPERTY()
+		int32 StatsUpdateIndex;
+
+	UPROPERTY()
+		float LastScoreStatsUpdateStartTime;
+
+	UFUNCTION()
+		virtual void SetViewedScorePS(AUTPlayerState* ViewedPS);
+
+	UFUNCTION(server, unreliable, withvalidation)
+		virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS);
+
+	UFUNCTION(client, unreliable)
+		virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, FName StatsName, float NewValue);
+
 };
 
 

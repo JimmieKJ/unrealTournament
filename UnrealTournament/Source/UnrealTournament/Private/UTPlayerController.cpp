@@ -2137,7 +2137,6 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
 
-
 	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam)
 	{
 		// possibly switch cameras
@@ -2165,9 +2164,39 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	{
 		ClientViewSpectatorPawn(FViewTargetTransitionParams());
 	}
+
 	if (bTacComView && PlayerState && PlayerState->bOnlySpectator)
 	{
 		UpdateTacComOverlays();
+	}
+}
+
+void AUTPlayerController::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if ((GetNetMode() == NM_DedicatedServer) && (CurrentlyViewedPS != NULL))
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS)
+		{
+			if (StatsUpdateIndex == 0)
+			{
+				LastScoreStatsUpdateStartTime = GetWorld()->GetTimeSeconds();
+			}
+			if (StatsUpdateIndex < GS->GameScoreStats.Num())
+			{
+				ClientUpdateScoreStats(CurrentlyViewedPS, GS->GameScoreStats[StatsUpdateIndex], CurrentlyViewedPS->GetStatsValue(GS->GameScoreStats[StatsUpdateIndex]));
+			}
+			StatsUpdateIndex++;
+			if (StatsUpdateIndex >= GS->GameScoreStats.Num())
+			{
+				if (LastScoreStatsUpdateStartTime < CurrentlyViewedPS->LastScoreStatsUpdateTime)
+				{
+					StatsUpdateIndex = 0;
+				}
+			}
+		}
 	}
 }
 
@@ -2959,4 +2988,32 @@ void AUTPlayerController::ShowBuyMenu()
 	{
 		ClientOpenLoadout_Implementation(true);
 	}
+}
+
+void AUTPlayerController::SetViewedScorePS(AUTPlayerState* NewViewedPS)
+{
+	if (NewViewedPS != CurrentlyViewedPS)
+	{
+		ServerSetViewedScorePS(NewViewedPS);
+	}
+	CurrentlyViewedPS = NewViewedPS;
+}
+
+void AUTPlayerController::ServerSetViewedScorePS_Implementation(AUTPlayerState* NewViewedPS)
+{
+	if (NewViewedPS != CurrentlyViewedPS)
+	{
+		StatsUpdateIndex = 0;
+	}
+	CurrentlyViewedPS = NewViewedPS;
+}
+
+bool AUTPlayerController::ServerSetViewedScorePS_Validate(AUTPlayerState* NewViewedPS)
+{
+	return true;
+}
+
+void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* ViewedPS, FName StatsName, float NewValue)
+{
+	ViewedPS->SetStatsValue(StatsName, NewValue);
 }

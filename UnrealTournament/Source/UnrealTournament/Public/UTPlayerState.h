@@ -398,11 +398,15 @@ private:
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 
-	/** map of additional stats */
+	/** map of additional stats used for scoring display. */
 	TMap< FName, float > StatsData;
 
 public:
+	/** Last time StatsData was updated - used when replicating the data. */
+	UPROPERTY()
+		float LastScoreStatsUpdateTime;
 
+	/** Accessors for StatsData. */
 	float GetStatsValue(FName StatsName);
 	void SetStatsValue(FName StatsName, float NewValue);
 	void ModifyStatsValue(FName StatsName, float Change);

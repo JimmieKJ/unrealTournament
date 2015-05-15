@@ -1426,11 +1426,13 @@ float AUTPlayerState::GetStatsValue(FName StatsName)
 
 void AUTPlayerState::SetStatsValue(FName StatsName, float NewValue)
 {
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
 	StatsData.Add(StatsName, NewValue);
 }
 
 void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
 {
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
 	float CurrentValue = StatsData.FindRef(StatsName);
 	StatsData.Add(StatsName, CurrentValue + Change);
 }

@@ -375,7 +375,7 @@ void AUTHUD::DrawHUD()
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
-
+		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores;
 		if (!bFontsCached)
 		{
 			CacheFonts();
@@ -391,7 +391,7 @@ void AUTHUD::DrawHUD()
 			if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden() && !HudWidgets[WidgetIndex]->IsPendingKill())
 			{
 				HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
-				if (HudWidgets[WidgetIndex]->ShouldDraw(bShowScores || bPreMatchScoreBoard || bForceScores))
+				if (HudWidgets[WidgetIndex]->ShouldDraw(bScoreboardIsUp))
 				{
 					HudWidgets[WidgetIndex]->Draw(RenderDelta);
 				}
@@ -399,9 +399,14 @@ void AUTHUD::DrawHUD()
 			}
 		}
 
-		if (!bShowScores)
+		if (bScoreboardIsUp)
+		{
+			UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState());
+		}
+		else
 		{
 			DrawDamageIndicators();
+			UTPlayerOwner->SetViewedScorePS(NULL);
 		}
 	}
 }
