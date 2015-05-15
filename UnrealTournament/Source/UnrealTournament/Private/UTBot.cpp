@@ -447,6 +447,11 @@ void AUTBot::Tick(float DeltaTime)
 	{
 		NavData = GetUTNavData(GetWorld());
 	}
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime())
+	{
+		return;
+	}
 	APawn* MyPawn = GetPawn();
 	if (MyPawn == NULL)
 	{
