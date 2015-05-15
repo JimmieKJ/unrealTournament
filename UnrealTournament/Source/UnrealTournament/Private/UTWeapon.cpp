@@ -1472,40 +1472,48 @@ void AUTWeapon::Tick(float DeltaTime)
 		CurrentState->Tick(DeltaTime);
 
 		// if weapon is up in first person, view bob with movement
-		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->Controller) != NULL && GetWeaponHand() != HAND_Hidden)
+		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->Controller) != NULL)
 		{
-			// FOV offset - fixmesteve use viewer
-			AUTPlayerController* MyPC = Cast<AUTPlayerController>(UTOwner->GetController());
-			if (FirstPMeshOffset.IsZero())
+			if (GetWeaponHand() != HAND_Hidden)
 			{
-				FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
-				FirstPMeshRotation = Mesh->GetRelativeTransform().Rotator();
+				// FOV offset - fixmesteve use viewer
+				AUTPlayerController* MyPC = Cast<AUTPlayerController>(UTOwner->GetController());
+				if (FirstPMeshOffset.IsZero())
+				{
+					FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
+					FirstPMeshRotation = Mesh->GetRelativeTransform().Rotator();
+				}
+				FVector ScaledMeshOffset = FirstPMeshOffset;
+				const float FOVScaling = (MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f;
+				if (FOVScaling > 0.f)
+				{
+					ScaledMeshOffset.X *= (1.f + (FOVOffset.X - 1.f) * FOVScaling);
+					ScaledMeshOffset.Y *= (1.f + (FOVOffset.Y - 1.f) * FOVScaling);
+					ScaledMeshOffset.Z *= (1.f + (FOVOffset.Z - 1.f) * FOVScaling);
+				}
+
+				Mesh->SetRelativeLocation(ScaledMeshOffset);
+				FVector BobOffset = UTOwner->GetWeaponBobOffset(DeltaTime, this);
+				Mesh->SetWorldLocation(Mesh->GetComponentLocation() + BobOffset);
+
+				FRotator NewRotation = UTOwner ? UTOwner->GetControlRotation() : FRotator(0.f, 0.f, 0.f);
+				FRotator FinalRotation = NewRotation;
+
+				// Add some rotation leading
+				if (UTOwner && UTOwner->Controller)
+				{
+					FinalRotation.Yaw = LagWeaponRotation(NewRotation.Yaw, LastRotation.Yaw, DeltaTime, MaxYawLag, 0);
+					FinalRotation.Pitch = LagWeaponRotation(NewRotation.Pitch, LastRotation.Pitch, DeltaTime, MaxPitchLag, 1);
+					FinalRotation.Roll = NewRotation.Roll;
+				}
+				LastRotation = NewRotation;
+				Mesh->SetRelativeRotation(FinalRotation + FirstPMeshRotation);
 			}
-			FVector ScaledMeshOffset = FirstPMeshOffset;
-			const float FOVScaling = (MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f;
-			if (FOVScaling > 0.f)
+			else
 			{
-				ScaledMeshOffset.X *= (1.f + (FOVOffset.X - 1.f) * FOVScaling);
-				ScaledMeshOffset.Y *= (1.f + (FOVOffset.Y - 1.f) * FOVScaling);
-				ScaledMeshOffset.Z *= (1.f + (FOVOffset.Z - 1.f) * FOVScaling);
+				// for first person footsteps
+				UTOwner->GetWeaponBobOffset(DeltaTime, this);
 			}
-
-			Mesh->SetRelativeLocation(ScaledMeshOffset);
-			FVector BobOffset = UTOwner->GetWeaponBobOffset(DeltaTime, this);
-			Mesh->SetWorldLocation(Mesh->GetComponentLocation() + BobOffset);
-
-			FRotator NewRotation = UTOwner ? UTOwner->GetControlRotation() : FRotator(0.f,0.f,0.f);
-			FRotator FinalRotation = NewRotation;
-
-			// Add some rotation leading
-			if (UTOwner && UTOwner->Controller)
-			{
-				FinalRotation.Yaw = LagWeaponRotation(NewRotation.Yaw, LastRotation.Yaw, DeltaTime, MaxYawLag, 0);
-				FinalRotation.Pitch = LagWeaponRotation(NewRotation.Pitch, LastRotation.Pitch, DeltaTime, MaxPitchLag, 1);
-				FinalRotation.Roll = NewRotation.Roll;
-			}
-			LastRotation = NewRotation;
-			Mesh->SetRelativeRotation(FinalRotation + FirstPMeshRotation);
 		}
 	}
 }
