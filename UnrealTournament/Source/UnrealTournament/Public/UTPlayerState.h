@@ -250,7 +250,6 @@ public:
 	UFUNCTION()
 	virtual void ClearCarriedObject(AUTCarriedObject* OldCarriedObject);
 
-
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void SetWaitingPlayer(bool B);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
@@ -398,8 +397,16 @@ private:
 	void ReadStatsFromCloud();
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
-	
+
+	/** map of additional stats */
+	TMap< FName, float > StatsData;
+
 public:
+
+	float GetStatsValue(FName StatsName);
+	void SetStatsValue(FName StatsName, float NewValue);
+	void ModifyStatsValue(FName StatsName, float Change);
+
 	// Average ELO rank for this player.
 	UPROPERTY(Replicated)
 	int32 AverageRank;

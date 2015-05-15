@@ -44,7 +44,10 @@ void AUTCTFScoring::FlagHeldTimer()
 			{
 				// score holder for keeping flag out, preventing capture.
 				Flag->Holder->Score += FlagHolderPointsPerSecond;
+				Flag->Holder->ModifyStatsValue(NAME_FlagHeldDeny, FlagHolderPointsPerSecond);
+				Flag->Holder->ModifyStatsValue(NAME_FlagHeldDenyTime, 1.f);
 			}
+			Flag->Holder->ModifyStatsValue(NAME_FlagHeldTime, 1.f);
 		}
 	}
 }
@@ -80,6 +83,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		ScorerPS->AdjustScore(Points);
 		ScorerPS->LastFlagReturnTime = GetWorld()->GetTimeSeconds();
 		//UE_LOG(UT, Warning, TEXT("Flag Return %s score %d"), *ScorerPS->PlayerName, Points);
+		ScorerPS->ModifyStatsValue(NAME_FlagReturnPoints, Points);
 	}
 	else if (Reason == FName("FlagCapture"))
 	{
@@ -123,10 +127,13 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 					NewAssist.AssistName = FSafePlayerName(FlagRunner);
 					NewAssist.bCarryAssist = true;
 					NewScoringPlay.Assists.AddUnique(NewAssist);
+					FlagRunner->ModifyStatsValue(NAME_CarryAssist, 1);
+					FlagRunner->ModifyStatsValue(NAME_CarryAssistPoints, Points);
 				}
 				else
 				{
 					Points += FlagCapPoints;
+					FlagRunner->ModifyStatsValue(NAME_FlagCapPoints, Points);
 				}
 				FlagRunner->AdjustScore(Points);
 				//UE_LOG(UT, Warning, TEXT("Flag assist (held) %s score %d"), *ScorerPS->PlayerName, Points);
@@ -137,10 +144,11 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		{
 			if (Rescuer != NULL && Rescuer->PlayerState != ScorerPS && Cast<AUTPlayerState>(Rescuer->PlayerState) != NULL && CTFGameState->OnSameTeam(Rescuer, ScorerPS))
 			{
+				AUTPlayerState* RescuerPS = Cast<AUTPlayerState>(Rescuer->PlayerState);
 				bool bFoundAssist = false;
 				for (int32 j = 0; j < NewScoringPlay.Assists.Num(); j++)
 				{
-					if (NewScoringPlay.Assists[j].AssistName == FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState))
+					if (NewScoringPlay.Assists[j].AssistName == FSafePlayerName(RescuerPS))
 					{
 						bFoundAssist = true;
 						NewScoringPlay.Assists[j].bDefendAssist = true;
@@ -150,21 +158,22 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				if (!bFoundAssist)
 				{
 					FCTFAssist NewAssist;
-					NewAssist.AssistName = FSafePlayerName((AUTPlayerState*)Rescuer->PlayerState);
+					NewAssist.AssistName = FSafePlayerName(RescuerPS);
 					NewAssist.bDefendAssist = true;
 					NewScoringPlay.Assists.AddUnique(NewAssist);
 				}
+				RescuerPS->ModifyStatsValue(NAME_DefendAssist, 1);
 			}
 		}
 
-		// flag return enabling score gets bonus and assist
+		// flag kill or return enabling score gets bonus and assist
 		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
 			AController* C = *Iterator;
 			AUTPlayerState* PS =  C ? Cast<AUTPlayerState>(C->PlayerState) : NULL;
 			if (PS && (PS != ScorerPS) && CTFGameState->OnSameTeam(PS, ScorerPS))
 			{
-				if (GetWorld()->GetTimeSeconds() - PS->LastFlagReturnTime < RecentActionTimeThreshold)
+				if (GetWorld()->GetTimeSeconds() - FMath::Max(PS->LastFlagReturnTime, PS->LastKilledFCTime) < RecentActionTimeThreshold)
 				{
 					PS->AdjustScore(FlagReturnAssist);
 					//UE_LOG(UT, Warning, TEXT("Flag assist (return) %s score 100"), *PS->PlayerName);
@@ -185,12 +194,15 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 						NewAssist.bReturnAssist = true;
 						NewScoringPlay.Assists.AddUnique(NewAssist);
 					}
+					PS->ModifyStatsValue(NAME_ReturnAssist, 1);
+					PS->ModifyStatsValue(NAME_ReturnAssistPoints, FlagReturnAssist);
 				}
 				else
 				{
 					// everybody on team gets some bonus for cap
 					PS->AdjustScore(TeamCapBonus);
 					//UE_LOG(UT, Warning, TEXT("Flag assist (general) %s score 20"), *PS->PlayerName);
+					PS->ModifyStatsValue(NAME_TeamCapPoints, TeamCapBonus);
 				}
 			}
 		}
@@ -225,6 +237,7 @@ void AUTCTFScoring::ScoreDamage(int32 DamageAmount, AController* Victim, AContro
 		AttackerPS->AdjustScore(DamagePoints);
 		AttackerPS->LastShotFCTime = GetWorld()->GetTimeSeconds();
 		AttackerPS->LastShotFC = VictimPS;
+		AttackerPS->ModifyStatsValue(NAME_EnemyFCDamage, DamagePoints);
 	}
 }
 
@@ -268,11 +281,20 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 			KillerPS->LastKilledFCTime = GetWorld()->GetTimeSeconds();
 			// bonus based on flag hold time
 			Points += FMath::Min<int32>(FlagKillHeldBonus*GetTotalHeldTime(VictimPS->CarriedObject) / 2, MaxFlagHeldBonus);
+			KillerPS->ModifyStatsValue(NAME_FCKills, 1);
+			KillerPS->ModifyStatsValue(NAME_FCKillPoints, Points);
 		}
 		else if (WasThreateningFlagCarrier(VictimPS, KilledPawn, KillerPS))
 		{
 			Points += FlagCombatKillBonus;
 			CTFGameState->FlagBases[KillerPS->GetTeamNum()]->MyFlag->HolderRescuers.AddUnique(Killer);
+			KillerPS->ModifyStatsValue(NAME_FlagSupportKills, 1);
+			KillerPS->ModifyStatsValue(NAME_FlagSupportKillPoints, Points);
+		}
+		else
+		{
+			KillerPS->ModifyStatsValue(NAME_RegularKillPoints, Points);
+
 		}
 		KillerPS->AdjustScore(Points);
 	}

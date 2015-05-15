@@ -1132,7 +1132,6 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage() const
 
 void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 {
-
 	Panel->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
@@ -1255,8 +1254,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
 	];
-
-
 }
 #endif
 
@@ -1310,7 +1307,6 @@ void AUTPlayerState::ServerBuyLoadout_Implementation(AUTReplicatedLoadoutInfo* D
 		}
 	}
 }
-
 
 void AUTPlayerState::AdjustCurrency(float Adjustment)
 {
@@ -1370,7 +1366,6 @@ void AUTPlayerState::LogBanRequest(AUTPlayerState* Voter)
 				// Update the ban
 				BanVotes[i].BanTime = CurrentTime;
 			}
-
 			return;
 		}
 	}
@@ -1423,3 +1418,20 @@ void AUTPlayerState::OnRepSpecialPlayer()
 		}
 	}
 }
+
+float AUTPlayerState::GetStatsValue(FName StatsName)
+{
+	return StatsData.FindRef(StatsName);
+}
+
+void AUTPlayerState::SetStatsValue(FName StatsName, float NewValue)
+{
+	StatsData.Add(StatsName, NewValue);
+}
+
+void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
+{
+	float CurrentValue = StatsData.FindRef(StatsName);
+	StatsData.Add(StatsName, CurrentValue + Change);
+}
+

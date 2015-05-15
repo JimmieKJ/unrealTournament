@@ -3,6 +3,7 @@
 #include "UTCTFScoreboard.h"
 #include "UTTeamScoreboard.h"
 #include "UTCTFGameState.h"
+#include "UTCTFScoring.h"
 
 UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -373,11 +374,14 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 
 void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
 {
+	Canvas->SetLinearDrawColor(FLinearColor::White);
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
 	FVector2D SavedRenderPosition = RenderPosition;
 	RenderPosition = FVector2D(0.f, 0.f);
+	float ValueColumn = 0.5f;
+	float ScoreColumn = 0.75f;
 	bScaleByDesignedResolution = false;
 
 	FLinearColor DrawColor = FLinearColor::Black;
@@ -392,6 +396,92 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	Canvas->DrawText(UTHUDOwner->MediumFont, ScoringBreakdownHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += 1.2f * MedYL;
 
+	AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();
+	if (!PS)
+	{
+		return;
+	}
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "Kills", "Kills"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), PS->Kills), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	int32 FCKills = PS->GetStatsValue(NAME_FCKills);
+	int32 FlagSupportKills = PS->GetStatsValue(NAME_FlagSupportKills);
+	int32 RegularKills = PS->Kills - FCKills - FlagSupportKills;
+	YPos += SmallYL;
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "RegKills", " - Regular Kills"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), RegularKills), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_RegularKillPoints))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+
+	YPos += SmallYL;
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "FlagSupportKills", " - FC Support Kills"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), FlagSupportKills), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagSupportKillPoints))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+
+	YPos += SmallYL;
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "EnemyFCKills", " - Enemy FC Kills"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), FCKills), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FCKillPoints))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+
+	YPos += SmallYL;
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "EnemyFCDamage", "Enemy FC Damage"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_EnemyFCDamage))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+
+	YPos += SmallYL;
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), PS->Deaths), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "FlagHeldTime", "Flag Held Time"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagHeldTime))), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "FlagDenialTime", "Flag Denial Time"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagHeldDenyTime))), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagHeldDeny))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "FlagCaps", "Flag Captures"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), PS->FlagCaptures), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagCapPoints))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "FlagReturns", "Flag Returns"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), PS->FlagReturns), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagReturnPoints))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "FlagAssists", "Assists"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), PS->Assists), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "CarryAssists", " - Carry Assists"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_CarryAssist))), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_CarryAssistPoints))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "ReturnAssists", " - Return Assists"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_ReturnAssist))), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_ReturnAssistPoints))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "DefendAssists", " - Support Assists"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_DefendAssist))), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "TeamCaps", " - Add'l Team Caps"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	int32 TeamCaps = PS->Team ? PS->Team->Score - PS->FlagCaptures - PS->Assists : 0;
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), TeamCaps), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_TeamCapPoints))), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
+	Canvas->SetLinearDrawColor(FLinearColor::Yellow);
+	Canvas->DrawText(UTHUDOwner->SmallFont, NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), int32(PS->Score)), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += SmallYL;
+
 	bScaleByDesignedResolution = true;
 	RenderPosition = SavedRenderPosition;
 }
+/*
+NEED Replication of stats array
+*/

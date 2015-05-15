@@ -144,9 +144,9 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 AUTPlayerState* AUTHUD::GetScorerPlayerState()
 {
 	AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
-	if (PS && (!PS->bOnlySpectator || UTPlayerOwner->bSpectateBehindView))
+	if (PS && !PS->bOnlySpectator)
 	{
-		// view your own score unless you are a first person spectator
+		// view your own score unless you are a spectator
 		return PS;
 	}
 	APawn* PawnOwner = (UTPlayerOwner->GetPawn() != NULL) ? UTPlayerOwner->GetPawn() : Cast<APawn>(UTPlayerOwner->GetViewTarget());
@@ -321,8 +321,11 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 
 void AUTHUD::ToggleScoreboard(bool bShow)
 {
+	if (!bShowScores)
+	{
+		ScoreboardPage = 0;
+	}
 	bShowScores = bShow;
-	ScoreboardPage = 0; // TODO: not sure if we should remember or reset this
 }
 
 void AUTHUD::PostRender()
