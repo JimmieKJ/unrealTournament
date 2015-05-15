@@ -11,14 +11,15 @@ AUTCTFScoring::AUTCTFScoring(const FObjectInitializer& ObjectInitializer)
 	FlagFirstPickupPoints = 2;
 	FlagCapPoints = 20;
 	FlagCombatKillBonus = 1;
-	FlagCarrierKillBonus = 1;
-	FlagReturnPoints = 1;
+	FlagCarrierKillBonus = 2;
+	FlagReturnPoints = 2;
 	FlagReturnHeldBonus = 0.1f;
 	FlagKillHeldBonus = 0.1f;
 	MaxFlagHeldBonus = 10;
 	BaseKillScore = 1;
 	FlagHolderPointsPerSecond = 0.1f;
 	FlagReturnAssist = 10;
+	FlagSupportAssist = 5;
 	TeamCapBonus = 2;
 	RecentActionTimeThreshold = 7.f;
 }
@@ -163,6 +164,8 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 					NewScoringPlay.Assists.AddUnique(NewAssist);
 				}
 				RescuerPS->ModifyStatsValue(NAME_DefendAssist, 1);
+				RescuerPS->AdjustScore(FlagSupportAssist);
+				RescuerPS->ModifyStatsValue(NAME_DefendAssistPoints, FlagSupportAssist);
 			}
 		}
 

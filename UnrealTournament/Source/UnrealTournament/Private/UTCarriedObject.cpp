@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCarriedObject.h"
 #include "UTProjectileMovementComponent.h"
+#include "UTCTFScoring.h"
 #include "Net/UnrealNetwork.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
@@ -223,6 +224,10 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	if (Role == ROLE_Authority)
 	{
 		OnHolderChanged();
+		if (Holder && bWasHome)
+		{
+			Holder->ModifyStatsValue(NAME_FlagGrabs, 1);
+		}
 	}
 
 	// Track the pawns that have held this flag - used for scoring
