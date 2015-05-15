@@ -729,7 +729,7 @@ void AUTBot::Tick(float DeltaTime)
 					}
 				}
 				// do nothing if path says we need to wait
-				else if (CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(GetPawn()))
+				else if (bAdjusting || CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(GetPawn(), GetMoveBasedPosition()))
 				{
 					if (GetCharacter() != NULL && (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Flying || GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Swimming))
 					{

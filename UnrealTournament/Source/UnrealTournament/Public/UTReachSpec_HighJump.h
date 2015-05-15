@@ -198,7 +198,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 		}
 	}
 
-	virtual bool WaitForMove(APawn* Asker) const override
+	virtual bool WaitForMove(APawn* Asker, const FComponentBasedPosition& MovePos) const override
 	{
 		if (Asker == NULL)
 		{

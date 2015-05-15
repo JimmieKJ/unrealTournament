@@ -375,13 +375,15 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 					return false;
 				}
 				NavNodeRef NewStartPoly = FindNearestPoly(Start, ScoutShape.GetExtent());
-				if (NewStartPoly != INVALID_NAVNODEREF && NewStartPoly != StartPoly)
+				FVector ClosestPt = FVector::ZeroVector;
+				// FindNearestPoly() uses a bounding box check and so is inaccurate. Make sure we're really in another poly and not just close. Important for small/short jumps.
+				if (NewStartPoly != INVALID_NAVNODEREF && NewStartPoly != StartPoly && GetClosestPointOnPoly(NewStartPoly, Start, ClosestPt) && (Start - ClosestPt).Size() < ScoutShape.GetCapsuleRadius())
 				{
 					// made it to another walk reachable poly, test jump from there instead
 					return false;
 				}
 			}
-			if (bAnyHit)
+			if (bAnyHit && !GetWorld()->SweepTest(Start, Start + MoveSlice * 0.1f, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
 			{
 				// this slight extra nudge is meant to make sure minor floating point discrepancies don't cause the zero JumpZ fall test to fail unnecessarily
 				Start += MoveSlice * 0.1f;
@@ -987,11 +989,6 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 				for (NavNodeRef PolyRef : Node->Polys)
 				{
 					FVector PolyCenter = GetPolyCenter(PolyRef);
-
-					if ((PolyCenter - FVector(600, 5350, 1830)).Size2D() < 75.0f)
-					{
-						UE_LOG(UT, Log, TEXT("TEST"));
-					}
 
 					if (!IsValidJumpPoint(PolyCenter))
 					{
