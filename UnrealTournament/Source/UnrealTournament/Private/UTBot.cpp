@@ -1871,6 +1871,13 @@ const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)
 			return &EnemyList[i];
 		}
 	}
+	// code assumes Enemy has a valid entry, so check local list too if necessary
+	// this triggering probably means a notification bug where the AI hasn't been told about an enemy being killed or destroyed
+	if (TestEnemy == Enemy && bCheckTeam && PS != NULL && PS->Team != NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Bot %s has enemy %s that is not in team's enemy list! (enemy dead: %s)"), *PlayerState->PlayerName, (TestEnemy->PlayerState != NULL) ? *TestEnemy->PlayerState->PlayerName : *TestEnemy->GetName(), TestEnemy->bPendingKillPending ? TEXT("True") : TEXT("False"));
+		return GetEnemyInfo(TestEnemy, false);
+	}
 	return NULL;
 }
 
