@@ -197,13 +197,11 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 					PS->ModifyStatsValue(NAME_ReturnAssist, 1);
 					PS->ModifyStatsValue(NAME_ReturnAssistPoints, FlagReturnAssist);
 				}
-				else
-				{
-					// everybody on team gets some bonus for cap
-					PS->AdjustScore(TeamCapBonus);
-					//UE_LOG(UT, Warning, TEXT("Flag assist (general) %s score 20"), *PS->PlayerName);
-					PS->ModifyStatsValue(NAME_TeamCapPoints, TeamCapBonus);
-				}
+
+				// everybody other than scorer on team gets some bonus for cap
+				PS->AdjustScore(TeamCapBonus);
+				//UE_LOG(UT, Warning, TEXT("Flag assist (general) %s score 20"), *PS->PlayerName);
+				PS->ModifyStatsValue(NAME_TeamCapPoints, TeamCapBonus);
 			}
 		}
 
