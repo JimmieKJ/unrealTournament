@@ -602,13 +602,54 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
 
 	return SNew(SVerticalBox)
 
-	+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), SoundVolumes[EUTSoundClass::Master], UserSettings->GetSoundClassVolume(EUTSoundClass::Master),
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Master], SoundVolumesLabels[EUTSoundClass::Master], &SUWSystemSettingsDialog::OnSoundVolumeChangedMaster, NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Master),
 		NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume_Tooltip", "Controls the volume of all audio, this setting in conjuction the vlolumes below will determine the volume of a particular piece of audio."))
-	+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), SoundVolumes[EUTSoundClass::Music], UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
-	+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), SoundVolumes[EUTSoundClass::SFX], UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
-	+ AddGeneralSliderWidget(NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), SoundVolumes[EUTSoundClass::Voice], UserSettings->GetSoundClassVolume(EUTSoundClass::Voice));
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUWSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUWSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUWSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUWSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice));
 }
 
+void SUWSystemSettingsDialog::OnSoundVolumeChangedMaster(float NewValue)
+{
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Master, NewValue);
+	}
+}
+
+void SUWSystemSettingsDialog::OnSoundVolumeChangedMusic(float NewValue)
+{
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, NewValue);
+	}
+}
+
+void SUWSystemSettingsDialog::OnSoundVolumeChangedSFX(float NewValue)
+{
+	// Temporarily change audio level
+	// This should play a sample SFX sound
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::SFX, NewValue);
+	}
+}
+
+void SUWSystemSettingsDialog::OnSoundVolumeChangedVoice(float NewValue)
+{
+	// Temporarily change audio level
+	// This should play a sample Voice sound
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Voice, NewValue);
+	}
+}
 
 FReply SUWSystemSettingsDialog::OnTabClickGeneral()
 {
@@ -767,6 +808,13 @@ FReply SUWSystemSettingsDialog::OKClick()
 
 FReply SUWSystemSettingsDialog::CancelClick()
 {
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	// revert sound settings to default
+	for (int32 i = 0; i < ARRAY_COUNT(SoundVolumes); i++)
+	{
+		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), UserSettings->GetSoundClassVolume(EUTSoundClass::Type(i)));
+	}
+
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
 }
