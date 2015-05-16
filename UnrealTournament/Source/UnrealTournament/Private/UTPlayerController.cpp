@@ -1070,6 +1070,7 @@ void AUTPlayerController::OnAltFire()
 		}
 		else
 		{
+			bAutoCam = false;
 			ServerViewSelf();
 		}
 	}
