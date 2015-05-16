@@ -1862,6 +1862,10 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 
 const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)
 {
+	if (Enemy == NULL)
+	{
+		return NULL;
+	}
 	AUTPlayerState* PS = bCheckTeam ? Cast<AUTPlayerState>(PlayerState) : NULL;
 	const TArray<const FBotEnemyInfo>& EnemyList = (PS != NULL && PS->Team != NULL) ? PS->Team->GetEnemyList() : *(const TArray<const FBotEnemyInfo>*)&LocalEnemyList;
 	for (int32 i = 0; i < EnemyList.Num(); i++)
@@ -1875,9 +1879,7 @@ const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)
 	// this triggering probably means a notification bug where the AI hasn't been told about an enemy being killed or destroyed
 	if (TestEnemy == Enemy && bCheckTeam && PS != NULL && PS->Team != NULL)
 	{
-		// @TODO - I think this is occurring /was crashing at half time
-		//		UE_LOG(UT, Warning, TEXT("Bot %s has enemy %s that is not in team's enemy list! (enemy dead: %s)"), *PlayerState->PlayerName, (TestEnemy->PlayerState != NULL) ? *TestEnemy->PlayerState->PlayerName : *TestEnemy->GetName(), TestEnemy->bPendingKillPending ? TEXT("True") : TEXT("False"));
-		UE_LOG(UT, Warning, TEXT("Mysterial should really fix the message that goes here"));
+		UE_LOG(UT, Warning, TEXT("Bot %s has enemy %s that is not in team's enemy list! (enemy dead: %s)"), *PlayerState->PlayerName, (TestEnemy->PlayerState != NULL) ? *TestEnemy->PlayerState->PlayerName : *TestEnemy->GetName(), TestEnemy->bPendingKillPending ? TEXT("True") : TEXT("False"));
 		return GetEnemyInfo(TestEnemy, false);
 	}
 	return NULL;
