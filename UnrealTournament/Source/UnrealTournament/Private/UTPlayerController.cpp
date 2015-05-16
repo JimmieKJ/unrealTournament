@@ -2179,7 +2179,7 @@ void AUTPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if ((GetNetMode() == NM_DedicatedServer) && (CurrentlyViewedPS != NULL))
+	if ((GetNetMode() == NM_DedicatedServer) && (CurrentlyViewedScorePS != NULL))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS)
@@ -2190,12 +2190,12 @@ void AUTPlayerController::Tick(float DeltaTime)
 			}
 			if (StatsUpdateIndex < GS->GameScoreStats.Num())
 			{
-				ClientUpdateScoreStats(CurrentlyViewedPS, GS->GameScoreStats[StatsUpdateIndex], CurrentlyViewedPS->GetStatsValue(GS->GameScoreStats[StatsUpdateIndex]));
+				ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->GameScoreStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->GameScoreStats[StatsUpdateIndex]));
 			}
 			StatsUpdateIndex++;
 			if (StatsUpdateIndex >= GS->GameScoreStats.Num())
 			{
-				if (LastScoreStatsUpdateStartTime < CurrentlyViewedPS->LastScoreStatsUpdateTime)
+				if (LastScoreStatsUpdateStartTime < CurrentlyViewedScorePS->LastScoreStatsUpdateTime)
 				{
 					StatsUpdateIndex = 0;
 				}
@@ -2996,20 +2996,20 @@ void AUTPlayerController::ShowBuyMenu()
 
 void AUTPlayerController::SetViewedScorePS(AUTPlayerState* NewViewedPS)
 {
-	if (NewViewedPS != CurrentlyViewedPS)
+	if (NewViewedPS != CurrentlyViewedScorePS)
 	{
 		ServerSetViewedScorePS(NewViewedPS);
 	}
-	CurrentlyViewedPS = NewViewedPS;
+	CurrentlyViewedScorePS = NewViewedPS;
 }
 
 void AUTPlayerController::ServerSetViewedScorePS_Implementation(AUTPlayerState* NewViewedPS)
 {
-	if (NewViewedPS != CurrentlyViewedPS)
+	if (NewViewedPS != CurrentlyViewedScorePS)
 	{
 		StatsUpdateIndex = 0;
 	}
-	CurrentlyViewedPS = NewViewedPS;
+	CurrentlyViewedScorePS = NewViewedPS;
 }
 
 bool AUTPlayerController::ServerSetViewedScorePS_Validate(AUTPlayerState* NewViewedPS)

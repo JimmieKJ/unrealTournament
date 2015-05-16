@@ -757,8 +757,9 @@ public:
 	UFUNCTION(Exec)
 	void ShowBuyMenu();
 
+	/** Playerstate whose details are currently being displayed on scoreboard. */
 	UPROPERTY()
-		AUTPlayerState* CurrentlyViewedPS;
+		AUTPlayerState* CurrentlyViewedScorePS;
 
 	UPROPERTY()
 		int32 StatsUpdateIndex;

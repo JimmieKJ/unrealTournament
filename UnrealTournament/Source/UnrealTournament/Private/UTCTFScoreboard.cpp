@@ -386,7 +386,11 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	DrawColor.A = 0.5f;
 	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, DrawColor);
 
-	AUTPlayerState* PS = ScoreBreakdownPS ? ScoreBreakdownPS : UTHUDOwner->GetScorerPlayerState();
+	if (!UTPlayerOwner->CurrentlyViewedScorePS)
+	{
+		UTPlayerOwner->SetViewedScorePS(UTHUDOwner->GetScorerPlayerState());
+	}
+	AUTPlayerState* PS = UTPlayerOwner->CurrentlyViewedScorePS;
 	if (!PS)
 	{
 		return;

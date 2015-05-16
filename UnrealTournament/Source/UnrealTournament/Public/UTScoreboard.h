@@ -103,9 +103,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	uint32 ActualPlayerCount;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
-		AUTPlayerState* ScoreBreakdownPS;
-
 	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")

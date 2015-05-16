@@ -401,7 +401,10 @@ void AUTHUD::DrawHUD()
 
 		if (bScoreboardIsUp)
 		{
-			UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState());
+			if (!UTPlayerOwner->CurrentlyViewedScorePS)
+			{
+				UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState());
+			}
 		}
 		else
 		{

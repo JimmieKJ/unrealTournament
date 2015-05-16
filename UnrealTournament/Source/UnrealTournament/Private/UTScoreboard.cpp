@@ -51,9 +51,9 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 void UUTScoreboard::AdvancePage(int32 Increment)
 {
 	// @TODO FIXMESTEVE hack for progressing through players for scoring breakdown
-	if ((NumPages == 2) && (UTHUDOwner->ScoreboardPage == 1))
+	if ((NumPages == 2) && (UTHUDOwner->ScoreboardPage == 1) && UTHUDOwner->UTPlayerOwner)
 	{
-		ScoreBreakdownPS = GetNextScoringPlayer(Increment);
+		UTHUDOwner->UTPlayerOwner->SetViewedScorePS(GetNextScoringPlayer(Increment));
 		return;
 	}
 	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
@@ -63,9 +63,10 @@ void UUTScoreboard::AdvancePage(int32 Increment)
 AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
 {
 	int32 CurrentIndex = -1;
+	AUTPlayerState* ScoreBreakdownPS = UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS;
 	if (!ScoreBreakdownPS)
 	{
-		ScoreBreakdownPS = UTHUDOwner->GetScorerPlayerState();;
+		ScoreBreakdownPS = UTHUDOwner->GetScorerPlayerState();
 	}
 	// Find index of current viewtarget's PlayerState
 	for (int32 i = 0; i<GetWorld()->GameState->PlayerArray.Num(); i++)
