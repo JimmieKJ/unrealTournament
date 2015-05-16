@@ -31,7 +31,6 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 
 void UUTCTFScoreboard::OpenScoringPlaysPage()
 {
-	TimeLineOffset = (UTGameState && (UTGameState->IsMatchAtHalftime() || UTGameState->HasMatchEnded())) ? -0.15f : 99999.f;
 	SetPage(1);
 }
 
@@ -43,7 +42,7 @@ void UUTCTFScoreboard::PageChanged_Implementation()
 
 void UUTCTFScoreboard::Draw_Implementation(float DeltaTime)
 {
-	if (UTHUDOwner->ScoreboardPage == 1)
+	if (UTHUDOwner->ScoreboardPage > 0)
 	{
 		float YOffset = 0.0f;
 		DrawGamePanel(DeltaTime, YOffset);
@@ -387,7 +386,7 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	DrawColor.A = 0.5f;
 	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, DrawColor);
 
-	AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();
+	AUTPlayerState* PS = ScoreBreakdownPS ? ScoreBreakdownPS : UTHUDOwner->GetScorerPlayerState();
 	if (!PS)
 	{
 		return;

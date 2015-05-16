@@ -50,8 +50,54 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 
 void UUTScoreboard::AdvancePage(int32 Increment)
 {
+	// @TODO FIXMESTEVE hack for progressing through players for scoring breakdown
+	if ((NumPages == 2) && (UTHUDOwner->ScoreboardPage == 1))
+	{
+		ScoreBreakdownPS = GetNextScoringPlayer(Increment);
+		return;
+	}
 	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
 	PageChanged();
+}
+
+AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
+{
+	int32 CurrentIndex = -1;
+	if (!ScoreBreakdownPS)
+	{
+		ScoreBreakdownPS = UTHUDOwner->GetScorerPlayerState();;
+	}
+	// Find index of current viewtarget's PlayerState
+	for (int32 i = 0; i<GetWorld()->GameState->PlayerArray.Num(); i++)
+	{
+		if (ScoreBreakdownPS == GetWorld()->GameState->PlayerArray[i])
+		{
+			CurrentIndex = i;
+			break;
+		}
+	}
+
+	int32 NewIndex;
+	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+	{
+		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
+		if (PlayerState != NULL)
+		{
+			return PlayerState;
+		}
+	}
+
+	// wrap around
+	CurrentIndex = (NewIndex < 0) ? GetWorld()->GameState->PlayerArray.Num() : -1;
+	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+	{
+		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
+		if (PlayerState != NULL)
+		{
+			return PlayerState;
+		}
+	}
+	return ScoreBreakdownPS;
 }
 
 void UUTScoreboard::SetPage(uint32 NewPage)

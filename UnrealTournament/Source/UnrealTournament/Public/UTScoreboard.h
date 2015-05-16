@@ -92,7 +92,6 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	TArray<FVector2D> BadgeUVs;
-	
 
 	/** number of 'pages' that can be flipped through on the scoreboard */
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
@@ -103,6 +102,11 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	uint32 ActualPlayerCount;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
+		AUTPlayerState* ScoreBreakdownPS;
+
+	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* TextureAtlas;

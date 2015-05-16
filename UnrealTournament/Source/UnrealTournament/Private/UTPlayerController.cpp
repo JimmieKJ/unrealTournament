@@ -503,7 +503,7 @@ void AUTPlayerController::FOV(float NewFOV)
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// hack for scoreboard until we have a real interactive system
-	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL)
+	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL && EventType == IE_Pressed)
 	{
 		static FName NAME_Left(TEXT("Left"));
 		static FName NAME_Right(TEXT("Right"));
