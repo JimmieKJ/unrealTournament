@@ -731,9 +731,6 @@ void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& Start
 
 		if (BotSkillLevel >=0)
 		{
-			// Load the level summary of this map.
-			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
-			DefaultGameMode->BotFillCount = Summary->OptimalPlayerCount;
 			GameOptions.Add(FString::Printf(TEXT("Difficulty=%i"), BotSkillLevel));
 		}
 		else
