@@ -2008,19 +2008,19 @@ void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 			else if (InventoryList == InvToAdd)
 			{
 				UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
+				return;
 			}
 			else
 			{
 				AUTInventory* Last = InventoryList;
-				while (Last->NextInventory != NULL)
+				for (AUTInventory* Item = InventoryList; Item != NULL; Item = Item->NextInventory)
 				{
-					// avoid recursion
-					if (Last->NextInventory == InvToAdd)
+					if (Item == InvToAdd)
 					{
 						UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
 						return;
 					}
-					Last = Last->NextInventory;
+					Last = Item;
 				}
 				Last->NextInventory = InvToAdd;
 			}
