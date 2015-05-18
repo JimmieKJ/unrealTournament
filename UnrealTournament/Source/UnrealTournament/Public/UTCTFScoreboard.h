@@ -77,8 +77,11 @@ protected:
 	/** Draw one line of scoring breakdown. */
 	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL);
 
-	/** Draw one line of scoring breakdown where stat value is string instead of int. */
-	virtual void DrawTextStatsLine(FText StatsName, FText StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL);
+	/** Draw one line of scoring breakdown where values are string instead of int32. */
+	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, int32 HighlightIndex);
+
+	UPROPERTY()
+		bool bHighlightStatsLineTopValue;
 
 	virtual void PageChanged_Implementation() override;
 };
