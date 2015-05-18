@@ -9,7 +9,7 @@
  * note that this is NOT a subclass of UTPickup
  */
 UCLASS(NotPlaceable)
-class UNREALTOURNAMENT_API AUTDroppedPickup : public AActor
+class UNREALTOURNAMENT_API AUTDroppedPickup : public AActor, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -42,6 +42,11 @@ public:
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override
 	{
 		Movement->Velocity = NewVelocity;
+	}
+
+	virtual void Reset_Implementation() override
+	{
+		Destroy();
 	}
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Inventory)
