@@ -2005,11 +2005,6 @@ void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 			{
 				InventoryList = InvToAdd;
 			}
-			else if (InventoryList == InvToAdd)
-			{
-				UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
-				return;
-			}
 			else
 			{
 				AUTInventory* Last = InventoryList;
