@@ -406,7 +406,7 @@ void AUTHUD::DrawHUD()
 				UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState());
 			}
 		}
-		else
+		else if (UTPlayerOwner)
 		{
 			DrawDamageIndicators();
 			UTPlayerOwner->SetViewedScorePS(NULL);
