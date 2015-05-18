@@ -8,6 +8,7 @@
 #include "UTWeaponRedirector.h"
 #include "UTTranslocatorMessage.h"
 #include "UTHUDWidget_Powerups.h"
+#include "UTReplicatedEmitter.h"
 
 AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
@@ -172,26 +173,29 @@ void AUTWeap_Translocator::FireShot()
 						UTOwner->bIsTranslocating = true;  // different telefrag rules than for teleporters
 
 						// You can die during teleportation, UTOwner is not guaranteed valid
-						if (UTOwner->TeleportTo(WarpLocation, WarpRotation) && UTOwner != nullptr)
+						AUTCharacter* SavedOwner = UTOwner;
+						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
 						{
 							ConsumeAmmo(CurrentFireMode);
+							// spawn effects
+							FActorSpawnParameters SpawnParams;
+							SpawnParams.Instigator = SavedOwner;
+							SpawnParams.bNoCollisionFail = true;
+							SpawnParams.Owner = SavedOwner;
 							if (AfterImageType != NULL)
 							{
-								FActorSpawnParameters SpawnParams;
-								SpawnParams.Instigator = UTOwner;
-								SpawnParams.bNoCollisionFail = true;
-								SpawnParams.Owner = UTOwner;
 								AUTWeaponRedirector* AfterImage = GetWorld()->SpawnActor<AUTWeaponRedirector>(AfterImageType, SavedPlayerTransform.GetLocation(), SavedPlayerTransform.GetRotation().Rotator(), SpawnParams);
 								if (AfterImage != NULL)
 								{
-									AfterImage->InitFor(UTOwner, FRepCollisionShape(PlayerCapsule), SavedPlayerBase, UTOwner->GetTransform());
+									AfterImage->InitFor(SavedOwner, FRepCollisionShape(PlayerCapsule), SavedPlayerBase, SavedOwner->GetTransform());
 								}
 							}
+							if (DestinationEffect != NULL)
+							{
+								GetWorld()->SpawnActor<AUTReplicatedEmitter>(DestinationEffect, SavedOwner->GetActorLocation(), SavedOwner->GetActorRotation(), SpawnParams);
+							}
 						}
-						if (UTOwner)
-						{
-							UTOwner->bIsTranslocating = false;
-						}
+						SavedOwner->bIsTranslocating = false;
 					}
 					else
 					{

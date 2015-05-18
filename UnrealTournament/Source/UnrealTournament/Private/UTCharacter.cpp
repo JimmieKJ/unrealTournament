@@ -3749,7 +3749,7 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 	GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
 	GetCapsuleComponent()->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
 	GetCharacterMovement()->bJustTeleported = bResult && !bIsATest;
-	if (bResult && !bIsATest && !bClientUpdating && TeleportEffect.Num() > 0 && TeleportEffect[0] != NULL)
+	if (bResult && !bIsATest && !bClientUpdating && !bIsTranslocating && TeleportEffect.Num() > 0 && TeleportEffect[0] != NULL)
 	{
 		TSubclassOf<AUTReplicatedEmitter> PickedEffect = TeleportEffect[0];
 		int32 TeamNum = GetTeamNum();
@@ -3761,10 +3761,7 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
-		if (!bIsTranslocating)
-		{
-			GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, TeleportStart, GetActorRotation(), Params);
-		}
+		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, TeleportStart, GetActorRotation(), Params);
 		GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, GetActorLocation(), GetActorRotation(), Params);
 	}
 	if (bResult && !bIsATest)
