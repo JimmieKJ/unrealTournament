@@ -3525,8 +3525,11 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 		}
 		GetMesh()->PhysicsAssetOverride = Data->Mesh->PhysicsAssetOverride;
 		GetMesh()->RelativeScale3D = Data->Mesh->RelativeScale3D;
-		GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
-		GetMesh()->RelativeRotation = Data->Mesh->RelativeRotation;
+		if (GetMesh() != GetRootComponent())
+		{
+			GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
+			GetMesh()->RelativeRotation = Data->Mesh->RelativeRotation;
+		}
 	}
 }
 
