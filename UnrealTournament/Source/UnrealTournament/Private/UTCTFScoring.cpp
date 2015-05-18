@@ -49,6 +49,10 @@ void AUTCTFScoring::FlagHeldTimer()
 				Flag->Holder->ModifyStatsValue(NAME_FlagHeldDenyTime, 1.f);
 			}
 			Flag->Holder->ModifyStatsValue(NAME_FlagHeldTime, 1.f);
+			if (Flag->Holder->Team)
+			{
+				Flag->Holder->Team->ModifyStatsValue(NAME_TeamFlagHeldTime, 1);
+			}
 		}
 	}
 }
@@ -275,6 +279,10 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 	if (VictimPS && KillerPS && (VictimPS != KillerPS) && CTFGameState && !CTFGameState->OnSameTeam(Killer, Victim))
 	{
+		if (KillerPS->Team)
+		{
+			KillerPS->Team->ModifyStatsValue(NAME_TeamKills, 1);
+		}
 		uint32 Points = BaseKillScore;
 		if (VictimPS->CarriedObject)
 		{

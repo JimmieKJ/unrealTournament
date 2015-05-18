@@ -31,6 +31,10 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	GameScoreStats.Add(NAME_ReturnAssistPoints);
 	GameScoreStats.Add(NAME_TeamCapPoints);
 	GameScoreStats.Add(NAME_FlagGrabs);
+
+	TeamStats.Add(NAME_TeamKills);
+	TeamStats.Add(NAME_TeamFlagGrabs);
+	TeamStats.Add(NAME_TeamFlagHeldTime);
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

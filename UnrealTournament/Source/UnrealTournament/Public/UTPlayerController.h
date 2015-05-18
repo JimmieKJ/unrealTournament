@@ -762,6 +762,15 @@ public:
 		AUTPlayerState* CurrentlyViewedScorePS;
 
 	UPROPERTY()
+		int32 TeamStatsUpdateTeam;
+
+	UPROPERTY()
+		int32 TeamStatsUpdateIndex;
+
+	UPROPERTY()
+		float LastTeamStatsUpdateStartTime;
+
+	UPROPERTY()
 		int32 StatsUpdateIndex;
 
 	UPROPERTY()
@@ -775,6 +784,9 @@ public:
 
 	UFUNCTION(client, unreliable)
 		virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, FName StatsName, float NewValue);
+
+	UFUNCTION(client, unreliable)
+		virtual void ClientUpdateTeamStats(uint8 TeamNum, FName StatsName, float NewValue);
 
 };
 

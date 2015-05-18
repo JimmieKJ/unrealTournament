@@ -2184,6 +2184,19 @@ void AUTPlayerController::Tick(float DeltaTime)
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS)
 		{
+			if ((GS->Teams.Num() > TeamStatsUpdateTeam) && (GS->Teams[TeamStatsUpdateTeam] != NULL))
+			{
+				if (TeamStatsUpdateIndex < GS->TeamStats.Num())
+				{
+					ClientUpdateTeamStats(TeamStatsUpdateTeam, GS->TeamStats[TeamStatsUpdateIndex], GS->Teams[TeamStatsUpdateTeam]->GetStatsValue(GS->TeamStats[TeamStatsUpdateIndex]));
+				}
+				TeamStatsUpdateIndex++;
+				if (TeamStatsUpdateIndex >= GS->TeamStats.Num())
+				{
+					TeamStatsUpdateTeam++;
+					TeamStatsUpdateIndex = 0;
+				}
+			}
 			if (StatsUpdateIndex == 0)
 			{
 				LastScoreStatsUpdateStartTime = GetWorld()->GetTimeSeconds();
@@ -2198,6 +2211,11 @@ void AUTPlayerController::Tick(float DeltaTime)
 				if (LastScoreStatsUpdateStartTime < CurrentlyViewedScorePS->LastScoreStatsUpdateTime)
 				{
 					StatsUpdateIndex = 0;
+				}
+				else if (LastTeamStatsUpdateStartTime < GetWorld()->GetTimeSeconds() - 3.f)
+				{
+					TeamStatsUpdateTeam = 0;
+					TeamStatsUpdateIndex = 0;
 				}
 			}
 		}
@@ -2233,7 +2251,6 @@ void AUTPlayerController::ChooseBestCamera()
 		ServerViewPlayerState(BestPS);
 	}
 }
-
 
 void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
@@ -3008,6 +3025,8 @@ void AUTPlayerController::ServerSetViewedScorePS_Implementation(AUTPlayerState* 
 	if (NewViewedPS != CurrentlyViewedScorePS)
 	{
 		StatsUpdateIndex = 0;
+		TeamStatsUpdateTeam = 0;
+		TeamStatsUpdateIndex = 0;
 	}
 	CurrentlyViewedScorePS = NewViewedPS;
 }
@@ -3019,5 +3038,17 @@ bool AUTPlayerController::ServerSetViewedScorePS_Validate(AUTPlayerState* NewVie
 
 void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* ViewedPS, FName StatsName, float NewValue)
 {
-	ViewedPS->SetStatsValue(StatsName, NewValue);
+	if (ViewedPS)
+	{
+		ViewedPS->SetStatsValue(StatsName, NewValue);
+	}
+}
+
+void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, FName StatsName, float NewValue)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && (GS->Teams.Num() > TeamNum) && GS->Teams[TeamNum])
+	{
+		GS->Teams[TeamNum]->SetStatsValue(StatsName, NewValue);
+	}
 }

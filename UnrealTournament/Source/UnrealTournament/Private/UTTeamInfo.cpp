@@ -239,3 +239,22 @@ void AUTTeamInfo::ReinitSquads()
 		Squad->Initialize(this, Squad->Orders);
 	}
 }
+
+float AUTTeamInfo::GetStatsValue(FName StatsName)
+{
+	return StatsData.FindRef(StatsName);
+}
+
+void AUTTeamInfo::SetStatsValue(FName StatsName, float NewValue)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	StatsData.Add(StatsName, NewValue);
+}
+
+void AUTTeamInfo::ModifyStatsValue(FName StatsName, float Change)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	float CurrentValue = StatsData.FindRef(StatsName);
+	StatsData.Add(StatsName, CurrentValue + Change);
+}
+

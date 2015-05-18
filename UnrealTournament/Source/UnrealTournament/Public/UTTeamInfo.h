@@ -203,4 +203,18 @@ protected:
 	/** list of known enemies for bots */
 	UPROPERTY(BlueprintReadOnly, Category = AI)
 	TArray<FBotEnemyInfo> EnemyList;
+
+	/** map of additional stats used for scoring display. */
+	TMap< FName, float > StatsData;
+
+public:
+	/** Last time StatsData was updated - used when replicating the data. */
+	UPROPERTY()
+		float LastScoreStatsUpdateTime;
+
+	/** Accessors for StatsData. */
+	float GetStatsValue(FName StatsName);
+	void SetStatsValue(FName StatsName, float NewValue);
+	void ModifyStatsValue(FName StatsName, float Change);
+
 };

@@ -319,6 +319,10 @@ public:
 
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
+
+	UPROPERTY()
+		TArray<FName> TeamStats;
+
 };
 
 

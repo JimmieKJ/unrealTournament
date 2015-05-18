@@ -227,6 +227,10 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		if (Holder && bWasHome)
 		{
 			Holder->ModifyStatsValue(NAME_FlagGrabs, 1);
+			if (Holder->Team)
+			{
+				Holder->Team->ModifyStatsValue(NAME_TeamFlagGrabs, 1);
+			}
 		}
 	}
 

@@ -24,6 +24,10 @@ static const FName NAME_FlagSupportKillPoints(TEXT("FlagSupportKillPoints"));
 static const FName NAME_RegularKillPoints(TEXT("RegularKillPoints"));
 static const FName NAME_FlagGrabs(TEXT("FlagGrabs"));
 
+static const FName NAME_TeamKills(TEXT("TeamKills"));
+static const FName NAME_TeamFlagGrabs(TEXT("TeamFlagGrabs"));
+static const FName NAME_TeamFlagHeldTime(TEXT("TeamFlagHeldTime"));
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 {
