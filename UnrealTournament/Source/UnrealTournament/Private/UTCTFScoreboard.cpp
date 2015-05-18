@@ -443,6 +443,7 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "EnemyFCKills", " - Enemy FC Kills"), FCKills, PS->GetStatsValue(NAME_FCKillPoints), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "EnemyFCDamage", " Enemy FC Damage Bonus"), -1, PS->GetStatsValue(NAME_EnemyFCDamage), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), PS->Deaths, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "KDRatio", "K/D Ratio"), FString::Printf(TEXT(" %f6.2"), ((PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f)), "", DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += SmallYL;
 
@@ -531,8 +532,8 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 
 	// draw team icons
 	float IconHeight = MedYL;
-	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ValueColumn*ScoreWidth - 0.5f*IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[0].X, UTHUDOwner->TeamIconUV[0].Y, 72, 72, 1.f, UTGameState->Teams[0]->TeamColor);
-	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ScoreColumn*ScoreWidth - 0.5f*IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[1].X, UTHUDOwner->TeamIconUV[1].Y, 72, 72, 1.f, UTGameState->Teams[1]->TeamColor);
+	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ValueColumn*ScoreWidth - 0.25f*IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[0].X, UTHUDOwner->TeamIconUV[0].Y, 72, 72, 1.f, UTGameState->Teams[0]->TeamColor);
+	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ScoreColumn*ScoreWidth - 0.25f*IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[1].X, UTHUDOwner->TeamIconUV[1].Y, 72, 72, 1.f, UTGameState->Teams[1]->TeamColor);
 	YPos += 1.1f * MedYL;
 
 	// draw team stats
@@ -556,15 +557,100 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 
-	// top scorer, top flag runner, top defender, top support, top kills
-	//DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopScorer", "Top Scorer"), GetPlayerNameFor(), GetPlayerNameFor(), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	// find top scorer
+	AUTPlayerState* TopScorerRed = NULL;
+	AUTPlayerState* TopScorerBlue = NULL;
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && PS->Team)
+		{
+			if (!TopScorerRed && (PS->Team->TeamIndex == 0))
+			{
+				TopScorerRed = PS;
+			}
+			else if (!TopScorerBlue && (PS->Team->TeamIndex == 1))
+			{
+				TopScorerBlue = PS;
+			}
+			if (TopScorerRed && TopScorerBlue)
+			{
+				break;
+			}
+		}
+	}
+
+	// find top kills && KD
+	AUTPlayerState* TopKillerRed = FindTopTeamKillerFor(0);
+	AUTPlayerState* TopKillerBlue = FindTopTeamKillerFor(1);
+	AUTPlayerState* TopKDRed = FindTopTeamKDFor(0);
+	AUTPlayerState* TopKDBlue = FindTopTeamKDFor(1);
+
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopScorer", "Top Scorer"), GetPlayerNameFor(TopScorerRed), GetPlayerNameFor(TopScorerBlue), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopFlagRunner", "Top Flag Runner"), GetPlayerNameFor(UTGameState->Teams[0]->TopAttacker), GetPlayerNameFor(UTGameState->Teams[1]->TopAttacker), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopDefender", "Top Defender"), GetPlayerNameFor(UTGameState->Teams[0]->TopDefender), GetPlayerNameFor(UTGameState->Teams[1]->TopDefender), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopSupport", "Top Support"), GetPlayerNameFor(UTGameState->Teams[0]->TopSupporter), GetPlayerNameFor(UTGameState->Teams[1]->TopSupporter), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
-	//DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), GetPlayerNameFor(), GetPlayerNameFor(), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), GetPlayerNameFor(TopKillerRed), GetPlayerNameFor(TopKillerBlue), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKD", "Top K/D"), GetPlayerNameFor(TopKDRed), GetPlayerNameFor(TopKDBlue), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 
 	// later do udamage and shieldbelt control
-
 	// also individual redeemer shots and Denials
 }
+
+AUTPlayerState* UUTCTFScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
+{
+	TArray<AUTPlayerState*> MemberPS;
+	AUTTeamInfo* Team = UTGameState->Teams[TeamNum];
+	TArray<AController*> Members = Team->GetTeamMembers();
+
+	for (int32 i = 0; i < Members.Num(); i++)
+	{
+		AUTPlayerState* PS = Members[i] ? Cast<AUTPlayerState>(Members[i]->PlayerState) : NULL;
+		if (PS)
+		{
+			MemberPS.Add(PS);
+		}
+	}
+
+	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		return A.Kills > B.Kills;
+	});
+	return MemberPS[0];
+}
+
+AUTPlayerState* UUTCTFScoreboard::FindTopTeamKDFor(uint8 TeamNum)
+{
+	TArray<AUTPlayerState*> MemberPS;
+	AUTTeamInfo* Team = UTGameState->Teams[TeamNum];
+	TArray<AController*> Members = Team->GetTeamMembers();
+
+	for (int32 i = 0; i < Members.Num(); i++)
+	{
+		AUTPlayerState* PS = Members[i] ? Cast<AUTPlayerState>(Members[i]->PlayerState) : NULL;
+		if (PS)
+		{
+			MemberPS.Add(PS);
+		}
+	}
+
+	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		if (A.Deaths == 0)
+		{
+			if (B.Deaths == 0)
+			{
+				return A.Kills > B.Kills;
+			}
+			return true;
+		}
+		if (B.Deaths == 0)
+		{
+			return (B.Kills == 0);
+		}
+		return A.Kills/A.Deaths > B.Kills/B.Deaths;
+	});
+	return MemberPS[0];
+}
+
 

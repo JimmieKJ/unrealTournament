@@ -84,4 +84,8 @@ protected:
 		bool bHighlightStatsLineTopValue;
 
 	virtual void PageChanged_Implementation() override;
+
+	virtual AUTPlayerState* FindTopTeamKillerFor(uint8 TeamNum);
+
+	virtual AUTPlayerState* FindTopTeamKDFor(uint8 TeamNum);
 };
