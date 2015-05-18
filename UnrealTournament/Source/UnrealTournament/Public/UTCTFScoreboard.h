@@ -71,6 +71,9 @@ protected:
 	/** 5coring breakdown for an individual player. */
 	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight);
 
+	/** 5coring breakdown for Teams. */
+	virtual void DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight);
+
 	/** Draw one line of scoring breakdown. */
 	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL);
 

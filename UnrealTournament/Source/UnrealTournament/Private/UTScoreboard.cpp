@@ -51,7 +51,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 void UUTScoreboard::AdvancePage(int32 Increment)
 {
 	// @TODO FIXMESTEVE hack for progressing through players for scoring breakdown
-	if ((NumPages == 2) && (UTHUDOwner->ScoreboardPage == 1) && UTHUDOwner->UTPlayerOwner && (GetWorld()->GameState->PlayerArray.Num() > 0) 
+	if ((NumPages > 1) && (UTHUDOwner->ScoreboardPage == NumPages-1) && UTHUDOwner->UTPlayerOwner && (GetWorld()->GameState->PlayerArray.Num() > 0) 
 		&& ((Increment > 0) || (UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS != GetWorld()->GameState->PlayerArray[0])))
 	{
 		UTHUDOwner->UTPlayerOwner->SetViewedScorePS(GetNextScoringPlayer(Increment));

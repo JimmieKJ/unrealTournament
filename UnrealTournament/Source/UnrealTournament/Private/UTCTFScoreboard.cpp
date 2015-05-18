@@ -21,7 +21,7 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	ColumnHeaderAssistsX = 0.73;
 	ColumnHeaderReturnsX = 0.79;
 	ReadyX = 0.7f;
-	NumPages = 2;
+	NumPages = 3;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpree01.A_UI_EnemySpree01'"));
 	ScoreUpdateSound = OtherSpreeSoundFinder.Object;
@@ -31,7 +31,18 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 
 void UUTCTFScoreboard::OpenScoringPlaysPage()
 {
-	SetPage(1);
+	if (UTHUDOwner)
+	{
+		if (UTHUDOwner->ScoreboardPage == 0)
+		{
+			SetPage(1);
+			GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTCTFScoreboard::OpenScoringPlaysPage, 6.0f, false);
+		}
+		else if (UTHUDOwner->ScoreboardPage == 1)
+		{
+			SetPage(2);
+		}
+	}
 }
 
 void UUTCTFScoreboard::PageChanged_Implementation()
@@ -222,12 +233,30 @@ void UUTCTFScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	float XOffset = Canvas->ClipX * 0.06f;
 	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
 	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
-	DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
 
+	FLinearColor PageColor = FLinearColor::Black;
+	PageColor.A = 0.5f;
+	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	if (UTHUDOwner->ScoreboardPage == 1)
+	{
+		DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+	}
+	else
+	{
+		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+	}
 	// draw right side
 	XOffset = ScoreWidth + 2.f*XOffset;
 	YPos = TopYPos;
-	DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	if (UTHUDOwner->ScoreboardPage == 1)
+	{
+		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+	}
+	else
+	{
+		DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+	}
 
 	bScaleByDesignedResolution = true;
 	RenderPosition = SavedRenderPosition;
@@ -252,11 +281,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 	float ScoringOffsetX, ScoringOffsetY;
 	Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
 	int32 TotalPlays = CTFState->GetScoringPlays().Num();
-
-	// draw background
-	FLinearColor DrawColor = FLinearColor::Black;
-	DrawColor.A = 0.5f;
-	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, DrawColor);
 
 	Canvas->DrawText(UTHUDOwner->MediumFont, ScoringPlaysHeader, XOffset + (ScoreWidth - XL) * 0.5f, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += 1.2f * MedYL;
@@ -385,13 +409,6 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
-	FVector2D SavedRenderPosition = RenderPosition;
-	RenderPosition = FVector2D(0.f, 0.f);
-	bScaleByDesignedResolution = false;
-
-	FLinearColor DrawColor = FLinearColor::Black;
-	DrawColor.A = 0.5f;
-	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, DrawColor);
 
 	if (!UTPlayerOwner->CurrentlyViewedScorePS)
 	{
@@ -406,12 +423,10 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("PlayerName"), FText::FromString(PS->PlayerName));
 	FText CombinedHeader = FText::Format(NSLOCTEXT("UTCTFScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"), Args);
-
 	float XL, SmallYL;
 	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	float MedYL;
 	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
-
 	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += 1.2f * MedYL;
 
@@ -419,13 +434,11 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	int32 FCKills = PS->GetStatsValue(NAME_FCKills);
 	int32 FlagSupportKills = PS->GetStatsValue(NAME_FlagSupportKills);
 	int32 RegularKills = PS->Kills - FCKills - FlagSupportKills;
-
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "RegKills", " - Regular Kills"), RegularKills, PS->GetStatsValue(NAME_RegularKillPoints), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlagSupportKills", " - FC Support Kills"), FlagSupportKills, PS->GetStatsValue(NAME_FlagSupportKillPoints), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "EnemyFCKills", " - Enemy FC Kills"), FCKills, PS->GetStatsValue(NAME_FCKillPoints), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "EnemyFCDamage", " Enemy FC Damage Bonus"), -1, PS->GetStatsValue(NAME_EnemyFCDamage), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), PS->Deaths, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
-
 	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += SmallYL;
 
@@ -434,7 +447,6 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FlagHeldTime", "Flag Held Time"), ClockString, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), PS->GetStatsValue(NAME_FlagHeldDenyTime), false);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FlagDenialTime", "Flag Denial Time"), ClockString, PS->GetStatsValue(NAME_FlagHeldDeny), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
-
 	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += SmallYL;
 
@@ -449,9 +461,6 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 
 	Canvas->SetLinearDrawColor(FLinearColor::Yellow);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
-
-	bScaleByDesignedResolution = true;
-	RenderPosition = SavedRenderPosition;
 }
 
 void UUTCTFScoreboard::DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float LineIncrement)
@@ -483,6 +492,25 @@ void UUTCTFScoreboard::DrawTextStatsLine(FText StatsName, FText StatValue, int32
 	}
 	YPos += SmallYL;
 }
-/*
-NEED Replication of stats array
-*/
+
+void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
+{
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	TextRenderInfo.bClipText = true;
+
+	FText CombinedHeader = NSLOCTEXT("UTCTFScoreboard", "TeamScoringBreakDownHeader", "Team Scoring Breakdown");
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	float MedYL;
+	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += 1.1f * MedYL;
+
+	// draw team icons
+	float IconHeight = MedYL;
+	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ValueColumn*ScoreWidth - 0.5f*IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[0].X, UTHUDOwner->TeamIconUV[0].Y, 72, 72, 1.f, FLinearColor::Red);
+	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ScoreColumn*ScoreWidth - 0.5f*IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[1].X, UTHUDOwner->TeamIconUV[1].Y, 72, 72, 1.f, FLinearColor::Blue);
+	YPos += 1.1f * MedYL;
+}
