@@ -104,10 +104,11 @@ void AUTDuelGame::PlayEndOfMatchMessage()
 	AUTGameMode::PlayEndOfMatchMessage();
 }
 
-void AUTDuelGame::GetGameURLOptions(TArray<FString>& OptionsList)
+void AUTDuelGame::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
 	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
 	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
+	DesiredPlayerCount = 2;
 }
 
 

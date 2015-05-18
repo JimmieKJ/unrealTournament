@@ -558,13 +558,22 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 	{
 		FString GameMode;
 		TArray<FString> GameOptionsList;
-		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptionsList);	
+
+		int32 DesiredPlayerCount = 0;
+
+		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptionsList, DesiredPlayerCount);	
 
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *GameMode);
 		for (int32 i = 0; i < GameOptionsList.Num(); i++)
 		{
 			GameOptions += FString::Printf(TEXT("?%s"),*GameOptionsList[i]);
 		}
+
+		if (CreateGameDialog->BotSkillLevel >= 0)
+		{
+			GameOptions += FString::Printf(TEXT("?Difficulty=%i?BotFill=%i?MaxPlayers=%i"),CreateGameDialog->BotSkillLevel, DesiredPlayerCount, DesiredPlayerCount);
+		}
+
 	}
 	else
 	{
@@ -594,15 +603,17 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		DefaultGameMode->SaveConfig();
 
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *CurrentRule->GameMode);
-		GameOptions += CurrentRule->GameOptions;
 		GameOptions += FString::Printf(TEXT("?MaxPlayers=%i"), CurrentRule->MaxPlayers);
+
 		if ( CreateGameDialog->BotSkillLevel >= 0 )
 		{
 			// Load the level summary of this map.
 			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
 
 			// This match wants bots.  
-			GameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), Summary->OptimalPlayerCount, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));				
+			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+
+			GameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));				
 		}
 	}
 

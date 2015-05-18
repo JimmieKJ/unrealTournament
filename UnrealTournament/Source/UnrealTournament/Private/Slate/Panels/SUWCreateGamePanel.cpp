@@ -103,7 +103,6 @@ SUWCreateGamePanel::~SUWCreateGamePanel()
 
 TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> InitialSelectedGameClass)
 {
-	TSharedPtr<SGridPanel> MutatorGrid;
 
 	SAssignNew(GamePanel,SVerticalBox)
 	+ SVerticalBox::Slot()
@@ -310,7 +309,28 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 			.AutoWidth()
 			.Padding(30.0f,0.0f,0.0f,0.0f)
 			[
-				SNew(SBox)
+				AddMutatorMenu()
+			]
+		]
+	];
+
+	if (MutatorGrid.IsValid())
+	{
+		MutatorGrid->SetRowFill(0, 1);
+		MutatorGrid->SetColumnFill(0, .5);
+		MutatorGrid->SetColumnFill(2, .5);
+	}
+
+	OnGameSelected(InitialSelectedGameClass, ESelectInfo::Direct);
+
+	return GamePanel.ToSharedRef();
+}
+
+TSharedRef<SWidget> SUWCreateGamePanel::AddMutatorMenu()
+{
+	if (GWorld->GetNetMode() != NM_Client)
+	{
+		return SNew(SBox)
 				.WidthOverride(700)
 				[
 
@@ -418,18 +438,11 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 							]
 						]
 					]
-				]
-			]
-		]
-	];
+				];
+	
+	}
 
-	MutatorGrid->SetRowFill(0, 1);
-	MutatorGrid->SetColumnFill(0, .5);
-	MutatorGrid->SetColumnFill(2, .5);
-
-	OnGameSelected(InitialSelectedGameClass, ESelectInfo::Direct);
-
-	return GamePanel.ToSharedRef();
+	return SNew(SCanvas);
 }
 
 void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo)
@@ -695,7 +708,7 @@ FReply SUWCreateGamePanel::ConfigureBots()
 	return FReply::Handled();
 }
 
-void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32 BotSkillLevel)
+void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel)
 {
 	StartingMap = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->PackageName : TEXT("");
 	AUTGameMode* DefaultGameMode = SelectedGameClass->GetDefaultObject<AUTGameMode>();
@@ -725,7 +738,8 @@ void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& Start
 		}
 
 		GConfig->SetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni);
-		DefaultGameMode->GetGameURLOptions(GameOptions);
+
+		DefaultGameMode->GetGameURLOptions(GameOptions, DesiredPlayerCount);
 
 		// If we don't want bots, clear BotFillCount
 

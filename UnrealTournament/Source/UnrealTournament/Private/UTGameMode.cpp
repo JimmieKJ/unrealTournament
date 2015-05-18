@@ -2412,12 +2412,13 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	}
 }
 
-void AUTGameMode::GetGameURLOptions(TArray<FString>& OptionsList)
+void AUTGameMode::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
 	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
 	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
 	OptionsList.Add(FString::Printf(TEXT("bForceRespawn=%i"), bForceRespawn));
-	OptionsList.Add(FString::Printf(TEXT("BotFill=%i"), BotFillCount));
+
+	DesiredPlayerCount = BotFillCount;
 }
 
 #if !UE_SERVER

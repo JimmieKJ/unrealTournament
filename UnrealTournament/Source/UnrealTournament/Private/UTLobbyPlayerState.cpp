@@ -20,11 +20,11 @@ void AUTLobbyPlayerState::PreInitializeComponents()
 void AUTLobbyPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
-	UE_LOG(UT,Log,TEXT("[DataPush] - BeginPlay"));
+	//UE_LOG(UT,Log,TEXT("[DataPush] - BeginPlay"));
 	// If we are a client, this means we have finished the initial actor replication and can start the data push
 	if (Role != ROLE_Authority)
 	{
-		UE_LOG(UT,Log,TEXT("[DataPush] - Telling Server to Start"));
+		//UE_LOG(UT,Log,TEXT("[DataPush] - Telling Server to Start"));
 		Server_ReadyToBeginDataPush();
 	}
 }

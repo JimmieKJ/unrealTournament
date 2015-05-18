@@ -495,3 +495,18 @@ struct FAllowedData
 	{}
 
 };
+
+UENUM()
+namespace EMCPRoles
+{
+	enum Type
+	{
+		Gamer,
+		Developer,
+		Concepter,
+		Contributor, 
+		Marketplace,
+		Prototyper,
+		MAX,
+	};
+}

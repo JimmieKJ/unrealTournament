@@ -17,7 +17,7 @@ public:
 
 	virtual ~SUWCreateGamePanel();
 
-	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32 BotSkillLevel);
+	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel);
 
 protected:
 	enum EServerStartMode
@@ -77,12 +77,18 @@ protected:
 	FReply ConfigureMutator();
 	FReply ConfigureBots();
 
+	TSharedPtr<SGridPanel> MutatorGrid;
+
+
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		Collector.AddReferencedObjects(AllGametypes);
 	}
 
 	void OnTextChanged(const FText& NewText);
+
+	TSharedRef<SWidget> AddMutatorMenu();
+
 };
 
 #endif

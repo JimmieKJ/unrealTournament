@@ -450,47 +450,28 @@ void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOpti
 */
 }
 
-void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, const FString& GameMode, const FString& Map, const FString& GameOptions, int32 MaxPlayers, int32 BotSkillLevel)
+void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString GameURL)
 {
 	AUTLobbyGameMode* LobbyGame = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
-	if (LobbyGame)
+	if (LobbyGame && MatchOwner && MatchOwner->CurrentRuleset.IsValid())
 	{
 		GameInstanceID++;
 		if (GameInstanceID == 0) GameInstanceID = 1;	// Always skip 0.
 
-		// Append the InstanceID so that we know who to talk about to.  TODO: We have to add the server's accessible address (or the iC's address) here once we support
-		// instances on a machines.  NOTE: All communication that comes from the instance server to the lobby will need this id.
-
-		FString FinalOptions = GameOptions;
-		
-		// Set the Max players
-		FinalOptions += FString::Printf(TEXT("?MaxPlayers=%i"), MaxPlayers);
-
-		// Set the Bot Skill level and if they are needed.
-		if (BotSkillLevel >= 0)
-		{
-			FinalOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), MaxPlayers, FMath::Clamp<int32>(BotSkillLevel,0,7));
-		}
-		else
-		{
-			FinalOptions += FString::Printf(TEXT("?BotFill=0"));
-		}
-
 		// Apply additional options.
-		if (!ForcedInstanceGameOptions.IsEmpty()) FinalOptions += ForcedInstanceGameOptions;
+		if (!ForcedInstanceGameOptions.IsEmpty()) GameURL += ForcedInstanceGameOptions;
 
-		FinalOptions = FString::Printf(TEXT("%s?Game=%s?%s?InstanceID=%i?HostPort=%i"), *Map, *GameMode, *FinalOptions, GameInstanceID, GameInstanceListenPort);
+		GameURL += FString::Printf(TEXT("?InstanceID=%i?HostPort=%i"), GameInstanceID, GameInstanceListenPort);
 
 		int32 InstancePort = LobbyGame->StartingInstancePort + (LobbyGame->InstancePortStep * GameInstances.Num());
 
 		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
-		FString Options = FString::Printf(TEXT("UnrealTournament %s -server -port=%i -log"), *FinalOptions, InstancePort);
+		FString Options = FString::Printf(TEXT("UnrealTournament %s -server -port=%i -log"), *GameURL, InstancePort);
 		
 		// Add in additional command line params
 		if (!AdditionalInstanceCommandLine.IsEmpty()) Options += TEXT(" ") + AdditionalInstanceCommandLine;
 
 		FString ConnectionString = FString::Printf(TEXT("%s:%i"), *GetWorld()->GetNetDriver()->LowLevelGetNetworkNumber(), InstancePort);
-
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
 
 		MatchOwner->GameInstanceProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);

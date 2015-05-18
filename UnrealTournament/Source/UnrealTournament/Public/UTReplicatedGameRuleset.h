@@ -62,6 +62,9 @@ public:
 	UPROPERTY(Replicated)
 	TArray<FPackageRedirectReference> RequiredPackages;
 
+	UPROPERTY(Replicated)
+	uint32 bTeamGame:1;
+
 	// -------------- These are server side only.
 
 	// Not displayed, this wholes the game type that will be passed to the server via the URL.  

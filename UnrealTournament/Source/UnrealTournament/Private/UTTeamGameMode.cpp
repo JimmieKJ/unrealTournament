@@ -406,9 +406,9 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 	}
 }
 
-void AUTTeamGameMode::GetGameURLOptions(TArray<FString>& OptionsList)
+void AUTTeamGameMode::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
-	Super::GetGameURLOptions(OptionsList);
+	Super::GetGameURLOptions(OptionsList, DesiredPlayerCount);
 	OptionsList.Add(FString::Printf(TEXT("BalanceTeams=%i"), bBalanceTeams));
 }
 

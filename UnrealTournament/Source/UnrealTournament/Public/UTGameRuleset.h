@@ -62,6 +62,9 @@ public:
 	
 	UPROPERTY(Config)
 	TArray<FPackageRedirectReference> RedirectReferences;
+
+	UPROPERTY(Config)
+	uint32 bTeamGame:1;
 };
 
 

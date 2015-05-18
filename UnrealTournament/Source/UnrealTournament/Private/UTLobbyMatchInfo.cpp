@@ -6,6 +6,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "Net/UnrealNetwork.h"
 #include "UTGameEngine.h"
+#include "UTLevelSummary.h"
 #include "UTReplicatedGameRuleset.h"
 
 
@@ -309,7 +310,26 @@ void AUTLobbyMatchInfo::LaunchMatch()
 	{
 		if (MapList.Num() > 0)
 		{
-			LobbyGameState->LaunchGameInstance(this, CurrentRuleset->GameMode, MapList[0], CurrentRuleset->GameOptions, CurrentRuleset->MaxPlayers, BotSkillLevel);
+			// build all of the data needed to launch the map.
+
+			FString GameURL = FString::Printf(TEXT("%s?Game=%s?MaxPlayers=%i"),*MapList[0], *CurrentRuleset->GameMode, CurrentRuleset->MaxPlayers);
+			GameURL += CurrentRuleset->GameOptions;
+
+			if (!CurrentRuleset->bCustomRuleset)
+			{
+				// Custom rules already have their bot info set
+				
+				// Load the level summary of this map.
+				UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MapList[0]);
+				int32 OptimalPlayerCount = CurrentRuleset->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+
+				if (BotSkillLevel >= 0)
+				{
+					GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(BotSkillLevel,0,7));			
+				}
+			}
+
+			LobbyGameState->LaunchGameInstance(this, GameURL);
 		}
 		else
 		{
@@ -599,8 +619,8 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 	return true;
 }
 
-bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions) { return true; }
-void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions)
+bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount) { return true; }
+void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount)
 {
 	// We need to build a one off custom replicated ruleset just for this hub.  :)
 
@@ -625,22 +645,50 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		
 		}
 
-
 		NewReplicatedRuleset->Title = TEXT("Custom Rule");
 		NewReplicatedRuleset->Tooltip = TEXT("");
 		NewReplicatedRuleset->Description = Desc + TEXT("\nBe warned, anything goes in here, so enter at your own risk.\n");
+
+		int32 PlayerCount = 20;
 
 		for (int32 i=0; i < GameOptions.Num(); i++)
 		{
 			NewReplicatedRuleset->Description += GameOptions[i] + TEXT("\n");
 		}
 
+		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount;
+		if (DesiredSkillLevel >= 0)
+		{
+			//NewReplicatedRuleset->
+		}
+
+		NewReplicatedRuleset->GameMode = GameMode;
+		NewReplicatedRuleset->GameModeClass = GameMode;
+
+		FString FinalGameOptions = TEXT("");
+		for (int32 i=0; i<GameOptions.Num();i++)
+		{
+			FinalGameOptions += TEXT("?") + GameOptions[i];
+		}
+
+		if (DesiredSkillLevel >= 0)
+		{
+			// Load the level summary of this map.
+			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
+
+			// This match wants bots.  
+			int32 OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
+		}
+
+		NewReplicatedRuleset->GameOptions = FinalGameOptions;
+
+
 		NewReplicatedRuleset->MapPlaylistSize = 1;
 		NewReplicatedRuleset->MapPlaylist.Add(StartingMap);
 		NewReplicatedRuleset->MinPlayersToStart = 2;
 		NewReplicatedRuleset->MaxPlayers = 16;
 		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";
-		NewReplicatedRuleset->GameModeClass= GameMode;
 		NewReplicatedRuleset->bCustomRuleset = true;
 
 		MapList.Add(StartingMap);

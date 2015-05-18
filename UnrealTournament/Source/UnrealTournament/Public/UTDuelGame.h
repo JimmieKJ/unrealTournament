@@ -27,7 +27,7 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 #endif
 
 public:
-	virtual void GetGameURLOptions(TArray<FString>& OptionsList);
+	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 
 
 };

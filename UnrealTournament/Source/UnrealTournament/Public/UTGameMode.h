@@ -578,7 +578,7 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	bool PlayerCanAltRestart( APlayerController* Player );
 
-	virtual void GetGameURLOptions(TArray<FString>& OptionsList);
+	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 
 };
 

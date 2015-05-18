@@ -821,7 +821,18 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 {
 	if (ButtonPressed == UTDIALOG_BUTTON_OK && MatchInfo.IsValid() && SetupDialog.IsValid() )
 	{
-		if (SetupDialog->SelectedRuleset.IsValid())
+		if (SetupDialog->IsCustomSettings())
+		{
+			FString GameMode;
+			FString StartingMap;
+			TArray<FString> GameOptions;
+
+			int32 DesiredPlayerCount = 0;
+			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptions, DesiredPlayerCount);
+			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, GameOptions, SetupDialog->BotSkillLevel, DesiredPlayerCount);
+		}
+
+		else if (SetupDialog->SelectedRuleset.IsValid())
 		{
 			TArray<FString> MapList;
 			for (int32 i=0; i< SetupDialog->MapPlayList.Num(); i++ )
@@ -832,15 +843,6 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 				}
 			}
 			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, MapList, SetupDialog->BotSkillLevel);
-		}
-		else if (SetupDialog->IsCustomSettings())
-		{
-			FString GameMode;
-			FString StartingMap;
-			TArray<FString> GameOptions;
-
-			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptions);
-			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, GameOptions);
 		}
 
 		// NOTE: The dialog closes itself... :)

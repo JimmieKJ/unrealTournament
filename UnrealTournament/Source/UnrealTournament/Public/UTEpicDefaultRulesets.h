@@ -53,7 +53,8 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_DM.GB_DM'"), 
 			TEXT("DM"),
 			TEXT("/Script/UnrealTournament.UTDMGameMode"),
-			TEXT("?TimeLimit=10"));
+			TEXT("?TimeLimit=10"),
+			false);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
@@ -69,7 +70,8 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeDM.GB_LargeDM'"), 
 			TEXT("DM"),
 			TEXT("/Script/UnrealTournament.UTDMGameMode"),
-			TEXT("?TimeLimit=10"));
+			TEXT("?TimeLimit=10"),
+			false);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
@@ -85,7 +87,8 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'"), 
 			TEXT("TDM"),
 			TEXT("/Script/UnrealTournament.UTTeamDMGameMode"),
-			TEXT("?TimeLimit=20"));
+			TEXT("?TimeLimit=20"),
+			true);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
@@ -101,7 +104,8 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'"), 
 			TEXT("Duel"),
 			TEXT("/Script/UnrealTournament.UTDuelGame"),
-			TEXT("?TimeLimit=10"));
+			TEXT("?TimeLimit=10"),
+			false);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
@@ -117,7 +121,8 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'"), 
 			TEXT("CTF"),
 			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
-			TEXT("?TimeLimit=20"));
+			TEXT("?TimeLimit=20"),
+			true);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
@@ -134,7 +139,8 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeCTF.GB_LargeCTF'"), 
 			TEXT("CTF"),
 			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
-			TEXT("?TimeLimit=20"));
+			TEXT("?TimeLimit=20"),
+			true);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
@@ -150,7 +156,8 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDM.GB_InstagibDM'"), 
 			TEXT("DM"),
 			TEXT("/Script/UnrealTournament.UTDMGameMode"),
-			TEXT("?TimeLimit=10?Mutator=Instagib"));
+			TEXT("?TimeLimit=10?Mutator=Instagib"),
+			false);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
@@ -166,7 +173,8 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDuel.GB_InstagibDuel'"), 
 			TEXT("TDM"),
 			TEXT("/Script/UnrealTournament.UTTeamDMGameMode"),
-			TEXT("?TimeLimit=20?Mutator=Instagib"));
+			TEXT("?TimeLimit=20?Mutator=Instagib"),
+			true);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
@@ -182,14 +190,15 @@ public:
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'"), 
 			TEXT("CTF"),
 			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
-			TEXT("?TimeLimit=20?Mutator=Instagib"));
+			TEXT("?TimeLimit=20?Mutator=Instagib"),
+			true);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 	}
 
 
 	static AUTReplicatedGameRuleset* AddDefaultRuleset(AActor* Owner, FString inUniqueTag, FString inCategoryList, FString inTitle, FString inTooltip, FString inDescription, int32 inMapPlaylistSize,
-												FString inMapPlaylist, int32 inMaxPlayers, FString inDisplayTexture, FString inGameMode, FString inGameModeClass, FString inGameOptions)
+												FString inMapPlaylist, int32 inMaxPlayers, FString inDisplayTexture, FString inGameMode, FString inGameModeClass, FString inGameOptions, bool bTeamGame)
 	{
 		FActorSpawnParameters Params;
 		Params.Owner = Owner;
@@ -207,6 +216,8 @@ public:
 			NewReplicatedRuleset->GameMode = inGameMode;
 			NewReplicatedRuleset->GameModeClass = inGameModeClass;
 			NewReplicatedRuleset->GameOptions = inGameOptions;
+			NewReplicatedRuleset->bTeamGame = bTeamGame;
+
 
 			TArray<FString> StrArray;
 			inCategoryList.ParseIntoArray(&StrArray, TEXT(","), true);

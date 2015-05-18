@@ -35,6 +35,7 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, RequiredPackages);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bCustomRuleset);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, GameModeClass);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, bTeamGame);
 }
 
 void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
@@ -48,6 +49,7 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
 	MapPlaylist = NewRules->MapPlaylist;
 	MinPlayersToStart = NewRules->MinPlayersToStart;
 	MaxPlayers = NewRules->MaxPlayers;
+	bTeamGame = NewRules->bTeamGame;
 	
 	for (int32 i = 0; i < NewRules->RedirectReferences.Num(); i++)
 	{

@@ -100,6 +100,6 @@ protected:
 	virtual void UpdateLobbyBadge(FString BadgeText);
 
 public:
-	virtual void GetGameURLOptions(TArray<FString>& OptionsList);
+	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 
 };

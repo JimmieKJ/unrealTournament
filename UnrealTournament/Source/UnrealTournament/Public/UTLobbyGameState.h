@@ -111,7 +111,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 *	Launches an instance of a game that was created via the lobby interface.  MatchOwner is the MI of the match that is being created and ServerURLOptions is a string
 	 *  that contains the game options.  
 	 **/
-	void LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, const FString& GameMode, const FString& Map, const FString& GameOptions, int32 MaxPlayers, int32 BotSkillLevel);
+	void LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString GameURL);
 
 	/**
 	 *	Create the default "MATCH" for the server.
