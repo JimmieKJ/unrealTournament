@@ -12,6 +12,10 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	bHalftime = false;
 	HalftimeScoreDelay = 2.f;
 
+	GameScoreStats.Add(NAME_AttackerScore);
+	GameScoreStats.Add(NAME_DefenderScore);
+	GameScoreStats.Add(NAME_SupporterScore);
+
 	GameScoreStats.Add(NAME_RegularKillPoints);
 	GameScoreStats.Add(NAME_FCKills);
 	GameScoreStats.Add(NAME_FCKillPoints);

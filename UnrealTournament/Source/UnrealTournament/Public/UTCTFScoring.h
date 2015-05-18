@@ -4,6 +4,10 @@
 #pragma once
 #include "UTCTFScoring.generated.h"
 
+static const FName NAME_AttackerScore(TEXT("AttackerScore"));
+static const FName NAME_DefenderScore(TEXT("DefenderScore"));
+static const FName NAME_SupporterScore(TEXT("SupporterScore"));
+
 static const FName NAME_FlagHeldDeny(TEXT("FlagHeldDeny"));
 static const FName NAME_FlagHeldDenyTime(TEXT("FlagHeldDenyTime"));
 static const FName NAME_FlagHeldTime(TEXT("FlagHeldTime"));

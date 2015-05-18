@@ -37,7 +37,9 @@ void UUTCTFScoreboard::OpenScoringPlaysPage()
 		if (UTHUDOwner->ScoreboardPage == 0)
 		{
 			SetPage(1);
-			GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTCTFScoreboard::OpenScoringPlaysPage, 6.0f, false);
+			AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+			float DelayTime = FMath::Max(6.f, 1.f + CTFState->GetScoringPlays().Num());
+			GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTCTFScoreboard::OpenScoringPlaysPage, DelayTime, false);
 		}
 		else if (UTHUDOwner->ScoreboardPage == 1)
 		{
@@ -448,7 +450,7 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), PS->GetStatsValue(NAME_FlagHeldTime), false);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FlagHeldTime", "Flag Held Time"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), PS->GetStatsValue(NAME_FlagHeldDenyTime), false);
-	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FlagDenialTime", "Flag Denial Time"), ClockString.ToString(), FString::Printf(TEXT(" %i"), PS->GetStatsValue(NAME_FlagHeldDeny)), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FlagDenialTime", "Flag Denial Time"), ClockString.ToString(), FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagHeldDeny))), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += SmallYL;
 
@@ -472,12 +474,12 @@ void UUTCTFScoreboard::DrawStatsLine(FText StatsName, int32 StatValue, int32 Sco
 
 	if (StatValue >= 0)
 	{
-		Canvas->SetLinearDrawColor((bHighlightStatsLineTopValue && (StatValue>=ScoreValue)) ? FLinearColor::Yellow : FLinearColor::White);
+		Canvas->SetLinearDrawColor((bHighlightStatsLineTopValue && (StatValue > ScoreValue)) ? FLinearColor::Yellow : FLinearColor::White);
 		Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
 	}
 	if (ScoreValue >= 0)
 	{
-		Canvas->SetLinearDrawColor((bHighlightStatsLineTopValue && (ScoreValue >= StatValue)) ? FLinearColor::Yellow : FLinearColor::White);
+		Canvas->SetLinearDrawColor((bHighlightStatsLineTopValue && (ScoreValue > StatValue)) ? FLinearColor::Yellow : FLinearColor::White);
 		Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
 	}
 	YPos += LineIncrement;
@@ -499,6 +501,11 @@ void UUTCTFScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FSt
 		Canvas->DrawText(UTHUDOwner->SmallFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
 	}
 	YPos += SmallYL;
+}
+
+FString GetPlayerNameFor(AUTPlayerState* InPS)
+{
+	return InPS ? InPS->PlayerName : "";
 }
 
 void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
@@ -531,17 +538,18 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 	// draw team stats
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlagCaps", "Flag Captures"), UTGameState->Teams[0]->Score, UTGameState->Teams[1]->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamGrabs", "Flag Grabs"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamFlagGrabs), UTGameState->Teams[1]->GetStatsValue(NAME_TeamFlagGrabs), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
-	int32 HighlightIndex = 1;
+	int32 HighlightIndex = 0;
 	int32 RedTeamFlagTime = UTGameState->Teams[0]->GetStatsValue(NAME_TeamFlagHeldTime);
 	int32 BlueTeamFlagTime = UTGameState->Teams[1]->GetStatsValue(NAME_TeamFlagHeldTime);
 	if (RedTeamFlagTime < BlueTeamFlagTime)
 	{
 		HighlightIndex = 2;
 	}
-	else if (RedTeamFlagTime == BlueTeamFlagTime)
+	else if (RedTeamFlagTime > BlueTeamFlagTime)
 	{
-		HighlightIndex = 3;
+		HighlightIndex = 1;
 	}
+
 	FText ClockStringRed = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RedTeamFlagTime, false);
 	FText ClockStringBlue = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), BlueTeamFlagTime, false);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TeamFlagHeldTime", "Flag Held Time"), ClockStringRed.ToString(), ClockStringBlue.ToString(), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, HighlightIndex);
@@ -549,8 +557,14 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 
 	// top scorer, top flag runner, top defender, top support, top kills
+	//DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopScorer", "Top Scorer"), GetPlayerNameFor(), GetPlayerNameFor(), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopFlagRunner", "Top Flag Runner"), GetPlayerNameFor(UTGameState->Teams[0]->TopAttacker), GetPlayerNameFor(UTGameState->Teams[1]->TopAttacker), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopDefender", "Top Defender"), GetPlayerNameFor(UTGameState->Teams[0]->TopDefender), GetPlayerNameFor(UTGameState->Teams[1]->TopDefender), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopSupport", "Top Support"), GetPlayerNameFor(UTGameState->Teams[0]->TopSupporter), GetPlayerNameFor(UTGameState->Teams[1]->TopSupporter), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	//DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), GetPlayerNameFor(), GetPlayerNameFor(), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 
 	// later do udamage and shieldbelt control
 
 	// also individual redeemer shots and Denials
 }
+

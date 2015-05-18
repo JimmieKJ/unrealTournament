@@ -415,6 +415,12 @@ public:
 	UPROPERTY(Replicated)
 	int32 AverageRank;
 
+	// transient, for TeamInfo leader updates - persistent value is stored in StatsData
+	float AttackerScore;
+	float SecondaryAttackerScore;
+	float DefenderScore;
+	float SupporterScore;
+
 	// Find the local player and see if we are his friend.
 	void OnRep_UniqueId();
 

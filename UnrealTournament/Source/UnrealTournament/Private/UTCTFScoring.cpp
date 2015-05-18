@@ -46,6 +46,7 @@ void AUTCTFScoring::FlagHeldTimer()
 				// score holder for keeping flag out, preventing capture.
 				Flag->Holder->Score += FlagHolderPointsPerSecond;
 				Flag->Holder->ModifyStatsValue(NAME_FlagHeldDeny, FlagHolderPointsPerSecond);
+				Flag->Holder->ModifyStatsValue(NAME_AttackerScore, FlagHolderPointsPerSecond);
 				Flag->Holder->ModifyStatsValue(NAME_FlagHeldDenyTime, 1.f);
 			}
 			Flag->Holder->ModifyStatsValue(NAME_FlagHeldTime, 1.f);
@@ -89,6 +90,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		ScorerPS->LastFlagReturnTime = GetWorld()->GetTimeSeconds();
 		//UE_LOG(UT, Warning, TEXT("Flag Return %s score %d"), *ScorerPS->PlayerName, Points);
 		ScorerPS->ModifyStatsValue(NAME_FlagReturnPoints, Points);
+		ScorerPS->ModifyStatsValue(NAME_DefenderScore, Points);
 	}
 	else if (Reason == FName("FlagCapture"))
 	{
@@ -141,6 +143,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 					FlagRunner->ModifyStatsValue(NAME_FlagCapPoints, Points);
 				}
 				FlagRunner->AdjustScore(Points);
+				FlagRunner->ModifyStatsValue(NAME_AttackerScore, Points);
 				//UE_LOG(UT, Warning, TEXT("Flag assist (held) %s score %d"), *ScorerPS->PlayerName, Points);
 			}
 		}
@@ -169,6 +172,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 				}
 				RescuerPS->ModifyStatsValue(NAME_DefendAssist, 1);
 				RescuerPS->AdjustScore(FlagSupportAssist);
+				RescuerPS->ModifyStatsValue(NAME_SupporterScore, FlagSupportAssist);
 				RescuerPS->ModifyStatsValue(NAME_DefendAssistPoints, FlagSupportAssist);
 			}
 		}
@@ -203,10 +207,12 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 					}
 					PS->ModifyStatsValue(NAME_ReturnAssist, 1);
 					PS->ModifyStatsValue(NAME_ReturnAssistPoints, FlagReturnAssist);
+					PS->ModifyStatsValue(NAME_DefenderScore, FlagReturnAssist);
 				}
 
 				// everybody other than scorer on team gets some bonus for cap
 				PS->AdjustScore(TeamCapBonus);
+	
 				//UE_LOG(UT, Warning, TEXT("Flag assist (general) %s score 20"), *PS->PlayerName);
 				PS->ModifyStatsValue(NAME_TeamCapPoints, TeamCapBonus);
 			}
@@ -225,7 +231,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 	}
 }
 
-/** Save partial credit for flag carrier kills. @TODO FIXMESTEVE - only award score when flag carrier dies */
+/** Save partial credit for flag carrier damage. */
 void AUTCTFScoring::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
 	AUTPlayerState* VictimPS = Victim ? Cast<AUTPlayerState>(Victim->PlayerState) : NULL;
@@ -240,6 +246,7 @@ void AUTCTFScoring::ScoreDamage(int32 DamageAmount, AController* Victim, AContro
 		int32 DamagePoints = FMath::Clamp<int32>(AttackerPS->FCDamageAccum + DamageAmount, 0, 100) / 20;
 		AttackerPS->FCDamageAccum = AttackerPS->FCDamageAccum + DamageAmount - 20 * DamagePoints;
 		AttackerPS->AdjustScore(DamagePoints);
+		AttackerPS->ModifyStatsValue(NAME_DefenderScore, DamagePoints);
 		AttackerPS->LastShotFCTime = GetWorld()->GetTimeSeconds();
 		AttackerPS->LastShotFC = VictimPS;
 		AttackerPS->ModifyStatsValue(NAME_EnemyFCDamage, DamagePoints);
@@ -284,6 +291,7 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 			KillerPS->Team->ModifyStatsValue(NAME_TeamKills, 1);
 		}
 		uint32 Points = BaseKillScore;
+		bool bIsSupportKill = false;
 		if (VictimPS->CarriedObject)
 		{
 			Points += FlagCarrierKillBonus;
@@ -299,6 +307,7 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 			CTFGameState->FlagBases[KillerPS->GetTeamNum()]->MyFlag->HolderRescuers.AddUnique(Killer);
 			KillerPS->ModifyStatsValue(NAME_FlagSupportKills, 1);
 			KillerPS->ModifyStatsValue(NAME_FlagSupportKillPoints, Points);
+			bIsSupportKill = true;
 		}
 		else
 		{
@@ -306,6 +315,14 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 
 		}
 		KillerPS->AdjustScore(Points);
+		if (bIsSupportKill)
+		{
+			KillerPS->ModifyStatsValue(NAME_SupporterScore, Points);
+		}
+		else
+		{
+			KillerPS->ModifyStatsValue(NAME_DefenderScore, Points);
+		}
 	}
 	if (VictimPS)
 	{
