@@ -31,6 +31,7 @@ bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 			}
 		}
 	}
+	bool bGotBind = false;
 	for (int32 i = 0; i < CustomBinds.Num(); i++)
 	{
 		if (FKey(CustomBinds[i].KeyName) == Key && CustomBinds[i].EventType == EventType)
@@ -38,7 +39,13 @@ bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 			FStringOutputDevice DummyOut;
 			if (GetOuterAPlayerController()->Player->Exec(GetOuterAPlayerController()->GetWorld(), *CustomBinds[i].Command, DummyOut))
 			{
-				return true;
+				bGotBind = true;
+				// special case allow binding multiple weapon switches to the same key
+				if (!CustomBinds[i].Command.StartsWith(TEXT("SwitchWeapon")) && !CustomBinds[i].Command.StartsWith("ToggleTranslocator"))
+				{
+					return true;
+				}
+				
 			}
 		}
 	}
