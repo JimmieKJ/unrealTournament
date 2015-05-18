@@ -46,7 +46,7 @@ void UUTCTFScoreboard::Draw_Implementation(float DeltaTime)
 	{
 		float YOffset = 0.0f;
 		DrawGamePanel(DeltaTime, YOffset);
-		DrawScoringPlays(DeltaTime, YOffset);
+		DrawScoringStats(DeltaTime, YOffset);
 		DrawServerPanel(DeltaTime, FooterPosY);
 	}
 	else
@@ -211,29 +211,44 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
-void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
+void UUTCTFScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
+{
+	FVector2D SavedRenderPosition = RenderPosition;
+	RenderPosition = FVector2D(0.f, 0.f);
+	bScaleByDesignedResolution = false;
+	float TopYPos = YPos;
+
+	// draw left side
+	float XOffset = Canvas->ClipX * 0.06f;
+	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
+	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
+	DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+
+	// draw right side
+	XOffset = ScoreWidth + 2.f*XOffset;
+	YPos = TopYPos;
+	DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+
+	bScaleByDesignedResolution = true;
+	RenderPosition = SavedRenderPosition;
+}
+
+void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
 {
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
 	int32 CurrentPeriod = -1;
 
 	Canvas->SetLinearDrawColor(FLinearColor::White);
-	float XOffset = Canvas->ClipX * 0.06f;
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
-	FVector2D SavedRenderPosition = RenderPosition;
-	RenderPosition = FVector2D(0.f, 0.f);
-	bScaleByDesignedResolution = false;
 
 	float XL, SmallYL;
 	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	float MedYL;
 	Canvas->TextSize(UTHUDOwner->MediumFont, ScoringPlaysHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
 
-	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
-	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
 	float ScoreHeight = MedYL + SmallYL;
-	float TopYPos = YPos;
 	float ScoringOffsetX, ScoringOffsetY;
 	Canvas->TextSize(UTHUDOwner->MediumFont, "99 - 99", ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
 	int32 TotalPlays = CTFState->GetScoringPlays().Num();
@@ -359,17 +374,9 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos)
 			Canvas->SetLinearDrawColor(CTFState->Teams[1]->TeamColor);
 			ScoreX += SingleXL;
 			Canvas->DrawText(UTHUDOwner->MediumFont, FString::Printf(TEXT(" %i"), Play.TeamScores[1]), ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-
 			YPos = BoxYPos + CurrentScoreHeight + 8.f*RenderScale;
 		}
 	}
-
-	XOffset = ScoreWidth + 2.f*XOffset;
-	YPos = TopYPos;
-	DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
-
-	bScaleByDesignedResolution = true;
-	RenderPosition = SavedRenderPosition;
 }
 
 void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)

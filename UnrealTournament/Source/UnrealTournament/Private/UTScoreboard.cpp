@@ -445,7 +445,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		DrawText(FText::FromString(UTGameState->ServerDescription), 1259, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if (NumPages > 1)
 		{
-			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages));
+			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages + GetWorld()->GameState->PlayerArray.Num()));
 			DrawText(PageText, Size.X * 0.5f, YOffset + 13, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}
