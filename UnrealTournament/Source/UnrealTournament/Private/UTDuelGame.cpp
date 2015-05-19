@@ -13,8 +13,6 @@
 AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	HUDClass = AUTHUD_DM::StaticClass();
-
 	HUDClass = AUTHUD_TeamDM::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "Duel", "Duel");
 	PowerupDuration = 10.f;

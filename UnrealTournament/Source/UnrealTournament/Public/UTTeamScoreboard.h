@@ -24,6 +24,9 @@ protected:
 
 	/** 5coring breakdown for an individual player. */
 	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight);
+	
+	/** Draw gametype specific stat lines for player score breakdown. */
+	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, FFontRenderInfo TextRenderInfo, float SmallYL, float MedYL);
 
 	/** Draw one line of scoring breakdown where values are clock stats. */
 	virtual void DrawClockTeamStatsLine(FText StatsName, FName StatsID, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, bool bSkipEmpty);

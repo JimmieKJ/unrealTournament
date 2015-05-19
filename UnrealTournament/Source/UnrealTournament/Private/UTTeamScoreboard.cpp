@@ -381,9 +381,24 @@ void UUTTeamScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float X
 	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	float MedYL;
 	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+
+	if (PS->Team)
+	{
+		// draw team icon
+		float IconHeight = MedYL;
+		int32 TeamIndex = PS->Team->TeamIndex;
+		DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[TeamIndex].X, UTHUDOwner->TeamIconUV[TeamIndex].Y, 72, 72, 1.f, PS->Team->TeamColor);
+	}
+
 	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += 1.2f * MedYL;
 
+	DrawPlayerStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight, TextRenderInfo, SmallYL, MedYL);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+}
+
+void UUTTeamScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, FFontRenderInfo TextRenderInfo, float SmallYL, float MedYL)
+{
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Kills", "Kills"), PS->Kills, PS->Kills, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), PS->Deaths, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "KDRatio", "K/D Ratio"), FString::Printf(TEXT(" %6.2f"), ((PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f)), "", DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
@@ -395,18 +410,15 @@ void UUTTeamScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float X
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), PS->GetStatsValue(NAME_ArmorPadsCount), -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), PS->GetStatsValue(NAME_HelmetCount), -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 
-//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
-//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
-//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), NAME_InvisibilityTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
+	//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
+	//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
+	//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), NAME_InvisibilityTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
 
 	int32 BootJumps = PS->GetStatsValue(NAME_BootJumps);
 	if (BootJumps != 0)
 	{
 		DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumps, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	}
-
-	Canvas->SetLinearDrawColor(FLinearColor::Yellow);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 }
 
 

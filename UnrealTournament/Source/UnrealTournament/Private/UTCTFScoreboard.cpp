@@ -401,34 +401,8 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 	}
 }
 
-void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
+void UUTCTFScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, FFontRenderInfo TextRenderInfo, float SmallYL, float MedYL)
 {
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	FFontRenderInfo TextRenderInfo;
-	TextRenderInfo.bEnableShadow = true;
-	TextRenderInfo.bClipText = true;
-	bHighlightStatsLineTopValue = false;
-
-	if (!UTPlayerOwner->CurrentlyViewedScorePS)
-	{
-		UTPlayerOwner->SetViewedScorePS(UTHUDOwner->GetScorerPlayerState());
-	}
-	AUTPlayerState* PS = UTPlayerOwner->CurrentlyViewedScorePS;
-	if (!PS)
-	{
-		return;
-	}
-
-	FFormatNamedArguments Args;
-	Args.Add(TEXT("PlayerName"), FText::FromString(PS->PlayerName));
-	FText CombinedHeader = FText::Format(NSLOCTEXT("UTCTFScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"), Args);
-	float XL, SmallYL;
-	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
-	float MedYL;
-	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
-	YPos += 1.2f * MedYL;
-
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Kills", "Kills"), PS->Kills, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	int32 FCKills = PS->GetStatsValue(NAME_FCKills);
 	int32 FlagSupportKills = PS->GetStatsValue(NAME_FlagSupportKills);
@@ -458,9 +432,6 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "DefendAssists", " - Support Assists"), PS->GetStatsValue(NAME_DefendAssist), PS->GetStatsValue(NAME_DefendAssistPoints), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	int32 TeamCaps = PS->Team ? PS->Team->Score - PS->FlagCaptures : 0;
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamCaps", " - Team Cap Bonus"), TeamCaps, PS->GetStatsValue(NAME_TeamCapPoints), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
-
-	Canvas->SetLinearDrawColor(FLinearColor::Yellow);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 }
 
 void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
@@ -549,9 +520,9 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 		DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumpsRed, BootJumpsBlue, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	}
 
-	// later do shieldbelt, armor, redeemer shots, and jumpboot jumps -and all these also to individual
+	// later do redeemer shots -and all these also to individual
 	// track individual movement stats as well
-	// make all the loc text into properties instead of recalc
+	// @TODO FIXMESTEVE make all the loc text into properties instead of recalc
 }
 
 
