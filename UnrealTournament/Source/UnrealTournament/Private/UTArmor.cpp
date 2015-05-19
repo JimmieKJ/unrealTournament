@@ -8,7 +8,7 @@ AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ArmorAmount = 50;
-	AbsorptionPct = 0.333f;
+	AbsorptionPct = 0.6f;
 	bCallDamageEvents = true;
 	BasePickupDesireability = 1.5f;
 }
