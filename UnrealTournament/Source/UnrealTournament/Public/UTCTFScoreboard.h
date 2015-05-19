@@ -37,8 +37,6 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float ReadyX;
 
-	virtual void Draw_Implementation(float DeltaTime) override;
-
 	virtual void OpenScoringPlaysPage() override;
 
 	UPROPERTY()
@@ -54,16 +52,12 @@ protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 
-	/** Show current 2 pages of scoring stats breakdowns. */
-	virtual void DrawScoringStats(float RenderDelta, float& YOffset);
+	virtual void DrawScoringStats(float RenderDelta, float& YOffset) override;
 
 	/** Draw the list of flag captures with details. */
 	virtual void DrawScoringPlays(float RenderDelta, float& YOffset, float XOffset, float ScoreWidth, float MaxHeight);
 
-	/** 5coring breakdown for an individual player. */
-	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight);
-
+	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight) override;
 	virtual void DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight) override;
-
 	virtual void PageChanged_Implementation() override;
 };

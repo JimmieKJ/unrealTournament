@@ -64,21 +64,6 @@ void UUTCTFScoreboard::PageChanged_Implementation()
 	TimeLineOffset = (UTGameState && (UTGameState->IsMatchAtHalftime() || UTGameState->HasMatchEnded())) ? -0.15f : 99999.f;
 }
 
-void UUTCTFScoreboard::Draw_Implementation(float DeltaTime)
-{
-	if (UTHUDOwner->ScoreboardPage > 0)
-	{
-		float YOffset = 0.0f;
-		DrawGamePanel(DeltaTime, YOffset);
-		DrawScoringStats(DeltaTime, YOffset);
-		DrawServerPanel(DeltaTime, FooterPosY);
-	}
-	else
-	{
-		Super::Draw_Implementation(DeltaTime);
-	}
-}
-
 void UUTCTFScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 {
 	if (UTGameState)
@@ -476,11 +461,6 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 
 	Canvas->SetLinearDrawColor(FLinearColor::Yellow);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
-}
-
-FString GetPlayerNameFor(AUTPlayerState* InPS)
-{
-	return InPS ? InPS->PlayerName : "";
 }
 
 void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)

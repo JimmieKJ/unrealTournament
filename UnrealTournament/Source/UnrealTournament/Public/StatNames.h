@@ -4,6 +4,7 @@
 static const FName NAME_AttackerScore(TEXT("AttackerScore"));
 static const FName NAME_DefenderScore(TEXT("DefenderScore"));
 static const FName NAME_SupporterScore(TEXT("SupporterScore"));
+static const FName NAME_TeamKills(TEXT("TeamKills"));
 
 static const FName NAME_UDamageTime(TEXT("UDamageTime"));
 static const FName NAME_BerserkTime(TEXT("BerserkTime"));

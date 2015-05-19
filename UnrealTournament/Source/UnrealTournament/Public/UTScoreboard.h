@@ -77,7 +77,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float FlagX;
 
-
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
@@ -92,6 +91,15 @@ public:
 		virtual void OpenScoringPlaysPage();
 
 	virtual void SetScoringPlaysTimer(bool bEnableTimer);
+
+	/** Show current 2 pages of scoring stats breakdowns. */
+	virtual void DrawScoringStats(float RenderDelta, float& YOffset) {};
+
+
+	FString GetPlayerNameFor(AUTPlayerState* InPS)
+	{
+		return InPS ? InPS->PlayerName : "";
+	};
 
 protected:
 

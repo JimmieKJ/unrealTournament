@@ -22,6 +22,9 @@ protected:
 	/** 5coring breakdown for Teams. */
 	virtual void DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight);
 
+	/** 5coring breakdown for an individual player. */
+	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight);
+
 	/** Draw one line of scoring breakdown where values are clock stats. */
 	virtual void DrawClockTeamStatsLine(FText StatsName, FName StatsID, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, bool bSkipEmpty);
 
@@ -29,5 +32,8 @@ protected:
 
 	virtual AUTPlayerState* FindTopTeamKDFor(uint8 TeamNum);
 
+	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
+	virtual void OpenScoringPlaysPage() override;
+	virtual void DrawScoringStats(float RenderDelta, float& YOffset) override;
 };
 

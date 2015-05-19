@@ -145,10 +145,17 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 {
 	Super::Draw_Implementation(RenderDelta);
 
-	float YOffset = 0;
+	float YOffset = 0.0f;
 	DrawGamePanel(RenderDelta, YOffset);
-	DrawTeamPanel(RenderDelta, YOffset);
-	DrawScorePanel(RenderDelta, YOffset);
+	if (UTHUDOwner->ScoreboardPage > 0)
+	{
+		DrawScoringStats(RenderDelta, YOffset);
+	}
+	else
+	{
+		DrawTeamPanel(RenderDelta, YOffset);
+		DrawScorePanel(RenderDelta, YOffset);
+	}
 	DrawServerPanel(RenderDelta, FooterPosY);
 }
 
