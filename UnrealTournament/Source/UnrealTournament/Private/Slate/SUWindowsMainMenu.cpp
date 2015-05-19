@@ -604,6 +604,7 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *CurrentRule->GameMode);
 		GameOptions += FString::Printf(TEXT("?MaxPlayers=%i"), CurrentRule->MaxPlayers);
+		GameOptions += CurrentRule->GameOptions;
 
 		if ( CreateGameDialog->BotSkillLevel >= 0 )
 		{
