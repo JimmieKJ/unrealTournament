@@ -98,6 +98,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		UTexture2D* FlagAtlas;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
+		UTexture2D* WeaponAtlas;
+
 	UPROPERTY()
 		TArray<AUTPickupInventory*> PowerupList;
 
