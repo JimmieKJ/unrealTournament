@@ -26,9 +26,6 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpree01.A_UI_EnemySpree01'"));
 	ScoreUpdateSound = OtherSpreeSoundFinder.Object;
-	ValueColumn = 0.5f;
-	ScoreColumn = 0.75f;
-	bHighlightStatsLineTopValue = false;
 }
 
 void UUTCTFScoreboard::OpenScoringPlaysPage()
@@ -469,42 +466,6 @@ void UUTCTFScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XO
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 }
 
-void UUTCTFScoreboard::DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float LineIncrement)
-{
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	Canvas->DrawText(UTHUDOwner->SmallFont, StatsName, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-
-	if (StatValue >= 0)
-	{
-		Canvas->SetLinearDrawColor((bHighlightStatsLineTopValue && (StatValue > ScoreValue)) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
-	}
-	if (ScoreValue >= 0)
-	{
-		Canvas->SetLinearDrawColor((bHighlightStatsLineTopValue && (ScoreValue > StatValue)) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(UTHUDOwner->SmallFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
-	}
-	YPos += LineIncrement;
-}
-
-void UUTCTFScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, int32 HighlightIndex)
-{
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	Canvas->DrawText(UTHUDOwner->SmallFont, StatsName, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-
-	if (!StatValue.IsEmpty())
-	{
-		Canvas->SetLinearDrawColor((HighlightIndex & 1) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(UTHUDOwner->SmallFont, StatValue, XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
-	}
-	if (!ScoreValue.IsEmpty())
-	{
-		Canvas->SetLinearDrawColor((HighlightIndex & 2) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(UTHUDOwner->SmallFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, TextRenderInfo);
-	}
-	YPos += SmallYL;
-}
-
 FString GetPlayerNameFor(AUTPlayerState* InPS)
 {
 	return InPS ? InPS->PlayerName : "";
@@ -601,83 +562,5 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 	// make all the loc text into properties instead of recalc
 }
 
-void UUTCTFScoreboard::DrawClockTeamStatsLine(FText StatsName, FName StatsID, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, bool bSkipEmpty)
-{
-	int32 HighlightIndex = 0;
-	int32 RedTeamValue = UTGameState->Teams[0]->GetStatsValue(StatsID);
-	int32 BlueTeamValue = UTGameState->Teams[1]->GetStatsValue(StatsID);
-	if (bSkipEmpty && (RedTeamValue == 0) && (BlueTeamValue == 0))
-	{
-		return;
-	}
-	if (RedTeamValue < BlueTeamValue)
-	{
-		HighlightIndex = 2;
-	}
-	else if (RedTeamValue > BlueTeamValue)
-	{
-		HighlightIndex = 1;
-	}
-
-	FText ClockStringRed = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RedTeamValue, false);
-	FText ClockStringBlue = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), BlueTeamValue, false);
-	DrawTextStatsLine(StatsName, ClockStringRed.ToString(), ClockStringBlue.ToString(), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, HighlightIndex);
-}
-
-
-AUTPlayerState* UUTCTFScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
-{
-	TArray<AUTPlayerState*> MemberPS;
-	AUTTeamInfo* Team = UTGameState->Teams[TeamNum];
-	TArray<AController*> Members = Team->GetTeamMembers();
-
-	for (int32 i = 0; i < Members.Num(); i++)
-	{
-		AUTPlayerState* PS = Members[i] ? Cast<AUTPlayerState>(Members[i]->PlayerState) : NULL;
-		if (PS)
-		{
-			MemberPS.Add(PS);
-		}
-	}
-	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
-	{
-		return A.Kills > B.Kills;
-	});
-	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
-}
-
-AUTPlayerState* UUTCTFScoreboard::FindTopTeamKDFor(uint8 TeamNum)
-{
-	TArray<AUTPlayerState*> MemberPS;
-	AUTTeamInfo* Team = UTGameState->Teams[TeamNum];
-	TArray<AController*> Members = Team->GetTeamMembers();
-
-	for (int32 i = 0; i < Members.Num(); i++)
-	{
-		AUTPlayerState* PS = Members[i] ? Cast<AUTPlayerState>(Members[i]->PlayerState) : NULL;
-		if (PS)
-		{
-			MemberPS.Add(PS);
-		}
-	}
-
-	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
-	{
-		if (A.Deaths == 0)
-		{
-			if (B.Deaths == 0)
-			{
-				return A.Kills > B.Kills;
-			}
-			return true;
-		}
-		if (B.Deaths == 0)
-		{
-			return (B.Kills == 0);
-		}
-		return A.Kills/A.Deaths > B.Kills/B.Deaths;
-	});
-	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
-}
 
 

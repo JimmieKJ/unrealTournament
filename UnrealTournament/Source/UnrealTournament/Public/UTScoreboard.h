@@ -126,7 +126,6 @@ protected:
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 
-
 	virtual void DrawServerPanel(float RenderDelta, float YOffset);
 
 protected:
@@ -143,6 +142,24 @@ protected:
 	FVector2D CursorPosition;
 
 	TWeakObjectPtr<AUTPlayerState> SelectedPlayer;
+
+	//-------------------------------------
+	// Scoreboard stats breakdown
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ValueColumn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ScoreColumn;
+
+	UPROPERTY()
+		bool bHighlightStatsLineTopValue;
+
+	/** Draw one line of scoring breakdown. */
+	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL);
+
+	/** Draw one line of scoring breakdown where values are string instead of int32. */
+	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, int32 HighlightIndex);
+	//-------------------------------------
 
 public:
 

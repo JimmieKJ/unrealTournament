@@ -18,5 +18,16 @@ public:
 protected:
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
+
+	/** 5coring breakdown for Teams. */
+	virtual void DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight);
+
+	/** Draw one line of scoring breakdown where values are clock stats. */
+	virtual void DrawClockTeamStatsLine(FText StatsName, FName StatsID, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, bool bSkipEmpty);
+
+	virtual AUTPlayerState* FindTopTeamKillerFor(uint8 TeamNum);
+
+	virtual AUTPlayerState* FindTopTeamKDFor(uint8 TeamNum);
+
 };
 
