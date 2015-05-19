@@ -65,6 +65,10 @@ void AUTTeamInfo::UpdateTeamLeaders()
 			MemberPS.Add(PS);
 		}
 	}
+	if (MemberPS.Num() == 0)
+	{
+		return;
+	}
 
 	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
 	{
