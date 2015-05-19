@@ -490,4 +490,32 @@ int32 FWebBrowserWindow::GetCefInputModifiers(const FInputEvent& InputEvent)
 	return Modifiers;
 }
 
+bool FWebBrowserWindow::OnQuery(int64 QueryId, const CefString& Request, bool Persistent, CefRefPtr<CefMessageRouterBrowserSide::Callback> Callback)
+{
+    if ( OnJSQueryReceived().IsBound() )
+    {
+        FString QueryString = Request.ToWString().c_str();
+        FJSQueryResultDelegate Delegate = FJSQueryResultDelegate::CreateLambda(
+            [Callback] (int ErrorCode, FString Message)
+            {
+                CefString MessageString = *Message;
+                if (ErrorCode == 0)
+                {
+                    Callback->Success(MessageString);
+                }
+                else
+                {
+                    Callback->Failure(ErrorCode, MessageString);
+                }
+            }
+        );
+        return OnJSQueryReceived().Execute(QueryId, QueryString, Persistent, Delegate);
+    }
+    return false;
+}
+
+void FWebBrowserWindow::OnQueryCanceled(int64 QueryId)
+{
+    OnJSQueryCanceled().ExecuteIfBound(QueryId);
+}
 #endif

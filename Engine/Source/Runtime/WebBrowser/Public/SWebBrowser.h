@@ -7,6 +7,10 @@
 class IWebBrowserWindow;
 class FWebBrowserViewport;
 
+DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
+DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceivedDelegate, int64, FString, bool, FJSQueryResultDelegate);
+DECLARE_DELEGATE_OneParam(FOnJSQueryCanceledDelegate, int64);
+
 class WEBBROWSER_API SWebBrowser : public SCompoundWidget
 {
 public:
@@ -31,6 +35,13 @@ public:
 
 		/** Desired size of the web browser viewport */
 		SLATE_ATTRIBUTE(FVector2D, ViewportSize);
+    
+        /** Called when a custom Javascript message is received from the browser process. */
+        SLATE_EVENT(FOnJSQueryReceivedDelegate, OnJSQueryReceived)
+    
+        /** Called when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
+        SLATE_EVENT(FOnJSQueryCanceledDelegate, OnJSQueryCanceled)
+
 	SLATE_END_ARGS()
 
 	/**
@@ -90,6 +101,12 @@ private:
 	 * Get whether loading throbber should be visible
 	 */
 	EVisibility GetLoadingThrobberVisibility() const;
+	    
+    /** Callback for received JS queries. */
+    bool HandleJSQueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate ResultDelegate);
+
+    /** Callback for cancelled JS queries. */
+    void HandleJSQueryCanceled(int64 QueryId);
 
 private:
 	/** Interface for dealing with a web browser window */
@@ -97,4 +114,10 @@ private:
 
 	/** Viewport interface for rendering the web page */
 	TSharedPtr<FWebBrowserViewport>	BrowserViewport;
+
+    /** A delegate that is invoked when render process Javascript code sends a query message to the client. */
+    FOnJSQueryReceivedDelegate OnJSQueryReceived;
+    
+    /** A delegate that is invoked when render process cancels an ongoing query. Handler must clean up corresponding result delegate. */
+    FOnJSQueryCanceledDelegate OnJSQueryCanceled;
 };

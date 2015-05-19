@@ -16,8 +16,7 @@
  * Implements CEF App and other Process level interfaces 
  */
 class FWebBrowserApp : public CefApp,
-	public CefBrowserProcessHandler,
-	public CefRenderProcessHandler
+	public CefBrowserProcessHandler
 {
 public:
 	
@@ -28,10 +27,10 @@ public:
 private:
 	// CefApp methods.
 	virtual CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override { return this; }
-	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override { return this; }
 
 	// CefBrowserProcessHandler methods:
 	virtual void OnContextInitialized() override;
+	virtual void OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> CommandLine) override;
 
 	// Include the default reference counting implementation.
 	IMPLEMENT_REFCOUNTING(FWebBrowserApp);

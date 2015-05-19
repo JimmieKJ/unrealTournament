@@ -16,6 +16,9 @@ SWebBrowser::SWebBrowser()
 
 void SWebBrowser::Construct(const FArguments& InArgs)
 {
+    OnJSQueryReceived = InArgs._OnJSQueryReceived;
+    OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
+    
 	void* OSWindowHandle = nullptr;
 	if (InArgs._ParentWindow.IsValid())
 	{
@@ -100,6 +103,8 @@ void SWebBrowser::Construct(const FArguments& InArgs)
 
 	if (BrowserWindow.IsValid())
 	{
+		BrowserWindow->OnJSQueryReceived().BindSP(this, &SWebBrowser::HandleJSQueryReceived);
+		BrowserWindow->OnJSQueryCanceled().BindSP(this, &SWebBrowser::HandleJSQueryCanceled);
 		BrowserViewport = MakeShareable(new FWebBrowserViewport(BrowserWindow, ViewportWidget));
 		ViewportWidget->SetViewportInterface(BrowserViewport.ToSharedRef());
 	}
@@ -197,6 +202,20 @@ EVisibility SWebBrowser::GetLoadingThrobberVisibility() const
 		return EVisibility::Visible;
 	}
 	return EVisibility::Hidden;
+}
+
+bool SWebBrowser::HandleJSQueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
+{
+    if (OnJSQueryReceived.IsBound())
+    {
+        return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
+    }
+    return false;
+}
+
+void SWebBrowser::HandleJSQueryCanceled( int64 QueryId )
+{
+    OnJSQueryCanceled.ExecuteIfBound(QueryId);
 }
 
 #undef LOCTEXT_NAMESPACE
