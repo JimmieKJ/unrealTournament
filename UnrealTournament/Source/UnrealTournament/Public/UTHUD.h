@@ -186,8 +186,7 @@ public:
 	/** get player state for which to display scoring info. */
 	virtual AUTPlayerState* GetScorerPlayerState();
 
-	virtual void NotifyMatchStateChange()
-	{}
+	virtual void NotifyMatchStateChange();
 
 	inline UUTScoreboard* GetScoreboard() const
 	{

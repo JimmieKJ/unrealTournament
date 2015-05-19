@@ -328,6 +328,14 @@ void AUTHUD::ToggleScoreboard(bool bShow)
 	bShowScores = bShow;
 }
 
+void AUTHUD::NotifyMatchStateChange()
+{
+	if (MyUTScoreboard != NULL)
+	{
+		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
+	}
+}
+
 void AUTHUD::PostRender()
 {
 	//check(!IsPendingKillPending());

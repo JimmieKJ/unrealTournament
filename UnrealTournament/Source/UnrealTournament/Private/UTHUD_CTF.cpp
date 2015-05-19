@@ -27,16 +27,9 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 
 void AUTHUD_CTF::NotifyMatchStateChange()
 {
-	UUTCTFScoreboard* CTFScoreboard = Cast<UUTCTFScoreboard>(MyUTScoreboard);
-	if (CTFScoreboard != NULL)
+	if (MyUTScoreboard != NULL)
 	{
-		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch)
-		{
-			GetWorldTimerManager().SetTimer(CTFScoreboard->OpenScoringPlaysHandle, CTFScoreboard, &UUTCTFScoreboard::OpenScoringPlaysPage, 6.0f, false);
-		}
-		else
-		{
-			GetWorldTimerManager().ClearTimer(CTFScoreboard->OpenScoringPlaysHandle);
-		}
+		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
 	}
 }
+

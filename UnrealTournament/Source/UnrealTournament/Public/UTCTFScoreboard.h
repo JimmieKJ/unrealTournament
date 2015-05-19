@@ -39,17 +39,15 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 
 	virtual void Draw_Implementation(float DeltaTime) override;
 
-	FTimerHandle OpenScoringPlaysHandle;
-
-	/** no-params accessor for timers */
-	UFUNCTION()
-	void OpenScoringPlaysPage();
+	virtual void OpenScoringPlaysPage() override;
 
 	UPROPERTY()
 		float TimeLineOffset;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scoreboard")
 		USoundBase* ScoreUpdateSound;
+
+	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
 
 protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);

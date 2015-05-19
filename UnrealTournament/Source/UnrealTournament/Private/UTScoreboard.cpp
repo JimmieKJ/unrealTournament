@@ -65,6 +65,14 @@ void UUTScoreboard::AdvancePage(int32 Increment)
 	PageChanged();
 }
 
+void UUTScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
+{
+}
+
+void UUTScoreboard::OpenScoringPlaysPage()
+{
+}
+
 AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
 {
 	int32 CurrentIndex = -1;

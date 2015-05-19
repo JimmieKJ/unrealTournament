@@ -85,6 +85,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
 	virtual void SetPage(uint32 NewPage);
 
+	FTimerHandle OpenScoringPlaysHandle;
+
+	/** no-params accessor for timers */
+	UFUNCTION()
+		virtual void OpenScoringPlaysPage();
+
+	virtual void SetScoringPlaysTimer(bool bEnableTimer);
+
 protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
