@@ -572,7 +572,20 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		if (Account.IsValid())
 		{
 			FString RememberMeToken;
+			FString Token;
 			Account->GetAuthAttribute(TEXT("refresh_token"), RememberMeToken);
+
+			if ( Account->GetAuthAttribute(TEXT("ut:developer"), Token) )			CommunityRole = EUnrealRoles::Developer;
+			else if ( Account->GetAuthAttribute(TEXT("ut:contributor"), Token) )	CommunityRole = EUnrealRoles::Contributor;
+			else if ( Account->GetAuthAttribute(TEXT("ut:concepter"), Token) )		CommunityRole = EUnrealRoles::Concepter;
+			else if ( Account->GetAuthAttribute(TEXT("ut:prototyper"), Token) )		CommunityRole = EUnrealRoles::Prototyper;
+			else if ( Account->GetAuthAttribute(TEXT("ut:marketplace"), Token) )	CommunityRole = EUnrealRoles::Marketplace;
+			else if ( Account->GetAuthAttribute(TEXT("ut:ambassador"), Token) )		CommunityRole = EUnrealRoles::Ambassador;
+			else 
+			{
+				CommunityRole = EUnrealRoles::Gamer;
+			}
+			
 			LastEpicIDLogin = PendingLoginUserName;
 			LastEpicRememberMeToken = RememberMeToken;
 			SaveConfig();
@@ -1777,7 +1790,7 @@ uint32 UUTLocalPlayer::GetCountryFlag()
 {
 	if (CurrentProfileSettings)
 	{
-		return FMath::Clamp<uint32>(CurrentProfileSettings->CountryFlag,0,39);
+		return CurrentProfileSettings->CountryFlag;
 	}
 	if (PlayerController)
 	{
@@ -1792,7 +1805,6 @@ uint32 UUTLocalPlayer::GetCountryFlag()
 
 void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 {
-	NewFlag = FMath::Clamp<uint32>(NewFlag,0,39);
 	if (CurrentProfileSettings)
 	{
 		CurrentProfileSettings->CountryFlag = NewFlag;
@@ -1828,7 +1840,6 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickmatch."));
 			return;
 		}
-
 
 		if (OnlineSessionInterface.IsValid())
 		{

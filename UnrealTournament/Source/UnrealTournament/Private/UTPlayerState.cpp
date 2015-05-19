@@ -9,6 +9,9 @@
 #include "UTHat.h"
 #include "UTCharacterContent.h"
 #include "../Private/Slate/SUWindowsStyle.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -644,6 +647,20 @@ void AUTPlayerState::BeginPlay()
 		if (Settings)
 		{
 			CountryFlag = Settings->CountryFlag;
+
+			if (LP->CommunityRole != EUnrealRoles::Gamer)
+			{
+				// If we are a contributor ,but are trying to use the developer flag, set back to unreal flag
+				if (LP->CommunityRole != EUnrealRoles::Developer)
+				{
+					if (CountryFlag ==  143) CountryFlag = 140;	
+				}
+			}
+			else if (CountryFlag >= 141)
+			{
+				CountryFlag = 140;
+			}
+
 			ServerReceiveCountryFlag(CountryFlag);
 		}
 	}
@@ -1050,6 +1067,16 @@ bool AUTPlayerState::ServerReceiveCountryFlag_Validate(uint32 NewCountryFlag) { 
 void AUTPlayerState::ServerReceiveCountryFlag_Implementation(uint32 NewCountryFlag)
 {
 	CountryFlag = NewCountryFlag;
+
+	if (FUTAnalytics::IsAvailable())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("CountryFlag"),CountryFlag));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("UserId"),UniqueId.ToString()));
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("FlagChange"), ParamArray );
+	}
+
+
 }
 
 void AUTPlayerState::ValidateEntitlements()

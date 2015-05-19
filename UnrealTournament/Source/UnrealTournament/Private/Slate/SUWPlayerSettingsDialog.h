@@ -106,9 +106,9 @@ protected:
 	void OnCharacterSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
 	TSharedPtr<STextBlock> SelectedFlag;
-	TArray<TSharedPtr<FString>> CountyFlagNames;
-	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
-	void OnFlagSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	TArray<TSharedPtr<FFlagInfo>> CountyFlagNames;
+	TSharedPtr< SComboBox< TSharedPtr<FFlagInfo> > > CountryFlagComboBox;
+	void OnFlagSelected(TSharedPtr<FFlagInfo> NewSelection, ESelectInfo::Type SelectInfo);
 
 	int32 Emote1Index;
 	int32 Emote2Index;
@@ -145,5 +145,6 @@ protected:
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	virtual TSharedRef<SWidget> GenerateFlagListWidget(TSharedPtr<FFlagInfo> InItem);
 };
 #endif

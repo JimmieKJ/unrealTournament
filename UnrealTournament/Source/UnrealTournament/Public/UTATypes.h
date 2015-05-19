@@ -497,7 +497,7 @@ struct FAllowedData
 };
 
 UENUM()
-namespace EMCPRoles
+namespace EUnrealRoles
 {
 	enum Type
 	{
@@ -507,6 +507,43 @@ namespace EMCPRoles
 		Contributor, 
 		Marketplace,
 		Prototyper,
+		Ambassador,
 		MAX,
 	};
 }
+
+USTRUCT()
+struct FFlagInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString Title;
+
+	UPROPERTY()
+	int32 Id;
+
+	FFlagInfo()
+		: Title(FString())
+		, Id(0)
+	{
+	}
+
+	FFlagInfo(const FString inTitle, int32 inId)
+		: Title(inTitle)
+		, Id(inId)
+	{
+	}
+
+	static TSharedRef<FFlagInfo> Make(const FFlagInfo& OtherFlag)
+	{
+		return MakeShareable( new FFlagInfo( OtherFlag.Title, OtherFlag.Id) );
+	}
+
+	static TSharedRef<FFlagInfo> Make(const FString inTitle, int32 inId)
+	{
+		return MakeShareable( new FFlagInfo( inTitle, inId) );
+	}
+
+
+};

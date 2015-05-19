@@ -300,5 +300,15 @@ public:
 
 private:
 	UTexture2D* DamageIndicatorTexture;
+
+protected:
+	TArray<UTexture2D*> FlagTextures;
+
+public:
+	UPROPERTY(Config)
+	TArray<FFlagInfo> FlagList;
+
+	UTexture2D* ResolveFlag(int32 FlagID, int32& X, int32& Y);
+
 };
 

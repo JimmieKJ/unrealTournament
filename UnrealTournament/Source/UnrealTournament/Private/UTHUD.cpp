@@ -63,6 +63,11 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 
 	TeamIconUV[0] = FVector2D(257.f, 940.f);
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
+
+	// Store off any flag pages....
+	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
+	FlagTextures.Add(FlagTex.Object);
+
 }
 
 void AUTHUD::BeginPlay()
@@ -736,4 +741,14 @@ FText AUTHUD::GetPlaceSuffix(int32 Value)
 
 	return FText::GetEmpty();
 }
+
+UTexture2D* AUTHUD::ResolveFlag(int32 FlagID, int32& X, int32& Y)
+{
+	int32 Page = 0;
+	X = (FlagID % 28) * 36;
+	Y = (FlagID / 28) * 26;
+
+	return Page < FlagTextures.Num() ? FlagTextures[Page] : NULL;
+}
+
 

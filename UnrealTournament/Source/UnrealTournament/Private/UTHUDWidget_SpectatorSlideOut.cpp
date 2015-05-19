@@ -504,10 +504,11 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 		DrawTexture(TextureAtlas, XOffset + Width, YOffset, 35, 0.95f*CellHeight, 36, 188, -36, 65, FinalBarOpacity, BarColor);
 	}
 
-	int32 FlagU = (PlayerState->CountryFlag % 8) * 32;
-	int32 FlagV = (PlayerState->CountryFlag / 8) * 24;
+	int32 FlagU=0;
+	int32 FlagV=0;
 
-	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 32, 24, FlagU, FlagV, 32, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	
+	UTexture2D* FlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagU, FlagV);
+	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 36,26, FlagU,FlagV,36,26,1.0, FLinearColor::White, FVector2D(0.0f,0.5f));	// Add a function to support additional flags
 
 	// Draw the Text
 	if (Index >= 0)
