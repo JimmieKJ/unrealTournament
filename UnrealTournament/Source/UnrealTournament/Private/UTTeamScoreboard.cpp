@@ -114,7 +114,6 @@ void UUTTeamScoreboard::SelectNext(int32 Offset, bool bDoNoWrap)
 					return;
 				}
 			}
-
 		}
 		while (Next != SelectedPlayer.Get());
 	}
@@ -415,15 +414,31 @@ void UUTTeamScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, flo
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), PS->GetStatsValue(NAME_ArmorPadsCount), -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), PS->GetStatsValue(NAME_HelmetCount), -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 
-	//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
-	//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
-	//	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), NAME_InvisibilityTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
+	int32 ClockVal = PS->GetStatsValue(NAME_UDamageTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	}
+	ClockVal = PS->GetStatsValue(NAME_BerserkTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	}
+	ClockVal = PS->GetStatsValue(NAME_InvisibilityTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
+	}
 
 	int32 BootJumps = PS->GetStatsValue(NAME_BootJumps);
 	if (BootJumps != 0)
 	{
 		DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumps, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	}
+	// need suicide stat
 }
 
 
