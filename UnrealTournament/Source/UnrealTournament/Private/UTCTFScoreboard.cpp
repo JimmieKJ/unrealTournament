@@ -539,21 +539,7 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 	// draw team stats
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlagCaps", "Flag Captures"), UTGameState->Teams[0]->Score, UTGameState->Teams[1]->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamGrabs", "Flag Grabs"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamFlagGrabs), UTGameState->Teams[1]->GetStatsValue(NAME_TeamFlagGrabs), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
-	int32 HighlightIndex = 0;
-	int32 RedTeamFlagTime = UTGameState->Teams[0]->GetStatsValue(NAME_TeamFlagHeldTime);
-	int32 BlueTeamFlagTime = UTGameState->Teams[1]->GetStatsValue(NAME_TeamFlagHeldTime);
-	if (RedTeamFlagTime < BlueTeamFlagTime)
-	{
-		HighlightIndex = 2;
-	}
-	else if (RedTeamFlagTime > BlueTeamFlagTime)
-	{
-		HighlightIndex = 1;
-	}
-
-	FText ClockStringRed = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RedTeamFlagTime, false);
-	FText ClockStringBlue = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), BlueTeamFlagTime, false);
-	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TeamFlagHeldTime", "Flag Held Time"), ClockStringRed.ToString(), ClockStringBlue.ToString(), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, HighlightIndex);
+	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "TeamFlagHeldTime", "Flag Held Time"), NAME_TeamFlagHeldTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, false);
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 
@@ -593,9 +579,38 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), GetPlayerNameFor(TopKillerRed), GetPlayerNameFor(TopKillerBlue), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKD", "Top K/D"), GetPlayerNameFor(TopKDRed), GetPlayerNameFor(TopKDBlue), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 
-	// later do udamage and shieldbelt control
-	// also individual redeemer shots and Denials
+	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
+	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
+	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), NAME_InvisibilityTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
+
+	// later do shieldbelt, armor, redeemer shots, and jumpboot jumps -and all these also to individual
+	// track individual movement stats as well
+	// make all the loc text into properties instead of recalc
 }
+
+void UUTCTFScoreboard::DrawClockTeamStatsLine(FText StatsName, FName StatsID, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, bool bSkipEmpty)
+{
+	int32 HighlightIndex = 0;
+	int32 RedTeamValue = UTGameState->Teams[0]->GetStatsValue(StatsID);
+	int32 BlueTeamValue = UTGameState->Teams[1]->GetStatsValue(StatsID);
+	if (bSkipEmpty && (RedTeamValue == 0) && (BlueTeamValue == 0))
+	{
+		return;
+	}
+	if (RedTeamValue < BlueTeamValue)
+	{
+		HighlightIndex = 2;
+	}
+	else if (RedTeamValue > BlueTeamValue)
+	{
+		HighlightIndex = 1;
+	}
+
+	FText ClockStringRed = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RedTeamValue, false);
+	FText ClockStringBlue = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), BlueTeamValue, false);
+	DrawTextStatsLine(StatsName, ClockStringRed.ToString(), ClockStringBlue.ToString(), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, HighlightIndex);
+}
+
 
 AUTPlayerState* UUTCTFScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 {
@@ -611,12 +626,11 @@ AUTPlayerState* UUTCTFScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 			MemberPS.Add(PS);
 		}
 	}
-
 	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
 	{
 		return A.Kills > B.Kills;
 	});
-	return MemberPS[0];
+	return (MemberPS.Num() > 0) ? MemberPS[0] : NULL;
 }
 
 AUTPlayerState* UUTCTFScoreboard::FindTopTeamKDFor(uint8 TeamNum)
@@ -650,7 +664,7 @@ AUTPlayerState* UUTCTFScoreboard::FindTopTeamKDFor(uint8 TeamNum)
 		}
 		return A.Kills/A.Deaths > B.Kills/B.Deaths;
 	});
-	return MemberPS[0];
+	return (MemberPS.Num() > 0) ? MemberPS[0] : NULL;
 }
 
 

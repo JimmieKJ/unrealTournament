@@ -80,6 +80,9 @@ protected:
 	/** Draw one line of scoring breakdown where values are string instead of int32. */
 	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, int32 HighlightIndex);
 
+	/** Draw one line of scoring breakdown where values are clock stats. */
+	virtual void DrawClockTeamStatsLine(FText StatsName, FName StatsID, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, bool bSkipEmpty);
+
 	UPROPERTY()
 		bool bHighlightStatsLineTopValue;
 

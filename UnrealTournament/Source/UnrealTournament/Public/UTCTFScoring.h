@@ -27,6 +27,10 @@ static const FName NAME_FlagSupportKills(TEXT("FlagSupportKills"));
 static const FName NAME_FlagSupportKillPoints(TEXT("FlagSupportKillPoints"));
 static const FName NAME_RegularKillPoints(TEXT("RegularKillPoints"));
 static const FName NAME_FlagGrabs(TEXT("FlagGrabs"));
+static const FName NAME_UDamageTime(TEXT("UDamageTime"));
+static const FName NAME_BerserkTime(TEXT("BerserkTime"));
+static const FName NAME_InvisibilityTime(TEXT("InvisbilityTime"));
+static const FName NAME_BootJumps(TEXT("BootJumps"));
 
 static const FName NAME_TeamKills(TEXT("TeamKills"));
 static const FName NAME_TeamFlagGrabs(TEXT("TeamFlagGrabs"));

@@ -6,14 +6,6 @@
 #include "UTPlayerState.h"
 #include "UTPickup.generated.h"
 
-UENUM()
-enum EPickupClassification
-{
-	PC_Minor,
-	PC_Major,
-	PC_Super,
-};
-
 USTRUCT()
 struct FPickupReplicatedState
 {

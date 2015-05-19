@@ -29,10 +29,28 @@ void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 		NewOwner->SetWeaponOverlay(OverlayMaterial, true);
 	}
 	GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, FMath::Max<float>(0.1f, TimeRemaining - 3.0f), false);
+	StatCountTime = GetWorld()->GetTimeSeconds();
+}
+
+void AUTTimedPowerup::UpdateStatsCounter(float Amount)
+{
+	if (GetUTOwner() && (StatsName != NAME_None))
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(GetUTOwner()->PlayerState);
+		if (PS)
+		{
+			PS->ModifyStatsValue(StatsName, Amount);
+			if (PS->Team)
+			{
+				PS->Team->ModifyStatsValue(StatsName, Amount);
+			}
+		}
+	}
 }
 
 void AUTTimedPowerup::Removed()
 {
+	UpdateStatsCounter(GetWorld()->GetTimeSeconds() - StatCountTime);
 	if (OverlayMaterial != NULL)
 	{
 		GetUTOwner()->SetWeaponOverlay(OverlayMaterial, false);
@@ -109,6 +127,12 @@ void AUTTimedPowerup::Tick(float DeltaTime)
 		if (TimeRemaining <= 0.0f)
 		{
 			TimeExpired();
+		}
+		float ElapsedTime = GetWorld()->GetTimeSeconds() - StatCountTime;
+		if (ElapsedTime > 1.f)
+		{
+			UpdateStatsCounter(1.f);
+			StatCountTime += 1.f;
 		}
 	}
 }
