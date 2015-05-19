@@ -39,6 +39,10 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	GameScoreStats.Add(NAME_BerserkTime);
 	GameScoreStats.Add(NAME_InvisibilityTime);
 	GameScoreStats.Add(NAME_BootJumps);
+	GameScoreStats.Add(NAME_ShieldBeltCount);
+	GameScoreStats.Add(NAME_ArmorVestCount);
+	GameScoreStats.Add(NAME_ArmorPadsCount);
+	GameScoreStats.Add(NAME_HelmetCount);
 
 	TeamStats.Add(NAME_TeamKills);
 	TeamStats.Add(NAME_TeamFlagGrabs);
@@ -47,6 +51,10 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	TeamStats.Add(NAME_BerserkTime);
 	TeamStats.Add(NAME_InvisibilityTime);
 	TeamStats.Add(NAME_BootJumps);
+	TeamStats.Add(NAME_ShieldBeltCount);
+	TeamStats.Add(NAME_ArmorVestCount);
+	TeamStats.Add(NAME_ArmorPadsCount);
+	TeamStats.Add(NAME_HelmetCount);
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

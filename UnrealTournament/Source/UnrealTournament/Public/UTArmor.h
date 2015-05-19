@@ -28,6 +28,9 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Armor)
 	FName ArmorType;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+		FName StatsName;
+
 	/** Effect to spawn on armor hit. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* ArmorImpactEffect;

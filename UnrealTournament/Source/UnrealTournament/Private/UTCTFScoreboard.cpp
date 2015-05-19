@@ -579,9 +579,21 @@ void UUTCTFScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, floa
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), GetPlayerNameFor(TopKillerRed), GetPlayerNameFor(TopKillerBlue), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKD", "Top K/D"), GetPlayerNameFor(TopKDRed), GetPlayerNameFor(TopKDBlue), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BeltPickups", "Shield Belt Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ShieldBeltCount), UTGameState->Teams[1]->GetStatsValue(NAME_ShieldBeltCount), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorVestCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorVestCount), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorPadsCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorPadsCount), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_HelmetCount), UTGameState->Teams[1]->GetStatsValue(NAME_HelmetCount), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), NAME_InvisibilityTime, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, true);
+
+	int32 BootJumpsRed = UTGameState->Teams[0]->GetStatsValue(NAME_BootJumps);
+	int32 BootJumpsBlue = UTGameState->Teams[1]->GetStatsValue(NAME_BootJumps);
+	if ((BootJumpsRed != 0) || (BootJumpsBlue != 0))
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumpsRed, BootJumpsBlue, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+	}
 
 	// later do shieldbelt, armor, redeemer shots, and jumpboot jumps -and all these also to individual
 	// track individual movement stats as well
@@ -630,7 +642,7 @@ AUTPlayerState* UUTCTFScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 	{
 		return A.Kills > B.Kills;
 	});
-	return (MemberPS.Num() > 0) ? MemberPS[0] : NULL;
+	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
 }
 
 AUTPlayerState* UUTCTFScoreboard::FindTopTeamKDFor(uint8 TeamNum)
@@ -664,7 +676,7 @@ AUTPlayerState* UUTCTFScoreboard::FindTopTeamKDFor(uint8 TeamNum)
 		}
 		return A.Kills/A.Deaths > B.Kills/B.Deaths;
 	});
-	return (MemberPS.Num() > 0) ? MemberPS[0] : NULL;
+	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
 }
 
 

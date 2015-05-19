@@ -3,6 +3,7 @@
 #include "UTInventory.h"
 #include "UTArmor.h"
 #include "UnrealNetwork.h"
+#include "UTCTFScoring.h"
 
 AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -24,6 +25,18 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	if (OverlayMaterial != NULL)
 	{
 		NewOwner->SetCharacterOverlay(OverlayMaterial, true);
+	}
+	if (StatsName != NAME_None)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(NewOwner->PlayerState);
+		if (PS)
+		{
+			PS->ModifyStatsValue(StatsName, 1);
+			if (PS->Team)
+			{
+				PS->Team->ModifyStatsValue(StatsName, 1);
+			}
+		}
 	}
 
 	NewOwner->CheckArmorStacking();
