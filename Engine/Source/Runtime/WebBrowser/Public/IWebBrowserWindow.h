@@ -166,6 +166,8 @@ public:
 	 */
 	FOnTitleChangedDelegate& OnTitleChanged() {return OnTitleChangedDelegate;}
 
+	virtual void PassUnsafeJavascript(const FString&) = 0;
+
 protected:
 
 	/**

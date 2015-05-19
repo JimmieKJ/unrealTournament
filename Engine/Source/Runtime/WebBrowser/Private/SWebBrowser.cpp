@@ -218,4 +218,11 @@ void SWebBrowser::HandleJSQueryCanceled( int64 QueryId )
     OnJSQueryCanceled.ExecuteIfBound(QueryId);
 }
 
+void SWebBrowser::PassUnsafeJavascript(const FString& JS) 
+{ 
+	if (BrowserWindow.IsValid())
+	{
+		BrowserWindow->PassUnsafeJavascript(JS);
+	}
+}
 #undef LOCTEXT_NAMESPACE

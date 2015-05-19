@@ -61,6 +61,8 @@ public:
 	 */
 	FText GetTitleText() const;
 
+	void PassUnsafeJavascript(const FString& JS);
+
 private:
 	/**
 	 * Returns true if the browser can navigate backwards.
@@ -107,7 +109,7 @@ private:
 
     /** Callback for cancelled JS queries. */
     void HandleJSQueryCanceled(int64 QueryId);
-
+	
 private:
 	/** Interface for dealing with a web browser window */
 	TSharedPtr<IWebBrowserWindow>	BrowserWindow;

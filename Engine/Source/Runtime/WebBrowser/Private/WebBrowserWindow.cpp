@@ -327,6 +327,15 @@ void FWebBrowserWindow::StopLoad()
 	}
 }
 
+void FWebBrowserWindow::PassUnsafeJavascript(const FString& Script)
+{
+	if (IsValid())
+	{
+		CefRefPtr<CefFrame> frame = InternalCefBrowser->GetMainFrame();
+		frame->ExecuteJavaScript(TCHAR_TO_ANSI(*Script), frame->GetURL(), 0);
+	}
+}
+
 void FWebBrowserWindow::SetHandler(CefRefPtr<FWebBrowserHandler> InHandler)
 {
 	if (InHandler.get())
