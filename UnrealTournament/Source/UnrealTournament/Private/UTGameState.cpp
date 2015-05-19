@@ -25,6 +25,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
+	SecondaryAttackerStat = NAME_None;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const

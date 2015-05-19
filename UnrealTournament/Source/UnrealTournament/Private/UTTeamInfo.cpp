@@ -4,7 +4,7 @@
 #include "UnrealNetwork.h"
 #include "UTBot.h"
 #include "UTSquadAI.h"
-#include "UTCTFScoring.h"
+#include "StatNames.h"
 
 AUTTeamInfo::AUTTeamInfo(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -51,7 +51,12 @@ void AUTTeamInfo::UpdateTeamLeaders()
 				PS->AttackerScore = PS->GetStatsValue(NAME_AttackerScore);
 				PS->DefenderScore = PS->GetStatsValue(NAME_DefenderScore);
 				PS->SupporterScore = PS->GetStatsValue(NAME_SupporterScore);
-				PS->SecondaryAttackerScore = PS->GetStatsValue(NAME_FlagHeldTime); // @TODO FIXMESTEVE - CTF specific - get stat to use from gamestate
+				
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if ((GS != NULL) && (GS->SecondaryAttackerStat != NAME_None))
+				{
+					PS->SecondaryAttackerScore = PS->GetStatsValue(GS->SecondaryAttackerStat); 
+				}
 			}
 		}
 	}

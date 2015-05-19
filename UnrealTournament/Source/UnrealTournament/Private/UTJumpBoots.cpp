@@ -5,7 +5,7 @@
 #include "UTCharacterMovement.h"
 #include "UnrealNetwork.h"
 #include "UTHUDWidget_Powerups.h"
-#include "UTCTFScoring.h"
+#include "StatNames.h"
 
 AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

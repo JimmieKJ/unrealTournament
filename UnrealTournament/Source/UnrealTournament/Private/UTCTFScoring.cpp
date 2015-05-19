@@ -3,6 +3,7 @@
 #include "UTTeamGameMode.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFScoring.h"
+#include "StatNames.h"
 
 AUTCTFScoring::AUTCTFScoring(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

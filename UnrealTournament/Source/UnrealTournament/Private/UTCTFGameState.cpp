@@ -4,6 +4,7 @@
 #include "UTCTFGameMode.h"
 #include "Net/UnrealNetwork.h"
 #include "UTCTFScoring.h"
+#include "StatNames.h"
 
 AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -55,6 +56,8 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	TeamStats.Add(NAME_ArmorVestCount);
 	TeamStats.Add(NAME_ArmorPadsCount);
 	TeamStats.Add(NAME_HelmetCount);
+
+	SecondaryAttackerStat = NAME_FlagHeldTime;
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

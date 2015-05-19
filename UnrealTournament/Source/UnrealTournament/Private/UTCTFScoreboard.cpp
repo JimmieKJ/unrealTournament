@@ -4,6 +4,7 @@
 #include "UTTeamScoreboard.h"
 #include "UTCTFGameState.h"
 #include "UTCTFScoring.h"
+#include "StatNames.h"
 
 UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

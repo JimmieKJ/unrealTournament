@@ -3,7 +3,6 @@
 #include "UTInventory.h"
 #include "UTArmor.h"
 #include "UnrealNetwork.h"
-#include "UTCTFScoring.h"
 
 AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

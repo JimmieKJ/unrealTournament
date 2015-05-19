@@ -4,10 +4,6 @@
 #pragma once
 #include "UTCTFScoring.generated.h"
 
-static const FName NAME_AttackerScore(TEXT("AttackerScore"));
-static const FName NAME_DefenderScore(TEXT("DefenderScore"));
-static const FName NAME_SupporterScore(TEXT("SupporterScore"));
-
 static const FName NAME_FlagHeldDeny(TEXT("FlagHeldDeny"));
 static const FName NAME_FlagHeldDenyTime(TEXT("FlagHeldDenyTime"));
 static const FName NAME_FlagHeldTime(TEXT("FlagHeldTime"));
@@ -27,14 +23,6 @@ static const FName NAME_FlagSupportKills(TEXT("FlagSupportKills"));
 static const FName NAME_FlagSupportKillPoints(TEXT("FlagSupportKillPoints"));
 static const FName NAME_RegularKillPoints(TEXT("RegularKillPoints"));
 static const FName NAME_FlagGrabs(TEXT("FlagGrabs"));
-static const FName NAME_UDamageTime(TEXT("UDamageTime"));
-static const FName NAME_BerserkTime(TEXT("BerserkTime"));
-static const FName NAME_InvisibilityTime(TEXT("InvisbilityTime"));
-static const FName NAME_BootJumps(TEXT("BootJumps"));
-static const FName NAME_ShieldBeltCount(TEXT("ShieldBeltCount"));
-static const FName NAME_ArmorVestCount(TEXT("ArmorVestCount"));
-static const FName NAME_ArmorPadsCount(TEXT("ArmorPadsCount"));
-static const FName NAME_HelmetCount(TEXT("HelmetCount"));
 
 static const FName NAME_TeamKills(TEXT("TeamKills"));
 static const FName NAME_TeamFlagGrabs(TEXT("TeamFlagGrabs"));
