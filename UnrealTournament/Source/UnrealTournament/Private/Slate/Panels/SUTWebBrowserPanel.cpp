@@ -80,4 +80,35 @@ float SUTWebBrowserPanel::GetReverseScale() const
 }
 
 
+void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+{
+	SUWPanel::OnShowPanel(inParentWindow);
+
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, 0);
+	}
+
+
+}
+void SUTWebBrowserPanel::OnHidePanel()
+{
+	SUWPanel::OnHidePanel();
+	
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+
+
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, UserSettings->GetSoundClassVolume(EUTSoundClass::Music));
+	}
+}
+
+
+
+
 #endif

@@ -88,6 +88,15 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	// HACK: UGameUserSettings::ApplyNonResolutionSettings() isn't virtual so we need to force our settings to be applied...
 	GetGameUserSettings()->ApplySettings(true);
 
+	// HACK: Turn off audio here because the default panel is a browser....
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, 0);
+	}
+
+
 	UE_LOG(UT, Log, TEXT("Running %d processors (%d logical cores)"), FPlatformMisc::NumberOfCores(), FPlatformMisc::NumberOfCoresIncludingHyperthreads());
 	if (FPlatformMisc::NumberOfCoresIncludingHyperthreads() < ParallelRendererProcessorRequirement)
 	{

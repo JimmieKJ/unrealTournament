@@ -24,11 +24,14 @@ class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 	SLATE_END_ARGS()
 	
 public:
-
 	void Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner);
 
 	virtual void ConstructPanel(FVector2D ViewportSize);
 	virtual void Browse(FString URL);
+
+	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnHidePanel();
+
 
 protected:
 
