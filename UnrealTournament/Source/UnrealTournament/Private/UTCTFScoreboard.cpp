@@ -30,13 +30,16 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 
 void UUTCTFScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
 {
-	if (bEnableTimer)
+	if (UTHUDOwner)
 	{
-		GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTCTFScoreboard::OpenScoringPlaysPage, 6.0f, false);
-	}
-	else
-	{
-		GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
+		if (bEnableTimer)
+		{
+			UTHUDOwner->GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTCTFScoreboard::OpenScoringPlaysPage, 6.0f, false);
+		}
+		else
+		{
+			UTHUDOwner->GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
+		}
 	}
 }
 
