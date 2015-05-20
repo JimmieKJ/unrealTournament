@@ -752,7 +752,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			if (Game->bDamageHurtsHealth || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))))
 			{
 				Health -= ResultDamage;
-				bWasFallingWhenDamaged = (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling));
+				bWasFallingWhenDamaged = (GetCharacterMovement() != NULL && (GetCharacterMovement()->MovementMode == MOVE_Falling));
 			}
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 

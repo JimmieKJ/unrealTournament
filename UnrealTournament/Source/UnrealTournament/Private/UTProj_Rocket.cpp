@@ -54,7 +54,7 @@ void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FV
 {
 	AUTCharacter* HitCharacter = Cast<AUTCharacter>(ImpactedActor);
 	bool bFollowersTrack = (!bExploded && (Role == ROLE_Authority) && (FollowerRockets.Num() > 0) && HitCharacter);
-	bool bPossibleAirRocket = (HitCharacter && AirRocketRewardClass && (HitCharacter->Health > 0) && HitCharacter->CharacterMovement && (HitCharacter->CharacterMovement->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.2f));
+	bool bPossibleAirRocket = (HitCharacter && AirRocketRewardClass && (HitCharacter->Health > 0) && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.2f));
 
 	Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
 	if (bFollowersTrack && HitCharacter && (HitCharacter->Health > 0))
