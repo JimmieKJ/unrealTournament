@@ -9,6 +9,7 @@
 #include "UTHat.h"
 #include "UTCharacterContent.h"
 #include "../Private/Slate/SUWindowsStyle.h"
+#include "StatNames.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
@@ -148,8 +149,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
 		{
-			ModifyStat(FName(*(TEXT("MultiKillLevel") + FString::FromInt(FMath::Min(MultiKillLevel, 3)))), 1, EStatMod::Delta);
-
+			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
+			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
 			MultiKillLevel++;
 			if (Cast<APlayerController>(GetOwner()) != NULL)
 			{
@@ -165,7 +166,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			Spree++;
 			if (Spree % 5 == 0)
 			{
-				ModifyStat(FName(*(TEXT("SpreeKillLevel") + FString::FromInt(FMath::Min(Spree / 5 - 1, 4)))), 1, EStatMod::Delta);
+				FName SKStat[5] = { NAME_SpreeKillLevel0, NAME_SpreeKillLevel1, NAME_SpreeKillLevel2, NAME_SpreeKillLevel3, NAME_SpreeKillLevel4 };
+				ModifyStatsValue(SKStat[FMath::Min(Spree, 4)], 1);
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
@@ -190,13 +192,14 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
 
-		ModifyStat(FName(TEXT("Kills")), 1, EStatMod::Delta);
+		ModifyStatsValue(NAME_Kills, 1);
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 		if (UTDamage)
 		{
 			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())
 			{
-				ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1, EStatMod::Delta);
+				// FIXMESTEVE - preset, not constructed FName
+				ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1);
 			}
 			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
 			{
@@ -227,7 +230,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 	}
 	else
 	{
-		ModifyStat(FName(TEXT("Suicides")), 1, EStatMod::Delta);
+		ModifyStatsValue(NAME_Suicides, 1);
 	}
 }
 
@@ -259,11 +262,12 @@ void AUTPlayerState::IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPla
 {
 	Deaths += 1;
 
-	ModifyStat(FName(TEXT("Deaths")), 1, EStatMod::Delta);
+	ModifyStatsValue(NAME_Deaths, 1);
 	TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 	if (UTDamage && !UTDamage.GetDefaultObject()->StatsName.IsEmpty())
 	{
-		ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Deaths"))), 1, EStatMod::Delta);
+		// FIXMESTEVE - preset, not constructed FName
+		ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Deaths"))), 1);
 	}
 
 	// spree has ended

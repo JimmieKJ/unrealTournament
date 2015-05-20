@@ -17,22 +17,10 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 	/** Helper function that makes a stat object */
 	UStat* MakeStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod);
 
-	/** Helper function to add a stat while ensuring that it does not create a duplicate */
-	UStat* AddOrGetStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod = EStatRecordingPeriod::Campaign);
-
 	/** Initialize the manager from the config variables
 	 *  @param UTPC The PC that uses this stat manager
 	 */
 	void InitializeManager(AUTPlayerState *UTPS);
-
-	/** Clears all tracked stats back to 0
-	 */
-	void ClearManager();
-
-	/** Clears all tracked stats for this period
-	*	@param Period The period to wipe
-	*/
-	void ClearPeriod(EStatRecordingPeriod::Type Period);
 
 	/** Records a stat and determines if this will earn an award
 	*  @param Stat The type of stat being recorded

@@ -13,10 +13,6 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	bHalftime = false;
 	HalftimeScoreDelay = 2.f;
 
-	GameScoreStats.Add(NAME_AttackerScore);
-	GameScoreStats.Add(NAME_DefenderScore);
-	GameScoreStats.Add(NAME_SupporterScore);
-
 	GameScoreStats.Add(NAME_RegularKillPoints);
 	GameScoreStats.Add(NAME_FCKills);
 	GameScoreStats.Add(NAME_FCKillPoints);
@@ -36,26 +32,9 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	GameScoreStats.Add(NAME_ReturnAssistPoints);
 	GameScoreStats.Add(NAME_TeamCapPoints);
 	GameScoreStats.Add(NAME_FlagGrabs);
-	GameScoreStats.Add(NAME_UDamageTime);
-	GameScoreStats.Add(NAME_BerserkTime);
-	GameScoreStats.Add(NAME_InvisibilityTime);
-	GameScoreStats.Add(NAME_BootJumps);
-	GameScoreStats.Add(NAME_ShieldBeltCount);
-	GameScoreStats.Add(NAME_ArmorVestCount);
-	GameScoreStats.Add(NAME_ArmorPadsCount);
-	GameScoreStats.Add(NAME_HelmetCount);
 
-	TeamStats.Add(NAME_TeamKills);
 	TeamStats.Add(NAME_TeamFlagGrabs);
 	TeamStats.Add(NAME_TeamFlagHeldTime);
-	TeamStats.Add(NAME_UDamageTime);
-	TeamStats.Add(NAME_BerserkTime);
-	TeamStats.Add(NAME_InvisibilityTime);
-	TeamStats.Add(NAME_BootJumps);
-	TeamStats.Add(NAME_ShieldBeltCount);
-	TeamStats.Add(NAME_ArmorVestCount);
-	TeamStats.Add(NAME_ArmorPadsCount);
-	TeamStats.Add(NAME_HelmetCount);
 
 	SecondaryAttackerStat = NAME_FlagHeldTime;
 }

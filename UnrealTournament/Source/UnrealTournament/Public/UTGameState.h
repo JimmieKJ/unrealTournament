@@ -326,6 +326,8 @@ public:
 	UPROPERTY()
 		TArray<FName> TeamStats;
 
+	UPROPERTY()
+		TArray<FName> WeaponStats;
 };
 
 
