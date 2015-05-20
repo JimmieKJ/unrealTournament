@@ -1522,7 +1522,7 @@ protected:
 		TSubclassOf<AUTWeaponAttachment> HolsteredWeaponAttachmentClass;
 
 public:
-	UPROPERTY(EditAnywhere, Category = "Pawn")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawn")
 	TArray< TSubclassOf<AUTInventory> > DefaultCharacterInventory;
 protected:
 
