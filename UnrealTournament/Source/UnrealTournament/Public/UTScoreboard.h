@@ -31,6 +31,16 @@ struct FSelectionObject
 
 };
 
+USTRUCT()
+struct FStatsFontInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	FFontRenderInfo TextRenderInfo;
+	float TextHeight;
+	UFont* TextFont;
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTScoreboard : public UUTHUDWidget
 {
@@ -171,10 +181,10 @@ protected:
 		bool bHighlightStatsLineTopValue;
 
 	/** Draw one line of scoring breakdown. */
-	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL);
+	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth);
 
 	/** Draw one line of scoring breakdown where values are string instead of int32. */
-	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FFontRenderInfo& TextRenderInfo, float ScoreWidth, float SmallYL, int32 HighlightIndex);
+	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex);
 	//-------------------------------------
 
 public:
