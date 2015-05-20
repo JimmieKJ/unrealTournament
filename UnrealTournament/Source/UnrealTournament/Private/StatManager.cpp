@@ -221,6 +221,10 @@ void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 		{
 			ModifyStat(GS->GameScoreStats[i], UTPS->GetStatsValue(GS->GameScoreStats[i]), EStatMod::Delta);
 		}
+		for (int32 i = 0; i < GS->WeaponStats.Num(); i++)
+		{
+			ModifyStat(GS->WeaponStats[i], UTPS->GetStatsValue(GS->WeaponStats[i]), EStatMod::Delta);
+		}
 	}
 
 	JsonObject->SetNumberField(TEXT("Version"), JSONVersionNumber);

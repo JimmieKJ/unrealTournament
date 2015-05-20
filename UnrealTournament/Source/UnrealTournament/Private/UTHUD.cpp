@@ -416,13 +416,13 @@ void AUTHUD::DrawHUD()
 		{
 			if (!UTPlayerOwner->CurrentlyViewedScorePS)
 			{
-				UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState());
+				UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
 			}
 		}
 		else if (UTPlayerOwner)
 		{
 			DrawDamageIndicators();
-			UTPlayerOwner->SetViewedScorePS(NULL);
+			UTPlayerOwner->SetViewedScorePS(NULL, 0);
 		}
 	}
 }

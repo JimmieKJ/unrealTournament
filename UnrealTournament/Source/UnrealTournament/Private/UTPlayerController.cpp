@@ -500,6 +500,12 @@ void AUTPlayerController::FOV(float NewFOV)
 	}
 }
 
+void AUTPlayerController::AdvanceStatsPage(int32 Increment)
+{
+	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 1);
+	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
+}
+
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// hack for scoreboard until we have a real interactive system
@@ -507,6 +513,8 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 	{
 		static FName NAME_Left(TEXT("Left"));
 		static FName NAME_Right(TEXT("Right"));
+		static FName NAME_Down(TEXT("Down"));
+		static FName NAME_Up(TEXT("Up"));
 		if (Key.GetFName() == NAME_Left)
 		{
 			MyUTHUD->GetScoreboard()->AdvancePage(-1);
@@ -516,6 +524,14 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		{
 			MyUTHUD->GetScoreboard()->AdvancePage(+1);
 			return true;
+		}
+		else if (Key.GetFName() == NAME_Up)
+		{
+			AdvanceStatsPage(-1);
+		}
+		else if (Key.GetFName() == NAME_Down)
+		{
+			AdvanceStatsPage(+1);
 		}
 	}
 
@@ -2201,12 +2217,20 @@ void AUTPlayerController::Tick(float DeltaTime)
 			{
 				LastScoreStatsUpdateStartTime = GetWorld()->GetTimeSeconds();
 			}
-			if (StatsUpdateIndex < GS->GameScoreStats.Num())
+			int32 StatArraySize = (CurrentlyViewedStatsTab == 0) ? GS->GameScoreStats.Num() : GS->WeaponStats.Num();
+			if (StatsUpdateIndex < StatArraySize)
 			{
-				ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->GameScoreStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->GameScoreStats[StatsUpdateIndex]));
+				if (CurrentlyViewedStatsTab == 0)
+				{
+					ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->GameScoreStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->GameScoreStats[StatsUpdateIndex]));
+				}
+				else
+				{
+					ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->WeaponStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->WeaponStats[StatsUpdateIndex]));
+				}
 			}
 			StatsUpdateIndex++;
-			if (StatsUpdateIndex >= GS->GameScoreStats.Num())
+			if (StatsUpdateIndex >= StatArraySize)
 			{
 				if (LastScoreStatsUpdateStartTime < CurrentlyViewedScorePS->LastScoreStatsUpdateTime)
 				{
@@ -3011,27 +3035,29 @@ void AUTPlayerController::ShowBuyMenu()
 	}
 }
 
-void AUTPlayerController::SetViewedScorePS(AUTPlayerState* NewViewedPS)
+void AUTPlayerController::SetViewedScorePS(AUTPlayerState* NewViewedPS, uint8 NewStatsPage)
 {
-	if (NewViewedPS != CurrentlyViewedScorePS)
+	if ((NewViewedPS != CurrentlyViewedScorePS) || (NewStatsPage != CurrentlyViewedStatsTab))
 	{
-		ServerSetViewedScorePS(NewViewedPS);
+		ServerSetViewedScorePS(NewViewedPS, NewStatsPage);
 	}
 	CurrentlyViewedScorePS = NewViewedPS;
+	CurrentlyViewedStatsTab = NewStatsPage;
 }
 
-void AUTPlayerController::ServerSetViewedScorePS_Implementation(AUTPlayerState* NewViewedPS)
+void AUTPlayerController::ServerSetViewedScorePS_Implementation(AUTPlayerState* NewViewedPS, uint8 NewStatsPage)
 {
-	if (NewViewedPS != CurrentlyViewedScorePS)
+	if ((NewViewedPS != CurrentlyViewedScorePS) || (NewStatsPage != CurrentlyViewedStatsTab))
 	{
 		StatsUpdateIndex = 0;
 		TeamStatsUpdateTeam = 0;
 		TeamStatsUpdateIndex = 0;
 	}
 	CurrentlyViewedScorePS = NewViewedPS;
+	CurrentlyViewedStatsTab = NewStatsPage;
 }
 
-bool AUTPlayerController::ServerSetViewedScorePS_Validate(AUTPlayerState* NewViewedPS)
+bool AUTPlayerController::ServerSetViewedScorePS_Validate(AUTPlayerState* NewViewedPS, uint8 NewStatsPage)
 {
 	return true;
 }

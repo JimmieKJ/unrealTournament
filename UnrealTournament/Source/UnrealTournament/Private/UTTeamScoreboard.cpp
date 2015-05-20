@@ -368,7 +368,7 @@ void UUTTeamScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float X
 
 	if (!UTPlayerOwner->CurrentlyViewedScorePS)
 	{
-		UTPlayerOwner->SetViewedScorePS(UTHUDOwner->GetScorerPlayerState());
+		UTPlayerOwner->SetViewedScorePS(UTHUDOwner->GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
 	}
 	AUTPlayerState* PS = UTPlayerOwner->CurrentlyViewedScorePS;
 	if (!PS)
@@ -378,7 +378,9 @@ void UUTTeamScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float X
 
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("PlayerName"), FText::FromString(PS->PlayerName));
-	FText CombinedHeader = FText::Format(NSLOCTEXT("UTCTFScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"), Args);
+	FText CombinedHeader = (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 0)
+		? FText::Format(NSLOCTEXT("UTScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"), Args)
+		: FText::Format(NSLOCTEXT("UTScoreboard", "WeaponStatsHeader", "{PlayerName} Weapon Stats"), Args);
 	float XL, SmallYL;
 	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	float MedYL;
@@ -393,18 +395,27 @@ void UUTTeamScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float X
 	}
 
 	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, TextRenderInfo);
-	YPos += 1.2f * MedYL;
+	YPos += MedYL;
 
 	DrawPlayerStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight, TextRenderInfo, SmallYL, MedYL);
-	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
-	YPos += SmallYL;
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
+	FString TabInstruction = (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 0)
+		? "Press Down Arrow to View Weapon Stats"
+		: "Press Up Arrow to View Game Stats";
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, TabInstruction, XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 }
 
 void UUTTeamScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, FFontRenderInfo TextRenderInfo, float SmallYL, float MedYL)
 {
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 1)
+	{
+		DrawWeaponStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight, TextRenderInfo, SmallYL, MedYL);
+		return;
+	}
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Kills", "Kills"), PS->Kills, PS->Kills, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), PS->Deaths, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Suicides", "Suicides"), PS->GetStatsValue(NAME_Suicides), -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "KDRatio", "K/D Ratio"), FString::Printf(TEXT(" %6.2f"), ((PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f)), "", DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += SmallYL;
@@ -438,8 +449,41 @@ void UUTTeamScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, flo
 	{
 		DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumps, -1, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 	}
-	// need suicide stat
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 }
 
+void UUTTeamScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, FFontRenderInfo TextRenderInfo, float SmallYL, float MedYL)
+{
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "WeaponColumnTitle", "Weapon"), "Kills With", "Deaths By", DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL, 0);
 
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ImpactHammer", "Impact Hammer"), PS->GetStatsValue(NAME_ImpactHammerKills), PS->GetStatsValue(NAME_ImpactHammerDeaths), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Enforcer", "Enforcer"), PS->GetStatsValue(NAME_EnforcerKills), PS->GetStatsValue(NAME_EnforcerDeaths), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BioRifle", "Bio Rifle"), PS->GetStatsValue(NAME_BioRifleKills), PS->GetStatsValue(NAME_BioRifleDeaths), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
 
+	int32 Kills = PS->GetStatsValue(NAME_ShockBeamKills) + PS->GetStatsValue(NAME_ShockCoreKills) + PS->GetStatsValue(NAME_ShockComboKills);
+	int32 Deaths = PS->GetStatsValue(NAME_ShockBeamDeaths) + PS->GetStatsValue(NAME_ShockCoreDeaths) + PS->GetStatsValue(NAME_ShockComboDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ShockRifle", "Shock Rifle"), Kills, Deaths, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
+	Kills = PS->GetStatsValue(NAME_LinkKills) + PS->GetStatsValue(NAME_LinkBeamKills);
+	Deaths = PS->GetStatsValue(NAME_LinkDeaths) + PS->GetStatsValue(NAME_LinkBeamDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "LinkGun", "Link Gun"), Kills, Deaths, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
+	Kills = PS->GetStatsValue(NAME_MinigunKills) + PS->GetStatsValue(NAME_MinigunShardKills);
+	Deaths = PS->GetStatsValue(NAME_MinigunDeaths) + PS->GetStatsValue(NAME_MinigunShardDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Minigun", "Minigun"), Kills, Deaths, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
+	Kills = PS->GetStatsValue(NAME_FlakShardKills) + PS->GetStatsValue(NAME_FlakShellKills);
+	Deaths = PS->GetStatsValue(NAME_FlakShardDeaths) + PS->GetStatsValue(NAME_FlakShellDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlakCannon", "Flak Cannon"), Kills, Deaths, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "RocketLauncher", "Rocket Launcher"), PS->GetStatsValue(NAME_RocketKills), PS->GetStatsValue(NAME_RocketDeaths), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
+	Kills = PS->GetStatsValue(NAME_SniperKills) + PS->GetStatsValue(NAME_SniperHeadshotKills);
+	Deaths = PS->GetStatsValue(NAME_SniperDeaths) + PS->GetStatsValue(NAME_SniperHeadshotDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ImpactHammer", "ImpactHammer"), Kills, Deaths, DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Redeemer", "Redeemer"), PS->GetStatsValue(NAME_RedeemerKills), PS->GetStatsValue(NAME_RedeemerDeaths), DeltaTime, XOffset, YPos, TextRenderInfo, ScoreWidth, SmallYL);
+
+	// @TODO FIXMESTEVE special kills (combo, headshot) + break down by primary/alt + show accuracy
+	// @TODO FIXMESTEVE add movement and rewards pages
+}

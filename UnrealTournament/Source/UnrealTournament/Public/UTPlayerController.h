@@ -776,11 +776,14 @@ public:
 	UPROPERTY()
 		float LastScoreStatsUpdateStartTime;
 
+	UPROPERTY()
+		uint8 CurrentlyViewedStatsTab;
+
 	UFUNCTION()
-		virtual void SetViewedScorePS(AUTPlayerState* ViewedPS);
+		virtual void SetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
 
 	UFUNCTION(server, unreliable, withvalidation)
-		virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS);
+		virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
 
 	UFUNCTION(client, unreliable)
 		virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, FName StatsName, float NewValue);
@@ -788,6 +791,7 @@ public:
 	UFUNCTION(client, unreliable)
 		virtual void ClientUpdateTeamStats(uint8 TeamNum, FName StatsName, float NewValue);
 
+	virtual void AdvanceStatsPage(int32 Increment);
 };
 
 
