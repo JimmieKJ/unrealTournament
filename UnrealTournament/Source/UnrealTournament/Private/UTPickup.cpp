@@ -42,7 +42,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	if (BaseEffect != NULL)
 	{
 		BaseEffect->AttachParent = RootComponent;
-		BaseEffect->LDMaxDrawDistance = 1024.0f;
+		BaseEffect->LDMaxDrawDistance = 2048.0f;
 		BaseEffect->RelativeLocation.Z = -58.0f;
 	}
 	TakenEffectTransform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
