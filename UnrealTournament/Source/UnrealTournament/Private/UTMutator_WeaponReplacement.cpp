@@ -130,10 +130,6 @@ bool AUTMutator_WeaponReplacement::CheckRelevance_Implementation(AActor* Other)
 				}
 			}
 		}
-		else if (Cast<AUTWeapon>(Other) != NULL && WeaponsToReplace.FindByPredicate([=](const FReplacementInfo& Item) { return StaticLoadClass(AUTWeapon::StaticClass(), nullptr, *Item.OldClassPath) == Other->GetClass(); }) == NULL)
-		{
-			return false;
-		}
 	}
 
 	return Super::CheckRelevance_Implementation(Other);
