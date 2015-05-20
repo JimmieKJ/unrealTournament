@@ -270,8 +270,9 @@ bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
 	return false;
 }
 
-void AUTInventory::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
+bool AUTInventory::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
+	return false;
 }
 
 bool AUTInventory::HandleArmorEffects(AUTCharacter* HitPawn) const

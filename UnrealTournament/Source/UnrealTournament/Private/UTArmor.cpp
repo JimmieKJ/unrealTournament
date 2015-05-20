@@ -54,13 +54,13 @@ void AUTArmor::Removed()
 	Super::Removed();
 }
 
-void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
+bool AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
-	const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+	const UDamageType* const DamageTypeCDO = (DamageType != NULL) ? DamageType->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
 	const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
-	if (UTDamageTypeCDO && !UTDamageTypeCDO->bBlockedByArmor)
+	if (UTDamageTypeCDO != NULL && !UTDamageTypeCDO->bBlockedByArmor)
 	{
-		return;
+		return false;
 	}
 	if (Damage > 0)
 	{
@@ -76,6 +76,7 @@ void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum
 		Damage -= Absorb;
 		ReduceArmor(Absorb);
 	}
+	return false;
 }
 
 int32 AUTArmor::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const

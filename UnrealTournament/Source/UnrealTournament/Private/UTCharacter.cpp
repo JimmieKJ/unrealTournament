@@ -686,19 +686,21 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 		}
 		if (!IsDead())
 		{
+			// we need to pull the hit info out of FDamageEvent because ModifyDamage() goes through blueprints and that doesn't correctly handle polymorphic structs
+			FHitResult HitInfo;
+			{
+				FVector UnusedDir;
+				DamageEvent.GetBestHitInfo(this, DamageCauser, HitInfo, UnusedDir);
+			}
+
 			// note that we split the gametype query out so that it's always in a consistent place
 			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 			if (Game != NULL)
 			{
-				// we need to pull the hit info out of FDamageEvent because ModifyDamage() goes through blueprints and that doesn't correctly handle polymorphic structs
-				FHitResult HitInfo;
-				FVector UnusedDir;
-				DamageEvent.GetBestHitInfo(this, DamageCauser, HitInfo, UnusedDir);
-
 				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser, DamageEvent.DamageTypeClass);
 			}
 			AUTInventory* HitArmor = NULL;
-			ModifyDamageTaken(ResultDamage, ResultMomentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
+			ModifyDamageTaken(ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
 			if (HitArmor)
 			{
 				ArmorAmount = GetArmorAmount();
@@ -841,7 +843,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 	}
 }
 
-void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+bool AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FHitResult& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	// check for caused modifiers on instigator
 	AUTCharacter* InstigatorChar = NULL;
@@ -855,20 +857,22 @@ void AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 	}
 	if (InstigatorChar != NULL && !InstigatorChar->IsDead())
 	{
-		InstigatorChar->ModifyDamageCaused(Damage, Momentum, DamageEvent, this, EventInstigator, DamageCauser);
+		InstigatorChar->ModifyDamageCaused(Damage, Momentum, HitInfo, this, EventInstigator, DamageCauser, DamageType);
 	}
 	// check inventory
 	for (TInventoryIterator<> It(this); It; ++It)
 	{
 		if (It->bCallDamageEvents)
 		{
-			It->ModifyDamageTaken(Damage, Momentum, HitArmor, DamageEvent, EventInstigator, DamageCauser);
+			It->ModifyDamageTaken(Damage, Momentum, HitArmor, EventInstigator, HitInfo, DamageCauser, DamageType);
 		}
 	}
+	return false;
 }
-void AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser)
+bool AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	Damage *= DamageScaling;
+	return false;
 }
 
 void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)

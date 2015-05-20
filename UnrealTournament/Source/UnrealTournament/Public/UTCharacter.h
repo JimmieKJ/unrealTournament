@@ -1470,12 +1470,16 @@ protected:
 	UPROPERTY(Replicated, ReplicatedUsing=FireRateChanged)
 	float FireRateMultiplier;
 
-	/** hook to modify damage taken by this Pawn */
+	/** hook to modify damage taken by this Pawn
+	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
+	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageTaken(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
-	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc */
+	bool ModifyDamageTaken(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, const FHitResult& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc
+	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
+	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageCaused(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser);
+	bool ModifyDamageCaused(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);

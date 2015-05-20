@@ -120,8 +120,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = Events)
 	uint32 bCallOwnerEvent : 1;
 
+	// NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageTaken(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser); // TODO: UHT doesn't handle TSubclassOf<AUTInventory>&
+	bool ModifyDamageTaken(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType); // TODO: UHT doesn't handle TSubclassOf<AUTInventory>&
 	/** when a character takes damage that is reduced by inventory, the inventory item is included in the hit info and this function is called for all clients on the inventory DEFAULT OBJECT
 	 * used to play shield/armor effects
 	 * @return whether an effect was played

@@ -46,7 +46,7 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 	virtual void Removed() override;
 
-	virtual void ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser) override;
+	virtual bool ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
 	virtual int32 GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const;
 
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
