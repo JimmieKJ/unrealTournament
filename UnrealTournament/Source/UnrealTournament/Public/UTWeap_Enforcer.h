@@ -56,11 +56,11 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 
 	/** Weapon bring up time when dual wielding. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-		float DualBringUpTime;
+	float DualBringUpTime;
 
 	/** Weapon put down time when dual wielding. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-		float DualPutDownTime;
+	float DualPutDownTime;
 
 	virtual float GetBringUpTime() override;
 	virtual float GetPutDownTime() override;
@@ -98,6 +98,12 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 	virtual void GotoEquippingState(float OverflowTime) override;
 	virtual void FireShot() override;
 	virtual void StateChanged() override;
+	virtual TArray<UMeshComponent*> Get1PMeshes_Implementation() const
+	{
+		TArray<UMeshComponent*> Result = Super::Get1PMeshes_Implementation();
+		Result.Add(LeftMesh);
+		return Result;
+	}
 
 	/** Switch to second enforcer mode
 	*/

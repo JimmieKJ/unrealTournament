@@ -1669,6 +1669,13 @@ void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUD
 	}
 }
 
+TArray<UMeshComponent*> AUTWeapon::Get1PMeshes_Implementation() const
+{
+	TArray<UMeshComponent*> Result;
+	Result.Add(Mesh);
+	return Result;
+}
+
 void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, USkeletalMeshComponent*& InOverlayMesh) const
 {
 	AUTGameState* GS = WeaponActor->GetWorld()->GetGameState<AUTGameState>();
