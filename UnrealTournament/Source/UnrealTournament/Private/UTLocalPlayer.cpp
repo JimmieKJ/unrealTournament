@@ -1818,13 +1818,10 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 		}
 	}
 
-	if (PlayerController)
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+	if (PC != NULL)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState); 
-		if (PS)
-		{
-			PS->ServerReceiveCountryFlag(NewFlag);
-		}
+		PC->ServerReceiveCountryFlag(NewFlag);
 	}
 }
 

@@ -2436,14 +2436,86 @@ void AUTPlayerController::ReceivedPlayer()
 
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	
-	if (LP != NULL && GetWorld()->GetNetMode() != NM_Standalone)
+	if (LP != NULL)
 	{
-		ServerSetWeaponHand(WeaponHand);
-		if (FUTAnalytics::IsAvailable() && (GetWorld()->GetNetMode() != NM_Client || GetWorld()->GetNetDriver() != NULL)) // make sure we don't do analytics for demo playback
+		if (GetNetMode() != NM_Standalone)
 		{
-			FString ServerInfo = (GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();
-			FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
+			ServerSetWeaponHand(WeaponHand);
+			if (FUTAnalytics::IsAvailable() && (GetWorld()->GetNetMode() != NM_Client || GetWorld()->GetNetDriver() != NULL)) // make sure we don't do analytics for demo playback
+			{
+				FString ServerInfo = (GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();
+				FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
+			}
 		}
+
+		IOnlineIdentityPtr OnlineIdentityInterface = (IOnlineSubsystem::Get() != NULL) ? IOnlineSubsystem::Get()->GetIdentityInterface() : NULL;
+		if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
+		{
+			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+			if (UserId.IsValid())
+			{
+				ServerReceiveStatsID(UserId->ToString());
+			}
+		}
+
+		// Send over the country flag....
+		UUTProfileSettings* Settings = LP->GetProfileSettings();
+		if (Settings != NULL)
+		{
+			uint32 CountryFlag = Settings->CountryFlag;
+
+			if (LP->CommunityRole != EUnrealRoles::Gamer)
+			{
+				// If we are a contributor ,but are trying to use the developer flag, set back to unreal flag
+				if (LP->CommunityRole != EUnrealRoles::Developer)
+				{
+					if (CountryFlag == 143)
+					{
+						CountryFlag = 140;
+					}
+				}
+			}
+			else if (CountryFlag >= 141)
+			{
+				CountryFlag = 140;
+			}		
+
+			ServerReceiveCountryFlag(CountryFlag);
+		}
+	}
+}
+
+bool AUTPlayerController::ServerReceiveCountryFlag_Validate(uint32 NewCountryFlag)
+{
+	return true;
+}
+void AUTPlayerController::ServerReceiveCountryFlag_Implementation(uint32 NewCountryFlag)
+{
+	if (UTPlayerState != NULL)
+	{
+		UTPlayerState->CountryFlag = NewCountryFlag;
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("CountryFlag"), UTPlayerState->CountryFlag));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("UserId"), UTPlayerState->UniqueId.ToString()));
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("FlagChange"), ParamArray);
+		}
+	}
+}
+
+bool AUTPlayerController::ServerReceiveStatsID_Validate(const FString& NewStatsID)
+{
+	return true;
+}
+/** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have have a proper ID available.  */
+void AUTPlayerController::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
+{
+	if (UTPlayerState != NULL && !GetWorld()->IsPlayInEditor() && GetWorld()->GetNetMode() != NM_Standalone)
+	{
+		UTPlayerState->StatsID = NewStatsID;
+		UTPlayerState->ReadStatsFromCloud();
 	}
 }
 

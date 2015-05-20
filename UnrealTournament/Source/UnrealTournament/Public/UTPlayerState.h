@@ -269,12 +269,6 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveStatsID(const FString& NewStatsID);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveCountryFlag(uint32 NewCountryFlag);
-
 	UFUNCTION()
 	AUTCharacter* GetUTCharacter();
 
@@ -379,7 +373,9 @@ public:
 
 	/** Current name scaling on spectator slide out. */
 	UPROPERTY(BlueprintReadWrite, Category = Spectator)
-		float SpectatorNameScale;
+	float SpectatorNameScale;
+
+	void ReadStatsFromCloud();
 
 private:
 	bool bReadStatsFromCloud;
@@ -394,7 +390,6 @@ private:
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
 	FOnWriteUserFileCompleteDelegate OnWriteUserFileCompleteDelegate;
 	FString GetStatsFilename();
-	void ReadStatsFromCloud();
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 

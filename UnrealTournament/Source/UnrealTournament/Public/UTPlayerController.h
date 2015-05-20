@@ -713,6 +713,9 @@ protected:
 
 	virtual void ReceivedPlayer();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveStatsID(const FString& NewStatsID);
+
 	/** stores fire inputs until after movement has been executed (default would be fire -> movement -> render, this causes movement -> fire -> render)
 	 * makes weapons feel a little more responsive while strafing
 	 */
@@ -735,6 +738,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Input)
 	void ResolveKeybind(FString Command, TArray<FString>& Keys, bool bIncludeGamepad=false, bool bIncludeAxis=true);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveCountryFlag(uint32 NewCountryFlag);
 
 	virtual void DebugTest(FString TestCommand) override;
 

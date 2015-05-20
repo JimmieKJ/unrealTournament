@@ -484,25 +484,6 @@ bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewEyewear
 	return true;
 }
 
-/** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have 
-    have a proper ID available.  */
-void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
-{
-	if (GetWorld()->IsPlayInEditor() || GetWorld()->GetNetMode() == NM_Standalone)
-	{
-		return;
-	}
-
-	StatsID = NewStatsID;
-
-	ReadStatsFromCloud();	
-}
-
-bool AUTPlayerState::ServerReceiveStatsID_Validate(const FString& NewStatsID)
-{
-	return true;
-}
-
 void AUTPlayerState::HandleTeamChanged(AController* Controller)
 {
 	AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
@@ -637,38 +618,6 @@ void AUTPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
 
-	APlayerController* PC = Cast<APlayerController>(GetOwner());
-	UUTLocalPlayer* LP = nullptr;
-	if (PC != nullptr)
-	{
-		LP = Cast<UUTLocalPlayer>(PC->Player);
-	}
-
-	if (LP)
-	{
-		// Send over the country flag....
-		UUTProfileSettings* Settings = LP->GetProfileSettings();
-		if (Settings)
-		{
-			CountryFlag = Settings->CountryFlag;
-
-			if (LP->CommunityRole != EUnrealRoles::Gamer)
-			{
-				// If we are a contributor ,but are trying to use the developer flag, set back to unreal flag
-				if (LP->CommunityRole != EUnrealRoles::Developer)
-				{
-					if (CountryFlag ==  143) CountryFlag = 140;	
-				}
-			}
-			else if (CountryFlag >= 141)
-			{
-				CountryFlag = 140;
-			}
-
-			ServerReceiveCountryFlag(CountryFlag);
-		}
-	}
-
 	if (Role == ROLE_Authority && StatManager == nullptr)
 	{
 		//Make me a statmanager
@@ -676,7 +625,6 @@ void AUTPlayerState::BeginPlay()
 		StatManager->InitializeManager(this);
 	}
 
-	bool bFoundStatsId = false;
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
 	{
@@ -691,18 +639,7 @@ void AUTPlayerState::BeginPlay()
 			OnWriteUserFileCompleteDelegate = FOnWriteUserFileCompleteDelegate::CreateUObject(this, &AUTPlayerState::OnWriteUserFileComplete);
 			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate_Handle(OnWriteUserFileCompleteDelegate);
 		}
-
-		if (OnlineIdentityInterface.IsValid() && LP != nullptr && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
-		{
-			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-			if (UserId.IsValid())
-			{
-				ServerReceiveStatsID(UserId->ToString());
-				bFoundStatsId = true;
-			}
-		}		
 	}
-
 }
 
 void AUTPlayerState::SetCharacter(const FString& CharacterPath)
@@ -775,7 +712,7 @@ void AUTPlayerState::ReadStatsFromCloud()
 	}
 
 	// Don't read stats from cloud if we've already written them, consider memory to be a valid representation of the stats
-	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator && StatManager && !GetWorld()->IsPlayInEditor())
+	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator && StatManager && !GetWorld()->IsPlayInEditor() && !bSuccessfullyReadStatsFromCloud)
 	{
 		OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
 	}
@@ -793,7 +730,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		{
 			bSuccessfullyReadStatsFromCloud = true;
 
-			UE_LOG(LogGameStats, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
+			UE_LOG(UT, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
 
 			TArray<uint8> FileContents;
 			if (OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents))
@@ -1064,23 +1001,6 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	UE_LOG(LogGameStats, Log, TEXT("UpdateIndividualSkillRating %s New Skill Rating %d"), *PlayerName, NewSkillRating);
 	ModifyStat(SkillStatName, NewSkillRating, EStatMod::Set);
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
-}
-
-bool AUTPlayerState::ServerReceiveCountryFlag_Validate(uint32 NewCountryFlag) { return true; }
-
-void AUTPlayerState::ServerReceiveCountryFlag_Implementation(uint32 NewCountryFlag)
-{
-	CountryFlag = NewCountryFlag;
-
-	if (FUTAnalytics::IsAvailable())
-	{
-		TArray<FAnalyticsEventAttribute> ParamArray;
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("CountryFlag"),CountryFlag));
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("UserId"),UniqueId.ToString()));
-		FUTAnalytics::GetProvider().RecordEvent( TEXT("FlagChange"), ParamArray );
-	}
-
-
 }
 
 void AUTPlayerState::ValidateEntitlements()
