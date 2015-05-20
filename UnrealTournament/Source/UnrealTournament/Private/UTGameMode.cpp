@@ -1691,7 +1691,7 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 
 	if (PlayerStarts.Num() == 0)
 	{
-		return Super::ChoosePlayerStart(Player);
+		return Super::ChoosePlayerStart_Implementation(Player);
 	}
 	if (GetWorld()->WorldType == EWorldType::PIE)
 	{

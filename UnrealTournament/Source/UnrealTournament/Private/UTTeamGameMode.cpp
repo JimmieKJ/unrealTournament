@@ -29,10 +29,10 @@ AUTTeamGameMode::AUTTeamGameMode(const FObjectInitializer& ObjectInitializer)
 	new(TeamColors) FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
 	new(TeamColors) FLinearColor(1.0f, 1.0f, 0.0f, 1.0f);
 
-	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team0Name","Red"));
-	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team1Name","Blue"));
-	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team2Name","Gold"));
-	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team3Name","Green"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode", "Team0Name", "Red"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode", "Team1Name", "Blue"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode"," Team2Name", "Green"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode", "Team3Name", "Gold"));
 
 	TeamMomentumPct = 0.75f;
 	bTeamGame = true;
