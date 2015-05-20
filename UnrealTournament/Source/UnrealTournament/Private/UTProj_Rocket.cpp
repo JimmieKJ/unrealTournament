@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTProj_Rocket.h"
 #include "UnrealNetwork.h"
+#include "UTRewardMessage.h"
 
 AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -51,22 +52,30 @@ void AUTProj_Rocket::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>&
 
 void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
-	bool bFollowersTrack = (!bExploded && (Role == ROLE_Authority) && (FollowerRockets.Num() > 0) && Cast<AUTCharacter>(ImpactedActor));
+	AUTCharacter* HitCharacter = Cast<AUTCharacter>(ImpactedActor);
+	bool bFollowersTrack = (!bExploded && (Role == ROLE_Authority) && (FollowerRockets.Num() > 0) && HitCharacter);
+	bool bPossibleAirRocket = (HitCharacter && AirRocketRewardClass && (HitCharacter->Health > 0) && HitCharacter->CharacterMovement && (HitCharacter->CharacterMovement->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.2f));
+
 	Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
-	if (bFollowersTrack)
+	if (bFollowersTrack && HitCharacter && (HitCharacter->Health > 0))
 	{
-		AUTCharacter *Char = Cast<AUTCharacter>(ImpactedActor);
-		if (Char && (Char->Health > 0))
+		for (int32 i = 0; i < FollowerRockets.Num(); i++)
 		{
-			for (int32 i = 0; i < FollowerRockets.Num(); i++)
+			if (FollowerRockets[i] && !FollowerRockets[i]->IsPendingKillPending())
 			{
-				if (FollowerRockets[i] && !FollowerRockets[i]->IsPendingKillPending())
-				{
-					FollowerRockets[i]->TargetActor = Char;
-					AdjustmentSpeed = 24000.f;
-					bLeadTarget = true;
-				}
+				FollowerRockets[i]->TargetActor = HitCharacter;
+				AdjustmentSpeed = 24000.f;
+				bLeadTarget = true;
 			}
+		}
+	}
+	if (bPossibleAirRocket && HitCharacter && (HitCharacter->Health <= 0))
+	{
+		// Air Rocket reward
+		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
+		if (PC != NULL)
+		{
+			PC->ClientReceiveLocalizedMessage(AirRocketRewardClass);
 		}
 	}
 }

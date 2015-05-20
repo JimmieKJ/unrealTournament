@@ -752,6 +752,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			if (Game->bDamageHurtsHealth || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))))
 			{
 				Health -= ResultDamage;
+				bWasFallingWhenDamaged = (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling));
 			}
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 
@@ -2654,6 +2655,12 @@ void AUTCharacter::PlayJump_Implementation()
 	TargetEyeOffset.Z = EyeOffsetJumpBob;
 	UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, this, SRT_AllButOwner);
 }
+
+void AUTCharacter::Falling()
+{
+	FallingStartTime = GetWorld()->GetTimeSeconds();
+}
+
 
 void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 {

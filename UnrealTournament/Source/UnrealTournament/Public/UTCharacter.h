@@ -472,6 +472,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return Result;
 	}
 
+	/** True if this character was falling when last took damage. */
+	UPROPERTY()
+		bool bWasFallingWhenDamaged;
+
 	/** True during a translocator teleport, which has different telefragging rules. */
 	UPROPERTY()
 		bool bIsTranslocating;
@@ -1650,6 +1654,11 @@ public:
 	/** set by objects that set up ragdoll/death effects that involve a physics constraint on the ragdoll so we don't attach a second without destroying it, as multiple opposing constraints will break the physics */
 	UPROPERTY(Transient, BlueprintReadWrite, Category = DeathEffects)
 	class UPhysicsConstraintComponent* RagdollConstraint;
+
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
+		float FallingStartTime;
+
+	virtual void Falling();
 };
 
 inline bool AUTCharacter::IsDead()

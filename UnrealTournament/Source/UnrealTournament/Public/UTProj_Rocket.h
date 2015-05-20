@@ -22,6 +22,11 @@ class UNREALTOURNAMENT_API AUTProj_Rocket : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketSeeking)
 	bool bLeadTarget;
 
+
+	/** Reward announcement when kill with air rocket. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
+		TSubclassOf<class UUTRewardMessage> AirRocketRewardClass;
+
 	/** Following rockets in burst. */
 	UPROPERTY()
 		TArray<AUTProj_Rocket*> FollowerRockets;
