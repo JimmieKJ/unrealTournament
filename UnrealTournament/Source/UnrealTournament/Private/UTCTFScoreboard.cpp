@@ -221,22 +221,8 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
-void UUTCTFScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
+void UUTCTFScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
-	FVector2D SavedRenderPosition = RenderPosition;
-	RenderPosition = FVector2D(0.f, 0.f);
-	bScaleByDesignedResolution = false;
-	float TopYPos = YPos;
-
-	// draw left side
-	float XOffset = Canvas->ClipX * 0.06f;
-	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
-	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
-	float PageBottom = TopYPos + MaxHeight;
-
-	FLinearColor PageColor = FLinearColor::Black;
-	PageColor.A = 0.5f;
-	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	if (UTHUDOwner->ScoreboardPage == 1)
 	{
 		DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
@@ -245,10 +231,10 @@ void UUTCTFScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	{
 		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 	}
-	// draw right side
-	XOffset = ScoreWidth + 2.f*XOffset;
-	YPos = TopYPos;
-	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+}
+
+void UUTCTFScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
 	if (UTHUDOwner->ScoreboardPage == 1)
 	{
 		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
@@ -257,9 +243,6 @@ void UUTCTFScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	{
 		DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 	}
-
-	bScaleByDesignedResolution = true;
-	RenderPosition = SavedRenderPosition;
 }
 
 void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
@@ -428,8 +411,6 @@ void UUTCTFScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, floa
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FlagHeldTime", "Flag Held Time"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , 0);
 	ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), PS->GetStatsValue(NAME_FlagHeldDenyTime), false);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FlagDenialTime", "Flag Denial Time"), ClockString.ToString(), FString::Printf(TEXT(" %i"), int32(PS->GetStatsValue(NAME_FlagHeldDeny))), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , 0);
-	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	YPos += StatsFontInfo.TextHeight;
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlagCaps", "Flag Captures"), PS->FlagCaptures, PS->GetStatsValue(NAME_FlagCapPoints), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlagReturns", "Flag Returns"), PS->FlagReturns, PS->GetStatsValue(NAME_FlagReturnPoints), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);

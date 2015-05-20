@@ -103,8 +103,10 @@ public:
 	virtual void SetScoringPlaysTimer(bool bEnableTimer);
 
 	/** Show current 2 pages of scoring stats breakdowns. */
-	virtual void DrawScoringStats(float RenderDelta, float& YOffset) {};
+	virtual void DrawScoringStats(float RenderDelta, float& YOffset);
 
+	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
+	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
 
 	FString GetPlayerNameFor(AUTPlayerState* InPS)
 	{
@@ -188,6 +190,13 @@ protected:
 
 	/** Draw individual weapon stats for player. */
 	virtual void DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo);
+
+	/** 5coring breakdown for an individual player. */
+	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
+
+	/** Draw gametype specific stat lines for player score breakdown. */
+	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
+
 	//-------------------------------------
 
 public:

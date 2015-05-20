@@ -24,12 +24,6 @@ protected:
 
 	virtual void DrawTeamStats(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo);
 
-	/** 5coring breakdown for an individual player. */
-	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
-	
-	/** Draw gametype specific stat lines for player score breakdown. */
-	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
-
 	/** Draw one line of scoring breakdown where values are clock stats. */
 	virtual void DrawClockTeamStatsLine(FText StatsName, FName StatsID, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bSkipEmpty);
 
@@ -39,6 +33,6 @@ protected:
 
 	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
 	virtual void OpenScoringPlaysPage() override;
-	virtual void DrawScoringStats(float RenderDelta, float& YOffset) override;
+	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 };
 

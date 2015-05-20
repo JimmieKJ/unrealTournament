@@ -13,7 +13,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ScreenPosition = FVector2D(0.5f, 0.5f);
 	Origin = FVector2D(0.5f, 0.5f);
 
-	NumPages = 1;
+	NumPages = 2;
 	ColumnHeaderPlayerX = 0.125;
 	ColumnHeaderScoreX = 0.7;
 	ColumnHeaderDeathsX = 0.84;
@@ -683,11 +683,147 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 
 	Kills = PS->GetStatsValue(NAME_SniperKills) + PS->GetStatsValue(NAME_SniperHeadshotKills);
 	Deaths = PS->GetStatsValue(NAME_SniperDeaths) + PS->GetStatsValue(NAME_SniperHeadshotDeaths);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ImpactHammer", "ImpactHammer"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "SniperRifle", "Sniper Rifle"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Redeemer", "Redeemer"), PS->GetStatsValue(NAME_RedeemerKills), PS->GetStatsValue(NAME_RedeemerDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 
 	// @TODO FIXMESTEVE special kills (combo, headshot) + break down by primary/alt + show accuracy
 	// @TODO FIXMESTEVE add movement and rewards pages
+	// @TODO FIXMESTEVE how to support custom weapons - need to have weapon class static function for this
+	// @TODO FIXMESTEVE highlight best weapon
+	// @TODO FIXMESTEVE separate stats display widget
 }
 
+void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
+{
+	FVector2D SavedRenderPosition = RenderPosition;
+	RenderPosition = FVector2D(0.f, 0.f);
+	bScaleByDesignedResolution = false;
+	float TopYPos = YPos;
+
+	// draw left side
+	float XOffset = Canvas->ClipX * 0.06f;
+	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
+	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
+	float PageBottom = TopYPos + MaxHeight;
+
+	FLinearColor PageColor = FLinearColor::Black;
+	PageColor.A = 0.5f;
+	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+
+	// draw right side
+	XOffset = ScoreWidth + 2.f*XOffset;
+	YPos = TopYPos;
+	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawStatsRight(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+
+	bScaleByDesignedResolution = true;
+	RenderPosition = SavedRenderPosition;
+}
+
+void UUTScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
+
+}
+
+void UUTScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
+	DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+}
+
+void UUTScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	FStatsFontInfo StatsFontInfo;
+	StatsFontInfo.TextRenderInfo.bEnableShadow = true;
+	StatsFontInfo.TextRenderInfo.bClipText = true;
+	StatsFontInfo.TextFont = UTHUDOwner->SmallFont;
+	bHighlightStatsLineTopValue = false;
+
+	if (!UTPlayerOwner->CurrentlyViewedScorePS)
+	{
+		UTPlayerOwner->SetViewedScorePS(UTHUDOwner->GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+	}
+	AUTPlayerState* PS = UTPlayerOwner->CurrentlyViewedScorePS;
+	if (!PS)
+	{
+		return;
+	}
+
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("PlayerName"), FText::FromString(PS->PlayerName));
+	FText CombinedHeader = (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 0)
+		? FText::Format(NSLOCTEXT("UTScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"), Args)
+		: FText::Format(NSLOCTEXT("UTScoreboard", "WeaponStatsHeader", "{PlayerName} Weapon Stats"), Args);
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	StatsFontInfo.TextHeight = SmallYL;
+	float MedYL;
+	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+
+	if (PS->Team)
+	{
+		// draw team icon
+		float IconHeight = MedYL;
+		int32 TeamIndex = PS->Team->TeamIndex;
+		DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[TeamIndex].X, UTHUDOwner->TeamIconUV[TeamIndex].Y, 72, 72, 1.f, PS->Team->TeamColor);
+	}
+
+	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += MedYL;
+
+	DrawPlayerStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
+
+	FString TabInstruction = (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 0)
+		? "Press Down Arrow to View Weapon Stats"
+		: "Press Up Arrow to View Game Stats";
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, TabInstruction, XOffset, PageBottom - StatsFontInfo.TextHeight, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+}
+
+void UUTScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo)
+{
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 1)
+	{
+		DrawWeaponStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
+		return;
+	}
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Kills", "Kills"), PS->Kills, PS->Kills, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), PS->Deaths, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Suicides", "Suicides"), PS->GetStatsValue(NAME_Suicides), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "KDRatio", "K/D Ratio"), FString::Printf(TEXT(" %6.2f"), ((PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f)), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BeltPickups", "Shield Belt Pickups"), PS->GetStatsValue(NAME_ShieldBeltCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), PS->GetStatsValue(NAME_ArmorVestCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), PS->GetStatsValue(NAME_ArmorPadsCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), PS->GetStatsValue(NAME_HelmetCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	int32 ClockVal = PS->GetStatsValue(NAME_UDamageTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	}
+	ClockVal = PS->GetStatsValue(NAME_BerserkTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	}
+	ClockVal = PS->GetStatsValue(NAME_InvisibilityTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	}
+
+	int32 BootJumps = PS->GetStatsValue(NAME_BootJumps);
+	if (BootJumps != 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumps, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+}

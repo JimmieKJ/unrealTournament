@@ -54,7 +54,8 @@ protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 
-	virtual void DrawScoringStats(float RenderDelta, float& YOffset) override;
+	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
+	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 
 	/** Draw the list of flag captures with details. */
 	virtual void DrawScoringPlays(float RenderDelta, float& YOffset, float XOffset, float ScoreWidth, float PageBottom);
