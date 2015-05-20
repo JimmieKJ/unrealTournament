@@ -214,7 +214,7 @@ void UStatManager::PopulateStatLookup()
 void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 {
 	// update stats from PlayerState stats array
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTGameState* GS = UTPS ? UTPS->GetWorld()->GetGameState<AUTGameState>() : NULL;
 	if (GS)
 	{
 		for (int32 i = 0; i < GS->GameScoreStats.Num(); i++)
