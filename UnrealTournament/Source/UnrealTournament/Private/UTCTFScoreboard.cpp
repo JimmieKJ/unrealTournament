@@ -232,17 +232,18 @@ void UUTCTFScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	float XOffset = Canvas->ClipX * 0.06f;
 	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
 	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
+	float PageBottom = TopYPos + MaxHeight;
 
 	FLinearColor PageColor = FLinearColor::Black;
 	PageColor.A = 0.5f;
 	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	if (UTHUDOwner->ScoreboardPage == 1)
 	{
-		DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+		DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 	}
 	else
 	{
-		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 	}
 	// draw right side
 	XOffset = ScoreWidth + 2.f*XOffset;
@@ -250,11 +251,11 @@ void UUTCTFScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 	if (UTHUDOwner->ScoreboardPage == 1)
 	{
-		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+		DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 	}
 	else
 	{
-		DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+		DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 	}
 
 	bScaleByDesignedResolution = true;

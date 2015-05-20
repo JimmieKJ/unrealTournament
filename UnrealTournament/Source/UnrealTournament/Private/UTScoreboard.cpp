@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Spectator.h"
+#include "StatNames.h"
 
 UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -652,5 +653,41 @@ void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FStrin
 		Canvas->DrawText(StatsFontInfo.TextFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	YPos += StatsFontInfo.TextHeight;
+}
+
+void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
+{
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "WeaponColumnTitle", "Weapon"), "Kills With", "Deaths By", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ImpactHammer", "Impact Hammer"), PS->GetStatsValue(NAME_ImpactHammerKills), PS->GetStatsValue(NAME_ImpactHammerDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Enforcer", "Enforcer"), PS->GetStatsValue(NAME_EnforcerKills), PS->GetStatsValue(NAME_EnforcerDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BioRifle", "Bio Rifle"), PS->GetStatsValue(NAME_BioRifleKills), PS->GetStatsValue(NAME_BioRifleDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	int32 Kills = PS->GetStatsValue(NAME_ShockBeamKills) + PS->GetStatsValue(NAME_ShockCoreKills) + PS->GetStatsValue(NAME_ShockComboKills);
+	int32 Deaths = PS->GetStatsValue(NAME_ShockBeamDeaths) + PS->GetStatsValue(NAME_ShockCoreDeaths) + PS->GetStatsValue(NAME_ShockComboDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ShockRifle", "Shock Rifle"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	Kills = PS->GetStatsValue(NAME_LinkKills) + PS->GetStatsValue(NAME_LinkBeamKills);
+	Deaths = PS->GetStatsValue(NAME_LinkDeaths) + PS->GetStatsValue(NAME_LinkBeamDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "LinkGun", "Link Gun"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	Kills = PS->GetStatsValue(NAME_MinigunKills) + PS->GetStatsValue(NAME_MinigunShardKills);
+	Deaths = PS->GetStatsValue(NAME_MinigunDeaths) + PS->GetStatsValue(NAME_MinigunShardDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Minigun", "Minigun"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	Kills = PS->GetStatsValue(NAME_FlakShardKills) + PS->GetStatsValue(NAME_FlakShellKills);
+	Deaths = PS->GetStatsValue(NAME_FlakShardDeaths) + PS->GetStatsValue(NAME_FlakShellDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlakCannon", "Flak Cannon"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "RocketLauncher", "Rocket Launcher"), PS->GetStatsValue(NAME_RocketKills), PS->GetStatsValue(NAME_RocketDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	Kills = PS->GetStatsValue(NAME_SniperKills) + PS->GetStatsValue(NAME_SniperHeadshotKills);
+	Deaths = PS->GetStatsValue(NAME_SniperDeaths) + PS->GetStatsValue(NAME_SniperHeadshotDeaths);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ImpactHammer", "ImpactHammer"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Redeemer", "Redeemer"), PS->GetStatsValue(NAME_RedeemerKills), PS->GetStatsValue(NAME_RedeemerDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	// @TODO FIXMESTEVE special kills (combo, headshot) + break down by primary/alt + show accuracy
+	// @TODO FIXMESTEVE add movement and rewards pages
 }
 

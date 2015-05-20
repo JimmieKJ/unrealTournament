@@ -47,7 +47,7 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 
 	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
 
-	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo) override;
+	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo) override;
 
 protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
@@ -57,8 +57,8 @@ protected:
 	virtual void DrawScoringStats(float RenderDelta, float& YOffset) override;
 
 	/** Draw the list of flag captures with details. */
-	virtual void DrawScoringPlays(float RenderDelta, float& YOffset, float XOffset, float ScoreWidth, float MaxHeight);
+	virtual void DrawScoringPlays(float RenderDelta, float& YOffset, float XOffset, float ScoreWidth, float PageBottom);
 
-	virtual void DrawTeamStats(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo) override;
+	virtual void DrawTeamStats(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo) override;
 	virtual void PageChanged_Implementation() override;
 };
