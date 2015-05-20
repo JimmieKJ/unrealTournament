@@ -682,7 +682,7 @@ FReply SUWCreateGamePanel::RemoveMutator()
 }
 FReply SUWCreateGamePanel::ConfigureMutator()
 {
-	if (!MutatorConfigMenu.IsValid() || MutatorConfigMenu->GetParent() == NULL)
+	if (!MutatorConfigMenu.IsValid() || MutatorConfigMenu->IsInViewport())
 	{
 		TArray<UClass*> Selection = EnabledMutators->GetSelectedItems();
 		if (Selection.Num() > 0 && Selection[0] != NULL)
