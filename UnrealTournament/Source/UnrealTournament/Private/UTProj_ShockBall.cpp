@@ -3,6 +3,8 @@
 #include "UTProj_ShockBall.h"
 #include "UTWeap_ShockRifle.h"
 #include "UnrealNetwork.h"
+#include "StatNames.h"
+#include "UTRewardMessage.h"
 
 AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -141,11 +143,19 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 				MyFakeProjectile = NULL;
 			}
 		}
+		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
+		AUTPlayerState* PS = PC ? Cast<AUTPlayerState>(PC->PlayerState) : NULL;
+		int32 ComboKillCount = PS ? PS->GetStatsValue(NAME_ShockComboKills) : 0;
 		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
 		if (bComboExplosion)
 		{
 			OnComboExplode();
+			if (PC && PS && ComboRewardMessageClass && (PC == InstigatorController))
+			{
+				RateShockCombo(PC, PS, ComboKillCount);
+			}
 		}
+
 		// if bot is low skill, delay clearing bot monitoring so that it will occasionally fire for the combo slightly too late - a realistic player mistake
 		AUTBot* B = Cast<AUTBot>(InstigatorController);
 		if (bPendingKillPending || B == NULL || B->WeaponProficiencyCheck())
@@ -160,6 +170,27 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 	}
 }
 
+void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* PS, int32 OldComboKillCount)
+{
+	int32 KillCount = (PS->GetStatsValue(NAME_ShockComboKills) - OldComboKillCount);
+	float ComboScore = 4.f * FMath::Min(KillCount, 3);
+
+	AUTCharacter* Shooter = Cast<AUTCharacter>(PC->GetPawn());
+	if (Shooter)
+	{
+		// difference in angle between shots
+		FVector ShootPos = Shooter->GetWeapon()->GetFireStartLoc();
+		ComboScore += 100.f * (1.f - (GetVelocity().GetSafeNormal() | (GetActorLocation() - ShootPos).GetSafeNormal()));
+		// current movement speed relative to direction, with bonus if falling
+		float MovementBonus = (Shooter->GetCharacterMovement()->MovementMode == MOVE_Falling) ? 7.f : 4.f;
+		ComboScore += MovementBonus * Shooter->GetVelocity().Size() / 1000.f;
+	}
+
+	if ((ComboScore > 8.f) && (KillCount > 0))
+	{
+		PC->ClientReceiveLocalizedMessage(ComboRewardMessageClass);
+	}
+}
 void AUTProj_ShockBall::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);

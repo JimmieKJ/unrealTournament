@@ -73,4 +73,10 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	/** Reward announcement for impressive combo kill. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
+		TSubclassOf<class UUTRewardMessage> ComboRewardMessageClass;
+
+	virtual void RateShockCombo(AUTPlayerController *PC, AUTPlayerState* PS, int32 OldComboKillCount);
 };
