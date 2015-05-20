@@ -1243,7 +1243,8 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 
 	FSceneViewInitOptions PlayerPreviewInitOptions;
 	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
-	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(CameraPosition) * FInverseRotationMatrix(FRotator::ZeroRotator) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
+	// YZ Ortho view
+	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(CameraPosition) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
 	PlayerPreviewInitOptions.ProjectionMatrix = 
 		FReversedZPerspectiveMatrix(
 			FMath::Max(0.001f, FOV) * (float)PI / 360.0f,
