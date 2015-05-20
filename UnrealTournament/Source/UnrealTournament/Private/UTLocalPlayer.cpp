@@ -1034,6 +1034,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		else if (CurrentProfileSettings == NULL) // Create a new profile settings object
 		{
 			CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(), GetTransientPackage());
+
+			// Set some profile defaults, should be a function call if this gets any larger
+			CurrentProfileSettings->TauntPath = GetDefaultURLOption(TEXT("Taunt"));
+			CurrentProfileSettings->Taunt2Path = GetDefaultURLOption(TEXT("Taunt2"));
 		}
 
 		PlayerNickname = GetAccountDisplayName().ToString();
