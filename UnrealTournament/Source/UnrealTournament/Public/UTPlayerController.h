@@ -111,6 +111,9 @@ public:
 
 	UFUNCTION(exec)
 	virtual void SwitchToBestWeapon();
+	/** forces SwitchToBestWeapon() call, should only be used after granting startup inventory */
+	UFUNCTION(Client, Reliable)
+	virtual void ClientSwitchToBestWeapon();
 
 	UFUNCTION(exec)
 	virtual void NP();

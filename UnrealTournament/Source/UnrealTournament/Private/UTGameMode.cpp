@@ -1552,6 +1552,11 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		((AUTBot*)aPlayer)->LastRespawnTime = GetWorld()->TimeSeconds;
 	}
 
+	if (!aPlayer->IsLocalController() && Cast<AUTPlayerController>(aPlayer) != NULL)
+	{
+		((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
+	}
+
 	// clear spawn choices
 	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceA = nullptr;
 	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceB = nullptr;

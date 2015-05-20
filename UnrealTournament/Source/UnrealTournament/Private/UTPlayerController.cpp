@@ -566,6 +566,10 @@ void AUTPlayerController::SwitchToBestWeapon()
 		UTCharacter->SwitchWeapon(BestWeapon);
 	}
 }
+void AUTPlayerController::ClientSwitchToBestWeapon_Implementation()
+{
+	SwitchToBestWeapon();
+}
 
 void AUTPlayerController::PrevWeapon()
 {
