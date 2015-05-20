@@ -52,6 +52,9 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {
+	// workaround for engine bugs when loading classes that reference UMG on a dedicated server (i.e. mutators)
+	FModuleManager::Get().LoadModule("UMGEditor");
+
 	if(bFirstRun)
 	{
 #if !UE_SERVER
