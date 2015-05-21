@@ -295,12 +295,17 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 							// note: the downward offset for FindNearestPoly() is needed to get consistent results when slightly off the navmesh and on a slanted surface
 							if (EndPoly != INVALID_NAVNODEREF && EndPoly == FindNearestPoly(CurrentLoc - FVector(0.0f, 0.0f, ScoutShape.GetExtent().Z * 0.5f), ScoutShape.GetExtent()))
 							{
-								// if we made it to the poly we got close enough
-								if (MaxFallSpeed != NULL)
+								// make sure really on poly, since check is a bounding box
+								FVector ClosestPt = FVector::ZeroVector;
+								if (GetClosestPointOnPoly(EndPoly, CurrentLoc, ClosestPt) && (CurrentLoc - ClosestPt).Size2D() < ScoutShape.GetCapsuleRadius() * 1.1f)
 								{
-									*MaxFallSpeed = ZSpeed;
+									// if we made it to the poly we got close enough
+									if (MaxFallSpeed != NULL)
+									{
+										*MaxFallSpeed = ZSpeed;
+									}
+									return true;
 								}
-								return true;
 							}
 							// give up, nowhere to go
 							bLastJumpBlocked = true;
@@ -377,7 +382,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 				NavNodeRef NewStartPoly = FindNearestPoly(Start, ScoutShape.GetExtent());
 				FVector ClosestPt = FVector::ZeroVector;
 				// FindNearestPoly() uses a bounding box check and so is inaccurate. Make sure we're really in another poly and not just close. Important for small/short jumps.
-				if (NewStartPoly != INVALID_NAVNODEREF && NewStartPoly != StartPoly && GetClosestPointOnPoly(NewStartPoly, Start, ClosestPt) && (Start - ClosestPt).Size() < ScoutShape.GetCapsuleRadius())
+				if (NewStartPoly != INVALID_NAVNODEREF && NewStartPoly != StartPoly && GetClosestPointOnPoly(NewStartPoly, Start, ClosestPt) && (Start - ClosestPt).Size2D() < ScoutShape.GetCapsuleRadius())
 				{
 					// made it to another walk reachable poly, test jump from there instead
 					return false;
@@ -1054,6 +1059,11 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 										float RequiredJumpZ = 0.0f;
 										if (OnlyJumpReachable(DefaultScout, WallCenter, TestLoc, PolyRef, It.Key(), -1.0f, &RequiredJumpZ))
 										{
+											if ((PolyCenter - FVector(450.000000, 710.000000, 592.000000)).Size() < 300.0f && (TestLoc - FVector(830.000000, 310.189240, 689.621521)).Size2D() < 200.0f)
+											{
+												UE_LOG(UT, Log, TEXT("Test"));
+											}
+
 											bool bNeedsJumpSpec = RequiredJumpZ > BaseJumpZ;
 											// TODO: account for MaxFallSpeed
 											bool bFound = false;
