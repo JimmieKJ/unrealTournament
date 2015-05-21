@@ -51,6 +51,8 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 
 	KillStatsName = NAME_EnforcerKills;
 	DeathStatsName = NAME_EnforcerDeaths;
+
+	DisplayName = NSLOCTEXT("UTWeap_Enforcer", "DisplayName", "Enforcer");
 }
 
 void AUTWeap_Enforcer::AttachLeftMesh()
