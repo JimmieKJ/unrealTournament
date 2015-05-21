@@ -503,7 +503,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 	}
 }
 
-void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
+void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner, bool bAborting)
 {
 	if (MatchOwner->GameInstanceProcessHandle.IsValid())
 	{
@@ -514,7 +514,7 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner)
 		}
 			
 		ProcessesToGetReturnCode.Add(MatchOwner->GameInstanceProcessHandle);
-		MatchOwner->SetLobbyMatchState(ELobbyMatchState::Recycling);
+		MatchOwner->SetLobbyMatchState(bAborting ? ELobbyMatchState::WaitingForPlayers : ELobbyMatchState::Recycling);
 
 		MatchOwner->GameInstanceProcessHandle.Reset();
 		MatchOwner->GameInstanceID = 0;

@@ -343,7 +343,7 @@ void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 {
 	if (CheckLobbyGameState())
 	{
-		LobbyGameState->TerminateGameInstance(this);
+		LobbyGameState->TerminateGameInstance(this, true);
 	}
 
 	SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);

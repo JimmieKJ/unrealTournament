@@ -121,7 +121,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	/**
 	 *	Terminate an existing game instance
 	 **/
-	void TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner);
+	void TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner, bool bAborting = false);
 
 	/**
 	 *	Called when a Game Instance is up and ready for players to join.
