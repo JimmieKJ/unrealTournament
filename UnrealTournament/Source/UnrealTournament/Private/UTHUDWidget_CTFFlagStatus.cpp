@@ -52,11 +52,9 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	for (int32 Team=0;Team<2;Team++)
 	{
 		// draw flag state in HUD
-		RenderObj_Texture(CircleSlate[Team]);
-		RenderObj_Texture(CircleBorder[Team]);
 
 		float X = CircleSlate[Team].Position.X;
-		float Y = CircleSlate[Team].Position.Y;
+		float Y = 8.f + 0.5f * FlagIconTemplate.GetHeight();
 		FlagIconTemplate.RenderColor = Team == 0 ? RedColor : BlueColor;
 
 		FName FlagState = GS->GetFlagState(Team);
