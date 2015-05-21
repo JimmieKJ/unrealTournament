@@ -25,6 +25,8 @@ protected:
 	
 	TSharedRef<SWidget> AddPlayNow();
 
+	bool JSQuery(int64, FString, bool, FJSQueryResultDelegate);
+
 	virtual void CreateDesktop();
 	virtual void SetInitialPanel();
 

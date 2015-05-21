@@ -34,12 +34,22 @@ void SUWindowsMainMenu::CreateDesktop()
 	SUTMenuBase::CreateDesktop();
 }
 
+bool SUWindowsMainMenu::JSQuery(int64 RequestId, FString Request, bool bPersistent, FJSQueryResultDelegate Callback)
+{
+	UE_LOG(UT, Log, TEXT("Javascript %s"), *Request);
+
+	return true;
+}
+
 void SUWindowsMainMenu::SetInitialPanel()
 {
+	FOnJSQueryReceivedDelegate OnJSQuery = FOnJSQueryReceivedDelegate::CreateRaw(this, &SUWindowsMainMenu::JSQuery);
+
 	SAssignNew(HomePanel, SUTWebBrowserPanel, PlayerOwner)
 		.ViewportSize(FVector2D(1920,1020))
 		.AllowScaling(true)
-		.ShowControls(false);
+		.ShowControls(false)
+		.OnJSQueryReceived(OnJSQuery);
 
 	if (HomePanel.IsValid())
 	{
