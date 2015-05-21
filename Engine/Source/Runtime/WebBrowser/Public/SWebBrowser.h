@@ -61,7 +61,7 @@ public:
 	 */
 	FText GetTitleText() const;
 
-	void PassUnsafeJavascript(const FString& JS);
+	void ExecuteJavascript(const FString& JS);
 
 private:
 	/**

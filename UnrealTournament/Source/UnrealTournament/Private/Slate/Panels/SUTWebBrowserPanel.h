@@ -38,7 +38,7 @@ public:
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
 	virtual void OnHidePanel();
 
-	virtual void PassUnsafeJavascript(const FString& JS) { WebBrowserPanel->PassUnsafeJavascript(JS); }
+	virtual void ExecuteJavascript(const FString& JS) { WebBrowserPanel->ExecuteJavascript(JS); }
 
 protected:
 

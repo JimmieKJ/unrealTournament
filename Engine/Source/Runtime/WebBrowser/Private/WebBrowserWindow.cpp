@@ -327,7 +327,7 @@ void FWebBrowserWindow::StopLoad()
 	}
 }
 
-void FWebBrowserWindow::PassUnsafeJavascript(const FString& Script)
+void FWebBrowserWindow::ExecuteJavascript(const FString& Script)
 {
 	if (IsValid())
 	{

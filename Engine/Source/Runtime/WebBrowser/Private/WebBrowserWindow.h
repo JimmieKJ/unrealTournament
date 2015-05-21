@@ -63,7 +63,7 @@ public:
 	virtual bool IsLoading() const override;
 	virtual void Reload() override;
 	virtual void StopLoad() override;
-	virtual void PassUnsafeJavascript(const FString& Script) override;
+	virtual void ExecuteJavascript(const FString& Script) override;
 	/**
 	 * Set the CEF Handler receiving browser callbacks for this window
 	 *
