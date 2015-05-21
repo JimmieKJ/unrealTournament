@@ -8,7 +8,7 @@
 #include "UTHUDWidget_Paperdoll.generated.h"
 
 UCLASS()
-class UUTHUDWidget_Paperdoll : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_Paperdoll : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

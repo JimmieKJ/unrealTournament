@@ -4,7 +4,7 @@
 #include "UTHUDWidget_SpectatorSlideOut.generated.h"
 
 UCLASS()
-class UUTHUDWidget_SpectatorSlideOut : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_SpectatorSlideOut : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

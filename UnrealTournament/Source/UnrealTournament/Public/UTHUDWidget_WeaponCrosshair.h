@@ -8,7 +8,7 @@
 #include "UTHUDWidget_WeaponCrosshair.generated.h"
 
 UCLASS()
-class UUTHUDWidget_WeaponCrosshair : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_WeaponCrosshair : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

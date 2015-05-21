@@ -5,7 +5,7 @@
 #include "UTHUDWidget_CTFFlagStatus.generated.h"
 
 UCLASS()
-class UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

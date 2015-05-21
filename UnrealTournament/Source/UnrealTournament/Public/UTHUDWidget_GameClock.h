@@ -5,7 +5,7 @@
 #include "UTHUDWidget_GameClock.generated.h"
 
 UCLASS()
-class UUTHUDWidget_GameClock : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_GameClock : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

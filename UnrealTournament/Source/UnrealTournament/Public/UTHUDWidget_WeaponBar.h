@@ -35,7 +35,7 @@ struct FWeaponGroup
 };
 
 UCLASS(Config=Game)
-class UUTHUDWidget_WeaponBar : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_WeaponBar : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
