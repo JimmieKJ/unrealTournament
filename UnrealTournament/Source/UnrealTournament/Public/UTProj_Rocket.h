@@ -32,4 +32,7 @@ class UNREALTOURNAMENT_API AUTProj_Rocket : public AUTProjectile
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
+
+	virtual void DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
+
 };

@@ -51,25 +51,12 @@ void AUTProj_Rocket::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>&
 	DOREPLIFETIME(AUTProj_Rocket, TargetActor);
 }
 
-void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
+void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
-	AUTCharacter* HitCharacter = Cast<AUTCharacter>(ImpactedActor);
-	bool bFollowersTrack = (!bExploded && (Role == ROLE_Authority) && (FollowerRockets.Num() > 0) && HitCharacter);
+	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
 	bool bPossibleAirRocket = (HitCharacter && AirRocketRewardClass && (HitCharacter->Health > 0) && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.2f));
 
-	Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
-	if (bFollowersTrack && HitCharacter && (HitCharacter->Health > 0))
-	{
-		for (int32 i = 0; i < FollowerRockets.Num(); i++)
-		{
-			if (FollowerRockets[i] && !FollowerRockets[i]->IsPendingKillPending())
-			{
-				FollowerRockets[i]->TargetActor = HitCharacter;
-				AdjustmentSpeed = 24000.f;
-				bLeadTarget = true;
-			}
-		}
-	}
+	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 	if (bPossibleAirRocket && HitCharacter && (HitCharacter->Health <= 0))
 	{
 		// Air Rocket reward
@@ -81,6 +68,26 @@ void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FV
 			if (PS)
 			{
 				PS->ModifyStatsValue(NAME_AirRox, 1);
+			}
+		}
+	}
+}
+
+void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
+{
+	AUTCharacter* HitCharacter = Cast<AUTCharacter>(ImpactedActor);
+	bool bFollowersTrack = (!bExploded && (Role == ROLE_Authority) && (FollowerRockets.Num() > 0) && HitCharacter);
+
+	Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
+	if (bFollowersTrack && HitCharacter && (HitCharacter->Health > 0))
+	{
+		for (int32 i = 0; i < FollowerRockets.Num(); i++)
+		{
+			if (FollowerRockets[i] && !FollowerRockets[i]->IsPendingKillPending())
+			{
+				FollowerRockets[i]->TargetActor = HitCharacter;
+				AdjustmentSpeed = 24000.f;
+				bLeadTarget = true;
 			}
 		}
 	}
