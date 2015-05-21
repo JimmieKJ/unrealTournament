@@ -6,6 +6,8 @@
 #include "StatNames.h"
 #include "UTPickupWeapon.h"
 #include "UTWeapon.h"
+#include "UTWeap_Enforcer.h"
+#include "UTWeap_ImpactHammer.h"
 
 UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -684,6 +686,10 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 	/** List of weapons to display stats for. */
 	if (StatsWeapons.Num() == 0)
 	{
+		// add default weapons - needs to be automated
+		StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
+		StatsWeapons.AddUnique(AUTWeap_Enforcer::StaticClass()->GetDefaultObject<AUTWeapon>());
+
 		for (FActorIterator It(GetWorld()); It; ++It)
 		{
 			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
