@@ -68,15 +68,15 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	
 	}
 	
-	CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Unreal"),140)));
+	CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Unreal"),0)));
 
 	if (GetPlayerOwner()->CommunityRole != EUnrealRoles::Gamer)
 	{
-		CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Red Team"),141)));
-		CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Blue Team"),142)));
+		CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Red Team"),140)));
+		CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Blue Team"),141)));
 		if (GetPlayerOwner()->CommunityRole == EUnrealRoles::Developer)
 		{
-			CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Epic Logo"),143)));
+			CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Epic Logo"),142)));
 		}
 	}
 

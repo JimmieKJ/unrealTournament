@@ -2473,15 +2473,15 @@ void AUTPlayerController::ReceivedPlayer()
 				// If we are a contributor ,but are trying to use the developer flag, set back to unreal flag
 				if (LP->CommunityRole != EUnrealRoles::Developer)
 				{
-					if (CountryFlag == 143)
+					if (CountryFlag == 142)
 					{
-						CountryFlag = 140;
+						CountryFlag = 0;
 					}
 				}
 			}
-			else if (CountryFlag >= 141)
+			else if (CountryFlag >= 140)
 			{
-				CountryFlag = 140;
+				CountryFlag = 0;
 			}		
 
 			ServerReceiveCountryFlag(CountryFlag);
