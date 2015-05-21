@@ -21,6 +21,12 @@ class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 	SLATE_ARGUMENT(FVector2D, ViewportSize)
 	SLATE_ARGUMENT(bool, AllowScaling)
 
+	/** Called when a custom Javascript message is received from the browser process. */
+	SLATE_EVENT(FOnJSQueryReceivedDelegate, OnJSQueryReceived)
+
+	/** Called when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
+	SLATE_EVENT(FOnJSQueryCanceledDelegate, OnJSQueryCanceled)
+
 	SLATE_END_ARGS()
 	
 public:
@@ -42,6 +48,12 @@ protected:
 	TSharedPtr<SVerticalBox> WebBrowserContainer;
 	// The Actual Web browser panel.
 	TSharedPtr<SWebBrowser> WebBrowserPanel;
+	
+	/** A delegate that is invoked when render process Javascript code sends a query message to the client. */
+	FOnJSQueryReceivedDelegate OnJSQueryReceived;
+
+	/** A delegate that is invoked when render process cancels an ongoing query. Handler must clean up corresponding result delegate. */
+	FOnJSQueryCanceledDelegate OnJSQueryCanceled;
 
 	float GetReverseScale() const;
 	bool ShowControls;

@@ -17,6 +17,8 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 	ShowControls = InArgs._ShowControls;
 	DesiredViewportSize = InArgs._ViewportSize;
 	bAllowScaling = InArgs._AllowScaling;
+	OnJSQueryReceived = InArgs._OnJSQueryReceived;
+	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
 
 	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
 }
@@ -64,6 +66,8 @@ void SUTWebBrowserPanel::Browse(FString URL)
 			.InitialURL(URL)
 			.ShowControls(ShowControls)
 			.ViewportSize(DesiredViewportSize)
+			.OnJSQueryReceived(OnJSQueryReceived)
+			.OnJSQueryCanceled(OnJSQueryCanceled)
 		];
 	}
 }
