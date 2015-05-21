@@ -78,10 +78,15 @@ protected:
 
 	UPROPERTY(transient)
 	class UStaticMesh* CameraMesh;
-
+	
 	// The camera mesh to show visually where the camera is placed
 	UPROPERTY(transient)
 	class UStaticMeshComponent* ProxyMeshComponent;
+
+public:
+
+	ENGINE_API virtual void SetCameraMesh(UStaticMesh* Mesh) { CameraMesh = Mesh; }
+
 #endif
 public:
 #if WITH_EDITORONLY_DATA
