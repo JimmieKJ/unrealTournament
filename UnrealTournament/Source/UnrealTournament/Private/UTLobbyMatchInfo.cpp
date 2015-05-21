@@ -114,13 +114,9 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 			}
 		}
 
-		for (int32 i=0;i<BannedIDs.Num();i++)
+		if (IsBanned(PlayerToAdd->UniqueId))
 		{
-			if (PlayerToAdd->UniqueId == BannedIDs[i])
-			{
-				PlayerToAdd->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
-				return;
-			}
+			PlayerToAdd->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
 		}
 		// Add code for private/invite only matches
 	}
@@ -696,4 +692,18 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		// Add code to setup the required packages array
 		CurrentRuleset = NewReplicatedRuleset;
 	}
+
+}
+
+bool AUTLobbyMatchInfo::IsBanned(FUniqueNetIdRepl Who)
+{
+	for (int32 i=0;i<BannedIDs.Num();i++)
+	{
+		if (Who == BannedIDs[i])
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
