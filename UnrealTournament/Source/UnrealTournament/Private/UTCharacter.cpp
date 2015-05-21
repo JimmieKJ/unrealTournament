@@ -1984,6 +1984,25 @@ void AUTCharacter::AllAmmo()
 #endif
 }
 
+AUTInventory* AUTCharacter::K2_CreateInventory(TSubclassOf<AUTInventory> NewInvClass, bool bAutoActivate)
+{
+	AUTInventory* Inv = NULL;
+	if (NewInvClass != NULL)
+	{
+		Inv = GetWorld()->SpawnActor<AUTInventory>(NewInvClass);
+		if (Inv != NULL)
+		{
+			if (!AddInventory(Inv, bAutoActivate))
+			{
+				Inv->Destroy();
+				Inv = NULL;
+			}
+		}
+	}
+
+	return Inv;
+}
+
 AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type, bool bExactClass) const
 {
 	for (TInventoryIterator<> It(this); It; ++It)
@@ -1996,9 +2015,9 @@ AUTInventory* AUTCharacter::K2_FindInventoryType(TSubclassOf<AUTInventory> Type,
 	return NULL;
 }
 
-void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
+bool AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 {
-	if (InvToAdd != NULL)
+	if (InvToAdd != NULL && !InvToAdd->IsPendingKillPending())
 	{
 		if (InvToAdd->GetUTOwner() != NULL && InvToAdd->GetUTOwner() != this && InvToAdd->GetUTOwner()->IsInInventory(InvToAdd))
 		{
@@ -2018,7 +2037,7 @@ void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 					if (Item == InvToAdd)
 					{
 						UE_LOG(UT, Warning, TEXT("AddInventory: %s already in %s's inventory!"), *InvToAdd->GetName(), *GetName());
-						return;
+						return false;
 					}
 					Last = Item;
 				}
@@ -2034,8 +2053,12 @@ void AUTCharacter::AddInventory(AUTInventory* InvToAdd, bool bAutoActivate)
 					Game->BaseMutator->ModifyInventory(InvToAdd, this);
 				}
 			}
+
+			return true;
 		}
 	}
+
+	return false;
 }
 
 void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)

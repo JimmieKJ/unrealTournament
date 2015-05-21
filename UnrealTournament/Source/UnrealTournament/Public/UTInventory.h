@@ -11,7 +11,7 @@ class UNREALTOURNAMENT_API AUTInventory : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
-	friend void AUTCharacter::AddInventory(AUTInventory*, bool);
+	friend bool AUTCharacter::AddInventory(AUTInventory*, bool);
 	friend void AUTCharacter::RemoveInventory(AUTInventory*);
 	template<typename> friend class TInventoryIterator;
 

@@ -454,8 +454,19 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return InventoryList;
 	}
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn|Inventory", meta = (FriendlyName = "CreateInventory", AdvancedDisplay = "bAutoActivate"))
+	virtual AUTInventory* K2_CreateInventory(TSubclassOf<AUTInventory> NewInvClass, bool bAutoActivate = true);
+	
+	template<typename InvClass>
+	inline InvClass* CreateInventory(TSubclassOf<InvClass> NewInvClass, bool bAutoActivate = true)
+	{
+		InvClass* Result = (InvClass*)K2_CreateInventory(NewInvClass, bAutoActivate);
+		checkSlow(Result == NULL || Result->IsA(InvClass::StaticClass()));
+		return Result;
+	}
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
-	virtual void AddInventory(AUTInventory* InvToAdd, bool bAutoActivate);
+	virtual bool AddInventory(AUTInventory* InvToAdd, bool bAutoActivate);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
 	virtual void RemoveInventory(AUTInventory* InvToRemove);
