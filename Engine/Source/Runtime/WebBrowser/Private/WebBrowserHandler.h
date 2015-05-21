@@ -67,6 +67,12 @@ public:
 	// CefLifeSpanHandler Interface
 	virtual void OnAfterCreated(CefRefPtr<CefBrowser> Browser) override;
 	virtual void OnBeforeClose(CefRefPtr<CefBrowser> Browser) override;
+	virtual bool OnBeforePopup(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, const CefString& Target_Url, const CefString& Target_Frame_Name,
+							const CefPopupFeatures& PopupFeatures, CefWindowInfo& WindowInfo, CefRefPtr<CefClient>& Client,	CefBrowserSettings& Settings,
+							bool* no_javascript_access)  override
+	{
+		return true;
+	}
 
 	// CefLoadHandler Interface
 	virtual void OnLoadError(CefRefPtr<CefBrowser> Browser,
