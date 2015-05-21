@@ -460,11 +460,6 @@ void AUTWeapon::DetachFromHolster()
 
 void AUTWeapon::AttachToOwner_Implementation()
 {
-	AttachToOwnerNative();
-}
-
-void AUTWeapon::AttachToOwnerNative()
-{
 	if (UTOwner == NULL)
 	{
 		return;
@@ -600,15 +595,6 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 
 void AUTWeapon::DetachFromOwner_Implementation()
 {
-	DetachFromOwnerNative();
-}
-
-void AUTWeapon::DetachFromOwnerNative()
-{
-	for (int32 i = 0; i < FiringState.Num(); i++)
-	{
-		FiringState[i]->WeaponBecameInactive();
-	}
 	StopFiringEffects();
 	// make sure particle system really stops NOW since we're going to unregister it
 	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
@@ -677,17 +663,19 @@ void AUTWeapon::PlayFiringEffects()
 {
 	if (UTOwner != NULL)
 	{
+		uint8 EffectFiringMode = (Role == ROLE_Authority || UTOwner->Controller != NULL) ? CurrentFireMode : UTOwner->FireMode;
+
 		// try and play the sound if specified
-		if (FireSound.IsValidIndex(CurrentFireMode) && FireSound[CurrentFireMode] != NULL)
+		if (FireSound.IsValidIndex(EffectFiringMode) && FireSound[EffectFiringMode] != NULL)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[CurrentFireMode], UTOwner, SRT_AllButOwner);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner);
 		}
 
 		if (ShouldPlay1PVisuals())
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
 			// try and play a firing animation if specified
-			UAnimMontage* Anim = GetFiringAnim(CurrentFireMode);
+			UAnimMontage* Anim = GetFiringAnim(EffectFiringMode);
 			if (Anim != NULL)
 			{
 				UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
@@ -698,12 +686,12 @@ void AUTWeapon::PlayFiringEffects()
 			}
 
 			// muzzle flash
-			if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL && MuzzleFlash[CurrentFireMode]->Template != NULL)
+			if (MuzzleFlash.IsValidIndex(EffectFiringMode) && MuzzleFlash[EffectFiringMode] != NULL && MuzzleFlash[EffectFiringMode]->Template != NULL)
 			{
 				// if we detect a looping particle system, then don't reactivate it
-				if (!MuzzleFlash[CurrentFireMode]->bIsActive || MuzzleFlash[CurrentFireMode]->bSuppressSpawning || !IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template))
+				if (!MuzzleFlash[EffectFiringMode]->bIsActive || MuzzleFlash[EffectFiringMode]->bSuppressSpawning || !IsLoopingParticleSystem(MuzzleFlash[EffectFiringMode]->Template))
 				{
-					MuzzleFlash[CurrentFireMode]->ActivateSystem();
+					MuzzleFlash[EffectFiringMode]->ActivateSystem();
 				}
 			}
 		}
@@ -712,9 +700,12 @@ void AUTWeapon::PlayFiringEffects()
 
 void AUTWeapon::StopFiringEffects()
 {
-	if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
+	for (UParticleSystemComponent* MF : MuzzleFlash)
 	{
-		MuzzleFlash[CurrentFireMode]->DeactivateSystem();
+		if (MF != NULL)
+		{
+			MF->DeactivateSystem();
+		}
 	}
 }
 
@@ -1472,19 +1463,29 @@ void AUTWeapon::Tick(float DeltaTime)
 		CurrentState->Tick(DeltaTime);
 
 		// if weapon is up in first person, view bob with movement
-		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->Controller) != NULL)
+		if (Mesh != NULL && UTOwner != NULL && ShouldPlay1PVisuals())
 		{
 			if (GetWeaponHand() != HAND_Hidden)
 			{
 				// FOV offset - fixmesteve use viewer
 				AUTPlayerController* MyPC = Cast<AUTPlayerController>(UTOwner->GetController());
+				if (MyPC == NULL)
+				{
+					for (FLocalPlayerIterator It(GEngine, GetWorld()); It && MyPC == NULL; ++It)
+					{
+						if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == UTOwner)
+						{
+							MyPC = Cast<AUTPlayerController>(It->PlayerController);
+						}
+					}
+				}
 				if (FirstPMeshOffset.IsZero())
 				{
 					FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
 					FirstPMeshRotation = Mesh->GetRelativeTransform().Rotator();
 				}
 				FVector ScaledMeshOffset = FirstPMeshOffset;
-				const float FOVScaling = (MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f;
+				const float FOVScaling = (MyPC != NULL) ? ((MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f) : 1.0f;
 				if (FOVScaling > 0.f)
 				{
 					ScaledMeshOffset.X *= (1.f + (FOVOffset.X - 1.f) * FOVScaling);

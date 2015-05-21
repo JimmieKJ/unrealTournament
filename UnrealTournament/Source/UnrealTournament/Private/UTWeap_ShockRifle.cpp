@@ -23,9 +23,9 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	AltDeathStatsName = NAME_ShockCoreDeaths;
 }
 
-void AUTWeap_ShockRifle::AttachToOwnerNative()
+void AUTWeap_ShockRifle::AttachToOwner_Implementation()
 {
-	Super::AttachToOwnerNative();
+	Super::AttachToOwner_Implementation();
 
 	if (GetNetMode() != NM_DedicatedServer && Mesh != NULL && ScreenMaterialID < Mesh->GetNumMaterials())
 	{

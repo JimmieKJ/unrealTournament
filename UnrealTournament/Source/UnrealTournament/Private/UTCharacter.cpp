@@ -1859,14 +1859,25 @@ void AUTCharacter::FiringInfoUpdated()
 
 	// TODO: first person spectating
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
-	if (Weapon != NULL && IsLocallyControlled() && UTPC != NULL && (bLocalFlashLoc || UTPC->GetPredictionTime() == 0.f) && !UTPC->IsBehindView())
+	if (Weapon != NULL && (bLocalFlashLoc || UTPC == NULL || UTPC->GetPredictionTime() == 0.f) && Weapon != NULL && Weapon->ShouldPlay1PVisuals())
 	{
 		if (!FlashLocation.IsZero())
 		{
+			uint8 EffectFiringMode = Weapon->GetCurrentFireMode();
+			// if non-local first person spectator, also play firing effects from here
+			if (Controller == NULL)
+			{
+				EffectFiringMode = FireMode;
+				Weapon->PlayFiringEffects();
+			}
 			FVector SpawnLocation;
 			FRotator SpawnRotation;
 			Weapon->GetImpactSpawnPosition(FlashLocation, SpawnLocation, SpawnRotation);
-			Weapon->PlayImpactEffects(FlashLocation, Weapon->GetCurrentFireMode(), SpawnLocation, SpawnRotation);
+			Weapon->PlayImpactEffects(FlashLocation, EffectFiringMode, SpawnLocation, SpawnRotation);
+		}
+		else if (Controller == NULL && FlashCount != 0)
+		{
+			Weapon->PlayFiringEffects();
 		}
 	}
 	else if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
@@ -2427,6 +2438,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	// replicate for cases where non-owned inventory is replicated (e.g. spectators)
 	// UE4 networking doesn't cause endless replication sending unserializable values like UE3 did so this shouldn't be a big deal
 	DOREPLIFETIME_CONDITION(AUTCharacter, InventoryList, COND_None); 
+	DOREPLIFETIME_CONDITION(AUTCharacter, Weapon, COND_SkipOwner);
 
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashCount, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashLocation, COND_None);
@@ -2459,6 +2471,30 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None); // @TODO FIXMESTEVE only for spectators
+}
+
+static AUTWeapon* SavedWeapon = NULL;
+void AUTCharacter::PreNetReceive()
+{
+	Super::PreNetReceive();
+
+	SavedWeapon = Weapon;
+}
+void AUTCharacter::PostNetReceive()
+{
+	Super::PostNetReceive();
+
+	if (Weapon != SavedWeapon)
+	{
+		if (SavedWeapon != NULL && SavedWeapon->Mesh->IsAttachedTo(CharacterCameraComponent))
+		{
+			SavedWeapon->DetachFromOwner();
+		}
+		if (Weapon != NULL && !Weapon->Mesh->IsAttachedTo(CharacterCameraComponent) && Weapon->ShouldPlay1PVisuals())
+		{
+			Weapon->AttachToOwner();
+		}
+	}
 }
 
 void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd)
@@ -4658,4 +4694,41 @@ void AUTCharacter::SetInvisible(bool bNowInvisible)
 	{
 		OnRep_Invisible();
 	}
+}
+
+void AUTCharacter::BehindViewChange(APlayerController* PC, bool bNowBehindView)
+{
+	if (PC->GetPawn() != this)
+	{
+		if (!bNowBehindView)
+		{
+			if (Weapon != NULL && PC->IsLocalPlayerController() && !Weapon->Mesh->IsAttachedTo(CharacterCameraComponent))
+			{
+				Weapon->AttachToOwner();
+			}
+		}
+		else
+		{
+			if (Weapon != NULL && (Controller == NULL || !Controller->IsLocalPlayerController()) && Weapon->Mesh->IsAttachedTo(CharacterCameraComponent))
+			{
+				Weapon->DetachFromOwner();
+			}
+		}
+	}
+}
+void AUTCharacter::BecomeViewTarget(APlayerController* PC)
+{
+	Super::BecomeViewTarget(PC);
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
+	if (UTPC != NULL)
+	{
+		BehindViewChange(UTPC, UTPC->IsBehindView());
+	}
+}
+void AUTCharacter::EndViewTarget(APlayerController* PC)
+{
+	BehindViewChange(PC, true);
+
+	Super::EndViewTarget(PC);
 }

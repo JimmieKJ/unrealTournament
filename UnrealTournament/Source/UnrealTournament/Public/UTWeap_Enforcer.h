@@ -110,8 +110,8 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 	UFUNCTION()
 	virtual void BecomeDual();
 	virtual	float GetImpartedMomentumMag(AActor* HitActor) override;
-	virtual void DetachFromOwnerNative() override;
-	virtual void AttachToOwnerNative() override;
+	virtual void DetachFromOwner_Implementation() override;
+	virtual void AttachToOwner_Implementation() override;
 
 	virtual void DualEquipFinished();
 

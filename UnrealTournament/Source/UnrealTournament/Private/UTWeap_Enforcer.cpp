@@ -410,7 +410,7 @@ void AUTWeap_Enforcer::SetSkin(UMaterialInterface* NewSkin)
 	Super::SetSkin(NewSkin);
 }
 
-void AUTWeap_Enforcer::AttachToOwnerNative()
+void AUTWeap_Enforcer::AttachToOwner_Implementation()
 {
 	if (UTOwner == NULL)
 	{
@@ -444,10 +444,10 @@ void AUTWeap_Enforcer::AttachToOwnerNative()
 		}
 	}
 
-	Super::AttachToOwnerNative();
+	Super::AttachToOwner_Implementation();
 }
 
-void AUTWeap_Enforcer::DetachFromOwnerNative()
+void AUTWeap_Enforcer::DetachFromOwner_Implementation()
 {
 	//TODO revisit this if I split the muzzle flash
 	//make sure particle system really stops NOW since we're going to unregister it
@@ -469,5 +469,5 @@ void AUTWeap_Enforcer::DetachFromOwnerNative()
 		LeftMesh->DetachFromParent();
 	}
 
-	Super::DetachFromOwnerNative();
+	Super::DetachFromOwner_Implementation();
 }

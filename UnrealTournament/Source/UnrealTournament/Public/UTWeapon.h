@@ -439,14 +439,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** attach the visuals to Owner's first person view */
 	UFUNCTION(BlueprintNativeEvent)
 	void AttachToOwner();
-	
-	virtual void AttachToOwnerNative();
 
 	/** detach the visuals from the Owner's first person view */
 	UFUNCTION(BlueprintNativeEvent)
 	void DetachFromOwner();
-	
-	virtual void DetachFromOwnerNative();
 
 	/** return number of fire modes */
 	virtual uint8 GetNumFireModes() const

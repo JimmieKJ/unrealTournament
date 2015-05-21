@@ -1240,6 +1240,15 @@ public:
 
 	virtual void ApplyCharacterData(TSubclassOf<class AUTCharacterContent> Data);
 
+	/** called when a PC viewing this character switches from behindview to first person or vice versa */
+	virtual void BehindViewChange(APlayerController* PC, bool bNowBehindView);
+
+	virtual void BecomeViewTarget(APlayerController* PC) override;
+	virtual void EndViewTarget(APlayerController* PC) override;
+
+	virtual void PreNetReceive() override;
+	virtual void PostNetReceive() override;
+
 	//--------------------------
 	// Weapon bob and eye offset
 
@@ -1514,7 +1523,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	AUTWeapon* PendingWeapon;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Pawn")
 	class AUTWeapon* Weapon;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")

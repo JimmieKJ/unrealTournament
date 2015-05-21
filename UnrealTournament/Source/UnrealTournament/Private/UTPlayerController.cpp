@@ -855,6 +855,7 @@ void AUTPlayerController::ToggleShowBinds()
 void AUTPlayerController::ViewNextPlayer()
 {
 	bAutoCam = false;
+	BehindView(bSpectateBehindView);
 	ServerViewNextPlayer();
 }
 
@@ -907,7 +908,6 @@ void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 {
 	if (PlayerState && PlayerState->bOnlySpectator && PS)
 	{
-		BehindView(bSpectateBehindView);
 		SetViewTarget(PS);
 	}
 }
@@ -1724,6 +1724,10 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 		bSpectateBehindView = bWantBehindView;
 	}
 	SetCameraMode(bWantBehindView ? FName(TEXT("FreeCam")) : FName(TEXT("Default")));
+	if (Cast<AUTCharacter>(GetViewTarget()) != NULL)
+	{
+		((AUTCharacter*)GetViewTarget())->BehindViewChange(this, bWantBehindView);
+	}
 }
 
 bool AUTPlayerController::IsBehindView()

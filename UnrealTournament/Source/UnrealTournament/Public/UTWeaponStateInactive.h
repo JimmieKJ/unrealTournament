@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTWeaponStateFiring.h"
+
 #include "UTWeaponStateInactive.generated.h"
 
 /** base class of states that fire the weapon and live in the weapon's FiringState array */
@@ -13,6 +15,15 @@ class UNREALTOURNAMENT_API UUTWeaponStateInactive : public UUTWeaponState
 	UUTWeaponStateInactive(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	{}
+
+	virtual void BeginState(const UUTWeaponState* PrevState)
+	{
+		for (int32 i = 0; i < GetOuterAUTWeapon()->FiringState.Num(); i++)
+		{
+			GetOuterAUTWeapon()->FiringState[i]->WeaponBecameInactive();
+		}
+		Super::BeginState(PrevState);
+	}
 
 	virtual void BringUp(float OverflowTime)
 	{

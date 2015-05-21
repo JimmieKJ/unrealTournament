@@ -337,7 +337,7 @@ public:
 	virtual void SetStylizedPP(int32 NewPP);
 
 	/** whether player wants behindview when spectating */
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite, GlobalConfig)
 	bool bSpectateBehindView;
 
 	UPROPERTY(BlueprintReadOnly)
