@@ -130,6 +130,12 @@ void UUTGameEngine::PreExit()
 // @TODO FIXMESTEVE - we want open to be relative like it used to be
 bool UUTGameEngine::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld)
 {
+	// the netcode adds implicit "?game=" to network URLs that we don't want when going from online game to local game
+	FWorldContext* Context = GetWorldContextFromWorld(InWorld);
+	if (Context != NULL && !Context->LastURL.IsLocalInternal())
+	{
+		Context->LastURL.RemoveOption(TEXT("game="));
+	}
 	return HandleTravelCommand(Cmd, Ar, InWorld);
 }
 

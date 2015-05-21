@@ -54,5 +54,10 @@ void UUTGameInstance::DeferredStartGameInstance()
 // @TODO FIXMESTEVE - we want open to be relative like it used to be
 bool UUTGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
 {
+	// the netcode adds implicit "?game=" to network URLs that we don't want when going from online game to local game
+	if (WorldContext != NULL && !WorldContext->LastURL.IsLocalInternal())
+	{
+		WorldContext->LastURL.RemoveOption(TEXT("game="));
+	}
 	return GEngine->HandleTravelCommand(Cmd, Ar, InWorld);
 }
