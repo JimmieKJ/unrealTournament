@@ -5,6 +5,7 @@
 #include "UTProj_LinkPlasma.h"
 #include "UTTeamGameMode.h"
 #include "UnrealNetwork.h"
+#include "StatNames.h"
 
 AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 : Super(OI)
@@ -44,6 +45,11 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 
 	LinkedBio = NULL;
 	bRecommendSuppressiveFire = true;
+
+	KillStatsName = NAME_LinkKills;
+	AltKillStatsName = NAME_LinkBeamKills;
+	DeathStatsName = NAME_LinkDeaths;
+	AltDeathStatsName = NAME_LinkBeamDeaths;
 }
 
 AUTProjectile* AUTWeap_LinkGun::FireProjectile()

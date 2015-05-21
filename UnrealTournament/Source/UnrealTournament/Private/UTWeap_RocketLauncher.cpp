@@ -7,6 +7,7 @@
 #include "UTProj_Rocket.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UnrealNetwork.h"
+#include "StatNames.h"
 
 AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringChargedRocket>(TEXT("FiringState1")))
@@ -51,6 +52,9 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
 	FiringViewKickback = -50.f;
+
+	KillStatsName = NAME_RocketKills;
+	DeathStatsName = NAME_RocketDeaths;
 }
 
 void AUTWeap_RocketLauncher::Destroyed()

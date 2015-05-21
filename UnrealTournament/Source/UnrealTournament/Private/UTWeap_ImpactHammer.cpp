@@ -5,6 +5,7 @@
 #include "UTCharacterMovement.h"
 #include "UTLift.h"
 #include "UTReachSpec_HighJump.h"
+#include "StatNames.h"
 
 AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState0")))
@@ -34,6 +35,9 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectIniti
 	bAffectedByStoppingPower = true;
 
 	BaseAISelectRating = 0.35f;
+
+	KillStatsName = NAME_ImpactHammerKills;
+	DeathStatsName = NAME_ImpactHammerDeaths;
 }
 
 void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)

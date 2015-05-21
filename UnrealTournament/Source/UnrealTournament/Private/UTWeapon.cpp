@@ -1924,3 +1924,37 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 void AUTWeapon::NotifyKillWhileHolding_Implementation(TSubclassOf<UDamageType> DmgType)
 {
 }
+
+int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState * PS) const
+{
+	int32 KillCount = 0;
+	if (PS)
+	{
+		if (KillStatsName != NAME_None)
+		{
+			KillCount += PS->GetStatsValue(KillStatsName);
+		}
+		if (AltKillStatsName != NAME_None)
+		{
+			KillCount += PS->GetStatsValue(AltKillStatsName);
+		}
+	}
+	return KillCount;
+}
+
+int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState * PS) const
+{
+	int32 DeathCount = 0;
+	if (PS)
+	{
+		if (DeathStatsName != NAME_None)
+		{
+			DeathCount += PS->GetStatsValue(DeathStatsName);
+		}
+		if (AltDeathStatsName != NAME_None)
+		{
+			DeathCount += PS->GetStatsValue(AltDeathStatsName);
+		}
+	}
+	return DeathCount;
+}

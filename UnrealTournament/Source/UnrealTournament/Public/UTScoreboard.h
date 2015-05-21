@@ -182,11 +182,17 @@ protected:
 	UPROPERTY()
 		bool bHighlightStatsLineTopValue;
 
+	/** List of default weapons to display stats for. */
+	UPROPERTY()
+	TArray<AUTWeapon *> StatsWeapons;
+
 	/** Draw one line of scoring breakdown. */
 	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth);
 
 	/** Draw one line of scoring breakdown where values are string instead of int32. */
 	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex);
+
+	virtual void DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon=false);
 
 	/** Draw individual weapon stats for player. */
 	virtual void DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo);

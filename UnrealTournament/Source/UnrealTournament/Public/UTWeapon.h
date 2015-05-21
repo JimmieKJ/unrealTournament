@@ -795,4 +795,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
 	FTextureUVs WeaponBarInactiveUVs;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName KillStatsName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName AltKillStatsName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName DeathStatsName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName AltDeathStatsName;
+
+	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const;
+	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const;
 };

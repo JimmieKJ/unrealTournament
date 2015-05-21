@@ -4,6 +4,7 @@
 #include "UTWeaponState.h"
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateFiringSpinUp.h"
+#include "StatNames.h"
 
 AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringSpinUp>(TEXT("FiringState0")))
@@ -33,6 +34,11 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	BaseAISelectRating = 0.71f;
 	BasePickupDesireability = 0.73f;
 	bRecommendSuppressiveFire = true;
+
+	KillStatsName = NAME_MinigunKills;
+	AltKillStatsName = NAME_MinigunShardKills;
+	DeathStatsName = NAME_MinigunDeaths;
+	AltDeathStatsName = NAME_MinigunShardDeaths;
 }
 
 float AUTWeap_Minigun::GetAISelectRating_Implementation()

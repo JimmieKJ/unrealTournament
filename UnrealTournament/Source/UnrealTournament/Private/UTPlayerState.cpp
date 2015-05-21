@@ -1370,7 +1370,7 @@ void AUTPlayerState::OnRepSpecialPlayer()
 	}
 }
 
-float AUTPlayerState::GetStatsValue(FName StatsName)
+float AUTPlayerState::GetStatsValue(FName StatsName) const
 {
 	return StatsData.FindRef(StatsName);
 }

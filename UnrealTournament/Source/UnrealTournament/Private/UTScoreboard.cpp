@@ -4,6 +4,8 @@
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Spectator.h"
 #include "StatNames.h"
+#include "UTPickupWeapon.h"
+#include "UTWeapon.h"
 
 UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -655,37 +657,44 @@ void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FStrin
 	YPos += StatsFontInfo.TextHeight;
 }
 
+void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon)
+{
+	Canvas->SetLinearDrawColor(bIsBestWeapon ? FLinearColor::Yellow : FLinearColor::White);
+	Canvas->DrawText(StatsFontInfo.TextFont, StatsName, XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+
+	if (StatValue >= 0)
+	{
+		Canvas->SetLinearDrawColor((StatValue >= 15) ? FLinearColor::Yellow : FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	if (ScoreValue >= 0)
+	{
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	YPos += StatsFontInfo.TextHeight;
+}
+
 void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
 {
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "WeaponColumnTitle", "Weapon"), "Kills With", "Deaths By", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ImpactHammer", "Impact Hammer"), PS->GetStatsValue(NAME_ImpactHammerKills), PS->GetStatsValue(NAME_ImpactHammerDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Enforcer", "Enforcer"), PS->GetStatsValue(NAME_EnforcerKills), PS->GetStatsValue(NAME_EnforcerDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BioRifle", "Bio Rifle"), PS->GetStatsValue(NAME_BioRifleKills), PS->GetStatsValue(NAME_BioRifleDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
-	int32 Kills = PS->GetStatsValue(NAME_ShockBeamKills) + PS->GetStatsValue(NAME_ShockCoreKills) + PS->GetStatsValue(NAME_ShockComboKills);
-	int32 Deaths = PS->GetStatsValue(NAME_ShockBeamDeaths) + PS->GetStatsValue(NAME_ShockCoreDeaths) + PS->GetStatsValue(NAME_ShockComboDeaths);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ShockRifle", "Shock Rifle"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
-	Kills = PS->GetStatsValue(NAME_LinkKills) + PS->GetStatsValue(NAME_LinkBeamKills);
-	Deaths = PS->GetStatsValue(NAME_LinkDeaths) + PS->GetStatsValue(NAME_LinkBeamDeaths);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "LinkGun", "Link Gun"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
-	Kills = PS->GetStatsValue(NAME_MinigunKills) + PS->GetStatsValue(NAME_MinigunShardKills);
-	Deaths = PS->GetStatsValue(NAME_MinigunDeaths) + PS->GetStatsValue(NAME_MinigunShardDeaths);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Minigun", "Minigun"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
-	Kills = PS->GetStatsValue(NAME_FlakShardKills) + PS->GetStatsValue(NAME_FlakShellKills);
-	Deaths = PS->GetStatsValue(NAME_FlakShardDeaths) + PS->GetStatsValue(NAME_FlakShellDeaths);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "FlakCannon", "Flak Cannon"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "RocketLauncher", "Rocket Launcher"), PS->GetStatsValue(NAME_RocketKills), PS->GetStatsValue(NAME_RocketDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
-	Kills = PS->GetStatsValue(NAME_SniperKills) + PS->GetStatsValue(NAME_SniperHeadshotKills);
-	Deaths = PS->GetStatsValue(NAME_SniperDeaths) + PS->GetStatsValue(NAME_SniperHeadshotDeaths);
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "SniperRifle", "Sniper Rifle"), Kills, Deaths, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Redeemer", "Redeemer"), PS->GetStatsValue(NAME_RedeemerKills), PS->GetStatsValue(NAME_RedeemerDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	/** List of weapons to display stats for. */
+	if (StatsWeapons.Num() == 0)
+	{
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+			if (Pickup && Pickup->GetInventoryType())
+			{
+				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+			}
+		}
+	}
+	for (int32 i = 0; i < StatsWeapons.Num(); i++)
+	{
+		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, StatsWeapons[i]->GetWeaponKillStats(PS), StatsWeapons[i]->GetWeaponDeathStats(PS), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
 
 	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;

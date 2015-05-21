@@ -84,4 +84,7 @@ class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 
 	virtual bool IsPreparingAttack_Implementation() override;
 	virtual bool ShouldAIDelayFiring_Implementation() override;
+
+	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const override;
+	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const override;
 };

@@ -11,6 +11,7 @@
 #include "UTImpactEffect.h"
 #include "UnrealNetwork.h"
 #include "UTWeaponAttachment.h"
+#include "StatNames.h"
 
 AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -47,6 +48,9 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 
 	EnforcerEquippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateEquipping_Enforcer>(this, TEXT("EnforcerEquippingState"));
 	EnforcerUnequippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateUnequipping_Enforcer>(this, TEXT("EnforcerUnequippingState"));
+
+	KillStatsName = NAME_EnforcerKills;
+	DeathStatsName = NAME_EnforcerDeaths;
 }
 
 void AUTWeap_Enforcer::AttachLeftMesh()

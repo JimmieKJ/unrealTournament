@@ -4,6 +4,7 @@
 #include "UTWeap_BioRifle.h"
 #include "UTProj_BioShot.h"
 #include "UTWeaponStateFiringCharged.h"
+#include "StatNames.h"
 
 
 AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitializer)
@@ -32,6 +33,8 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 	{
 		((UUTWeaponStateFiringCharged*)FiringState[1])->bChargeFlashCount = true;
 	}
+	KillStatsName = NAME_BioRifleKills;
+	DeathStatsName = NAME_BioRifleDeaths;
 }
 
 void AUTWeap_BioRifle::UpdateSqueeze()

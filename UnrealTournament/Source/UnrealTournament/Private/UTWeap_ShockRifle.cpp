@@ -3,6 +3,8 @@
 #include "UTWeap_ShockRifle.h"
 #include "UTProj_ShockBall.h"
 #include "UTCanvasRenderTarget2D.h"
+#include "StatNames.h"
+#include "StatNames.h"
 
 AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -14,6 +16,11 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	LastClientKillTime = -100000.0f;
 	bFPIgnoreInstantHitFireOffset = false; // needed so any fire offset set for shock ball is matched by primary for standing combos
 	FOVOffset = FVector(0.6f, 0.9f, 1.2f);
+
+	KillStatsName = NAME_ShockBeamKills;
+	AltKillStatsName = NAME_ShockCoreKills;
+	DeathStatsName = NAME_ShockBeamDeaths;
+	AltDeathStatsName = NAME_ShockCoreDeaths;
 }
 
 void AUTWeap_ShockRifle::AttachToOwnerNative()
@@ -362,4 +369,24 @@ AUTProjectile* AUTWeap_ShockRifle::FireProjectile()
 		}
 	}
 	return Result;
+}
+
+int32 AUTWeap_ShockRifle::GetWeaponKillStats(AUTPlayerState * PS) const
+{
+	int32 KillCount = Super::GetWeaponKillStats(PS);
+	if (PS)
+	{
+		KillCount += PS->GetStatsValue(NAME_ShockComboKills);
+	}
+	return KillCount;
+}
+
+int32 AUTWeap_ShockRifle::GetWeaponDeathStats(AUTPlayerState * PS) const
+{
+	int32 DeathCount = Super::GetWeaponDeathStats(PS);
+	if (PS)
+	{
+		DeathCount += PS->GetStatsValue(NAME_ShockComboDeaths);
+	}
+	return DeathCount;
 }
