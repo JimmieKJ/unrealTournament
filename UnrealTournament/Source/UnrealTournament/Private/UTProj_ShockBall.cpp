@@ -185,12 +185,20 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 		float MovementBonus = (Shooter->GetCharacterMovement()->MovementMode == MOVE_Falling) ? 7.f : 4.f;
 		ComboScore += MovementBonus * Shooter->GetVelocity().Size() / 1000.f;
 	}
-
 	if ((ComboScore > 8.f) && (KillCount > 0))
 	{
 		PC->ClientReceiveLocalizedMessage(ComboRewardMessageClass);
+			PS->ModifyStatsValue(NAME_AmazingCombos, 1);
+	}
+
+	ComboScore *= 100.f; // multiply since stats stored as int32
+	int32 CurrentComboRating = PS->GetStatsValue(NAME_BestShockCombo);
+	if (ComboScore > CurrentComboRating)
+	{
+		PS->SetStatsValue(NAME_BestShockCombo, ComboScore);
 	}
 }
+
 void AUTProj_ShockBall::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);

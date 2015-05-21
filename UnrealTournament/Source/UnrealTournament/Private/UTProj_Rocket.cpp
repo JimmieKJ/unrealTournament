@@ -4,6 +4,7 @@
 #include "UTProj_Rocket.h"
 #include "UnrealNetwork.h"
 #include "UTRewardMessage.h"
+#include "StatNames.h"
 
 AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -76,6 +77,11 @@ void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FV
 		if (PC != NULL)
 		{
 			PC->ClientReceiveLocalizedMessage(AirRocketRewardClass);
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+			if (PS)
+			{
+				PS->ModifyStatsValue(NAME_AirRox, 1);
+			}
 		}
 	}
 }

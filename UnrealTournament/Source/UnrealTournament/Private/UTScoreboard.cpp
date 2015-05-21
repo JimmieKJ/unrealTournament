@@ -687,11 +687,20 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Redeemer", "Redeemer"), PS->GetStatsValue(NAME_RedeemerKills), PS->GetStatsValue(NAME_RedeemerDeaths), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 
-	// @TODO FIXMESTEVE special kills (combo, headshot) + break down by primary/alt + show accuracy
-	// @TODO FIXMESTEVE add movement and rewards pages
-	// @TODO FIXMESTEVE how to support custom weapons - need to have weapon class static function for this
-	// @TODO FIXMESTEVE highlight best weapon
-	// @TODO FIXMESTEVE separate stats display widget
+	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ShockComboKills", "Shock Combo Kills"), PS->GetStatsValue(NAME_ShockComboKills), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "AmazingCombos", "Amazing Combos"), PS->GetStatsValue(NAME_AmazingCombos), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HeadShots", "Sniper Headshots"), PS->GetStatsValue(NAME_SniperHeadshotKills), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "AirRox", "Air Rocket Kills"), PS->GetStatsValue(NAME_AirRox), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	// FIXMESTEVE track air rox and amazing combos
+
+	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+
+	float BestComboRating = 0.01f*PS->GetStatsValue(NAME_BestShockCombo);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "ShockComboRating", "Best Shock Combo Rating"), FString::Printf(TEXT(" %4.1f"), BestComboRating), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (BestComboRating > 8.f));
 }
 
 void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)

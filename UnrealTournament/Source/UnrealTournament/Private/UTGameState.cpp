@@ -96,6 +96,10 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_SniperHeadshotDeaths);
 	WeaponStats.Add(NAME_RedeemerDeaths);
 	WeaponStats.Add(NAME_InstagibDeaths);
+
+	WeaponStats.Add(NAME_BestShockCombo);
+	WeaponStats.Add(NAME_AirRox);
+	WeaponStats.Add(NAME_AmazingCombos);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
