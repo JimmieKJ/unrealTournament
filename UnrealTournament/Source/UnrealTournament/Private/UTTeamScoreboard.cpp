@@ -225,13 +225,16 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamKDFor(uint8 TeamNum)
 
 void UUTTeamScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
 {
-	if (bEnableTimer)
+	if (UTHUDOwner)
 	{
-		GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTTeamScoreboard::OpenScoringPlaysPage, 6.0f, false);
-	}
-	else
-	{
-		GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
+		if (bEnableTimer)
+		{
+			UTHUDOwner->GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTTeamScoreboard::OpenScoringPlaysPage, 6.0f, false);
+		}
+		else
+		{
+			UTHUDOwner->GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
+		}
 	}
 }
 
