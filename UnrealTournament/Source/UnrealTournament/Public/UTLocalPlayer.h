@@ -98,6 +98,10 @@ public:
 	UPROPERTY(Config)
 	FString TutorialLaunchParams;
 
+	UPROPERTY(Config)
+	bool bFragCenterAutoPlay;
+
+
 protected:
 
 #if !UE_SERVER

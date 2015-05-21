@@ -15,8 +15,9 @@
 /**
  * Implements CEF App and other Process level interfaces 
  */
-class FWebBrowserApp : public CefApp,
-	public CefBrowserProcessHandler
+class FWebBrowserApp : public CefApp
+	,public CefBrowserProcessHandler
+	,public CefRenderProcessHandler
 {
 public:
 	
@@ -27,6 +28,9 @@ public:
 private:
 	// CefApp methods.
 	virtual CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override { return this; }
+	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override { return this; }
+
+	virtual bool OnBeforeNavigation(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefRequest> Request, NavigationType Navigation_Type, bool Is_redirect) override;
 
 	// CefBrowserProcessHandler methods:
 	virtual void OnContextInitialized() override;

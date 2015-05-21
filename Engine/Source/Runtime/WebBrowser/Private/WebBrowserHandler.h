@@ -9,6 +9,7 @@
 #endif
 #include "include/cef_client.h"
 #include "include/wrapper/cef_message_router.h"
+
 #if PLATFORM_WINDOWS
 #include "HideWindowsPlatformTypes.h"
 #endif
@@ -100,6 +101,7 @@ public:
 		CefRefPtr<CefFrame> Frame,
 		CefRefPtr<CefRequest> Request,
 		bool IsRedirect) override;
+
 public:
     // CefMessageRouterBrowserSide::Handler Interface
     

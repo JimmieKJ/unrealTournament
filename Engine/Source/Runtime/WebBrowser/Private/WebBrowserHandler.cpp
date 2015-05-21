@@ -126,6 +126,13 @@ bool FWebBrowserHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> Browser,
 	bool IsRedirect)
 {
 	MessageRouter->OnBeforeBrowse(Browser, Frame);
+
+	TSharedPtr<FWebBrowserWindow> BrowserWindowPin = BrowserWindow.Pin();
+	if (BrowserWindowPin.IsValid())
+	{
+		return BrowserWindowPin->OnBrowse(Request, IsRedirect);
+	}
+
 	return false;
 }
 
@@ -164,6 +171,7 @@ void FWebBrowserHandler::OnQueryCanceled(CefRefPtr<CefBrowser> Browser, CefRefPt
 		BrowserWindowPin->OnQueryCanceled(QueryId);
 	}
 }
+
 
 #endif
 

@@ -86,6 +86,11 @@ public:
         return JSQueryCanceledDelegate;
     }
 
+	virtual FOnBeforeBrowse& OnBeforeBrowse() override
+	{
+		return OnBeforeBrowseDelegate;
+	}
+
 private:
 	/**
 	 * Called to pass reference to the underlying CefBrowser as this is not created at the same time
@@ -150,6 +155,10 @@ private:
      */
     void OnQueryCanceled(int64 QueryId);
 
+
+	// Trigger an OnBrowse event chain
+	bool OnBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect);
+	
 public:
 
 	/**
@@ -195,9 +204,11 @@ public:
 
     FONJSQueryReceived JSQueryReceivedDelegate;
     FONJSQueryCanceled JSQueryCanceledDelegate;
+	FOnBeforeBrowse OnBeforeBrowseDelegate;
 
 	// Allow the Handler to access functions only it needs
 	friend class FWebBrowserHandler;
+
 };
 
 #endif

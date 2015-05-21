@@ -27,6 +27,8 @@ class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 	/** Called when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
 	SLATE_EVENT(FOnJSQueryCanceledDelegate, OnJSQueryCanceled)
 
+	SLATE_EVENT(FOnBeforeBrowseDelegate, OnBeforeBrowse)
+
 	SLATE_END_ARGS()
 	
 public:
@@ -41,6 +43,8 @@ public:
 	virtual void ExecuteJavascript(const FString& JS) { WebBrowserPanel->ExecuteJavascript(JS); }
 
 protected:
+	
+	TSharedPtr<SOverlay> Overlay;
 
 	FVector2D DesiredViewportSize;
 	bool bAllowScaling;
@@ -48,12 +52,18 @@ protected:
 	TSharedPtr<SVerticalBox> WebBrowserContainer;
 	// The Actual Web browser panel.
 	TSharedPtr<SWebBrowser> WebBrowserPanel;
-	
+
+	virtual bool QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate );
+	virtual void QueryCancelled(int64 QueryId);
+	virtual bool OnBrowse(FString TargetURL, bool bRedirect);
+
 	/** A delegate that is invoked when render process Javascript code sends a query message to the client. */
 	FOnJSQueryReceivedDelegate OnJSQueryReceived;
 
 	/** A delegate that is invoked when render process cancels an ongoing query. Handler must clean up corresponding result delegate. */
 	FOnJSQueryCanceledDelegate OnJSQueryCanceled;
+
+	FOnBeforeBrowseDelegate OnBeforeBrowse;
 
 	float GetReverseScale() const;
 	bool ShowControls;

@@ -10,6 +10,7 @@ class FWebBrowserViewport;
 DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
 DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceivedDelegate, int64, FString, bool, FJSQueryResultDelegate);
 DECLARE_DELEGATE_OneParam(FOnJSQueryCanceledDelegate, int64);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowseDelegate, FString, bool);
 
 class WEBBROWSER_API SWebBrowser : public SCompoundWidget
 {
@@ -41,6 +42,9 @@ public:
     
         /** Called when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
         SLATE_EVENT(FOnJSQueryCanceledDelegate, OnJSQueryCanceled)
+
+		/** Called before a browse begins */
+		SLATE_EVENT(FOnBeforeBrowseDelegate, OnBeforeBrowse)
 
 	SLATE_END_ARGS()
 
@@ -109,6 +113,10 @@ private:
 
     /** Callback for cancelled JS queries. */
     void HandleJSQueryCanceled(int64 QueryId);
+
+	/** Callbakc for browse */
+	bool HandleBeforeBrowse(FString URL, bool bIsRedirect);
+
 	
 private:
 	/** Interface for dealing with a web browser window */
@@ -122,4 +130,8 @@ private:
     
     /** A delegate that is invoked when render process cancels an ongoing query. Handler must clean up corresponding result delegate. */
     FOnJSQueryCanceledDelegate OnJSQueryCanceled;
+
+	/** a delegate that is invoked when the brower browses */
+	FOnBeforeBrowseDelegate OnBeforeBrowse;
+
 };

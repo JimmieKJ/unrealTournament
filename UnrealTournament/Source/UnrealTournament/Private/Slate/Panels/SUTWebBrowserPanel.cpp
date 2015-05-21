@@ -17,8 +17,11 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 	ShowControls = InArgs._ShowControls;
 	DesiredViewportSize = InArgs._ViewportSize;
 	bAllowScaling = InArgs._AllowScaling;
+
+
 	OnJSQueryReceived = InArgs._OnJSQueryReceived;
 	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
+	OnBeforeBrowse = InArgs._OnBeforeBrowse;
 
 	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
 }
@@ -31,7 +34,11 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[
-			SAssignNew(WebBrowserContainer, SVerticalBox)
+			SAssignNew(Overlay, SOverlay)
+			+SOverlay::Slot()
+			[
+				SAssignNew(WebBrowserContainer, SVerticalBox)
+			]
 		];
 	}
 	else
@@ -43,7 +50,7 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 			SNew(SDPIScaler)
 			.DPIScale(this, &SUTWebBrowserPanel::GetReverseScale)
 			[
-				SNew(SOverlay)
+				SAssignNew(Overlay, SOverlay)
 				+ SOverlay::Slot()
 				[
 					SAssignNew(WebBrowserContainer, SVerticalBox)
@@ -66,11 +73,13 @@ void SUTWebBrowserPanel::Browse(FString URL)
 			.InitialURL(URL)
 			.ShowControls(ShowControls)
 			.ViewportSize(DesiredViewportSize)
-			.OnJSQueryReceived(OnJSQueryReceived)
-			.OnJSQueryCanceled(OnJSQueryCanceled)
+			.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateRaw(this, &SUTWebBrowserPanel::QueryReceived))
+			.OnJSQueryCanceled(FOnJSQueryCanceledDelegate::CreateRaw(this, &SUTWebBrowserPanel::QueryCancelled))
+			.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateRaw(this, &SUTWebBrowserPanel::OnBrowse))
 		];
 	}
 }
+
 
 float SUTWebBrowserPanel::GetReverseScale() const
 {
@@ -112,6 +121,44 @@ void SUTWebBrowserPanel::OnHidePanel()
 	}
 }
 
+bool SUTWebBrowserPanel::QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
+{
+	UE_LOG(UT, Log, TEXT("Javascript %s"), *QueryString);
+
+	if (OnJSQueryReceived.IsBound())
+	{
+		return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
+	}
+	return false;
+}
+
+void SUTWebBrowserPanel::QueryCancelled(int64 QueryId)
+{
+	OnJSQueryCanceled.ExecuteIfBound(QueryId);
+}
+
+
+bool SUTWebBrowserPanel::OnBrowse(FString TargetURL, bool bRedirect)
+{
+	UE_LOG(UT,Log,TEXT("TargetURL: %s"), *TargetURL);
+
+	if (OnBeforeBrowse.IsBound())
+	{
+		return OnBeforeBrowse.Execute(TargetURL, bRedirect);
+	}
+
+	return false;
+/*
+	if (TargetURL.Equals(TEXT("http://www.necris.net/fragcenter"),ESearchCase::IgnoreCase))
+	{
+		return false;	
+	}
+	else
+	{
+		return true;
+	}
+*/	
+}
 
 
 

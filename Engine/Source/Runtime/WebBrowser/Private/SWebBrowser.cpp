@@ -18,6 +18,7 @@ void SWebBrowser::Construct(const FArguments& InArgs)
 {
     OnJSQueryReceived = InArgs._OnJSQueryReceived;
     OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
+	OnBeforeBrowse = InArgs._OnBeforeBrowse;
     
 	void* OSWindowHandle = nullptr;
 	if (InArgs._ParentWindow.IsValid())
@@ -105,6 +106,8 @@ void SWebBrowser::Construct(const FArguments& InArgs)
 	{
 		BrowserWindow->OnJSQueryReceived().BindSP(this, &SWebBrowser::HandleJSQueryReceived);
 		BrowserWindow->OnJSQueryCanceled().BindSP(this, &SWebBrowser::HandleJSQueryCanceled);
+		BrowserWindow->OnBeforeBrowse().BindSP(this, &SWebBrowser::HandleBeforeBrowse);
+
 		BrowserViewport = MakeShareable(new FWebBrowserViewport(BrowserWindow, ViewportWidget));
 		ViewportWidget->SetViewportInterface(BrowserViewport.ToSharedRef());
 	}
@@ -216,6 +219,16 @@ bool SWebBrowser::HandleJSQueryReceived( int64 QueryId, FString QueryString, boo
 void SWebBrowser::HandleJSQueryCanceled( int64 QueryId )
 {
     OnJSQueryCanceled.ExecuteIfBound(QueryId);
+}
+
+bool SWebBrowser::HandleBeforeBrowse(FString URL, bool bIsRedirect)
+{
+	if ( OnBeforeBrowse.IsBound() )
+	{
+		return OnBeforeBrowse.Execute(URL, bIsRedirect);
+	}
+
+	return false;
 }
 
 void SWebBrowser::ExecuteJavascript(const FString& JS)

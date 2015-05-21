@@ -187,4 +187,8 @@ public:
     /** A delegate that is invoked when an outstanding query is canceled. Implement this if you are saving delegates passed to OnQueryReceived. */
     DECLARE_DELEGATE_OneParam(FONJSQueryCanceled, int64)
     virtual FONJSQueryCanceled& OnJSQueryCanceled() = 0;	
+
+    DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, FString, bool)
+    virtual FOnBeforeBrowse& OnBeforeBrowse() = 0;
+
 };

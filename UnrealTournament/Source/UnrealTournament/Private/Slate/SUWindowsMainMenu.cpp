@@ -19,6 +19,7 @@
 #include "Panels/SUWServerBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
+#include "Panels/SUTFragCenterPanel.h"
 #include "UTEpicDefaultRulesets.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -34,28 +35,21 @@ void SUWindowsMainMenu::CreateDesktop()
 	SUTMenuBase::CreateDesktop();
 }
 
-bool SUWindowsMainMenu::JSQuery(int64 RequestId, FString Request, bool bPersistent, FJSQueryResultDelegate Callback)
-{
-	UE_LOG(UT, Log, TEXT("Javascript %s"), *Request);
-
-	return true;
-}
-
 void SUWindowsMainMenu::SetInitialPanel()
 {
-	FOnJSQueryReceivedDelegate OnJSQuery = FOnJSQueryReceivedDelegate::CreateRaw(this, &SUWindowsMainMenu::JSQuery);
 
-	SAssignNew(HomePanel, SUTWebBrowserPanel, PlayerOwner)
+	SAssignNew(HomePanel, SUTFragCenterPanel, PlayerOwner)
 		.ViewportSize(FVector2D(1920,1020))
 		.AllowScaling(true)
-		.ShowControls(false)
-		.OnJSQueryReceived(OnJSQuery);
+		.ShowControls(false);
 
 	if (HomePanel.IsValid())
 	{
-		TSharedPtr<SUTWebBrowserPanel> WebPanel = StaticCastSharedPtr<SUTWebBrowserPanel>(HomePanel);
+		TSharedPtr<SUTFragCenterPanel> WebPanel = StaticCastSharedPtr<SUTFragCenterPanel>(HomePanel);
 		WebPanel->Browse(TEXT("http://www.necris.net/fragcenter"));
 		ActivatePanel(HomePanel);
+
+		WebPanel->UpdateAutoPlay();
 	}
 }
 

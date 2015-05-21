@@ -527,4 +527,17 @@ void FWebBrowserWindow::OnQueryCanceled(int64 QueryId)
 {
     OnJSQueryCanceled().ExecuteIfBound(QueryId);
 }
+
+bool FWebBrowserWindow::OnBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect)
+{
+	if (OnBeforeBrowse().IsBound())
+	{
+		FString URL = Request->GetURL().ToWString().c_str();
+		return OnBeforeBrowse().Execute(URL, IsRedirect);
+	}
+
+	return false;
+}
+
 #endif
+
