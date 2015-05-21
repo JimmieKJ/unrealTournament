@@ -50,6 +50,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ValueColumn = 0.5f;
 	ScoreColumn = 0.75f;
 	bHighlightStatsLineTopValue = false;
+	BestWeaponIndex = -1;
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
@@ -62,6 +63,7 @@ void UUTScoreboard::AdvancePage(int32 Increment)
 		return;
 	}
 	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
+	BestWeaponIndex = -1;
 	PageChanged();
 }
 
@@ -691,9 +693,17 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 			}
 		}
 	}
+
+	float BestWeaponKills = (BestWeaponIndex == FMath::Clamp(BestWeaponIndex, 0, StatsWeapons.Num() - 1)) ? StatsWeapons[BestWeaponIndex]->GetWeaponKillStats(PS) : 0;
 	for (int32 i = 0; i < StatsWeapons.Num(); i++)
 	{
-		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, StatsWeapons[i]->GetWeaponKillStats(PS), StatsWeapons[i]->GetWeaponDeathStats(PS), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+		int32 Kills = StatsWeapons[i]->GetWeaponKillStats(PS);
+		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
+		if (Kills > BestWeaponKills)
+		{
+			BestWeaponKills = Kills;
+			BestWeaponIndex = i;
+		}
 	}
 
 	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);

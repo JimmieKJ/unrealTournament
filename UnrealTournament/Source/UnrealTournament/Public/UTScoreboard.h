@@ -186,6 +186,10 @@ protected:
 	UPROPERTY()
 	TArray<AUTWeapon *> StatsWeapons;
 
+	/** Index of current top weapon (in kills). */
+	UPROPERTY()
+		int32 BestWeaponIndex;
+
 	/** Draw one line of scoring breakdown. */
 	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth);
 
