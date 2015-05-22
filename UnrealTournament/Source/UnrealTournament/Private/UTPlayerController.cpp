@@ -2317,11 +2317,11 @@ void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage,
 	FVector RelHitLocation(FVector::ZeroVector);
 	if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
 	{
-		RelHitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location - GetPawn()->GetActorLocation();
+		RelHitLocation = ((FPointDamageEvent*)&DamageEvent)->HitInfo.Location - GetViewTarget()->GetActorLocation();
 	}
 	else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID) && ((FRadialDamageEvent*)&DamageEvent)->ComponentHits.Num() > 0)
 	{
-		RelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetPawn()->GetActorLocation();
+		RelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetViewTarget()->GetActorLocation();
 	}
 	ClientNotifyTakeHit(InstigatedByState, Damage, Momentum, RelHitLocation, DamageEvent.DamageTypeClass);
 }
@@ -2331,7 +2331,7 @@ void AUTPlayerController::ClientNotifyTakeHit_Implementation(APlayerState* Insti
 	if (MyUTHUD != NULL)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : FVector::ZeroVector) + RelHitLocation, Damage, DamageType, InstigatedBy != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedBy, this));
+		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : GetViewTarget()->GetActorLocation()) + RelHitLocation, Damage, DamageType, InstigatedBy != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedBy, this));
 	}
 }
 
