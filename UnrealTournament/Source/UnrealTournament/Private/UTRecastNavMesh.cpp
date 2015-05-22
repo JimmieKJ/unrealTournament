@@ -1059,11 +1059,6 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 										float RequiredJumpZ = 0.0f;
 										if (OnlyJumpReachable(DefaultScout, WallCenter, TestLoc, PolyRef, It.Key(), -1.0f, &RequiredJumpZ))
 										{
-											if ((PolyCenter - FVector(450.000000, 710.000000, 592.000000)).Size() < 300.0f && (TestLoc - FVector(830.000000, 310.189240, 689.621521)).Size2D() < 200.0f)
-											{
-												UE_LOG(UT, Log, TEXT("Test"));
-											}
-
 											bool bNeedsJumpSpec = RequiredJumpZ > BaseJumpZ;
 											// TODO: account for MaxFallSpeed
 											bool bFound = false;
