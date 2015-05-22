@@ -471,7 +471,7 @@ void SUWGameSetupDialog::BuildMapPanel()
 				FString Title = MapPlayList[i].MapName;
 				FString ToolTip = MapPlayList[i].MapName;
 				
-				if (MapPlayList[i].LevelSummary.IsValid())
+				if (MapPlayList[i].LevelSummary != NULL)
 				{
 					Title = MapPlayList[i].LevelSummary->Title.IsEmpty() ? Title : MapPlayList[i].LevelSummary->Title;
 					ToolTip = MapPlayList[i].LevelSummary->Description.IsEmpty() ? ToolTip : MapPlayList[i].LevelSummary->Description.ToString();
@@ -629,7 +629,7 @@ FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 			if (Cnt == SelectedRuleset->MapPlaylistSize)
 			{
 				MapPlayList[MapIndex].Button->UnPressed();
-				FText Msg = FText::Format(NSLOCTEXT("SUWGameSetupDialog","TooManyMaps","You can only have {0} maps in a play list at any given time.  Plesae unselect a map before adding another."), FText::AsNumber(SelectedRuleset->MapPlaylistSize));
+				FText Msg = FText::Format(NSLOCTEXT("SUWGameSetupDialog","TooManyMaps","You can only have {0} maps in a play list at any given time.  Please unselect a map before adding another."), FText::AsNumber(SelectedRuleset->MapPlaylistSize));
 				GetPlayerOwner()->MessageBox(NSLOCTEXT("SUWGameSetupDialog","TooManyMapsTitle","Too many maps"), Msg);
 			}
 			else
