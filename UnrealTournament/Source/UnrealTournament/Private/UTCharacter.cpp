@@ -935,6 +935,16 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
+		// send hit notify for spectators
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+			if (PC != NULL && PC->GetViewTarget() == this && PC->GetPawn() != this)
+			{
+				PC->ClientNotifyTakeHit(NULL, LastTakeHitInfo.Damage, LastTakeHitInfo.Momentum, LastTakeHitInfo.RelHitLocation, LastTakeHitInfo.DamageType);
+			}
+		}
+
 		// never play armor effect if dead, prefer blood
 		bool bPlayedArmorEffect = (LastTakeHitInfo.HitArmor != NULL && !bTearOff) ? LastTakeHitInfo.HitArmor.GetDefaultObject()->HandleArmorEffects(this) : false;
 		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
@@ -1068,7 +1078,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 			LastPainSoundTime = GetWorld()->TimeSeconds;
 		}
 
-		AUTPlayerController* PC = GetLocalViewer();
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
 		if (PC != NULL)
 		{
 			PC->NotifyTakeHit(InstigatedBy, Damage, Momentum, DamageEvent);
@@ -1874,9 +1884,16 @@ void AUTCharacter::FiringInfoUpdated()
 			Weapon->GetImpactSpawnPosition(FlashLocation, SpawnLocation, SpawnRotation);
 			Weapon->PlayImpactEffects(FlashLocation, EffectFiringMode, SpawnLocation, SpawnRotation);
 		}
-		else if (Controller == NULL && FlashCount != 0)
+		else if (Controller == NULL)
 		{
-			Weapon->PlayFiringEffects();
+			if (FlashCount != 0)
+			{
+				Weapon->PlayFiringEffects();
+			}
+			else
+			{
+				Weapon->StopFiringEffects();
+			}
 		}
 	}
 	else if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
@@ -4736,6 +4753,7 @@ void AUTCharacter::BehindViewChange(APlayerController* PC, bool bNowBehindView)
 		{
 			if (Weapon != NULL && (Controller == NULL || !Controller->IsLocalPlayerController()) && Weapon->Mesh->IsAttachedTo(CharacterCameraComponent))
 			{
+				Weapon->StopFiringEffects();
 				Weapon->DetachFromOwner();
 			}
 		}

@@ -503,8 +503,8 @@ void AUTHUD::DrawNumber(int32 Number, float X, float Y, FLinearColor Color, floa
 void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire)
 {
 	// Calculate the rotation 	
-	AUTCharacter* UTC = UTPlayerOwner->GetUTCharacter();
-	if (UTC != NULL && ! UTC->IsDead() && (DamageAmount > 0))	// If have a pawn and it's alive...
+	AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
+	if (UTC != NULL && !UTC->IsDead() && DamageAmount > 0)	// If have a pawn and it's alive...
 	{
 		FVector CharacterLocation;
 		FRotator CharacterRotation;
