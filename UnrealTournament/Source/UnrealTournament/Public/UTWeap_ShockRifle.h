@@ -55,7 +55,7 @@ class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = Mesh)
 	float LastClientKillTime;
 	
-	virtual void AttachToOwnerNative() override;
+	virtual void AttachToOwner_Implementation() override;
 	UFUNCTION()
 	virtual void UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height);
 	virtual void Tick(float DeltaTime) override;
@@ -84,4 +84,7 @@ class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 
 	virtual bool IsPreparingAttack_Implementation() override;
 	virtual bool ShouldAIDelayFiring_Implementation() override;
+
+	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const override;
+	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const override;
 };

@@ -5,8 +5,9 @@
 #include "UnrealNetwork.h"
 #include "UTRecastNavMesh.h"
 #include "UTPickupMessage.h"
+#include "UTWorldSettings.h"
 
-static FName NAME_PercentComplete(TEXT("PercentComplete"));
+static FName NAME_Progress(TEXT("Progress"));
 
 void AUTPickup::PostEditImport()
 {
@@ -29,16 +30,23 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	Collision->InitCapsuleSize(64.0f, 75.0f);
 	RootComponent = Collision;
 
-	// can't - not exposed
-	/*TimerSprite = ObjectInitializer.CreateDefaultSubobject<UMaterialBillboardComponent>(this, TEXT("TimerSprite"));
-	if (TimerSprite != NULL)
+	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
+	if (TimerEffect != NULL)
 	{
-		TimerSprite->Elements.AddZeroed(1);
-		TimerSprite->Elements[0].BaseSizeX = 16.0f;
-		TimerSprite->Elements[0].BaseSizeY = 16.0f;
-		TimerSprite->SetHiddenInGame(true);
-		TimerSprite->AttachParent = RootComponent;
-	}*/
+		TimerEffect->SetHiddenInGame(true);
+		TimerEffect->AttachParent = RootComponent;
+		TimerEffect->LDMaxDrawDistance = 1024.0f;
+		TimerEffect->RelativeLocation.Z = 40.0f;
+	}
+	BaseEffect = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, TEXT("BaseEffect"));
+	if (BaseEffect != NULL)
+	{
+		BaseEffect->AttachParent = RootComponent;
+		BaseEffect->LDMaxDrawDistance = 2048.0f;
+		BaseEffect->RelativeLocation.Z = -58.0f;
+	}
+	TakenEffectTransform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
+	RespawnEffectTransform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
 
 	State.bActive = true;
 	RespawnTime = 30.0f;
@@ -52,31 +60,13 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	TeamSide = 255;
 }
 
-void AUTPickup::SetupTimerSprite()
-{
-	if (GetWorld()->IsGameWorld())
-	{
-		// due to editor limitations the TimerSprite gets set via the blueprint construction script - initialize its material instance here
-		if (TimerSprite != NULL && TimerSprite->Elements.Num() > 0)
-		{
-			if (TimerMI == NULL)
-			{
-				TimerMI = UMaterialInstanceDynamic::Create(TimerSprite->Elements[0].Material, GetWorld());
-			}
-			TimerSprite->Elements[0].Material = TimerMI;
-			TimerSprite->LDMaxDrawDistance = 1024.0f;
-			TimerSprite->SetHiddenInGame(true);
-		}
-	}
-}
-
 void AUTPickup::SetTacCom(bool bTacComEnabled)
 {
-	if (bHasTacComView && TimerSprite)
+	if (bHasTacComView && TimerEffect != NULL)
 	{
-		TimerSprite->LDMaxDrawDistance = bTacComEnabled ? 50000.f : 1024.f;
-		TimerSprite->CachedMaxDrawDistance = TimerSprite->LDMaxDrawDistance; 
-		TimerSprite->MarkRenderStateDirty();
+		TimerEffect->LDMaxDrawDistance = bTacComEnabled ? 50000.f : 1024.f;
+		TimerEffect->CachedMaxDrawDistance = TimerEffect->LDMaxDrawDistance;
+		TimerEffect->MarkRenderStateDirty();
 	}
 }
 
@@ -84,7 +74,10 @@ void AUTPickup::BeginPlay()
 {
 	Super::BeginPlay();
 
-	SetupTimerSprite();
+	if (BaseEffect != NULL && BaseTemplateAvailable != NULL)
+	{
+		BaseEffect->SetTemplate(BaseTemplateAvailable);
+	}
 
 	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 	if (NavData != NULL)
@@ -215,18 +208,23 @@ void AUTPickup::StartSleeping_Implementation()
 	if (RespawnTime > 0.0f)
 	{
 		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
-		if (TimerSprite != NULL && TimerSprite->Elements.Num() > 0)
+		if (TimerEffect != NULL && TimerEffect->Template != NULL)
 		{
-			if (TimerMI != NULL)
-			{
-				TimerMI->SetScalarParameterValue(NAME_PercentComplete, 0.0f);
-			}
-			TimerSprite->SetHiddenInGame(false);
-		}
-		if (TimerSprite != NULL)
-		{
+			// FIXME: workaround for particle bug; screen facing particles don't handle negative scale correctly
+			FVector FixedScale = TimerEffect->GetComponentScale();
+			FixedScale = FVector(FMath::Abs<float>(FixedScale.X), FMath::Abs<float>(FixedScale.Y), FMath::Abs<float>(FixedScale.Z));
+			TimerEffect->SetWorldScale3D(FixedScale);
+
+			TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
+			TimerEffect->SetHiddenInGame(false);
 			PrimaryActorTick.SetTickFunctionEnable(true);
 		}
+	}
+
+	// this needs to be done redundantly because not all paths for all pickups call both StartSleeping() and PlayTakenEffects()
+	if (BaseEffect != NULL && BaseTemplateTaken != NULL)
+	{
+		BaseEffect->SetTemplate(BaseTemplateTaken);
 	}
 
 	if (Role == ROLE_Authority)
@@ -238,15 +236,26 @@ void AUTPickup::StartSleeping_Implementation()
 }
 void AUTPickup::PlayTakenEffects(bool bReplicate)
 {
-	if (bReplicate)
+	if (bReplicate && Role == ROLE_Authority)
 	{
 		State.bRepTakenEffects = true;
 		ForceNetUpdate();
 	}
-	// TODO: EffectIsRelevant() ?
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent);
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS == NULL || WS->EffectIsRelevant(this, GetActorLocation(), true, false, 10000.0f, 1000.0f, false))
+		{
+			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent, NAME_None, TakenEffectTransform.GetLocation(), TakenEffectTransform.GetRotation().Rotator());
+			if (PSC != NULL)
+			{
+				PSC->SetRelativeScale3D(TakenEffectTransform.GetScale3D());
+			}
+		}
+		if (BaseEffect != NULL && BaseTemplateTaken != NULL)
+		{
+			BaseEffect->SetTemplate(BaseTemplateTaken);
+		}
 		UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 	}
 }
@@ -256,9 +265,9 @@ void AUTPickup::WakeUp_Implementation()
 	GetWorld()->GetTimerManager().ClearTimer(WakeUpTimerHandle);
 
 	PrimaryActorTick.SetTickFunctionEnable(GetClass()->GetDefaultObject<AUTPickup>()->PrimaryActorTick.bStartWithTickEnabled);
-	if (TimerSprite != NULL)
+	if (TimerEffect != NULL)
 	{
-		TimerSprite->SetHiddenInGame(true);
+		TimerEffect->SetHiddenInGame(true);
 	}
 
 	if (Role == ROLE_Authority)
@@ -284,9 +293,9 @@ void AUTPickup::WakeUpTimer()
 	else
 	{
 		// it's possible we're out of sync, so set up a state that indicates the pickup should respawn any time now, but isn't yet available
-		if (TimerMI != NULL)
+		if (TimerEffect != NULL)
 		{
-			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 0.99f);
+			TimerEffect->SetFloatParameter(NAME_Progress, 0.99f);
 		}
 	}
 }
@@ -295,7 +304,15 @@ void AUTPickup::PlayRespawnEffects()
 	// TODO: EffectIsRelevant() ?
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		UGameplayStatics::SpawnEmitterAttached(RespawnParticles, RootComponent);
+		UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAttached(RespawnParticles, RootComponent, NAME_None, RespawnEffectTransform.GetLocation(), RespawnEffectTransform.GetRotation().Rotator());
+		if (PSC != NULL)
+		{
+			PSC->SetRelativeScale3D(RespawnEffectTransform.GetScale3D());
+		}
+		if (BaseEffect != NULL && BaseTemplateAvailable != NULL)
+		{
+			BaseEffect->SetTemplate(BaseTemplateAvailable);
+		}
 		UUTGameplayStatics::UTPlaySound(GetWorld(), RespawnSound, this, SRT_None);
 	}
 }
@@ -320,9 +337,9 @@ void AUTPickup::Tick(float DeltaTime)
 	UWorld* World = GetWorld();
 	if (RespawnTime > 0.0f && !State.bActive && World->GetTimerManager().IsTimerActive(WakeUpTimerHandle))
 	{
-		if (TimerMI != NULL)
+		if (TimerEffect != NULL)
 		{
-			TimerMI->SetScalarParameterValue(NAME_PercentComplete, 1.0f - World->GetTimerManager().GetTimerRemaining(WakeUpTimerHandle) / RespawnTime);
+			TimerEffect->SetFloatParameter(NAME_Progress, 1.0f - World->GetTimerManager().GetTimerRemaining(WakeUpTimerHandle) / RespawnTime);
 		}
 	}
 }
@@ -362,7 +379,7 @@ void AUTPickup::PostNetReceive()
 	}
 	if (!State.bActive && State.bRepTakenEffects)
 	{
-		PlayTakenEffects(false);
+		PlayTakenEffects(true);
 	}
 }
 

@@ -98,7 +98,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	float Opacity;
 
-	// The opacity of this widget
+	// Whether to colorize this widget using base HUD color (like team color)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
 	uint32 bIgnoreHUDBaseColor:1;
 	

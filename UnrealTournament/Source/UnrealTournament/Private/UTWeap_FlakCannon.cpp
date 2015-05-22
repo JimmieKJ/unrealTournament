@@ -5,6 +5,7 @@
 #include "UTProj_FlakShard.h"
 #include "UTProj_FlakShell.h"
 #include "UTProj_FlakShardMain.h"
+#include "StatNames.h"
 
 AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -46,6 +47,11 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 	MultiShotCount[0] = 9;
 
 	MultiShotProjClass.SetNumZeroed(1);
+
+	KillStatsName = NAME_FlakShardKills;
+	AltKillStatsName = NAME_FlakShellKills;
+	DeathStatsName = NAME_FlakShardDeaths;
+	AltDeathStatsName = NAME_FlakShellDeaths;
 }
 
 FVector AUTWeap_FlakCannon::GetFireLocationForMultiShot_Implementation(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation)

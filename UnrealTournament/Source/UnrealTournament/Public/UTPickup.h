@@ -6,14 +6,6 @@
 #include "UTPlayerState.h"
 #include "UTPickup.generated.h"
 
-UENUM()
-enum EPickupClassification
-{
-	PC_Minor,
-	PC_Major,
-	PC_Super,
-};
-
 USTRUCT()
 struct FPickupReplicatedState
 {
@@ -39,11 +31,20 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	UCapsuleComponent* Collision;
-	// hack: UMaterialBillboardComponent isn't exposed, can't use native subobject
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadWrite, Category = Pickup)
-	UMaterialBillboardComponent* TimerSprite;
-	//UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
-	//TSubobjectPtr<UMaterialBillboardComponent> TimerSprite;
+	/** particles for the pickup timer, if enabled
+	 * the parameter "Progress" should be used for the indicator
+	 */
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	UParticleSystemComponent* TimerEffect;
+	/** particles emitted from the base/bottom of the pickup */
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	UParticleSystemComponent* BaseEffect;
+	/** template for BaseEffect when pickup is available */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+	UParticleSystem* BaseTemplateAvailable;
+	/** template for BaseEffect when pickup has been taken */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+	UParticleSystem* BaseTemplateTaken;
 
 	/** respawn time for the pickup; if it's <= 0 then the pickup doesn't respawn until the round resets */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
@@ -56,12 +57,16 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	/** one-shot particle effect played when the pickup is taken */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* TakenParticles;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	FTransform TakenEffectTransform;
 	/** one-shot sound played when the pickup is taken */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	USoundBase* TakenSound;
 	/** one-shot particle effect played when the pickup respawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* RespawnParticles;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	FTransform RespawnEffectTransform;
 	/** one-shot sound played when the pickup respawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	USoundBase* RespawnSound;
@@ -86,7 +91,7 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
-		bool bHasTacComView;
+	bool bHasTacComView;
 
 	virtual void SetTacCom(bool bTacComEnabled);
 
@@ -133,9 +138,6 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	virtual void Reset_Implementation() override;
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);
-	
-	// Handle creating the MID and hiding timer sprite by default
-	void SetupTimerSprite();
 
 	/** base desireability for AI acquisition/inventory searches (i.e. BotDesireability()) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)

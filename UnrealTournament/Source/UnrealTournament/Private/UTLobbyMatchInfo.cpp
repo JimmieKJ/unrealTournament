@@ -6,6 +6,8 @@
 #include "UTLobbyMatchInfo.h"
 #include "Net/UnrealNetwork.h"
 #include "UTGameEngine.h"
+#include "UTLevelSummary.h"
+#include "UTReplicatedGameRuleset.h"
 
 
 AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectInitializer)
@@ -112,13 +114,9 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 			}
 		}
 
-		for (int32 i=0;i<BannedIDs.Num();i++)
+		if (IsBanned(PlayerToAdd->UniqueId))
 		{
-			if (PlayerToAdd->UniqueId == BannedIDs[i])
-			{
-				PlayerToAdd->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
-				return;
-			}
+			PlayerToAdd->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
 		}
 		// Add code for private/invite only matches
 	}
@@ -308,7 +306,26 @@ void AUTLobbyMatchInfo::LaunchMatch()
 	{
 		if (MapList.Num() > 0)
 		{
-			LobbyGameState->LaunchGameInstance(this, CurrentRuleset->GameMode, MapList[0], CurrentRuleset->GameOptions, CurrentRuleset->MaxPlayers, BotSkillLevel);
+			// build all of the data needed to launch the map.
+
+			FString GameURL = FString::Printf(TEXT("%s?Game=%s?MaxPlayers=%i"),*MapList[0], *CurrentRuleset->GameMode, CurrentRuleset->MaxPlayers);
+			GameURL += CurrentRuleset->GameOptions;
+
+			if (!CurrentRuleset->bCustomRuleset)
+			{
+				// Custom rules already have their bot info set
+				
+				// Load the level summary of this map.
+				UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MapList[0]);
+				int32 OptimalPlayerCount = CurrentRuleset->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+
+				if (BotSkillLevel >= 0)
+				{
+					GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(BotSkillLevel,0,7));			
+				}
+			}
+
+			LobbyGameState->LaunchGameInstance(this, GameURL);
 		}
 		else
 		{
@@ -322,7 +339,7 @@ void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 {
 	if (CheckLobbyGameState())
 	{
-		LobbyGameState->TerminateGameInstance(this);
+		LobbyGameState->TerminateGameInstance(this, true);
 	}
 
 	SetLobbyMatchState(ELobbyMatchState::WaitingForPlayers);
@@ -526,15 +543,15 @@ void AUTLobbyMatchInfo::OnRep_MatchStats()
 bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs)
 {
 	NeededPackageURLs.Empty();
-	for (int32 i = 0; i < CurrentRuleset->CustomPackages.Num(); i++)
+	for (int32 i = 0; i < CurrentRuleset->RequiredPackages.Num(); i++)
 	{
-		FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *CurrentRuleset->CustomPackages[i]) + TEXT(".pak");
+		FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *CurrentRuleset->RequiredPackages[i].PackageName) + TEXT(".pak");
 		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 		if (UTEngine)
 		{
-			if (UTEngine->LocalContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			if (UTEngine->LocalContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
 			{
-				if (UTEngine->LocalContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				if (UTEngine->LocalContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
 				{
 					continue;
 				}
@@ -545,9 +562,9 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 				}
 			}
 
-			if (UTEngine->MountedDownloadedContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			if (UTEngine->MountedDownloadedContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
 			{
-				if (UTEngine->MountedDownloadedContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				if (UTEngine->MountedDownloadedContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
 				{
 					// We've already mounted the content needed and the checksum matches
 					continue;
@@ -561,39 +578,132 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 					}
 
 					// Remove the CRC entry
-					UTEngine->MountedDownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
-					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
+					UTEngine->MountedDownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
+					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
 
 					// Delete the original file
 					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
 				}
 			}
 
-			if (UTEngine->DownloadedContentChecksums.Contains(CurrentRuleset->CustomPackages[i]))
+			if (UTEngine->DownloadedContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
 			{
-				if (UTEngine->DownloadedContentChecksums[CurrentRuleset->CustomPackages[i]] == CurrentRuleset->CustomPackagesChecksums[i])
+				if (UTEngine->DownloadedContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
 				{
 					// Mount the pak
 					if (FCoreDelegates::OnMountPak.IsBound())
 					{
 						FCoreDelegates::OnMountPak.Execute(Path, 0);
-						UTEngine->MountedDownloadedContentChecksums.Add(CurrentRuleset->CustomPackages[i], CurrentRuleset->CustomPackagesChecksums[i]);
+						UTEngine->MountedDownloadedContentChecksums.Add(CurrentRuleset->RequiredPackages[i].PackageName, CurrentRuleset->RequiredPackages[i].PackageChecksum);
 					}
 
 					continue;
 				}
 				else
 				{
-					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->CustomPackages[i]);
+					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
 
 					// Delete the original file
 					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
 				}
 			}
 
-			NeededPackageURLs.Add(CurrentRuleset->CustomPackagesRedirectURLs[i]);
+			NeededPackageURLs.Add(CurrentRuleset->RequiredPackages[i].PackageURL);
 		}
 	}
 
 	return true;
+}
+
+bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount) { return true; }
+void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount)
+{
+	// We need to build a one off custom replicated ruleset just for this hub.  :)
+
+	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+
+	FActorSpawnParameters Params;
+	Params.Owner = GameState;
+	AUTReplicatedGameRuleset* NewReplicatedRuleset = GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
+	if (NewReplicatedRuleset)
+	{
+
+		// Look up the game mode in the AllowedGameData array and get the text description.
+
+		FString Desc = TEXT("A custom match.");
+		for (int32 i=0;i<GameState->AllowedGameData.Num();i++)
+		{
+			if (GameState->AllowedGameData[i].Package.Equals(GameMode, ESearchCase::IgnoreCase))
+			{
+				Desc = FString::Printf(TEXT("A custom %s match!"), *GameState->AllowedGameData[i].MenuDescription);
+				break;
+			}
+		
+		}
+
+		NewReplicatedRuleset->Title = TEXT("Custom Rule");
+		NewReplicatedRuleset->Tooltip = TEXT("");
+		NewReplicatedRuleset->Description = Desc + TEXT("\nBe warned, anything goes in here, so enter at your own risk.\n");
+
+		int32 PlayerCount = 20;
+
+		for (int32 i=0; i < GameOptions.Num(); i++)
+		{
+			NewReplicatedRuleset->Description += GameOptions[i] + TEXT("\n");
+		}
+
+		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount;
+		if (DesiredSkillLevel >= 0)
+		{
+			//NewReplicatedRuleset->
+		}
+
+		NewReplicatedRuleset->GameMode = GameMode;
+		NewReplicatedRuleset->GameModeClass = GameMode;
+
+		FString FinalGameOptions = TEXT("");
+		for (int32 i=0; i<GameOptions.Num();i++)
+		{
+			FinalGameOptions += TEXT("?") + GameOptions[i];
+		}
+
+		if (DesiredSkillLevel >= 0)
+		{
+			// Load the level summary of this map.
+			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
+
+			// This match wants bots.  
+			int32 OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
+		}
+
+		NewReplicatedRuleset->GameOptions = FinalGameOptions;
+
+
+		NewReplicatedRuleset->MapPlaylistSize = 1;
+		NewReplicatedRuleset->MapPlaylist.Add(StartingMap);
+		NewReplicatedRuleset->MinPlayersToStart = 2;
+		NewReplicatedRuleset->MaxPlayers = 16;
+		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";
+		NewReplicatedRuleset->bCustomRuleset = true;
+
+		MapList.Add(StartingMap);
+
+		// Add code to setup the required packages array
+		CurrentRuleset = NewReplicatedRuleset;
+	}
+
+}
+
+bool AUTLobbyMatchInfo::IsBanned(FUniqueNetIdRepl Who)
+{
+	for (int32 i=0;i<BannedIDs.Num();i++)
+	{
+		if (Who == BannedIDs[i])
+		{
+			return true;
+		}
+	}
+
+	return false;
 }

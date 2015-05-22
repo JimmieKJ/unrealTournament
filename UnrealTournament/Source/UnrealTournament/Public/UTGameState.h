@@ -6,6 +6,8 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
 
+class AUTGameMode;
+
 struct FLoadoutInfo;
 
 UCLASS(Config = Game)
@@ -255,6 +257,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	 */
 	virtual void CompactSpectatingIDs();
 
+	UPROPERTY()
+		FName SecondaryAttackerStat;
+
 protected:
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()
@@ -307,6 +312,22 @@ public:
 	{
 		return 255;
 	};
+
+
+	// Used to get a list of game modes and maps that can be choosen from the menu.  Typically, this just pulls all of 
+	// available local content however, in hubs it will be from data replicated from the server.
+
+	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
+	virtual void GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList);
+
+	UPROPERTY()
+		TArray<FName> GameScoreStats;
+
+	UPROPERTY()
+		TArray<FName> TeamStats;
+
+	UPROPERTY()
+		TArray<FName> WeaponStats;
 };
 
 

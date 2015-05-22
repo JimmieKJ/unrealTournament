@@ -158,20 +158,6 @@ void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other,
 
 			OnEncroachActor(Other);
 			LastEncroachNotifyTime = GetWorld()->GetTimeSeconds();
-
-			// make sure bots on lift move to center in case they are causing the lift to fail by hitting their head on the sides
-			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
-			{
-				AUTBot* B = Cast<AUTBot>(It->Get());
-				if (B != NULL && B->GetCharacter() != NULL && B->GetCharacter()->GetCharacterMovement()->GetMovementBase() == EncroachComponent)
-				{
-					UUTReachSpec_Lift* LiftPath = Cast<UUTReachSpec_Lift>(B->GetCurrentPath().Spec.Get());
-					if (LiftPath != NULL)
-					{
-						B->SetMoveTargetDirect(FRouteCacheItem(LiftPath->LiftCenter + FVector(0.0f, 0.0f, B->GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight())));
-					}
-				}
-			}
 		}
 	}
 }

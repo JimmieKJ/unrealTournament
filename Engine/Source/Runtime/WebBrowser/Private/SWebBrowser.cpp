@@ -16,6 +16,11 @@ SWebBrowser::SWebBrowser()
 
 void SWebBrowser::Construct(const FArguments& InArgs)
 {
+    OnJSQueryReceived = InArgs._OnJSQueryReceived;
+    OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
+	OnBeforeBrowse = InArgs._OnBeforeBrowse;
+	OnBeforePopup = InArgs._OnBeforePopup;
+    
 	void* OSWindowHandle = nullptr;
 	if (InArgs._ParentWindow.IsValid())
 	{
@@ -100,6 +105,11 @@ void SWebBrowser::Construct(const FArguments& InArgs)
 
 	if (BrowserWindow.IsValid())
 	{
+		BrowserWindow->OnJSQueryReceived().BindSP(this, &SWebBrowser::HandleJSQueryReceived);
+		BrowserWindow->OnJSQueryCanceled().BindSP(this, &SWebBrowser::HandleJSQueryCanceled);
+		BrowserWindow->OnBeforeBrowse().BindSP(this, &SWebBrowser::HandleBeforeBrowse);
+		BrowserWindow->OnBeforePopup().BindSP(this, &SWebBrowser::HandleBeforePopup);
+
 		BrowserViewport = MakeShareable(new FWebBrowserViewport(BrowserWindow, ViewportWidget));
 		ViewportWidget->SetViewportInterface(BrowserViewport.ToSharedRef());
 	}
@@ -199,4 +209,45 @@ EVisibility SWebBrowser::GetLoadingThrobberVisibility() const
 	return EVisibility::Hidden;
 }
 
+bool SWebBrowser::HandleJSQueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
+{
+    if (OnJSQueryReceived.IsBound())
+    {
+        return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
+    }
+    return false;
+}
+
+void SWebBrowser::HandleJSQueryCanceled( int64 QueryId )
+{
+    OnJSQueryCanceled.ExecuteIfBound(QueryId);
+}
+
+bool SWebBrowser::HandleBeforeBrowse(FString URL, bool bIsRedirect)
+{
+	if ( OnBeforeBrowse.IsBound() )
+	{
+		return OnBeforeBrowse.Execute(URL, bIsRedirect);
+	}
+
+	return false;
+}
+
+bool SWebBrowser::HandleBeforePopup(FString URL, FString Target)
+{
+	if ( OnBeforePopup.IsBound() )
+	{
+		return OnBeforePopup.Execute(URL, Target);
+	}
+
+	return false;
+}
+
+void SWebBrowser::ExecuteJavascript(const FString& JS)
+{ 
+	if (BrowserWindow.IsValid())
+	{
+		BrowserWindow->ExecuteJavascript(JS);
+	}
+}
 #undef LOCTEXT_NAMESPACE

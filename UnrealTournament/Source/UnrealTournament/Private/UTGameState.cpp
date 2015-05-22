@@ -8,6 +8,8 @@
 #include "Net/UnrealNetwork.h"
 #include "UTTimerMessage.h"
 #include "UTReplicatedLoadoutInfo.h"
+#include "UTMutator.h"
+#include "StatNames.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -24,6 +26,80 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
+	SecondaryAttackerStat = NAME_None;
+
+	GameScoreStats.Add(NAME_AttackerScore);
+	GameScoreStats.Add(NAME_DefenderScore);
+	GameScoreStats.Add(NAME_SupporterScore);
+
+	GameScoreStats.Add(NAME_UDamageTime);
+	GameScoreStats.Add(NAME_BerserkTime);
+	GameScoreStats.Add(NAME_InvisibilityTime);
+	GameScoreStats.Add(NAME_BootJumps);
+	GameScoreStats.Add(NAME_ShieldBeltCount);
+	GameScoreStats.Add(NAME_ArmorVestCount);
+	GameScoreStats.Add(NAME_ArmorPadsCount);
+	GameScoreStats.Add(NAME_HelmetCount);
+
+	GameScoreStats.Add(NAME_MultiKillLevel0);
+	GameScoreStats.Add(NAME_MultiKillLevel1);
+	GameScoreStats.Add(NAME_MultiKillLevel2);
+	GameScoreStats.Add(NAME_MultiKillLevel3);
+	GameScoreStats.Add(NAME_SpreeKillLevel0);
+	GameScoreStats.Add(NAME_SpreeKillLevel1);
+	GameScoreStats.Add(NAME_SpreeKillLevel2);
+	GameScoreStats.Add(NAME_SpreeKillLevel3);
+	GameScoreStats.Add(NAME_SpreeKillLevel4);
+
+	TeamStats.Add(NAME_TeamKills);
+	TeamStats.Add(NAME_UDamageTime);
+	TeamStats.Add(NAME_BerserkTime);
+	TeamStats.Add(NAME_InvisibilityTime);
+	TeamStats.Add(NAME_BootJumps);
+	TeamStats.Add(NAME_ShieldBeltCount);
+	TeamStats.Add(NAME_ArmorVestCount);
+	TeamStats.Add(NAME_ArmorPadsCount);
+	TeamStats.Add(NAME_HelmetCount);
+
+	WeaponStats.Add(NAME_ImpactHammerKills);
+	WeaponStats.Add(NAME_EnforcerKills);
+	WeaponStats.Add(NAME_BioRifleKills);
+	WeaponStats.Add(NAME_ShockBeamKills);
+	WeaponStats.Add(NAME_ShockCoreKills);
+	WeaponStats.Add(NAME_ShockComboKills);
+	WeaponStats.Add(NAME_LinkKills);
+	WeaponStats.Add(NAME_LinkBeamKills);
+	WeaponStats.Add(NAME_MinigunKills);
+	WeaponStats.Add(NAME_MinigunShardKills);
+	WeaponStats.Add(NAME_FlakShardKills);
+	WeaponStats.Add(NAME_FlakShellKills);
+	WeaponStats.Add(NAME_RocketKills);
+	WeaponStats.Add(NAME_SniperKills);
+	WeaponStats.Add(NAME_SniperHeadshotKills);
+	WeaponStats.Add(NAME_RedeemerKills);
+	WeaponStats.Add(NAME_InstagibKills);
+
+	WeaponStats.Add(NAME_ImpactHammerDeaths);
+	WeaponStats.Add(NAME_EnforcerDeaths);
+	WeaponStats.Add(NAME_BioRifleDeaths);
+	WeaponStats.Add(NAME_ShockBeamDeaths);
+	WeaponStats.Add(NAME_ShockCoreDeaths);
+	WeaponStats.Add(NAME_ShockComboDeaths);
+	WeaponStats.Add(NAME_LinkDeaths);
+	WeaponStats.Add(NAME_LinkBeamDeaths);
+	WeaponStats.Add(NAME_MinigunDeaths);
+	WeaponStats.Add(NAME_MinigunShardDeaths);
+	WeaponStats.Add(NAME_FlakShardDeaths);
+	WeaponStats.Add(NAME_FlakShellDeaths);
+	WeaponStats.Add(NAME_RocketDeaths);
+	WeaponStats.Add(NAME_SniperDeaths);
+	WeaponStats.Add(NAME_SniperHeadshotDeaths);
+	WeaponStats.Add(NAME_RedeemerDeaths);
+	WeaponStats.Add(NAME_InstagibDeaths);
+
+	WeaponStats.Add(NAME_BestShockCombo);
+	WeaponStats.Add(NAME_AirRox);
+	WeaponStats.Add(NAME_AmazingCombos);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -785,6 +861,83 @@ void AUTGameState::VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter)
 					TempBans.Add(BadGuy->UniqueId.GetUniqueNetId());				
 				}
 			}
+		}
+	}
+}
+
+void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList)
+{
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		// non-native classes are detected by asset search even if they're loaded for consistency
+		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown) && It->HasAnyClassFlags(CLASS_Native))
+		{
+			if (It->IsChildOf(AUTGameMode::StaticClass()))
+			{
+				if (!It->GetDefaultObject<AUTGameMode>()->bHideInUI)
+				{
+					GameModes.Add(*It);
+				}
+			}
+			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
+			{
+				MutatorList.Add(*It);
+			}
+		}
+	}
+
+	{
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTGameMode::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()) && !TestClass->GetDefaultObject<AUTGameMode>()->bHideInUI)
+				{
+					GameModes.AddUnique(TestClass);
+				}
+			}
+		}
+	}
+
+	{
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTMutator::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTMutator::StaticClass()) && !TestClass->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
+				{
+					MutatorList.AddUnique(TestClass);
+				}
+			}
+		}
+	}
+}
+
+void AUTGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList)
+{
+	TArray<FAssetData> MapAssets;
+	GetAllAssetData(UWorld::StaticClass(), MapAssets);
+	for (const FAssetData& Asset : MapAssets)
+	{
+		FString MapPackageName = Asset.PackageName.ToString();
+		// ignore /Engine/ as those aren't real gameplay maps
+		// make sure expected file is really there
+		if ( DefaultGameMode->SupportsMap(Asset.AssetName.ToString()) && !MapPackageName.StartsWith(TEXT("/Engine/")) &&
+			IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
+		{
+			static FName NAME_Title(TEXT("Title"));
+			const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
+			MapList.Add(MakeShareable(new FMapListItem(Asset.AssetName.ToString(), (Title != NULL) ? *Title : FString())));
 		}
 	}
 }

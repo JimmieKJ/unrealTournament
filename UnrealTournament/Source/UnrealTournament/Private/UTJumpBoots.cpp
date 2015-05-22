@@ -5,6 +5,7 @@
 #include "UTCharacterMovement.h"
 #include "UnrealNetwork.h"
 #include "UTHUDWidget_Powerups.h"
+#include "StatNames.h"
 
 AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -108,6 +109,19 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 				Params.Instigator = GetUTOwner();
 				GetWorld()->SpawnActor<AUTReplicatedEmitter>(SuperJumpEffect, GetUTOwner()->GetActorLocation(), GetUTOwner()->GetActorRotation(), Params);
 			}
+			if (GetUTOwner())
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(GetUTOwner()->PlayerState);
+				if (PS)
+				{
+					PS->ModifyStatsValue(NAME_BootJumps, 1);
+					if (PS->Team)
+					{
+						PS->Team->ModifyStatsValue(NAME_BootJumps, 1);
+					}
+				}
+			}
+
 			UUTGameplayStatics::UTPlaySound(GetWorld(), SuperJumpSound, GetUTOwner(), SRT_AllButOwner);
 		}
 		else if (EventName == NAME_Landed && NumJumps <= 0)

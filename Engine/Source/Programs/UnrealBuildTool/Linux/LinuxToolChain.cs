@@ -341,24 +341,27 @@ namespace UnrealBuildTool
                 Result += " -fomit-frame-pointer";
                 //Result += " -fvisibility=hidden";           // prevents from exporting all symbols (reduces the size of the binary)
             }
+            // switches to help debugging
             else if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
             {
                 Result += " -fno-inline";                   // disable inlining for better debuggability (e.g. callstacks, "skip file" in gdb)
+                Result += " -fno-omit-frame-pointer";       // force not omitting fp
+                Result += " -fstack-protector";             // detect stack smashing
+                //Result += " -fsanitize=address";            // detect address based errors (support properly and link to libasan)
             }
 
             // debug info
             if (CompileEnvironment.Config.bCreateDebugInfo)
             {
                 Result += " -g3";
-                Result += " -fno-omit-frame-pointer";
-                Result += " -funwind-tables";               // generate unwind tables as they seem to be needed for stack tracing
-                Result += " -fstack-protector";
-                //Result += " -fsanitize=address";  // Preferred clang tool for detecting address based errors but unusable for some reason with Module.Engine.7_of_42.cpp
             }
             else if (CompileEnvironment.Config.Target.Configuration < CPPTargetConfiguration.Shipping)
             {
                 Result += " -gline-tables-only"; // include debug info for meaningful callstacks
             }
+            
+            // libdwarf (from elftoolchain 0.6.1) doesn't support DWARF4
+            Result += " -gdwarf-3";
 
             // optimization level
             if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)

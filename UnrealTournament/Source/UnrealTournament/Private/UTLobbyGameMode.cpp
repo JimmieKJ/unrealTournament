@@ -164,6 +164,7 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 	
 	AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(NewPlayerController->PlayerState);
+
 	if (PS)
 	{	
 		FString QuickStartOption = ParseOption(Options, TEXT("QuickStart"));

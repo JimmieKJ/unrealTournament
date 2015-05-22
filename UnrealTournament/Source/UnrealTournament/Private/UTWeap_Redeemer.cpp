@@ -5,6 +5,7 @@
 #include "UTWeaponState.h"
 #include "UTWeaponStateEquipping.h"
 #include "UTWeaponStateUnequipping.h"
+#include "StatNames.h"
 
 AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -19,6 +20,9 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 	BasePickupDesireability = 1.5f;
 	BaseAISelectRating = 1.5f;
 	FOVOffset = FVector(1.f, 3.f, 3.f);
+
+	KillStatsName = NAME_RedeemerKills;
+	DeathStatsName = NAME_RedeemerDeaths;
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()

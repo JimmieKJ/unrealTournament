@@ -13,7 +13,7 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 {
 	bReplicateUTMovement = true;
 	TransState = TLS_InAir;
-	CollisionComp->SetCollisionProfileName("ProjectileShootable");
+	CollisionComp->SetCollisionProfileName("TransDisk");
 	bAlwaysShootable = true;
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;

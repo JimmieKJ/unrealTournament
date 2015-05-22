@@ -91,6 +91,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float WidgetOpacity;
 
+	/** Cached reference to the spectator message widget. */
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	class UUTHUDWidget_Spectator* SpectatorMessageWidget;
+
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;
@@ -182,8 +186,7 @@ public:
 	/** get player state for which to display scoring info. */
 	virtual AUTPlayerState* GetScorerPlayerState();
 
-	virtual void NotifyMatchStateChange()
-	{}
+	virtual void NotifyMatchStateChange();
 
 	inline UUTScoreboard* GetScoreboard() const
 	{
@@ -297,5 +300,15 @@ public:
 
 private:
 	UTexture2D* DamageIndicatorTexture;
+
+protected:
+	TArray<UTexture2D*> FlagTextures;
+
+public:
+	UPROPERTY(Config)
+	TArray<FFlagInfo> FlagList;
+
+	UTexture2D* ResolveFlag(int32 FlagID, int32& X, int32& Y);
+
 };
 

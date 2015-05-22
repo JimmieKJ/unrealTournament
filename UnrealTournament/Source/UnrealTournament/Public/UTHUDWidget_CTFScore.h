@@ -8,7 +8,7 @@
 
 
 UCLASS()
-class UUTHUDWidget_CTFScore : public UUTHUDWidget_TeamScore
+class UNREALTOURNAMENT_API UUTHUDWidget_CTFScore : public UUTHUDWidget_TeamScore
 {
 	GENERATED_UCLASS_BODY()
 

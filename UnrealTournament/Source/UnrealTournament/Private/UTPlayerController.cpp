@@ -129,6 +129,24 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 }
 
+
+void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	if (GetPawn())
+	{
+		// send to spectators viewing this pawn as well;
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* PC = *Iterator;
+			if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && (PC->GetViewTarget() == GetPawn()))
+			{
+				PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+			}
+		}
+	}
+}
+
 void AUTPlayerController::NetStats()
 {
 	bShowNetInfo = !bShowNetInfo;
@@ -500,13 +518,21 @@ void AUTPlayerController::FOV(float NewFOV)
 	}
 }
 
+void AUTPlayerController::AdvanceStatsPage(int32 Increment)
+{
+	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 1);
+	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
+}
+
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// hack for scoreboard until we have a real interactive system
-	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL)
+	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL && EventType == IE_Pressed)
 	{
 		static FName NAME_Left(TEXT("Left"));
 		static FName NAME_Right(TEXT("Right"));
+		static FName NAME_Down(TEXT("Down"));
+		static FName NAME_Up(TEXT("Up"));
 		if (Key.GetFName() == NAME_Left)
 		{
 			MyUTHUD->GetScoreboard()->AdvancePage(-1);
@@ -516,6 +542,14 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		{
 			MyUTHUD->GetScoreboard()->AdvancePage(+1);
 			return true;
+		}
+		else if (Key.GetFName() == NAME_Up)
+		{
+			AdvanceStatsPage(-1);
+		}
+		else if (Key.GetFName() == NAME_Down)
+		{
+			AdvanceStatsPage(+1);
 		}
 	}
 
@@ -549,6 +583,10 @@ void AUTPlayerController::SwitchToBestWeapon()
 		}
 		UTCharacter->SwitchWeapon(BestWeapon);
 	}
+}
+void AUTPlayerController::ClientSwitchToBestWeapon_Implementation()
+{
+	SwitchToBestWeapon();
 }
 
 void AUTPlayerController::PrevWeapon()
@@ -835,6 +873,7 @@ void AUTPlayerController::ToggleShowBinds()
 void AUTPlayerController::ViewNextPlayer()
 {
 	bAutoCam = false;
+	BehindView(bSpectateBehindView);
 	ServerViewNextPlayer();
 }
 
@@ -887,7 +926,6 @@ void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 {
 	if (PlayerState && PlayerState->bOnlySpectator && PS)
 	{
-		BehindView(bSpectateBehindView);
 		SetViewTarget(PS);
 	}
 }
@@ -1070,6 +1108,7 @@ void AUTPlayerController::OnAltFire()
 		}
 		else
 		{
+			bAutoCam = false;
 			ServerViewSelf();
 		}
 	}
@@ -1514,11 +1553,24 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		// hide first person weapon
 		if (P != NULL && P->GetWeapon() != NULL)
 		{
-			HideComponentTree(P->GetWeapon()->Mesh, HiddenComponents);
+			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
+			for (UMeshComponent* WeapMesh : Meshes)
+			{
+				HideComponentTree(WeapMesh, HiddenComponents);
+			}
 		}
 	}
 	else if (P != NULL)
 	{
+		// hide first person mesh (but not attachments) if hidden weapons
+		if (GetWeaponHand() == HAND_Hidden && P->GetWeapon() != NULL)
+		{
+			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
+			for (UMeshComponent* WeapMesh : Meshes)
+			{
+				HiddenComponents.Add(WeapMesh->ComponentId);
+			}
+		}
 		// hide third person character model
 		HideComponentTree(P->GetMesh(), HiddenComponents);
 		// hide flag
@@ -1690,6 +1742,10 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 		bSpectateBehindView = bWantBehindView;
 	}
 	SetCameraMode(bWantBehindView ? FName(TEXT("FreeCam")) : FName(TEXT("Default")));
+	if (Cast<AUTCharacter>(GetViewTarget()) != NULL)
+	{
+		((AUTCharacter*)GetViewTarget())->BehindViewChange(this, bWantBehindView);
+	}
 }
 
 bool AUTPlayerController::IsBehindView()
@@ -1798,7 +1854,10 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 
 void AUTPlayerController::ShowEndGameScoreboard()
 {
-	MyUTHUD->ToggleScoreboard(true);
+	if (MyUTHUD != NULL)
+	{
+		MyUTHUD->ToggleScoreboard(true);
+	}
 }
 
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
@@ -2132,7 +2191,6 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
 
-
 	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam)
 	{
 		// possibly switch cameras
@@ -2160,9 +2218,65 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	{
 		ClientViewSpectatorPawn(FViewTargetTransitionParams());
 	}
+
 	if (bTacComView && PlayerState && PlayerState->bOnlySpectator)
 	{
 		UpdateTacComOverlays();
+	}
+}
+
+void AUTPlayerController::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if ((GetNetMode() == NM_DedicatedServer) && (CurrentlyViewedScorePS != NULL))
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS)
+		{
+			if ((GS->Teams.Num() > TeamStatsUpdateTeam) && (GS->Teams[TeamStatsUpdateTeam] != NULL))
+			{
+				if (TeamStatsUpdateIndex < GS->TeamStats.Num())
+				{
+					ClientUpdateTeamStats(TeamStatsUpdateTeam, GS->TeamStats[TeamStatsUpdateIndex], GS->Teams[TeamStatsUpdateTeam]->GetStatsValue(GS->TeamStats[TeamStatsUpdateIndex]));
+				}
+				TeamStatsUpdateIndex++;
+				if (TeamStatsUpdateIndex >= GS->TeamStats.Num())
+				{
+					TeamStatsUpdateTeam++;
+					TeamStatsUpdateIndex = 0;
+				}
+			}
+			if (StatsUpdateIndex == 0)
+			{
+				LastScoreStatsUpdateStartTime = GetWorld()->GetTimeSeconds();
+			}
+			int32 StatArraySize = (CurrentlyViewedStatsTab == 0) ? GS->GameScoreStats.Num() : GS->WeaponStats.Num();
+			if (StatsUpdateIndex < StatArraySize)
+			{
+				if (CurrentlyViewedStatsTab == 0)
+				{
+					ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->GameScoreStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->GameScoreStats[StatsUpdateIndex]));
+				}
+				else
+				{
+					ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->WeaponStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->WeaponStats[StatsUpdateIndex]));
+				}
+			}
+			StatsUpdateIndex++;
+			if (StatsUpdateIndex >= StatArraySize)
+			{
+				if (LastScoreStatsUpdateStartTime < CurrentlyViewedScorePS->LastScoreStatsUpdateTime)
+				{
+					StatsUpdateIndex = 0;
+				}
+				else if (LastTeamStatsUpdateStartTime < GetWorld()->GetTimeSeconds() - 3.f)
+				{
+					TeamStatsUpdateTeam = 0;
+					TeamStatsUpdateIndex = 0;
+				}
+			}
+		}
 	}
 }
 
@@ -2193,9 +2307,9 @@ void AUTPlayerController::ChooseBestCamera()
 	if (BestPS && (BestPS != LastSpectatedPlayerState))
 	{
 		ServerViewPlayerState(BestPS);
+		BehindView(bSpectateBehindView);
 	}
 }
-
 
 void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
@@ -2349,14 +2463,86 @@ void AUTPlayerController::ReceivedPlayer()
 
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	
-	if (LP != NULL && GetWorld()->GetNetMode() != NM_Standalone)
+	if (LP != NULL)
 	{
-		ServerSetWeaponHand(WeaponHand);
-		if (FUTAnalytics::IsAvailable() && (GetWorld()->GetNetMode() != NM_Client || GetWorld()->GetNetDriver() != NULL)) // make sure we don't do analytics for demo playback
+		if (GetNetMode() != NM_Standalone)
 		{
-			FString ServerInfo = (GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();
-			FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
+			ServerSetWeaponHand(WeaponHand);
+			if (FUTAnalytics::IsAvailable() && (GetWorld()->GetNetMode() != NM_Client || GetWorld()->GetNetDriver() != NULL)) // make sure we don't do analytics for demo playback
+			{
+				FString ServerInfo = (GetWorld()->GetNetMode() == NM_Client) ? GetWorld()->GetNetDriver()->ServerConnection->URL.ToString() : GEngine->GetWorldContextFromWorldChecked(GetWorld()).LastURL.ToString();
+				FUTAnalytics::GetProvider().RecordEvent(TEXT("PlayerConnect"), TEXT("Server"), ServerInfo);
+			}
 		}
+
+		IOnlineIdentityPtr OnlineIdentityInterface = (IOnlineSubsystem::Get() != NULL) ? IOnlineSubsystem::Get()->GetIdentityInterface() : NULL;
+		if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
+		{
+			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+			if (UserId.IsValid())
+			{
+				ServerReceiveStatsID(UserId->ToString());
+			}
+		}
+
+		// Send over the country flag....
+		UUTProfileSettings* Settings = LP->GetProfileSettings();
+		if (Settings != NULL)
+		{
+			uint32 CountryFlag = Settings->CountryFlag;
+
+			if (LP->CommunityRole != EUnrealRoles::Gamer)
+			{
+				// If we are a contributor ,but are trying to use the developer flag, set back to unreal flag
+				if (LP->CommunityRole != EUnrealRoles::Developer)
+				{
+					if (CountryFlag == 142)
+					{
+						CountryFlag = 0;
+					}
+				}
+			}
+			else if (CountryFlag >= 140)
+			{
+				CountryFlag = 0;
+			}		
+
+			ServerReceiveCountryFlag(CountryFlag);
+		}
+	}
+}
+
+bool AUTPlayerController::ServerReceiveCountryFlag_Validate(uint32 NewCountryFlag)
+{
+	return true;
+}
+void AUTPlayerController::ServerReceiveCountryFlag_Implementation(uint32 NewCountryFlag)
+{
+	if (UTPlayerState != NULL)
+	{
+		UTPlayerState->CountryFlag = NewCountryFlag;
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("CountryFlag"), UTPlayerState->CountryFlag));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("UserId"), UTPlayerState->UniqueId.ToString()));
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("FlagChange"), ParamArray);
+		}
+	}
+}
+
+bool AUTPlayerController::ServerReceiveStatsID_Validate(const FString& NewStatsID)
+{
+	return true;
+}
+/** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have have a proper ID available.  */
+void AUTPlayerController::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
+{
+	if (UTPlayerState != NULL && !GetWorld()->IsPlayInEditor() && GetWorld()->GetNetMode() != NM_Standalone)
+	{
+		UTPlayerState->StatsID = NewStatsID;
+		UTPlayerState->ReadStatsFromCloud();
 	}
 }
 
@@ -2953,5 +3139,49 @@ void AUTPlayerController::ShowBuyMenu()
 	if (GS && GS->AvailableLoadout.Num() > 0)
 	{
 		ClientOpenLoadout_Implementation(true);
+	}
+}
+
+void AUTPlayerController::SetViewedScorePS(AUTPlayerState* NewViewedPS, uint8 NewStatsPage)
+{
+	if ((NewViewedPS != CurrentlyViewedScorePS) || (NewStatsPage != CurrentlyViewedStatsTab))
+	{
+		ServerSetViewedScorePS(NewViewedPS, NewStatsPage);
+	}
+	CurrentlyViewedScorePS = NewViewedPS;
+	CurrentlyViewedStatsTab = NewStatsPage;
+}
+
+void AUTPlayerController::ServerSetViewedScorePS_Implementation(AUTPlayerState* NewViewedPS, uint8 NewStatsPage)
+{
+	if ((NewViewedPS != CurrentlyViewedScorePS) || (NewStatsPage != CurrentlyViewedStatsTab))
+	{
+		StatsUpdateIndex = 0;
+		TeamStatsUpdateTeam = 0;
+		TeamStatsUpdateIndex = 0;
+	}
+	CurrentlyViewedScorePS = NewViewedPS;
+	CurrentlyViewedStatsTab = NewStatsPage;
+}
+
+bool AUTPlayerController::ServerSetViewedScorePS_Validate(AUTPlayerState* NewViewedPS, uint8 NewStatsPage)
+{
+	return true;
+}
+
+void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* ViewedPS, FName StatsName, float NewValue)
+{
+	if (ViewedPS)
+	{
+		ViewedPS->SetStatsValue(StatsName, NewValue);
+	}
+}
+
+void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, FName StatsName, float NewValue)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && (GS->Teams.Num() > TeamNum) && GS->Teams[TeamNum])
+	{
+		GS->Teams[TeamNum]->SetStatsValue(StatsName, NewValue);
 	}
 }

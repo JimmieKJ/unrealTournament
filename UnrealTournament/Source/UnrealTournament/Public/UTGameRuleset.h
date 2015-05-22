@@ -5,24 +5,6 @@
 #include "UnrealTournament.h"
 #include "UTGameRuleset.generated.h"
 
-USTRUCT()
-struct FPackageRedirectReference
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	FString PackageName;
-
-	UPROPERTY()
-	FString PackageURLProtocol;
-
-	UPROPERTY()
-	FString PackageURL;
-
-	UPROPERTY()
-	FString PackageChecksum;
-};
-
 UCLASS(Config=Rules, perObjectConfig)
 class UUTGameRuleset : public UObject
 {
@@ -80,6 +62,9 @@ public:
 	
 	UPROPERTY(Config)
 	TArray<FPackageRedirectReference> RedirectReferences;
+
+	UPROPERTY(Config)
+	uint32 bTeamGame:1;
 };
 
 

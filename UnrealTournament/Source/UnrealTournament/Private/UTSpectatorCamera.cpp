@@ -5,4 +5,12 @@
 AUTSpectatorCamera::AUTSpectatorCamera(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+
+#if WITH_EDITORONLY_DATA
+	if (!IsRunningCommandlet())
+	{
+		static ConstructorHelpers::FObjectFinder<UStaticMesh> UTEditorCameraMesh(TEXT("/Game/RestrictedAssets/EditorAssets/SpectatorCamera/SM_UTSpectatorCamera"));
+		GetCameraComponent()->SetCameraMesh(UTEditorCameraMesh.Object);
+	}
+#endif
 }

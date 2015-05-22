@@ -199,6 +199,17 @@ void UUTCharacterMovement::OnUnableToFollowBaseMove(const FVector& DeltaPosition
 	{
 		Cast<AUTLift>(MovementBase->GetOwner())->OnEncroachActor(CharacterOwner);
 	}
+
+	// make sure bots on lift move to center in case they are causing the lift to fail by hitting their head on the sides
+	AUTBot* B = Cast<AUTBot>(CharacterOwner->Controller);
+	if (B != NULL)
+	{
+		UUTReachSpec_Lift* LiftPath = Cast<UUTReachSpec_Lift>(B->GetCurrentPath().Spec.Get());
+		if (LiftPath != NULL)
+		{
+			B->SetAdjustLoc(LiftPath->LiftCenter + FVector(0.0f, 0.0f, B->GetCharacter()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()));
+		}
+	}
 }
 
 void UUTCharacterMovement::ApplyImpactVelocity(FVector JumpDir, bool bIsFullImpactImpulse)
@@ -669,7 +680,6 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	{
 		return;
 	}
-	OldZ = CharacterOwner->GetActorLocation().Z;
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
 
 	if (!UTOwner || !UTOwner->IsRagdoll())

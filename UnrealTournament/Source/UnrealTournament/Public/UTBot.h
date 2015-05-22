@@ -399,21 +399,25 @@ public:
 	/** get next point bot is moving to in order to reach MoveTarget, or ZeroVector if no MoveTarget */
 	inline FVector GetMovePoint() const
 	{
+		return GetMoveBasedPosition().Get();
+	}
+	inline FComponentBasedPosition GetMoveBasedPosition() const
+	{
 		if (!MoveTarget.IsValid())
 		{
-			return FVector::ZeroVector;
+			return FComponentBasedPosition(FVector::ZeroVector);
 		}
 		else if (bAdjusting)
 		{
-			return AdjustLoc;
+			return FComponentBasedPosition(AdjustLoc);
 		}
 		else if (MoveTargetPoints.Num() <= 1)
 		{
-			return MoveTarget.GetLocation(GetPawn());
+			return FComponentBasedPosition(MoveTarget.GetLocation(GetPawn()));
 		}
 		else
 		{
-			return MoveTargetPoints[0].Get();
+			return MoveTargetPoints[0];
 		}
 	}
 	void SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints = TArray<FComponentBasedPosition>());

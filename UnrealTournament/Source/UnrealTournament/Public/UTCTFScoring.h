@@ -4,6 +4,29 @@
 #pragma once
 #include "UTCTFScoring.generated.h"
 
+static const FName NAME_FlagHeldDeny(TEXT("FlagHeldDeny"));
+static const FName NAME_FlagHeldDenyTime(TEXT("FlagHeldDenyTime"));
+static const FName NAME_FlagHeldTime(TEXT("FlagHeldTime"));
+static const FName NAME_FlagReturnPoints(TEXT("FlagReturnPoints"));
+static const FName NAME_CarryAssist(TEXT("CarryAssist"));
+static const FName NAME_CarryAssistPoints(TEXT("CarryAssistPoints"));
+static const FName NAME_FlagCapPoints(TEXT("FlagCapPoints"));
+static const FName NAME_DefendAssist(TEXT("DefendAssist"));
+static const FName NAME_DefendAssistPoints(TEXT("DefendAssistPoints"));
+static const FName NAME_ReturnAssist(TEXT("ReturnAssist"));
+static const FName NAME_ReturnAssistPoints(TEXT("ReturnAssistPoints"));
+static const FName NAME_TeamCapPoints(TEXT("TeamCapPoints"));
+static const FName NAME_EnemyFCDamage(TEXT("EnemyFCDamage"));
+static const FName NAME_FCKills(TEXT("FCKills"));
+static const FName NAME_FCKillPoints(TEXT("FCKillPoints"));
+static const FName NAME_FlagSupportKills(TEXT("FlagSupportKills"));
+static const FName NAME_FlagSupportKillPoints(TEXT("FlagSupportKillPoints"));
+static const FName NAME_RegularKillPoints(TEXT("RegularKillPoints"));
+static const FName NAME_FlagGrabs(TEXT("FlagGrabs"));
+
+static const FName NAME_TeamFlagGrabs(TEXT("TeamFlagGrabs"));
+static const FName NAME_TeamFlagHeldTime(TEXT("TeamFlagHeldTime"));
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 {
@@ -56,6 +79,10 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 	// Bonus for assist by returning enemy flag allowing team to score.
 	UPROPERTY()
 		float FlagReturnAssist;
+
+	// Bonus for assist by killing enemies threatening FC allowing team to score.
+	UPROPERTY()
+		float FlagSupportAssist;
 
 	// Bonus score for everyone on team after flag cap.
 	UPROPERTY()

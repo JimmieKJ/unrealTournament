@@ -8,7 +8,7 @@
 #include "UTHUDWidget_Spectator.generated.h"
 
 UCLASS()
-class UUTHUDWidget_Spectator : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_Spectator : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
@@ -18,6 +18,8 @@ public:
 
 	/** Draw the bar and the spectator message.  If bShortMessage, don't use entire bottom of screen. */
 	virtual void DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage);
+
+	virtual FText GetSpectatorMessageText(bool &bShortMessage);
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spectator")

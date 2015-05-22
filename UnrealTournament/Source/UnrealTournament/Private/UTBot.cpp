@@ -447,6 +447,11 @@ void AUTBot::Tick(float DeltaTime)
 	{
 		NavData = GetUTNavData(GetWorld());
 	}
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime())
+	{
+		return;
+	}
 	APawn* MyPawn = GetPawn();
 	if (MyPawn == NULL)
 	{
@@ -729,7 +734,7 @@ void AUTBot::Tick(float DeltaTime)
 					}
 				}
 				// do nothing if path says we need to wait
-				else if (CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(GetPawn()))
+				else if (bAdjusting || CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(GetPawn(), GetMoveBasedPosition()))
 				{
 					if (GetCharacter() != NULL && (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Flying || GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Swimming))
 					{
@@ -1857,6 +1862,10 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 
 const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)
 {
+	if (Enemy == NULL)
+	{
+		return NULL;
+	}
 	AUTPlayerState* PS = bCheckTeam ? Cast<AUTPlayerState>(PlayerState) : NULL;
 	const TArray<const FBotEnemyInfo>& EnemyList = (PS != NULL && PS->Team != NULL) ? PS->Team->GetEnemyList() : *(const TArray<const FBotEnemyInfo>*)&LocalEnemyList;
 	for (int32 i = 0; i < EnemyList.Num(); i++)
@@ -1865,6 +1874,13 @@ const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)
 		{
 			return &EnemyList[i];
 		}
+	}
+	// code assumes Enemy has a valid entry, so check local list too if necessary
+	// this triggering probably means a notification bug where the AI hasn't been told about an enemy being killed or destroyed
+	if (TestEnemy == Enemy && bCheckTeam && PS != NULL && PS->Team != NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Bot %s has enemy %s that is not in team's enemy list! (enemy dead: %s)"), *PlayerState->PlayerName, (TestEnemy->PlayerState != NULL) ? *TestEnemy->PlayerState->PlayerName : *TestEnemy->GetName(), TestEnemy->bPendingKillPending ? TEXT("True") : TEXT("False"));
+		return GetEnemyInfo(TestEnemy, false);
 	}
 	return NULL;
 }

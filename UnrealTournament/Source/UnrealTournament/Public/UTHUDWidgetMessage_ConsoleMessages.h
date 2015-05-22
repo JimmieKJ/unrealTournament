@@ -3,7 +3,7 @@
 #include "UTHUDWidgetMessage_ConsoleMessages.generated.h"
 
 UCLASS()
-class UUTHUDWidgetMessage_ConsoleMessages : public UUTHUDWidgetMessage 
+class UNREALTOURNAMENT_API UUTHUDWidgetMessage_ConsoleMessages : public UUTHUDWidgetMessage
 {
 	GENERATED_UCLASS_BODY()
 

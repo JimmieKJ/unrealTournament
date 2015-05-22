@@ -39,7 +39,7 @@ class UNREALTOURNAMENT_API UUTReachSpec : public UObject
 	}
 
 	/** return whether AI should pause before continuing move along this path (e.g. wait for elevator to reach the right place) */
-	virtual bool WaitForMove(APawn* Asker) const
+	virtual bool WaitForMove(APawn* Asker, const FComponentBasedPosition& MovePos) const
 	{
 		return false;
 	}

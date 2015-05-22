@@ -250,7 +250,6 @@ public:
 	UFUNCTION()
 	virtual void ClearCarriedObject(AUTCarriedObject* OldCarriedObject);
 
-
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void SetWaitingPlayer(bool B);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
@@ -269,12 +268,6 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveStatsID(const FString& NewStatsID);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveCountryFlag(uint32 NewCountryFlag);
 
 	UFUNCTION()
 	AUTCharacter* GetUTCharacter();
@@ -380,7 +373,9 @@ public:
 
 	/** Current name scaling on spectator slide out. */
 	UPROPERTY(BlueprintReadWrite, Category = Spectator)
-		float SpectatorNameScale;
+	float SpectatorNameScale;
+
+	void ReadStatsFromCloud();
 
 private:
 	bool bReadStatsFromCloud;
@@ -395,14 +390,31 @@ private:
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
 	FOnWriteUserFileCompleteDelegate OnWriteUserFileCompleteDelegate;
 	FString GetStatsFilename();
-	void ReadStatsFromCloud();
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
-	
+
+	/** map of additional stats used for scoring display. */
+	TMap< FName, float > StatsData;
+
 public:
+	/** Last time StatsData was updated - used when replicating the data. */
+	UPROPERTY()
+		float LastScoreStatsUpdateTime;
+
+	/** Accessors for StatsData. */
+	float GetStatsValue(FName StatsName) const;
+	void SetStatsValue(FName StatsName, float NewValue);
+	void ModifyStatsValue(FName StatsName, float Change);
+
 	// Average ELO rank for this player.
 	UPROPERTY(Replicated)
 	int32 AverageRank;
+
+	// transient, for TeamInfo leader updates - persistent value is stored in StatsData
+	float AttackerScore;
+	float SecondaryAttackerScore;
+	float DefenderScore;
+	float SupporterScore;
 
 	// Find the local player and see if we are his friend.
 	void OnRep_UniqueId();

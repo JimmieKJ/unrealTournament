@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "StatNames.h"
 
 DEFINE_LOG_CATEGORY(LogGameStats);
 
@@ -9,73 +10,73 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 {
 	StatPrefix = TEXT("STAT_");
 
-	Stats.Add(MakeStat(FName(TEXT("SkillRating")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("TDMSkillRating")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("DMSkillRating")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("CTFSkillRating")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SkillRating, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_TDMSkillRating, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_DMSkillRating, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_CTFSkillRating, EStatRecordingPeriod::Persistent));
 
-	Stats.Add(MakeStat(FName(TEXT("SkillRatingSamples")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("TDMSkillRatingSamples")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("DMSkillRatingSamples")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("CTFSkillRatingSamples")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SkillRatingSamples, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_TDMSkillRatingSamples, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_DMSkillRatingSamples, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_CTFSkillRatingSamples, EStatRecordingPeriod::Persistent));
 
-	Stats.Add(MakeStat(FName(TEXT("MatchesPlayed")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("MatchesQuit")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("TimePlayed")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("Wins")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("Losses")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("Kills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("Deaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("Suicides")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MatchesPlayed, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MatchesQuit, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_TimePlayed, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_Wins, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_Losses, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_Kills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_Deaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_Suicides, EStatRecordingPeriod::Persistent));
 	
-	Stats.Add(MakeStat(FName(TEXT("MultiKillLevel0")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("MultiKillLevel1")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("MultiKillLevel2")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("MultiKillLevel3")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MultiKillLevel0, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MultiKillLevel1, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MultiKillLevel2, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MultiKillLevel3, EStatRecordingPeriod::Persistent));
 
-	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel0")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel1")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel2")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel3")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("SpreeKillLevel4")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel0, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel1, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel2, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel3, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel4, EStatRecordingPeriod::Persistent));
 
-	Stats.Add(MakeStat(FName(TEXT("ImpactHammerKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("EnforcerKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("BioRifleKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("ShockBeamKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("ShockCoreKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("ShockComboKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("LinkKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("LinkBeamKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("MinigunKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("MinigunShardKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("FlakShardKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("FlakShellKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("RocketKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("SniperKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("SniperHeadshotKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("RedeemerKills")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("InstagibKills")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ImpactHammerKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_EnforcerKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_BioRifleKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ShockBeamKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ShockCoreKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ShockComboKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_LinkKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_LinkBeamKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MinigunKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MinigunShardKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_FlakShardKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_FlakShellKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_RocketKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SniperKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SniperHeadshotKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_RedeemerKills, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_InstagibKills, EStatRecordingPeriod::Persistent));
 
-	Stats.Add(MakeStat(FName(TEXT("ImpactHammerDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("EnforcerDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("BioRifleDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("ShockBeamDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("ShockCoreDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("ShockComboDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("LinkDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("LinkBeamDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("MinigunDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("MinigunShardDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("FlakShardDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("FlakShellDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("RocketDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("SniperDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("SniperHeadshotDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("RedeemerDeaths")), EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(FName(TEXT("InstagibDeaths")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ImpactHammerDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_EnforcerDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_BioRifleDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ShockBeamDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ShockCoreDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ShockComboDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_LinkDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_LinkBeamDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MinigunDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MinigunShardDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_FlakShardDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_FlakShellDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_RocketDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SniperDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SniperHeadshotDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_RedeemerDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_InstagibDeaths, EStatRecordingPeriod::Persistent));
 
-	Stats.Add(MakeStat(FName(TEXT("PlayerXP")), EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_PlayerXP, EStatRecordingPeriod::Persistent));
 
 	NumMatchesToKeep = 5;
 	NumPreviousPlayerNamesToKeep = 5;
@@ -92,50 +93,12 @@ UStat* UStatManager::MakeStat(FName StatName, EStatRecordingPeriod::Type Highest
 	return Stat;
 }
 
-UStat* UStatManager::AddOrGetStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod)
-{
-	UStat* Stat = GetStatByName(StatName);
-
-	if(Stat == NULL)
-	{
-		Stat = MakeStat(StatName, HighestPeriod);
-		Stats.Add(Stat);
-		StatLookup.Add(StatName, Stat);
-	}
-
-	return Stat;
-}
-
 /** Initialize the manager from the config variables
  *  @param FPC The PC that uses this stat manager
  */
-void UStatManager::InitializeManager(AUTPlayerState *UTPS)
+void UStatManager::InitializeManager(AUTPlayerState *inUTPS)
 {
-	this->UTPS = UTPS;
-}
-
-/** Clears all tracked stats back to 0
- */
-void UStatManager::ClearManager()
-{
-	for(int32 StatIndex = 0; StatIndex < Stats.Num(); StatIndex++)
-	{
-		for(int32 PeriodIndex = 0; PeriodIndex < Stats[StatIndex]->StatDataByPeriod.Num(); PeriodIndex++)
-		{
-			Stats[StatIndex]->StatDataByPeriod[PeriodIndex] = 0;
-		}
-	}
-}
-
-/** Clears all tracked stats for this period
- *	@param Period The period to wipe
- */
-void UStatManager::ClearPeriod(EStatRecordingPeriod::Type Period)
-{
-	for(int32 StatIndex = 0; StatIndex < Stats.Num(); StatIndex++)
-	{
-		Stats[StatIndex]->StatDataByPeriod[Period] = 0;
-	}
+	this->UTPS = inUTPS;
 }
 
 /** Records a stat and determines if this will earn an award
@@ -250,6 +213,20 @@ void UStatManager::PopulateStatLookup()
 
 void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 {
+	// update stats from PlayerState stats array
+	AUTGameState* GS = UTPS ? UTPS->GetWorld()->GetGameState<AUTGameState>() : NULL;
+	if (GS)
+	{
+		for (int32 i = 0; i < GS->GameScoreStats.Num(); i++)
+		{
+			ModifyStat(GS->GameScoreStats[i], UTPS->GetStatsValue(GS->GameScoreStats[i]), EStatMod::Delta);
+		}
+		for (int32 i = 0; i < GS->WeaponStats.Num(); i++)
+		{
+			ModifyStat(GS->WeaponStats[i], UTPS->GetStatsValue(GS->WeaponStats[i]), EStatMod::Delta);
+		}
+	}
+
 	JsonObject->SetNumberField(TEXT("Version"), JSONVersionNumber);
 
 	for (auto* Stat : Stats)

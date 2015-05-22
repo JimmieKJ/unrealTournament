@@ -16,7 +16,6 @@
 #include "Json.h"
 #include "DisplayDebugHelpers.h"
 
-
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	WidgetOpacity = 1.0f;
@@ -64,6 +63,11 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 
 	TeamIconUV[0] = FVector2D(257.f, 940.f);
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
+
+	// Store off any flag pages....
+	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
+	FlagTextures.Add(FlagTex.Object);
+
 }
 
 void AUTHUD::BeginPlay()
@@ -145,9 +149,9 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 AUTPlayerState* AUTHUD::GetScorerPlayerState()
 {
 	AUTPlayerState* PS = UTPlayerOwner->UTPlayerState;
-	if (PS && (!PS->bOnlySpectator || UTPlayerOwner->bSpectateBehindView))
+	if (PS && !PS->bOnlySpectator)
 	{
-		// view your own score unless you are a first person spectator
+		// view your own score unless you are a spectator
 		return PS;
 	}
 	APawn* PawnOwner = (UTPlayerOwner->GetPawn() != NULL) ? UTPlayerOwner->GetPawn() : Cast<APawn>(UTPlayerOwner->GetViewTarget());
@@ -282,6 +286,10 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	}
 
 	Widget->InitializeWidget(this);
+	if (Cast<UUTHUDWidget_Spectator>(Widget))
+	{
+		SpectatorMessageWidget = Cast<UUTHUDWidget_Spectator>(Widget);
+	}
 	return Widget;
 }
 
@@ -318,8 +326,19 @@ void AUTHUD::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass
 
 void AUTHUD::ToggleScoreboard(bool bShow)
 {
+	if (!bShowScores)
+	{
+		ScoreboardPage = 0;
+	}
 	bShowScores = bShow;
-	ScoreboardPage = 0; // TODO: not sure if we should remember or reset this
+}
+
+void AUTHUD::NotifyMatchStateChange()
+{
+	if (MyUTScoreboard != NULL)
+	{
+		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
+	}
 }
 
 void AUTHUD::PostRender()
@@ -362,7 +381,6 @@ void AUTHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-
 	if (!IsPendingKillPending() || !IsPendingKill())
 	{
 		// find center of the Canvas
@@ -370,7 +388,7 @@ void AUTHUD::DrawHUD()
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown());
-
+		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores;
 		if (!bFontsCached)
 		{
 			CacheFonts();
@@ -386,7 +404,7 @@ void AUTHUD::DrawHUD()
 			if (HudWidgets[WidgetIndex] && !HudWidgets[WidgetIndex]->IsHidden() && !HudWidgets[WidgetIndex]->IsPendingKill())
 			{
 				HudWidgets[WidgetIndex]->PreDraw(RenderDelta, this, Canvas, Center);
-				if (HudWidgets[WidgetIndex]->ShouldDraw(bShowScores || bPreMatchScoreBoard || bForceScores))
+				if (HudWidgets[WidgetIndex]->ShouldDraw(bScoreboardIsUp))
 				{
 					HudWidgets[WidgetIndex]->Draw(RenderDelta);
 				}
@@ -394,9 +412,17 @@ void AUTHUD::DrawHUD()
 			}
 		}
 
-		if (!bShowScores)
+		if (bScoreboardIsUp)
+		{
+			if (!UTPlayerOwner->CurrentlyViewedScorePS)
+			{
+				UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+			}
+		}
+		else if (UTPlayerOwner)
 		{
 			DrawDamageIndicators();
+			UTPlayerOwner->SetViewedScorePS(NULL, 0);
 		}
 	}
 }
@@ -715,4 +741,14 @@ FText AUTHUD::GetPlaceSuffix(int32 Value)
 
 	return FText::GetEmpty();
 }
+
+UTexture2D* AUTHUD::ResolveFlag(int32 FlagID, int32& X, int32& Y)
+{
+	int32 Page = 0;
+	X = (FlagID % 28) * 36;
+	Y = (FlagID / 28) * 26;
+
+	return Page < FlagTextures.Num() ? FlagTextures[Page] : NULL;
+}
+
 

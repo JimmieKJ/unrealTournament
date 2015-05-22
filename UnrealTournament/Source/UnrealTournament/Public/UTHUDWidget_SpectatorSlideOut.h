@@ -4,7 +4,7 @@
 #include "UTHUDWidget_SpectatorSlideOut.generated.h"
 
 UCLASS()
-class UUTHUDWidget_SpectatorSlideOut : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_SpectatorSlideOut : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 
@@ -97,6 +97,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		UTexture2D* FlagAtlas;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
+		UTexture2D* WeaponAtlas;
 
 	UPROPERTY()
 		TArray<AUTPickupInventory*> PowerupList;

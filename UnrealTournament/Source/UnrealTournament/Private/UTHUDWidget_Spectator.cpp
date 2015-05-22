@@ -19,7 +19,7 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 
 bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
-	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
+	if (!bShowScores && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
 		if (UTGameState->IsMatchAtHalftime() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
 		{
@@ -32,7 +32,7 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 
 void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage)
 {
-	if (SimpleMessage.IsEmpty())
+	if (SimpleMessage.IsEmpty() || (TextureAtlas == NULL))
 	{
 		return;
 	}
@@ -65,19 +65,25 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
 
-	if (TextureAtlas && UTGameState)
+	bool bShortMessage = false;
+	FText SpectatorMessage = GetSpectatorMessageText(bShortMessage);
+	DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);
+}
+
+FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
+{
+	FText SpectatorMessage;
+	if (UTGameState)
 	{
-		bool bShortMessage = false;
-		FText SpectatorMessage;
-		if (!UTGameState->HasMatchStarted())	
+		if (!UTGameState->HasMatchStarted())
 		{
 			// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
 			AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
 			if (UTGameState->IsMatchInCountdown())
 			{
 				SpectatorMessage = (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
-									? NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position")
-									: NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
+					? NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position")
+					: NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
 			}
 			else if (UTGameState->PlayersNeeded > 0)
 			{
@@ -86,8 +92,8 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			else if (UTPS && UTPS->bReadyToPlay)
 			{
 				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
-									? NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ALTFIRE] to change teams.")
-									: NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
+					? NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ALTFIRE] to change teams.")
+					: NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
 			}
 			else if (UTPS && UTPS->bOnlySpectator)
 			{
@@ -96,8 +102,8 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			else
 			{
 				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
-									? NSLOCTEXT("UUTHUDWidget_Spectator", "GetReadyTeam", "Press [FIRE] to ready up, [ALTFIRE] to change teams.")
-									: NSLOCTEXT("UUTHUDWidget_Spectator", "GetReady", "Press [FIRE] when you are ready.");
+					? NSLOCTEXT("UUTHUDWidget_Spectator", "GetReadyTeam", "Press [FIRE] to ready up, [ALTFIRE] to change teams.")
+					: NSLOCTEXT("UUTHUDWidget_Spectator", "GetReady", "Press [FIRE] when you are ready.");
 			}
 		}
 		else if (!UTGameState->HasMatchEnded())
@@ -136,7 +142,7 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [FIRE] to change viewpoint...");
 			}
-			else 
+			else if (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL))
 			{
 				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
 				{
@@ -145,13 +151,13 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 						.SetMinimumFractionalDigits(1)
 						.SetMaximumFractionalDigits(1);
 					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator","RespawnWaitMessage","You can respawn in {RespawnTime}..."),Args);
+					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
 				}
 				else
 				{
 					SpectatorMessage = (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnChoiceA != nullptr)
-											? NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]")
-											: NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
+						? NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]")
+						: NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
 				}
 			}
 		}
@@ -177,7 +183,6 @@ void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 				}
 			}
 		}
-		DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);
 	}
+	return SpectatorMessage;
 }
-

@@ -106,7 +106,7 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	bool bHasRespawnChoices;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(AssetRegistrySearchable, EditDefaultsOnly)
 	bool bHideInUI;
 
 	/** maximum amount of time (in seconds) to wait for players to be ready before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
@@ -453,10 +453,6 @@ public:
 	virtual FString GetHUBPregameFormatString();
 #endif
 
-	/**
-	 *	returns the default game options for a given lobby.  TODO: make this config so that the server can configure what they feel the default lobby should be
-	 **/
-	virtual FString GetDefaultLobbyOptions() const;
 
 	/** returns whether the given map name is appropriate for this game type
 	 * this is just for UI and doesn't prevent the map from loading via e.g. the console
@@ -530,21 +526,9 @@ public:
 	UPROPERTY(Config)
 	bool bDisableCloudStats;
 
-	// This is the map that will start as "selected" by default in the lobby
-	UPROPERTY(Config)
-	FString DefaultLobbyMap;
-
-	// The options that are available for a given game mode
-	UPROPERTY(Config)
-	FString DefaultLobbyOptions;
-
 	// These options will be forced on the game when played on an instance server using this game mode
 	UPROPERTY(Config)
 	FString ForcedInstanceGameOptions;
-
-	// The maximum number of players allowed in this lobby.
-	UPROPERTY(Config)
-	int32 MaxLobbyPlayers;
 
 	UPROPERTY(Config)
 	bool bLobbyAllowJoinInProgress;
@@ -579,6 +563,7 @@ public:
 #if !UE_SERVER
 	TSharedRef<SWidget> NewPlayerInfoLine(FString LeftStr, FString RightStr);
 	virtual void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState);
+
 #endif
 
 	virtual void InstanceNextMap(const FString& NextMap);
@@ -592,5 +577,8 @@ public:
 	// Called when the player attempts to restart using AltFire
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	bool PlayerCanAltRestart( APlayerController* Player );
+
+	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
+
 };
 

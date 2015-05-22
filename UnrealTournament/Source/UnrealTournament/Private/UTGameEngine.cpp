@@ -52,6 +52,9 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {
+	// workaround for engine bugs when loading classes that reference UMG on a dedicated server (i.e. mutators)
+	FModuleManager::Get().LoadModule("UMGEditor");
+
 	if(bFirstRun)
 	{
 #if !UE_SERVER
@@ -88,6 +91,15 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	// HACK: UGameUserSettings::ApplyNonResolutionSettings() isn't virtual so we need to force our settings to be applied...
 	GetGameUserSettings()->ApplySettings(true);
 
+	// HACK: Turn off audio here because the default panel is a browser....
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, 0);
+	}
+
+
 	UE_LOG(UT, Log, TEXT("Running %d processors (%d logical cores)"), FPlatformMisc::NumberOfCores(), FPlatformMisc::NumberOfCoresIncludingHyperthreads());
 	if (FPlatformMisc::NumberOfCoresIncludingHyperthreads() < ParallelRendererProcessorRequirement)
 	{
@@ -118,6 +130,12 @@ void UUTGameEngine::PreExit()
 // @TODO FIXMESTEVE - we want open to be relative like it used to be
 bool UUTGameEngine::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld)
 {
+	// the netcode adds implicit "?game=" to network URLs that we don't want when going from online game to local game
+	FWorldContext* Context = GetWorldContextFromWorld(InWorld);
+	if (Context != NULL && !Context->LastURL.IsLocalInternal())
+	{
+		Context->LastURL.RemoveOption(TEXT("game="));
+	}
 	return HandleTravelCommand(Cmd, Ar, InWorld);
 }
 
@@ -140,6 +158,13 @@ bool UUTGameEngine::GetMonitorRefreshRate(int32& MonitorRefreshRate)
 
 bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 {
+	// disallow certain commands in shipping builds
+#if UE_BUILD_SHIPPING
+	if (FParse::Command(&Cmd, TEXT("SHOW")))
+	{
+		return true;
+	}
+#endif
 	if (FParse::Command(&Cmd, TEXT("START")))
 	{
 		FWorldContext &WorldContext = GetWorldContextFromWorldChecked(InWorld);

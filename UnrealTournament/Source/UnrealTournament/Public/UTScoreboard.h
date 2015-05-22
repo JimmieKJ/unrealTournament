@@ -31,6 +31,16 @@ struct FSelectionObject
 
 };
 
+USTRUCT()
+struct FStatsFontInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	FFontRenderInfo TextRenderInfo;
+	float TextHeight;
+	UFont* TextFont;
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTScoreboard : public UUTHUDWidget
 {
@@ -77,13 +87,31 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float FlagX;
 
-
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
 	virtual void AdvancePage(int32 Increment);
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
 	virtual void SetPage(uint32 NewPage);
+
+	FTimerHandle OpenScoringPlaysHandle;
+
+	/** no-params accessor for timers */
+	UFUNCTION()
+		virtual void OpenScoringPlaysPage();
+
+	virtual void SetScoringPlaysTimer(bool bEnableTimer);
+
+	/** Show current 2 pages of scoring stats breakdowns. */
+	virtual void DrawScoringStats(float RenderDelta, float& YOffset);
+
+	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
+	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
+
+	FString GetPlayerNameFor(AUTPlayerState* InPS)
+	{
+		return InPS ? InPS->PlayerName : "";
+	};
 
 protected:
 
@@ -92,7 +120,6 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	TArray<FVector2D> BadgeUVs;
-	
 
 	/** number of 'pages' that can be flipped through on the scoreboard */
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
@@ -103,6 +130,8 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	uint32 ActualPlayerCount;
+
+	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* TextureAtlas;
@@ -125,7 +154,6 @@ protected:
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 
-
 	virtual void DrawServerPanel(float RenderDelta, float YOffset);
 
 protected:
@@ -142,6 +170,44 @@ protected:
 	FVector2D CursorPosition;
 
 	TWeakObjectPtr<AUTPlayerState> SelectedPlayer;
+
+	//-------------------------------------
+	// Scoreboard stats breakdown
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ValueColumn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ScoreColumn;
+
+	UPROPERTY()
+		bool bHighlightStatsLineTopValue;
+
+	/** List of default weapons to display stats for. */
+	UPROPERTY()
+	TArray<AUTWeapon *> StatsWeapons;
+
+	/** Index of current top weapon (in kills). */
+	UPROPERTY()
+		int32 BestWeaponIndex;
+
+	/** Draw one line of scoring breakdown. */
+	virtual void DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth);
+
+	/** Draw one line of scoring breakdown where values are string instead of int32. */
+	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex);
+
+	virtual void DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon=false);
+
+	/** Draw individual weapon stats for player. */
+	virtual void DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo);
+
+	/** 5coring breakdown for an individual player. */
+	virtual void DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
+
+	/** Draw gametype specific stat lines for player score breakdown. */
+	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
+
+	//-------------------------------------
 
 public:
 

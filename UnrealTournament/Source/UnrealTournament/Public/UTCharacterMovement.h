@@ -134,10 +134,6 @@ public:
 	/** Push off bottom while swimming. */
 	virtual void PerformWaterJump();
 
-	/** Last Z position when standing on ground - used for eyeheight smoothing */
-	UPROPERTY()
-	float OldZ;
-
 	/** Impulse imparted by "easy" impact jump. Not charge or jump dependent (although get a small bonus with timed jump). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
 	float EasyImpactImpulse;

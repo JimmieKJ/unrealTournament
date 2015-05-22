@@ -4,6 +4,7 @@
 #include "UnrealNetwork.h"
 #include "UTBot.h"
 #include "UTSquadAI.h"
+#include "StatNames.h"
 
 AUTTeamInfo::AUTTeamInfo(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -16,6 +17,90 @@ AUTTeamInfo::AUTTeamInfo(const FObjectInitializer& ObjectInitializer)
 	DefaultOrderIndex = -1;
 	DefaultOrders.Add(FName(TEXT("Attack")));
 	DefaultOrders.Add(FName(TEXT("Defend")));
+	TopAttacker = NULL;
+	TopDefender = NULL;
+	TopSupporter = NULL;
+}
+
+void AUTTeamInfo::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (!IsPendingKillPending())
+	{
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTTeamInfo::UpdateTeamLeaders, 3.f, true);
+	}
+}
+
+void AUTTeamInfo::Destroyed()
+{
+	Super::Destroyed();
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+}
+
+void AUTTeamInfo::UpdateTeamLeaders()
+{
+	for (int32 i = 0; i < TeamMembers.Num(); i++)
+	{
+		if (TeamMembers[i] && TeamMembers[i]->PlayerState)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(TeamMembers[i]->PlayerState);
+			if (PS != NULL)
+			{
+				PS->AttackerScore = PS->GetStatsValue(NAME_AttackerScore);
+				PS->DefenderScore = PS->GetStatsValue(NAME_DefenderScore);
+				PS->SupporterScore = PS->GetStatsValue(NAME_SupporterScore);
+				
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if ((GS != NULL) && (GS->SecondaryAttackerStat != NAME_None))
+				{
+					PS->SecondaryAttackerScore = PS->GetStatsValue(GS->SecondaryAttackerStat); 
+				}
+			}
+		}
+	}
+
+	TArray<AUTPlayerState*> MemberPS;
+	for (int32 i = 0; i < TeamMembers.Num(); i++)
+	{
+		AUTPlayerState* PS = TeamMembers[i] ? Cast<AUTPlayerState>(TeamMembers[i]->PlayerState) : NULL;
+		if (PS)
+		{
+			MemberPS.Add(PS);
+		}
+	}
+	if (MemberPS.Num() == 0)
+	{
+		return;
+	}
+
+	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		return A.AttackerScore > B.AttackerScore;
+	});
+	TopAttacker = (MemberPS[0] && (MemberPS[0]->AttackerScore > 0)) ? MemberPS[0] : NULL;
+	if (!TopAttacker)
+	{
+		// @TODO FIXMESTEVE this is CTF ONLY - award to most flag time
+		MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+		{
+			return A.SecondaryAttackerScore > B.SecondaryAttackerScore;
+		});
+		TopAttacker = (MemberPS[0] && (MemberPS[0]->SecondaryAttackerScore > 0)) ? MemberPS[0] : NULL;
+	}
+
+	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		return A.DefenderScore > B.DefenderScore;
+	});
+	TopDefender = (MemberPS[0] && (MemberPS[0]->DefenderScore > 0)) ? MemberPS[0] : NULL;
+
+	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		return A.SupporterScore > B.SupporterScore;
+	});
+	TopSupporter = (MemberPS[0] && (MemberPS[0]->SupporterScore > 0)) ? MemberPS[0] : NULL;
 }
 
 void AUTTeamInfo::AddToTeam(AController* C)
@@ -118,6 +203,9 @@ void AUTTeamInfo::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLife
 	DOREPLIFETIME_CONDITION(AUTTeamInfo, TeamColor, COND_InitialOnly);
 	DOREPLIFETIME(AUTTeamInfo, bFromPreviousLevel);
 	DOREPLIFETIME(AUTTeamInfo, Score);
+	DOREPLIFETIME(AUTTeamInfo, TopAttacker);
+	DOREPLIFETIME(AUTTeamInfo, TopDefender);
+	DOREPLIFETIME(AUTTeamInfo, TopSupporter);
 }
 
 void AUTTeamInfo::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
@@ -239,3 +327,22 @@ void AUTTeamInfo::ReinitSquads()
 		Squad->Initialize(this, Squad->Orders);
 	}
 }
+
+float AUTTeamInfo::GetStatsValue(FName StatsName)
+{
+	return StatsData.FindRef(StatsName);
+}
+
+void AUTTeamInfo::SetStatsValue(FName StatsName, float NewValue)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	StatsData.Add(StatsName, NewValue);
+}
+
+void AUTTeamInfo::ModifyStatsValue(FName StatsName, float Change)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	float CurrentValue = StatsData.FindRef(StatsName);
+	StatsData.Add(StatsName, CurrentValue + Change);
+}
+

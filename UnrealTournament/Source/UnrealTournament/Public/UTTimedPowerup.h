@@ -33,6 +33,14 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 	UPROPERTY(BlueprintReadOnly, Category = Powerup)
 	class AUTDroppedPickup* MyPickup;
 
+	UPROPERTY(BlueprintReadOnly, Category = Powerup)
+		float StatCountTime;
+
+	virtual void UpdateStatsCounter(float Amount);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+		FName StatsName;
+
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override
 	{
 		GS->AddOverlayMaterial(OverlayMaterial);
@@ -67,7 +75,6 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 	}
 
 public:
-
 	/** Returns the HUD text to display for this item */
 	virtual FText GetHUDText() 
 	{ 

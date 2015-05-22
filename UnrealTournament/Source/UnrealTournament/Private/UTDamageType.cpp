@@ -93,7 +93,7 @@ void UUTDamageType::ScoreKill_Implementation(AUTPlayerState* KillerState, AUTPla
 	AUTPlayerController* PC = KillerState ? Cast<AUTPlayerController>(KillerState->GetOwner()) : NULL;
 	if (PC != NULL && RewardAnnouncementClass)
 	{
-		PC->ClientReceiveLocalizedMessage(RewardAnnouncementClass);
+		PC->SendPersonalMessage(RewardAnnouncementClass);
 	}
 }
 

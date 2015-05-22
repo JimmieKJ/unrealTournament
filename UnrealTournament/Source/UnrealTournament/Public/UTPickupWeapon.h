@@ -61,6 +61,8 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 	 */
 	void CheckTouching();
 
+	virtual void PlayTakenEffects(bool bReplicate);
+
 	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
 	{
 		return (IsTaken(Asker) ? 0.0f : Super::BotDesireability_Implementation(Asker, TotalDistance));

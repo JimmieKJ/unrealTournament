@@ -126,7 +126,7 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 			{
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 				APlayerState* OwnerState = GetUTOwner()->PlayerState;
-				AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetUTOwner()->GetController());
+				AUTPlayerController* UTPC = GetUTOwner()->GetLocalViewer();
 				float WorldTime = GetWorld()->TimeSeconds;
 				FVector FireStart = GetOuterAUTWeapon()->GetFireStartLoc();
 				for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)

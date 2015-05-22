@@ -61,10 +61,13 @@ class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 	/** optional class spawned at source location after translocating that continues to receive damage (and possible teleport weapons fire with the player) for a short duration */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<AUTWeaponRedirector> AfterImageType;
+	/** effect played at translocation destination */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<class AUTReplicatedEmitter> DestinationEffect;
 
 	/** Messages about translocator functionality, disruption, etc. */
 	UPROPERTY(EditDefaultsOnly, Category = Translocator)
-		TSubclassOf<class UUTLocalMessage> TranslocatorMessageClass;
+	TSubclassOf<class UUTLocalMessage> TranslocatorMessageClass;
 	
 	virtual void ConsumeAmmo(uint8 FireModeNum) override;
 	virtual bool HasAmmo(uint8 FireModeNum) override

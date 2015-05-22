@@ -6,7 +6,7 @@
 #include "UTHUDWidget_CTFPlayerScore.generated.h"
 
 UCLASS()
-class UUTHUDWidget_CTFPlayerScore : public UUTHUDWidget_DMPlayerScore
+class UNREALTOURNAMENT_API UUTHUDWidget_CTFPlayerScore : public UUTHUDWidget_DMPlayerScore
 {
 	GENERATED_UCLASS_BODY()
 

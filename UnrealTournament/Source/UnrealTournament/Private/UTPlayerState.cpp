@@ -9,6 +9,10 @@
 #include "UTHat.h"
 #include "UTCharacterContent.h"
 #include "../Private/Slate/SUWindowsStyle.h"
+#include "StatNames.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Analytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -145,12 +149,12 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
 		{
-			ModifyStat(FName(*(TEXT("MultiKillLevel") + FString::FromInt(FMath::Min(MultiKillLevel, 3)))), 1, EStatMod::Delta);
-
+			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
+			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
 			MultiKillLevel++;
-			if (Cast<APlayerController>(GetOwner()) != NULL)
+			if (Cast<AUTPlayerController>(GetOwner()) != NULL)
 			{
-				((APlayerController*)GetOwner())->ClientReceiveLocalizedMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+				((AUTPlayerController*)GetOwner())->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
 			}
 		}
 		else
@@ -162,7 +166,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			Spree++;
 			if (Spree % 5 == 0)
 			{
-				ModifyStat(FName(*(TEXT("SpreeKillLevel") + FString::FromInt(FMath::Min(Spree / 5 - 1, 4)))), 1, EStatMod::Delta);
+				FName SKStat[5] = { NAME_SpreeKillLevel0, NAME_SpreeKillLevel1, NAME_SpreeKillLevel2, NAME_SpreeKillLevel3, NAME_SpreeKillLevel4 };
+				ModifyStatsValue(SKStat[FMath::Min(Spree, 4)], 1);
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
@@ -187,13 +192,14 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
 
-		ModifyStat(FName(TEXT("Kills")), 1, EStatMod::Delta);
+		ModifyStatsValue(NAME_Kills, 1);
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 		if (UTDamage)
 		{
 			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())
 			{
-				ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1, EStatMod::Delta);
+				// FIXMESTEVE - preset, not constructed FName
+				ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1);
 			}
 			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
 			{
@@ -224,7 +230,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 	}
 	else
 	{
-		ModifyStat(FName(TEXT("Suicides")), 1, EStatMod::Delta);
+		ModifyStatsValue(NAME_Suicides, 1);
 	}
 }
 
@@ -248,7 +254,7 @@ void AUTPlayerState::OnWeaponSpreeDamage()
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (MyPC && GS && WeaponSpreeDamage)
 	{
-		MyPC->ClientReceiveLocalizedMessage(GS->SpreeMessageClass, 99, this, NULL, this);
+		MyPC->SendPersonalMessage(GS->SpreeMessageClass, 99, this, NULL, this);
 	}
 }
 
@@ -256,11 +262,12 @@ void AUTPlayerState::IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPla
 {
 	Deaths += 1;
 
-	ModifyStat(FName(TEXT("Deaths")), 1, EStatMod::Delta);
+	ModifyStatsValue(NAME_Deaths, 1);
 	TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 	if (UTDamage && !UTDamage.GetDefaultObject()->StatsName.IsEmpty())
 	{
-		ModifyStat(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Deaths"))), 1, EStatMod::Delta);
+		// FIXMESTEVE - preset, not constructed FName
+		ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Deaths"))), 1);
 	}
 
 	// spree has ended
@@ -477,25 +484,6 @@ bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewEyewear
 	return true;
 }
 
-/** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have 
-    have a proper ID available.  */
-void AUTPlayerState::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
-{
-	if (GetWorld()->IsPlayInEditor() || GetWorld()->GetNetMode() == NM_Standalone)
-	{
-		return;
-	}
-
-	StatsID = NewStatsID;
-
-	ReadStatsFromCloud();	
-}
-
-bool AUTPlayerState::ServerReceiveStatsID_Validate(const FString& NewStatsID)
-{
-	return true;
-}
-
 void AUTPlayerState::HandleTeamChanged(AController* Controller)
 {
 	AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
@@ -630,24 +618,6 @@ void AUTPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
 
-	APlayerController* PC = Cast<APlayerController>(GetOwner());
-	UUTLocalPlayer* LP = nullptr;
-	if (PC != nullptr)
-	{
-		LP = Cast<UUTLocalPlayer>(PC->Player);
-	}
-
-	if (LP)
-	{
-		// Send over the country flag....
-		UUTProfileSettings* Settings = LP->GetProfileSettings();
-		if (Settings)
-		{
-			CountryFlag = Settings->CountryFlag;
-			ServerReceiveCountryFlag(CountryFlag);
-		}
-	}
-
 	if (Role == ROLE_Authority && StatManager == nullptr)
 	{
 		//Make me a statmanager
@@ -655,7 +625,6 @@ void AUTPlayerState::BeginPlay()
 		StatManager->InitializeManager(this);
 	}
 
-	bool bFoundStatsId = false;
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
 	{
@@ -670,18 +639,7 @@ void AUTPlayerState::BeginPlay()
 			OnWriteUserFileCompleteDelegate = FOnWriteUserFileCompleteDelegate::CreateUObject(this, &AUTPlayerState::OnWriteUserFileComplete);
 			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate_Handle(OnWriteUserFileCompleteDelegate);
 		}
-
-		if (OnlineIdentityInterface.IsValid() && LP != nullptr && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
-		{
-			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-			if (UserId.IsValid())
-			{
-				ServerReceiveStatsID(UserId->ToString());
-				bFoundStatsId = true;
-			}
-		}		
 	}
-
 }
 
 void AUTPlayerState::SetCharacter(const FString& CharacterPath)
@@ -754,7 +712,7 @@ void AUTPlayerState::ReadStatsFromCloud()
 	}
 
 	// Don't read stats from cloud if we've already written them, consider memory to be a valid representation of the stats
-	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator && StatManager && !GetWorld()->IsPlayInEditor())
+	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid() && !bWroteStatsToCloud && !bOnlySpectator && StatManager && !GetWorld()->IsPlayInEditor() && !bSuccessfullyReadStatsFromCloud)
 	{
 		OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
 	}
@@ -772,7 +730,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		{
 			bSuccessfullyReadStatsFromCloud = true;
 
-			UE_LOG(LogGameStats, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
+			UE_LOG(UT, Log, TEXT("OnReadUserFileComplete bWasSuccessful:%d %s %s"), int32(bWasSuccessful), *InUserId.ToString(), *FileName);
 
 			TArray<uint8> FileContents;
 			if (OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents))
@@ -1045,13 +1003,6 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
 
-bool AUTPlayerState::ServerReceiveCountryFlag_Validate(uint32 NewCountryFlag) { return true; }
-
-void AUTPlayerState::ServerReceiveCountryFlag_Implementation(uint32 NewCountryFlag)
-{
-	CountryFlag = NewCountryFlag;
-}
-
 void AUTPlayerState::ValidateEntitlements()
 {
 	if (IOnlineSubsystem::Get() != NULL && UniqueId.IsValid())
@@ -1132,7 +1083,6 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage() const
 
 void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 {
-
 	Panel->AddSlot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
@@ -1255,8 +1205,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
 	];
-
-
 }
 #endif
 
@@ -1310,7 +1258,6 @@ void AUTPlayerState::ServerBuyLoadout_Implementation(AUTReplicatedLoadoutInfo* D
 		}
 	}
 }
-
 
 void AUTPlayerState::AdjustCurrency(float Adjustment)
 {
@@ -1370,7 +1317,6 @@ void AUTPlayerState::LogBanRequest(AUTPlayerState* Voter)
 				// Update the ban
 				BanVotes[i].BanTime = CurrentTime;
 			}
-
 			return;
 		}
 	}
@@ -1423,3 +1369,22 @@ void AUTPlayerState::OnRepSpecialPlayer()
 		}
 	}
 }
+
+float AUTPlayerState::GetStatsValue(FName StatsName) const
+{
+	return StatsData.FindRef(StatsName);
+}
+
+void AUTPlayerState::SetStatsValue(FName StatsName, float NewValue)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	StatsData.Add(StatsName, NewValue);
+}
+
+void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	float CurrentValue = StatsData.FindRef(StatsName);
+	StatsData.Add(StatsName, CurrentValue + Change);
+}
+

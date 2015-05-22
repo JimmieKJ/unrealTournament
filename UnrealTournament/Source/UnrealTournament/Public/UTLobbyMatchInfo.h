@@ -274,6 +274,12 @@ public:
 	virtual void SetMatchStats(FString Update);
 
 	bool GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount);
+
+	bool IsBanned(FUniqueNetIdRepl Who);
+
 };
 
 

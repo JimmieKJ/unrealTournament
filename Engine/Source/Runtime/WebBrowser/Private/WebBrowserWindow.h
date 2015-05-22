@@ -63,7 +63,7 @@ public:
 	virtual bool IsLoading() const override;
 	virtual void Reload() override;
 	virtual void StopLoad() override;
-
+	virtual void ExecuteJavascript(const FString& Script) override;
 	/**
 	 * Set the CEF Handler receiving browser callbacks for this window
 	 *
@@ -75,6 +75,26 @@ public:
 	 * Close this window so that it can no longer be used
 	 */
 	void CloseBrowser();
+	    
+    virtual FONJSQueryReceived& OnJSQueryReceived() override
+    {
+        return JSQueryReceivedDelegate;
+    }
+
+    virtual FONJSQueryCanceled& OnJSQueryCanceled() override
+    {
+        return JSQueryCanceledDelegate;
+    }
+
+	virtual FOnBeforeBrowse& OnBeforeBrowse() override
+	{
+		return OnBeforeBrowseDelegate;
+	}
+
+	virtual FOnBeforePopup& OnBeforePopup() override
+	{
+		return OnBeforePopupDelegate;
+	}
 
 private:
 	/**
@@ -118,6 +138,36 @@ private:
 	 */
 	void OnCursorChange(CefCursorHandle Cursor);
 
+    /**
+     * Called when JavaScript code sends a message to the UE process.
+     * Needs to return true or false to tell CEF wether the query is being handled by user code or not.
+     *
+     * @param QueryId A unique id for the query. Used to refer to it in OnQueryCanceled.
+     * @param Request The query string itself as passed in from the JS code.
+     * @param Persistent Os this a persistent query or not. If not, client code expects the callback to be invoked only once, wheras persistent queries are terminated by invoking Failure, Success can be invoked multiple times until then.
+     * @param Callback A handle to pass data back to the JS code. 
+     */
+    bool OnQuery(int64 QueryId,
+        const CefString& Request,
+        bool Persistent,
+        CefRefPtr<CefMessageRouterBrowserSide::Callback> Callback);
+
+    /**
+     * Called when an outstanding query has been canceled eother explicitly from JS code or implicitly by navigating away from the page containing the code.
+     * Will only be called if OnQuery has previously returned true for the same QueryId.
+     *
+     * @param QueryId A unique id for the query. A handler should use it to locate and remove any handlers that might be in flight.
+     */
+    void OnQueryCanceled(int64 QueryId);
+
+	// Trigger an OnBeforeBrowse event chain
+	bool OnCefBeforeBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect);
+
+	// Trigger an OnBeforePopup event chain
+	bool OnCefBeforePopup(const CefString& Target_Url, const CefString& Target_Frame_Name);
+
+public:
+
 	/**
 	 * Gets the Cef Keyboard Modifiers based on a Key Event
 	 * 
@@ -159,8 +209,14 @@ private:
 	/** Whether this window has been painted at least once */
 	bool							bHasBeenPainted;
 
+    FONJSQueryReceived JSQueryReceivedDelegate;
+    FONJSQueryCanceled JSQueryCanceledDelegate;
+	FOnBeforeBrowse OnBeforeBrowseDelegate;
+	FOnBeforePopup OnBeforePopupDelegate;
+
 	// Allow the Handler to access functions only it needs
 	friend class FWebBrowserHandler;
+
 };
 
 #endif

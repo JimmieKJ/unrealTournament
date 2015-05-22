@@ -4,7 +4,7 @@
 #include "UTHUDWidget_WeaponInfo.generated.h"
 
 UCLASS()
-class UUTHUDWidget_WeaponInfo : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_WeaponInfo : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

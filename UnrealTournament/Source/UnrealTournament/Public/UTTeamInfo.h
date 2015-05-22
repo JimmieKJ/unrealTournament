@@ -38,6 +38,7 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	/** team ID, set by UTTeamGameMode */
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = ReceivedTeamIndex, Category = Team)
 	uint8 TeamIndex;
+
 	/** team color (e.g. for HUD, character material, etc) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = Team)
 	FLinearColor TeamColor;
@@ -45,6 +46,7 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	/** list of default orders for bots assigned to this team */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	TArray<FName> DefaultOrders;
+
 	/** current place in DefaultOrders that we assign next bot to */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI)
 	int32 DefaultOrderIndex;
@@ -60,12 +62,29 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
 	int32 Score;
 
+	/** For team stats. */
+	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
+	AUTPlayerState* TopAttacker;
+
+	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
+		AUTPlayerState* TopDefender;
+
+	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
+		AUTPlayerState* TopSupporter;
+
+	/** Timer to update replicated team leaders. */
+	virtual void UpdateTeamLeaders();
+
+	virtual void BeginPlay() override;
+	virtual void Destroyed() override;
+
 	/** internal flag used to prevent the wrong TeamInfo from getting hooked up on clients during seamless travel, because it is possible for two sets to be on the client temporarily */
 	UPROPERTY(Replicated)
 	bool bFromPreviousLevel;
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual void AddToTeam(AController* C);
+
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual void RemoveFromTeam(AController* C);
 
@@ -203,4 +222,18 @@ protected:
 	/** list of known enemies for bots */
 	UPROPERTY(BlueprintReadOnly, Category = AI)
 	TArray<FBotEnemyInfo> EnemyList;
+
+	/** map of additional stats used for scoring display. */
+	TMap< FName, float > StatsData;
+
+public:
+	/** Last time StatsData was updated - used when replicating the data. */
+	UPROPERTY()
+		float LastScoreStatsUpdateTime;
+
+	/** Accessors for StatsData. */
+	float GetStatsValue(FName StatsName);
+	void SetStatsValue(FName StatsName, float NewValue);
+	void ModifyStatsValue(FName StatsName, float Change);
+
 };

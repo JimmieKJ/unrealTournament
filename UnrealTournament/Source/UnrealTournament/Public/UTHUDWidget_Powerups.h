@@ -4,7 +4,7 @@
 #include "UTHUDWidget_Powerups.generated.h"
 
 UCLASS()
-class UUTHUDWidget_Powerups : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_Powerups : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

@@ -17,6 +17,8 @@
 #include "UTBot.h"
 #include "UTSquadAI.h"
 #include "Slate/Panels/SULobbyMatchSetupPanel.h"
+#include "Slate/SlateGameResources.h"
+#include "SNumericEntryBox.h"
 #include "UTCharacterContent.h"
 #include "UTGameEngine.h"
 #include "UTWorldSettings.h"
@@ -64,7 +66,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MinPlayersToStart = 2;
 	MaxWaitForPlayers = 90.f;
 	bOnlyTheStrongSurvive = false;
-	EndScoreboardDelay = 2.0f;
+	EndScoreboardDelay = 3.0f;
 	GameDifficulty = 3.0f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
@@ -1403,7 +1405,14 @@ void AUTGameMode::TravelToNextMap()
 	{
 		if (!RconNextMapName.IsEmpty())
 		{
-			GetWorld()->ServerTravel(RconNextMapName, false);
+
+			FString TravelMapName = RconNextMapName;
+			if ( FPackageName::IsShortPackageName(RconNextMapName) )
+			{
+				FPackageName::SearchForPackageOnDisk(RconNextMapName, &TravelMapName); 
+			}
+
+			GetWorld()->ServerTravel(TravelMapName, false);
 			return;
 		}
 
@@ -1422,7 +1431,14 @@ void AUTGameMode::TravelToNextMap()
 			MapIndex = (MapIndex + 1) % MapRotation.Num();
 			if (MapIndex >=0 && MapIndex < MapRotation.Num())
 			{
-				GetWorld()->ServerTravel(MapRotation[MapIndex],false);
+
+				FString TravelMapName = MapRotation[MapIndex];
+				if ( FPackageName::IsShortPackageName(MapRotation[MapIndex]) )
+				{
+					FPackageName::SearchForPackageOnDisk(MapRotation[MapIndex], &TravelMapName); 
+				}
+		
+				GetWorld()->ServerTravel(TravelMapName, false);
 				return;
 			}
 		}
@@ -1534,6 +1550,11 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 	if (Cast<AUTBot>(aPlayer) != NULL)
 	{
 		((AUTBot*)aPlayer)->LastRespawnTime = GetWorld()->TimeSeconds;
+	}
+
+	if (!aPlayer->IsLocalController() && Cast<AUTPlayerController>(aPlayer) != NULL)
+	{
+		((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
 	}
 
 	// clear spawn choices
@@ -1675,7 +1696,7 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 
 	if (PlayerStarts.Num() == 0)
 	{
-		return Super::ChoosePlayerStart(Player);
+		return Super::ChoosePlayerStart_Implementation(Player);
 	}
 	if (GetWorld()->WorldType == EWorldType::PIE)
 	{
@@ -1748,14 +1769,14 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 	float Score = 30.0f;
 
 	AActor* LastSpot = (Player != NULL && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
-	AUTPlayerState *UTPS = Cast<AUTPlayerState>(Player->PlayerState);
+	AUTPlayerState *UTPS = Player ? Cast<AUTPlayerState>(Player->PlayerState) : NULL;
 	if (P == LastStartSpot || (LastSpot != NULL && P == LastSpot))
 	{
 		// avoid re-using starts
 		Score -= 15.0f;
 	}
 	FVector StartLoc = P->GetActorLocation() + AUTCharacter::StaticClass()->GetDefaultObject<AUTCharacter>()->BaseEyeHeight;
-	if (UTPS->RespawnChoiceA)
+	if (UTPS && UTPS->RespawnChoiceA)
 	{
 		if (P == UTPS->RespawnChoiceA)
 		{
@@ -1818,24 +1839,24 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 			else if (bHasRespawnChoices && OtherController->PlayerState && !OtherController->GetPawn() && !OtherController->PlayerState->bOnlySpectator)
 			{
 				// make sure no one else has this start as a pending choice
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(OtherController->PlayerState);
-				if (UTPS)
+				AUTPlayerState* OtherUTPS = Cast<AUTPlayerState>(OtherController->PlayerState);
+				if (OtherUTPS)
 				{
-					if (P == UTPS->RespawnChoiceA || P == UTPS->RespawnChoiceB)
+					if (P == OtherUTPS->RespawnChoiceA || P == OtherUTPS->RespawnChoiceB)
 					{
 						return -5.f;
 					}
 					if (bTwoPlayerGame)
 					{
 						// avoid choosing starts near a pending start
-						if (UTPS->RespawnChoiceA)
+						if (OtherUTPS->RespawnChoiceA)
 						{
-							float Dist = (UTPS->RespawnChoiceA->GetActorLocation() - StartLoc).Size();
+							float Dist = (OtherUTPS->RespawnChoiceA->GetActorLocation() - StartLoc).Size();
 							Score -= 7.f * FMath::Max(0.f, (5000.f - Dist) / 5000.f);
 						}
-						if (UTPS->RespawnChoiceB)
+						if (OtherUTPS->RespawnChoiceB)
 						{
-							float Dist = (UTPS->RespawnChoiceB->GetActorLocation() - StartLoc).Size();
+							float Dist = (OtherUTPS->RespawnChoiceB->GetActorLocation() - StartLoc).Size();
 							Score -= 7.f * FMath::Max(0.f, (5000.f - Dist) / 5000.f);
 						}
 					}
@@ -2396,10 +2417,18 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	}
 }
 
+void AUTGameMode::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
+{
+	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
+	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
+	OptionsList.Add(FString::Printf(TEXT("bForceRespawn=%i"), bForceRespawn));
+
+	DesiredPlayerCount = BotFillCount;
+}
+
 #if !UE_SERVER
 void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-/*
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit")));
 	ConfigProps.Add(TimeLimitAttr);
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
@@ -2408,8 +2437,6 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	ConfigProps.Add(ForceRespawnAttr);
 	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill")));
 	ConfigProps.Add(CombatantsAttr);
-	TSharedPtr< TAttributeProperty<float> > BotSkillAttr = MakeShareable(new TAttributeProperty<float>(this, &GameDifficulty, TEXT("Difficulty")));
-	ConfigProps.Add(BotSkillAttr);
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
 	MenuSpace->AddSlot()
@@ -2455,54 +2482,6 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 					.MaxSliderValue(32)
 					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 
-				)
-			]
-		]
-	];
-	// TODO: BotSkill should be a list box with the usual items; this is a simple placeholder
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "BotSkill", "Bot Skill"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
-					.Text(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-					SNew(SNumericEntryBox<float>)
-					.LabelPadding(FMargin(10.0f, 0.0f))
-					.Value(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::GetOptional)
-					.OnValueChanged(BotSkillAttr.ToSharedRef(), &TAttributeProperty<float>::Set)
-					.AllowSpin(true)
-					.Delta(1)
-					.MinValue(0)
-					.MaxValue(7)
-					.MinSliderValue(0)
-					.MaxSliderValue(7)
-					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 				)
 			]
 		]
@@ -2643,12 +2622,13 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			]
 		]
 	];
-*/
+
 }
 
 
-
 #endif
+
+
 
 void AUTGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 {
@@ -2732,11 +2712,6 @@ void AUTGameMode::AssignDefaultSquadFor(AController* C)
 			}
 		}
 	}
-}
-
-FString AUTGameMode::GetDefaultLobbyOptions() const
-{
-	return DefaultLobbyOptions;
 }
 
 void AUTGameMode::NotifyLobbyGameIsReady()

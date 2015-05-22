@@ -192,8 +192,6 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 		return;
 	}
 
-	OldZ = CharacterOwner->GetActorLocation().Z;
-
 	bool bWasFalling = (MovementMode == MOVE_Falling);
 	FVector RealVelocity = Velocity; // Remove if we start using actual acceleration.  Used now to keep our forced clientside decel from affecting animation
 

@@ -11,6 +11,7 @@
 #include "UTImpactEffect.h"
 #include "UnrealNetwork.h"
 #include "UTWeaponAttachment.h"
+#include "StatNames.h"
 
 AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -47,6 +48,11 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 
 	EnforcerEquippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateEquipping_Enforcer>(this, TEXT("EnforcerEquippingState"));
 	EnforcerUnequippingState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateUnequipping_Enforcer>(this, TEXT("EnforcerUnequippingState"));
+
+	KillStatsName = NAME_EnforcerKills;
+	DeathStatsName = NAME_EnforcerDeaths;
+
+	DisplayName = NSLOCTEXT("UTWeap_Enforcer", "DisplayName", "Enforcer");
 }
 
 void AUTWeap_Enforcer::AttachLeftMesh()
@@ -404,7 +410,7 @@ void AUTWeap_Enforcer::SetSkin(UMaterialInterface* NewSkin)
 	Super::SetSkin(NewSkin);
 }
 
-void AUTWeap_Enforcer::AttachToOwnerNative()
+void AUTWeap_Enforcer::AttachToOwner_Implementation()
 {
 	if (UTOwner == NULL)
 	{
@@ -438,10 +444,10 @@ void AUTWeap_Enforcer::AttachToOwnerNative()
 		}
 	}
 
-	Super::AttachToOwnerNative();
+	Super::AttachToOwner_Implementation();
 }
 
-void AUTWeap_Enforcer::DetachFromOwnerNative()
+void AUTWeap_Enforcer::DetachFromOwner_Implementation()
 {
 	//TODO revisit this if I split the muzzle flash
 	//make sure particle system really stops NOW since we're going to unregister it
@@ -463,5 +469,5 @@ void AUTWeap_Enforcer::DetachFromOwnerNative()
 		LeftMesh->DetachFromParent();
 	}
 
-	Super::DetachFromOwnerNative();
+	Super::DetachFromOwner_Implementation();
 }

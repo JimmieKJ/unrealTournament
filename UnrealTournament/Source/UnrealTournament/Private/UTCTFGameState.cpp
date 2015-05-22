@@ -3,6 +3,8 @@
 #include "UTCTFGameState.h"
 #include "UTCTFGameMode.h"
 #include "Net/UnrealNetwork.h"
+#include "UTCTFScoring.h"
+#include "StatNames.h"
 
 AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -10,6 +12,31 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	bSecondHalf = false;
 	bHalftime = false;
 	HalftimeScoreDelay = 2.f;
+
+	GameScoreStats.Add(NAME_RegularKillPoints);
+	GameScoreStats.Add(NAME_FCKills);
+	GameScoreStats.Add(NAME_FCKillPoints);
+	GameScoreStats.Add(NAME_FlagSupportKills);
+	GameScoreStats.Add(NAME_FlagSupportKillPoints);
+	GameScoreStats.Add(NAME_EnemyFCDamage);
+	GameScoreStats.Add(NAME_FlagHeldDeny);
+	GameScoreStats.Add(NAME_FlagHeldDenyTime);
+	GameScoreStats.Add(NAME_FlagHeldTime);
+	GameScoreStats.Add(NAME_FlagReturnPoints);
+	GameScoreStats.Add(NAME_CarryAssist);
+	GameScoreStats.Add(NAME_CarryAssistPoints);
+	GameScoreStats.Add(NAME_FlagCapPoints);
+	GameScoreStats.Add(NAME_DefendAssist);
+	GameScoreStats.Add(NAME_DefendAssistPoints);
+	GameScoreStats.Add(NAME_ReturnAssist);
+	GameScoreStats.Add(NAME_ReturnAssistPoints);
+	GameScoreStats.Add(NAME_TeamCapPoints);
+	GameScoreStats.Add(NAME_FlagGrabs);
+
+	TeamStats.Add(NAME_TeamFlagGrabs);
+	TeamStats.Add(NAME_TeamFlagHeldTime);
+
+	SecondaryAttackerStat = NAME_FlagHeldTime;
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

@@ -8,7 +8,7 @@
 #include "UTHUDWidget_DMPlayerScore.generated.h"
 
 UCLASS()
-class UUTHUDWidget_DMPlayerScore : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_DMPlayerScore : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

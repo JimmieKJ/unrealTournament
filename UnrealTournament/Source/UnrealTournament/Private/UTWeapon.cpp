@@ -460,11 +460,6 @@ void AUTWeapon::DetachFromHolster()
 
 void AUTWeapon::AttachToOwner_Implementation()
 {
-	AttachToOwnerNative();
-}
-
-void AUTWeapon::AttachToOwnerNative()
-{
 	if (UTOwner == NULL)
 	{
 		return;
@@ -580,35 +575,13 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 	}
 	else
 	{
-		AUTPlayerController* Viewer = (UTOwner != NULL) ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
-		if (Viewer == NULL)
-		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-				if (PC != NULL && PC->GetViewTarget() == UTOwner)
-				{
-					Viewer = PC;
-					break;
-				}
-			}
-		}
-
+		AUTPlayerController* Viewer = (UTOwner != NULL) ? UTOwner->GetLocalViewer() : NULL;
 		return (Viewer != NULL) ? Viewer->GetWeaponHand() : HAND_Right;
 	}
 }
 
 void AUTWeapon::DetachFromOwner_Implementation()
 {
-	DetachFromOwnerNative();
-}
-
-void AUTWeapon::DetachFromOwnerNative()
-{
-	for (int32 i = 0; i < FiringState.Num(); i++)
-	{
-		FiringState[i]->WeaponBecameInactive();
-	}
 	StopFiringEffects();
 	// make sure particle system really stops NOW since we're going to unregister it
 	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
@@ -655,16 +628,7 @@ bool AUTWeapon::ShouldPlay1PVisuals() const
 	else
 	{
 		// note we can't check Mesh->LastRenderTime here because of the hidden weapon setting!
-		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
-			if (PC != NULL && PC->GetViewTarget() == UTOwner && !PC->IsBehindView())
-			{
-				return true;
-			}
-		}
-
-		return false;
+		return UTOwner && UTOwner->GetLocalViewer() && !UTOwner->GetLocalViewer()->IsBehindView();
 	}
 }
 
@@ -677,17 +641,19 @@ void AUTWeapon::PlayFiringEffects()
 {
 	if (UTOwner != NULL)
 	{
+		uint8 EffectFiringMode = (Role == ROLE_Authority || UTOwner->Controller != NULL) ? CurrentFireMode : UTOwner->FireMode;
+
 		// try and play the sound if specified
-		if (FireSound.IsValidIndex(CurrentFireMode) && FireSound[CurrentFireMode] != NULL)
+		if (FireSound.IsValidIndex(EffectFiringMode) && FireSound[EffectFiringMode] != NULL)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[CurrentFireMode], UTOwner, SRT_AllButOwner);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner);
 		}
 
 		if (ShouldPlay1PVisuals())
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
 			// try and play a firing animation if specified
-			UAnimMontage* Anim = GetFiringAnim(CurrentFireMode);
+			UAnimMontage* Anim = GetFiringAnim(EffectFiringMode);
 			if (Anim != NULL)
 			{
 				UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
@@ -698,12 +664,12 @@ void AUTWeapon::PlayFiringEffects()
 			}
 
 			// muzzle flash
-			if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL && MuzzleFlash[CurrentFireMode]->Template != NULL)
+			if (MuzzleFlash.IsValidIndex(EffectFiringMode) && MuzzleFlash[EffectFiringMode] != NULL && MuzzleFlash[EffectFiringMode]->Template != NULL)
 			{
 				// if we detect a looping particle system, then don't reactivate it
-				if (!MuzzleFlash[CurrentFireMode]->bIsActive || MuzzleFlash[CurrentFireMode]->bSuppressSpawning || !IsLoopingParticleSystem(MuzzleFlash[CurrentFireMode]->Template))
+				if (!MuzzleFlash[EffectFiringMode]->bIsActive || MuzzleFlash[EffectFiringMode]->bSuppressSpawning || !IsLoopingParticleSystem(MuzzleFlash[EffectFiringMode]->Template))
 				{
-					MuzzleFlash[CurrentFireMode]->ActivateSystem();
+					MuzzleFlash[EffectFiringMode]->ActivateSystem();
 				}
 			}
 		}
@@ -712,9 +678,12 @@ void AUTWeapon::PlayFiringEffects()
 
 void AUTWeapon::StopFiringEffects()
 {
-	if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
+	for (UParticleSystemComponent* MF : MuzzleFlash)
 	{
-		MuzzleFlash[CurrentFireMode]->DeactivateSystem();
+		if (MF != NULL)
+		{
+			MF->DeactivateSystem();
+		}
 	}
 }
 
@@ -936,7 +905,7 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 	}
 	else
 	{
-		const bool bIsFirstPerson = Cast<APlayerController>(UTOwner->Controller) != NULL; // TODO: first person view check (need to make sure sync'ed with server)
+		const bool bIsFirstPerson = Cast<APlayerController>(UTOwner->Controller) != NULL; // FIXMESTEVE TODO: first person view check (need to make sure sync'ed with server)
 		FVector BaseLoc;
 		if (bFPFireFromCenter && bIsFirstPerson)
 		{
@@ -1470,19 +1439,24 @@ void AUTWeapon::Tick(float DeltaTime)
 	if (CurrentState != InactiveState)
 	{
 		CurrentState->Tick(DeltaTime);
+	}
+}
 
+void AUTWeapon::UpdateViewBob(float DeltaTime)
+{
+	AUTPlayerController* MyPC = UTOwner ? UTOwner->GetLocalViewer() : NULL;
+	if (MyPC && Mesh && (UTOwner->GetWeapon() == this) && ShouldPlay1PVisuals())
+	{
 		// if weapon is up in first person, view bob with movement
-		if (Mesh != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled() && Cast<AUTPlayerController>(UTOwner->Controller) != NULL && GetWeaponHand() != HAND_Hidden)
+		if (GetWeaponHand() != HAND_Hidden)
 		{
-			// FOV offset - fixmesteve use viewer
-			AUTPlayerController* MyPC = Cast<AUTPlayerController>(UTOwner->GetController());
 			if (FirstPMeshOffset.IsZero())
 			{
 				FirstPMeshOffset = Mesh->GetRelativeTransform().GetLocation();
 				FirstPMeshRotation = Mesh->GetRelativeTransform().Rotator();
 			}
 			FVector ScaledMeshOffset = FirstPMeshOffset;
-			const float FOVScaling = (MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f;
+			const float FOVScaling = (MyPC != NULL) ? ((MyPC->PlayerCameraManager->GetFOVAngle() - 100.f) * 0.05f) : 1.0f;
 			if (FOVScaling > 0.f)
 			{
 				ScaledMeshOffset.X *= (1.f + (FOVOffset.X - 1.f) * FOVScaling);
@@ -1494,7 +1468,7 @@ void AUTWeapon::Tick(float DeltaTime)
 			FVector BobOffset = UTOwner->GetWeaponBobOffset(DeltaTime, this);
 			Mesh->SetWorldLocation(Mesh->GetComponentLocation() + BobOffset);
 
-			FRotator NewRotation = UTOwner ? UTOwner->GetControlRotation() : FRotator(0.f,0.f,0.f);
+			FRotator NewRotation = UTOwner ? UTOwner->GetControlRotation() : FRotator(0.f, 0.f, 0.f);
 			FRotator FinalRotation = NewRotation;
 
 			// Add some rotation leading
@@ -1506,6 +1480,11 @@ void AUTWeapon::Tick(float DeltaTime)
 			}
 			LastRotation = NewRotation;
 			Mesh->SetRelativeRotation(FinalRotation + FirstPMeshRotation);
+		}
+		else
+		{
+			// for first person footsteps
+			UTOwner->GetWeaponBobOffset(DeltaTime, this);
 		}
 	}
 }
@@ -1608,7 +1587,7 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 		bDrawCrosshair = FiringState[i]->DrawHUD(WeaponHudWidget) && bDrawCrosshair;
 	}
 
-	if (bDrawCrosshair)
+	if (bDrawCrosshair && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
 	{
 		UTexture2D* CrosshairTexture = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex;
 		if (CrosshairTexture != NULL)
@@ -1659,6 +1638,13 @@ void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUD
 			TargetPlayerState = NULL;
 		}
 	}
+}
+
+TArray<UMeshComponent*> AUTWeapon::Get1PMeshes_Implementation() const
+{
+	TArray<UMeshComponent*> Result;
+	Result.Add(Mesh);
+	return Result;
 }
 
 void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, USkeletalMeshComponent*& InOverlayMesh) const
@@ -1908,4 +1894,38 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 
 void AUTWeapon::NotifyKillWhileHolding_Implementation(TSubclassOf<UDamageType> DmgType)
 {
+}
+
+int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState * PS) const
+{
+	int32 KillCount = 0;
+	if (PS)
+	{
+		if (KillStatsName != NAME_None)
+		{
+			KillCount += PS->GetStatsValue(KillStatsName);
+		}
+		if (AltKillStatsName != NAME_None)
+		{
+			KillCount += PS->GetStatsValue(AltKillStatsName);
+		}
+	}
+	return KillCount;
+}
+
+int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState * PS) const
+{
+	int32 DeathCount = 0;
+	if (PS)
+	{
+		if (DeathStatsName != NAME_None)
+		{
+			DeathCount += PS->GetStatsValue(DeathStatsName);
+		}
+		if (AltDeathStatsName != NAME_None)
+		{
+			DeathCount += PS->GetStatsValue(AltDeathStatsName);
+		}
+	}
+	return DeathCount;
 }

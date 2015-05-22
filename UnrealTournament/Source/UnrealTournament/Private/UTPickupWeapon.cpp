@@ -3,11 +3,16 @@
 #include "UTPickup.h"
 #include "UTPickupInventory.h"
 #include "UTPickupWeapon.h"
+#include "UTWorldSettings.h"
 
 void AUTPickupWeapon::BeginPlay()
 {
 	AUTPickup::BeginPlay(); // skip AUTPickupInventory so we can propagate WeaponType as InventoryType
 
+	if (TimerEffect != NULL)
+	{
+		TimerEffect->SetVisibility(true); // note: HiddenInGame used to hide when weapon is available, weapon stay, etc
+	}
 	SetInventoryType((Role == ROLE_Authority) ? TSubclassOf<AUTInventory>(WeaponType) : InventoryType); // initial replication is before BeginPlay() now so we need to make sure client doesn't clobber it :(
 }
 
@@ -101,11 +106,17 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 				GetWorldTimerManager().SetTimer(CheckTouchingHandle, this, &AUTPickupWeapon::CheckTouching, RespawnTime, false);
 			}
 			PlayTakenEffects(false);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, TouchedBy, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, false);
 			if (TouchedBy->IsLocallyControlled())
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(TouchedBy->Controller);
 				if (PC != NULL)
 				{
+					// TODO: does not properly support splitscreen
+					if (BaseEffect != NULL && BaseTemplateTaken != NULL)
+					{
+						BaseEffect->SetTemplate(BaseTemplateTaken);
+					}
 					PC->AddWeaponPickup(this);
 				}
 			}
@@ -137,14 +148,34 @@ void AUTPickupWeapon::CheckTouching()
 	}
 }
 
+void AUTPickupWeapon::PlayTakenEffects(bool bReplicate)
+{
+	if (bReplicate)
+	{
+		Super::PlayTakenEffects(bReplicate);
+	}
+	else if (GetNetMode() != NM_DedicatedServer)
+	{
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS == NULL || WS->EffectIsRelevant(this, GetActorLocation(), true, false, 10000.0f, 1000.0f, false))
+		{
+			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAttached(TakenParticles, RootComponent, NAME_None, TakenEffectTransform.GetLocation(), TakenEffectTransform.GetRotation().Rotator());
+			if (PSC != NULL)
+			{
+				PSC->SetRelativeScale3D(TakenEffectTransform.GetScale3D());
+			}
+		}
+	}
+}
+
 #if WITH_EDITOR
 void AUTPickupWeapon::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	if (TimerSprite != NULL && GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
+	if (TimerEffect != NULL && GetWorld() != NULL && GetWorld()->WorldType == EWorldType::Editor)
 	{
-		TimerSprite->SetVisibility(WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay);
+		TimerEffect->SetVisibility(WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay);
 	}
 }
 void AUTPickupWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -152,9 +183,9 @@ void AUTPickupWeapon::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	// only show timer sprite for superweapons
-	if (TimerSprite != NULL)
+	if (TimerEffect != NULL)
 	{
-		TimerSprite->SetVisibility(WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay);
+		TimerEffect->SetVisibility(WeaponType == NULL || !WeaponType.GetDefaultObject()->bWeaponStay);
 	}
 }
 #endif

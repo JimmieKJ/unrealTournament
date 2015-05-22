@@ -10,6 +10,7 @@
 #include "UTAudioSettings.h"
 #include "UTLevelSummary.h"
 #include "UTReplicatedGameRuleset.h"
+#include "Panels/SUWCreateGamePanel.h"
 
 
 #if !UE_SERVER
@@ -35,7 +36,7 @@ struct FTabButtonInfo
 struct FMapPlayListInfo
 {
 	FString MapName;
-	TSharedPtr<FSlateDynamicImageBrush> MapImage;
+	FSlateDynamicImageBrush* MapImage;
 	TWeakObjectPtr<UUTLevelSummary> LevelSummary;
 	TSharedPtr<SUTComboButton> Button;
 	TSharedPtr<SImage> CheckMark;
@@ -44,14 +45,14 @@ struct FMapPlayListInfo
 	FMapPlayListInfo()
 	{
 		MapName = TEXT("");
-		MapImage.Reset();
+		MapImage = nullptr;
 		LevelSummary.Reset();
 		CheckMark.Reset();
 		Button.Reset();
 		bSelected = false;
 	}
 
-	FMapPlayListInfo(FString InMapName, TSharedPtr<FSlateDynamicImageBrush> InMapImage, TWeakObjectPtr<UUTLevelSummary> InLevelSummary, bool bInitiallySelected )
+	FMapPlayListInfo(FString InMapName, FSlateDynamicImageBrush* InMapImage, TWeakObjectPtr<UUTLevelSummary> InLevelSummary, bool bInitiallySelected )
 	{
 		MapName = InMapName;
 		MapImage = InMapImage;
@@ -107,7 +108,7 @@ class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog
 public:
 	SLATE_BEGIN_ARGS(SUWGameSetupDialog)
 	: _DialogTitle(NSLOCTEXT("SUWGameSetupDialog", "Title", "GAME SETTINGS"))
-	, _DialogSize(FVector2D(1380, 1040))
+	, _DialogSize(FVector2D(1700, 1040))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -134,6 +135,14 @@ public:
 	void ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo);
 	int32 BotSkillLevel;
 
+	// Will return true if this settings dialog is on the custom tab.  
+	bool IsCustomSettings()
+	{
+		return CurrentCategory == FName(TEXT("Custom"));
+	}
+
+	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32& DesiredPlayerCount);
+
 protected:
 
 	// Holds the list of categories to create.
@@ -158,6 +167,11 @@ protected:
 	TSharedPtr<SButton> GameModeButtons;
 	TSharedPtr<SButton> MapsButton;
 
+	TSharedPtr<SVerticalBox> MapBox;
+	TSharedPtr<SVerticalBox> HideBox;
+
+	TSharedPtr<SUWCreateGamePanel> CustomPanel;
+
 	FText GetMatchRulesTitle() const;
 	FText GetMatchRulesDescription() const;
 
@@ -168,7 +182,6 @@ protected:
 	FReply OnRuleClick(int32 RuleIndex);
 	FReply OnMapClick(int32 MapIndex);
 
-	TSharedPtr<SVerticalBox> MapBox;
 	void BuildMapList();
 	void BuildMapPanel();
 
@@ -178,6 +191,7 @@ protected:
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
 	FText GetBotSkillText() const;
 	void OnBotMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
+
 };
 
 #endif

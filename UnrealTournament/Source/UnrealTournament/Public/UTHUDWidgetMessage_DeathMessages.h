@@ -3,7 +3,7 @@
 #include "UTHUDWidgetMessage_DeathMessages.generated.h"
 
 UCLASS()
-class UUTHUDWidgetMessage_DeathMessages : public UUTHUDWidgetMessage 
+class UNREALTOURNAMENT_API UUTHUDWidgetMessage_DeathMessages : public UUTHUDWidgetMessage
 {
 	GENERATED_UCLASS_BODY()
 

@@ -15,7 +15,7 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	Origin = FVector2D(0.5f, 0.5f);
 	AnimationAlpha = 0.0f;
 	StatusScale = 1.f;
-	InWorldAlpha = 0.4f;
+	InWorldAlpha = 0.5f;
 
 	ScalingStartDist = 4000.f;
 	ScalingEndDist = 15000.f;
@@ -52,11 +52,9 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	for (int32 Team=0;Team<2;Team++)
 	{
 		// draw flag state in HUD
-		RenderObj_Texture(CircleSlate[Team]);
-		RenderObj_Texture(CircleBorder[Team]);
 
 		float X = CircleSlate[Team].Position.X;
-		float Y = CircleSlate[Team].Position.Y;
+		float Y = 8.f + 0.5f * FlagIconTemplate.GetHeight();
 		FlagIconTemplate.RenderColor = Team == 0 ? RedColor : BlueColor;
 
 		FName FlagState = GS->GetFlagState(Team);
@@ -102,6 +100,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			AUTCarriedObject* Flag = Base->GetCarriedObject();
 			FVector WorldPosition = Base->GetActorLocation() + Base->GetActorRotation().RotateVector(Flag->HomeBaseOffset) + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 3.f);
 			float OldAlpha = FlagIconTemplate.RenderOpacity;
+			float CurrentWorldAlpha = InWorldAlpha;
 			if ((ViewRotation.Vector() | (Base->GetActorLocation() - ViewPoint)) > 0.f)
 			{
 				ScreenPosition = GetCanvas()->Project(WorldPosition);
@@ -110,11 +109,15 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 			if (bDrawInWorld)
 			{
+				float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
+				CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);
+
 				ScreenPosition.X -= RenderPosition.X;
 				ScreenPosition.Y -= RenderPosition.Y;
 
-				FlagIconTemplate.RenderOpacity = InWorldAlpha;
-				CircleBorder[Team].RenderOpacity = InWorldAlpha;
+				FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
+				CircleBorder[Team].RenderOpacity = CurrentWorldAlpha;
+				CircleSlate[Team].RenderOpacity = CurrentWorldAlpha;
 				RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth()* WorldRenderScale, CircleSlate[Team].GetHeight()* WorldRenderScale);
 				RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth()* WorldRenderScale, CircleBorder[Team].GetHeight()* WorldRenderScale);
 				RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X, ScreenPosition.Y, FlagIconTemplate.GetWidth()* WorldRenderScale, FlagIconTemplate.GetHeight()* WorldRenderScale);
@@ -149,6 +152,9 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 			if (bDrawInWorld)
 			{
+				float PctFromCenter = (ScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
+				CurrentWorldAlpha = InWorldAlpha * FMath::Min(0.15f/WorldRenderScale + 12.f*PctFromCenter, 1.f);
+
 				ScreenPosition.X -= RenderPosition.X;
 				ScreenPosition.Y -= RenderPosition.Y;
 				float Dist = (ViewPoint - WorldPosition).Size();
@@ -167,13 +173,14 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 					ScreenPosition.Y -= (Dist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
 				}
 				float OldAlpha = FlagIconTemplate.RenderOpacity;
-				FlagIconTemplate.RenderOpacity = InWorldAlpha;
-				CircleBorder[Team].RenderOpacity = InWorldAlpha;
+				FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
+				CircleBorder[Team].RenderOpacity = CurrentWorldAlpha;
+				CircleSlate[Team].RenderOpacity = CurrentWorldAlpha;
 				RenderObj_TextureAt(CircleSlate[Team], ScreenPosition.X, ScreenPosition.Y, CircleSlate[Team].GetWidth()* WorldRenderScale, CircleSlate[Team].GetHeight()* WorldRenderScale);
 				RenderObj_TextureAt(CircleBorder[Team], ScreenPosition.X, ScreenPosition.Y, CircleBorder[Team].GetWidth()* WorldRenderScale, CircleBorder[Team].GetHeight()* WorldRenderScale);
 				if (FlagState == CarriedObjectState::Held)
 				{
-					TakenIconTemplate.RenderOpacity = InWorldAlpha;
+					TakenIconTemplate.RenderOpacity = CurrentWorldAlpha;
 					RenderObj_TextureAt(TakenIconTemplate, ScreenPosition.X, ScreenPosition.Y, 1.1f * TakenIconTemplate.GetWidth()* WorldRenderScale, 1.1f * TakenIconTemplate.GetHeight()* WorldRenderScale);
 					RenderObj_TextureAt(FlagIconTemplate, ScreenPosition.X - 0.25f * FlagIconTemplate.GetWidth()* WorldRenderScale, ScreenPosition.Y - 0.25f * FlagIconTemplate.GetHeight()* WorldRenderScale, FlagIconTemplate.GetWidth()* WorldRenderScale, FlagIconTemplate.GetHeight()* WorldRenderScale);
 				}
@@ -184,7 +191,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 					if (FlagState == CarriedObjectState::Dropped)
 					{
 						float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
-						DroppedIconTemplate.RenderOpacity = InWorldAlpha;
+						DroppedIconTemplate.RenderOpacity = CurrentWorldAlpha;
 						RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, DroppedIconTemplate.GetWidth()* WorldRenderScale, DroppedIconTemplate.GetHeight());
 						DroppedIconTemplate.RenderOpacity = DroppedAlpha;
 					}
@@ -192,6 +199,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			}
 			FlagIconTemplate.RenderOpacity = OldAlpha;
 			CircleBorder[Team].RenderOpacity = 1.f;
+			CircleSlate[Team].RenderOpacity = 1.f;
 			bScaleByDesignedResolution = true;
 		}
 	}

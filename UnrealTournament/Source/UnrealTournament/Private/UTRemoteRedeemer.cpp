@@ -499,11 +499,11 @@ void AUTRemoteRedeemer::RedeemerDenied(AController* InstigatedBy)
 	APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
 	if (Cast<AUTPlayerController>(InstigatedBy))
 	{
-		Cast<AUTPlayerController>(InstigatedBy)->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+		Cast<AUTPlayerController>(InstigatedBy)->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
 	}
 	if (Cast<AUTPlayerController>(GetController()))
 	{
-		Cast<AUTPlayerController>(GetController())->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
+		Cast<AUTPlayerController>(GetController())->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
 	}
 }
 

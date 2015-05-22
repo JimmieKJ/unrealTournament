@@ -5,7 +5,7 @@
 #include "UTHUDWidget_RespawnChoice.generated.h"
 
 UCLASS()
-class UUTHUDWidget_RespawnChoice : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_RespawnChoice : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

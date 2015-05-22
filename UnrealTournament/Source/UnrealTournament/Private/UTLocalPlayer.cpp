@@ -572,7 +572,20 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		if (Account.IsValid())
 		{
 			FString RememberMeToken;
+			FString Token;
 			Account->GetAuthAttribute(TEXT("refresh_token"), RememberMeToken);
+
+			if ( Account->GetAuthAttribute(TEXT("ut:developer"), Token) )			CommunityRole = EUnrealRoles::Developer;
+			else if ( Account->GetAuthAttribute(TEXT("ut:contributor"), Token) )	CommunityRole = EUnrealRoles::Contributor;
+			else if ( Account->GetAuthAttribute(TEXT("ut:concepter"), Token) )		CommunityRole = EUnrealRoles::Concepter;
+			else if ( Account->GetAuthAttribute(TEXT("ut:prototyper"), Token) )		CommunityRole = EUnrealRoles::Prototyper;
+			else if ( Account->GetAuthAttribute(TEXT("ut:marketplace"), Token) )	CommunityRole = EUnrealRoles::Marketplace;
+			else if ( Account->GetAuthAttribute(TEXT("ut:ambassador"), Token) )		CommunityRole = EUnrealRoles::Ambassador;
+			else 
+			{
+				CommunityRole = EUnrealRoles::Gamer;
+			}
+			
 			LastEpicIDLogin = PendingLoginUserName;
 			LastEpicRememberMeToken = RememberMeToken;
 			SaveConfig();
@@ -1021,6 +1034,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		else if (CurrentProfileSettings == NULL) // Create a new profile settings object
 		{
 			CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(), GetTransientPackage());
+
+			// Set some profile defaults, should be a function call if this gets any larger
+			CurrentProfileSettings->TauntPath = GetDefaultURLOption(TEXT("Taunt"));
+			CurrentProfileSettings->Taunt2Path = GetDefaultURLOption(TEXT("Taunt2"));
 		}
 
 		PlayerNickname = GetAccountDisplayName().ToString();
@@ -1777,7 +1794,7 @@ uint32 UUTLocalPlayer::GetCountryFlag()
 {
 	if (CurrentProfileSettings)
 	{
-		return FMath::Clamp<uint32>(CurrentProfileSettings->CountryFlag,0,39);
+		return CurrentProfileSettings->CountryFlag;
 	}
 	if (PlayerController)
 	{
@@ -1792,7 +1809,6 @@ uint32 UUTLocalPlayer::GetCountryFlag()
 
 void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 {
-	NewFlag = FMath::Clamp<uint32>(NewFlag,0,39);
 	if (CurrentProfileSettings)
 	{
 		CurrentProfileSettings->CountryFlag = NewFlag;
@@ -1802,13 +1818,10 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 		}
 	}
 
-	if (PlayerController)
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+	if (PC != NULL)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState); 
-		if (PS)
-		{
-			PS->ServerReceiveCountryFlag(NewFlag);
-		}
+		PC->ServerReceiveCountryFlag(NewFlag);
 	}
 }
 
@@ -1828,7 +1841,6 @@ void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
 			MessageBox(NSLOCTEXT("Generic","RequestInProgressTitle","Busy"), NSLOCTEXT("Generic","RequestInProgressText","A server list request is already in progress.  Please wait for it to finish before attempting to quickmatch."));
 			return;
 		}
-
 
 		if (OnlineSessionInterface.IsValid())
 		{

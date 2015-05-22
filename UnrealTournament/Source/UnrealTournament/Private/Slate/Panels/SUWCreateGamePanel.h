@@ -15,14 +15,10 @@ public:
 	virtual void ConstructPanel(FVector2D ViewportSize);	
 	virtual TSharedRef<SWidget> BuildGamePanel(TSubclassOf<AUTGameMode> InitialSelectedGameClass);
 
-	virtual ~SUWCreateGamePanel()
-	{
-		if (LevelScreenshot != NULL)
-		{
-			delete LevelScreenshot;
-			LevelScreenshot = NULL;
-		}
-	}
+	virtual ~SUWCreateGamePanel();
+
+	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel);
+
 protected:
 	enum EServerStartMode
 	{
@@ -35,22 +31,6 @@ protected:
 
 	TSharedPtr<SVerticalBox> GameConfigPanel;
 
-	struct FMapListItem
-	{
-		/** package name (actual loaded name and also display name if there's no title) */
-		FString PackageName;
-		/** optional title pulled from asset registry, if it exists */
-		FString Title;
-
-		FMapListItem(const FString& InPackageName, const FString& InTitle)
-			: PackageName(InPackageName), Title(InTitle)
-		{}
-
-		FString GetDisplayName() const
-		{
-			return !Title.IsEmpty() ? Title : PackageName;
-		}
-	};
 	TArray< TSharedPtr<FMapListItem> > AllMaps;
 	TSharedPtr< SComboBox< TSharedPtr<FMapListItem> > > MapList;
 	TSharedPtr<STextBlock> SelectedMap;
@@ -88,29 +68,26 @@ protected:
 	TSharedRef<SWidget> GenerateGameNameWidget(UClass* InItem);
 	TSharedRef<SWidget> GenerateMapNameWidget(TSharedPtr<FMapListItem> InItem);
 	void OnGameSelected(UClass* NewSelection, ESelectInfo::Type SelectInfo);
-	virtual FReply OfflineClick();
-	virtual FReply HostClick();
-	virtual FReply StartGame(EServerStartMode Mode);
-	virtual void StartGameInternal(EServerStartMode Mode);
-	void StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
-	FReply StartListenClick();
-	FReply StartDedicatedClick();
-	FReply CancelClick();
+
+	void Cancel();
+
 	TSharedRef<ITableRow> GenerateMutatorListRow(UClass* MutatorType, const TSharedRef<STableViewBase>& OwningList);
 	FReply AddMutator();
 	FReply RemoveMutator();
 	FReply ConfigureMutator();
 	FReply ConfigureBots();
 
-	void OnTextChanged(const FText& NewText);
-	virtual void CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	TSharedPtr<SGridPanel> MutatorGrid;
+
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		Collector.AddReferencedObjects(AllGametypes);
 	}
 
-	TSharedRef<SWidget> BuildMenu();
+	void OnTextChanged(const FText& NewText);
+
+	TSharedRef<SWidget> AddMutatorMenu();
 
 };
 

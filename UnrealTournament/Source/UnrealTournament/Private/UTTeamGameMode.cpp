@@ -10,6 +10,9 @@
 #include "UTGameMessage.h"
 #include "UTCTFGameMessage.h"
 #include "UTCTFRewardMessage.h"
+#include "Slate/SUWindowsStyle.h"
+#include "Slate/SlateGameResources.h"
+#include "SNumericEntryBox.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -26,10 +29,10 @@ AUTTeamGameMode::AUTTeamGameMode(const FObjectInitializer& ObjectInitializer)
 	new(TeamColors) FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
 	new(TeamColors) FLinearColor(1.0f, 1.0f, 0.0f, 1.0f);
 
-	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team0Name","Red"));
-	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team1Name","Blue"));
-	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team2Name","Gold"));
-	TeamNames.Add(NSLOCTEXT("UTTeamGameMode","Team3Name","Green"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode", "Team0Name", "Red"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode", "Team1Name", "Blue"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode"," Team2Name", "Green"));
+	TeamNames.Add(NSLOCTEXT("UTTeamGameMode", "Team3Name", "Gold"));
 
 	TeamMomentumPct = 0.75f;
 	bTeamGame = true;
@@ -403,10 +406,15 @@ bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
 	}
 }
 
+void AUTTeamGameMode::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
+{
+	Super::GetGameURLOptions(OptionsList, DesiredPlayerCount);
+	OptionsList.Add(FString::Printf(TEXT("BalanceTeams=%i"), bBalanceTeams));
+}
+
 #if !UE_SERVER
 void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-/*
 	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
 
 	TSharedPtr< TAttributePropertyBool > BalanceTeamsAttr = MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams")));
@@ -453,7 +461,6 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 			]
 		]
 	];
-*/
 }
 #endif
 

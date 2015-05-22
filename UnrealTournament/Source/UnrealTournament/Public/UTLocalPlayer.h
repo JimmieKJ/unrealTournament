@@ -98,6 +98,10 @@ public:
 	UPROPERTY(Config)
 	FString TutorialLaunchParams;
 
+	UPROPERTY(Config)
+	bool bFragCenterAutoPlay;
+
+
 protected:
 
 #if !UE_SERVER
@@ -457,6 +461,9 @@ protected:
 public:
 	virtual void OpenLoadout(bool bBuyMenu = false);
 	virtual void CloseLoadout();
+
+	// What is your role within the unreal community.
+	EUnrealRoles::Type CommunityRole;
 
 };
 

@@ -162,6 +162,7 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Messages)
 	FText AssociatedWeaponName;
 
+	// @TODO FIXMESTEVE replace with KillStatsName and DeathStatsName
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Stats)
 	FString StatsName;
 

@@ -3,7 +3,7 @@
 #include "UTHUDWidgetMessage_PickupMessage.generated.h"
 
 UCLASS()
-class UUTHUDWidgetMessage_PickupMessage : public UUTHUDWidgetMessage
+class UNREALTOURNAMENT_API UUTHUDWidgetMessage_PickupMessage : public UUTHUDWidgetMessage
 {
 	GENERATED_UCLASS_BODY()
 

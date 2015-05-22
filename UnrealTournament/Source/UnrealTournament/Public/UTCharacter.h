@@ -454,8 +454,19 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return InventoryList;
 	}
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn|Inventory", meta = (FriendlyName = "CreateInventory", AdvancedDisplay = "bAutoActivate"))
+	virtual AUTInventory* K2_CreateInventory(TSubclassOf<AUTInventory> NewInvClass, bool bAutoActivate = true);
+	
+	template<typename InvClass>
+	inline InvClass* CreateInventory(TSubclassOf<InvClass> NewInvClass, bool bAutoActivate = true)
+	{
+		InvClass* Result = (InvClass*)K2_CreateInventory(NewInvClass, bAutoActivate);
+		checkSlow(Result == NULL || Result->IsA(InvClass::StaticClass()));
+		return Result;
+	}
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
-	virtual void AddInventory(AUTInventory* InvToAdd, bool bAutoActivate);
+	virtual bool AddInventory(AUTInventory* InvToAdd, bool bAutoActivate);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
 	virtual void RemoveInventory(AUTInventory* InvToRemove);
@@ -471,6 +482,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		checkSlow(Result == NULL || Result->IsA(InvClass::StaticClass()));
 		return Result;
 	}
+
+	/** True if this character was falling when last took damage. */
+	UPROPERTY()
+		bool bWasFallingWhenDamaged;
 
 	/** True during a translocator teleport, which has different telefragging rules. */
 	UPROPERTY()
@@ -1225,6 +1240,15 @@ public:
 
 	virtual void ApplyCharacterData(TSubclassOf<class AUTCharacterContent> Data);
 
+	/** called when a PC viewing this character switches from behindview to first person or vice versa */
+	virtual void BehindViewChange(APlayerController* PC, bool bNowBehindView);
+
+	virtual void BecomeViewTarget(APlayerController* PC) override;
+	virtual void EndViewTarget(APlayerController* PC) override;
+
+	virtual void PreNetReceive() override;
+	virtual void PostNetReceive() override;
+
 	//--------------------------
 	// Weapon bob and eye offset
 
@@ -1466,12 +1490,16 @@ protected:
 	UPROPERTY(Replicated, ReplicatedUsing=FireRateChanged)
 	float FireRateMultiplier;
 
-	/** hook to modify damage taken by this Pawn */
+	/** hook to modify damage taken by this Pawn
+	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
+	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageTaken(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser);
-	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc */
+	bool ModifyDamageTaken(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, const FHitResult& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc
+	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
+	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void ModifyDamageCaused(int32& Damage, FVector& Momentum, const FDamageEvent& DamageEvent, AActor* Victim, AController* EventInstigator, AActor* DamageCauser);
+	bool ModifyDamageCaused(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);
@@ -1495,7 +1523,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
 	AUTWeapon* PendingWeapon;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Pawn")
 	class AUTWeapon* Weapon;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
@@ -1514,7 +1542,7 @@ protected:
 		TSubclassOf<AUTWeaponAttachment> HolsteredWeaponAttachmentClass;
 
 public:
-	UPROPERTY(EditAnywhere, Category = "Pawn")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pawn")
 	TArray< TSubclassOf<AUTInventory> > DefaultCharacterInventory;
 protected:
 
@@ -1650,6 +1678,21 @@ public:
 	/** set by objects that set up ragdoll/death effects that involve a physics constraint on the ragdoll so we don't attach a second without destroying it, as multiple opposing constraints will break the physics */
 	UPROPERTY(Transient, BlueprintReadWrite, Category = DeathEffects)
 	class UPhysicsConstraintComponent* RagdollConstraint;
+
+	UPROPERTY(BlueprintReadOnly, Category = Movement)
+		float FallingStartTime;
+
+	virtual void Falling();
+
+	/** Local player currently viewing this character. */
+	UPROPERTY()
+		class AUTPlayerController* CurrentViewerPC;
+
+	virtual	class AUTPlayerController* GetLocalViewer();
+
+	/** Previous actor location Z when last updated eye offset. */
+	UPROPERTY()
+		float OldZ;
 };
 
 inline bool AUTCharacter::IsDead()

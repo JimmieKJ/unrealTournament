@@ -40,7 +40,14 @@ protected:
 	TSharedPtr<SCheckBox> SmoothFrameRate;
 	TSharedPtr<SCheckBox> VSync;
 	TSharedPtr<SEditableTextBox> FrameRateCap;
+	
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
+	TSharedPtr<STextBlock> SoundVolumesLabels[EUTSoundClass::MAX];
+	void OnSoundVolumeChangedMaster(float NewValue);
+	void OnSoundVolumeChangedMusic(float NewValue);
+	void OnSoundVolumeChangedSFX(float NewValue);
+	void OnSoundVolumeChangedVoice(float NewValue);
+
 	/** list of display values for general scalability setting that are all set the same way (e.g. low/medium/high) */
 	TArray< TSharedPtr<FString> > GeneralScalabilityList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > TextureRes;

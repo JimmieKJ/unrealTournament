@@ -7,6 +7,12 @@
 class IWebBrowserWindow;
 class FWebBrowserViewport;
 
+DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
+DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceivedDelegate, int64, FString, bool, FJSQueryResultDelegate);
+DECLARE_DELEGATE_OneParam(FOnJSQueryCanceledDelegate, int64);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowseDelegate, FString, bool);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
+
 class WEBBROWSER_API SWebBrowser : public SCompoundWidget
 {
 public:
@@ -31,6 +37,19 @@ public:
 
 		/** Desired size of the web browser viewport */
 		SLATE_ATTRIBUTE(FVector2D, ViewportSize);
+    
+        /** Called when a custom Javascript message is received from the browser process. */
+        SLATE_EVENT(FOnJSQueryReceivedDelegate, OnJSQueryReceived)
+    
+        /** Called when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
+        SLATE_EVENT(FOnJSQueryCanceledDelegate, OnJSQueryCanceled)
+
+		/** Called before a browse begins */
+		SLATE_EVENT(FOnBeforeBrowseDelegate, OnBeforeBrowse)
+
+		/** Called before a popup window happens */
+		SLATE_EVENT(FOnBeforePopupDelegate, OnBeforePopup)
+
 	SLATE_END_ARGS()
 
 	/**
@@ -49,6 +68,8 @@ public:
 	 * Get the current title of the web page
 	 */
 	FText GetTitleText() const;
+
+	void ExecuteJavascript(const FString& JS);
 
 private:
 	/**
@@ -90,11 +111,35 @@ private:
 	 * Get whether loading throbber should be visible
 	 */
 	EVisibility GetLoadingThrobberVisibility() const;
+	    
+    /** Callback for received JS queries. */
+    bool HandleJSQueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate ResultDelegate);
 
+    /** Callback for cancelled JS queries. */
+    void HandleJSQueryCanceled(int64 QueryId);
+
+	/** Callback for browse */
+	bool HandleBeforeBrowse(FString URL, bool bIsRedirect);
+
+	bool HandleBeforePopup(FString URL, FString Target);
+	
 private:
 	/** Interface for dealing with a web browser window */
 	TSharedPtr<IWebBrowserWindow>	BrowserWindow;
 
 	/** Viewport interface for rendering the web page */
 	TSharedPtr<FWebBrowserViewport>	BrowserViewport;
+
+    /** A delegate that is invoked when render process Javascript code sends a query message to the client. */
+    FOnJSQueryReceivedDelegate OnJSQueryReceived;
+    
+    /** A delegate that is invoked when render process cancels an ongoing query. Handler must clean up corresponding result delegate. */
+    FOnJSQueryCanceledDelegate OnJSQueryCanceled;
+
+	/** a delegate that is invoked when the brower browses */
+	FOnBeforeBrowseDelegate OnBeforeBrowse;
+
+	/** a delegfate that is invoked when the brower attempts to pop up a new window */
+	FOnBeforePopupDelegate OnBeforePopup;
+
 };

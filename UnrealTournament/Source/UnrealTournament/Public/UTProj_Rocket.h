@@ -22,10 +22,17 @@ class UNREALTOURNAMENT_API AUTProj_Rocket : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketSeeking)
 	bool bLeadTarget;
 
+	/** Reward announcement when kill with air rocket. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
+		TSubclassOf<class UUTRewardMessage> AirRocketRewardClass;
+
 	/** Following rockets in burst. */
 	UPROPERTY()
 		TArray<AUTProj_Rocket*> FollowerRockets;
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
+
+	virtual void DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
+
 };

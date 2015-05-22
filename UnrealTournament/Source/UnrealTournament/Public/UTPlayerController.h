@@ -111,6 +111,9 @@ public:
 
 	UFUNCTION(exec)
 	virtual void SwitchToBestWeapon();
+	/** forces SwitchToBestWeapon() call, should only be used after granting startup inventory */
+	UFUNCTION(Client, Reliable)
+	virtual void ClientSwitchToBestWeapon();
 
 	UFUNCTION(exec)
 	virtual void NP();
@@ -260,7 +263,9 @@ public:
 	virtual void PawnLeavingGame() override;
 
 	/**	We override player tick to keep updating the player's rotation when the game is over. */
-	virtual void PlayerTick(float DeltaTime);
+	virtual void PlayerTick(float DeltaTime) override;
+
+	virtual void Tick(float DeltaTime) override;
 
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
@@ -332,7 +337,7 @@ public:
 	virtual void SetStylizedPP(int32 NewPP);
 
 	/** whether player wants behindview when spectating */
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite, GlobalConfig)
 	bool bSpectateBehindView;
 
 	UPROPERTY(BlueprintReadOnly)
@@ -711,6 +716,9 @@ protected:
 
 	virtual void ReceivedPlayer();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveStatsID(const FString& NewStatsID);
+
 	/** stores fire inputs until after movement has been executed (default would be fire -> movement -> render, this causes movement -> fire -> render)
 	 * makes weapons feel a little more responsive while strafing
 	 */
@@ -733,6 +741,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Input)
 	void ResolveKeybind(FString Command, TArray<FString>& Keys, bool bIncludeGamepad=false, bool bIncludeAxis=true);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveCountryFlag(uint32 NewCountryFlag);
 
 	virtual void DebugTest(FString TestCommand) override;
 
@@ -754,6 +764,45 @@ public:
 
 	UFUNCTION(Exec)
 	void ShowBuyMenu();
+
+	/** send localized message to this PC's client and to spectators of this PC's pawn. */
+	virtual void SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
+
+	/** Playerstate whose details are currently being displayed on scoreboard. */
+	UPROPERTY()
+		AUTPlayerState* CurrentlyViewedScorePS;
+
+	UPROPERTY()
+		int32 TeamStatsUpdateTeam;
+
+	UPROPERTY()
+		int32 TeamStatsUpdateIndex;
+
+	UPROPERTY()
+		float LastTeamStatsUpdateStartTime;
+
+	UPROPERTY()
+		int32 StatsUpdateIndex;
+
+	UPROPERTY()
+		float LastScoreStatsUpdateStartTime;
+
+	UPROPERTY()
+		uint8 CurrentlyViewedStatsTab;
+
+	UFUNCTION()
+		virtual void SetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
+
+	UFUNCTION(server, unreliable, withvalidation)
+		virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
+
+	UFUNCTION(client, unreliable)
+		virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, FName StatsName, float NewValue);
+
+	UFUNCTION(client, unreliable)
+		virtual void ClientUpdateTeamStats(uint8 TeamNum, FName StatsName, float NewValue);
+
+	virtual void AdvanceStatsPage(int32 Increment);
 };
 
 

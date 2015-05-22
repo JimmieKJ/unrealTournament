@@ -8,7 +8,7 @@ AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ArmorAmount = 50;
-	AbsorptionPct = 0.333f;
+	AbsorptionPct = 0.6f;
 	bCallDamageEvents = true;
 	BasePickupDesireability = 1.5f;
 }
@@ -24,6 +24,18 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	if (OverlayMaterial != NULL)
 	{
 		NewOwner->SetCharacterOverlay(OverlayMaterial, true);
+	}
+	if (StatsName != NAME_None)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(NewOwner->PlayerState);
+		if (PS)
+		{
+			PS->ModifyStatsValue(StatsName, 1);
+			if (PS->Team)
+			{
+				PS->Team->ModifyStatsValue(StatsName, 1);
+			}
+		}
 	}
 
 	NewOwner->CheckArmorStacking();
@@ -42,13 +54,13 @@ void AUTArmor::Removed()
 	Super::Removed();
 }
 
-void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, const FDamageEvent& DamageEvent, AController* InstigatedBy, AActor* DamageCauser)
+bool AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum, AUTInventory*& HitArmor, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
-	const UDamageType* const DamageTypeCDO = DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+	const UDamageType* const DamageTypeCDO = (DamageType != NULL) ? DamageType->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
 	const UUTDamageType* const UTDamageTypeCDO = Cast<UUTDamageType>(DamageTypeCDO); // warning: may be NULL
-	if (UTDamageTypeCDO && !UTDamageTypeCDO->bBlockedByArmor)
+	if (UTDamageTypeCDO != NULL && !UTDamageTypeCDO->bBlockedByArmor)
 	{
-		return;
+		return false;
 	}
 	if (Damage > 0)
 	{
@@ -64,6 +76,7 @@ void AUTArmor::ModifyDamageTaken_Implementation(int32& Damage, FVector& Momentum
 		Damage -= Absorb;
 		ReduceArmor(Absorb);
 	}
+	return false;
 }
 
 int32 AUTArmor::GetEffectiveHealthModifier_Implementation(bool bOnlyVisible) const

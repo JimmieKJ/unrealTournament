@@ -84,7 +84,7 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 
 		// if it's a bot, refocus it to its desired endpoint for any air control adjustments
 		AUTBot* B = Cast<AUTBot>(Char->Controller);
-		if (B != NULL)
+		if (B != NULL && GetUTNavData(GetWorld()) != NULL)
 		{
 			bool bRepathOnLand = false;
 			bool bExpectedJumpPad = B->GetMoveTarget().Actor == this;

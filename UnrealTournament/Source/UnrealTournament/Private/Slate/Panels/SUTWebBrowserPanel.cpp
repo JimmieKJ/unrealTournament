@@ -15,26 +15,50 @@
 void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
 {
 	ShowControls = InArgs._ShowControls;
+	DesiredViewportSize = InArgs._ViewportSize;
+	bAllowScaling = InArgs._AllowScaling;
+
+
+	OnJSQueryReceived = InArgs._OnJSQueryReceived;
+	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
+	OnBeforeBrowse = InArgs._OnBeforeBrowse;
+	OnBeforePopup = InArgs._OnBeforePopup;
 
 	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
 }
 
 void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 {
-	this->ChildSlot
-	.VAlign(VAlign_Fill)
-	.HAlign(HAlign_Fill)
-	[
-		SNew(SDPIScaler)
-		.DPIScale(this, &SUTWebBrowserPanel::GetReverseScale)
+	if (bAllowScaling)
+	{
+		this->ChildSlot
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
 		[
-			SNew(SOverlay)
-			+ SOverlay::Slot()
+			SAssignNew(Overlay, SOverlay)
+			+SOverlay::Slot()
 			[
 				SAssignNew(WebBrowserContainer, SVerticalBox)
 			]
-		]
-	];
+		];
+	}
+	else
+	{
+		this->ChildSlot
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SDPIScaler)
+			.DPIScale(this, &SUTWebBrowserPanel::GetReverseScale)
+			[
+				SAssignNew(Overlay, SOverlay)
+				+ SOverlay::Slot()
+				[
+					SAssignNew(WebBrowserContainer, SVerticalBox)
+				]
+			]
+		];
+	}
 }
 
 void SUTWebBrowserPanel::Browse(FString URL)
@@ -49,9 +73,15 @@ void SUTWebBrowserPanel::Browse(FString URL)
 			SAssignNew(WebBrowserPanel, SWebBrowser)
 			.InitialURL(URL)
 			.ShowControls(ShowControls)
+			.ViewportSize(DesiredViewportSize)
+			.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateRaw(this, &SUTWebBrowserPanel::QueryReceived))
+			.OnJSQueryCanceled(FOnJSQueryCanceledDelegate::CreateRaw(this, &SUTWebBrowserPanel::QueryCancelled))
+			.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateRaw(this, &SUTWebBrowserPanel::BeforeBrowse))
+			.OnBeforePopup(FOnBeforePopupDelegate::CreateRaw(this, &SUTWebBrowserPanel::BeforePopup))
 		];
 	}
 }
+
 
 float SUTWebBrowserPanel::GetReverseScale() const
 {
@@ -63,6 +93,73 @@ float SUTWebBrowserPanel::GetReverseScale() const
 	}
 	return 1.0f;
 }
+
+
+void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+{
+	SUWPanel::OnShowPanel(inParentWindow);
+
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, 0);
+	}
+
+
+}
+void SUTWebBrowserPanel::OnHidePanel()
+{
+	SUWPanel::OnHidePanel();
+	
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+
+
+	// Temporarily change audio level
+	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
+	if (AudioSettings)
+	{
+		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, UserSettings->GetSoundClassVolume(EUTSoundClass::Music));
+	}
+}
+
+bool SUTWebBrowserPanel::QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
+{
+	UE_LOG(UT, Log, TEXT("Javascript %s"), *QueryString);
+
+	if (OnJSQueryReceived.IsBound())
+	{
+		return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
+	}
+	return false;
+}
+
+void SUTWebBrowserPanel::QueryCancelled(int64 QueryId)
+{
+	OnJSQueryCanceled.ExecuteIfBound(QueryId);
+}
+
+
+bool SUTWebBrowserPanel::BeforeBrowse(FString TargetURL, bool bRedirect)
+{
+	if (OnBeforeBrowse.IsBound())
+	{
+		return OnBeforeBrowse.Execute(TargetURL, bRedirect);
+	}
+
+	return false;
+}
+
+bool SUTWebBrowserPanel::BeforePopup(FString URL, FString Target)
+{
+	if (OnBeforePopup.IsBound())
+	{
+		return OnBeforePopup.Execute(URL, Target);
+	}
+
+	return false;
+}
+
 
 
 #endif

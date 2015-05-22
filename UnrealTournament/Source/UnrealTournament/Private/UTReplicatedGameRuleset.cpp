@@ -32,9 +32,10 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MaxPlayers);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, DisplayTexture);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MapPlaylistSize);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackages);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackagesChecksums);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, CustomPackagesRedirectURLs);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, RequiredPackages);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, bCustomRuleset);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, GameModeClass);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, bTeamGame);
 }
 
 void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
@@ -48,12 +49,11 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
 	MapPlaylist = NewRules->MapPlaylist;
 	MinPlayersToStart = NewRules->MinPlayersToStart;
 	MaxPlayers = NewRules->MaxPlayers;
+	bTeamGame = NewRules->bTeamGame;
 	
 	for (int32 i = 0; i < NewRules->RedirectReferences.Num(); i++)
 	{
-		CustomPackages.Add(NewRules->RedirectReferences[i].PackageName);
-		CustomPackagesChecksums.Add(NewRules->RedirectReferences[i].PackageChecksum);
-		CustomPackagesRedirectURLs.Add(NewRules->RedirectReferences[i].PackageURLProtocol + TEXT("://") + NewRules->RedirectReferences[i].PackageURL);
+		RequiredPackages.Add( FPackageRedirectReference(&NewRules->RedirectReferences[i]) );
 	}
 
 	DisplayTexture = NewRules->DisplayTexture;
@@ -98,3 +98,17 @@ void AUTReplicatedGameRuleset::GotTag()
 {
 }
 
+AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
+{
+	if (!GameModeClass.IsEmpty())
+	{
+		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *GameModeClass, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		if (GModeClass)
+		{
+			AUTGameMode* DefaultGameModeObject = GModeClass->GetDefaultObject<AUTGameMode>();
+			return DefaultGameModeObject;
+		}
+	}
+
+	return NULL;
+}

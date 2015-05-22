@@ -167,11 +167,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** Fire Effect happens once every FireEffectInterval shots */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
-		int32 FireEffectInterval;
+	int32 FireEffectInterval;
 	/** shots since last fire effect. */
 	UPROPERTY(BlueprintReadWrite, Category = "Weapon")
-		int32 FireEffectCount;
-		/** optional effect for instant hit endpoint */
+	int32 FireEffectCount;
+	/** optional effect for instant hit endpoint */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray< TSubclassOf<class AUTImpactEffect> > ImpactEffect;
 	/** throttling for impact effects - don't spawn another unless last effect is farther than this away or longer ago than MaxImpactEffectSkipTime */
@@ -204,7 +204,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** Hack for adjusting first person weapon mesh at different FOVs (until we have separate render pass for first person weapon. */
 	UPROPERTY()
-		FVector FOVOffset;
+	FVector FOVOffset;
 
 	UFUNCTION()
 	virtual void AttachToHolster();
@@ -214,7 +214,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
-		/** first person mesh */
+	/** first person mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	USkeletalMeshComponent* Mesh;
 
@@ -290,7 +290,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** Earliest time can fire again (failsafe for weapon swapping). */
 	UPROPERTY()
-		float EarliestFireTime;
+	float EarliestFireTime;
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual float GetBringUpTime();
@@ -352,6 +352,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** Scaling for 1st person firing view kickback */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float FiringViewKickback;
+
+	virtual void UpdateViewBob(float DeltaTime);
 
 	virtual void PostInitProperties() override;
 	virtual void BeginPlay() override;
@@ -439,14 +441,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** attach the visuals to Owner's first person view */
 	UFUNCTION(BlueprintNativeEvent)
 	void AttachToOwner();
-	
-	virtual void AttachToOwnerNative();
 
 	/** detach the visuals from the Owner's first person view */
 	UFUNCTION(BlueprintNativeEvent)
 	void DetachFromOwner();
-	
-	virtual void DetachFromOwnerNative();
 
 	/** return number of fire modes */
 	virtual uint8 GetNumFireModes() const
@@ -490,9 +488,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** If true, don't spawn impact effect.  Used for hitscan hits, skips by default for pawn and projectile hits. */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-		virtual bool CancelImpactEffect(const FHitResult& ImpactHit);
+	virtual bool CancelImpactEffect(const FHitResult& ImpactHit);
 
-		/** play effects associated with the shot's impact given the impact point
+	/** play effects associated with the shot's impact given the impact point
 	 * called only if FlashLocation has been set (instant hit weapon)
 	 * Call GetImpactSpawnPosition() to set SpawnLocation and SpawnRotation
 	 */
@@ -750,6 +748,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 		return false;
 	}
 
+	/** returns the meshes used to represent this weapon in first person, for example so they can be hidden when viewing in 3p
+	 * weapons that have additional relevant meshes (hands, dual wield, etc) should override to return those additional components
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Mesh)
+	TArray<UMeshComponent*> Get1PMeshes() const;
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	UUTWeaponState* CurrentState;
@@ -789,4 +793,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
 	FTextureUVs WeaponBarInactiveUVs;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName KillStatsName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName AltKillStatsName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName DeathStatsName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName AltDeathStatsName;
+
+	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const;
+	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const;
 };

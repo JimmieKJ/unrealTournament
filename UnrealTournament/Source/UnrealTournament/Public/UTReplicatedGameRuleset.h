@@ -51,14 +51,19 @@ public:
 	UPROPERTY(Replicated, ReplicatedUsing = BuildSlateBadge, BlueprintReadOnly, Category = Ruleset)
 	FString DisplayTexture;
 
-	UPROPERTY(Replicated)
-	TArray<FString> CustomPackages;
+	// Why have GameMode and GameModeClass?  GameMode is passed on the URL/Command line and should be as short as possible.
+	// You can set up Aliases in DefaultGame.  But we need GameModeClass at times to grab the default object.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
+	FString GameModeClass;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
+	uint32 bCustomRuleset:1;
 
 	UPROPERTY(Replicated)
-	TArray<FString> CustomPackagesChecksums;
+	TArray<FPackageRedirectReference> RequiredPackages;
 
 	UPROPERTY(Replicated)
-	TArray<FString> CustomPackagesRedirectURLs;
+	uint32 bTeamGame:1;
 
 	// -------------- These are server side only.
 
@@ -81,6 +86,9 @@ public:
 	// When the material reference arrives, build the slate texture
 	UFUNCTION()
 	virtual void BuildSlateBadge();
+
+	UFUNCTION()
+	virtual AUTGameMode* GetDefaultGameModeObject();
 
 protected:
 

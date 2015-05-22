@@ -8,7 +8,7 @@
 
 #include "UTGameObjective.generated.h"
 
-UCLASS()
+UCLASS(Blueprintable)
 class UNREALTOURNAMENT_API AUTGameObjective : public AActor, public IUTPathBuilderInterface, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()

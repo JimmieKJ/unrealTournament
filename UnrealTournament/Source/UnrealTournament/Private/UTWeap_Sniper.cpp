@@ -6,6 +6,7 @@
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateZooming.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "StatNames.h"
 
 AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateZooming>(TEXT("FiringState1")) )
@@ -25,6 +26,11 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	BaseAISelectRating = 0.7f;
 	BasePickupDesireability = 0.63f;
 	FiringViewKickback = -50.f;
+
+	KillStatsName = NAME_SniperKills;
+	AltKillStatsName = NAME_SniperHeadshotKills;
+	DeathStatsName = NAME_SniperDeaths;
+	AltDeathStatsName = NAME_SniperHeadshotDeaths;
 }
 
 float AUTWeap_Sniper::GetHeadshotScale() const

@@ -4,7 +4,7 @@
 #include "UTHUDWidget_TeamScore.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTHUDWidget_TeamScore : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_TeamScore : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

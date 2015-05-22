@@ -12,6 +12,7 @@
 #include "UTCharacterContent.h"
 #include "UTWeap_ShockRifle.h"
 #include "UTWeaponAttachment.h"
+#include "UTHUD.h"
 #include "Engine/UserInterfaceSettings.h"
 
 #if !UE_SERVER
@@ -56,51 +57,28 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	WeaponConfigDelayFrames = 0;
 
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Unreal"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("United States"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("United Kingdom"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("France"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Germany"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Italy"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Russia"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Australia"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Poland"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Brazil"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Portugal"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Spain"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Sweden"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Ukraine"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Austria"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Finland"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Hungary"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Netherlands"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Belgium"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Switzerland"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("South Africa"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Canada"))));
 
-	// Flags by _Lynx
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Armenia"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Azerbaijan"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Bulgaria"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Chile"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Estonia"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("EU"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Iceland"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("India"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Israel"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Jamaica"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Japan"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Latvija"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Lithuania"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Luxembourg"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Malaysia"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Peru"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("Scotland"))));
-	CountyFlagNames.Add(MakeShareable(new FString(TEXT("South Korea"))));
+	AUTHUD* DefaultHud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
+	if (DefaultHud)
+	{
+		for (int32 i=0; i< DefaultHud->FlagList.Num(); i++)
+		{
+			CountyFlagNames.Add(MakeShareable(new FFlagInfo(DefaultHud->FlagList[i])));
+		}
+	
+	}
+	
+	CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Unreal"),0)));
 
-
-	TSharedPtr< SComboBox< TSharedPtr<FString> > > CountryFlagComboBox;
+	if (GetPlayerOwner()->CommunityRole != EUnrealRoles::Gamer)
+	{
+		CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Red Team"),140)));
+		CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Blue Team"),141)));
+		if (GetPlayerOwner()->CommunityRole == EUnrealRoles::Developer)
+		{
+			CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Epic Logo"),142)));
+		}
+	}
 
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
@@ -329,12 +307,12 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							SNew( SBox )
 							.WidthOverride(250.f)
 							[
-								SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FString> >)
+								SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FFlagInfo> >)
 								.InitiallySelectedItem(0)
 								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
 								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 								.OptionsSource(&CountyFlagNames)
-								.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+								.OnGenerateWidget(this, &SUWPlayerSettingsDialog::GenerateFlagListWidget)
 								.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnFlagSelected)
 								.Content()
 								[
@@ -778,7 +756,15 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	if (GetPlayerOwner().IsValid())
 	{
 		uint32 CountryFlag = GetPlayerOwner()->GetCountryFlag();
-		CountryFlagComboBox->SetSelectedItem(CountyFlagNames[CountryFlag]);
+
+		for (int32 i=0; i < CountyFlagNames.Num(); i++)
+		{
+			if (CountyFlagNames[i]->Id == CountryFlag)
+			{
+				CountryFlagComboBox->SetSelectedItem(CountyFlagNames[i]);
+				break;
+			}
+		}
 	}
 
 }
@@ -856,9 +842,9 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	uint32 NewFlag = 0;
 	for (int32 i=0; i<CountyFlagNames.Num();i++)
 	{
-		if (*CountyFlagNames[i] == SelectedFlag->GetText().ToString())
+		if (CountyFlagNames[i]->Title == SelectedFlag->GetText().ToString())
 		{
-			NewFlag = i;
+			NewFlag = CountyFlagNames[i]->Id;
 			break;
 		}
 	}
@@ -1257,7 +1243,8 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 
 	FSceneViewInitOptions PlayerPreviewInitOptions;
 	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
-	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(CameraPosition) * FInverseRotationMatrix(FRotator::ZeroRotator) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
+	// YZ Ortho view
+	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(CameraPosition) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
 	PlayerPreviewInitOptions.ProjectionMatrix = 
 		FReversedZPerspectiveMatrix(
 			FMath::Max(0.001f, FOV) * (float)PI / 360.0f,
@@ -1306,10 +1293,23 @@ void SUWPlayerSettingsDialog::ZoomPlayerPreview(float WheelDelta)
 	ZoomOffset = FMath::Clamp(ZoomOffset + (-WheelDelta * 10.0f), -100.0f, 400.0f);
 }
 
-void SUWPlayerSettingsDialog::OnFlagSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+void SUWPlayerSettingsDialog::OnFlagSelected(TSharedPtr<FFlagInfo> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedFlag->SetText(*NewSelection.Get());
+	SelectedFlag->SetText(NewSelection->Title);
 }
+
+
+TSharedRef<SWidget> SUWPlayerSettingsDialog::GenerateFlagListWidget(TSharedPtr<FFlagInfo> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.Text(InItem->Title)
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+		];
+}
+
 
 #undef LOCTEXT_NAMESPACE
 

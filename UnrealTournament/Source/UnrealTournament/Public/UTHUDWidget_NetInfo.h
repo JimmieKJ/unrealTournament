@@ -4,7 +4,7 @@
 #include "UTHUDWidget_NetInfo.generated.h"
 
 UCLASS()
-class UUTHUDWidget_NetInfo : public UUTHUDWidget
+class UNREALTOURNAMENT_API UUTHUDWidget_NetInfo : public UUTHUDWidget
 {
 	GENERATED_UCLASS_BODY()
 

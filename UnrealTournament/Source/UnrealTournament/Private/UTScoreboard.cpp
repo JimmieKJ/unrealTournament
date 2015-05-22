@@ -2,6 +2,12 @@
 
 #include "UnrealTournament.h"
 #include "UTScoreboard.h"
+#include "UTHUDWidget_Spectator.h"
+#include "StatNames.h"
+#include "UTPickupWeapon.h"
+#include "UTWeapon.h"
+#include "UTWeap_Enforcer.h"
+#include "UTWeap_ImpactHammer.h"
 
 UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -11,7 +17,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ScreenPosition = FVector2D(0.5f, 0.5f);
 	Origin = FVector2D(0.5f, 0.5f);
 
-	NumPages = 1;
+	NumPages = 2;
 	ColumnHeaderPlayerX = 0.125;
 	ColumnHeaderScoreX = 0.7;
 	ColumnHeaderDeathsX = 0.84;
@@ -43,14 +49,73 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
 	TextureAtlas = Tex.Object;
 
-	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
-	FlagAtlas = FlagTex.Object;
+	ValueColumn = 0.5f;
+	ScoreColumn = 0.75f;
+	bHighlightStatsLineTopValue = false;
+	BestWeaponIndex = -1;
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
 {
+	// @TODO FIXMESTEVE hack for progressing through players for scoring breakdown
+	if ((NumPages > 1) && (UTHUDOwner->ScoreboardPage == NumPages-1) && UTHUDOwner->UTPlayerOwner && (GetWorld()->GameState->PlayerArray.Num() > 0) 
+		&& ((Increment > 0) || (UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS != GetWorld()->GameState->PlayerArray[0])))
+	{
+		UTHUDOwner->UTPlayerOwner->SetViewedScorePS(GetNextScoringPlayer(Increment), UTPlayerOwner->CurrentlyViewedStatsTab);
+		return;
+	}
 	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
+	BestWeaponIndex = -1;
 	PageChanged();
+}
+
+void UUTScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
+{
+}
+
+void UUTScoreboard::OpenScoringPlaysPage()
+{
+}
+
+AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
+{
+	int32 CurrentIndex = -1;
+	AUTPlayerState* ScoreBreakdownPS = UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS;
+	if (!ScoreBreakdownPS)
+	{
+		ScoreBreakdownPS = UTHUDOwner->GetScorerPlayerState();
+	}
+	// Find index of current viewtarget's PlayerState
+	for (int32 i = 0; i<GetWorld()->GameState->PlayerArray.Num(); i++)
+	{
+		if (ScoreBreakdownPS == GetWorld()->GameState->PlayerArray[i])
+		{
+			CurrentIndex = i;
+			break;
+		}
+	}
+
+	int32 NewIndex;
+	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+	{
+		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
+		if (PlayerState != NULL)
+		{
+			return PlayerState;
+		}
+	}
+
+	// wrap around
+	CurrentIndex = (NewIndex < 0) ? GetWorld()->GameState->PlayerArray.Num() : -1;
+	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+	{
+		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
+		if (PlayerState != NULL)
+		{
+			return PlayerState;
+		}
+	}
+	return ScoreBreakdownPS;
 }
 
 void UUTScoreboard::SetPage(uint32 NewPage)
@@ -84,10 +149,17 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 {
 	Super::Draw_Implementation(RenderDelta);
 
-	float YOffset = 0;
+	float YOffset = 0.0f;
 	DrawGamePanel(RenderDelta, YOffset);
-	DrawTeamPanel(RenderDelta, YOffset);
-	DrawScorePanel(RenderDelta, YOffset);
+	if (UTHUDOwner->ScoreboardPage > 0)
+	{
+		DrawScoringStats(RenderDelta, YOffset);
+	}
+	else
+	{
+		DrawTeamPanel(RenderDelta, YOffset);
+		DrawScorePanel(RenderDelta, YOffset);
+	}
 	DrawServerPanel(RenderDelta, FooterPosY);
 }
 
@@ -320,10 +392,11 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
 
-	int32 FlagU = (PlayerState->CountryFlag % 8) * 32;
-	int32 FlagV = (PlayerState->CountryFlag / 8) * 24;
+	int32 FlagU = 0;
+	int32 FlagV = 0;
 
-	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 32,24, FlagU,FlagV,32,24,1.0, FLinearColor::White, FVector2D(0.0f,0.5f));	// Add a function to support additional flags
+	UTexture2D* FlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagU, FlagV);
+	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 36,26, FlagU,FlagV,36,26,1.0, FLinearColor::White, FVector2D(0.0f,0.5f));	// Add a function to support additional flags
 
 	// Draw the Text
 	DrawText(Position, XOffset + (Width * FlagX - 5), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
@@ -372,22 +445,31 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 {
 	if (UTGameState)
 	{
-		if (!UTGameState->HasMatchStarted())
+		FText SpectatorMessage;
+		bool bShortMessage = false;
+		if (UTHUDOwner->SpectatorMessageWidget)
+		{
+			SpectatorMessage = UTHUDOwner->SpectatorMessageWidget->GetSpectatorMessageText(bShortMessage);
+		}
+		if (!SpectatorMessage.IsEmpty() && !bShortMessage && (UTGameState->PlayerArray.Num() < 26) && (UTHUDOwner->ScoreboardPage == 0))
 		{
 			// Only draw if there is room above spectator panel
-			if (UTGameState->PlayerArray.Num() > 26)
-			{
-				return;
-			}
+			UTHUDOwner->SpectatorMessageWidget->PreDraw(RenderDelta, UTHUDOwner, Canvas, CanvasCenter);
+			UTHUDOwner->SpectatorMessageWidget->DrawSimpleMessage(SpectatorMessage, RenderDelta, bShortMessage);
+			return;
+		}
+		if (SpectatorMessage.IsEmpty() || bShortMessage)
+		{
+			SpectatorMessage = FText::FromString(UTGameState->ServerName);
 		}
 
 		// Draw the Background
 		DrawTexture(TextureAtlas, 0, YOffset, 1269, 38, 4, 132, 30, 38, 1.0);
-		DrawText(FText::FromString(UTGameState->ServerName), 10, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(SpectatorMessage, 10, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		DrawText(FText::FromString(UTGameState->ServerDescription), 1259, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if (NumPages > 1)
 		{
-			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages));
+			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages + GetWorld()->GameState->PlayerArray.Num()));
 			DrawText(PageText, Size.X * 0.5f, YOffset + 13, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}
@@ -543,3 +625,239 @@ void UUTScoreboard::SelectionClick()
 	}
 }
 
+void UUTScoreboard::DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth)
+{
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	Canvas->DrawText(StatsFontInfo.TextFont, StatsName, XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+
+	if (StatValue >= 0)
+	{
+		Canvas->SetLinearDrawColor((bHighlightStatsLineTopValue && (StatValue > ScoreValue)) ? FLinearColor::Yellow : FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	if (ScoreValue >= 0)
+	{
+		Canvas->SetLinearDrawColor((bHighlightStatsLineTopValue && (ScoreValue > StatValue)) ? FLinearColor::Yellow : FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	YPos += StatsFontInfo.TextHeight;
+}
+
+void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex)
+{
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	Canvas->DrawText(StatsFontInfo.TextFont, StatsName, XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+
+	if (!StatValue.IsEmpty())
+	{
+		Canvas->SetLinearDrawColor((HighlightIndex & 1) ? FLinearColor::Yellow : FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, StatValue, XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	if (!ScoreValue.IsEmpty())
+	{
+		Canvas->SetLinearDrawColor((HighlightIndex & 2) ? FLinearColor::Yellow : FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	YPos += StatsFontInfo.TextHeight;
+}
+
+void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon)
+{
+	Canvas->SetLinearDrawColor(bIsBestWeapon ? FLinearColor::Yellow : FLinearColor::White);
+	Canvas->DrawText(StatsFontInfo.TextFont, StatsName, XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+
+	if (StatValue >= 0)
+	{
+		Canvas->SetLinearDrawColor((StatValue >= 15) ? FLinearColor::Yellow : FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	if (ScoreValue >= 0)
+	{
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	YPos += StatsFontInfo.TextHeight;
+}
+
+void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
+{
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "WeaponColumnTitle", "Weapon"), "Kills With", "Deaths By", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+
+	/** List of weapons to display stats for. */
+	if (StatsWeapons.Num() == 0)
+	{
+		// add default weapons - needs to be automated
+		StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
+		StatsWeapons.AddUnique(AUTWeap_Enforcer::StaticClass()->GetDefaultObject<AUTWeapon>());
+
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+			if (Pickup && Pickup->GetInventoryType())
+			{
+				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+			}
+		}
+	}
+
+	float BestWeaponKills = (BestWeaponIndex == FMath::Clamp(BestWeaponIndex, 0, StatsWeapons.Num() - 1)) ? StatsWeapons[BestWeaponIndex]->GetWeaponKillStats(PS) : 0;
+	for (int32 i = 0; i < StatsWeapons.Num(); i++)
+	{
+		int32 Kills = StatsWeapons[i]->GetWeaponKillStats(PS);
+		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
+		if (Kills > BestWeaponKills)
+		{
+			BestWeaponKills = Kills;
+			BestWeaponIndex = i;
+		}
+	}
+
+	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "ShockComboKills", "Shock Combo Kills"), PS->GetStatsValue(NAME_ShockComboKills), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "AmazingCombos", "Amazing Combos"), PS->GetStatsValue(NAME_AmazingCombos), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HeadShots", "Sniper Headshots"), PS->GetStatsValue(NAME_SniperHeadshotKills), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "AirRox", "Air Rocket Kills"), PS->GetStatsValue(NAME_AirRox), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	// FIXMESTEVE track air rox and amazing combos
+
+	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+
+	float BestComboRating = 0.01f*PS->GetStatsValue(NAME_BestShockCombo);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "ShockComboRating", "Best Shock Combo Rating"), FString::Printf(TEXT(" %4.1f"), BestComboRating), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (BestComboRating > 8.f));
+}
+
+void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
+{
+	FVector2D SavedRenderPosition = RenderPosition;
+	RenderPosition = FVector2D(0.f, 0.f);
+	bScaleByDesignedResolution = false;
+	float TopYPos = YPos;
+
+	// draw left side
+	float XOffset = Canvas->ClipX * 0.06f;
+	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
+	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
+	float PageBottom = TopYPos + MaxHeight;
+
+	FLinearColor PageColor = FLinearColor::Black;
+	PageColor.A = 0.5f;
+	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+
+	// draw right side
+	XOffset = ScoreWidth + 2.f*XOffset;
+	YPos = TopYPos;
+	DrawTexture(TextureAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.1f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawStatsRight(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+
+	bScaleByDesignedResolution = true;
+	RenderPosition = SavedRenderPosition;
+}
+
+void UUTScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
+
+}
+
+void UUTScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
+	DrawScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+}
+
+void UUTScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	FStatsFontInfo StatsFontInfo;
+	StatsFontInfo.TextRenderInfo.bEnableShadow = true;
+	StatsFontInfo.TextRenderInfo.bClipText = true;
+	StatsFontInfo.TextFont = UTHUDOwner->SmallFont;
+	bHighlightStatsLineTopValue = false;
+
+	if (!UTPlayerOwner->CurrentlyViewedScorePS)
+	{
+		UTPlayerOwner->SetViewedScorePS(UTHUDOwner->GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+	}
+	AUTPlayerState* PS = UTPlayerOwner->CurrentlyViewedScorePS;
+	if (!PS)
+	{
+		return;
+	}
+
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("PlayerName"), FText::FromString(PS->PlayerName));
+	FText CombinedHeader = (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 0)
+		? FText::Format(NSLOCTEXT("UTScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"), Args)
+		: FText::Format(NSLOCTEXT("UTScoreboard", "WeaponStatsHeader", "{PlayerName} Weapon Stats"), Args);
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	StatsFontInfo.TextHeight = SmallYL;
+	float MedYL;
+	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+
+	if (PS->Team)
+	{
+		// draw team icon
+		float IconHeight = MedYL;
+		int32 TeamIndex = PS->Team->TeamIndex;
+		DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[TeamIndex].X, UTHUDOwner->TeamIconUV[TeamIndex].Y, 72, 72, 1.f, PS->Team->TeamColor);
+	}
+
+	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += MedYL;
+
+	DrawPlayerStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
+
+	FString TabInstruction = (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 0)
+		? "Press Down Arrow to View Weapon Stats"
+		: "Press Up Arrow to View Game Stats";
+
+	Canvas->DrawText(UTHUDOwner->SmallFont, TabInstruction, XOffset, PageBottom - StatsFontInfo.TextHeight, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+}
+
+void UUTScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo)
+{
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 1)
+	{
+		DrawWeaponStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
+		return;
+	}
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Kills", "Kills"), PS->Kills, PS->Kills, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), PS->Deaths, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Suicides", "Suicides"), PS->GetStatsValue(NAME_Suicides), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "KDRatio", "K/D Ratio"), FString::Printf(TEXT(" %6.2f"), ((PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f)), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BeltPickups", "Shield Belt Pickups"), PS->GetStatsValue(NAME_ShieldBeltCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), PS->GetStatsValue(NAME_ArmorVestCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), PS->GetStatsValue(NAME_ArmorPadsCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), PS->GetStatsValue(NAME_HelmetCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	int32 ClockVal = PS->GetStatsValue(NAME_UDamageTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	}
+	ClockVal = PS->GetStatsValue(NAME_BerserkTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	}
+	ClockVal = PS->GetStatsValue(NAME_InvisibilityTime);
+	if (ClockVal > 0)
+	{
+		FText ClockString = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ClockVal, false);
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), ClockString.ToString(), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	}
+
+	int32 BootJumps = PS->GetStatsValue(NAME_BootJumps);
+	if (BootJumps != 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "JumpBootJumps", "JumpBoot Jumps"), BootJumps, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Scoring", "SCORE"), -1, PS->Score, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+}
