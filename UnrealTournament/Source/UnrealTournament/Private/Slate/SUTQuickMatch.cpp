@@ -234,10 +234,18 @@ void SUTQuickMatch::OnFindSessionsComplete(bool bWasSuccessful)
 		{
 			for (int32 ServerIndex = 0; ServerIndex < SearchSettings->SearchResults.Num(); ServerIndex++)
 			{
-				int32 NoPlayers;
-				SearchSettings->SearchResults[ServerIndex].Session.SessionSettings.Get(SETTING_PLAYERSONLINE, NoPlayers);
-				TSharedRef<FServerSearchInfo> NewServer = FServerSearchInfo::Make(SearchSettings->SearchResults[ServerIndex],0, NoPlayers);
-				ServerList.Add(NewServer);
+				int32 ServerFlags = 0x0000;
+				SearchSettings->SearchResults[ServerIndex].Session.SessionSettings.Get(SETTING_SERVERFLAGS, ServerFlags);
+
+				// Make sure the server we are connecting to isn't password protected.
+				if ((ServerFlags & 0x01) != 0x01)
+				{
+					int32 NoPlayers;
+					SearchSettings->SearchResults[ServerIndex].Session.SessionSettings.Get(SETTING_PLAYERSONLINE, NoPlayers);
+					TSharedRef<FServerSearchInfo> NewServer = FServerSearchInfo::Make(SearchSettings->SearchResults[ServerIndex], 0, NoPlayers);
+					ServerList.Add(NewServer);
+				}
+
 			}
 
 			if (ServerList.Num() > 0)
