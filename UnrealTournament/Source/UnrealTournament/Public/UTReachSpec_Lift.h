@@ -119,10 +119,19 @@ class UUTReachSpec_Lift : public UUTReachSpec
 				NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints);
 			}
 			MovePoints.Add(FComponentBasedPosition(Lift->GetEncroachComponent(), LiftLoc + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f)));
+			if (OwnerLink.ReachFlags & R_JUMP)
+			{
+				MovePoints.Add(FComponentBasedPosition(LiftExitLoc));
+			}
 			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 		}
 		else
 		{
+			// for lift jumps add exit loc so LD can precisely tune jump characteristics
+			if (OwnerLink.ReachFlags & R_JUMP)
+			{
+				MovePoints.Add(FComponentBasedPosition(LiftExitLoc));
+			}
 			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 		}
 		return true;

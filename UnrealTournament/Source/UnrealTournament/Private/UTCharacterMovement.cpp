@@ -173,7 +173,15 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 					if (PawnLoc.Z + (LiftVelocity.Z + JumpZVelocity * 0.9f) * Time + 0.5f * GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z)
 					{
 						// jump!
-						Velocity = (LiftPath->LiftExitLoc - PawnLoc).GetSafeNormal2D() * MaxWalkSpeed;
+						FVector DesiredVel2D;
+						if (B->FindBestJumpVelocityXY(DesiredVel2D, CharacterOwner->GetActorLocation(), LiftPath->LiftExitLoc, LiftVelocity.Z + JumpZVelocity, GetGravityZ(), CharacterOwner->GetSimpleCollisionHalfHeight()))
+						{
+							Velocity = FVector(DesiredVel2D.X, DesiredVel2D.Y, 0.0f).GetClampedToMaxSize2D(MaxWalkSpeed);
+						}
+						else
+						{
+							Velocity = (LiftPath->LiftExitLoc - PawnLoc).GetSafeNormal2D() * MaxWalkSpeed;
+						}
 						DoJump(false);
 						// redirect bot to next point on route if necessary
 						if (ExitRouteIndex != INDEX_NONE)
@@ -181,6 +189,12 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 							TArray<FComponentBasedPosition> MovePoints;
 							new(MovePoints) FComponentBasedPosition(LiftPath->LiftExitLoc);
 							B->SetMoveTarget(B->RouteCache[ExitRouteIndex], MovePoints);
+						}
+						else if (B->GetMoveBasedPosition().Base != NULL && B->GetMoveBasedPosition().Base->GetOwner() == LiftPath->Lift)
+						{
+							// result of bug where bot didn't use an entry path to get on the lift due to navmesh structure, see UUTReachSpec_Lift::GetMovePoints()
+							B->SetAdjustLoc(LiftPath->LiftExitLoc);
+							B->MoveTimer = -1.0f;
 						}
 					}
 				}
