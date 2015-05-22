@@ -33,54 +33,6 @@ struct FTabButtonInfo
 	}
 };
 
-struct FMapPlayListInfo
-{
-	FString MapName;
-	FSlateDynamicImageBrush* MapImage;
-	TWeakObjectPtr<UUTLevelSummary> LevelSummary;
-	TSharedPtr<SUTComboButton> Button;
-	TSharedPtr<SImage> CheckMark;
-	bool bSelected;
-
-	FMapPlayListInfo()
-	{
-		MapName = TEXT("");
-		MapImage = nullptr;
-		LevelSummary.Reset();
-		CheckMark.Reset();
-		Button.Reset();
-		bSelected = false;
-	}
-
-	FMapPlayListInfo(FString InMapName, FSlateDynamicImageBrush* InMapImage, TWeakObjectPtr<UUTLevelSummary> InLevelSummary, bool bInitiallySelected )
-	{
-		MapName = InMapName;
-		MapImage = InMapImage;
-		LevelSummary = InLevelSummary;
-		bSelected = bInitiallySelected;
-		CheckMark.Reset();
-		Button.Reset();
-	}
-
-	void SetWidgets(TSharedPtr<SUTComboButton> InButton, TSharedPtr<SImage> InCheckMark)
-	{
-		Button = InButton;
-		CheckMark = InCheckMark;
-
-		if (bSelected) 
-		{
-			Button->BePressed();
-			CheckMark->SetVisibility(EVisibility::Visible);
-		}
-		else
-		{
-			Button->UnPressed();
-			CheckMark->SetVisibility(EVisibility::Hidden);
-		}
-	}
-
-};
-
 struct FRuleSubsetInfo
 {
 	TWeakObjectPtr<class AUTReplicatedGameRuleset> Ruleset;
@@ -103,8 +55,56 @@ struct FRuleSubsetInfo
 
 };
 
-class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog
+class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog, public FGCObject
 {
+private:
+	struct FMapPlayListInfo
+	{
+		FString MapName;
+		FSlateDynamicImageBrush* MapImage;
+		UUTLevelSummary* LevelSummary;
+		TSharedPtr<SUTComboButton> Button;
+		TSharedPtr<SImage> CheckMark;
+		bool bSelected;
+
+		FMapPlayListInfo()
+		{
+			MapName = TEXT("");
+			MapImage = nullptr;
+			LevelSummary = nullptr;
+			CheckMark.Reset();
+			Button.Reset();
+			bSelected = false;
+		}
+
+		FMapPlayListInfo(FString InMapName, FSlateDynamicImageBrush* InMapImage, UUTLevelSummary* InLevelSummary, bool bInitiallySelected)
+		{
+			MapName = InMapName;
+			MapImage = InMapImage;
+			LevelSummary = InLevelSummary;
+			bSelected = bInitiallySelected;
+			CheckMark.Reset();
+			Button.Reset();
+		}
+
+		void SetWidgets(TSharedPtr<SUTComboButton> InButton, TSharedPtr<SImage> InCheckMark)
+		{
+			Button = InButton;
+			CheckMark = InCheckMark;
+
+			if (bSelected)
+			{
+				Button->BePressed();
+				CheckMark->SetVisibility(EVisibility::Visible);
+			}
+			else
+			{
+				Button->UnPressed();
+				CheckMark->SetVisibility(EVisibility::Hidden);
+			}
+		}
+
+	};
 public:
 	SLATE_BEGIN_ARGS(SUWGameSetupDialog)
 	: _DialogTitle(NSLOCTEXT("SUWGameSetupDialog", "Title", "GAME SETTINGS"))
@@ -192,6 +192,13 @@ protected:
 	FText GetBotSkillText() const;
 	void OnBotMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
 
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		for (FMapPlayListInfo& Map : MapPlayList)
+		{
+			Collector.AddReferencedObject(Map.LevelSummary);
+		}
+	}
 };
 
 #endif
