@@ -63,7 +63,7 @@ void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPri
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
 		if (PC != NULL)
 		{
-			PC->ClientReceiveLocalizedMessage(AirRocketRewardClass);
+			PC->SendPersonalMessage(AirRocketRewardClass);
 			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
 			if (PS)
 			{

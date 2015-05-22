@@ -129,6 +129,24 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 }
 
+
+void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	if (GetPawn())
+	{
+		// send to spectators viewing this pawn as well;
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* PC = *Iterator;
+			if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && (PC->GetViewTarget() == GetPawn()))
+			{
+				PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+			}
+		}
+	}
+}
+
 void AUTPlayerController::NetStats()
 {
 	bShowNetInfo = !bShowNetInfo;

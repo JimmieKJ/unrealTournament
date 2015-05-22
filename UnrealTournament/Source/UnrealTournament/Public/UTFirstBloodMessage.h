@@ -49,9 +49,18 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->RewardAnnouncer != NULL && ClientData.RelatedPlayerState_1 == PC->PlayerState)
+		if (PC != NULL && PC->RewardAnnouncer != NULL)
 		{
-			PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			APlayerState* ViewedPS = PC->PlayerState;
+			if (ClientData.RelatedPlayerState_1 != ViewedPS)
+			{
+				APawn* ViewedPawn = Cast<APawn>(PC->GetViewTarget());
+				ViewedPS = ViewedPawn ? ViewedPawn->PlayerState : ViewedPS;
+			}
+			if (ClientData.RelatedPlayerState_1 == ViewedPS)
+			{
+				PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			}
 		}
 
 		Super::ClientReceive(ClientData);

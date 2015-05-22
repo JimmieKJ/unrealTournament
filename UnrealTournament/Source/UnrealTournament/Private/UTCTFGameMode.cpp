@@ -153,12 +153,17 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				(*Iterator)->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
-				AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
-				if (PS && PS->bNeedsAssistAnnouncement)
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+				if (PC)
 				{
-					(*Iterator)->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, NULL, NULL);
-					PS->bNeedsAssistAnnouncement = false;
+					PC->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+					
+					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+					if (PS && PS->bNeedsAssistAnnouncement)
+					{
+						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, NULL, NULL);
+						PS->bNeedsAssistAnnouncement = false;
+					}
 				}
 			}
 

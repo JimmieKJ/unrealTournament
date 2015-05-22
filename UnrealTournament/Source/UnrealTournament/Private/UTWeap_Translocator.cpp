@@ -116,9 +116,9 @@ void AUTWeap_Translocator::FireShot()
 			{
 				// can't recall disrupted disk
 				UUTGameplayStatics::UTPlaySound(GetWorld(), DisruptedSound, UTOwner, SRT_AllButOwner);
-				if (Cast<APlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled())
+				if (Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled())
 				{
-					Cast<APlayerController>(UTOwner->GetController())->ClientReceiveLocalizedMessage(TranslocatorMessageClass, 0, NULL, NULL, NULL);
+					Cast<AUTPlayerController>(UTOwner->GetController())->SendPersonalMessage(TranslocatorMessageClass, 0, NULL, NULL, NULL);
 				}
 			}
 			else

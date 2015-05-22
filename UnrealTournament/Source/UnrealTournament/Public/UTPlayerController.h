@@ -765,6 +765,9 @@ public:
 	UFUNCTION(Exec)
 	void ShowBuyMenu();
 
+	/** send localized message to this PC's client and to spectators of this PC's pawn. */
+	virtual void SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
+
 	/** Playerstate whose details are currently being displayed on scoreboard. */
 	UPROPERTY()
 		AUTPlayerState* CurrentlyViewedScorePS;

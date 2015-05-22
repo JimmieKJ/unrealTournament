@@ -152,9 +152,9 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
 			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
 			MultiKillLevel++;
-			if (Cast<APlayerController>(GetOwner()) != NULL)
+			if (Cast<AUTPlayerController>(GetOwner()) != NULL)
 			{
-				((APlayerController*)GetOwner())->ClientReceiveLocalizedMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+				((AUTPlayerController*)GetOwner())->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
 			}
 		}
 		else
@@ -254,7 +254,7 @@ void AUTPlayerState::OnWeaponSpreeDamage()
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (MyPC && GS && WeaponSpreeDamage)
 	{
-		MyPC->ClientReceiveLocalizedMessage(GS->SpreeMessageClass, 99, this, NULL, this);
+		MyPC->SendPersonalMessage(GS->SpreeMessageClass, 99, this, NULL, this);
 	}
 }
 
