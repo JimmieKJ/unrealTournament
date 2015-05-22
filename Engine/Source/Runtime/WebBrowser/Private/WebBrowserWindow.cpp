@@ -532,7 +532,11 @@ bool FWebBrowserWindow::OnCefBeforeBrowse(CefRefPtr<CefRequest> Request, bool Is
 {
 	if (OnBeforeBrowse().IsBound())
 	{
+#if PLATFORM_MAC
+		FString URL = ANSI_TO_TCHAR(Request->GetURL().ToWString().c_str());
+#else
 		FString URL = Request->GetURL().ToWString().c_str();
+#endif
 		return OnBeforeBrowse().Execute(URL, IsRedirect);
 	}
 
@@ -543,7 +547,14 @@ bool FWebBrowserWindow::OnCefBeforePopup(const CefString& Target_Url, const CefS
 {
 	if (OnBeforePopup().IsBound())
 	{
-		return OnBeforePopup().Execute(Target_Url.c_str(), Target_Frame_Name.c_str());
+#if PLATFORM_MAC
+		FString URL = ANSI_TO_TCHAR(Target_Url.c_str());
+		FString FrameName = ANSI_TO_TCHAR(Target_Frame_Name.c_str());
+#else
+		FString URL = Target_Url.c_str();
+		FString FrameName = Target_Frame_Name.c_str();
+#endif
+		return OnBeforePopup().Execute(URL, FrameName);
 	}
 
 	return false;
