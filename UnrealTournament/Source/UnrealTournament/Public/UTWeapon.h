@@ -353,6 +353,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float FiringViewKickback;
 
+	virtual void UpdateViewBob(float DeltaTime);
+
 	virtual void PostInitProperties() override;
 	virtual void BeginPlay() override;
 	virtual void RegisterAllComponents() override

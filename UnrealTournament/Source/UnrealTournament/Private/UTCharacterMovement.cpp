@@ -680,7 +680,6 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	{
 		return;
 	}
-	OldZ = CharacterOwner->GetActorLocation().Z;
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
 
 	if (!UTOwner || !UTOwner->IsRagdoll())

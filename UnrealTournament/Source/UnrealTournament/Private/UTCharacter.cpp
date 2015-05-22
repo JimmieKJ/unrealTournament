@@ -380,7 +380,7 @@ void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 	{
 		Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
 		CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
-		UTCharacterMovement->OldZ = GetActorLocation().Z;
+		OldZ = GetActorLocation().Z;
 		CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
 	}
 }
@@ -389,7 +389,7 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
 	CrouchEyeOffset.Z += DefaultBaseEyeHeight - CrouchedEyeHeight + HeightAdjust;
-	UTCharacterMovement->OldZ = GetActorLocation().Z;
+	OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, CrouchedEyeHeight),false);
 
 	// Kill any montages that might be overriding the crouch anim
@@ -625,7 +625,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	CurrentJumpBob.Y = (1.f - JumpYInterp)*CurrentJumpBob.Y + JumpYInterp*DesiredJumpBob.Y;
 	CurrentJumpBob.Z = (1.f - InterpTime)*CurrentJumpBob.Z + InterpTime*DesiredJumpBob.Z;
 
-	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetController()); // fixmesteve use the viewer rather than the controller
+	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetController()); // fixmesteve use the viewer rather than the controller (when can do everywhere)
 	float WeaponBobGlobalScaling = MyWeapon->WeaponBobScaling * (MyPC ? MyPC->WeaponBobGlobalScaling : 1.f);
 	float EyeOffsetGlobalScaling = MyPC ? MyPC->EyeOffsetGlobalScaling : 1.f;
 
@@ -1068,7 +1068,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 			LastPainSoundTime = GetWorld()->TimeSeconds;
 		}
 
-		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+		AUTPlayerController* PC = GetLocalViewer();
 		if (PC != NULL)
 		{
 			PC->NotifyTakeHit(InstigatedBy, Damage, Momentum, DamageEvent);
@@ -1857,8 +1857,7 @@ void AUTCharacter::FiringInfoUpdated()
 		AnimInstance->Montage_Stop(0.2f);
 	}
 
-	// TODO: first person spectating
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
+	AUTPlayerController* UTPC = GetLocalViewer();
 	if (Weapon != NULL && (bLocalFlashLoc || UTPC == NULL || UTPC->GetPredictionTime() == 0.f) && Weapon != NULL && Weapon->ShouldPlay1PVisuals())
 	{
 		if (!FlashLocation.IsZero())
@@ -2651,7 +2650,7 @@ void AUTCharacter::MoveUp(float Value)
 
 APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
 {
-	AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+	AUTPlayerController* PC = GetLocalViewer();
 	return PC != NULL ? PC->PlayerCameraManager : NULL;
 }
 
@@ -2665,7 +2664,7 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterFootstepSound, this, SRT_IfSourceNotReplicated);
 	}
-	else if (IsLocallyControlled() && Cast<APlayerController>(GetController()) )
+	else if (GetLocalViewer())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), OwnFootstepSound, this, SRT_IfSourceNotReplicated);
 	}
@@ -2802,7 +2801,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
 	}
-	UTCharacterMovement->OldZ = GetActorLocation().Z;
+	OldZ = GetActorLocation().Z;
 
 	Super::Landed(Hit);
 
@@ -3160,6 +3159,24 @@ void AUTCharacter::UpdateBodyColorFlash(float DeltaTime)
 	}
 }
 
+AUTPlayerController* AUTCharacter::GetLocalViewer()
+{
+	if (CurrentViewerPC && ((Controller == CurrentViewerPC) || (CurrentViewerPC->GetViewTarget() == this)))
+	{
+		return CurrentViewerPC;
+	}
+	CurrentViewerPC = NULL;
+	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	{
+		if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+		{
+			CurrentViewerPC = Cast<AUTPlayerController>(It->PlayerController);
+			break;
+		}
+	}
+	return CurrentViewerPC;
+}
+
 void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -3249,19 +3266,19 @@ void AUTCharacter::Tick(float DeltaTime)
 	if (GetCharacterMovement()->MovementMode == MOVE_Walking && !MovementBaseUtility::UseRelativeLocation(BasedMovement.MovementBase))
 	{
 		// smooth up/down stairs
-		if (GetCharacterMovement()->bJustTeleported && (FMath::Abs(UTCharacterMovement->OldZ - GetActorLocation().Z) > GetCharacterMovement()->MaxStepHeight))
+		if (GetCharacterMovement()->bJustTeleported && (FMath::Abs(OldZ - GetActorLocation().Z) > GetCharacterMovement()->MaxStepHeight))
 		{
 			EyeOffset.Z = 0.f;
 		}
 		else
 		{
-			EyeOffset.Z += (UTCharacterMovement->OldZ - GetActorLocation().Z);
+			EyeOffset.Z += (OldZ - GetActorLocation().Z);
 		}
 
 		// avoid clipping
 		if (CrouchEyeOffset.Z + EyeOffset.Z > GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight - 12.f)
 		{
-			if (!IsLocallyControlled())
+			if (!GetLocalViewer())
 			{
 				CrouchEyeOffset.Z = 0.f;
 				EyeOffset.Z = FMath::Min(EyeOffset.Z, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - BaseEyeHeight); // @TODO FIXMESTEVE CONSIDER CLIP PLANE -12.f);
@@ -3283,6 +3300,8 @@ void AUTCharacter::Tick(float DeltaTime)
 			EyeOffset.Z = FMath::Max(EyeOffset.Z, 12.f - BaseEyeHeight - GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - CrouchEyeOffset.Z);
 		}
 	}
+	OldZ = GetActorLocation().Z;
+
 	// clamp transformed offset z contribution
 	FRotationMatrix ViewRotMatrix = FRotationMatrix(GetViewRotation());
 	FVector XTransform = ViewRotMatrix.GetScaledAxis(EAxis::X) * EyeOffset.X;
@@ -3311,7 +3330,13 @@ void AUTCharacter::Tick(float DeltaTime)
 	TargetEyeOffset.Y *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Y*DeltaTime));
 	TargetEyeOffset.Z *= FMath::Max(0.f, 1.f - FMath::Min(1.f, EyeOffsetDecayRate.Z*DeltaTime));
 	TargetEyeOffset.DiagnosticCheckNaN();
-	if (IsLocallyControlled() && Cast<APlayerController>(Controller) != NULL && GetCharacterMovement()) // @TODO FIXME ALSO FOR SPECTATORS
+
+	if (GetWeapon())
+	{
+		GetWeapon()->UpdateViewBob(DeltaTime);
+	}
+	AUTPlayerController* MyPC = GetLocalViewer();
+	if (MyPC && GetCharacterMovement()) 
 	{
 		if ((Health <= LowHealthAmbientThreshold) && (Health > 0))
 		{
@@ -3352,7 +3377,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		SetStatusAmbientSound(LowHealthAmbientSound, 0.f, 1.f, true);
 	}
 
-	if ((Role == ROLE_Authority) && IsInWater())
+	if (IsInWater())
 	{
 		if (IsRagdoll() && GetMesh())
 		{
@@ -3362,7 +3387,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			GetMesh()->AddForce(0.7f*FluidForce, FName((TEXT("spine_02"))));
 			GetMesh()->AddForce(0.3f*FluidForce);
 		}
-		if (Health > 0)
+		if ((Role == ROLE_Authority) && (Health > 0))
 		{
 			bool bHeadWasUnderwater = bHeadIsUnderwater;
 			bHeadIsUnderwater = IsRagdoll() || HeadIsUnderWater();
@@ -4290,7 +4315,7 @@ void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const 
 				// forward simulate this character to match estimated current position on server, based on my ping
 				AUTPlayerController* PC = Cast<AUTPlayerController>(GEngine->GetFirstLocalPlayerController(GetWorld()));
 				float PredictionTime = PC ? PC->GetPredictionTime() : 0.f;
-				if (PredictionTime > 0.f)
+				if ((PredictionTime > 0.f) && (PC->GetViewTarget() != this))
 				{
 					GetCharacterMovement()->SimulateMovement(PredictionTime);
 				}

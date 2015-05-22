@@ -1683,6 +1683,16 @@ public:
 		float FallingStartTime;
 
 	virtual void Falling();
+
+	/** Local player currently viewing this character. */
+	UPROPERTY()
+		class AUTPlayerController* CurrentViewerPC;
+
+	virtual	class AUTPlayerController* GetLocalViewer();
+
+	/** Previous actor location Z when last updated eye offset. */
+	UPROPERTY()
+		float OldZ;
 };
 
 inline bool AUTCharacter::IsDead()
