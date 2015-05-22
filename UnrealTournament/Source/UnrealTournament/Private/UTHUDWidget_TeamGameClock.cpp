@@ -32,7 +32,7 @@ void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 
 	if (!StatusText.IsEmpty())
 	{
-		GameStateBackground.bHidden = false;
+		GameStateBackground.bHidden = true; // @TODO FIXMESTEVE remove entirely, also clock background
 		GameStateText.bHidden = false;
 		GameStateText.Text = StatusText;
 	}

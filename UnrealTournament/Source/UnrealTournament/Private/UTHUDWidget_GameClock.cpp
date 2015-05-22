@@ -33,7 +33,7 @@ void UUTHUDWidget_GameClock::Draw_Implementation(float DeltaTime)
 		SkullX = 140.f;
 	}
 	bool bEmptyText = GameStateText.Text.IsEmpty();
-	GameStateBackground.bHidden = bEmptyText;
+	GameStateBackground.bHidden = true; // bEmptyText; FIXMESTEVE remove widget entirely
 	GameStateText.bHidden = bEmptyText;
 	Skull.Position = FVector2D(SkullX, 10.f); // position 140, 10
 	Super::Draw_Implementation(DeltaTime);
