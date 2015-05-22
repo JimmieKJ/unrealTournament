@@ -41,10 +41,10 @@ public:
 		if (!Owner) return;
 
 		AUTReplicatedGameRuleset* NewRuleset;
-		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
-			TEXT("Deathmatch"), 
-			TEXT("Casual"), 
-			TEXT("Deathmatch"), 
+		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner,
+			TEXT("Deathmatch"),
+			TEXT("Deathmatch"),
+			TEXT("Free For All"),
 			TEXT("Standard free-for-all Deathmatch."), 
 			TEXT("Standard free-for-all deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\nMaximum of 6 players allowed!"),
 			6, 
@@ -60,7 +60,7 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("BigDM"), 
-			TEXT("Big"), 
+			TEXT("Deathmatch"), 
 			TEXT("Big Deathmatch"), 
 			TEXT("Deathmatch with an insane # of players on big maps."), 
 			TEXT("Deathmatch with big player counts on big maps!\n\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n\nMaximum of 16 players allowed!"),
@@ -94,7 +94,7 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("DUEL"), 
-			TEXT("Competitive"), 
+			TEXT("Deathmatch"), 
 			TEXT("Duel"), 
 			TEXT("Two players enter, one player leaves!"), 
 			TEXT("You against one other opponent!\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n\nMaximum of 2 players allowed!"),
@@ -111,7 +111,7 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("CTF"), 
-			TEXT("Casual,TeamPlay"), 
+			TEXT("TeamPlay"), 
 			TEXT("Capture the Flag"), 
 			TEXT("Two teams trying to steal each other flags."), 
 			TEXT("Try to steal the enemy flag and return it home.!\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 12 players allowed!"),
@@ -129,7 +129,7 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("BIGCTF"), 
-			TEXT("Big"), 
+			TEXT("TeamPlay"), 
 			TEXT("Big Capture the Flag"), 
 			TEXT("Two teams trying to steal each other flags with insane player counts."), 
 			TEXT("Try to steal the enemy flag and return it home.!\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 20 players allowed!"),
@@ -181,7 +181,7 @@ public:
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("iCTF"), 
 			TEXT("Instagib"), 
-			TEXT("Instgib CTF"), 
+			TEXT("Instagib CTF"), 
 			TEXT("One hit one kill CTF."), 
 			TEXT("Try to steal the enemy flag and return it home while avoiding even a single hit!\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 12 players allowed!"),
 			6, 
