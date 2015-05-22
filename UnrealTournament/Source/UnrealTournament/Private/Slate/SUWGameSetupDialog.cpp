@@ -377,7 +377,7 @@ void SUWGameSetupDialog::BuildMapList()
 		for (int32 i=0; i< SelectedRuleset->MapPlaylist.Num(); i++)
 		{
 			// Pull the level Summary		
-			TSharedPtr<FSlateDynamicImageBrush> Screenshot = MakeShareable(new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapListShot"))));
+			FSlateDynamicImageBrush* Screenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapListShot")));
 			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(SelectedRuleset->MapPlaylist[i]);
 			if (Summary != NULL)
 			{
@@ -512,7 +512,7 @@ void SUWGameSetupDialog::BuildMapPanel()
 									+SOverlay::Slot()
 									[
 										SNew(SImage)
-										.Image(MapPlayList[i].MapImage.Get())
+										.Image(MapPlayList[i].MapImage)
 									]
 									+SOverlay::Slot()
 									[

@@ -36,7 +36,7 @@ struct FTabButtonInfo
 struct FMapPlayListInfo
 {
 	FString MapName;
-	TSharedPtr<FSlateDynamicImageBrush> MapImage;
+	FSlateDynamicImageBrush* MapImage;
 	TWeakObjectPtr<UUTLevelSummary> LevelSummary;
 	TSharedPtr<SUTComboButton> Button;
 	TSharedPtr<SImage> CheckMark;
@@ -45,14 +45,14 @@ struct FMapPlayListInfo
 	FMapPlayListInfo()
 	{
 		MapName = TEXT("");
-		MapImage.Reset();
+		MapImage = nullptr;
 		LevelSummary.Reset();
 		CheckMark.Reset();
 		Button.Reset();
 		bSelected = false;
 	}
 
-	FMapPlayListInfo(FString InMapName, TSharedPtr<FSlateDynamicImageBrush> InMapImage, TWeakObjectPtr<UUTLevelSummary> InLevelSummary, bool bInitiallySelected )
+	FMapPlayListInfo(FString InMapName, FSlateDynamicImageBrush* InMapImage, TWeakObjectPtr<UUTLevelSummary> InLevelSummary, bool bInitiallySelected )
 	{
 		MapName = InMapName;
 		MapImage = InMapImage;
