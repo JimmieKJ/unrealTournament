@@ -19,6 +19,7 @@ void SWebBrowser::Construct(const FArguments& InArgs)
     OnJSQueryReceived = InArgs._OnJSQueryReceived;
     OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
 	OnBeforeBrowse = InArgs._OnBeforeBrowse;
+	OnBeforePopup = InArgs._OnBeforePopup;
     
 	void* OSWindowHandle = nullptr;
 	if (InArgs._ParentWindow.IsValid())
@@ -107,6 +108,7 @@ void SWebBrowser::Construct(const FArguments& InArgs)
 		BrowserWindow->OnJSQueryReceived().BindSP(this, &SWebBrowser::HandleJSQueryReceived);
 		BrowserWindow->OnJSQueryCanceled().BindSP(this, &SWebBrowser::HandleJSQueryCanceled);
 		BrowserWindow->OnBeforeBrowse().BindSP(this, &SWebBrowser::HandleBeforeBrowse);
+		BrowserWindow->OnBeforePopup().BindSP(this, &SWebBrowser::HandleBeforePopup);
 
 		BrowserViewport = MakeShareable(new FWebBrowserViewport(BrowserWindow, ViewportWidget));
 		ViewportWidget->SetViewportInterface(BrowserViewport.ToSharedRef());
@@ -226,6 +228,16 @@ bool SWebBrowser::HandleBeforeBrowse(FString URL, bool bIsRedirect)
 	if ( OnBeforeBrowse.IsBound() )
 	{
 		return OnBeforeBrowse.Execute(URL, bIsRedirect);
+	}
+
+	return false;
+}
+
+bool SWebBrowser::HandleBeforePopup(FString URL, FString Target)
+{
+	if ( OnBeforePopup.IsBound() )
+	{
+		return OnBeforePopup.Execute(URL, Target);
 	}
 
 	return false;

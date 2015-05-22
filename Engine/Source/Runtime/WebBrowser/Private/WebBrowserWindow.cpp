@@ -528,7 +528,7 @@ void FWebBrowserWindow::OnQueryCanceled(int64 QueryId)
     OnJSQueryCanceled().ExecuteIfBound(QueryId);
 }
 
-bool FWebBrowserWindow::OnBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect)
+bool FWebBrowserWindow::OnCefBeforeBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect)
 {
 	if (OnBeforeBrowse().IsBound())
 	{
@@ -538,6 +538,17 @@ bool FWebBrowserWindow::OnBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect)
 
 	return false;
 }
+
+bool FWebBrowserWindow::OnCefBeforePopup(const CefString& Target_Url, const CefString& Target_Frame_Name)
+{
+	if (OnBeforePopup().IsBound())
+	{
+		return OnBeforePopup().Execute(Target_Url.c_str(), Target_Frame_Name.c_str());
+	}
+
+	return false;
+}
+
 
 #endif
 

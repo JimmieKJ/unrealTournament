@@ -191,4 +191,7 @@ public:
     DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, FString, bool)
     virtual FOnBeforeBrowse& OnBeforeBrowse() = 0;
 
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopup, FString, FString)
+	virtual FOnBeforePopup& OnBeforePopup() = 0;
+
 };

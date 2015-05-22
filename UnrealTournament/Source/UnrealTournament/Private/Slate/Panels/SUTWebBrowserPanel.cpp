@@ -22,6 +22,7 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 	OnJSQueryReceived = InArgs._OnJSQueryReceived;
 	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
 	OnBeforeBrowse = InArgs._OnBeforeBrowse;
+	OnBeforePopup = InArgs._OnBeforePopup;
 
 	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
 }
@@ -75,7 +76,8 @@ void SUTWebBrowserPanel::Browse(FString URL)
 			.ViewportSize(DesiredViewportSize)
 			.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateRaw(this, &SUTWebBrowserPanel::QueryReceived))
 			.OnJSQueryCanceled(FOnJSQueryCanceledDelegate::CreateRaw(this, &SUTWebBrowserPanel::QueryCancelled))
-			.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateRaw(this, &SUTWebBrowserPanel::OnBrowse))
+			.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateRaw(this, &SUTWebBrowserPanel::BeforeBrowse))
+			.OnBeforePopup(FOnBeforePopupDelegate::CreateRaw(this, &SUTWebBrowserPanel::BeforePopup))
 		];
 	}
 }
@@ -138,26 +140,24 @@ void SUTWebBrowserPanel::QueryCancelled(int64 QueryId)
 }
 
 
-bool SUTWebBrowserPanel::OnBrowse(FString TargetURL, bool bRedirect)
+bool SUTWebBrowserPanel::BeforeBrowse(FString TargetURL, bool bRedirect)
 {
-	UE_LOG(UT,Log,TEXT("TargetURL: %s"), *TargetURL);
-
 	if (OnBeforeBrowse.IsBound())
 	{
 		return OnBeforeBrowse.Execute(TargetURL, bRedirect);
 	}
 
 	return false;
-/*
-	if (TargetURL.Equals(TEXT("http://www.necris.net/fragcenter"),ESearchCase::IgnoreCase))
+}
+
+bool SUTWebBrowserPanel::BeforePopup(FString URL, FString Target)
+{
+	if (OnBeforePopup.IsBound())
 	{
-		return false;	
+		return OnBeforePopup.Execute(URL, Target);
 	}
-	else
-	{
-		return true;
-	}
-*/	
+
+	return false;
 }
 
 

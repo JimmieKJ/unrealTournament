@@ -11,6 +11,7 @@ DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
 DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceivedDelegate, int64, FString, bool, FJSQueryResultDelegate);
 DECLARE_DELEGATE_OneParam(FOnJSQueryCanceledDelegate, int64);
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowseDelegate, FString, bool);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
 
 class WEBBROWSER_API SWebBrowser : public SCompoundWidget
 {
@@ -45,6 +46,9 @@ public:
 
 		/** Called before a browse begins */
 		SLATE_EVENT(FOnBeforeBrowseDelegate, OnBeforeBrowse)
+
+		/** Called before a popup window happens */
+		SLATE_EVENT(FOnBeforePopupDelegate, OnBeforePopup)
 
 	SLATE_END_ARGS()
 
@@ -114,9 +118,10 @@ private:
     /** Callback for cancelled JS queries. */
     void HandleJSQueryCanceled(int64 QueryId);
 
-	/** Callbakc for browse */
+	/** Callback for browse */
 	bool HandleBeforeBrowse(FString URL, bool bIsRedirect);
 
+	bool HandleBeforePopup(FString URL, FString Target);
 	
 private:
 	/** Interface for dealing with a web browser window */
@@ -133,5 +138,8 @@ private:
 
 	/** a delegate that is invoked when the brower browses */
 	FOnBeforeBrowseDelegate OnBeforeBrowse;
+
+	/** a delegfate that is invoked when the brower attempts to pop up a new window */
+	FOnBeforePopupDelegate OnBeforePopup;
 
 };

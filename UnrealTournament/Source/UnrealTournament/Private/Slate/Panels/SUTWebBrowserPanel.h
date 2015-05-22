@@ -29,6 +29,8 @@ class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 
 	SLATE_EVENT(FOnBeforeBrowseDelegate, OnBeforeBrowse)
 
+	SLATE_EVENT(FOnBeforePopupDelegate, OnBeforePopup)
+
 	SLATE_END_ARGS()
 	
 public:
@@ -55,7 +57,8 @@ protected:
 
 	virtual bool QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate );
 	virtual void QueryCancelled(int64 QueryId);
-	virtual bool OnBrowse(FString TargetURL, bool bRedirect);
+	virtual bool BeforeBrowse(FString TargetURL, bool bRedirect);
+	virtual bool BeforePopup(FString URL, FString Target);
 
 	/** A delegate that is invoked when render process Javascript code sends a query message to the client. */
 	FOnJSQueryReceivedDelegate OnJSQueryReceived;
@@ -64,6 +67,7 @@ protected:
 	FOnJSQueryCanceledDelegate OnJSQueryCanceled;
 
 	FOnBeforeBrowseDelegate OnBeforeBrowse;
+	FOnBeforePopupDelegate OnBeforePopup;
 
 	float GetReverseScale() const;
 	bool ShowControls;

@@ -130,7 +130,7 @@ bool FWebBrowserHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> Browser,
 	TSharedPtr<FWebBrowserWindow> BrowserWindowPin = BrowserWindow.Pin();
 	if (BrowserWindowPin.IsValid())
 	{
-		return BrowserWindowPin->OnBrowse(Request, IsRedirect);
+		return BrowserWindowPin->OnCefBeforeBrowse(Request, IsRedirect);
 	}
 
 	return false;
@@ -170,6 +170,20 @@ void FWebBrowserHandler::OnQueryCanceled(CefRefPtr<CefBrowser> Browser, CefRefPt
 	{
 		BrowserWindowPin->OnQueryCanceled(QueryId);
 	}
+}
+
+
+bool FWebBrowserHandler::OnBeforePopup(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, const CefString& Target_Url, const CefString& Target_Frame_Name,
+						const CefPopupFeatures& PopupFeatures, CefWindowInfo& WindowInfo, CefRefPtr<CefClient>& Client, CefBrowserSettings& Settings,
+						bool* no_javascript_access)
+{
+	TSharedPtr<FWebBrowserWindow> BrowserWindowPin = BrowserWindow.Pin();
+	if (BrowserWindowPin.IsValid())
+	{
+		return BrowserWindowPin->OnCefBeforePopup(Target_Url, Target_Frame_Name);
+	}
+
+	return false;
 }
 
 

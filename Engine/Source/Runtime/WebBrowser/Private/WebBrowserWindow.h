@@ -91,6 +91,11 @@ public:
 		return OnBeforeBrowseDelegate;
 	}
 
+	virtual FOnBeforePopup& OnBeforePopup() override
+	{
+		return OnBeforePopupDelegate;
+	}
+
 private:
 	/**
 	 * Called to pass reference to the underlying CefBrowser as this is not created at the same time
@@ -155,10 +160,12 @@ private:
      */
     void OnQueryCanceled(int64 QueryId);
 
+	// Trigger an OnBeforeBrowse event chain
+	bool OnCefBeforeBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect);
 
-	// Trigger an OnBrowse event chain
-	bool OnBrowse(CefRefPtr<CefRequest> Request, bool IsRedirect);
-	
+	// Trigger an OnBeforePopup event chain
+	bool OnCefBeforePopup(const CefString& Target_Url, const CefString& Target_Frame_Name);
+
 public:
 
 	/**
@@ -205,6 +212,7 @@ public:
     FONJSQueryReceived JSQueryReceivedDelegate;
     FONJSQueryCanceled JSQueryCanceledDelegate;
 	FOnBeforeBrowse OnBeforeBrowseDelegate;
+	FOnBeforePopup OnBeforePopupDelegate;
 
 	// Allow the Handler to access functions only it needs
 	friend class FWebBrowserHandler;
