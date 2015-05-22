@@ -13,6 +13,7 @@ UUTKillerMessage::UUTKillerMessage(const class FObjectInitializer& ObjectInitial
 	MessageArea = FName(TEXT("DeathMessage"));
 	StyleTag = FName(TEXT("Killer"));
 	YouKilledText = NSLOCTEXT("UTKillerMessage","YouKilledText","You killed {Player2Name}");
+	SpecKilledText = NSLOCTEXT("UTKillerMessage", "SpecKilledText", "{Player1Name} killed {Player2Name}");
 }
 
 bool UUTKillerMessage::UseLargeFont(int32 MessageIndex) const
@@ -27,5 +28,9 @@ FLinearColor UUTKillerMessage::GetMessageColor(int32 MessageIndex) const
 
 FText UUTKillerMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
+	if (Switch == -99)
+	{
+		return GetDefault<UUTKillerMessage>(GetClass())->SpecKilledText;
+	}
 	return GetDefault<UUTKillerMessage>(GetClass())->YouKilledText;	
 }
