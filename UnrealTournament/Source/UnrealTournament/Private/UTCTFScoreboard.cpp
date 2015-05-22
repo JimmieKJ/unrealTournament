@@ -71,6 +71,13 @@ void UUTCTFScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 {
 	if (UTGameState)
 	{
+		if (UTGameState->GoalScore > 0)
+		{
+			// Draw Game Text
+			FText Score = FText::Format(NSLOCTEXT("UTScoreboard", "GoalScoreFormat", "First to {0} Caps"), FText::AsNumber(UTGameState->GoalScore));
+			DrawText(Score, Size.X * 0.575, 28, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		}
+
 		FText StatusText = UTGameState->GetGameStatusText();
 		if (!StatusText.IsEmpty())
 		{
