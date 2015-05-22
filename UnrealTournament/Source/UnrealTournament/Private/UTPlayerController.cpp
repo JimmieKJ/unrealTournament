@@ -2289,6 +2289,7 @@ void AUTPlayerController::ChooseBestCamera()
 	if (BestPS && (BestPS != LastSpectatedPlayerState))
 	{
 		ServerViewPlayerState(BestPS);
+		BehindView(bSpectateBehindView);
 	}
 }
 
