@@ -20,6 +20,19 @@ static TAutoConsoleVariable<float> CVarUpscaleSoftness(
 	TEXT(" 0..1 (0.3 is good for ScreenPercentage 90"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+const FRCPassPostProcessUpscale::PaniniParams FRCPassPostProcessUpscale::PaniniParams::Default;
+
+static FVector2D PaniniProjection(FVector2D OM, float d, float s)
+{
+	float PaniniDirectionXZInvLength = 1.0f / FMath::Sqrt(1.0f + OM.X * OM.X);
+	float SinPhi = OM.X * PaniniDirectionXZInvLength;
+	float TanTheta = OM.Y * PaniniDirectionXZInvLength;
+	float CosPhi = FMath::Sqrt(1.0f - SinPhi * SinPhi);
+	float S = (d + 1.0f) / (d + CosPhi);
+
+	return S * FVector2D(SinPhi, FMath::Lerp(TanTheta, TanTheta / CosPhi, s));
+}
+
 /** Encapsulates the upscale vertex shader. */
 class FPostProcessUpscaleVS : public FPostProcessVS
 {
@@ -29,13 +42,13 @@ class FPostProcessUpscaleVS : public FPostProcessVS
 	FPostProcessUpscaleVS() {}
 
 public:
-	FShaderParameter DistortionParams;
+	FShaderParameter PaniniParameters;
 
 	/** Initialization constructor. */
 	FPostProcessUpscaleVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FPostProcessVS(Initializer)
 	{
-		DistortionParams.Bind(Initializer.ParameterMap,TEXT("DistortionParams"));
+		PaniniParameters.Bind(Initializer.ParameterMap,TEXT("PaniniParams"));
 	}
 
 	static bool ShouldCache(EShaderPlatform Platform)
@@ -50,32 +63,31 @@ public:
 		OutEnvironment.SetDefine(TEXT("TESS_RECT_Y"), FTesselatedScreenRectangleIndexBuffer::Height);
 	}
 
-	// @param InCylinderDistortion 0=none..1=full in percent, must be in that range
-	void SetParameters(const FRenderingCompositePassContext& Context, float InCylinderDistortion)
+	void SetParameters(const FRenderingCompositePassContext& Context, const FRCPassPostProcessUpscale::PaniniParams& InPaniniConfig)
 	{
 		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
 
 		FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
 
 		{
-			float HalfFOV = FMath::Atan(1.0f / Context.View.ViewMatrices.ProjMatrix.M[0][0]);
-			float TanHalfFov = 1.0f / Context.View.ViewMatrices.ProjMatrix.M[0][0];
-			float InvHalfFov = 1.0f / HalfFOV;
+			const FVector2D FOVPerAxis = Context.View.ViewMatrices.GetFieldOfViewPerAxis();
+			const FVector2D ScreenPosToPaniniFactor = FVector2D(FMath::Tan(FOVPerAxis.X), FMath::Tan(FOVPerAxis.Y));
+			const FVector2D PaniniDirection = FVector2D(1.0f, 0.0f) * ScreenPosToPaniniFactor;
+			const FVector2D PaniniPosition = PaniniProjection(PaniniDirection, InPaniniConfig.D, InPaniniConfig.S);
 
-			// compute Correction to scale Y the same as X is scaled in the center
-			float SmallX = 0.01f;
-			float Correction = atan(SmallX * TanHalfFov) * InvHalfFov / SmallX;
+			const float WidthFit = ScreenPosToPaniniFactor.X / PaniniPosition.X;
+			const float OutScreenPosScale = FMath::Lerp(1.0f, WidthFit, InPaniniConfig.ScreenFit);
 
-			FVector4 Value(HalfFOV, TanHalfFov, InCylinderDistortion, Correction);
+			FVector Value(InPaniniConfig.D, InPaniniConfig.S, OutScreenPosScale);
 
-			SetShaderValue(Context.RHICmdList, ShaderRHI, DistortionParams, Value);
+			SetShaderValue(Context.RHICmdList, ShaderRHI, PaniniParameters, Value);
 		}
 	}
 
 	virtual bool Serialize(FArchive& Ar)
 	{
 		bool bShaderHasOutdatedParameters = FPostProcessVS::Serialize(Ar);
-		Ar << DistortionParams;
+		Ar << PaniniParameters;
 		return bShaderHasOutdatedParameters;
 	}
 };
@@ -173,18 +185,20 @@ VARIATION1(3)
 
 #undef VARIATION1
 
-FRCPassPostProcessUpscale::FRCPassPostProcessUpscale(uint32 InUpscaleQuality, float InCylinderDistortion)
+FRCPassPostProcessUpscale::FRCPassPostProcessUpscale(uint32 InUpscaleQuality, const PaniniParams& InPaniniConfig)
 	: UpscaleQuality(InUpscaleQuality)
-	, CylinderDistortion(FMath::Clamp(InCylinderDistortion, 0.0f, 1.0f))
 {
+	PaniniConfig.D = FMath::Max(InPaniniConfig.D, 0.0f);
+	PaniniConfig.S = InPaniniConfig.S;
+	PaniniConfig.ScreenFit = FMath::Max(InPaniniConfig.ScreenFit, 0.0f);
 }
 
 template <uint32 Method, uint32 bTesselatedQuad>
-FShader* FRCPassPostProcessUpscale::SetShader(const FRenderingCompositePassContext& Context, float InCylinderDistortion)
+FShader* FRCPassPostProcessUpscale::SetShader(const FRenderingCompositePassContext& Context, const PaniniParams& PaniniConfig)
 {
 	if(bTesselatedQuad)
 	{
-		check(InCylinderDistortion > 0.0f);
+		check(PaniniConfig.D > 0.0f);
 
 		TShaderMapRef<FPostProcessUpscaleVS> VertexShader(Context.GetShaderMap());
 		TShaderMapRef<FPostProcessUpscalePS<Method> > PixelShader(Context.GetShaderMap());
@@ -194,12 +208,12 @@ FShader* FRCPassPostProcessUpscale::SetShader(const FRenderingCompositePassConte
 		SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
 
 		PixelShader->SetPS(Context);
-		VertexShader->SetParameters(Context, InCylinderDistortion);
+		VertexShader->SetParameters(Context, PaniniConfig);
 		return *VertexShader;
 	}
 	else
 	{
-		check(InCylinderDistortion == 0.0f);
+		check(PaniniConfig.D == 0.0f);
 
 		TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
 		TShaderMapRef<FPostProcessUpscalePS<Method> > PixelShader(Context.GetShaderMap());
@@ -238,7 +252,7 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 	Context.SetViewportAndCallRHI(DestRect);
 
-	bool bTessellatedQuad = CylinderDistortion >= 0.01f;
+	bool bTessellatedQuad = PaniniConfig.D >= 0.01f;
 
 	// with distortion (bTessellatedQuad) we need to clear the background
 	FIntRect ExcludeRect = bTessellatedQuad ? FIntRect() : View.ViewRect;
@@ -256,10 +270,10 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 	{
 		switch (UpscaleQuality)
 		{
-			case 0:	VertexShader = SetShader<0, 1>(Context, CylinderDistortion); break;
-			case 1:	VertexShader = SetShader<1, 1>(Context, CylinderDistortion); break;
-			case 2:	VertexShader = SetShader<2, 1>(Context, CylinderDistortion); break;
-			case 3:	VertexShader = SetShader<3, 1>(Context, CylinderDistortion); break;
+			case 0:	VertexShader = SetShader<0, 1>(Context, PaniniConfig); break;
+			case 1:	VertexShader = SetShader<1, 1>(Context, PaniniConfig); break;
+			case 2:	VertexShader = SetShader<2, 1>(Context, PaniniConfig); break;
+			case 3:	VertexShader = SetShader<3, 1>(Context, PaniniConfig); break;
 			default:
 				checkNoEntry();
 				break;
@@ -269,10 +283,10 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 	{
 		switch (UpscaleQuality)
 		{
-			case 0:	VertexShader = SetShader<0, 0>(Context); break;
-			case 1:	VertexShader = SetShader<1, 0>(Context); break;
-			case 2:	VertexShader = SetShader<2, 0>(Context); break;
-			case 3:	VertexShader = SetShader<3, 0>(Context); break;
+			case 0:	VertexShader = SetShader<0, 0>(Context, PaniniParams::Default); break;
+			case 1:	VertexShader = SetShader<1, 0>(Context, PaniniParams::Default); break;
+			case 2:	VertexShader = SetShader<2, 0>(Context, PaniniParams::Default); break;
+			case 3:	VertexShader = SetShader<3, 0>(Context, PaniniParams::Default); break;
 			default:
 				checkNoEntry();
 				break;

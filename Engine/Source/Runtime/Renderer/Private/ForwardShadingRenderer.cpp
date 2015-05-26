@@ -233,7 +233,7 @@ void FForwardShadingSceneRenderer::BasicPostProcess(FRHICommandListImmediate& RH
 
 	if (bDoUpscale)
 	{	// simple bilinear upscaling for ES2.
-		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(1, 0.0f));
+		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(1));
 
 		Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
 		Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput));

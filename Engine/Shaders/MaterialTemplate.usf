@@ -21,6 +21,8 @@
 	#include "AtmosphereCommon.usf"
 #endif
 
+#include "PaniniProjection.usf"
+
 #ifndef USE_DITHERED_LOD_TRANSITION
 	#define USE_DITHERED_LOD_TRANSITION 0
 #endif

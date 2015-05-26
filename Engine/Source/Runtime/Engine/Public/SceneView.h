@@ -208,6 +208,21 @@ struct FViewMatrices
 	{
 		return GetInvProjMatrix() * GetInvViewMatrix();
 	}
+
+	FVector2D GetFieldOfViewPerAxis() const
+	{
+		const FMatrix ClipToView = GetInvProjMatrix();
+
+		FVector VCenter = FVector(ClipToView.TransformPosition(FVector(0.0, 0.0, 0.0)));
+		FVector VUp = FVector(ClipToView.TransformPosition(FVector(0.0, 1.0, 0.0)));
+		FVector VRight = FVector(ClipToView.TransformPosition(FVector(1.0, 0.0, 0.0)));
+
+		VCenter.Normalize();
+		VUp.Normalize();
+		VRight.Normalize();
+
+		return FVector2D(FMath::Acos(VCenter | VRight), FMath::Acos(VCenter | VUp));
+	}
 };
 
 //////////////////////////////////////////////////////////////////////////
