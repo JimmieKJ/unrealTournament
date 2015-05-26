@@ -670,13 +670,14 @@ void FProcHandle::Wait()
 		{
 			check(SignalInfo.si_pid == Get());
 
-			ReturnCode = (SignalInfo.si_code == CLD_EXITED) ? SignalInfo.si_status : -1;
+			ReturnCode = (SignalInfo.si_code == CLD_EXITED) ? SignalInfo.si_status : -2;
+
+			UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::WaitForProc: process %d waited, SignalCode:%d ReturnCode:%d"), static_cast<int32>(Get()), SignalInfo.si_code, ReturnCode);
+
 			bHasBeenWaitedFor = true;
 			bIsRunning = false;	// set in advance
 			break;
 		}
-
-		UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::WaitForProc: process %d waited on and returned %d"), static_cast<int32>(Get()), ReturnCode);
 	}
 }
 
