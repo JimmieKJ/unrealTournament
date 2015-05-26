@@ -387,7 +387,7 @@ void SUWGameSetupDialog::BuildMapList()
 			{
 				*Screenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
 			}	
-			MapPlayList.Add(FMapPlayListInfo(SelectedRuleset->MapPlaylist[i], Screenshot, Summary,(i<SelectedRuleset->MapPlaylistSize)));
+			MapPlayList.Add(FMapPlayListInfo(SelectedRuleset->MapPlaylist[i], Screenshot, Summary,(i == 0)));
 		}
 	}
 
@@ -419,6 +419,7 @@ void SUWGameSetupDialog::BuildMapPanel()
 						.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
 					]
 				]
+
 				+SOverlay::Slot()
 				[
 					SNew(SHorizontalBox)
@@ -428,7 +429,8 @@ void SUWGameSetupDialog::BuildMapPanel()
 					.Padding(10.0f,0.0f,0.0f,0.0f)
 					[
 						SNew(STextBlock)
-						.Text(FText::Format(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select up to {0} maps to play..."), FText::AsNumber(SelectedRuleset->MapPlaylistSize)))
+//						.Text(FText::Format(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select up to {0} maps to play..."), FText::AsNumber(SelectedRuleset->MapPlaylistSize)))
+						.Text(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select maps to play..."))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 					]
 				]
@@ -625,7 +627,7 @@ FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 			{
 				if (MapPlayList[i].bSelected) Cnt++;
 			}
-		
+/*
 			if (Cnt == SelectedRuleset->MapPlaylistSize)
 			{
 				MapPlayList[MapIndex].Button->UnPressed();
@@ -634,10 +636,11 @@ FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 			}
 			else
 			{
+*/		
 				MapPlayList[MapIndex].bSelected = true;
 				MapPlayList[MapIndex].Button->BePressed();
 				MapPlayList[MapIndex].CheckMark->SetVisibility(EVisibility::Visible);
-			}
+//			}
 		}
 	}
 

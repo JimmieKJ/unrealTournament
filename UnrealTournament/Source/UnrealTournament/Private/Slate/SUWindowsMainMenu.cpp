@@ -345,7 +345,6 @@ void SUWindowsMainMenu::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dia
 			CheckLocalContentForLanPlay();
 		}
 	}
-	CreateGameDialog.Reset();
 }
 
 FReply SUWindowsMainMenu::OnTutorialClick()
@@ -659,6 +658,11 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 	else
 	{
 		ConsoleCommand(TEXT("Open ") + URL);
+	}
+
+	if (CreateGameDialog.IsValid())
+	{
+		CreateGameDialog.Reset();
 	}
 }
 
