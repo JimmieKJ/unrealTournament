@@ -352,7 +352,16 @@ void SULobbyMatchSetupPanel::BuildGameRulesPanel()
 				.Padding(30.0,0,20.0,0)
 				.FillWidth(1.0)
 				[
-					SAssignNew(MapListPanel, SVerticalBox)
+					SNew(SBox)
+					.HeightOverride(370)
+					[
+						SNew(SScrollBox)
+						.Style(SUWindowsStyle::Get(),"UT.ScrollBox.Borderless")
+						+ SScrollBox::Slot()
+						[
+							SAssignNew(MapListPanel, SVerticalBox)
+						]
+					]
 				]
 			];
 		}

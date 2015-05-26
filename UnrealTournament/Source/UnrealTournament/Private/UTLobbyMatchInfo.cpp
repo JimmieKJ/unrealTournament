@@ -501,7 +501,6 @@ void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRul
 	for (int32 i=0; i < NewMapList.Num(); i++)
 	{
 		MapList.Add(NewMapList[i]);
-		if (MapList.Num() == 6) break;
 	}
 
 	bMapListChanged = true;
