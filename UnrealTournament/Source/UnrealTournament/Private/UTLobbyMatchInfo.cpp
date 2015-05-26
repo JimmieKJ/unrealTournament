@@ -686,6 +686,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";
 		NewReplicatedRuleset->bCustomRuleset = true;
 
+		MapList.Empty();
 		MapList.Add(StartingMap);
 
 		// Add code to setup the required packages array
