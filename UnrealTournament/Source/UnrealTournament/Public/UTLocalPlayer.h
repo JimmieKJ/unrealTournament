@@ -101,6 +101,9 @@ public:
 	UPROPERTY(Config)
 	bool bFragCenterAutoPlay;
 
+	UPROPERTY(Config)
+	bool bFragCenterAutoMute;
+
 
 protected:
 

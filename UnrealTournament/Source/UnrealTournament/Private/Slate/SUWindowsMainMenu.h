@@ -25,8 +25,6 @@ protected:
 	
 	TSharedRef<SWidget> AddPlayNow();
 
-	bool JSQuery(int64, FString, bool, FJSQueryResultDelegate);
-
 	virtual void CreateDesktop();
 	virtual void SetInitialPanel();
 
@@ -57,5 +55,7 @@ protected:
 	virtual void CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 	virtual void StartGame(bool bLanGame);
+
+
 };
 #endif

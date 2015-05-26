@@ -15,41 +15,58 @@
 void SUTFragCenterPanel::ConstructPanel(FVector2D ViewportSize)
 {
 	SUTWebBrowserPanel::ConstructPanel(ViewportSize);
+
 	bShowWarning = false;
 	if (Overlay.IsValid())
 	{
-		Overlay->AddSlot()
+		Overlay->AddSlot(200)
+			.Padding(1350, 735, 0, 0)
 			[
-				SNew(SCanvas)
-				+SCanvas::Slot()
-				.Size(FVector2D(300,60))
-				.Position(FVector2D(1700,725))
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.AutoHeight()
 					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.AutoHeight()
+						SNew(SBox)
+						.WidthOverride(500)
+						.HeightOverride(32)
 						[
-							SNew(SBox)
-							.WidthOverride(150)
-							.HeightOverride(32)
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.HAlign(HAlign_Right)
 							[
-								SAssignNew(AutoPlayToggleButton, SUTButton)
-								.OnClicked(this, &SUTFragCenterPanel::ChangeAutoPlay)
-								.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
-								.Visibility(EVisibility::Hidden)
-								//.ToolTip(SUTUtils::CreateTooltip(AvailableItems[Idx]->DefaultObject->DisplayName))
-								//.UTOnMouseOver(this, &SUTBuyMenu::AvailableUpdateItemInfo)
-								//.WidgetTag(Idx)
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.AutoWidth()
 								[
-									SNew(STextBlock)
-									.Text( TAttribute<FText>::Create( TAttribute<FText>::FGetter::CreateSP( this, &SUTFragCenterPanel::GetAutoPlayText)))
-									.TextStyle(SUWindowsStyle::Get(), "UT.Hub.RulesText_Small")
-									.ColorAndOpacity(FLinearColor::Black)
+									SAssignNew(AutoMuteToggleButton, SUTButton)
+									.OnClicked(this, &SUTFragCenterPanel::ChangeAutoMute)
+									.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
+									[
+										SNew(STextBlock)
+										.Text( TAttribute<FText>::Create( TAttribute<FText>::FGetter::CreateSP( this, &SUTFragCenterPanel::GetAutoMuteText)))
+										.TextStyle(SUWindowsStyle::Get(), "UT.Hub.RulesText_Small")
+										.ColorAndOpacity(FLinearColor::Black)
+									]
 								]
+
+								+SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									SAssignNew(AutoPlayToggleButton, SUTButton)
+									.OnClicked(this, &SUTFragCenterPanel::ChangeAutoPlay)
+									.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.MenuButton")
+									[
+										SNew(STextBlock)
+										.Text( TAttribute<FText>::Create( TAttribute<FText>::FGetter::CreateSP( this, &SUTFragCenterPanel::GetAutoPlayText)))
+										.TextStyle(SUWindowsStyle::Get(), "UT.Hub.RulesText_Small")
+										.ColorAndOpacity(FLinearColor::Black)
+									]
+								]
+
 							]
 						]
 					]
@@ -63,19 +80,33 @@ FText SUTFragCenterPanel::GetAutoPlayText()
 	return GetPlayerOwner()->bFragCenterAutoPlay ? NSLOCTEXT("SUTFragCenterPanel","AutoPlayOn","[AutoPlay: ON]") : NSLOCTEXT("SUTFragCenterPanel","AutoPlayOff","[AutoPlay: OFF]");
 }
 
+FText SUTFragCenterPanel::GetAutoMuteText()
+{
+	return GetPlayerOwner()->bFragCenterAutoMute ? NSLOCTEXT("SUTFragCenterPanel","AutoMuteOn","[Auto-Mute: ON]") : NSLOCTEXT("SUTFragCenterPanel","AutoMuteOff","[Auto-Mute: OFF]");
+}
+
+
 FReply SUTFragCenterPanel::ChangeAutoPlay()
 {
 	GetPlayerOwner()->bFragCenterAutoPlay = !GetPlayerOwner()->bFragCenterAutoPlay;
 	GetPlayerOwner()->SaveConfig();
-	UpdateAutoPlay();
+
+	FString JavaCommand = FString::Printf( TEXT("setAutoStart(%s);"), (GetPlayerOwner()->bFragCenterAutoPlay ? TEXT("true") : TEXT("false")) );
+	ExecuteJavascript(JavaCommand);
 
 	return FReply::Handled();	
 }
 
-void SUTFragCenterPanel::UpdateAutoPlay()
+FReply SUTFragCenterPanel::ChangeAutoMute()
 {
-	FString JavaCommand = FString::Printf( TEXT("setAutoStart(%s);"), (GetPlayerOwner()->bFragCenterAutoPlay ? TEXT("true") : TEXT("false")) );
+	GetPlayerOwner()->bFragCenterAutoMute = !GetPlayerOwner()->bFragCenterAutoMute;
+	GetPlayerOwner()->SaveConfig();
+
+	FString JavaCommand = FString::Printf( TEXT("setAutoMute(%s);"), (GetPlayerOwner()->bFragCenterAutoMute ? TEXT("true") : TEXT("false")) );
 	ExecuteJavascript(JavaCommand);
+
+
+	return FReply::Handled();	
 }
 
 bool SUTFragCenterPanel::BeforePopup(FString URL, FString Target)
@@ -106,5 +137,20 @@ void SUTFragCenterPanel::WarningResult(TSharedPtr<SCompoundWidget> Widget, uint1
 	}
 }
 
+bool SUTFragCenterPanel::QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
+{
+
+	if (QueryString == TEXT("player_active"))
+	{
+		FString JavaCommand = FString::Printf( TEXT("setAutoStart(%s);"), (GetPlayerOwner()->bFragCenterAutoPlay ? TEXT("true") : TEXT("false")) );
+		ExecuteJavascript(JavaCommand);
+
+		JavaCommand = FString::Printf( TEXT("setAutoMute(%s);"), (GetPlayerOwner()->bFragCenterAutoMute ? TEXT("true") : TEXT("false")) );
+		ExecuteJavascript(JavaCommand);
+	}
+
+	return SUTWebBrowserPanel::QueryReceived(QueryId, QueryString, Persistent, Delegate);
+
+}
 
 #endif
