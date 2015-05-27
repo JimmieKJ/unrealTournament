@@ -31,6 +31,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameScoreStats.Add(NAME_AttackerScore);
 	GameScoreStats.Add(NAME_DefenderScore);
 	GameScoreStats.Add(NAME_SupporterScore);
+	GameScoreStats.Add(NAME_Suicides);
 
 	GameScoreStats.Add(NAME_UDamageTime);
 	GameScoreStats.Add(NAME_BerserkTime);
