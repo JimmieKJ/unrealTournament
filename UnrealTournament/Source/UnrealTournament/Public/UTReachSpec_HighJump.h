@@ -50,10 +50,14 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			// Repeatable: what we can do by default
 			if (RepeatableJumpZ != NULL)
 			{
-				*RepeatableJumpZ = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement()->JumpZVelocity;
-				if (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->bAllowJumpMultijumps && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount > 0)
+				const UUTCharacterMovement* DefaultMovement = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement;
+				*RepeatableJumpZ = DefaultMovement->JumpZVelocity;
+				if (DefaultMovement->bAllowJumpMultijumps && DefaultMovement->MaxMultiJumpCount > 0)
 				{
-					*RepeatableJumpZ += UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MultiJumpImpulse * (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount);
+					for (int32 i = 0; i < DefaultMovement->MaxMultiJumpCount; i++)
+					{
+						*RepeatableJumpZ = (*RepeatableJumpZ) * ((*RepeatableJumpZ) / ((*RepeatableJumpZ) + DefaultMovement->MultiJumpImpulse)) + DefaultMovement->MultiJumpImpulse;
+					}
 				}
 			}
 
@@ -61,7 +65,10 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			float BestJumpZ = UTC->GetCharacterMovement()->JumpZVelocity;
 			if (UTC->UTCharacterMovement->bAllowJumpMultijumps && UTC->UTCharacterMovement->MaxMultiJumpCount > 0)
 			{
-				BestJumpZ += UTC->UTCharacterMovement->MultiJumpImpulse * (UTC->UTCharacterMovement->MaxMultiJumpCount);
+				for (int32 i = 0; i < UTC->UTCharacterMovement->MaxMultiJumpCount; i++)
+				{
+					BestJumpZ = BestJumpZ * (BestJumpZ / (BestJumpZ + UTC->UTCharacterMovement->MultiJumpImpulse)) + UTC->UTCharacterMovement->MultiJumpImpulse;
+				}
 			}
 			return BestJumpZ;
 		}
@@ -179,7 +186,9 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 					}
 					else if (B->AllowImpactJump())
 					{
-						BestJumpZ += B->ImpactJumpZ;
+						const float SpecialJumpZ = BestJumpZ - RepeatableJumpZ;
+						const float BaseImpactJumpZ = RepeatableJumpZ + B->ImpactJumpZ;
+						BestJumpZ = BaseImpactJumpZ * (BaseImpactJumpZ / (BaseImpactJumpZ + SpecialJumpZ)) + SpecialJumpZ;
 						if (BestJumpZ >= AdjustedRequiredJumpZ)
 						{
 							return DefaultCost + 5000; // TODO: reduce cost if in a rush or have high health?

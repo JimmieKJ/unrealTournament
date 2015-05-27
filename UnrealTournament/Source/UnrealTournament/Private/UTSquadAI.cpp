@@ -33,7 +33,7 @@ bool FSuperPickupEval::AllowPickup(APawn* Asker, AActor* Pickup, float Desireabi
 					{
 						Existing = ((AUTCharacter*)Asker)->FindInventoryType<AUTWeapon>(WeaponPickup->WeaponType, true);
 					}
-					bResult = (Existing != NULL && Existing->HasAnyAmmo());
+					bResult = (Existing == NULL || !Existing->HasAnyAmmo());
 				}
 			}
 		}
@@ -355,6 +355,12 @@ bool AUTSquadAI::PickRetreatDestination(AUTBot* B)
 			return false;
 		}
 	}
+}
+
+bool AUTSquadAI::ShouldUseTranslocator(AUTBot* B)
+{
+	// use only if no enemy to shoot at
+	return (B->GetTarget() == NULL || !B->CanAttack(B->GetTarget(), (B->GetTarget() == B->GetEnemy()) ? B->GetEnemyLocation(B->GetEnemy(), true) : B->GetTarget()->GetActorLocation(), B->GetEnemy() == NULL || MustKeepEnemy(B->GetEnemy())));
 }
 
 void AUTSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName)

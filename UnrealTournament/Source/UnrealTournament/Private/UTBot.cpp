@@ -811,29 +811,30 @@ void AUTBot::ConsiderTranslocation()
 	// consider translocating if can't hit current target from where we are anyway
 	// TODO: also check if movement is higher priority than attacking? (e.g. attack squad while not winning on the scoreboard)
 	if ( bAllowTranslocator && TranslocTarget.IsZero() && GetWorld()->TimeSeconds - LastTranslocTime > TranslocInterval && (MoveTargetPoints.Num() > 1 || Cast<UUTReachSpec_HighJump>(CurrentPath.Spec.Get()) == NULL) &&
-		(GetTarget() == NULL || !CanAttack(GetTarget(), (GetTarget() == Enemy) ? GetEnemyLocation(Enemy, true) : GetTarget()->GetActorLocation(), Enemy == NULL || Squad->MustKeepEnemy(Enemy))) )
+		Squad->ShouldUseTranslocator(this) )
 	{
+		TArray<FVector> TestPoints;
+		TestPoints.Reserve(RouteCache.Num() + MoveTargetPoints.Num());
 		for (int32 i = RouteCache.Num() - 1; i >= 0; i--)
 		{
-			FVector TargetLoc = RouteCache[i].GetLocation(GetPawn());
+			TestPoints.Add(RouteCache[i].GetLocation(GetPawn()));
+		}
+		for (int32 i = MoveTargetPoints.Num() - 1; i >= 0; i--)
+		{
+			TestPoints.Add(MoveTargetPoints[i].Get());
+		}
+		const float GravityZ = (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement() != NULL) ? GetCharacter()->GetCharacterMovement()->GetGravityZ() : GetWorld()->GetGravityZ();
+		for (const FVector& TargetLoc : TestPoints)
+		{
 			float Dist = (TargetLoc - GetPawn()->GetActorLocation()).Size();
 			if (Dist > 1100.0f && Dist < 3500.0f && !GetWorld()->SweepTest(GetPawn()->GetActorLocation(), TargetLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(FName(TEXT("Transloc")), false, GetPawn())))
 			{
-				TranslocTarget = TargetLoc;
-				break;
-			}
-		}
-		if (TranslocTarget.IsZero())
-		{
-			for (int32 i = MoveTargetPoints.Num() - 1; i >= 0; i--)
-			{
-				FVector TargetLoc = MoveTargetPoints[i].Get();
-				float Dist = (TargetLoc - GetPawn()->GetActorLocation()).Size();
-				if (Dist > 1100.0f && Dist < 3500.0f && !GetWorld()->SweepTest(GetPawn()->GetActorLocation(), TargetLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(FName(TEXT("Transloc")), false, GetPawn())))
+				FVector TossVel;
+				if (TransDiscTemplate == NULL || UUTGameplayStatics::UTSuggestProjectileVelocity(GetWorld(), TossVel, GetPawn()->GetActorLocation(), TargetLoc, NULL, FLT_MAX, TransDiscTemplate->ProjectileMovement->InitialSpeed, TransDiscTemplate->CollisionComp->GetUnscaledSphereRadius(), GravityZ))
 				{
 					TranslocTarget = TargetLoc;
-					break;
 				}
+				break;
 			}
 		}
 		if (!TranslocTarget.IsZero())
@@ -855,6 +856,8 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
 
 	Canvas->SetDrawColor(0, 255, 0);
+	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ORDERS: %s"), *Squad->GetCurrentOrders(this).ToString()), 4.0f, YPos);
+	YPos += YL;
 	Canvas->DrawText(GEngine->GetSmallFont(), GoalString, 4.0f, YPos);
 	YPos += YL;
 	YPos += YL;
@@ -1541,7 +1544,33 @@ void AUTBot::NotifyJumpApex()
 			float DesiredJumpZ = Diff.Z / XYTime - 0.5f * UTChar->GetCharacterMovement()->GetGravityZ() * XYTime;
 			if (DesiredJumpZ > 0.0f)
 			{
-				UTChar->GetCharacterMovement()->DoJump(false);
+				// make sure really going to miss, and not just land somewhat short but able to walk the last part
+				bool bNeedMultiJump = true;
+				if (Diff.Z < 0.0f)
+				{
+					const float VelocityZ = UTChar->GetCharacterMovement()->Velocity.Z;
+					const float Determinant = FMath::Square<float>(VelocityZ) -2.0f * UTChar->GetCharacterMovement()->GetGravityZ() * -Diff.Z;
+					if (Determinant > 0.0f)
+					{
+						const float ZTime = FMath::Max<float>((-VelocityZ + FMath::Sqrt(Determinant)) / UTChar->GetCharacterMovement()->GetGravityZ(), (-VelocityZ - FMath::Sqrt(Determinant)) / UTChar->GetCharacterMovement()->GetGravityZ());
+						FVector TestLoc = UTChar->GetActorLocation() + Diff.GetSafeNormal2D() * UTChar->GetCharacterMovement()->MaxWalkSpeed * ZTime;
+						TestLoc.Z = GetMovePoint().Z;
+						// make sure no wall that we need to get over
+						if (!GetWorld()->LineTraceTest(UTChar->GetActorLocation(), TestLoc, ECC_Pawn, FCollisionQueryParams(false), WorldResponseParams))
+						{
+							// test if projected landing is on navmesh and walk reachable
+							TestLoc.Z -= UTChar->GetCharacterMovement()->MaxStepHeight; // mirrors AUTCharacter::GetNavAgentLocation()
+							if (NavData->FindNearestNode(TestLoc, UTChar->GetSimpleCollisionCylinderExtent()) == CurrentPath.End)
+							{
+								bNeedMultiJump = false;
+							}
+						}
+					}
+				}
+				if (bNeedMultiJump)
+				{
+					UTChar->GetCharacterMovement()->DoJump(false);
+				}
 			}
 		}
 		// maybe multi-jump for evasiveness
@@ -2646,6 +2675,21 @@ EBotMonitoringStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDe
 		else
 		{
 			return BMS_Monitoring;
+		}
+	}
+	// if it gets us closer to enemy we are charging or chasing (and won't hit him outright for telefrag)
+	else if (Enemy != NULL && GetFocusActor() == Enemy && (IsCharging() || Squad->MustKeepEnemy(Enemy)))
+	{
+		const FVector EnemyLoc = GetEnemyLocation(Enemy, true);
+		if ( (EnemyLoc - CurrentDest).Size() < (EnemyLoc - GetPawn()->GetActorLocation()).Size() - 500.0f &&
+			(DestVelocity.Size2D() < 250.0f || (DestVelocity.GetSafeNormal() | (EnemyLoc - CurrentDest).GetSafeNormal()) < 0.7f) &&
+			IsAcceptableTranslocation(CurrentDest, CurrentDest) )
+		{
+			return BMS_Activate;
+		}
+		else
+		{
+			return DestVelocity.IsZero() ? BMS_Abort : BMS_Monitoring;
 		}
 	}
 	else if (DestVelocity.IsZero())

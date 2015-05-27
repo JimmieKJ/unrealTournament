@@ -206,6 +206,9 @@ public:
 	 */
 	virtual bool PickRetreatDestination(AUTBot* B);
 
+	/** @return whether bot should try to use translocator to follow path faster (if available, skilled enough, and legal for game type) */
+	virtual bool ShouldUseTranslocator(AUTBot* B);
+
 	/** set timer to retask bot, partially just to stagger updates and partially to account for their reaction time */
 	virtual void SetRetaskTimer(AUTBot* B)
 	{

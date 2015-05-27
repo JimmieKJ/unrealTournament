@@ -41,6 +41,24 @@ bool AUTCTFSquadAI::MustKeepEnemy(APawn* TheEnemy)
 	return (UTC != NULL && UTC->GetCarriedObject() != NULL && UTC->GetCarriedObject()->GetTeamNum() == GetTeamNum());
 }
 
+bool AUTCTFSquadAI::ShouldUseTranslocator(AUTBot* B)
+{
+	if (Super::ShouldUseTranslocator(B))
+	{
+		return true;
+	}
+	else if (FriendlyBase == NULL || FriendlyBase->GetCarriedObject() == NULL || FriendlyBase->GetCarriedObjectState() == CarriedObjectState::Home)
+	{
+		return false;
+	}
+	else
+	{
+		// prioritize translocator when chasing enemy flag carrier
+		return ( B->RouteCache.Num() > 0 && (B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject() || B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject()->HoldingPawn) &&
+				(B->GetEnemy() != FriendlyBase->GetCarriedObject()->HoldingPawn || !B->IsEnemyVisible(B->GetEnemy()) || (B->CurrentAggression > 0.0f && (B->GetPawn()->GetActorLocation() - B->GetEnemy()->GetActorLocation()).Size() > 3000.0f)) );
+	}
+}
+
 bool AUTCTFSquadAI::IsNearEnemyBase(const FVector& TestLoc)
 {
 	return EnemyBase != NULL && (TestLoc - EnemyBase->GetActorLocation()).Size() < 4500.0f;
