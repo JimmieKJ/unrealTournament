@@ -45,16 +45,29 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		AUTHUD* UTHUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);
 		if (UTHUD && (ClientData.RelatedPlayerState_1 == LocalPlayerState))
 		{
-			UTHUD->ReceiveLocalMessage(
-				UUTKillerMessage::StaticClass(),
-				ClientData.RelatedPlayerState_1,
-				ClientData.RelatedPlayerState_2,
-				-99,
-				GetDefault<UUTKillerMessage>()->ResolveMessage(-99, ClientData.RelatedPlayerState_1 == LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
-				ClientData.OptionalObject);
+			if ((ClientData.RelatedPlayerState_1 != ClientData.RelatedPlayerState_2) && (ClientData.RelatedPlayerState_1 != NULL))
+			{
+				UTHUD->ReceiveLocalMessage(
+					UUTKillerMessage::StaticClass(),
+					ClientData.RelatedPlayerState_1,
+					ClientData.RelatedPlayerState_2,
+					-99,
+					GetDefault<UUTKillerMessage>()->ResolveMessage(-99, ClientData.RelatedPlayerState_1 == LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
+					ClientData.OptionalObject);
+			}
+			else
+			{
+				UTHUD->ReceiveLocalMessage(
+					UUTVictimMessage::StaticClass(),
+					ClientData.RelatedPlayerState_1,
+					ClientData.RelatedPlayerState_2,
+					ClientData.MessageIndex,
+					GetDefault<UUTVictimMessage>()->ResolveMessage(ClientData.MessageIndex, true, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
+					ClientData.OptionalObject);
+			}
 		}
 	}
-	else if (ClientData.RelatedPlayerState_1 == LocalPlayerState) // We need to add code to allow for spectators to see the death messages of those they are a spectator
+	else if (ClientData.RelatedPlayerState_1 == LocalPlayerState) 
 	{
 		// Interdict and send the child message instead.
 		AUTHUD* UTHUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);
