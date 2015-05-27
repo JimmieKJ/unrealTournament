@@ -276,7 +276,7 @@ public:
 	bool GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount);
+	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount);
 
 	bool IsBanned(FUniqueNetIdRepl Who);
 

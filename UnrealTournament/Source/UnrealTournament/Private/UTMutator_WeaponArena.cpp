@@ -135,3 +135,17 @@ bool AUTMutator_WeaponArena::CheckRelevance_Implementation(AActor* Other)
 		}
 	}
 }
+
+void AUTMutator_WeaponArena::GetGameURLOptions_Implementation(TArray<FString>& OptionsList)
+{
+	OptionsList.Add(FString::Printf(TEXT("ArenaWeaponPath=%s"), *ArenaWeaponPath));
+}
+
+void AUTMutator_WeaponArena::Init_Implementation(const FString& Options)
+{
+	FString NewWeaponPath = ParseOption(Options, TEXT("ArenaWeaponPath"));	
+	if (!NewWeaponPath.IsEmpty())
+	{
+		ArenaWeaponPath = NewWeaponPath;
+	}
+}

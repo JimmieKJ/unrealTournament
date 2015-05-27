@@ -614,8 +614,8 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 	return true;
 }
 
-bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount) { return true; }
-void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount)
+bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount) { return true; }
+void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount)
 {
 	// We need to build a one off custom replicated ruleset just for this hub.  :)
 
@@ -629,27 +629,11 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		// Look up the game mode in the AllowedGameData array and get the text description.
 
-		FString Desc = TEXT("A custom match.");
-		for (int32 i=0;i<GameState->AllowedGameData.Num();i++)
-		{
-			if (GameState->AllowedGameData[i].Package.Equals(GameMode, ESearchCase::IgnoreCase))
-			{
-				Desc = FString::Printf(TEXT("A custom %s match!"), *GameState->AllowedGameData[i].MenuDescription);
-				break;
-			}
-		
-		}
-
 		NewReplicatedRuleset->Title = TEXT("Custom Rule");
 		NewReplicatedRuleset->Tooltip = TEXT("");
-		NewReplicatedRuleset->Description = Desc + TEXT("\nBe warned, anything goes in here, so enter at your own risk.\n");
+		NewReplicatedRuleset->Description = Description;
 
 		int32 PlayerCount = 20;
-
-		for (int32 i=0; i < GameOptions.Num(); i++)
-		{
-			NewReplicatedRuleset->Description += GameOptions[i] + TEXT("\n");
-		}
 
 		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount;
 		if (DesiredSkillLevel >= 0)

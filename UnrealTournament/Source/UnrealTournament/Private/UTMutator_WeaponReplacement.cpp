@@ -134,3 +134,45 @@ bool AUTMutator_WeaponReplacement::CheckRelevance_Implementation(AActor* Other)
 
 	return Super::CheckRelevance_Implementation(Other);
 }
+
+void AUTMutator_WeaponReplacement::Init_Implementation(const FString& Options)
+{
+	FString WeaponList = ParseOption(Options, TEXT("WTR"));
+	if (!WeaponList.IsEmpty())
+	{
+		WeaponsToReplace.Empty();
+		TArray<FString> WeaponInfos;
+		WeaponList.ParseIntoArray(&WeaponInfos, TEXT(","), true);
+		for (int32 i=0; i< WeaponInfos.Num(); i++)
+		{
+			TArray<FString> WeaponInfo;
+			WeaponInfos[i].ParseIntoArray(&WeaponInfo, TEXT(":"), true);
+			if (WeaponInfo.Num() == 2)
+			{
+				WeaponsToReplace.Add(FReplacementInfo(WeaponInfo[0],WeaponInfo[1]));
+			}
+		}
+	}
+}
+
+void AUTMutator_WeaponReplacement::GetGameURLOptions_Implementation(TArray<FString>& OptionsList)
+{
+	FString Replacements;
+
+	for (int32 i=0; i < WeaponsToReplace.Num(); i++)
+	{
+		if (Replacements.IsEmpty())
+		{
+			Replacements += FString::Printf(TEXT("%s:%s"), *WeaponsToReplace[i].OldClassPath, *WeaponsToReplace[i].NewClassPath);
+		}
+		else
+		{
+			Replacements += FString::Printf(TEXT(",%s:%s"), *WeaponsToReplace[i].OldClassPath, *WeaponsToReplace[i].NewClassPath);
+		}
+	}
+
+	if (!Replacements.IsEmpty())
+	{
+		OptionsList.Add(FString::Printf(TEXT("WTR=%s"), *Replacements));
+	}
+}

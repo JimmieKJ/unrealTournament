@@ -739,11 +739,11 @@ void SUWGameSetupDialog::ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> M
 	}
 }
 
-void SUWGameSetupDialog::GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32& DesiredPlayerCount)
+void SUWGameSetupDialog::GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount)
 {
 	if (CustomPanel.IsValid())
 	{
-		CustomPanel->GetCustomGameSettings(GameMode, StartingMap, GameOptions, DesiredPlayerCount, BotSkillLevel);
+		CustomPanel->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount, BotSkillLevel);
 	}
 }
 

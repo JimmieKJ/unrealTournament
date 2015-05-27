@@ -17,7 +17,7 @@ public:
 
 	virtual ~SUWCreateGamePanel();
 
-	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel);
+	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel);
 
 protected:
 	enum EServerStartMode
@@ -88,6 +88,8 @@ protected:
 	void OnTextChanged(const FText& NewText);
 
 	TSharedRef<SWidget> AddMutatorMenu();
+
+	void GetCustomMutatorOptions(UClass* MutatorClass, FString& Description, TArray<FString>&GameOptions);
 
 };
 

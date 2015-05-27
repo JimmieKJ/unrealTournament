@@ -106,3 +106,31 @@ bool AUTMutator::OverridePickupQuery_Implementation(APawn* Other, TSubclassOf<AU
 {
 	return (NextMutator != NULL && NextMutator->OverridePickupQuery(Other, ItemClass, Pickup, bAllowPickup));
 }
+
+//TODO: Maybe we should just create a static object for parsing game options.  Since this is currently at the engine level I'll
+// just forward for now, but something to think about.
+FString AUTMutator::ParseOption( const FString& Options, const FString& InKey )
+{
+	return AGameMode::StaticClass()->GetDefaultObject<AGameMode>()->ParseOption(Options, InKey);
+}
+
+//TODO: Maybe we should just create a static object for parsing game options.  Since this is currently at the engine level I'll
+// just forward for now, but something to think about.
+bool AUTMutator::HasOption( const FString& Options, const FString& InKey )
+{
+	return AGameMode::StaticClass()->GetDefaultObject<AGameMode>()->HasOption(Options, InKey);
+}
+
+//TODO: Maybe we should just create a static object for parsing game options.  Since this is currently at the engine level I'll
+// just forward for now, but something to think about.
+int32 AUTMutator::GetIntOption( const FString& Options, const FString& ParseString, int32 CurrentValue)
+{
+	return AGameMode::StaticClass()->GetDefaultObject<AGameMode>()->GetIntOption(Options, ParseString, CurrentValue);
+}
+
+
+
+// By default we do nothing.
+void AUTMutator::GetGameURLOptions_Implementation(TArray<FString>& OptionsList)
+{
+}

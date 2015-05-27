@@ -560,11 +560,12 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 	if (CreateGameDialog->IsCustomSettings())
 	{
 		FString GameMode;
+		FString Description;
 		TArray<FString> GameOptionsList;
 
 		int32 DesiredPlayerCount = 0;
 
-		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptionsList, DesiredPlayerCount);	
+		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptionsList, DesiredPlayerCount);	
 
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *GameMode);
 		for (int32 i = 0; i < GameOptionsList.Num(); i++)

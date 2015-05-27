@@ -333,18 +333,24 @@ void SULobbyMatchSetupPanel::BuildGameRulesPanel()
 				[
 					SNew(SBox)
 					.WidthOverride(700)
+					.HeightOverride(370)
 					[
-						SNew(SVerticalBox)
-
-						+SVerticalBox::Slot()
-						.FillHeight(1.0)
+						SNew(SScrollBox)
+						.Style(SUWindowsStyle::Get(),"UT.ScrollBox.Borderless")
+						+ SScrollBox::Slot()
 						[
-							SNew(SRichTextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesText")
-							.Justification(ETextJustify::Left)
-							.DecoratorStyleSet( &SUWindowsStyle::Get() )
-							.AutoWrapText( true )
-							.Text(this, &SULobbyMatchSetupPanel::GetMatchRulesDescription)
+							SNew(SVerticalBox)
+
+							+SVerticalBox::Slot()
+							.FillHeight(1.0)
+							[
+								SNew(SRichTextBlock)
+								.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesText")
+								.Justification(ETextJustify::Left)
+								.DecoratorStyleSet( &SUWindowsStyle::Get() )
+								.AutoWrapText( true )
+								.Text(this, &SULobbyMatchSetupPanel::GetMatchRulesDescription)
+							]
 						]
 					]
 				]
@@ -834,11 +840,12 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 		{
 			FString GameMode;
 			FString StartingMap;
+			FString Description;
 			TArray<FString> GameOptions;
 
 			int32 DesiredPlayerCount = 0;
-			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptions, DesiredPlayerCount);
-			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, GameOptions, SetupDialog->BotSkillLevel, DesiredPlayerCount);
+			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount);
+			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, Description, GameOptions, SetupDialog->BotSkillLevel, DesiredPlayerCount);
 		}
 
 		else if (SetupDialog->SelectedRuleset.IsValid())

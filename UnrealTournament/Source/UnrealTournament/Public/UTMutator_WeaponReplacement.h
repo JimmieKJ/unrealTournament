@@ -15,6 +15,19 @@ struct FReplacementInfo
 	/** fully qualified path of the class to replace it with */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Misc")
 	FString NewClassPath;
+
+	FReplacementInfo()
+		:OldClassPath(TEXT(""))
+		,NewClassPath(TEXT(""))
+	{
+	}
+
+	FReplacementInfo(FString inOldClassPath, FString inNewClassPath)
+		: OldClassPath(inOldClassPath)
+		, NewClassPath(inNewClassPath)
+	{
+	}
+
 };
 
 UCLASS(Blueprintable, Meta = (ChildCanTick), Config = Game)
@@ -28,4 +41,7 @@ class AUTMutator_WeaponReplacement : public AUTMutator
 	virtual void BeginPlay() override;
 	void ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn) override;
 	bool CheckRelevance_Implementation(AActor* Other) override;
+
+	void Init_Implementation(const FString& Options) override;
+	void GetGameURLOptions_Implementation(TArray<FString>& OptionsList) override;
 };
