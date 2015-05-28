@@ -23,7 +23,7 @@
 
 #define SERVERFLAG_RequiresPassword 0x00000001;
 
-class FUTOnlineGameSettingsBase : public FOnlineSessionSettings
+class UNREALTOURNAMENT_API FUTOnlineGameSettingsBase : public FOnlineSessionSettings
 {
 public:
 	FUTOnlineGameSettingsBase(bool bIsLanGame = false, bool bIsPresense = false, int32 MaxNumberPlayers = 32);

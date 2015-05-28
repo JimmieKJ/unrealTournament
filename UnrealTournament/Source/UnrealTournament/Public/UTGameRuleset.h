@@ -6,7 +6,7 @@
 #include "UTGameRuleset.generated.h"
 
 UCLASS(Config=Rules, perObjectConfig)
-class UUTGameRuleset : public UObject
+class UNREALTOURNAMENT_API UUTGameRuleset : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

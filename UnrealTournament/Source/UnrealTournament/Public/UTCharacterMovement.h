@@ -581,7 +581,7 @@ public:
 };
 
 // Networking support
-class FSavedMove_UTCharacter : public FSavedMove_Character
+class UNREALTOURNAMENT_API FSavedMove_UTCharacter : public FSavedMove_Character
 {
 public:
 	typedef FSavedMove_Character Super;
@@ -631,7 +631,7 @@ public:
 };
 
 
-class FNetworkPredictionData_Client_UTChar : public FNetworkPredictionData_Client_Character
+class UNREALTOURNAMENT_API FNetworkPredictionData_Client_UTChar : public FNetworkPredictionData_Client_Character
 {
 public:
 	typedef FNetworkPredictionData_Client_Character Super;

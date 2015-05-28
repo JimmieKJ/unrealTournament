@@ -9,7 +9,7 @@
 #include "UTDmgType_AttachParticles.generated.h"
 
 UCLASS(Abstract, HideDropDown, CustomConstructor)
-class UUTDmgType_AttachParticles : public UUTDamageType
+class UNREALTOURNAMENT_API UUTDmgType_AttachParticles : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 

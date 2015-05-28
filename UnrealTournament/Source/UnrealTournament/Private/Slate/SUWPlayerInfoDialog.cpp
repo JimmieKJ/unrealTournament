@@ -463,7 +463,7 @@ void SUWPlayerInfoDialog::BuildFriendPanel()
 					.HAlign(HAlign_Center)
 					.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-					.Text(NSLOCTEXT("SUWPlayerInfoDialog", "SendFriendRequest", "Send Friend Request").ToString())
+					.Text(NSLOCTEXT("SUWPlayerInfoDialog", "SendFriendRequest", "Send Friend Request"))
 					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 					.OnClicked(this, &SUWPlayerInfoDialog::OnSendFriendRequest)
 				];

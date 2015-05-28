@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #if !UE_SERVER
-class SUWindowsStyle 
+class UNREALTOURNAMENT_API SUWindowsStyle
 {
 public:
 	static void Initialize();

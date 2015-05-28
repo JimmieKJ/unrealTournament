@@ -1305,7 +1305,7 @@ TSharedRef<SWidget> SUWPlayerSettingsDialog::GenerateFlagListWidget(TSharedPtr<F
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.Text(InItem->Title)
+			.Text(FText::FromString(InItem->Title))
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 		];
 }

@@ -12,7 +12,7 @@
 #include "UTReachSpec_HighJump.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTReachSpec_HighJump : public UUTReachSpec
+class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 {
 	GENERATED_UCLASS_BODY()
 

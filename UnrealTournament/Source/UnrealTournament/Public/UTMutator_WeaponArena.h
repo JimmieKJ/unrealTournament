@@ -6,7 +6,7 @@
 #include "UTMutator_WeaponArena.generated.h"
 
 UCLASS(Blueprintable, Meta = (ChildCanTick), Config = Game)
-class AUTMutator_WeaponArena : public AUTMutator
+class UNREALTOURNAMENT_API AUTMutator_WeaponArena : public AUTMutator
 {
 	GENERATED_UCLASS_BODY()
 

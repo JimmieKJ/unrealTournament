@@ -9,7 +9,7 @@
 #include "UTReachSpec_Lift.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTReachSpec_Lift : public UUTReachSpec
+class UNREALTOURNAMENT_API UUTReachSpec_Lift : public UUTReachSpec
 {
 	GENERATED_UCLASS_BODY()
 

@@ -6,7 +6,7 @@
 #include "UTReplicatedGameRuleset.generated.h"
 
 UCLASS()
-class AUTReplicatedGameRuleset : public AInfo
+class UNREALTOURNAMENT_API AUTReplicatedGameRuleset : public AInfo
 {
 	GENERATED_UCLASS_BODY()
 

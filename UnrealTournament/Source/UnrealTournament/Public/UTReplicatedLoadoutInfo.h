@@ -5,7 +5,7 @@
 #include "UTReplicatedLoadoutInfo.generated.h"
 
 UCLASS()
-class AUTReplicatedLoadoutInfo : public AInfo
+class UNREALTOURNAMENT_API AUTReplicatedLoadoutInfo : public AInfo
 {
 	GENERATED_UCLASS_BODY()
 

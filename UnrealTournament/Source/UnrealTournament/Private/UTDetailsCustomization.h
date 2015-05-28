@@ -12,7 +12,7 @@ class UFactory;
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "Editor/PropertyEditor/Public/DetailLayoutBuilder.h"
 
-class FUTDetailsCustomization : public IDetailCustomization
+class UNREALTOURNAMENT_API FUTDetailsCustomization : public IDetailCustomization
 {
 public:
 	FUTDetailsCustomization()

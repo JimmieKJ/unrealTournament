@@ -8,7 +8,7 @@
 #include "UTReachSpec_Teleport.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTReachSpec_Teleport : public UUTReachSpec
+class UNREALTOURNAMENT_API UUTReachSpec_Teleport : public UUTReachSpec
 {
 	GENERATED_UCLASS_BODY()
 

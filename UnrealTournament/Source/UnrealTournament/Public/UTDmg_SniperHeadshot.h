@@ -4,7 +4,7 @@
 #include "UTDmg_SniperHeadshot.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTDmg_SniperHeadshot : public UUTDamageType
+class UNREALTOURNAMENT_API UUTDmg_SniperHeadshot : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 

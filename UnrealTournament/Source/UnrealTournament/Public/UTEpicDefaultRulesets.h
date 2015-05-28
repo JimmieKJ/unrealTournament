@@ -27,7 +27,7 @@ struct FRuleCategoryData
 };
 
 UCLASS(Config=Rules)
-class UUTEpicDefaultRulesets : public UObject
+class UNREALTOURNAMENT_API UUTEpicDefaultRulesets : public UObject
 {
 	GENERATED_UCLASS_BODY()
 

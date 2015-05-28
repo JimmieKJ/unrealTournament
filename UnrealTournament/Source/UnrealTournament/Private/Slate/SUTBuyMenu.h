@@ -8,7 +8,7 @@
 
 #if !UE_SERVER
 
-class SUTBuyMenu : public SUWindowsDesktop
+class UNREALTOURNAMENT_API SUTBuyMenu : public SUWindowsDesktop
 {
 protected:
 	virtual void CreateDesktop();

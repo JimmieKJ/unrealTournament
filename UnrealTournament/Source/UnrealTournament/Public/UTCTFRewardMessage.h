@@ -6,7 +6,7 @@
 #include "UTCTFRewardMessage.generated.h"
 
 UCLASS()
-class UUTCTFRewardMessage : public UUTLocalMessage
+class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 

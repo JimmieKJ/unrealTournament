@@ -4,7 +4,7 @@
 #include "UTJumpPad.h"
 #include "UTJumpPadRenderingComponent.h"
 
-class UTJumpPadRenderingProxy : public FPrimitiveSceneProxy
+class UNREALTOURNAMENT_API UTJumpPadRenderingProxy : public FPrimitiveSceneProxy
 {
 private:
 	FVector JumpPadLocation;

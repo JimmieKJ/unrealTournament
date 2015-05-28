@@ -7,7 +7,7 @@
 
 /** base class of states that fire the weapon and live in the weapon's FiringState array */
 UCLASS(CustomConstructor)
-class UUTWeaponStateFiring_Enforcer : public UUTWeaponStateFiring
+class UNREALTOURNAMENT_API UUTWeaponStateFiring_Enforcer : public UUTWeaponStateFiring
 {
 	GENERATED_UCLASS_BODY()
 

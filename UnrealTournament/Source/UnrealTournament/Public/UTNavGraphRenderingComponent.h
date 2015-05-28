@@ -9,8 +9,8 @@
 
 #include "UTNavGraphRenderingComponent.generated.h"
 
-UCLASS(MinimalAPI)
-class UUTNavGraphRenderingComponent : public UPrimitiveComponent
+UCLASS()
+class UNREALTOURNAMENT_API UUTNavGraphRenderingComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
 

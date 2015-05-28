@@ -125,7 +125,7 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 	}
 };
 
-class FMFArrayBuilder : public FDetailArrayBuilder
+class UNREALTOURNAMENT_API FMFArrayBuilder : public FDetailArrayBuilder
 {
 public:
 	FMFArrayBuilder(TWeakObjectPtr<UObject> InObj, TSharedRef<IPropertyHandle> InBaseProperty, TArray<TSharedPtr<FMuzzleFlashChoice>>& InChoices, bool InGenerateHeader = true)

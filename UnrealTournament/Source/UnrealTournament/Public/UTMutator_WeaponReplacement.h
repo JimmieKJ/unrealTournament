@@ -31,7 +31,7 @@ struct FReplacementInfo
 };
 
 UCLASS(Blueprintable, Meta = (ChildCanTick), Config = Game)
-class AUTMutator_WeaponReplacement : public AUTMutator
+class UNREALTOURNAMENT_API AUTMutator_WeaponReplacement : public AUTMutator
 {
 	GENERATED_UCLASS_BODY()
 
