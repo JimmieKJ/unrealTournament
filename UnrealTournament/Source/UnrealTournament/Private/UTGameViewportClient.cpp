@@ -616,6 +616,7 @@ void UUTGameViewportClient::UpdateRedirects(float DeltaTime)
 					// Failed too early, clean me up
 					ContentDownloadComplete.Broadcast(this, ERedirectStatus::Failed, PendingDownloads[0].FileURL);
 					PendingDownloads.RemoveAt(0);
+					return;
 				}
 				else
 				{
