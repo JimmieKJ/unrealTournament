@@ -30,7 +30,6 @@ void AUTGameObjective::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 
 void AUTGameObjective::InitializeObjective()
 {
-	Super::BeginPlay();
 	if (InitialSpawnDelay > 0.0f)
 	{
 		FTimerHandle TempHandle;
