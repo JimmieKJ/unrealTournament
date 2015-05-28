@@ -84,7 +84,7 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 		.Content()
 		[
 			SAssignNew(TextBlock, STextBlock)
-			.Text(CurrentText)
+			.Text(FText::FromString(CurrentText))
 		];
 	}
 
@@ -120,7 +120,7 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 			.Padding(5)
 			[
 				SNew(STextBlock)
-				.Text(InItem->DisplayName.ToString())
+				.Text(FText::FromName(InItem->DisplayName))
 			];
 	}
 };

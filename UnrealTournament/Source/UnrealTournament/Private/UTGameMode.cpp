@@ -738,11 +738,9 @@ void AUTGameMode::RecreateLobbyBeacon()
 		LobbyBeacon = GetWorld()->SpawnActor<AUTServerBeaconLobbyClient>(AUTServerBeaconLobbyClient::StaticClass());
 		if (LobbyBeacon)
 		{
-			FString BeaconNetDriverName = FString::Printf(TEXT("LobbyBeaconDriver%i"), LobbyInstanceID);
 			FURL LobbyURL(nullptr, TEXT("127.0.0.1"), TRAVEL_Absolute);
 			LobbyURL.Port = HostLobbyListenPort;
 
-			LobbyBeacon->SetBeaconNetDriverName(BeaconNetDriverName);
 			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID);
 			UE_LOG(UT, Verbose, TEXT("..... Connecting back to lobby on port %i!"), HostLobbyListenPort);
 		}
@@ -2593,7 +2591,7 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn").ToString())
+				.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn"))
 			]
 		]
 		+ SHorizontalBox::Slot()

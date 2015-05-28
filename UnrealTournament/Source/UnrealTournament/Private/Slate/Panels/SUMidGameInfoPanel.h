@@ -20,7 +20,7 @@ protected:
 	TSharedPtr<class STextBlock> ServerMOTD;
 
 	virtual FString GetServerName() const;
-	virtual FString GetServerMOTD() const;
+	virtual FText GetServerMOTD() const;
 	virtual FText GetServerRules() const;
 
 	virtual void BuildNonChatPanel();

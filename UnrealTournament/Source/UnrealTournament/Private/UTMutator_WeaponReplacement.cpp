@@ -142,11 +142,11 @@ void AUTMutator_WeaponReplacement::Init_Implementation(const FString& Options)
 	{
 		WeaponsToReplace.Empty();
 		TArray<FString> WeaponInfos;
-		WeaponList.ParseIntoArray(&WeaponInfos, TEXT(","), true);
+		WeaponList.ParseIntoArray(WeaponInfos, TEXT(","), true);
 		for (int32 i=0; i< WeaponInfos.Num(); i++)
 		{
 			TArray<FString> WeaponInfo;
-			WeaponInfos[i].ParseIntoArray(&WeaponInfo, TEXT(":"), true);
+			WeaponInfos[i].ParseIntoArray(WeaponInfo, TEXT(":"), true);
 			if (WeaponInfo.Num() == 2)
 			{
 				WeaponsToReplace.Add(FReplacementInfo(WeaponInfo[0],WeaponInfo[1]));

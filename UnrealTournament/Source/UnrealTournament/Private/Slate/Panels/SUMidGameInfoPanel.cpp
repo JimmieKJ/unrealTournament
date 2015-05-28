@@ -101,14 +101,14 @@ FString SUMidGameInfoPanel::GetServerName() const
 	return TEXT("");
 }
 
-FString SUMidGameInfoPanel::GetServerMOTD() const
+FText SUMidGameInfoPanel::GetServerMOTD() const
 {
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
-		return GameState->ServerMOTD;
+		return FText::FromString(GameState->ServerMOTD);
 	}
-	return TEXT("");
+	return FText::FromString(TEXT(""));
 }
  
 FText SUMidGameInfoPanel::GetServerRules() const
